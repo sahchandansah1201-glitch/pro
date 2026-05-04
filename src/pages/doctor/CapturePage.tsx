@@ -190,11 +190,8 @@ export default function CapturePage() {
   }
 
   function handleLocalTransfer() {
-    const next = Math.min(localStep + 1, LOCAL_STEPS.length - 1);
-    setLocalStep(next);
-    if (next === LOCAL_STEPS.length - 1) {
-      addItem("local_transfer");
-    }
+    setLocalStep(LOCAL_STEPS.length - 1);
+    addItem("local_transfer");
   }
 
   const latest = queue[0];
