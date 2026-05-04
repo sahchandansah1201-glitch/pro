@@ -239,12 +239,33 @@ function KpiSkeleton() {
 }
 
 
+/**
+ * Длительность имитации загрузки секций (мс). Намеренно короткая —
+ * нужна, чтобы отделить визуально «грузим» от «пусто» на демо-данных.
+ * В тестах перекрывается через `window.__ANALYTICS_LOADING_MS__`.
+ */
+const DEFAULT_LOADING_MS = 250;
+
 export default function AdminAnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("all");
   const [clinicSort, setClinicSort] = useState<"priority" | "conversion">(
     "priority",
   );
   const [reportPreview, setReportPreview] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Имитация загрузки: при монтировании и при смене периода.
+  useEffect(() => {
+    const w = typeof window !== "undefined" ? (window as unknown as { __ANALYTICS_LOADING_MS__?: number }) : undefined;
+    const ms = w?.__ANALYTICS_LOADING_MS__ ?? DEFAULT_LOADING_MS;
+    if (ms <= 0) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    const t = window.setTimeout(() => setIsLoading(false), ms);
+    return () => window.clearTimeout(t);
+  }, [range]);
 
   const rangeLabel =
     RANGES.find((r) => r.key === range)?.label ?? "выбранный период";
@@ -254,6 +275,7 @@ export default function AdminAnalyticsPage() {
     const c = resolveEmptyCopy(key, rangeLabel);
     return <EmptyState title={c.title} hint={c.hint} />;
   };
+
 
   const all = useMemo(() => {
     const leads = getLeads();
