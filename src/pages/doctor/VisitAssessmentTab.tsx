@@ -274,7 +274,7 @@ function ImageContext({ images }: { images: ClinicalImage[] }) {
   }, {});
   const issues = images.flatMap((i) => i.quality.issues);
   const uniqueIssues = Array.from(new Set(issues));
-  const lowQuality = images.filter((i) => i.quality.score < 0.6).length;
+  const lowQuality = images.filter((i) => i.quality.score < 0.8 || i.quality.issues.length > 0).length;
 
   return (
     <>
@@ -290,7 +290,7 @@ function ImageContext({ images }: { images: ClinicalImage[] }) {
         }
       />
       <Field
-        term="Низкое качество"
+        term="Требуют проверки"
         value={<span className="tabular-nums">{lowQuality} из {images.length}</span>}
       />
       <div className="mt-2">
