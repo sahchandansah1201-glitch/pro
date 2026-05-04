@@ -220,7 +220,7 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
 
 describe("AdminAnalyticsPage — фильтр периода", () => {
   it("переключение на «Март 2026» меняет KPI «Лиды» на агрегат по марту", () => {
-    const { getByText, getByRole } = renderPage();
+    const { container, getByRole } = renderPage();
 
     const leadsAll = getLeads().length;
     const leadsMarch = getLeads().filter((l) => {
@@ -231,15 +231,21 @@ describe("AdminAnalyticsPage — фильтр периода", () => {
       );
     }).length;
 
-    // Снапшот «Все данные» → KPI Лиды
-    const leadsCardBefore = getByText("Лиды").parentElement!;
-    expect(leadsCardBefore.textContent).toContain(String(leadsAll));
+    const leadsKpi = (): string => {
+      const labels = Array.from(
+        container.querySelectorAll(".uppercase.tracking-wide"),
+      ) as HTMLElement[];
+      const label = labels.find((el) => el.textContent?.trim() === "Лиды");
+      return label?.parentElement?.textContent ?? "";
+    };
 
-    // Кликаем по сегменту «Март 2026»
+    expect(leadsKpi()).toContain(String(leadsAll));
+
     fireEvent.click(getByRole("tab", { name: "Март 2026" }));
 
-    const leadsCardAfter = getByText("Лиды").parentElement!;
-    expect(leadsCardAfter.textContent).toContain(String(leadsMarch));
+    expect(leadsKpi()).toContain(String(leadsMarch));
+    // sanity: значения отличаются (иначе фильтр не работает)
+    expect(leadsAll).not.toBe(leadsMarch);
   });
 });
 
