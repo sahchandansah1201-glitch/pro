@@ -261,18 +261,26 @@ export default function OperatorConsolePage() {
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className="text-[12px] text-muted-foreground">Статус:</span>
+                      <span className="text-[12px] text-muted-foreground" id="protected-link-status-label">
+                        Статус:
+                      </span>
                       <span
-                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                        role="status"
+                        aria-labelledby="protected-link-status-label"
+                        aria-label={
                           selectedLinkActive
-                            ? "border-success/30 bg-success/10 text-success"
-                            : "border-destructive/30 bg-destructive/10 text-destructive"
+                            ? "Защищённая ссылка активна"
+                            : "Защищённая ссылка истекла"
+                        }
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                          selectedLinkActive
+                            ? "border-success bg-success text-success-foreground"
+                            : "border-destructive bg-destructive text-destructive-foreground"
                         }`}
                       >
                         <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            selectedLinkActive ? "bg-success" : "bg-destructive"
-                          }`}
+                          aria-hidden="true"
+                          className="h-1.5 w-1.5 rounded-full bg-current"
                         />
                         {selectedLinkActive ? "активна" : "истекла"}
                       </span>
