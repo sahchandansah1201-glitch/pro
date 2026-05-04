@@ -642,7 +642,7 @@ export default function AdminAnalyticsPage() {
                       role="tab"
                       aria-selected={active}
                       onClick={() => setClinicSort(key)}
-                      className={`min-h-[28px] rounded px-2 text-[11px] font-medium transition ${
+                      className={`min-h-[44px] rounded px-2 text-[12px] font-medium transition sm:min-h-[28px] sm:text-[11px] ${
                         active
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:bg-muted"
