@@ -237,9 +237,20 @@
     box-shadow: var(--shadow-sm);
   }
 
-  /* Заголовок секции внутри карточки — тихий, без заливки. */
+  /* Patch 2: тулбар — без тени, на приглушённом фоне, чтобы визуально отделять
+     управляющие зоны (Захват, фильтры) от контентных карточек. */
+  .surface-toolbar {
+    background: hsl(var(--surface-muted));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+  }
+
+  /* Заголовок секции внутри карточки — теперь с акцентной левой полосой
+     и тонкой нижней границей, чтобы шапки секций сразу считывались. */
   .section-bar {
-    @apply flex items-baseline justify-between gap-2 px-4 pt-3 pb-2;
+    @apply flex items-baseline justify-between gap-2 border-b border-border px-4 pb-2 pt-3;
+    border-left: 3px solid hsl(var(--primary));
+    border-top-left-radius: var(--radius);
   }
 
   /* Сетка плотной строки: ФИО | мета | статус | действие.
