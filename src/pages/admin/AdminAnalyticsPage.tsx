@@ -151,7 +151,7 @@ function SectionCard({
   children,
 }: {
   title: string;
-  hint?: string;
+  hint?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -177,6 +177,9 @@ function EmptyState({ text }: { text: string }) {
 
 export default function AdminAnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("all");
+  const [clinicSort, setClinicSort] = useState<"priority" | "conversion">(
+    "priority",
+  );
   const [reportPreview, setReportPreview] = useState<string | null>(null);
 
   const all = useMemo(() => {
@@ -227,24 +230,40 @@ export default function AdminAnalyticsPage() {
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [data.leads]);
 
-  // Clinics routing
+  // Clinics routing (агрегаты, без персональных данных)
   const byClinic = useMemo(() => {
-    return data.clinics
-      .map((c) => {
-        const leadsForClinic = data.leads.filter((l) => l.clinicId === c.id);
-        const bookedForClinic = leadsForClinic.filter((l) => l.status === "booked").length;
-        return {
-          id: c.id,
-          name: c.name,
-          partnerTier: c.partnerTier,
-          routingPriority: c.routingPriority,
-          leads: leadsForClinic.length,
-          booked: bookedForClinic,
-          conv: pct(bookedForClinic, leadsForClinic.length),
-        };
-      })
-      .sort((a, b) => a.routingPriority - b.routingPriority);
-  }, [data.clinics, data.leads]);
+    const rows = data.clinics.map((c) => {
+      const leadsForClinic = data.leads.filter((l) => l.clinicId === c.id);
+      const bookedForClinic = leadsForClinic.filter(
+        (l) => l.status === "booked",
+      ).length;
+      return {
+        id: c.id,
+        name: c.name,
+        partnerTier: c.partnerTier,
+        routingPriority: c.routingPriority,
+        leads: leadsForClinic.length,
+        booked: bookedForClinic,
+        conv: pct(bookedForClinic, leadsForClinic.length),
+      };
+    });
+    if (clinicSort === "conversion") {
+      // По убыванию конверсии; tie-break: больше лидов → выше приоритет (меньше число).
+      rows.sort(
+        (a, b) =>
+          b.conv - a.conv ||
+          b.leads - a.leads ||
+          a.routingPriority - b.routingPriority,
+      );
+    } else {
+      // По возрастанию routingPriority (1 — самый высокий приоритет).
+      rows.sort(
+        (a, b) =>
+          a.routingPriority - b.routingPriority || b.conv - a.conv,
+      );
+    }
+    return rows;
+  }, [data.clinics, data.leads, clinicSort]);
 
   // Risk distribution
   const riskDist = useMemo(() => {
@@ -457,7 +476,38 @@ export default function AdminAnalyticsPage() {
           </SectionCard>
 
           {/* Clinics */}
-          <SectionCard title="Маршрутизация по клиникам">
+          <SectionCard
+            title="Маршрутизация по клиникам"
+            hint={
+              <span
+                role="tablist"
+                aria-label="Сортировка клиник"
+                className="inline-flex gap-1 rounded-md border border-border bg-surface p-0.5"
+              >
+                {([
+                  ["priority", "По приоритету"],
+                  ["conversion", "По конверсии"],
+                ] as const).map(([key, label]) => {
+                  const active = clinicSort === key;
+                  return (
+                    <button
+                      key={key}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setClinicSort(key)}
+                      className={`min-h-[28px] rounded px-2 text-[11px] font-medium transition ${
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </span>
+            }
+          >
             {byClinic.length === 0 ? (
               <EmptyState text="Нет клиник для отображения." />
             ) : (
