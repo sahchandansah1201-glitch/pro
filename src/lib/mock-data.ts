@@ -970,6 +970,27 @@ export function assertMockDataIntegrity(): void {
   for (const m of BOT_MESSAGES) {
     if (!dialogIds.has(m.dialogId)) throw new Error(`bot message ${m.id} -> unknown dialog ${m.dialogId}`);
   }
+  const analysisCardIds = new Set(ANALYSIS_CARDS.map((a) => a.id));
+  for (const ac of ANALYSIS_CARDS) {
+    if (!dialogIds.has(ac.dialogId)) throw new Error(`analysis card ${ac.id} -> unknown dialog ${ac.dialogId}`);
+    if (ac.patientRef && !patientIds.has(ac.patientRef)) {
+      throw new Error(`analysis card ${ac.id} -> unknown patient ${ac.patientRef}`);
+    }
+    if (!clinicIds.has(ac.recommendedClinicId)) {
+      throw new Error(`analysis card ${ac.id} -> unknown clinic ${ac.recommendedClinicId}`);
+    }
+  }
+  const protectedLinkIds = new Set(PROTECTED_ANALYSIS_LINKS.map((p) => p.id));
+  for (const link of PROTECTED_ANALYSIS_LINKS) {
+    if (!analysisCardIds.has(link.analysisCardId)) {
+      throw new Error(`protected analysis link ${link.id} -> unknown analysis card ${link.analysisCardId}`);
+    }
+  }
+  for (const ld of LEADS) {
+    if (ld.protectedAnalysisLinkId && !protectedLinkIds.has(ld.protectedAnalysisLinkId)) {
+      throw new Error(`lead ${ld.id} -> unknown protected analysis link ${ld.protectedAnalysisLinkId}`);
+    }
+  }
   for (const ap of APPOINTMENTS) {
     if (!clinicIds.has(ap.clinicId)) throw new Error(`appointment ${ap.id} -> unknown clinic ${ap.clinicId}`);
     if (!patientIds.has(ap.patientId)) throw new Error(`appointment ${ap.id} -> unknown patient ${ap.patientId}`);
