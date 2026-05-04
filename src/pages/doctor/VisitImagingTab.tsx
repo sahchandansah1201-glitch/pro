@@ -210,8 +210,8 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
             <ul className="grid grid-cols-2 gap-2 px-3 pb-3 sm:grid-cols-3">
               {filtered.map((img) => {
                 const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
-                const isSel = img.id === selectedId;
-                const isCmp = img.id === compareId;
+                const isSel = img.id === effectiveSelectedId;
+                const isCmp = img.id === effectiveCompareId;
                 return (
                   <li key={img.id}>
                     <button
