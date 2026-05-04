@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Inbox, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getLeads,
   getAppointments,
@@ -195,7 +196,55 @@ function EmptyState({
   );
 }
 
-// ───────── Page ─────────
+/**
+ * Унифицированный skeleton-загрузчик для секций аналитики.
+ * Показывается, пока данные «грузятся», и визуально отличается
+ * от пустого состояния (анимация + плейсхолдеры строк), чтобы
+ * пользователь не путал «грузим» с «нет данных».
+ */
+function SectionSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      data-loading="true"
+      aria-label="Загрузка данных секции"
+      className="flex min-h-[120px] flex-col gap-3"
+    >
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-12" />
+          </div>
+          <Skeleton className="h-2 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Skeleton для KPI-плитки. Сохраняет ту же высоту, что и реальный KpiCard.
+ */
+function KpiSkeleton() {
+  return (
+    <Card className="p-3" aria-busy="true" data-loading="true">
+      <Skeleton className="h-3 w-16" />
+      <Skeleton className="mt-2 h-5 w-12" />
+      <Skeleton className="mt-1 h-2.5 w-20" />
+    </Card>
+  );
+}
+
+
+/**
+ * Длительность имитации загрузки секций (мс). Намеренно короткая —
+ * нужна, чтобы отделить визуально «грузим» от «пусто» на демо-данных.
+ * В тестах перекрывается через `window.__ANALYTICS_LOADING_MS__`.
+ */
+const DEFAULT_LOADING_MS = 250;
 
 export default function AdminAnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("all");
@@ -203,6 +252,20 @@ export default function AdminAnalyticsPage() {
     "priority",
   );
   const [reportPreview, setReportPreview] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Имитация загрузки: при монтировании и при смене периода.
+  useEffect(() => {
+    const w = typeof window !== "undefined" ? (window as unknown as { __ANALYTICS_LOADING_MS__?: number }) : undefined;
+    const ms = w?.__ANALYTICS_LOADING_MS__ ?? DEFAULT_LOADING_MS;
+    if (ms <= 0) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    const t = window.setTimeout(() => setIsLoading(false), ms);
+    return () => window.clearTimeout(t);
+  }, [range]);
 
   const rangeLabel =
     RANGES.find((r) => r.key === range)?.label ?? "выбранный период";
@@ -212,6 +275,7 @@ export default function AdminAnalyticsPage() {
     const c = resolveEmptyCopy(key, rangeLabel);
     return <EmptyState title={c.title} hint={c.hint} />;
   };
+
 
   const all = useMemo(() => {
     const leads = getLeads();
@@ -435,25 +499,33 @@ export default function AdminAnalyticsPage() {
 
         {/* KPI row */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <KpiCard label="Лиды" value={totalLeads} />
-          <KpiCard label="Квалифицированы" value={qualifiedLeads} />
-          <KpiCard label="Записаны" value={bookedLeads} />
-          <KpiCard label="Визиты" value={visits} hint="завершённые приёмы" />
-          <KpiCard
-            label="Конверсия лид → запись"
-            value={fmtPct(conversionLeadToBooking)}
-          />
-          <KpiCard
-            label="Высокий / срочный маршрут"
-            value={highOrUrgent}
-            hint="по предварительной оценке"
-          />
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => <KpiSkeleton key={i} />)
+          ) : (
+            <>
+              <KpiCard label="Лиды" value={totalLeads} />
+              <KpiCard label="Квалифицированы" value={qualifiedLeads} />
+              <KpiCard label="Записаны" value={bookedLeads} />
+              <KpiCard label="Визиты" value={visits} hint="завершённые приёмы" />
+              <KpiCard
+                label="Конверсия лид → запись"
+                value={fmtPct(conversionLeadToBooking)}
+              />
+              <KpiCard
+                label="Высокий / срочный маршрут"
+                value={highOrUrgent}
+                hint="по предварительной оценке"
+              />
+            </>
+          )}
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
           {/* Funnel */}
           <SectionCard title="Воронка" hint="MVP: расчёт построен на мок-данных.">
-            {totalLeads === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : totalLeads === 0 ? (
               renderEmpty("leads")
             ) : (
               <ul className="space-y-3">
@@ -479,7 +551,9 @@ export default function AdminAnalyticsPage() {
 
           {/* Sources */}
           <SectionCard title="Источники лидов">
-            {bySource.length === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={3} />
+            ) : bySource.length === 0 ? (
               renderEmpty("sources")
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
@@ -539,7 +613,9 @@ export default function AdminAnalyticsPage() {
               </span>
             }
           >
-            {byClinic.length === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : byClinic.length === 0 ? (
               renderEmpty("clinics")
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
@@ -572,7 +648,9 @@ export default function AdminAnalyticsPage() {
             title="Распределение по риску"
             hint="по предварительному маршруту бот-воронки"
           >
-            {totalCards === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : totalCards === 0 ? (
               renderEmpty("analysisCards")
             ) : (
               <ul className="space-y-3">
@@ -602,7 +680,13 @@ export default function AdminAnalyticsPage() {
             title="Качество фото"
             hint="техническое качество снимка, не диагноз"
           >
-            {totalCards === 0 ? (
+            {isLoading ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <KpiSkeleton key={i} />
+                ))}
+              </div>
+            ) : totalCards === 0 ? (
               renderEmpty("imageQuality")
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -616,7 +700,9 @@ export default function AdminAnalyticsPage() {
 
           {/* Bot dialog states */}
           <SectionCard title="Состояния бот-диалогов">
-            {data.dialogs.length === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : data.dialogs.length === 0 ? (
               renderEmpty("botDialogs")
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
