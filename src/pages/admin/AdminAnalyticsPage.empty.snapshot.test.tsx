@@ -40,12 +40,15 @@ function getEmptyStates(container: HTMLElement): HTMLElement[] {
 
 /** Нормализуем к данным, существенным для визуального контракта. */
 function normalize(el: HTMLElement) {
+  const title = el.querySelector("div.text-foreground")?.textContent ?? null;
+  const hint =
+    el.querySelector("div.text-muted-foreground")?.textContent ?? null;
   return {
     role: el.getAttribute("role"),
     ariaLive: el.getAttribute("aria-live"),
     className: el.getAttribute("class"),
-    title: el.querySelector(".text-foreground")?.textContent ?? null,
-    hint: el.querySelector(".text-muted-foreground")?.textContent ?? null,
+    title,
+    hint,
     iconTag: el.querySelector("svg")?.tagName.toLowerCase() ?? null,
   };
 }
