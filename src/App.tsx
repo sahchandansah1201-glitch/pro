@@ -18,6 +18,7 @@ import PatientDetailPage from "./pages/doctor/PatientDetailPage";
 import VisitWorkspacePage from "./pages/doctor/VisitWorkspacePage";
 import CapturePage from "./pages/doctor/CapturePage";
 import BotSimPage from "./pages/bot/BotSimPage";
+import BotMiniAppBookingPage from "./pages/bot/BotMiniAppBookingPage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
@@ -43,8 +44,6 @@ import {
   MeReportPage,
   MeBookingPage,
   MeRemindersPage,
-  // Public/protected
-  BotSimMiniAppBookingPage,
   // Shared
   HelpPage,
 } from "./pages/Placeholders";
@@ -106,7 +105,7 @@ const App = () => (
 
               {/* Симулятор бота */}
               <Route path="/bot-sim" element={<G><BotSimPage /></G>} />
-              <Route path="/bot-sim/miniapp/booking" element={<G><BotSimMiniAppBookingPage /></G>} />
+              <Route path="/bot-sim/miniapp/booking" element={<G><BotMiniAppBookingPage /></G>} />
 
               {/* Shared */}
               <Route path="/help" element={<HelpPage />} />
