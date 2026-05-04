@@ -597,7 +597,7 @@ export default function AdminAnalyticsPage() {
             hint="техническое качество снимка, не диагноз"
           >
             {totalCards === 0 ? (
-              <EmptyState text="Нет снимков в выбранном периоде." />
+              <EmptyState title="Нет снимков" hint={emptyHint} />
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <KpiCard label="Прошли проверку" value={passed} />
