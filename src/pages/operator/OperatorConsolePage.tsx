@@ -285,7 +285,7 @@ export default function OperatorConsolePage() {
                             ? `Статус защищённой ссылки: активна, осталось ${remainingLabel}`
                             : `Статус защищённой ссылки: истекла ${remainingLabel} назад`
                         }
-                        className={`inline-flex w-fit max-w-full shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap break-keep rounded-full border px-2 py-0.5 align-middle text-[12px] font-semibold leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                        className={`inline-flex w-fit max-w-full shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap break-keep rounded-full border px-2 py-0.5 align-middle text-[12px] font-semibold leading-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           selectedLinkActive
                             ? "border-[hsl(158_70%_24%)] bg-[hsl(158_70%_24%)] text-white"
                             : "border-[hsl(0_75%_36%)] bg-[hsl(0_75%_36%)] text-white"
@@ -293,11 +293,11 @@ export default function OperatorConsolePage() {
                       >
                         <span
                           aria-hidden="true"
-                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current align-middle"
+                          className="inline-block h-[0.5em] w-[0.5em] shrink-0 self-center rounded-full bg-current leading-none"
                         />
                         <span
                           aria-hidden="true"
-                          className="inline-block whitespace-nowrap align-middle"
+                          className="inline-block self-center whitespace-nowrap leading-none"
                         >
                           {selectedLinkActive ? "активна" : "истекла"}
                         </span>
