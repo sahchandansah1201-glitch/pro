@@ -18,6 +18,8 @@ import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
+import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
+import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -153,19 +155,11 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="conclusion" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <PlannedTab
-            title="Заключение врача"
-            description="Здесь появятся: поле итогового заключения, план наблюдения, маршрутизация на повторный приём или биопсию, шаблоны формулировок. Редактирование заключения недоступно в текущей задаче."
-            badges={["заключение", "план наблюдения", "маршрутизация"]}
-          />
+          <VisitConclusionTab patient={patient} visit={visit} lesions={lesions} />
         </TabsContent>
 
         <TabsContent value="report" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <PlannedTab
-            title="Отчёт пациента"
-            description="Здесь появятся: безопасный для пациента текст, расширенная версия для врача, защищённая ссылка с TTL, история рассылок. Отчёт визита не смешивается с предварительным анализом из бота."
-            badges={["patient-safe", "doctor version", "защищённая ссылка"]}
-          />
+          <VisitReportTab patient={patient} visit={visit} />
         </TabsContent>
       </Tabs>
     </div>
@@ -498,27 +492,6 @@ function Silhouette({ view }: { view: View }) {
   );
 }
 
-// ───────── Planned (placeholder) tab ─────────
-
-function PlannedTab({ title, description, badges }: { title: string; description: string; badges: string[] }) {
-  return (
-    <div className="space-y-3">
-      <Section title={title}>
-        <p className="text-[13px]">{description}</p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {badges.map((b) => (
-            <span key={b} className="rounded-sm border border-border bg-surface-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-              {b}
-            </span>
-          ))}
-        </div>
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          Раздел будет реализован в следующих задачах. Решение по диагнозу принимает врач, AI используется только как поддержка.
-        </p>
-      </Section>
-    </div>
-  );
-}
 
 // ───────── Local primitives (mirrored from PatientDetailPage) ─────────
 
