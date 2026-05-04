@@ -6,6 +6,7 @@
 import {
   AI_SUPPORT_DISCLAIMER,
   RESTRICTIVE_DATA_POLICY,
+  type AnalysisCard,
   type Appointment,
   type Assessment,
   type AuditLog,
@@ -18,6 +19,7 @@ import {
   type Lead,
   type Lesion,
   type Patient,
+  type ProtectedAnalysisLink,
   type Report,
   type Visit,
 } from "@/lib/domain";
@@ -623,13 +625,159 @@ export const BOT_MESSAGES: BotMessage[] = [
   { id: "bm-012", dialogId: "bd-005", direction: "in",  kind: "photo",  payload: "mock://bot/bd-005/photo-1.jpg",                                      createdAt: "2026-03-10T16:25:00Z" },
 ];
 
+// ───────── Предварительный бот-анализ (AnalysisCard) ─────────
+
+export const ANALYSIS_CARDS: AnalysisCard[] = [
+  {
+    id: "ac-001",
+    dialogId: "bd-001",
+    photoRef: "mock://bot/bd-001/photo-1.jpg",
+    qualityGate: { passed: true, score: 0.82, issues: [] },
+    aiSupport: {
+      risk: "low",
+      uncertainty: 0.22,
+      features: ["равномерная пигментация", "чёткая граница"],
+      modelVersion: "triage-v0.4.1",
+    },
+    safeSummary:
+      "Признаков, требующих срочной реакции, не выявлено. Предварительная оценка не является диагнозом, рекомендована плановая очная оценка врача.",
+    routingRisk: "low",
+    recommendedClinicId: CLINIC_MAIN,
+    ctaType: "book",
+    createdAt: "2026-03-01T18:18:00Z",
+  },
+  {
+    id: "ac-002",
+    dialogId: "bd-002",
+    patientRef: "p-002",
+    photoRef: "mock://bot/bd-002/photo-1.jpg",
+    qualityGate: { passed: true, score: 0.74, issues: ["лёгкие блики"] },
+    aiSupport: {
+      risk: "moderate",
+      uncertainty: 0.41,
+      features: ["неоднородная пигментация"],
+      modelVersion: "triage-v0.4.1",
+    },
+    safeSummary:
+      "Есть признаки, требующие внимания специалиста. Требуется очная оценка врача. Предварительная оценка не является диагнозом.",
+    routingRisk: "moderate",
+    recommendedClinicId: CLINIC_MAIN,
+    ctaType: "book",
+    createdAt: "2026-03-03T09:40:00Z",
+  },
+  {
+    id: "ac-003",
+    dialogId: "bd-003",
+    patientRef: "p-003",
+    photoRef: "mock://bot/bd-003/photo-1.jpg",
+    qualityGate: { passed: true, score: 0.88, issues: [] },
+    aiSupport: {
+      risk: "high",
+      uncertainty: 0.18,
+      features: ["асимметрия", "несколько зон цвета"],
+      modelVersion: "triage-v0.4.1",
+    },
+    safeSummary:
+      "Выявлены признаки, требующие срочной очной оценки врача. Предварительная оценка не является диагнозом.",
+    routingRisk: "urgent",
+    recommendedClinicId: CLINIC_MAIN,
+    ctaType: "urgent",
+    createdAt: "2026-03-05T13:55:00Z",
+  },
+  {
+    id: "ac-004",
+    dialogId: "bd-004",
+    photoRef: "mock://bot/bd-004/photo-1.jpg",
+    qualityGate: { passed: false, score: 0.41, issues: ["размытие", "недостаточное освещение"] },
+    aiSupport: {
+      risk: "low",
+      uncertainty: 0.92,
+      features: [],
+      modelVersion: "triage-v0.4.1",
+    },
+    safeSummary:
+      "Снимок требует повторения: качество фото недостаточно для предварительной оценки.",
+    routingRisk: "low",
+    recommendedClinicId: CLINIC_NORTH,
+    ctaType: "repeat_photo",
+    createdAt: "2026-03-08T11:10:00Z",
+  },
+  {
+    id: "ac-005",
+    dialogId: "bd-005",
+    photoRef: "mock://bot/bd-005/photo-1.jpg",
+    qualityGate: { passed: true, score: 0.69, issues: ["лёгкое размытие"] },
+    aiSupport: {
+      risk: "moderate",
+      uncertainty: 0.55,
+      features: ["неоднородная текстура"],
+      modelVersion: "triage-v0.4.1",
+    },
+    safeSummary:
+      "Есть признаки, требующие внимания специалиста. Требуется очная оценка врача. Предварительная оценка не является диагнозом.",
+    routingRisk: "moderate",
+    recommendedClinicId: CLINIC_NORTH,
+    ctaType: "book",
+    createdAt: "2026-03-10T16:30:00Z",
+  },
+];
+
+// ───────── Защищённые ссылки на AnalysisCard ─────────
+
+export const PROTECTED_ANALYSIS_LINKS: ProtectedAnalysisLink[] = [
+  {
+    id: "pal-001",
+    analysisCardId: "ac-001",
+    token: "pal-tok-ac001-demo",
+    expiresAt: "2026-04-01T18:18:00Z",
+    accessLog: [
+      { accessedAt: "2026-03-02T07:45:00Z", actorRef: OPERATOR_ID, ip: "10.0.0.11" },
+    ],
+  },
+  {
+    id: "pal-002",
+    analysisCardId: "ac-002",
+    token: "pal-tok-ac002-demo",
+    expiresAt: "2026-04-03T09:40:00Z",
+    accessLog: [
+      { accessedAt: "2026-03-03T10:05:00Z", actorRef: OPERATOR_ID, ip: "10.0.0.12" },
+      { accessedAt: "2026-03-03T11:20:00Z", actorRef: DOCTOR_ID, ip: "10.0.0.21" },
+    ],
+  },
+  {
+    id: "pal-003",
+    analysisCardId: "ac-003",
+    token: "pal-tok-ac003-demo",
+    expiresAt: "2026-04-05T13:55:00Z",
+    accessLog: [
+      { accessedAt: "2026-03-05T14:00:00Z", actorRef: OPERATOR_ID, ip: "10.0.0.12" },
+    ],
+  },
+  {
+    id: "pal-004",
+    analysisCardId: "ac-004",
+    token: "pal-tok-ac004-demo",
+    expiresAt: "2026-04-08T11:10:00Z",
+    accessLog: [],
+  },
+  {
+    id: "pal-005",
+    analysisCardId: "ac-005",
+    token: "pal-tok-ac005-demo",
+    expiresAt: "2026-03-12T16:30:00Z",
+    accessLog: [
+      { accessedAt: "2026-03-11T08:10:00Z", actorRef: OPERATOR_ID, ip: "10.0.0.12" },
+    ],
+  },
+];
+
 // ───────── Лиды ─────────
 
 export const LEADS: Lead[] = [
-  { id: "ld-001", dialogId: "bd-001", patientId: null,    source: "telegram", utm: { source: "tg", medium: "bot", campaign: "skincheck_q1" }, status: "qualified", clinicId: CLINIC_MAIN,    createdAt: "2026-03-01T18:20:00Z" },
-  { id: "ld-002", dialogId: "bd-002", patientId: "p-002", source: "telegram", utm: { source: "tg", medium: "bot" },                            status: "new",       clinicId: CLINIC_MAIN,    createdAt: "2026-03-03T09:45:00Z" },
-  { id: "ld-003", dialogId: "bd-003", patientId: "p-003", source: "telegram", utm: { source: "tg", medium: "miniapp" },                        status: "booked",    clinicId: CLINIC_MAIN,    createdAt: "2026-03-05T14:05:00Z" },
-  { id: "ld-004", dialogId: "bd-004", patientId: null,    source: "whatsapp", utm: { source: "wa" },                                           status: "new",       clinicId: CLINIC_NORTH,   createdAt: "2026-03-08T11:10:00Z" },
+  { id: "ld-001", dialogId: "bd-001", patientId: null,    source: "telegram", utm: { source: "tg", medium: "bot", campaign: "skincheck_q1" }, status: "qualified", clinicId: CLINIC_MAIN,    createdAt: "2026-03-01T18:20:00Z", protectedAnalysisLinkId: "pal-001" },
+  { id: "ld-002", dialogId: "bd-002", patientId: "p-002", source: "telegram", utm: { source: "tg", medium: "bot" },                            status: "new",       clinicId: CLINIC_MAIN,    createdAt: "2026-03-03T09:45:00Z", protectedAnalysisLinkId: "pal-002" },
+  { id: "ld-003", dialogId: "bd-003", patientId: "p-003", source: "telegram", utm: { source: "tg", medium: "miniapp" },                        status: "booked",    clinicId: CLINIC_MAIN,    createdAt: "2026-03-05T14:05:00Z", protectedAnalysisLinkId: "pal-003" },
+  { id: "ld-004", dialogId: "bd-004", patientId: null,    source: "whatsapp", utm: { source: "wa" },                                           status: "new",       clinicId: CLINIC_NORTH,   createdAt: "2026-03-08T11:10:00Z", protectedAnalysisLinkId: "pal-004" },
   { id: "ld-005", dialogId: "bd-006", patientId: null,    source: "site",     utm: { source: "site", medium: "form" },                         status: "lost",      clinicId: CLINIC_NORTH,   createdAt: "2026-02-28T20:05:00Z" },
   { id: "ld-006", dialogId: null,     patientId: "p-006", source: "operator", utm: {},                                                         status: "qualified", clinicId: CLINIC_PRIVATE, createdAt: "2026-03-11T10:00:00Z" },
 ];
@@ -767,6 +915,25 @@ export const getDevices = (): Device[] => DEVICES;
 export const getIntegrations = (): Integration[] => INTEGRATIONS;
 export const getAuditLogs = (): AuditLog[] => AUDIT_LOGS;
 
+export const getAnalysisCards = (): AnalysisCard[] => ANALYSIS_CARDS;
+export const getAnalysisCardById = (id: string): AnalysisCard | undefined =>
+  ANALYSIS_CARDS.find((a) => a.id === id);
+export const getAnalysisCardsByDialogId = (dialogId: string): AnalysisCard[] =>
+  ANALYSIS_CARDS.filter((a) => a.dialogId === dialogId);
+
+export const getProtectedAnalysisLinkById = (id: string): ProtectedAnalysisLink | undefined =>
+  PROTECTED_ANALYSIS_LINKS.find((p) => p.id === id);
+export const getProtectedAnalysisLinkByToken = (token: string): ProtectedAnalysisLink | undefined =>
+  PROTECTED_ANALYSIS_LINKS.find((p) => p.token === token);
+
+export const getAnalysisCardForLead = (leadId: string): AnalysisCard | undefined => {
+  const lead = LEADS.find((l) => l.id === leadId);
+  if (!lead?.protectedAnalysisLinkId) return undefined;
+  const link = getProtectedAnalysisLinkById(lead.protectedAnalysisLinkId);
+  if (!link) return undefined;
+  return getAnalysisCardById(link.analysisCardId);
+};
+
 // ───────── Внутренние проверки целостности ─────────
 
 /**
@@ -802,6 +969,27 @@ export function assertMockDataIntegrity(): void {
   }
   for (const m of BOT_MESSAGES) {
     if (!dialogIds.has(m.dialogId)) throw new Error(`bot message ${m.id} -> unknown dialog ${m.dialogId}`);
+  }
+  const analysisCardIds = new Set(ANALYSIS_CARDS.map((a) => a.id));
+  for (const ac of ANALYSIS_CARDS) {
+    if (!dialogIds.has(ac.dialogId)) throw new Error(`analysis card ${ac.id} -> unknown dialog ${ac.dialogId}`);
+    if (ac.patientRef && !patientIds.has(ac.patientRef)) {
+      throw new Error(`analysis card ${ac.id} -> unknown patient ${ac.patientRef}`);
+    }
+    if (!clinicIds.has(ac.recommendedClinicId)) {
+      throw new Error(`analysis card ${ac.id} -> unknown clinic ${ac.recommendedClinicId}`);
+    }
+  }
+  const protectedLinkIds = new Set(PROTECTED_ANALYSIS_LINKS.map((p) => p.id));
+  for (const link of PROTECTED_ANALYSIS_LINKS) {
+    if (!analysisCardIds.has(link.analysisCardId)) {
+      throw new Error(`protected analysis link ${link.id} -> unknown analysis card ${link.analysisCardId}`);
+    }
+  }
+  for (const ld of LEADS) {
+    if (ld.protectedAnalysisLinkId && !protectedLinkIds.has(ld.protectedAnalysisLinkId)) {
+      throw new Error(`lead ${ld.id} -> unknown protected analysis link ${ld.protectedAnalysisLinkId}`);
+    }
   }
   for (const ap of APPOINTMENTS) {
     if (!clinicIds.has(ap.clinicId)) throw new Error(`appointment ${ap.id} -> unknown clinic ${ap.clinicId}`);
