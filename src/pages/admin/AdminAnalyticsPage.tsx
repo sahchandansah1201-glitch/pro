@@ -603,7 +603,7 @@ export default function AdminAnalyticsPage() {
             hint="техническое качество снимка, не диагноз"
           >
             {totalCards === 0 ? (
-              <EmptyState title="Нет снимков" hint={emptyHint} />
+              renderEmpty("imageQuality")
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <KpiCard label="Прошли проверку" value={passed} />
