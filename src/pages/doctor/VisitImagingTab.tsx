@@ -277,7 +277,7 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
                 </div>
                 <CompareSelect
                   selectedId={selected.id}
-                  compareId={compareId}
+                  compareId={effectiveCompareId}
                   onChange={setCompareId}
                   images={allImages}
                   lesionMap={lesionMap}
