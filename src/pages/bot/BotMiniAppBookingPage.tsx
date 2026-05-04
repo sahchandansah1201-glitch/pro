@@ -251,6 +251,9 @@ export default function BotMiniAppBookingPage() {
                     В реальной версии оператор клиники получит лид.
                   </div>
                 </div>
+                <div className="rounded-md bg-muted/60 p-2 text-[11px] text-muted-foreground">
+                  MVP: запись не отправляется в клинику. Лид и запись созданы только локально в памяти страницы.
+                </div>
                 <div className="space-y-1 rounded-lg border bg-card p-3 text-xs">
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Клиника</span>
