@@ -33,9 +33,8 @@ import {
   AdminCrmDetailPage,
   AdminBotPage,
   AdminAnalyticsPage,
-  // Operator
-  OperatorHomePage,
-  OperatorDialogPage,
+  // Operator placeholders removed — real pages used
+
   // System admin
   SysUsersPage,
   SysDevicesPage,
@@ -90,7 +89,7 @@ const App = () => (
               <Route path="/admin/analytics" element={<G><AdminAnalyticsPage /></G>} />
 
               {/* Operator */}
-              <Route path="/operator" element={<G><OperatorHomePage /></G>} />
+              <Route path="/operator" element={<G><OperatorConsolePage /></G>} />
               <Route path="/operator/dialogs/:id" element={<G><OperatorDialogPage /></G>} />
 
               {/* System admin */}

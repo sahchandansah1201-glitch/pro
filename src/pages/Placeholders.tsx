@@ -72,19 +72,8 @@ export const AdminAnalyticsPage = () => (
   <PlaceholderPage title="Аналитика" subtitle="Конверсия лидов, загрузка слотов, источники." />
 );
 
-// ───────── Оператор поддержки ─────────
-export const OperatorHomePage = () => (
-  <PlaceholderPage title="Оператор поддержки" subtitle="Очередь диалогов, лиды, эскалация к врачу." />
-);
-export const OperatorDialogPage = () => {
-  const { id } = useParams();
-  return (
-    <PlaceholderPage
-      title={`Диалог ${id ?? "—"}`}
-      subtitle="История переписки, AnalysisCard, кнопки эскалации и записи на приём."
-    />
-  );
-};
+// ───────── Оператор поддержки (реализован в OperatorConsolePage / OperatorDialogPage) ─────────
+
 
 // ───────── Системный администратор ─────────
 export const SysUsersPage = () => (
