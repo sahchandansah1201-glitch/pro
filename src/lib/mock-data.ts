@@ -899,6 +899,8 @@ export const getAssessmentsByLesionId = (lesionId: string): Assessment[] =>
   ASSESSMENTS.filter((a) => a.lesionId === lesionId);
 
 export const getReports = (): Report[] => REPORTS;
+export const getReportByVisitId = (visitId: string): Report | undefined =>
+  REPORTS.find((r) => r.visitId === visitId);
 export const getReportsByPatientId = (patientId: string): Report[] => {
   const visitIds = new Set(VISITS.filter((v) => v.patientId === patientId).map((v) => v.id));
   return REPORTS.filter((r) => visitIds.has(r.visitId));
