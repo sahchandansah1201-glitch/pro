@@ -33,7 +33,6 @@ import {
   AdminDoctorsPage,
   AdminServicesPage,
   AdminClinicsPage,
-  AdminAnalyticsPage,
   // Operator placeholders removed — real pages used
 
   // System admin
