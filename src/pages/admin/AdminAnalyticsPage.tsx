@@ -448,7 +448,7 @@ export default function AdminAnalyticsPage() {
           {/* Funnel */}
           <SectionCard title="Воронка" hint="MVP: расчёт построен на мок-данных.">
             {totalLeads === 0 ? (
-              <EmptyState text="Нет лидов в выбранном периоде." />
+              <EmptyState title="Нет лидов" hint={emptyHint} />
             ) : (
               <ul className="space-y-3">
                 {funnel.map((row) => {
