@@ -46,7 +46,7 @@ const RANGES: { key: RangeKey; label: string }[] = [
  * MVP без реального clock — не импортируем Date.now во избежание дрейфа
  * в тестах/снимках.
  */
-const NOW_ISO = "2026-03-13T12:00:00Z";
+const NOW_ISO = "2026-05-04T00:00:00Z";
 
 function inRange(iso: string, range: RangeKey): boolean {
   if (range === "all") return true;
