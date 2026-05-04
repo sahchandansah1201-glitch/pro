@@ -16,6 +16,8 @@ import {
 } from "@/lib/mock-data";
 import type { BotChannel, BotDialogState } from "@/lib/domain";
 
+const DEMO_NOW = new Date("2026-05-04T00:00:00Z");
+
 const STATE_FILTERS: { value: "all" | BotDialogState; label: string }[] = [
   { value: "all", label: "Все" },
   { value: "new", label: "Новые" },
