@@ -5,7 +5,7 @@ exports[`AdminAnalyticsPage — empty states snapshot > снимок всех 6 
   {
     "ariaLive": "polite",
     "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
-    "hint": "",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
     "iconTag": "svg",
     "role": "status",
     "title": "Нет лидов",
@@ -13,7 +13,7 @@ exports[`AdminAnalyticsPage — empty states snapshot > снимок всех 6 
   {
     "ariaLive": "polite",
     "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
-    "hint": "",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
     "iconTag": "svg",
     "role": "status",
     "title": "Нет источников",
@@ -21,7 +21,7 @@ exports[`AdminAnalyticsPage — empty states snapshot > снимок всех 6 
   {
     "ariaLive": "polite",
     "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
-    "hint": "",
+    "hint": "Добавьте клиники в справочнике, чтобы увидеть маршрутизацию.",
     "iconTag": "svg",
     "role": "status",
     "title": "Нет клиник",
@@ -29,7 +29,7 @@ exports[`AdminAnalyticsPage — empty states snapshot > снимок всех 6 
   {
     "ariaLive": "polite",
     "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
-    "hint": "",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
     "iconTag": "svg",
     "role": "status",
     "title": "Нет карточек предварительной оценки",
@@ -37,7 +37,7 @@ exports[`AdminAnalyticsPage — empty states snapshot > снимок всех 6 
   {
     "ariaLive": "polite",
     "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
-    "hint": "",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
     "iconTag": "svg",
     "role": "status",
     "title": "Нет снимков",
@@ -45,7 +45,7 @@ exports[`AdminAnalyticsPage — empty states snapshot > снимок всех 6 
   {
     "ariaLive": "polite",
     "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
-    "hint": "",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
     "iconTag": "svg",
     "role": "status",
     "title": "Нет диалогов",
