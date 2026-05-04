@@ -527,7 +527,7 @@ export default function AdminAnalyticsPage() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setRange(r.key)}
-                className={`min-h-[36px] rounded px-3 text-[12px] font-medium transition ${
+                className={`min-h-[44px] rounded px-3 text-[12px] font-medium transition sm:min-h-[36px] ${
                   active
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted"
