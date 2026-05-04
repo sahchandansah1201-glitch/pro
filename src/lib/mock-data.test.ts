@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  ANALYSIS_CARDS,
   APPOINTMENTS,
   ASSESSMENTS,
   AUDIT_LOGS,
@@ -12,13 +13,19 @@ import {
   LEADS,
   LESIONS,
   PATIENTS,
+  PROTECTED_ANALYSIS_LINKS,
   REPORTS,
   VISITS,
   assertMockDataIntegrity,
+  getAnalysisCardById,
+  getAnalysisCardForLead,
+  getAnalysisCardsByDialogId,
   getDialogById,
   getImagesByVisitId,
   getLesionsByPatientId,
   getPatientById,
+  getProtectedAnalysisLinkById,
+  getProtectedAnalysisLinkByToken,
   getReportsByPatientId,
   getVisitsByPatientId,
 } from "@/lib/mock-data";
