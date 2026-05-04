@@ -47,24 +47,6 @@ export const AdminServicesPage = () => (
 export const AdminClinicsPage = () => (
   <PlaceholderPage title="Клиники и филиалы" subtitle="Адреса, контакты, партнёрский маршрутинг." />
 );
-export const AdminIntegrationsPage = () => (
-  <PlaceholderPage
-    title="Интеграции"
-    subtitle="CRM · ERP · МИС. Только DryRun, mapping и safe summary."
-    note="Фото, диагнозы, AI/XAI и PHI не отправляются во внешние системы по умолчанию."
-    backendNote={BACKEND_NOTE}
-  />
-);
-export const AdminCrmDetailPage = () => {
-  const { id } = useParams();
-  return (
-    <PlaceholderPage
-      title={`CRM-интеграция · ${id ?? "—"}`}
-      subtitle="Mapping полей, тестовая отправка, журнал ошибок."
-      backendNote={BACKEND_NOTE}
-    />
-  );
-};
 export const AdminBotPage = () => (
   <PlaceholderPage title="Бот" subtitle="Сценарии, FAQ, маршрутизация лидов в клинику." />
 );
