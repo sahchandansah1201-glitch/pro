@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,12 @@ const CTA_LABEL = {
   book: "Записаться в клинику",
   urgent: "Связаться с клиникой",
   repeat_photo: "Повторить фото",
+} as const;
+
+const CTA_DEMO_STATUS = {
+  book: "Демо: заявка на запись подготовлена. В реальном сервисе здесь откроется запись в клинику-партнёр.",
+  urgent: "Демо: запрос на срочную связь с клиникой подготовлен. В реальном сервисе оператор увидит приоритетное обращение.",
+  repeat_photo: "Демо: пациент будет возвращён в бот для повторной съёмки. Новый снимок снова пройдёт контроль качества.",
 } as const;
 
 function PublicShell({ children }: { children: React.ReactNode }) {
@@ -57,6 +64,7 @@ function StateBlock({
 
 export default function AnalysisPublicPage() {
   const { token = "" } = useParams<{ token: string }>();
+  const [ctaState, setCtaState] = useState<"idle" | "done">("idle");
   const link = getProtectedAnalysisLinkByToken(token);
 
   if (!link) {
@@ -147,13 +155,24 @@ export default function AnalysisPublicPage() {
           </section>
         )}
 
-        <div className="pt-1">
+        <div className="space-y-3 pt-1">
           <Button
             type="button"
+            disabled={ctaState === "done"}
+            onClick={() => setCtaState("done")}
             className="min-h-11 w-full text-sm font-semibold sm:w-auto sm:min-h-10 sm:px-6"
           >
-            {ctaLabel}
+            {ctaState === "done" ? "Готово" : ctaLabel}
           </Button>
+          {ctaState === "done" && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground"
+            >
+              {CTA_DEMO_STATUS[card.ctaType]}
+            </div>
+          )}
         </div>
 
         <footer className="space-y-1 border-t border-border pt-4 text-xs text-muted-foreground">
