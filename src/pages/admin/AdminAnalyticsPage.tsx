@@ -476,7 +476,38 @@ export default function AdminAnalyticsPage() {
           </SectionCard>
 
           {/* Clinics */}
-          <SectionCard title="Маршрутизация по клиникам">
+          <SectionCard
+            title="Маршрутизация по клиникам"
+            hint={
+              <span
+                role="tablist"
+                aria-label="Сортировка клиник"
+                className="inline-flex gap-1 rounded-md border border-border bg-surface p-0.5"
+              >
+                {([
+                  ["priority", "По приоритету"],
+                  ["conversion", "По конверсии"],
+                ] as const).map(([key, label]) => {
+                  const active = clinicSort === key;
+                  return (
+                    <button
+                      key={key}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setClinicSort(key)}
+                      className={`min-h-[28px] rounded px-2 text-[11px] font-medium transition ${
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </span>
+            }
+          >
             {byClinic.length === 0 ? (
               <EmptyState text="Нет клиник для отображения." />
             ) : (
