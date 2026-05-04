@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,12 @@ const CTA_LABEL = {
   book: "Записаться в клинику",
   urgent: "Связаться с клиникой",
   repeat_photo: "Повторить фото",
+} as const;
+
+const CTA_DEMO_STATUS = {
+  book: "Демо: заявка на запись подготовлена. В реальном сервисе здесь откроется запись в клинику-партнёр.",
+  urgent: "Демо: запрос на срочную связь с клиникой подготовлен. В реальном сервисе оператор увидит приоритетное обращение.",
+  repeat_photo: "Демо: пациент будет возвращён в бот для повторной съёмки. Новый снимок снова пройдёт контроль качества.",
 } as const;
 
 function PublicShell({ children }: { children: React.ReactNode }) {
