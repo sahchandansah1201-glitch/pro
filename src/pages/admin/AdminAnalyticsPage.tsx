@@ -602,7 +602,7 @@ export default function AdminAnalyticsPage() {
                 {bySource.map((s) => (
                   <div
                     key={s.source}
-                    className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-3 py-2 text-[12px]"
+                    className="flex flex-col gap-1 px-3 py-2 text-[12px] sm:grid sm:grid-cols-[1fr_auto_auto_auto] sm:items-center sm:gap-3"
                   >
                     <span className="font-medium">
                       {SOURCE_LABEL[s.source] ?? s.source}
