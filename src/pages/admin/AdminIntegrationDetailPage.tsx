@@ -36,7 +36,8 @@ const ALLOWED_SOURCE_FIELDS = new Set<string>([
   "clinic",
   "patientCode",
   "visitId",
-  "externalUserRef",
+  // Внешний идентификатор пользователя в мессенджере намеренно исключён:
+  // токен такого поля запрещён в admin UI политикой данных MVP.
   "channel",
 ]);
 
