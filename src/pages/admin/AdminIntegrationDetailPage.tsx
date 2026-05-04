@@ -23,24 +23,36 @@ const STATUS_LABEL: Record<IntegrationStatus, string> = {
   error: "Ошибка",
 };
 
-/** Категории, которые всегда заблокированы политикой данных MVP. */
-const RESTRICTED_FIELDS = new Set([
-  "photos",
-  "photo",
-  "diagnosis",
-  "aiDetails",
-  "phi",
-  "fullName",
-  "birthDate",
-  "phone",
-  "email",
+/**
+ * Allowlist безопасных source-полей, которые разрешено показывать в маппинге.
+ * Любые иные ключи интерпретируются как чувствительные и не выводятся в UI.
+ */
+const ALLOWED_SOURCE_FIELDS = new Set<string>([
+  "source",
+  "utmSource",
+  "pipeline",
+  "service",
+  "price",
+  "clinic",
+  "patientCode",
+  "visitId",
+  "externalUserRef",
+  "channel",
 ]);
+
+/** Обобщённые категории, которые в MVP всегда заблокированы политикой данных. */
+const LOCKED_CATEGORIES: { label: string }[] = [
+  { label: "Идентификаторы пациента" },
+  { label: "Фото" },
+  { label: "Клиническое решение" },
+  { label: "AI / XAI детали" },
+];
 
 const POLICY_ROWS: { key: keyof PolicyView; label: string; allowed: boolean }[] = [
   { key: "sendPhotos", label: "Передавать фото", allowed: false },
-  { key: "sendDiagnosis", label: "Передавать диагноз", allowed: false },
+  { key: "sendDiagnosis", label: "Передавать клиническое решение", allowed: false },
   { key: "sendAIDetails", label: "Передавать детали AI/XAI", allowed: false },
-  { key: "sendPHI", label: "Передавать PHI пациента", allowed: false },
+  { key: "sendPHI", label: "Передавать идентификаторы пациента", allowed: false },
   { key: "sendSafeSummary", label: "Передавать безопасное резюме", allowed: true },
   { key: "sendProtectedLink", label: "Передавать защищённую ссылку", allowed: true },
 ];
@@ -72,6 +84,10 @@ export default function AdminIntegrationDetailPage() {
     );
   }
 
+  const allowedMappings = Object.entries(integration.fieldMap).filter(([from]) =>
+    ALLOWED_SOURCE_FIELDS.has(from),
+  );
+
   const dryRun = {
     provider: integration.provider,
     kind: integration.kind,
@@ -83,7 +99,12 @@ export default function AdminIntegrationDetailPage() {
       protectedAnalysisUrl: "/analysis/pal-tok-demo",
       clinicRouting: "partner_clinic",
     },
-    blockedByPolicy: ["photos", "diagnosis", "aiDetails", "phi"],
+    blockedByPolicy: [
+      "patient_identifiers",
+      "photos",
+      "clinical_decision",
+      "ai_xai_details",
+    ],
   };
 
   const log = (msg: string) => setAudit((a) => [`${new Date().toISOString()} · ${msg}`, ...a].slice(0, 5));
@@ -132,33 +153,35 @@ export default function AdminIntegrationDetailPage() {
             <div className="mb-2 text-[13px] font-semibold">Маппинг полей</div>
             <div className="text-[12px] text-muted-foreground">наше поле → внешнее поле</div>
             <div className="mt-3 divide-y divide-border rounded-md border border-border">
-              {Object.entries(integration.fieldMap).map(([from, to]) => {
-                const restricted = RESTRICTED_FIELDS.has(from);
-                return (
-                  <div key={from} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2 px-3 py-2 text-[13px]">
-                    <code className={restricted ? "text-muted-foreground line-through" : ""}>{from}</code>
-                    <span className="text-muted-foreground">→</span>
-                    <code className={restricted ? "text-muted-foreground line-through" : ""}>{to}</code>
-                    {restricted && (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" title="Запрещено политикой данных MVP">
-                        <Lock className="h-3 w-3" /> закрыто
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-              {/* Always-locked categories */}
-              {[
-                ["photos", "—"],
-                ["diagnosis", "—"],
-                ["aiDetails", "—"],
-                ["phi", "—"],
-              ].map(([from, to]) => (
-                <div key={from} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2 px-3 py-2 text-[13px] opacity-70">
-                  <code className="text-muted-foreground line-through">{from}</code>
+              {allowedMappings.map(([from, to]) => (
+                <div
+                  key={from}
+                  className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2 px-3 py-2 text-[13px]"
+                >
+                  <code>{from}</code>
                   <span className="text-muted-foreground">→</span>
-                  <code className="text-muted-foreground">{to}</code>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" title="Запрещено политикой данных MVP">
+                  <code>{to}</code>
+                  <span className="text-[11px] text-muted-foreground">разрешено</span>
+                </div>
+              ))}
+              {allowedMappings.length === 0 && (
+                <div className="px-3 py-2 text-[12px] text-muted-foreground">
+                  Нет разрешённых маппингов в этой интеграции.
+                </div>
+              )}
+              {/* Always-locked generic categories */}
+              {LOCKED_CATEGORIES.map((cat) => (
+                <div
+                  key={cat.label}
+                  className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2 px-3 py-2 text-[13px] opacity-70"
+                >
+                  <span className="text-muted-foreground line-through">{cat.label}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground">—</span>
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+                    title="Запрещено политикой данных MVP"
+                  >
                     <Lock className="h-3 w-3" /> закрыто
                   </span>
                 </div>
