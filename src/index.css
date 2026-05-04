@@ -2,95 +2,140 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/*
+  Дерматолог Про — дизайн-система.
+  Продуктовый клинический UI: спокойные нейтрали, один teal-акцент,
+  токены риска используются ТОЛЬКО вместе с текстовой меткой.
+  Все цвета в HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Поверхности и текст — холодные клинические нейтрали */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 15%;
+
+    --surface: 0 0% 100%;
+    --surface-muted: 210 20% 96%;
+    --surface-sunken: 210 22% 94%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Основной акцент — сдержанный clinical teal */
+    --primary: 188 70% 32%;
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 188 55% 92%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 215 20% 92%;
+    --secondary-foreground: 215 28% 22%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 14% 42%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 188 55% 92%;
+    --accent-foreground: 188 70% 22%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 215 18% 88%;
+    --input: 215 18% 88%;
+    --ring: 188 70% 32%;
 
-    --radius: 0.5rem;
+    /* Токены риска — всегда сопровождаются текстовой меткой в UI */
+    --risk-low: 158 55% 35%;
+    --risk-low-foreground: 0 0% 100%;
+    --risk-low-soft: 158 45% 92%;
 
-    --sidebar-background: 0 0% 98%;
+    --risk-moderate: 38 85% 42%;
+    --risk-moderate-foreground: 0 0% 100%;
+    --risk-moderate-soft: 38 80% 93%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --risk-high: 18 80% 45%;
+    --risk-high-foreground: 0 0% 100%;
+    --risk-high-soft: 18 75% 93%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --risk-urgent: 0 72% 42%;
+    --risk-urgent-foreground: 0 0% 100%;
+    --risk-urgent-soft: 0 75% 94%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    /* Семантика клинических состояний */
+    --info: 210 80% 42%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 210 70% 94%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --success: 158 55% 35%;
+    --success-foreground: 0 0% 100%;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --warning: 38 85% 42%;
+    --warning-foreground: 0 0% 100%;
 
-    --sidebar-border: 220 13% 91%;
+    /* Радиусы — дисциплинированные, не игрушечные */
+    --radius: 0.375rem;
 
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Тени — почти отсутствуют, продуктовый стиль */
+    --shadow-sm: 0 1px 0 0 hsl(215 25% 15% / 0.04);
+    --shadow-md: 0 1px 2px 0 hsl(215 25% 15% / 0.06), 0 1px 0 0 hsl(215 25% 15% / 0.04);
+    --shadow-overlay: 0 8px 24px -8px hsl(215 25% 15% / 0.18);
+
+    /* Сайдбар — отдельные токены под продуктовый shell */
+    --sidebar-background: 215 28% 14%;
+    --sidebar-foreground: 210 18% 86%;
+    --sidebar-primary: 188 70% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 28% 18%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 28% 20%;
+    --sidebar-ring: 188 70% 42%;
   }
 
+  /* Тёмная тема в MVP не задействуется, но токены оставлены согласованными */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 215 28% 10%;
+    --foreground: 210 18% 92%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --surface: 215 28% 12%;
+    --surface-muted: 215 28% 14%;
+    --surface-sunken: 215 28% 9%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --card: 215 28% 12%;
+    --card-foreground: 210 18% 92%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --popover: 215 28% 12%;
+    --popover-foreground: 210 18% 92%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --primary: 188 70% 50%;
+    --primary-foreground: 215 28% 10%;
+    --primary-soft: 188 60% 18%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --secondary: 215 28% 18%;
+    --secondary-foreground: 210 18% 92%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --muted: 215 28% 16%;
+    --muted-foreground: 215 14% 65%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --accent: 188 60% 18%;
+    --accent-foreground: 188 70% 80%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 28% 20%;
+    --input: 215 28% 20%;
+    --ring: 188 70% 50%;
+
+    --sidebar-background: 215 28% 8%;
+    --sidebar-foreground: 210 18% 86%;
+    --sidebar-primary: 188 70% 50%;
+    --sidebar-primary-foreground: 215 28% 10%;
+    --sidebar-accent: 215 28% 14%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 28% 16%;
+    --sidebar-ring: 188 70% 50%;
   }
 }
 
@@ -99,7 +144,96 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  body {
-    @apply bg-background text-foreground;
+  html {
+    /* Базовый размер 14px для плотных рабочих мест врача (≥1440) */
+    font-size: 14px;
   }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: hsl(var(--foreground));
+  }
+
+  code, kbd, pre, samp, .font-mono {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  /* Скроллбары — тонкие, продуктовые */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(215 14% 70%);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* Каркас рабочего места врача — фиксированные тулбары и плотные таблицы */
+  .workstation-shell {
+    @apply min-h-screen bg-background text-foreground;
+  }
+
+  .workstation-toolbar {
+    @apply sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-border bg-surface px-3;
+  }
+
+  .workstation-pane {
+    @apply border-r border-border bg-surface;
+  }
+
+  .data-table {
+    @apply w-full border-collapse text-[13px];
+  }
+  .data-table th {
+    @apply sticky top-0 z-10 border-b border-border bg-surface-muted px-3 py-2 text-left font-medium text-muted-foreground;
+  }
+  .data-table td {
+    @apply border-b border-border px-3 py-2 align-middle;
+  }
+  .data-table tbody tr:hover {
+    background: hsl(var(--surface-muted));
+  }
+
+  /* Фрейм телефона для мобильных потоков (бот, пациент) */
+  .phone-frame {
+    width: 390px;
+    min-height: 760px;
+    @apply mx-auto flex flex-col overflow-hidden rounded-[28px] border border-border bg-surface;
+    box-shadow: var(--shadow-overlay);
+  }
+
+  /* Демо-баннер «UX-only, не настоящая безопасность» */
+  .demo-notice {
+    @apply rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[12px] text-warning-foreground;
+    color: hsl(var(--warning));
+    background: hsl(var(--warning) / 0.08);
+    border-color: hsl(var(--warning) / 0.35);
+  }
+}
+
+@layer utilities {
+  .text-12 { font-size: 12px; line-height: 1.4; }
+  .text-13 { font-size: 13px; line-height: 1.45; }
+  .text-14 { font-size: 14px; line-height: 1.5; }
+
+  .bg-surface { background-color: hsl(var(--surface)); }
+  .bg-surface-muted { background-color: hsl(var(--surface-muted)); }
+  .bg-surface-sunken { background-color: hsl(var(--surface-sunken)); }
 }
