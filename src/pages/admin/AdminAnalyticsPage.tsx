@@ -474,7 +474,7 @@ export default function AdminAnalyticsPage() {
           {/* Sources */}
           <SectionCard title="Источники лидов">
             {bySource.length === 0 ? (
-              <EmptyState text="Нет источников в выбранном периоде." />
+              <EmptyState title="Нет источников" hint={emptyHint} />
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
                 {bySource.map((s) => (
