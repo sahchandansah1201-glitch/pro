@@ -273,11 +273,50 @@ export default function AdminAnalyticsPage() {
   const rangeLabel =
     RANGES.find((r) => r.key === range)?.label ?? "выбранный период";
 
-  /** Хелпер для рендера empty-state через единый словарь. */
+  /**
+   * Хелпер для рендера empty-state через единый словарь.
+   * Для секций, зависящих от выбранного периода, добавляем CTA-кнопку
+   * «Показать все данные» (или подсказку выбрать другой диапазон), чтобы
+   * пользователь мог быстро выйти из «пустого» среза без поиска
+   * переключателя периода вверху страницы. Для секции «клиники» CTA не
+   * показываем — справочник клиник не зависит от периода.
+   */
   const renderEmpty = (key: EmptyStateKey) => {
     const c = resolveEmptyCopy(key, rangeLabel);
-    return <EmptyState title={c.title} hint={c.hint} />;
+    const rangeDependent = key !== "clinics";
+    let action: React.ReactNode = null;
+    if (rangeDependent) {
+      if (range !== "all") {
+        action = (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setRange("all")}
+            data-empty-action="reset-range"
+            aria-label={`Показать все данные вместо периода «${rangeLabel}»`}
+          >
+            Показать все данные
+          </Button>
+        );
+      } else {
+        // Уже выбран диапазон «Все данные» — предлагаем переключиться
+        // на конкретный период, если данные появятся позже.
+        action = (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setRange("last_90d")}
+            data-empty-action="try-90d"
+            aria-label="Попробовать период «Последние 90 дней»"
+          >
+            Попробовать «Последние 90 дней»
+          </Button>
+        );
+      }
+    }
+    return <EmptyState title={c.title} hint={c.hint} action={action} />;
   };
+
 
 
   const all = useMemo(() => {
