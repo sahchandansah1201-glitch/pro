@@ -76,9 +76,11 @@ describe("AdminAnalyticsPage — empty states snapshot", () => {
     // в одной и той же структуре.
     for (const e of empties) {
       expect(e.querySelector("svg")).toBeTruthy();
-      expect(e.querySelector(".text-foreground")?.textContent?.trim()).toBeTruthy();
       expect(
-        e.querySelector(".text-muted-foreground")?.textContent?.trim(),
+        e.querySelector("div.text-foreground")?.textContent?.trim(),
+      ).toBeTruthy();
+      expect(
+        e.querySelector("div.text-muted-foreground")?.textContent?.trim(),
       ).toBeTruthy();
       expect(e.getAttribute("role")).toBe("status");
       expect(e.getAttribute("aria-live")).toBe("polite");
