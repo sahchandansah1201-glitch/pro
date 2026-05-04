@@ -165,10 +165,31 @@ function SectionCard({
   );
 }
 
-function EmptyState({ text }: { text: string }) {
+/**
+ * Унифицированное пустое состояние для всех секций аналитики.
+ * Одинаковая высота, иконка, основной заголовок и подсказка
+ * с указанием выбранного периода — чтобы все секции выглядели
+ * визуально согласованно при отсутствии данных.
+ */
+function EmptyState({
+  title,
+  hint,
+}: {
+  title: string;
+  hint?: string;
+}) {
   return (
-    <div className="rounded-md border border-dashed border-border bg-surface p-4 text-[12px] text-muted-foreground">
-      {text}
+    <div
+      role="status"
+      aria-live="polite"
+      data-empty="true"
+      className="flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center"
+    >
+      <Inbox className="h-5 w-5 text-muted-foreground" aria-hidden />
+      <div className="text-[12px] font-medium text-foreground">{title}</div>
+      {hint && (
+        <div className="text-[11px] text-muted-foreground">{hint}</div>
+      )}
     </div>
   );
 }
