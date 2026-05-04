@@ -129,10 +129,6 @@ export const AnalysisTokenPage = () => {
     />
   );
 };
-export const BotSimMiniAppBookingPage = () => (
-  <PlaceholderPage title="Mini App · запись" subtitle="Telegram Mini App: выбор клиники, врача и слота." />
-);
-
 // ───────── Общее ─────────
 export const HelpPage = () => (
   <PlaceholderPage title="Справка" subtitle="Документация по ролям и потокам." />
