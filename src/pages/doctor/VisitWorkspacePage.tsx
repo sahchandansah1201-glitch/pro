@@ -282,9 +282,11 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
+          {/* No maxWidth: zoom must visually scale beyond container width.
+              Pane itself scrolls (overflow-auto), so document scroll is unaffected. */}
           <div
             className="mx-auto"
-            style={{ width: `${320 * zoom}px`, maxWidth: "100%" }}
+            style={{ width: `${320 * zoom}px` }}
           >
             <BodySvg
               view={view}
