@@ -85,7 +85,7 @@ const App = () => (
               <Route path="/admin/clinics" element={<G><AdminClinicsPage /></G>} />
               <Route path="/admin/integrations" element={<G><AdminIntegrationsPage /></G>} />
               <Route path="/admin/integrations/crm/:id" element={<G><AdminIntegrationDetailPage /></G>} />
-              <Route path="/admin/bot" element={<G><AdminBotPage /></G>} />
+              <Route path="/admin/bot" element={<G><AdminBotSettingsPage /></G>} />
               <Route path="/admin/analytics" element={<G><AdminAnalyticsPage /></G>} />
 
               {/* Operator */}
