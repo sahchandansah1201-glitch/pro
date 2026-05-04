@@ -59,7 +59,13 @@ describe("AdminIntegrationDetailPage — int-005 messenger integration", () => {
     expect(codes).toContain("chat_type");
 
     // Подпись «разрешено» присутствует хотя бы один раз.
-    expect(getByText("разрешено")).toBeTruthy();
+    const { getAllByText } = { getAllByText: (t: string) =>
+      Array.from(container.querySelectorAll("*")).filter(
+        (el) => el.textContent?.trim() === t,
+      ) };
+    expect(getAllByText("разрешено").length).toBeGreaterThanOrEqual(1);
+    // gate, чтобы линтер не ругался на неиспользованный getByText
+    void getByText;
   });
 
   it("заблокированные категории (фото, диагноз, AI/XAI, идентификаторы пациента) показаны как закрытые", () => {
