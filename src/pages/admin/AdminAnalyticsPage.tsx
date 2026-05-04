@@ -177,6 +177,9 @@ function EmptyState({ text }: { text: string }) {
 
 export default function AdminAnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("all");
+  const [clinicSort, setClinicSort] = useState<"priority" | "conversion">(
+    "priority",
+  );
   const [reportPreview, setReportPreview] = useState<string | null>(null);
 
   const all = useMemo(() => {
