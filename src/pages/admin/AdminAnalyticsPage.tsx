@@ -700,7 +700,9 @@ export default function AdminAnalyticsPage() {
 
           {/* Bot dialog states */}
           <SectionCard title="Состояния бот-диалогов">
-            {data.dialogs.length === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : data.dialogs.length === 0 ? (
               renderEmpty("botDialogs")
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
