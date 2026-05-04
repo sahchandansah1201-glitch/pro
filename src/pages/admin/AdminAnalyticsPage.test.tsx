@@ -88,7 +88,7 @@ describe("AdminAnalyticsPage — заголовок и баннер", () => {
 
 describe("AdminAnalyticsPage — KPI и агрегаты", () => {
   it("KPI совпадают с агрегатами по мокам в режиме «Все данные»", () => {
-    const { getByText } = renderPage();
+    const { container } = renderPage();
 
     const leads = getLeads();
     const totalLeads = leads.length;
@@ -104,20 +104,26 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
       (c) => c.routingRisk === "high" || c.routingRisk === "urgent",
     ).length;
 
-    // KPI label → number проверяем по соседнему числу в той же карточке.
-    const labels: [string, string | number][] = [
-      ["Лиды", totalLeads],
-      ["Квалифицированы", qualified],
-      ["Записаны", booked],
-      ["Визиты", visits],
-      ["Конверсия лид → запись", `${conv}%`],
-      ["Высокий / срочный маршрут", highOrUrgent],
-    ];
-    for (const [label, expected] of labels) {
-      const labelEl = getByText(label);
-      const card = labelEl.parentElement!;
-      expect(card.textContent).toContain(String(expected));
+    // KPI карточки помечены классом "uppercase tracking-wide" у label.
+    const kpiLabels = Array.from(
+      container.querySelectorAll(".uppercase.tracking-wide"),
+    ) as HTMLElement[];
+    const kpiByLabel = new Map<string, string>();
+    for (const el of kpiLabels) {
+      const card = el.parentElement!;
+      kpiByLabel.set(el.textContent?.trim() ?? "", card.textContent ?? "");
     }
+    const expectKpi = (label: string, value: string | number) => {
+      const txt = kpiByLabel.get(label);
+      expect(txt, `KPI "${label}" not found`).toBeTruthy();
+      expect(txt!).toContain(String(value));
+    };
+    expectKpi("Лиды", totalLeads);
+    expectKpi("Квалифицированы", qualified);
+    expectKpi("Записаны", booked);
+    expectKpi("Визиты", visits);
+    expectKpi("Конверсия лид → запись", `${conv}%`);
+    expectKpi("Высокий / срочный маршрут", highOrUrgent);
   });
 
   it("раздел «Источники лидов» агрегирует все лиды и не показывает messenger-id", () => {
