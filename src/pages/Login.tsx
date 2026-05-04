@@ -3,16 +3,19 @@ import { Stethoscope, ShieldAlert } from "lucide-react";
 
 import { useRole } from "@/context/RoleContext";
 import { ROLES, ROLE_BY_ID, type Role } from "@/lib/roles";
+import { DEMO_USERS } from "@/lib/users";
 import { Button } from "@/components/ui/button";
 
 /**
- * Демо-логин с выбором роли. UX-симуляция, не настоящая авторизация.
+ * Демо-логин с выбором роли/пользователя. UX-симуляция, не настоящая авторизация.
+ * Реальный auth появится при подключении Lovable Cloud.
  */
 export default function LoginPage() {
   const navigate = useNavigate();
   const { setRole } = useRole();
 
   const pick = (r: Role) => {
+    // setRole сохраняет роль в localStorage и синхронизирует currentUser.
     setRole(r);
     navigate(ROLE_BY_ID[r].home, { replace: true });
   };
