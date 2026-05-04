@@ -12,14 +12,18 @@ import OperatorConsolePage from "./OperatorConsolePage";
  * whitespace-nowrap, shrink-0 и т.д.).
  */
 
+function findBadge(matcher: RegExp): HTMLElement {
+  const badge = screen
+    .getAllByRole("status")
+    .find((el) => matcher.test(el.getAttribute("aria-label") ?? ""));
+  if (!badge) throw new Error(`badge not found for ${matcher}`);
+  return badge;
+}
+
 function getBadge(state: "active" | "expired"): HTMLElement {
   if (state === "expired") {
     // bd-001 по умолчанию выбран и его ссылка истекла относительно DEMO_NOW.
-    const badge = screen
-      .getAllByRole("status")
-      .find((el) => el.getAttribute("aria-label") === "Защищённая ссылка истекла");
-    if (!badge) throw new Error("expired badge not found");
-    return badge;
+    return findBadge(/истекла/);
   }
   // Кликаем по карточке bd-002 — там ссылка активна.
   const trigger = screen
@@ -27,11 +31,7 @@ function getBadge(state: "active" | "expired"): HTMLElement {
     .closest("div.cursor-pointer") as HTMLElement | null;
   if (!trigger) throw new Error("bd-002 card not found");
   fireEvent.click(trigger);
-  const badge = screen
-    .getAllByRole("status")
-    .find((el) => el.getAttribute("aria-label") === "Защищённая ссылка активна");
-  if (!badge) throw new Error("active badge not found");
-  return badge;
+  return findBadge(/активна/);
 }
 
 function renderAt(zoom: 1 | 2) {
