@@ -250,8 +250,22 @@ export default function OperatorConsolePage() {
                     <div className="text-muted-foreground">
                       Действует до {formatDateTime(selectedLink.expiresAt)}
                     </div>
-                    <div className="mt-1">
-                      Статус: {selectedLinkActive ? "активна" : "истекла"}
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-[12px] text-muted-foreground">Статус:</span>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                          selectedLinkActive
+                            ? "border-success/30 bg-success/10 text-success"
+                            : "border-destructive/30 bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            selectedLinkActive ? "bg-success" : "bg-destructive"
+                          }`}
+                        />
+                        {selectedLinkActive ? "активна" : "истекла"}
+                      </span>
                     </div>
                   </Card>
                 );
