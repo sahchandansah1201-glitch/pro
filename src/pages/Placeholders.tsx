@@ -48,9 +48,7 @@ export const AdminClinicsPage = () => (
   <PlaceholderPage title="Клиники и филиалы" subtitle="Адреса, контакты, партнёрский маршрутинг." />
 );
 // AdminBotPage moved to src/pages/admin/AdminBotSettingsPage.tsx (Task 15).
-export const AdminAnalyticsPage = () => (
-  <PlaceholderPage title="Аналитика" subtitle="Конверсия лидов, загрузка слотов, источники." />
-);
+// AdminAnalyticsPage moved to src/pages/admin/AdminAnalyticsPage.tsx (Task 16).
 
 // ───────── Оператор поддержки (реализован в OperatorConsolePage / OperatorDialogPage) ─────────
 
