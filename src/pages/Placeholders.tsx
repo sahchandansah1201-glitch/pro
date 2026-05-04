@@ -47,9 +47,7 @@ export const AdminServicesPage = () => (
 export const AdminClinicsPage = () => (
   <PlaceholderPage title="Клиники и филиалы" subtitle="Адреса, контакты, партнёрский маршрутинг." />
 );
-export const AdminBotPage = () => (
-  <PlaceholderPage title="Бот" subtitle="Сценарии, FAQ, маршрутизация лидов в клинику." />
-);
+// AdminBotPage moved to src/pages/admin/AdminBotSettingsPage.tsx (Task 15).
 export const AdminAnalyticsPage = () => (
   <PlaceholderPage title="Аналитика" subtitle="Конверсия лидов, загрузка слотов, источники." />
 );
