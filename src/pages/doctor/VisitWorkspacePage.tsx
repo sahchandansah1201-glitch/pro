@@ -10,7 +10,6 @@ import {
   getAssessmentsByVisitId,
   getClinicById,
   getImagesByLesionId,
-  getLesionById,
   getLesionsByPatientId,
   getPatientById,
   getVisitById,
