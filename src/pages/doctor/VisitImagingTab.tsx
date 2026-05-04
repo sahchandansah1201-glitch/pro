@@ -523,12 +523,13 @@ function ThumbPlaceholder({ image, large = false }: { image: ClinicalImage; larg
 function QualityChip({ image, compact = false }: { image: ClinicalImage; compact?: boolean }) {
   const review = needsReview(image);
   const text = review ? "Требует проверки" : "Хорошее качество";
+  // Patch 3: статусные чипы — solid с риск-цветом, без uppercase, чуть крупнее.
   const cls = review
-    ? "border-warning/40 bg-warning/10 text-warning"
-    : "border-success/40 bg-success/10 text-success";
+    ? "bg-warning text-warning-foreground"
+    : "bg-success text-success-foreground";
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-medium tabular-nums ${cls}`}
       title={`Оценка качества: ${(image.quality.score * 100).toFixed(0)}%`}
     >
       {compact ? `${Math.round(image.quality.score * 100)}%` : text}
