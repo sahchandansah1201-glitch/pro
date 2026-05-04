@@ -17,6 +17,7 @@ import PatientsPage from "./pages/doctor/PatientsPage";
 import PatientDetailPage from "./pages/doctor/PatientDetailPage";
 import VisitWorkspacePage from "./pages/doctor/VisitWorkspacePage";
 import CapturePage from "./pages/doctor/CapturePage";
+import BotSimPage from "./pages/bot/BotSimPage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
@@ -43,7 +44,6 @@ import {
   MeBookingPage,
   MeRemindersPage,
   // Public/protected
-  BotSimPage,
   BotSimMiniAppBookingPage,
   // Shared
   HelpPage,
