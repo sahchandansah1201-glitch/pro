@@ -680,7 +680,13 @@ export default function AdminAnalyticsPage() {
             title="Качество фото"
             hint="техническое качество снимка, не диагноз"
           >
-            {totalCards === 0 ? (
+            {isLoading ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <KpiSkeleton key={i} />
+                ))}
+              </div>
+            ) : totalCards === 0 ? (
               renderEmpty("imageQuality")
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
