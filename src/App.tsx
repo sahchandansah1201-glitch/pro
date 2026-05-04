@@ -11,6 +11,7 @@ import { RoleHome } from "@/components/shell/RoleHome";
 
 import LoginPage from "./pages/Login";
 import NotFound from "./pages/NotFound.tsx";
+import AnalysisPublicPage from "./pages/public/AnalysisPublicPage";
 import DeskPage from "./pages/doctor/DeskPage";
 import PatientsPage from "./pages/doctor/PatientsPage";
 import PatientDetailPage from "./pages/doctor/PatientDetailPage";
@@ -42,7 +43,6 @@ import {
   MeBookingPage,
   MeRemindersPage,
   // Public/protected
-  AnalysisTokenPage,
   BotSimPage,
   BotSimMiniAppBookingPage,
   // Shared
@@ -64,6 +64,7 @@ const App = () => (
           <Routes>
             {/* Публичные/без shell-маршруты */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/analysis/:token" element={<AnalysisPublicPage />} />
 
             {/* Все остальные — внутри AppShell */}
             <Route element={<AppLayout />}>
@@ -103,8 +104,7 @@ const App = () => (
               <Route path="/me/booking" element={<G><MeBookingPage /></G>} />
               <Route path="/me/reminders" element={<G><MeRemindersPage /></G>} />
 
-              {/* Защищённый просмотр и симулятор бота */}
-              <Route path="/analysis/:token" element={<G><AnalysisTokenPage /></G>} />
+              {/* Симулятор бота */}
               <Route path="/bot-sim" element={<G><BotSimPage /></G>} />
               <Route path="/bot-sim/miniapp/booking" element={<G><BotSimMiniAppBookingPage /></G>} />
 
