@@ -271,8 +271,8 @@ export default function OperatorConsolePage() {
                         {selectedLinkActive ? `осталось ${remainingLabel}` : `истекла ${remainingLabel} назад`}
                       </span>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-[12px] text-muted-foreground" aria-hidden="true">
+                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="shrink-0 text-[12px] text-muted-foreground" aria-hidden="true">
                         Статус:
                       </span>
                       <span
@@ -283,14 +283,22 @@ export default function OperatorConsolePage() {
                             ? "Защищённая ссылка активна"
                             : "Защищённая ссылка истекла"
                         }
-                        className={`inline-flex max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[12px] font-semibold leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                        className={`inline-flex w-fit max-w-full shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap break-keep rounded-full border px-2 py-0.5 align-middle text-[12px] font-semibold leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           selectedLinkActive
                             ? "border-[hsl(158_70%_24%)] bg-[hsl(158_70%_24%)] text-white"
                             : "border-[hsl(0_75%_36%)] bg-[hsl(0_75%_36%)] text-white"
                         }`}
                       >
-                        <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
-                        <span aria-hidden="true">{selectedLinkActive ? "активна" : "истекла"}</span>
+                        <span
+                          aria-hidden="true"
+                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current align-middle"
+                        />
+                        <span
+                          aria-hidden="true"
+                          className="inline-block whitespace-nowrap align-middle"
+                        >
+                          {selectedLinkActive ? "активна" : "истекла"}
+                        </span>
                       </span>
                     </div>
                     <div className="mt-3">
