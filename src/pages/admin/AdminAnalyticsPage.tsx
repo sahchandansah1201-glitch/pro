@@ -523,7 +523,9 @@ export default function AdminAnalyticsPage() {
         <div className="grid gap-4 xl:grid-cols-2">
           {/* Funnel */}
           <SectionCard title="Воронка" hint="MVP: расчёт построен на мок-данных.">
-            {totalLeads === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : totalLeads === 0 ? (
               renderEmpty("leads")
             ) : (
               <ul className="space-y-3">
