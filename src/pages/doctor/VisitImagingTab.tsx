@@ -84,8 +84,30 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
   const [compareId, setCompareId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
 
-  const selected = selectedId ? allImages.find((i) => i.id === selectedId) ?? null : null;
-  const compare = compareId ? allImages.find((i) => i.id === compareId) ?? null : null;
+  // Fix 1: keep viewer selection in sync with active filters.
+  // If selectedId is not in `filtered`, snap to the first filtered image (or null).
+  const effectiveSelectedId =
+    selectedId && filtered.some((i) => i.id === selectedId)
+      ? selectedId
+      : filtered[0]?.id ?? null;
+  if (effectiveSelectedId !== selectedId) {
+    // Defer state update to after render to avoid setState-in-render warnings.
+    queueMicrotask(() => setSelectedId(effectiveSelectedId));
+  }
+
+  const selected = effectiveSelectedId
+    ? allImages.find((i) => i.id === effectiveSelectedId) ?? null
+    : null;
+
+  // Fix 2: never compare an image with itself.
+  const effectiveCompareId =
+    compareId && compareId !== effectiveSelectedId ? compareId : null;
+  if (effectiveCompareId !== compareId) {
+    queueMicrotask(() => setCompareId(effectiveCompareId));
+  }
+  const compare = effectiveCompareId
+    ? allImages.find((i) => i.id === effectiveCompareId) ?? null
+    : null;
 
   // Counts for compact summary.
   const summary = useMemo(() => {
@@ -188,8 +210,8 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
             <ul className="grid grid-cols-2 gap-2 px-3 pb-3 sm:grid-cols-3">
               {filtered.map((img) => {
                 const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
-                const isSel = img.id === selectedId;
-                const isCmp = img.id === compareId;
+                const isSel = img.id === effectiveSelectedId;
+                const isCmp = img.id === effectiveCompareId;
                 return (
                   <li key={img.id}>
                     <button
@@ -255,7 +277,7 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
                 </div>
                 <CompareSelect
                   selectedId={selected.id}
-                  compareId={compareId}
+                  compareId={effectiveCompareId}
                   onChange={setCompareId}
                   images={allImages}
                   lesionMap={lesionMap}
@@ -313,7 +335,7 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
           <ol className="divide-y divide-border">
             {allImages.map((img) => {
               const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
-              const isSel = img.id === selectedId;
+              const isSel = img.id === effectiveSelectedId;
               return (
                 <li key={img.id}>
                   <button
