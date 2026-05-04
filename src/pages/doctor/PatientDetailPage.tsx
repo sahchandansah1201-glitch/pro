@@ -62,7 +62,7 @@ export default function PatientDetailPage() {
   const lastReport = reports[0];
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title={patient.fullName}
         subtitle={`${patient.code} · ${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет · фототип ${patient.phototype}`}
@@ -74,18 +74,18 @@ export default function PatientDetailPage() {
       />
 
       <Tabs defaultValue="overview" className="flex-1">
-        <div className="border-b border-border bg-surface px-3">
-          <TabsList className="h-9 bg-transparent p-0">
-            <TabsTrigger value="overview" className="text-[12px]">Обзор</TabsTrigger>
-            <TabsTrigger value="visits" className="text-[12px]">Визиты ({visits.length})</TabsTrigger>
-            <TabsTrigger value="lesions" className="text-[12px]">Образования ({lesions.length})</TabsTrigger>
-            <TabsTrigger value="reports" className="text-[12px]">Отчёты ({reports.length})</TabsTrigger>
+        <div className="border-b border-border bg-surface px-6">
+          <TabsList className="h-10 bg-transparent p-0">
+            <TabsTrigger value="overview" className="text-[13px]">Обзор</TabsTrigger>
+            <TabsTrigger value="visits" className="text-[13px]">Визиты ({visits.length})</TabsTrigger>
+            <TabsTrigger value="lesions" className="text-[13px]">Образования ({lesions.length})</TabsTrigger>
+            <TabsTrigger value="reports" className="text-[13px]">Отчёты ({reports.length})</TabsTrigger>
           </TabsList>
         </div>
 
         {/* Обзор */}
-        <TabsContent value="overview" className="m-0 p-4">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+        <TabsContent value="overview" className="m-0 px-6 py-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <Section title="Демография" className="lg:col-span-4">
               <Field term="ФИО" value={patient.fullName} />
               <Field term="Код" value={<span className="font-mono">{patient.code}</span>} />
@@ -102,9 +102,9 @@ export default function PatientDetailPage() {
 
             <Section title="Факторы риска" className="lg:col-span-4">
               {patient.riskFactors.length === 0 ? (
-                <div className="text-[12px] text-muted-foreground">Не указаны.</div>
+                <div className="text-meta">Не указаны.</div>
               ) : (
-                <ul className="space-y-1 text-[13px]">
+                <ul className="space-y-1 text-row">
                   {patient.riskFactors.map((rf) => (
                     <li key={rf} className="flex items-start gap-1.5">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
@@ -117,7 +117,7 @@ export default function PatientDetailPage() {
 
             <Section title="Последний визит" className="lg:col-span-6">
               {!lastVisit ? (
-                <div className="text-[12px] text-muted-foreground">Визитов нет.</div>
+                <div className="text-meta">Визитов нет.</div>
               ) : (
                 <>
                   <Field term="Дата" value={formatDateTime(lastVisit.startedAt)} />
@@ -129,7 +129,7 @@ export default function PatientDetailPage() {
               )}
             </Section>
 
-            <Section title="Сводка по образованиям и отчётам" className="lg:col-span-6">
+            <Section title="Образования и отчёты" className="lg:col-span-6">
               <Field term="Всего образований" value={lesions.length} />
               <Field term="Активных / наблюдение" value={`${lesions.filter((l) => l.status === "active").length} / ${lesions.filter((l) => l.status === "monitoring").length}`} />
               <Field term="Всего отчётов" value={reports.length} />
@@ -139,37 +139,39 @@ export default function PatientDetailPage() {
         </TabsContent>
 
         {/* Визиты */}
-        <TabsContent value="visits" className="m-0 p-4">
+        <TabsContent value="visits" className="m-0 px-6 py-6">
           {visits.length === 0 ? (
             <Empty text="Визитов у пациента пока нет." />
           ) : (
-            <div className="overflow-hidden rounded-md border border-border bg-surface">
+            <div className="surface-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th className="w-[140px]">Дата</th>
+                      <th className="w-[160px]">Дата</th>
                       <th className="w-[110px]">Статус</th>
                       <th>Жалоба</th>
-                      <th className="w-[160px]">Клиника</th>
-                      <th className="w-[180px]">Врач</th>
-                      <th className="w-[60px]" aria-label="Действие" />
+                      <th className="w-[180px]">Клиника</th>
+                      <th className="w-[200px]">Врач</th>
+                      <th className="w-[40px]" aria-label="Действие" />
                     </tr>
                   </thead>
                   <tbody>
                     {visits.map((v) => (
                       <tr key={v.id}>
-                        <td className="text-[12px] text-muted-foreground">{formatDateTime(v.startedAt)}</td>
+                        <td className="text-[12px] text-muted-foreground tabular-nums">{formatDateTime(v.startedAt)}</td>
                         <td>{VISIT_STATUS[v.status]}</td>
                         <td className="max-w-[420px] truncate">{v.complaint}</td>
                         <td className="text-[12px] text-muted-foreground">{getClinicById(v.clinicId)?.name ?? "—"}</td>
                         <td className="text-[12px] text-muted-foreground">{userName(v.doctorId)}</td>
                         <td>
-                          <Button asChild size="sm" variant="ghost" className="h-7 text-[12px]">
-                            <Link to={`/patients/${patient.id}/visits/${v.id}`} aria-label={`Открыть визит ${v.id}`}>
-                              <ChevronRight className="h-4 w-4" aria-hidden />
-                            </Link>
-                          </Button>
+                          <Link
+                            to={`/patients/${patient.id}/visits/${v.id}`}
+                            aria-label={`Открыть визит ${v.id}`}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+                          >
+                            <ChevronRight className="h-4 w-4" aria-hidden />
+                          </Link>
                         </td>
                       </tr>
                     ))}
@@ -181,28 +183,28 @@ export default function PatientDetailPage() {
         </TabsContent>
 
         {/* Образования */}
-        <TabsContent value="lesions" className="m-0 p-4">
+        <TabsContent value="lesions" className="m-0 px-6 py-6">
           {lesions.length === 0 ? (
             <Empty text="Образований у пациента не зарегистрировано." />
           ) : (
-            <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {lesions.map((l) => {
                 const imageCount = getImagesByLesionId(l.id).length;
                 const lastAssessment = visits
                   .flatMap((v) => getAssessmentsByVisitId(v.id).filter((a) => a.lesionId === l.id))
                   .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt))[0];
                 return (
-                  <li key={l.id} className="rounded-md border border-border bg-surface p-3">
+                  <li key={l.id} className="surface-card p-4">
                     <div className="flex items-baseline justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="truncate text-[13px] font-medium">{l.label}</div>
-                        <div className="truncate text-[12px] text-muted-foreground">{l.bodyZone}</div>
+                        <div className="truncate text-row font-semibold">{l.label}</div>
+                        <div className="truncate text-meta">{l.bodyZone}</div>
                       </div>
-                      <span className="shrink-0 rounded-sm border border-border bg-surface-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                      <span className="shrink-0 rounded-sm bg-surface-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
                         {LESION_STATUS[l.status]}
                       </span>
                     </div>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
                       <Stat term="Впервые" value={formatDate(l.firstSeenAt)} />
                       <Stat term="Снимков" value={imageCount} />
                       {lastAssessment && (
@@ -212,12 +214,13 @@ export default function PatientDetailPage() {
                         </>
                       )}
                     </dl>
-                    <div className="mt-2 flex justify-end">
-                      <Button asChild size="sm" variant="ghost" className="h-7 text-[12px]">
-                        <Link to={`/patients/${patient.id}/lesions/${l.id}`}>
-                          Открыть <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
-                        </Link>
-                      </Button>
+                    <div className="mt-3 flex justify-end">
+                      <Link
+                        to={`/patients/${patient.id}/lesions/${l.id}`}
+                        className="inline-flex items-center gap-0.5 text-[12px] font-medium text-primary hover:underline"
+                      >
+                        Открыть <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                      </Link>
                     </div>
                   </li>
                 );
@@ -227,23 +230,21 @@ export default function PatientDetailPage() {
         </TabsContent>
 
         {/* Отчёты */}
-        <TabsContent value="reports" className="m-0 p-4">
+        <TabsContent value="reports" className="m-0 px-6 py-6">
           {reports.length === 0 ? (
             <Empty text="Отчётов по пациенту пока нет." />
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {reports.map((r) => (
-                <li key={r.id} className="rounded-md border border-border bg-surface p-3">
+                <li key={r.id} className="surface-card p-4">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <div className="text-[13px] font-medium">Отчёт от {formatDateTime(r.generatedAt)}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Защищённая ссылка действует до {formatDateTime(r.sharedLink.expiresAt)}
+                    <div className="text-row font-semibold tabular-nums">Отчёт от {formatDateTime(r.generatedAt)}</div>
+                    <div className="text-meta">
+                      Защищённая ссылка до {formatDateTime(r.sharedLink.expiresAt)}
                     </div>
                   </div>
-                  <div className="mt-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Текст для пациента
-                  </div>
-                  <p className="text-[13px]">{r.patientSafeText}</p>
+                  <div className="mt-2 text-[11px] font-medium text-muted-foreground">Текст для пациента</div>
+                  <p className="mt-1 text-row">{r.patientSafeText}</p>
                 </li>
               ))}
             </ul>
@@ -256,11 +257,11 @@ export default function PatientDetailPage() {
 
 function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <section className={`rounded-md border border-border bg-surface ${className ?? ""}`}>
-      <div className="border-b border-border bg-surface-muted px-3 py-2">
-        <h2 className="text-[13px] font-semibold">{title}</h2>
+    <section className={`surface-card overflow-hidden ${className ?? ""}`}>
+      <div className="section-bar">
+        <h2 className="h-section">{title}</h2>
       </div>
-      <div className="space-y-1.5 p-3 text-[13px]">{children}</div>
+      <div className="space-y-2 px-4 pb-4 text-row">{children}</div>
     </section>
   );
 }
@@ -268,7 +269,7 @@ function Section({ title, children, className }: { title: string; children: Reac
 function Field({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-border pb-1.5 last:border-b-0 last:pb-0">
-      <dt className="shrink-0 text-[12px] text-muted-foreground">{term}</dt>
+      <dt className="shrink-0 text-meta">{term}</dt>
       <dd className="min-w-0 text-right">{value}</dd>
     </div>
   );
@@ -278,14 +279,14 @@ function Stat({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
       <dt className="text-muted-foreground">{term}</dt>
-      <dd className="font-medium tabular-nums">{value}</dd>
+      <dd className="font-semibold tabular-nums">{value}</dd>
     </div>
   );
 }
 
 function Empty({ text }: { text: string }) {
   return (
-    <div className="rounded-md border border-dashed border-border bg-surface p-10 text-center text-[13px] text-muted-foreground">
+    <div className="surface-card p-12 text-center text-row text-muted-foreground">
       {text}
     </div>
   );
