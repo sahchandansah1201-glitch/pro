@@ -452,7 +452,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 rounded-md border border-border bg-surface px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
+        className="h-10 rounded-md border border-border bg-surface px-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-ring sm:h-8 sm:text-[12px]"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
