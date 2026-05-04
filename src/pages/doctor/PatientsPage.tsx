@@ -79,11 +79,11 @@ export default function PatientsPage() {
   }, [query, phototype, consent, lesionsFilter]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader title="Пациенты" subtitle={`Всего в базе: ${PATIENTS.length}`} />
 
       {/* Тулбар фильтров */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2.5">
         <div className="relative min-w-0 flex-1 sm:max-w-sm">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -124,20 +124,20 @@ export default function PatientsPage() {
           ]}
         />
 
-        <span className="ml-auto text-[12px] text-muted-foreground">
+        <span className="ml-auto text-meta">
           Найдено: <span className="text-foreground tabular-nums">{rows.length}</span>
         </span>
       </div>
 
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 overflow-auto px-6 py-6">
         {rows.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border bg-surface p-10 text-center text-[13px] text-muted-foreground">
+          <div className="surface-card p-12 text-center text-row text-muted-foreground">
             Под текущие фильтры пациентов не найдено.
           </div>
         ) : (
           <>
             {/* Desktop таблица */}
-            <div className="hidden overflow-hidden rounded-md border border-border bg-surface md:block">
+            <div className="surface-card hidden overflow-hidden md:block">
               <div className="overflow-x-auto">
                 <table className="data-table">
                   <thead>
@@ -147,12 +147,12 @@ export default function PatientsPage() {
                       <th className="w-[60px]">Возр.</th>
                       <th className="w-[50px]">Пол</th>
                       <th className="w-[80px]">Фототип</th>
-                      <th className="w-[110px]">Факторы риска</th>
-                      <th className="w-[130px]">Согласие на съёмку</th>
-                      <th className="w-[100px]">Образования</th>
+                      <th className="w-[110px]">Факторы</th>
+                      <th className="w-[130px]">Согласие</th>
+                      <th className="w-[100px]">Образ.</th>
                       <th className="w-[120px]">Посл. визит</th>
                       <th className="w-[120px]">След. визит</th>
-                      <th className="w-[60px]" aria-label="Действие" />
+                      <th className="w-[40px]" aria-label="Действие" />
                     </tr>
                   </thead>
                   <tbody>
@@ -172,14 +172,16 @@ export default function PatientsPage() {
                           <ConsentChip ok={r.patient.consents.imaging} />
                         </td>
                         <td className="tabular-nums">{r.lesionCount}</td>
-                        <td className="text-[12px] text-muted-foreground">{formatDate(r.lastVisit)}</td>
-                        <td className="text-[12px] text-muted-foreground">{formatDate(r.nextVisit)}</td>
+                        <td className="text-[12px] text-muted-foreground tabular-nums">{formatDate(r.lastVisit)}</td>
+                        <td className="text-[12px] text-muted-foreground tabular-nums">{formatDate(r.nextVisit)}</td>
                         <td>
-                          <Button asChild size="sm" variant="ghost" className="h-7 text-[12px]">
-                            <Link to={`/patients/${r.patient.id}`} aria-label={`Открыть карточку ${r.patient.fullName}`}>
-                              <ChevronRight className="h-4 w-4" aria-hidden />
-                            </Link>
-                          </Button>
+                          <Link
+                            to={`/patients/${r.patient.id}`}
+                            aria-label={`Открыть карточку ${r.patient.fullName}`}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+                          >
+                            <ChevronRight className="h-4 w-4" aria-hidden />
+                          </Link>
                         </td>
                       </tr>
                     ))}
@@ -194,19 +196,19 @@ export default function PatientsPage() {
                 <li key={r.patient.id}>
                   <Link
                     to={`/patients/${r.patient.id}`}
-                    className="block rounded-md border border-border bg-surface p-3 active:bg-surface-muted"
+                    className="surface-card block p-3 active:bg-surface-muted"
                   >
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-[13px] font-medium">{r.patient.fullName}</span>
+                      <span className="truncate text-row font-medium">{r.patient.fullName}</span>
                       <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{r.patient.code}</span>
                     </div>
-                    <div className="mt-0.5 text-[12px] text-muted-foreground">
+                    <div className="mt-0.5 text-meta">
                       {sexShort(r.patient.sex)} · {r.age} лет · фототип {r.patient.phototype} · образований {r.lesionCount}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                       <ConsentChip ok={r.patient.consents.imaging} />
-                      <span>Посл. визит: {formatDate(r.lastVisit)}</span>
-                      <span>След. визит: {formatDate(r.nextVisit)}</span>
+                      <span className="tabular-nums">Посл. {formatDate(r.lastVisit)}</span>
+                      <span className="tabular-nums">След. {formatDate(r.nextVisit)}</span>
                     </div>
                   </Link>
                 </li>
