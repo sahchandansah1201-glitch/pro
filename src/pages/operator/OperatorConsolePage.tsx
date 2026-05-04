@@ -248,11 +248,22 @@ export default function OperatorConsolePage() {
                 const remainingLabel =
                   absMs >= 86_400_000 ? `${days} дн.` : `${hours} ч.`;
                 return (
-                  <Card className="p-3 text-[13px]">
+                  <Card
+                    role="region"
+                    aria-label="Защищённая ссылка анализа"
+                    tabIndex={0}
+                    className="p-3 text-[13px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  >
                     <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
                       Защищённая ссылка анализа
                     </div>
-                    <div className="font-mono text-[11px]">{selectedLink.token}</div>
+                    <code
+                      tabIndex={0}
+                      aria-label={`Токен ссылки: ${selectedLink.token}`}
+                      className="block rounded-sm font-mono text-[11px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                      {selectedLink.token}
+                    </code>
                     <div className="text-muted-foreground">
                       Действует до {formatDateTime(selectedLink.expiresAt)}
                       {" · "}
@@ -266,13 +277,14 @@ export default function OperatorConsolePage() {
                       </span>
                       <span
                         role="status"
+                        tabIndex={0}
                         aria-labelledby="protected-link-status-label"
                         aria-label={
                           selectedLinkActive
                             ? "Защищённая ссылка активна"
                             : "Защищённая ссылка истекла"
                         }
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[12px] font-semibold leading-tight ${
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[12px] font-semibold leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           selectedLinkActive
                             ? "border-[hsl(158_70%_24%)] bg-[hsl(158_70%_24%)] text-white"
                             : "border-[hsl(0_75%_36%)] bg-[hsl(0_75%_36%)] text-white"
@@ -284,6 +296,23 @@ export default function OperatorConsolePage() {
                         />
                         {selectedLinkActive ? "активна" : "истекла"}
                       </span>
+                    </div>
+                    <div className="mt-3">
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="min-h-[36px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <Link
+                          to={`/analysis/${selectedLink.token}`}
+                          aria-label="Открыть защищённый просмотр анализа в новой вкладке"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Открыть защищённый просмотр
+                        </Link>
+                      </Button>
                     </div>
                   </Card>
                 );
