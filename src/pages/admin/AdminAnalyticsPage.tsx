@@ -480,7 +480,7 @@ export default function AdminAnalyticsPage() {
           {/* Sources */}
           <SectionCard title="Источники лидов">
             {bySource.length === 0 ? (
-              <EmptyState title="Нет источников" hint={emptyHint} />
+              renderEmpty("sources")
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
                 {bySource.map((s) => (
