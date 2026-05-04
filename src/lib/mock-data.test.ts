@@ -132,7 +132,7 @@ describe("AnalysisCard and ProtectedAnalysisLink data layer", () => {
   });
 
   it("contains at least one expired and one active protected link", () => {
-    const now = Date.parse("2026-03-15T00:00:00Z");
+    const now = Date.parse("2026-05-04T00:00:00Z");
     const expired = PROTECTED_ANALYSIS_LINKS.filter((p) => Date.parse(p.expiresAt) < now);
     const active = PROTECTED_ANALYSIS_LINKS.filter((p) => Date.parse(p.expiresAt) >= now);
     expect(expired.length).toBeGreaterThanOrEqual(1);

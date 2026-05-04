@@ -738,7 +738,7 @@ export const PROTECTED_ANALYSIS_LINKS: ProtectedAnalysisLink[] = [
     id: "pal-002",
     analysisCardId: "ac-002",
     token: "pal-tok-ac002-demo",
-    expiresAt: "2026-04-03T09:40:00Z",
+    expiresAt: "2026-06-03T09:40:00Z",
     accessLog: [
       { accessedAt: "2026-03-03T10:05:00Z", actorRef: OPERATOR_ID, ip: "10.0.0.12" },
       { accessedAt: "2026-03-03T11:20:00Z", actorRef: DOCTOR_ID, ip: "10.0.0.21" },
@@ -748,7 +748,7 @@ export const PROTECTED_ANALYSIS_LINKS: ProtectedAnalysisLink[] = [
     id: "pal-003",
     analysisCardId: "ac-003",
     token: "pal-tok-ac003-demo",
-    expiresAt: "2026-04-05T13:55:00Z",
+    expiresAt: "2026-06-05T13:55:00Z",
     accessLog: [
       { accessedAt: "2026-03-05T14:00:00Z", actorRef: OPERATOR_ID, ip: "10.0.0.12" },
     ],
@@ -757,7 +757,7 @@ export const PROTECTED_ANALYSIS_LINKS: ProtectedAnalysisLink[] = [
     id: "pal-004",
     analysisCardId: "ac-004",
     token: "pal-tok-ac004-demo",
-    expiresAt: "2026-04-08T11:10:00Z",
+    expiresAt: "2026-06-08T11:10:00Z",
     accessLog: [],
   },
   {
