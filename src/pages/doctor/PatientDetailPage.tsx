@@ -126,8 +126,12 @@ export default function PatientDetailPage() {
                   <Field term="Врач" value={userName(lastVisit.doctorId)} />
                   <Field term="Статус" value={VISIT_STATUS[lastVisit.status]} />
                   <Field term="Жалоба" value={lastVisit.complaint} />
-                  <div className="pt-2">
-                    <Button asChild size="sm" className="min-h-10 w-full text-[13px] sm:w-auto">
+                  <div className="pt-3">
+                    <Button
+                      asChild
+                      variant="default"
+                      className="min-h-11 w-full gap-1.5 text-sm font-semibold shadow-sm sm:w-auto sm:min-h-10 sm:px-5"
+                    >
                       <Link to={`/patients/${patient.id}/visits/${lastVisit.id}`}>
                         Открыть приём
                         <ChevronRight className="h-4 w-4" aria-hidden />
