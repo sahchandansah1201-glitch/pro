@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Camera,
@@ -85,26 +85,39 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
   const [zoom, setZoom] = useState(1);
 
   // Fix 1: keep viewer selection in sync with active filters.
-  // If selectedId is not in `filtered`, snap to the first filtered image (or null).
+  // Pure derivation — actual state sync happens in useEffect below.
   const effectiveSelectedId =
     selectedId && filtered.some((i) => i.id === selectedId)
       ? selectedId
       : filtered[0]?.id ?? null;
-  if (effectiveSelectedId !== selectedId) {
-    // Defer state update to after render to avoid setState-in-render warnings.
-    queueMicrotask(() => setSelectedId(effectiveSelectedId));
-  }
 
   const selected = effectiveSelectedId
     ? allImages.find((i) => i.id === effectiveSelectedId) ?? null
     : null;
 
-  // Fix 2: never compare an image with itself.
+  // Fix 2: never compare an image with itself. Pure derivation.
   const effectiveCompareId =
     compareId && compareId !== effectiveSelectedId ? compareId : null;
-  if (effectiveCompareId !== compareId) {
-    queueMicrotask(() => setCompareId(effectiveCompareId));
-  }
+
+  // Sync state to derived values after render.
+  useEffect(() => {
+    if (effectiveSelectedId !== selectedId) {
+      setSelectedId(effectiveSelectedId);
+    }
+  }, [effectiveSelectedId, selectedId]);
+
+  useEffect(() => {
+    if (compareId && compareId === effectiveSelectedId) {
+      setCompareId(null);
+    }
+  }, [compareId, effectiveSelectedId]);
+
+  useEffect(() => {
+    if (compareId && !allImages.some((i) => i.id === compareId)) {
+      setCompareId(null);
+    }
+  }, [compareId, allImages]);
+
   const compare = effectiveCompareId
     ? allImages.find((i) => i.id === effectiveCompareId) ?? null
     : null;
