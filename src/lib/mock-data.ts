@@ -6,6 +6,7 @@
 import {
   AI_SUPPORT_DISCLAIMER,
   RESTRICTIVE_DATA_POLICY,
+  type AnalysisCard,
   type Appointment,
   type Assessment,
   type AuditLog,
@@ -18,6 +19,7 @@ import {
   type Lead,
   type Lesion,
   type Patient,
+  type ProtectedAnalysisLink,
   type Report,
   type Visit,
 } from "@/lib/domain";
