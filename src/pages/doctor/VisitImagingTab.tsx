@@ -232,19 +232,24 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
                       }`}
                     >
                       <ThumbPlaceholder image={img} />
-                      <div className="flex flex-col gap-0.5 px-2 py-1.5">
+                      {/* Patch 3: 3 строки вместо 5 — тип+лесион, источник·дата+чип, issues одной строкой. */}
+                      <div className="flex flex-col gap-1 px-2 py-2">
+                        <div className="flex min-w-0 items-baseline justify-between gap-2">
+                          <span className="truncate text-[13px] font-medium text-foreground">
+                            {KIND_LABEL[img.kind]}
+                          </span>
+                          <span className="shrink-0 truncate text-[12px] text-muted-foreground">
+                            {lesion ? lesion.label : "без привязки"}
+                          </span>
+                        </div>
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-[12px] font-medium">{KIND_LABEL[img.kind]}</span>
+                          <span className="truncate text-[12px] text-muted-foreground">
+                            {SOURCE_LABEL[img.source]} · {formatDateTime(img.capturedAt)}
+                          </span>
                           <QualityChip image={img} compact />
                         </div>
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {lesion ? lesion.label : "Body map / без привязки"}
-                        </div>
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {SOURCE_LABEL[img.source]} · {formatDateTime(img.capturedAt)}
-                        </div>
                         {img.quality.issues.length > 0 && (
-                          <div className="truncate text-[11px] text-warning">
+                          <div className="truncate text-[12px] text-warning">
                             {img.quality.issues.join(", ")}
                           </div>
                         )}
