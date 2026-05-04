@@ -205,18 +205,22 @@ describe("AdminAnalyticsPage — пустые состояния при отсу
   });
 
   it("страница не падает и показывает все ожидаемые пустые состояния", () => {
-    const { getByText } = renderPage(AdminAnalyticsPage);
+    const { getByText, getAllByRole } = renderPage(AdminAnalyticsPage);
 
-    expect(getByText("Нет лидов в выбранном периоде.")).toBeInTheDocument();
-    expect(
-      getByText("Нет источников в выбранном периоде."),
-    ).toBeInTheDocument();
-    expect(getByText("Нет клиник для отображения.")).toBeInTheDocument();
-    expect(
-      getByText("Нет карточек предварительной оценки в периоде."),
-    ).toBeInTheDocument();
-    expect(getByText("Нет снимков в выбранном периоде.")).toBeInTheDocument();
-    expect(getByText("Нет диалогов в выбранном периоде.")).toBeInTheDocument();
+    // Заголовки пустых состояний во всех 6 секциях:
+    expect(getByText("Нет лидов")).toBeInTheDocument();
+    expect(getByText("Нет источников")).toBeInTheDocument();
+    expect(getByText("Нет клиник")).toBeInTheDocument();
+    expect(getByText("Нет карточек предварительной оценки")).toBeInTheDocument();
+    expect(getByText("Нет снимков")).toBeInTheDocument();
+    expect(getByText("Нет диалогов")).toBeInTheDocument();
+
+    // Унифицированные пустые состояния помечены data-empty="true";
+    // 6 секций без данных + 0 лишних.
+    const empties = getAllByRole("status").filter(
+      (el) => el.getAttribute("data-empty") === "true",
+    );
+    expect(empties.length).toBe(6);
   });
 
   it("KPI при пустых данных — нули и 0%", () => {
