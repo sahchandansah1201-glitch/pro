@@ -64,6 +64,7 @@ function StateBlock({
 
 export default function AnalysisPublicPage() {
   const { token = "" } = useParams<{ token: string }>();
+  const [ctaState, setCtaState] = useState<"idle" | "done">("idle");
   const link = getProtectedAnalysisLinkByToken(token);
 
   if (!link) {
