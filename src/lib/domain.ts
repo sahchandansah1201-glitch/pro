@@ -24,7 +24,7 @@ export type ImageSource =
   | "device_bridge"
   | "local_transfer";
 
-export type RiskLevel = "low" | "medium" | "high" | "uncertain";
+export type RiskLevel = "low" | "moderate" | "high" | "urgent";
 
 export type BotChannel = "telegram" | "whatsapp" | "web";
 export type BotDirection = "in" | "out";
