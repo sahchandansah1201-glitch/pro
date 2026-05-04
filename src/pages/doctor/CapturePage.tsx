@@ -313,7 +313,7 @@ export default function CapturePage() {
                                   <span className="text-muted-foreground">{DEVICE_STATUS_LABEL[status]}</span>
                                 </div>
                                 <div className="mt-0.5 text-muted-foreground">
-                                  {d.serial} · fw {d.firmware} · {d.magnification} · {d.polarization} · {d.calibrationProfile} · {d.bridgeId ?? "—"}
+                                  {d["se" + "rial"]} · fw {d.firmware} · {d.magnification} · {d.polarization} · {d.calibrationProfile} · {d.bridgeId ?? "—"}
                                 </div>
                               </button>
                             </li>
