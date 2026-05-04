@@ -49,7 +49,7 @@ describe("AdminIntegrationDetailPage — int-005 messenger integration", () => {
   });
 
   it("безопасный маппинг channel → chat_type отображается как разрешённый", () => {
-    const { container, getByText } = renderInt005();
+    const { container, getAllByText } = renderInt005();
 
     // Левая часть строки маппинга: наше поле `channel` (в <code>).
     const codes = Array.from(container.querySelectorAll("code")).map(
@@ -59,13 +59,7 @@ describe("AdminIntegrationDetailPage — int-005 messenger integration", () => {
     expect(codes).toContain("chat_type");
 
     // Подпись «разрешено» присутствует хотя бы один раз.
-    const { getAllByText } = { getAllByText: (t: string) =>
-      Array.from(container.querySelectorAll("*")).filter(
-        (el) => el.textContent?.trim() === t,
-      ) };
     expect(getAllByText("разрешено").length).toBeGreaterThanOrEqual(1);
-    // gate, чтобы линтер не ругался на неиспользованный getByText
-    void getByText;
   });
 
   it("заблокированные категории (фото, диагноз, AI/XAI, идентификаторы пациента) показаны как закрытые", () => {
