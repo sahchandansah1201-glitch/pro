@@ -129,9 +129,6 @@ export const AnalysisTokenPage = () => {
     />
   );
 };
-export const BotSimPage = () => (
-  <PlaceholderPage title="Симулятор бота" subtitle="Демо messenger-сценария: фото → quality gate → recommendation." />
-);
 export const BotSimMiniAppBookingPage = () => (
   <PlaceholderPage title="Mini App · запись" subtitle="Telegram Mini App: выбор клиники, врача и слота." />
 );
