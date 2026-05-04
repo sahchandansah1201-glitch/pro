@@ -16,6 +16,7 @@ import type {
   PartnerTier,
   RiskLevel,
 } from "@/lib/domain";
+import { resolveEmptyCopy, type EmptyStateKey } from "./analytics-empty-copy";
 
 /**
  * Аналитика клиники (MVP): агрегаты по воронке лидов, источникам,
