@@ -202,30 +202,31 @@
   }
 
   /* Типографическая шкала продуктового UI.
-     Используется вместо россыпи text-[12px]/text-[13px]/text-[15px]. */
+     Patch 1: подняты минимумы для длительной работы врача и больших экранов.
+     row 13→14, meta 12→13, table-th 11→12 без uppercase, заголовки — leading-snug. */
   .h-page {
-    @apply text-[18px] font-semibold leading-tight tracking-[-0.01em];
+    @apply text-[20px] font-semibold leading-snug tracking-normal;
   }
   .h-page-sub {
-    @apply mt-1 text-[12px] text-muted-foreground;
+    @apply mt-1 text-[13px] text-muted-foreground;
   }
   .h-section {
-    @apply text-[13px] font-semibold leading-tight text-foreground;
+    @apply text-[15px] font-semibold leading-snug text-foreground;
   }
   .h-section-hint {
-    @apply text-[11px] font-normal text-muted-foreground;
+    @apply text-[12px] font-normal text-muted-foreground;
   }
   .text-meta {
-    @apply text-[12px] text-muted-foreground;
+    @apply text-[13px] text-muted-foreground;
   }
   .text-row {
-    @apply text-[13px] leading-snug;
+    @apply text-[14px] leading-relaxed;
   }
   .kpi-value {
-    @apply text-[26px] font-semibold leading-none tabular-nums tracking-[-0.02em] text-foreground;
+    @apply text-[28px] font-semibold leading-none tabular-nums tracking-[-0.01em] text-foreground;
   }
   .kpi-label {
-    @apply text-[12px] font-normal text-muted-foreground;
+    @apply text-[13px] font-normal text-muted-foreground;
   }
 
   /* Поверхность карточки без двойной границы: только фон + лёгкая тень.
