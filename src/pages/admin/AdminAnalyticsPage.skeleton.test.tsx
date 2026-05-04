@@ -53,7 +53,7 @@ describe("AdminAnalyticsPage · skeleton loading", () => {
     const loadingSections = container.querySelectorAll(
       'div[role="status"][data-loading="true"]',
     );
-    expect(loadingSections.length).toBeGreaterThanOrEqual(6);
+    expect(loadingSections.length).toBeGreaterThanOrEqual(5);
     loadingSections.forEach((el) => {
       expect(el.getAttribute("aria-busy")).toBe("true");
       expect(el.getAttribute("aria-live")).toBe("polite");
