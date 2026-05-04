@@ -151,7 +151,7 @@ function SectionCard({
   children,
 }: {
   title: string;
-  hint?: string;
+  hint?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
