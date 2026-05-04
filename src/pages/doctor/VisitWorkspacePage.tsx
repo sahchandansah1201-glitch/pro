@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronRight, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 
