@@ -492,27 +492,6 @@ function Silhouette({ view }: { view: View }) {
   );
 }
 
-// ───────── Planned (placeholder) tab ─────────
-
-function PlannedTab({ title, description, badges }: { title: string; description: string; badges: string[] }) {
-  return (
-    <div className="space-y-3">
-      <Section title={title}>
-        <p className="text-[13px]">{description}</p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {badges.map((b) => (
-            <span key={b} className="rounded-sm border border-border bg-surface-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-              {b}
-            </span>
-          ))}
-        </div>
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          Раздел будет реализован в следующих задачах. Решение по диагнозу принимает врач, AI используется только как поддержка.
-        </p>
-      </Section>
-    </div>
-  );
-}
 
 // ───────── Local primitives (mirrored from PatientDetailPage) ─────────
 
