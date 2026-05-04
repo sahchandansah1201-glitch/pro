@@ -84,8 +84,8 @@ export default function PatientDetailPage() {
         </div>
 
         {/* Обзор */}
-        <TabsContent value="overview" className="m-0 p-4">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+        <TabsContent value="overview" className="m-0 px-6 py-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <Section title="Демография" className="lg:col-span-4">
               <Field term="ФИО" value={patient.fullName} />
               <Field term="Код" value={<span className="font-mono">{patient.code}</span>} />
@@ -102,9 +102,9 @@ export default function PatientDetailPage() {
 
             <Section title="Факторы риска" className="lg:col-span-4">
               {patient.riskFactors.length === 0 ? (
-                <div className="text-[12px] text-muted-foreground">Не указаны.</div>
+                <div className="text-meta">Не указаны.</div>
               ) : (
-                <ul className="space-y-1 text-[13px]">
+                <ul className="space-y-1 text-row">
                   {patient.riskFactors.map((rf) => (
                     <li key={rf} className="flex items-start gap-1.5">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
@@ -117,7 +117,7 @@ export default function PatientDetailPage() {
 
             <Section title="Последний визит" className="lg:col-span-6">
               {!lastVisit ? (
-                <div className="text-[12px] text-muted-foreground">Визитов нет.</div>
+                <div className="text-meta">Визитов нет.</div>
               ) : (
                 <>
                   <Field term="Дата" value={formatDateTime(lastVisit.startedAt)} />
@@ -129,7 +129,7 @@ export default function PatientDetailPage() {
               )}
             </Section>
 
-            <Section title="Сводка по образованиям и отчётам" className="lg:col-span-6">
+            <Section title="Образования и отчёты" className="lg:col-span-6">
               <Field term="Всего образований" value={lesions.length} />
               <Field term="Активных / наблюдение" value={`${lesions.filter((l) => l.status === "active").length} / ${lesions.filter((l) => l.status === "monitoring").length}`} />
               <Field term="Всего отчётов" value={reports.length} />
