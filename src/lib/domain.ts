@@ -252,6 +252,61 @@ export interface Lead {
   status: LeadStatus;
   clinicId: string;
   createdAt: string;
+  /**
+   * Опциональная ссылка на защищённую ссылку предварительного бот-анализа (AnalysisCard).
+   * НЕ ссылается на Report.sharedLink: AnalysisCard и Report — раздельные сущности.
+   */
+  protectedAnalysisLinkId?: string;
+}
+
+// ───────── Предварительный бот-анализ (до визита) ─────────
+
+/**
+ * AnalysisCard — предварительная оценка на этапе бот-воронки/претриажа.
+ * НЕ является врачебным заключением и НЕ заменяет Report.
+ */
+export interface AnalysisCard {
+  id: string;
+  dialogId: string;
+  /** Опциональная связь с пациентом, если уже идентифицирован. */
+  patientRef?: string;
+  /** Ссылка на изображение в моковом хранилище. */
+  photoRef: string;
+  qualityGate: {
+    passed: boolean;
+    score: number;
+    issues: string[];
+  };
+  aiSupport: {
+    risk: RiskLevel;
+    /** Уровень неопределённости 0..1. */
+    uncertainty: number;
+    features: string[];
+    modelVersion: string;
+  };
+  /** Безопасный для пациента краткий текст. Без диагноза. */
+  safeSummary: string;
+  routingRisk: RiskLevel;
+  recommendedClinicId: string;
+  ctaType: "book" | "urgent" | "repeat_photo";
+  createdAt: string;
+}
+
+/**
+ * ProtectedAnalysisLink — защищённая ссылка на AnalysisCard.
+ * Используется для передачи во внешние системы (CRM/ERP/MIS) минимального
+ * безопасного контекста. Сами фото и AI-детали по ссылке не передаются.
+ */
+export interface ProtectedAnalysisLink {
+  id: string;
+  analysisCardId: string;
+  token: string;
+  expiresAt: string;
+  accessLog: {
+    accessedAt: string;
+    actorRef?: string;
+    ip?: string;
+  }[];
 }
 
 export interface Appointment {
