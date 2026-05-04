@@ -509,10 +509,10 @@ function ThumbPlaceholder({ image, large = false }: { image: ClinicalImage; larg
       }}
       aria-label={`Плейсхолдер снимка ${KIND_LABEL[image.kind]}`}
     >
-      {/* Наложение, чтобы тайл выглядел клинически и было видно kind/source */}
-      <div className="absolute inset-0 flex items-end justify-between p-2 text-[10px] uppercase tracking-wide text-foreground/70">
-        <span className="rounded-sm bg-surface/80 px-1 py-0.5">{KIND_LABEL[image.kind]}</span>
-        <span className="rounded-sm bg-surface/80 px-1 py-0.5">{SOURCE_LABEL[image.source]}</span>
+      {/* Patch 3: классификационные чипы — outline neutral, без uppercase. */}
+      <div className="absolute inset-0 flex items-end justify-between p-2 text-[11px] font-medium text-foreground/75">
+        <span className="rounded-sm border border-border bg-surface/85 px-1.5 py-0.5">{KIND_LABEL[image.kind]}</span>
+        <span className="rounded-sm border border-border bg-surface/85 px-1.5 py-0.5">{SOURCE_LABEL[image.source]}</span>
       </div>
       {/* Условная «рамка снимка» */}
       <div className="pointer-events-none absolute inset-2 rounded-sm border border-foreground/10" />
