@@ -238,17 +238,24 @@ export default function OperatorConsolePage() {
                 </Card>
               )}
 
-              {selectedLink && (
-                <Card className="p-3 text-[13px]">
-                  <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Защищённая ссылка анализа
-                  </div>
-                  <div className="font-mono text-[11px]">{selectedLink.token}</div>
-                  <div className="text-muted-foreground">
-                    Действует до {formatDateTime(selectedLink.expiresAt)}
-                  </div>
-                </Card>
-              )}
+              {selectedLink && (() => {
+                const selectedLinkActive =
+                  new Date(selectedLink.expiresAt).getTime() > DEMO_NOW.getTime();
+                return (
+                  <Card className="p-3 text-[13px]">
+                    <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Защищённая ссылка анализа
+                    </div>
+                    <div className="font-mono text-[11px]">{selectedLink.token}</div>
+                    <div className="text-muted-foreground">
+                      Действует до {formatDateTime(selectedLink.expiresAt)}
+                    </div>
+                    <div className="mt-1">
+                      Статус: {selectedLinkActive ? "активна" : "истекла"}
+                    </div>
+                  </Card>
+                );
+              })()}
 
               {selectedCard && (
                 <Card className="p-3 text-[13px]">
