@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { type Role, ROLE_BY_ID } from "@/lib/roles";
 
 interface RoleContextValue {
