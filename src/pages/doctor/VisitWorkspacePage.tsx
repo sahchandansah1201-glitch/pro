@@ -16,6 +16,7 @@ import {
 } from "@/lib/mock-data";
 import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
+import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -121,11 +122,7 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="imaging" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <PlannedTab
-            title="Снимки визита"
-            description="Здесь появятся: панель захвата (телефон, камера, Device Bridge, локальный перенос), сетка снимков с qualityScore, фильтры по образованиям и типам, side-by-side и таймлайн."
-            badges={["overview", "dermoscopy", "macro", "body_map"]}
-          />
+          <VisitImagingTab visit={visit} patientId={patient.id} lesions={lesions} />
         </TabsContent>
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
