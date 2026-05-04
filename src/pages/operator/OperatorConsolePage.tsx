@@ -277,11 +277,13 @@ export default function OperatorConsolePage() {
                       </span>
                       <span
                         role="status"
+                        aria-live="polite"
+                        aria-atomic="true"
                         tabIndex={0}
                         aria-label={
                           selectedLinkActive
-                            ? "Защищённая ссылка активна"
-                            : "Защищённая ссылка истекла"
+                            ? `Статус защищённой ссылки: активна, осталось ${remainingLabel}`
+                            : `Статус защищённой ссылки: истекла ${remainingLabel} назад`
                         }
                         className={`inline-flex w-fit max-w-full shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap break-keep rounded-full border px-2 py-0.5 align-middle text-[12px] font-semibold leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           selectedLinkActive
