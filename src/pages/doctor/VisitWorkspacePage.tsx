@@ -18,6 +18,8 @@ import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
+import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
+import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
