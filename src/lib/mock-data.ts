@@ -614,7 +614,7 @@ export const BOT_MESSAGES: BotMessage[] = [
   { id: "bm-003", dialogId: "bd-001", direction: "in",  kind: "photo",  payload: "mock://bot/bd-001/photo-1.jpg",                                      createdAt: "2026-03-01T18:14:00Z" },
   { id: "bm-004", dialogId: "bd-001", direction: "out", kind: "cta",    payload: "Рекомендована очная консультация. Записаться?",                     createdAt: "2026-03-01T18:18:00Z" },
   { id: "bm-005", dialogId: "bd-002", direction: "in",  kind: "text",   payload: "Беспокоит зуд в области родинки.",                                  createdAt: "2026-03-03T09:30:00Z" },
-  { id: "bm-006", dialogId: "bd-002", direction: "system", kind: "system", payload: "Эскалация оператору поддержки.",                                createdAt: "2026-03-03T09:35:00Z" },
+  { id: "bm-006", dialogId: "bd-002", direction: "out", kind: "system", payload: "Эскалация оператору поддержки.",                                   createdAt: "2026-03-03T09:35:00Z" },
   { id: "bm-007", dialogId: "bd-002", direction: "out", kind: "text",   payload: "С вами свяжется оператор клиники.",                                 createdAt: "2026-03-03T09:40:00Z" },
   { id: "bm-008", dialogId: "bd-003", direction: "in",  kind: "text",   payload: "Хочу записаться на приём.",                                          createdAt: "2026-03-05T13:50:00Z" },
   { id: "bm-009", dialogId: "bd-003", direction: "out", kind: "cta",    payload: "Открыть запись в Mini App.",                                         createdAt: "2026-03-05T13:52:00Z" },
