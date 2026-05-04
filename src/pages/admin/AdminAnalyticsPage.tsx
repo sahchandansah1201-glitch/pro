@@ -787,10 +787,21 @@ export default function AdminAnalyticsPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-[13px] font-semibold">Действия</div>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" disabled title="Демо: отключено">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled
+                title="Демо: отключено"
+                className="min-h-[44px] sm:min-h-[36px]"
+              >
                 Экспорт CSV (демо, отключено)
               </Button>
-              <Button size="sm" variant="outline" onClick={onGenerateReport}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onGenerateReport}
+                className="min-h-[44px] sm:min-h-[36px]"
+              >
                 Сформировать отчёт (демо)
               </Button>
             </div>
@@ -799,12 +810,14 @@ export default function AdminAnalyticsPage() {
             Это демо-предпросмотр. Данные не отправляются во внешние системы.
           </div>
           {reportPreview && (
-            <pre
-              aria-label="Безопасный агрегатный предпросмотр отчёта"
-              className="mt-3 max-h-80 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-[12px] leading-relaxed"
-            >
+            <div className="mt-3 max-w-full overflow-auto rounded-md border border-border bg-muted/40">
+              <pre
+                aria-label="Безопасный агрегатный предпросмотр отчёта"
+                className="max-h-80 min-w-0 whitespace-pre p-3 text-[12px] leading-relaxed"
+              >
 {reportPreview}
-            </pre>
+              </pre>
+            </div>
           )}
         </Card>
       </div>
