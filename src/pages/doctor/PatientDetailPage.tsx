@@ -125,6 +125,14 @@ export default function PatientDetailPage() {
                   <Field term="Врач" value={userName(lastVisit.doctorId)} />
                   <Field term="Статус" value={VISIT_STATUS[lastVisit.status]} />
                   <Field term="Жалоба" value={lastVisit.complaint} />
+                  <div className="pt-2">
+                    <Button asChild size="sm" className="min-h-10 w-full text-[13px] sm:w-auto">
+                      <Link to={`/patients/${patient.id}/visits/${lastVisit.id}`}>
+                        Открыть приём
+                        <ChevronRight className="h-4 w-4" aria-hidden />
+                      </Link>
+                    </Button>
+                  </div>
                 </>
               )}
             </Section>
@@ -153,7 +161,7 @@ export default function PatientDetailPage() {
                       <th>Жалоба</th>
                       <th className="w-[180px]">Клиника</th>
                       <th className="w-[200px]">Врач</th>
-                      <th className="w-[40px]" aria-label="Действие" />
+                      <th className="w-[120px]" aria-label="Действие" />
                     </tr>
                   </thead>
                   <tbody>
@@ -165,13 +173,15 @@ export default function PatientDetailPage() {
                         <td className="text-[12px] text-muted-foreground">{getClinicById(v.clinicId)?.name ?? "—"}</td>
                         <td className="text-[12px] text-muted-foreground">{userName(v.doctorId)}</td>
                         <td>
-                          <Link
-                            to={`/patients/${patient.id}/visits/${v.id}`}
-                            aria-label={`Открыть визит ${v.id}`}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
-                          >
-                            <ChevronRight className="h-4 w-4" aria-hidden />
-                          </Link>
+                          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+                            <Link
+                              to={`/patients/${patient.id}/visits/${v.id}`}
+                              aria-label={`Открыть визит ${v.id}`}
+                            >
+                              Открыть
+                              <ChevronRight className="h-4 w-4" aria-hidden />
+                            </Link>
+                          </Button>
                         </td>
                       </tr>
                     ))}
