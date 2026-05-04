@@ -120,13 +120,11 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Capture toolbar + summary */}
-      <section className="surface-card">
+      {/* Patch 3: Capture toolbar — приглушённый фон без тени, отделяет управляющую зону. */}
+      <section className="surface-toolbar">
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Захват
-            </span>
+            <span className="mr-1 text-[12px] font-medium text-muted-foreground">Захват</span>
             <CaptureBtn icon={<Smartphone className="h-3.5 w-3.5" />} label="Телефон" onClick={() => showCaptureNotice("Телефон")} />
             <CaptureBtn icon={<FileUp className="h-3.5 w-3.5" />} label="Файл" onClick={() => showCaptureNotice("Файл")} />
             <CaptureBtn icon={<HardDrive className="h-3.5 w-3.5" />} label="Device Bridge" onClick={() => showCaptureNotice("Device Bridge")} />
@@ -135,61 +133,69 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
           <SummaryStrip summary={summary} />
         </div>
         {captureNotice && (
-          <div className="border-t border-border bg-surface-muted px-3 py-1.5 text-[12px] text-muted-foreground">
+          <div className="border-t border-border bg-surface px-3 py-1.5 text-[12px] text-muted-foreground">
             {captureNotice}
           </div>
         )}
       </section>
 
-      {/* Filters */}
-      <section className="surface-card">
-        <div className="flex flex-wrap items-end gap-x-3 gap-y-2 px-3 py-2">
-          <FilterSelect
-            label="Образование"
-            value={lesionFilter}
-            onChange={setLesionFilter}
-            options={[
-              { value: "all", label: "Все образования" },
-              { value: "unlinked", label: "Body map / без привязки" },
-              ...lesions.map((l) => ({ value: l.id, label: `${l.label} · ${l.bodyZone}` })),
-            ]}
-          />
-          <FilterSelect
-            label="Тип"
-            value={kindFilter}
-            onChange={(v) => setKindFilter(v as KindFilter)}
-            options={[
-              { value: "all", label: "Все" },
-              { value: "overview", label: "Обзор" },
-              { value: "dermoscopy", label: "Дерматоскопия" },
-              { value: "macro", label: "Макро" },
-              { value: "body_map", label: "Body map" },
-            ]}
-          />
-          <FilterSelect
-            label="Источник"
-            value={sourceFilter}
-            onChange={(v) => setSourceFilter(v as SourceFilter)}
-            options={[
-              { value: "all", label: "Все" },
-              { value: "phone", label: "Телефон" },
-              { value: "camera", label: "Камера" },
-              { value: "device_bridge", label: "Device Bridge" },
-              { value: "local_transfer", label: "Локальный перенос" },
-              { value: "file", label: "Файл" },
-            ]}
-          />
-          <FilterSelect
-            label="Качество"
-            value={qualityFilter}
-            onChange={(v) => setQualityFilter(v as QualityFilter)}
-            options={[
-              { value: "all", label: "Все" },
-              { value: "needs_review", label: "Требуют проверки" },
-            ]}
-          />
-          <div className="ml-auto text-[12px] text-muted-foreground">
-            Показано {filtered.length} из {allImages.length}
+      {/* Patch 3: Filters — 2 группы (Что показывать | Откуда/качество), разделитель + счётчик справа. */}
+      <section className="surface-toolbar">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2 px-3 py-2">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <FilterSelect
+              label="Образование"
+              value={lesionFilter}
+              onChange={setLesionFilter}
+              options={[
+                { value: "all", label: "Все образования" },
+                { value: "unlinked", label: "Body map / без привязки" },
+                ...lesions.map((l) => ({ value: l.id, label: `${l.label} · ${l.bodyZone}` })),
+              ]}
+            />
+            <FilterSelect
+              label="Тип"
+              value={kindFilter}
+              onChange={(v) => setKindFilter(v as KindFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "overview", label: "Обзор" },
+                { value: "dermoscopy", label: "Дерматоскопия" },
+                { value: "macro", label: "Макро" },
+                { value: "body_map", label: "Body map" },
+              ]}
+            />
+          </div>
+
+          <div className="hidden h-8 w-px self-end bg-border md:block" aria-hidden />
+
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <FilterSelect
+              label="Источник"
+              value={sourceFilter}
+              onChange={(v) => setSourceFilter(v as SourceFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "phone", label: "Телефон" },
+                { value: "camera", label: "Камера" },
+                { value: "device_bridge", label: "Device Bridge" },
+                { value: "local_transfer", label: "Локальный перенос" },
+                { value: "file", label: "Файл" },
+              ]}
+            />
+            <FilterSelect
+              label="Качество"
+              value={qualityFilter}
+              onChange={(v) => setQualityFilter(v as QualityFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "needs_review", label: "Требуют проверки" },
+              ]}
+            />
+          </div>
+
+          <div className="ml-auto self-end text-[13px] tabular-nums text-muted-foreground">
+            Показано <span className="font-semibold text-foreground">{filtered.length}</span> из {allImages.length}
           </div>
         </div>
       </section>
