@@ -403,7 +403,7 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
 
 function CaptureBtn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <Button size="sm" variant="secondary" className="h-8 gap-1.5 text-[12px]" onClick={onClick}>
+    <Button size="sm" variant="secondary" className="h-10 gap-1.5 text-[13px] sm:h-8 sm:text-[12px]" onClick={onClick}>
       {icon}
       {label}
     </Button>
