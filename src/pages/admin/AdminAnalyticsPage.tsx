@@ -203,6 +203,10 @@ export default function AdminAnalyticsPage() {
   );
   const [reportPreview, setReportPreview] = useState<string | null>(null);
 
+  const rangeLabel =
+    RANGES.find((r) => r.key === range)?.label ?? "выбранный период";
+  const emptyHint = `Нет данных за период «${rangeLabel}». Попробуйте выбрать другой диапазон.`;
+
   const all = useMemo(() => {
     const leads = getLeads();
     const appointments = getAppointments();
