@@ -176,9 +176,11 @@ function SectionCard({
 function EmptyState({
   title,
   hint,
+  action,
 }: {
   title: string;
   hint?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div
@@ -192,6 +194,7 @@ function EmptyState({
       {hint && (
         <div className="text-[11px] text-muted-foreground">{hint}</div>
       )}
+      {action && <div className="mt-2">{action}</div>}
     </div>
   );
 }
