@@ -16,10 +16,10 @@ import DeskPage from "./pages/doctor/DeskPage";
 import PatientsPage from "./pages/doctor/PatientsPage";
 import PatientDetailPage from "./pages/doctor/PatientDetailPage";
 import VisitWorkspacePage from "./pages/doctor/VisitWorkspacePage";
+import CapturePage from "./pages/doctor/CapturePage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
-  CapturePage,
   // Clinic admin
   AdminHomePage,
   AdminDoctorsPage,
