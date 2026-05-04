@@ -23,6 +23,7 @@ import OperatorConsolePage from "./pages/operator/OperatorConsolePage";
 import OperatorDialogPage from "./pages/operator/OperatorDialogPage";
 import AdminIntegrationsPage from "./pages/admin/AdminIntegrationsPage";
 import AdminIntegrationDetailPage from "./pages/admin/AdminIntegrationDetailPage";
+import AdminBotSettingsPage from "./pages/admin/AdminBotSettingsPage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
@@ -31,7 +32,6 @@ import {
   AdminDoctorsPage,
   AdminServicesPage,
   AdminClinicsPage,
-  AdminBotPage,
   AdminAnalyticsPage,
   // Operator placeholders removed — real pages used
 
