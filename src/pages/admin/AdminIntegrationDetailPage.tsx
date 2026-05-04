@@ -27,7 +27,7 @@ const STATUS_LABEL: Record<IntegrationStatus, string> = {
  * Allowlist безопасных source-полей, которые разрешено показывать в маппинге.
  * Любые иные ключи интерпретируются как чувствительные и не выводятся в UI.
  */
-const ALLOWED_SOURCE_FIELDS = new Set<string>([
+export const ALLOWED_SOURCE_FIELDS = new Set<string>([
   "source",
   "utmSource",
   "pipeline",
