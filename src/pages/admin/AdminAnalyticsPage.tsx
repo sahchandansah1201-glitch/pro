@@ -648,7 +648,9 @@ export default function AdminAnalyticsPage() {
             title="Распределение по риску"
             hint="по предварительному маршруту бот-воронки"
           >
-            {totalCards === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : totalCards === 0 ? (
               renderEmpty("analysisCards")
             ) : (
               <ul className="space-y-3">
