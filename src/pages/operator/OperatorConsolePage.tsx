@@ -272,13 +272,12 @@ export default function OperatorConsolePage() {
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className="text-[12px] text-muted-foreground" id="protected-link-status-label">
+                      <span className="text-[12px] text-muted-foreground" aria-hidden="true">
                         Статус:
                       </span>
                       <span
                         role="status"
                         tabIndex={0}
-                        aria-labelledby="protected-link-status-label"
                         aria-label={
                           selectedLinkActive
                             ? "Защищённая ссылка активна"
@@ -290,11 +289,9 @@ export default function OperatorConsolePage() {
                             : "border-[hsl(0_75%_36%)] bg-[hsl(0_75%_36%)] text-white"
                         }`}
                       >
-                        <span
-                          aria-hidden="true"
-                          className="h-1.5 w-1.5 rounded-full bg-current"
-                        />
-                        {selectedLinkActive ? "активна" : "истекла"}
+                        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {/* Видимая короткая метка скрыта от AT — полный смысл уже есть в aria-label */}
+                        <span aria-hidden="true">{selectedLinkActive ? "активна" : "истекла"}</span>
                       </span>
                     </div>
                     <div className="mt-3">
