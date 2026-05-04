@@ -21,12 +21,11 @@ describe("OperatorConsolePage protected link status badge a11y", () => {
 
   it("после выбора bd-002: role=status и aria-label про активную ссылку", () => {
     renderPage();
-    // Кликаем по элементу со ссылкой bd-002 в списке диалогов.
-    const bd002Trigger = screen
-      .getAllByText(/bd-002/i)
-      .find((el) => el.closest("button")) as HTMLElement | undefined;
-    expect(bd002Trigger).toBeTruthy();
-    fireEvent.click(bd002Trigger!.closest("button") as HTMLElement);
+    // Карточка диалога — div с onClick, не button.
+    const bd002Label = screen.getAllByText("bd-002")[0];
+    const card = bd002Label.closest("div.cursor-pointer") as HTMLElement | null;
+    expect(card).toBeTruthy();
+    fireEvent.click(card!);
 
     const badge = screen.getByLabelText("Защищённая ссылка активна");
     expect(badge).toHaveAttribute("role", "status");
