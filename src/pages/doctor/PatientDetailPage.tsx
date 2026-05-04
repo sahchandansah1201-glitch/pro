@@ -139,37 +139,39 @@ export default function PatientDetailPage() {
         </TabsContent>
 
         {/* Визиты */}
-        <TabsContent value="visits" className="m-0 p-4">
+        <TabsContent value="visits" className="m-0 px-6 py-6">
           {visits.length === 0 ? (
             <Empty text="Визитов у пациента пока нет." />
           ) : (
-            <div className="overflow-hidden rounded-md border border-border bg-surface">
+            <div className="surface-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th className="w-[140px]">Дата</th>
+                      <th className="w-[160px]">Дата</th>
                       <th className="w-[110px]">Статус</th>
                       <th>Жалоба</th>
-                      <th className="w-[160px]">Клиника</th>
-                      <th className="w-[180px]">Врач</th>
-                      <th className="w-[60px]" aria-label="Действие" />
+                      <th className="w-[180px]">Клиника</th>
+                      <th className="w-[200px]">Врач</th>
+                      <th className="w-[40px]" aria-label="Действие" />
                     </tr>
                   </thead>
                   <tbody>
                     {visits.map((v) => (
                       <tr key={v.id}>
-                        <td className="text-[12px] text-muted-foreground">{formatDateTime(v.startedAt)}</td>
+                        <td className="text-[12px] text-muted-foreground tabular-nums">{formatDateTime(v.startedAt)}</td>
                         <td>{VISIT_STATUS[v.status]}</td>
                         <td className="max-w-[420px] truncate">{v.complaint}</td>
                         <td className="text-[12px] text-muted-foreground">{getClinicById(v.clinicId)?.name ?? "—"}</td>
                         <td className="text-[12px] text-muted-foreground">{userName(v.doctorId)}</td>
                         <td>
-                          <Button asChild size="sm" variant="ghost" className="h-7 text-[12px]">
-                            <Link to={`/patients/${patient.id}/visits/${v.id}`} aria-label={`Открыть визит ${v.id}`}>
-                              <ChevronRight className="h-4 w-4" aria-hidden />
-                            </Link>
-                          </Button>
+                          <Link
+                            to={`/patients/${patient.id}/visits/${v.id}`}
+                            aria-label={`Открыть визит ${v.id}`}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+                          >
+                            <ChevronRight className="h-4 w-4" aria-hidden />
+                          </Link>
                         </td>
                       </tr>
                     ))}
