@@ -239,8 +239,14 @@ export default function OperatorConsolePage() {
               )}
 
               {selectedLink && (() => {
-                const selectedLinkActive =
-                  new Date(selectedLink.expiresAt).getTime() > DEMO_NOW.getTime();
+                const expiresMs = new Date(selectedLink.expiresAt).getTime();
+                const diffMs = expiresMs - DEMO_NOW.getTime();
+                const selectedLinkActive = diffMs > 0;
+                const absMs = Math.abs(diffMs);
+                const hours = Math.round(absMs / 3_600_000);
+                const days = Math.round(absMs / 86_400_000);
+                const remainingLabel =
+                  absMs >= 86_400_000 ? `${days} дн.` : `${hours} ч.`;
                 return (
                   <Card className="p-3 text-[13px]">
                     <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -249,6 +255,10 @@ export default function OperatorConsolePage() {
                     <div className="font-mono text-[11px]">{selectedLink.token}</div>
                     <div className="text-muted-foreground">
                       Действует до {formatDateTime(selectedLink.expiresAt)}
+                      {" · "}
+                      <span className={selectedLinkActive ? "text-foreground" : "text-destructive"}>
+                        {selectedLinkActive ? `осталось ${remainingLabel}` : `истекла ${remainingLabel} назад`}
+                      </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <span className="text-[12px] text-muted-foreground">Статус:</span>
