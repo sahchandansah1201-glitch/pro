@@ -611,7 +611,7 @@ export default function AdminAnalyticsPage() {
           {/* Bot dialog states */}
           <SectionCard title="Состояния бот-диалогов">
             {data.dialogs.length === 0 ? (
-              <EmptyState text="Нет диалогов в выбранном периоде." />
+              <EmptyState title="Нет диалогов" hint={emptyHint} />
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {dialogStates.map((s) => (
