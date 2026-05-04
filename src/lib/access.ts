@@ -6,7 +6,7 @@
 import { ALL_ROLES, type Role } from "@/lib/roles";
 
 const CLINICAL: Role[] = ["doctor", "assistant", "private_doctor"];
-const ADMIN_ZONE: Role[] = ["clinic_admin", "private_doctor", "system_admin"];
+const ADMIN_ZONE: Role[] = ["clinic_admin", "private_doctor"];
 
 /**
  * Карта prefix → разрешённые роли.

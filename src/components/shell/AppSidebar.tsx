@@ -16,6 +16,9 @@ import {
   CalendarPlus,
   Bell,
   HelpCircle,
+  ClipboardList,
+  ScanSearch,
+  MessagesSquare,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -56,6 +59,8 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
         { title: "Пациенты", url: "/patients", icon: Users },
+        { title: "Визиты", url: "/patients/demo/visits/demo", icon: ClipboardList },
+        { title: "Образования", url: "/patients/demo/lesions/demo", icon: ScanSearch },
         { title: "Съёмка", url: "/capture", icon: Camera },
       ],
     },
@@ -108,6 +113,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       label: "Поддержка",
       items: [
         { title: "Очередь диалогов", url: "/operator", icon: Headphones },
+        { title: "Диалог", url: "/operator/dialogs/demo", icon: MessagesSquare },
       ],
     },
   ],
@@ -127,6 +133,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       label: "Кабинет",
       items: [
         { title: "Главная", url: "/me", icon: LayoutDashboard },
+        { title: "Отчёты", url: "/me/reports/demo", icon: FileText },
         { title: "Запись", url: "/me/booking", icon: CalendarPlus },
         { title: "Напоминания", url: "/me/reminders", icon: Bell },
       ],
