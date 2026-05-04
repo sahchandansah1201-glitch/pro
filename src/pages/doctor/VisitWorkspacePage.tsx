@@ -86,13 +86,35 @@ export default function VisitWorkspacePage() {
   const lesions = getLesionsByPatientId(patient.id);
   const clinic = getClinicById(visit.clinicId);
 
+  const headerMeta: Array<{ label: string; value: string }> = [
+    { label: "Код", value: patient.code },
+    { label: "Пол / возраст", value: `${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет` },
+    { label: "Фототип", value: String(patient.phototype) },
+    { label: "Статус", value: VISIT_STATUS[visit.status] },
+    { label: "Клиника", value: clinic?.name ?? "—" },
+    { label: "Врач", value: userName(visit.doctorId) },
+  ];
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         title={`${patient.fullName} · Визит ${formatDate(visit.startedAt)}`}
         subtitle={
-          `${patient.code} · ${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет · фототип ${patient.phototype}` +
-          ` · ${VISIT_STATUS[visit.status]} · ${clinic?.name ?? "—"} · ${userName(visit.doctorId)}`
+          <>
+            {/* Mobile: 2-column scannable grid */}
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px] sm:hidden">
+              {headerMeta.map((m) => (
+                <div key={m.label} className="min-w-0">
+                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{m.label}</dt>
+                  <dd className="truncate text-foreground">{m.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {/* Desktop: dense one-line */}
+            <p className="hidden h-page-sub sm:block">
+              {headerMeta.map((m) => m.value).join(" · ")}
+            </p>
+          </>
         }
         actions={
           <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
@@ -103,13 +125,13 @@ export default function VisitWorkspacePage() {
 
       <Tabs defaultValue="intake" className="flex min-h-0 flex-1 flex-col">
         <div className="border-b border-border bg-surface px-3">
-          <TabsList className="h-9 overflow-x-auto bg-transparent p-0">
-            <TabsTrigger value="intake" className="text-[12px]">Интейк</TabsTrigger>
-            <TabsTrigger value="bodymap" className="text-[12px]">Body map</TabsTrigger>
-            <TabsTrigger value="imaging" className="text-[12px]">Снимки</TabsTrigger>
-            <TabsTrigger value="assessment" className="text-[12px]">Оценка</TabsTrigger>
-            <TabsTrigger value="conclusion" className="text-[12px]">Заключение</TabsTrigger>
-            <TabsTrigger value="report" className="text-[12px]">Отчёт</TabsTrigger>
+          <TabsList className="h-auto overflow-x-auto bg-transparent p-0 sm:h-9">
+            <TabsTrigger value="intake" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Интейк</TabsTrigger>
+            <TabsTrigger value="bodymap" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Body map</TabsTrigger>
+            <TabsTrigger value="imaging" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Снимки</TabsTrigger>
+            <TabsTrigger value="assessment" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Оценка</TabsTrigger>
+            <TabsTrigger value="conclusion" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Заключение</TabsTrigger>
+            <TabsTrigger value="report" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Отчёт</TabsTrigger>
           </TabsList>
         </div>
 
