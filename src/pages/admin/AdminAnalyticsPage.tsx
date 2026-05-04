@@ -230,24 +230,40 @@ export default function AdminAnalyticsPage() {
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [data.leads]);
 
-  // Clinics routing
+  // Clinics routing (агрегаты, без персональных данных)
   const byClinic = useMemo(() => {
-    return data.clinics
-      .map((c) => {
-        const leadsForClinic = data.leads.filter((l) => l.clinicId === c.id);
-        const bookedForClinic = leadsForClinic.filter((l) => l.status === "booked").length;
-        return {
-          id: c.id,
-          name: c.name,
-          partnerTier: c.partnerTier,
-          routingPriority: c.routingPriority,
-          leads: leadsForClinic.length,
-          booked: bookedForClinic,
-          conv: pct(bookedForClinic, leadsForClinic.length),
-        };
-      })
-      .sort((a, b) => a.routingPriority - b.routingPriority);
-  }, [data.clinics, data.leads]);
+    const rows = data.clinics.map((c) => {
+      const leadsForClinic = data.leads.filter((l) => l.clinicId === c.id);
+      const bookedForClinic = leadsForClinic.filter(
+        (l) => l.status === "booked",
+      ).length;
+      return {
+        id: c.id,
+        name: c.name,
+        partnerTier: c.partnerTier,
+        routingPriority: c.routingPriority,
+        leads: leadsForClinic.length,
+        booked: bookedForClinic,
+        conv: pct(bookedForClinic, leadsForClinic.length),
+      };
+    });
+    if (clinicSort === "conversion") {
+      // По убыванию конверсии; tie-break: больше лидов → выше приоритет (меньше число).
+      rows.sort(
+        (a, b) =>
+          b.conv - a.conv ||
+          b.leads - a.leads ||
+          a.routingPriority - b.routingPriority,
+      );
+    } else {
+      // По возрастанию routingPriority (1 — самый высокий приоритет).
+      rows.sort(
+        (a, b) =>
+          a.routingPriority - b.routingPriority || b.conv - a.conv,
+      );
+    }
+    return rows;
+  }, [data.clinics, data.leads, clinicSort]);
 
   // Risk distribution
   const riskDist = useMemo(() => {
