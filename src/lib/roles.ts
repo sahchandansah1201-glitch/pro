@@ -15,19 +15,23 @@ export interface RoleMeta {
   label: string;
   short: string;
   description: string;
+  /** Стартовый маршрут роли — куда редиректит "/". */
+  home: string;
 }
 
 export const ROLES: RoleMeta[] = [
-  { id: "doctor", label: "Дерматолог", short: "Врач", description: "Визиты, дерматоскопия, заключение." },
-  { id: "assistant", label: "Ассистент", short: "Ассистент", description: "Съёмка и контроль качества фото." },
-  { id: "clinic_admin", label: "Администратор клиники", short: "Админ клиники", description: "Расписание, услуги, лиды, интеграции." },
-  { id: "private_doctor", label: "Частный врач", short: "Частный врач", description: "Упрощённый режим врач + админ." },
-  { id: "patient", label: "Пациент", short: "Пациент", description: "Портал пациента, отчёты, напоминания." },
-  { id: "operator", label: "Оператор поддержки", short: "Оператор", description: "Диалоги бота, эскалация к врачу." },
-  { id: "system_admin", label: "Системный администратор", short: "Сисадмин", description: "Пользователи, устройства, аудит." },
+  { id: "doctor",         label: "Дерматолог",                short: "Врач",          description: "Визиты, дерматоскопия, заключение.", home: "/desk" },
+  { id: "assistant",      label: "Ассистент",                 short: "Ассистент",     description: "Съёмка и контроль качества фото.",  home: "/capture" },
+  { id: "clinic_admin",   label: "Администратор клиники",     short: "Админ клиники", description: "Расписание, услуги, лиды, интеграции.", home: "/admin" },
+  { id: "private_doctor", label: "Частный врач",              short: "Частный врач",  description: "Упрощённый режим врач + админ.",     home: "/desk" },
+  { id: "patient",        label: "Пациент",                   short: "Пациент",       description: "Портал пациента, отчёты, напоминания.", home: "/me" },
+  { id: "operator",       label: "Оператор поддержки",        short: "Оператор",      description: "Диалоги бота, эскалация к врачу.",  home: "/operator" },
+  { id: "system_admin",   label: "Системный администратор",   short: "Сисадмин",      description: "Пользователи, устройства, аудит.",   home: "/sys/users" },
 ];
 
 export const ROLE_BY_ID: Record<Role, RoleMeta> = ROLES.reduce(
   (acc, r) => ({ ...acc, [r.id]: r }),
   {} as Record<Role, RoleMeta>,
 );
+
+export const ALL_ROLES: Role[] = ROLES.map((r) => r.id);
