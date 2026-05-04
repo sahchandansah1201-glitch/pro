@@ -335,7 +335,7 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
           <ol className="divide-y divide-border">
             {allImages.map((img) => {
               const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
-              const isSel = img.id === selectedId;
+              const isSel = img.id === effectiveSelectedId;
               return (
                 <li key={img.id}>
                   <button
