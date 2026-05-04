@@ -567,7 +567,7 @@ export default function AdminAnalyticsPage() {
             hint="по предварительному маршруту бот-воронки"
           >
             {totalCards === 0 ? (
-              <EmptyState text="Нет карточек предварительной оценки в периоде." />
+              <EmptyState title="Нет карточек предварительной оценки" hint={emptyHint} />
             ) : (
               <ul className="space-y-3">
                 {riskDist.map((r) => (
