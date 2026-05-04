@@ -11,12 +11,18 @@ const RoleContext = createContext<RoleContextValue | null>(null);
 const STORAGE_KEY = "derma-pro:demo-role";
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role>("doctor");
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY) as Role | null;
-    if (saved && ROLE_BY_ID[saved]) setRoleState(saved);
-  }, []);
+  // Lazy initializer — читаем сохранённую демо-роль синхронно до первого рендера,
+  // чтобы редирект "/" сразу вёл на стартовый маршрут нужной роли.
+  const [role, setRoleState] = useState<Role>(() => {
+    if (typeof window === "undefined") return "doctor";
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY) as Role | null;
+      if (saved && ROLE_BY_ID[saved]) return saved;
+    } catch {
+      // ignore
+    }
+    return "doctor";
+  });
 
   const setRole = (r: Role) => {
     setRoleState(r);
