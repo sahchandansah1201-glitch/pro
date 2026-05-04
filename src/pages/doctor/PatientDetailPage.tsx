@@ -39,6 +39,7 @@ function userName(id: string | null | undefined): string {
 }
 
 export default function PatientDetailPage() {
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const patient = id ? getPatientById(id) : undefined;
 
