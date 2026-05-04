@@ -24,6 +24,7 @@ import OperatorDialogPage from "./pages/operator/OperatorDialogPage";
 import AdminIntegrationsPage from "./pages/admin/AdminIntegrationsPage";
 import AdminIntegrationDetailPage from "./pages/admin/AdminIntegrationDetailPage";
 import AdminBotSettingsPage from "./pages/admin/AdminBotSettingsPage";
+import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
