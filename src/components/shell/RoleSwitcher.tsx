@@ -14,20 +14,20 @@ import { UserCog } from "lucide-react";
  * Используется только для демонстрации интерфейса разных ролей.
  */
 export function RoleSwitcher() {
-  const { role, setRole, label } = useRole();
+  const { role, setRole, label, currentUser } = useRole();
 
   return (
-    <div className="flex items-center gap-2">
-      <UserCog className="h-4 w-4 text-muted-foreground" aria-hidden />
+    <div className="flex min-w-0 items-center gap-2">
+      <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       <Select value={role} onValueChange={(v) => setRole(v as Role)}>
         <SelectTrigger
-          className="h-8 w-[200px] text-[12px]"
-          aria-label="Демо-режим. Доступ не является реальной защитой. Сменить роль."
-          title="Демо-режим. Доступ не является реальной защитой."
+          className="h-8 w-[160px] text-[12px] sm:w-[220px]"
+          aria-label="Демо-режим. Доступ не является реальной защитой. Сменить роль/пользователя."
+          title={`Демо-режим. ${currentUser.fullName} · ${label}`}
         >
           {/* Кастомный value, чтобы не наследовать многострочный SelectItem и не обрезаться */}
           <SelectValue>
-            <span className="truncate">{label}</span>
+            <span className="block truncate">{label}</span>
           </SelectValue>
         </SelectTrigger>
         <SelectContent>

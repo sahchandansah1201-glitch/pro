@@ -3,16 +3,19 @@ import { Stethoscope, ShieldAlert } from "lucide-react";
 
 import { useRole } from "@/context/RoleContext";
 import { ROLES, ROLE_BY_ID, type Role } from "@/lib/roles";
+import { DEMO_USERS } from "@/lib/users";
 import { Button } from "@/components/ui/button";
 
 /**
- * Демо-логин с выбором роли. UX-симуляция, не настоящая авторизация.
+ * Демо-логин с выбором роли/пользователя. UX-симуляция, не настоящая авторизация.
+ * Реальный auth появится при подключении Lovable Cloud.
  */
 export default function LoginPage() {
   const navigate = useNavigate();
   const { setRole } = useRole();
 
   const pick = (r: Role) => {
+    // setRole сохраняет роль в localStorage и синхронизирует currentUser.
     setRole(r);
     navigate(ROLE_BY_ID[r].home, { replace: true });
   };
@@ -45,19 +48,27 @@ export default function LoginPage() {
           Войти как
         </div>
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {ROLES.map((r) => (
-            <Button
-              key={r.id}
-              variant="outline"
-              className="h-auto justify-start py-2 text-left"
-              onClick={() => pick(r.id)}
-            >
-              <div className="flex flex-col">
-                <span className="text-[13px] font-medium">{r.label}</span>
-                <span className="text-[11px] text-muted-foreground">{r.description}</span>
-              </div>
-            </Button>
-          ))}
+          {ROLES.map((r) => {
+            const u = DEMO_USERS[r.id];
+            return (
+              <Button
+                key={r.id}
+                variant="outline"
+                className="h-auto justify-start py-2 text-left"
+                onClick={() => pick(r.id)}
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-[13px] font-medium">{r.label}</span>
+                  <span className="truncate text-[11px] text-muted-foreground">
+                    {u.fullName}
+                  </span>
+                  <span className="truncate text-[11px] text-muted-foreground/80">
+                    {u.email}
+                  </span>
+                </div>
+              </Button>
+            );
+          })}
         </div>
       </div>
     </div>
