@@ -540,7 +540,7 @@ export default function AdminAnalyticsPage() {
             }
           >
             {byClinic.length === 0 ? (
-              <EmptyState title="Нет клиник" hint="Добавьте клиники в справочнике, чтобы увидеть маршрутизацию." />
+              renderEmpty("clinics")
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
                 {byClinic.map((c) => (
