@@ -499,19 +499,25 @@ export default function AdminAnalyticsPage() {
 
         {/* KPI row */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <KpiCard label="Лиды" value={totalLeads} />
-          <KpiCard label="Квалифицированы" value={qualifiedLeads} />
-          <KpiCard label="Записаны" value={bookedLeads} />
-          <KpiCard label="Визиты" value={visits} hint="завершённые приёмы" />
-          <KpiCard
-            label="Конверсия лид → запись"
-            value={fmtPct(conversionLeadToBooking)}
-          />
-          <KpiCard
-            label="Высокий / срочный маршрут"
-            value={highOrUrgent}
-            hint="по предварительной оценке"
-          />
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => <KpiSkeleton key={i} />)
+          ) : (
+            <>
+              <KpiCard label="Лиды" value={totalLeads} />
+              <KpiCard label="Квалифицированы" value={qualifiedLeads} />
+              <KpiCard label="Записаны" value={bookedLeads} />
+              <KpiCard label="Визиты" value={visits} hint="завершённые приёмы" />
+              <KpiCard
+                label="Конверсия лид → запись"
+                value={fmtPct(conversionLeadToBooking)}
+              />
+              <KpiCard
+                label="Высокий / срочный маршрут"
+                value={highOrUrgent}
+                hint="по предварительной оценке"
+              />
+            </>
+          )}
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
