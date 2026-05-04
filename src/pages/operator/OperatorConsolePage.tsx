@@ -272,10 +272,10 @@ export default function OperatorConsolePage() {
                             ? "Защищённая ссылка активна"
                             : "Защищённая ссылка истекла"
                         }
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[12px] font-semibold leading-tight ${
                           selectedLinkActive
-                            ? "border-success bg-success text-success-foreground"
-                            : "border-destructive bg-destructive text-destructive-foreground"
+                            ? "border-[hsl(158_70%_24%)] bg-[hsl(158_70%_24%)] text-white"
+                            : "border-[hsl(0_75%_36%)] bg-[hsl(0_75%_36%)] text-white"
                         }`}
                       >
                         <span
