@@ -19,6 +19,8 @@ import VisitWorkspacePage from "./pages/doctor/VisitWorkspacePage";
 import CapturePage from "./pages/doctor/CapturePage";
 import BotSimPage from "./pages/bot/BotSimPage";
 import BotMiniAppBookingPage from "./pages/bot/BotMiniAppBookingPage";
+import OperatorConsolePage from "./pages/operator/OperatorConsolePage";
+import OperatorDialogPage from "./pages/operator/OperatorDialogPage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
