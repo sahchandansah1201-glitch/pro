@@ -272,18 +272,12 @@ export default function OperatorConsolePage() {
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className="text-[12px] text-muted-foreground" id="protected-link-status-label">
+                      <span className="text-[12px] text-muted-foreground" aria-hidden="true">
                         Статус:
                       </span>
                       <span
                         role="status"
                         tabIndex={0}
-                        aria-labelledby="protected-link-status-label"
-                        aria-label={
-                          selectedLinkActive
-                            ? "Защищённая ссылка активна"
-                            : "Защищённая ссылка истекла"
-                        }
                         className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[12px] font-semibold leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                           selectedLinkActive
                             ? "border-[hsl(158_70%_24%)] bg-[hsl(158_70%_24%)] text-white"
@@ -294,7 +288,9 @@ export default function OperatorConsolePage() {
                           aria-hidden="true"
                           className="h-1.5 w-1.5 rounded-full bg-current"
                         />
-                        {selectedLinkActive ? "активна" : "истекла"}
+                        {/* sr-only префикс даёт скринридеру полный смысл, видимый текст совпадает с финальным словом */}
+                        <span className="sr-only">Защищённая ссылка&nbsp;</span>
+                        <span>{selectedLinkActive ? "активна" : "истекла"}</span>
                       </span>
                     </div>
                     <div className="mt-3">
