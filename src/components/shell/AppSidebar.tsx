@@ -1,16 +1,19 @@
 import {
   LayoutDashboard,
   Users,
-  Stethoscope,
-  Calendar,
-  Image as ImageIcon,
-  Bot,
+  Camera,
   Building2,
+  Stethoscope,
   Plug,
+  Bot,
+  BarChart3,
+  Headphones,
   ShieldCheck,
-  Activity,
   Cpu,
+  Activity,
+  KeyRound,
   FileText,
+  CalendarPlus,
   Bell,
   HelpCircle,
 } from "lucide-react";
@@ -34,7 +37,6 @@ interface NavItem {
   title: string;
   url: string;
   icon: typeof Users;
-  roles: Role[];
 }
 
 interface NavGroup {
@@ -42,44 +44,100 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const ALL: Role[] = ["doctor", "assistant", "clinic_admin", "private_doctor", "operator", "system_admin"];
-const CLINICAL: Role[] = ["doctor", "assistant", "private_doctor"];
-const ADMIN: Role[] = ["clinic_admin", "private_doctor", "system_admin"];
+/**
+ * Меню разбито по ролевым зонам (UX-only).
+ * Сайдбар показывает только зону(ы) активной демо-роли —
+ * никакой смеси /admin, /operator, /sys, /me с общими путями.
+ */
+const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
+  doctor: [
+    {
+      label: "Клиника",
+      items: [
+        { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
+        { title: "Пациенты", url: "/patients", icon: Users },
+        { title: "Съёмка", url: "/capture", icon: Camera },
+      ],
+    },
+  ],
+  private_doctor: [
+    {
+      label: "Клиника",
+      items: [
+        { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
+        { title: "Пациенты", url: "/patients", icon: Users },
+        { title: "Съёмка", url: "/capture", icon: Camera },
+      ],
+    },
+    {
+      label: "Администрирование",
+      items: [
+        { title: "Клиника", url: "/admin", icon: Building2 },
+        { title: "Услуги", url: "/admin/services", icon: Stethoscope },
+        { title: "Интеграции", url: "/admin/integrations", icon: Plug },
+        { title: "Бот", url: "/admin/bot", icon: Bot },
+        { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
+      ],
+    },
+  ],
+  assistant: [
+    {
+      label: "Съёмка",
+      items: [
+        { title: "Захват фото", url: "/capture", icon: Camera },
+        { title: "Пациенты", url: "/patients", icon: Users },
+      ],
+    },
+  ],
+  clinic_admin: [
+    {
+      label: "Администрирование",
+      items: [
+        { title: "Обзор", url: "/admin", icon: LayoutDashboard },
+        { title: "Врачи", url: "/admin/doctors", icon: Stethoscope },
+        { title: "Услуги", url: "/admin/services", icon: FileText },
+        { title: "Клиники", url: "/admin/clinics", icon: Building2 },
+        { title: "Интеграции", url: "/admin/integrations", icon: Plug },
+        { title: "Бот", url: "/admin/bot", icon: Bot },
+        { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
+      ],
+    },
+  ],
+  operator: [
+    {
+      label: "Поддержка",
+      items: [
+        { title: "Очередь диалогов", url: "/operator", icon: Headphones },
+      ],
+    },
+  ],
+  system_admin: [
+    {
+      label: "Система",
+      items: [
+        { title: "Пользователи", url: "/sys/users", icon: ShieldCheck },
+        { title: "Устройства", url: "/sys/devices", icon: Cpu },
+        { title: "Аудит", url: "/sys/audit", icon: Activity },
+        { title: "API-ключи", url: "/sys/api-keys", icon: KeyRound },
+      ],
+    },
+  ],
+  patient: [
+    {
+      label: "Кабинет",
+      items: [
+        { title: "Главная", url: "/me", icon: LayoutDashboard },
+        { title: "Запись", url: "/me/booking", icon: CalendarPlus },
+        { title: "Напоминания", url: "/me/reminders", icon: Bell },
+      ],
+    },
+  ],
+};
 
-const NAV: NavGroup[] = [
-  {
-    label: "Клиника",
-    items: [
-      { title: "Обзор", url: "/", icon: LayoutDashboard, roles: ALL },
-      { title: "Пациенты", url: "/patients", icon: Users, roles: [...CLINICAL, "clinic_admin", "operator"] },
-      { title: "Визиты", url: "/visits", icon: Stethoscope, roles: CLINICAL },
-      { title: "Расписание", url: "/schedule", icon: Calendar, roles: [...CLINICAL, "clinic_admin"] },
-      { title: "Изображения", url: "/images", icon: ImageIcon, roles: CLINICAL },
-    ],
-  },
-  {
-    label: "Каналы",
-    items: [
-      { title: "Бот и лиды", url: "/bot", icon: Bot, roles: ["clinic_admin", "operator", "private_doctor"] },
-      { title: "Отчёты пациента", url: "/reports", icon: FileText, roles: [...CLINICAL, "clinic_admin"] },
-      { title: "Напоминания", url: "/reminders", icon: Bell, roles: [...CLINICAL, "clinic_admin", "operator"] },
-    ],
-  },
-  {
-    label: "Администрирование",
-    items: [
-      { title: "Клиника и услуги", url: "/clinic", icon: Building2, roles: ADMIN },
-      { title: "Интеграции", url: "/integrations", icon: Plug, roles: ADMIN },
-      { title: "Устройства", url: "/devices", icon: Cpu, roles: ADMIN },
-      { title: "Доступ и роли", url: "/access", icon: ShieldCheck, roles: ["system_admin", "clinic_admin"] },
-      { title: "Аудит", url: "/audit", icon: Activity, roles: ["system_admin", "clinic_admin"] },
-    ],
-  },
-  {
-    label: "Поддержка",
-    items: [{ title: "Справка", url: "/help", icon: HelpCircle, roles: ALL }],
-  },
-];
+const SHARED: NavGroup = {
+  label: "Поддержка",
+  items: [{ title: "Справка", url: "/help", icon: HelpCircle }],
+};
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -87,7 +145,10 @@ export function AppSidebar() {
   const { pathname } = useLocation();
   const { role } = useRole();
 
-  const isActive = (path: string) => (path === "/" ? pathname === "/" : pathname.startsWith(path));
+  const isActive = (path: string) =>
+    path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
+
+  const groups = [...NAV_BY_ROLE[role], SHARED];
 
   return (
     <Sidebar collapsible="icon">
@@ -101,29 +162,25 @@ export function AppSidebar() {
           </div>
         )}
 
-        {NAV.map((group) => {
-          const visible = group.items.filter((i) => i.roles.includes(role));
-          if (visible.length === 0) return null;
-          return (
-            <SidebarGroup key={group.label}>
-              {!collapsed && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {visible.map((item) => (
-                    <SidebarMenuItem key={item.url}>
-                      <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                        <NavLink to={item.url} end={item.url === "/"} className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4" />
-                          {!collapsed && <span className="text-[13px]">{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          );
-        })}
+        {groups.map((group) => (
+          <SidebarGroup key={group.label}>
+            {!collapsed && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                      <NavLink to={item.url} end={item.url === "/"} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span className="text-[13px]">{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
     </Sidebar>
   );
