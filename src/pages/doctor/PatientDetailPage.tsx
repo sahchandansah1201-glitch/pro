@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
@@ -165,26 +165,37 @@ export default function PatientDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {visits.map((v) => (
-                      <tr key={v.id}>
-                        <td className="text-[12px] text-muted-foreground tabular-nums">{formatDateTime(v.startedAt)}</td>
-                        <td>{VISIT_STATUS[v.status]}</td>
-                        <td className="max-w-[420px] truncate">{v.complaint}</td>
-                        <td className="text-[12px] text-muted-foreground">{getClinicById(v.clinicId)?.name ?? "—"}</td>
-                        <td className="text-[12px] text-muted-foreground">{userName(v.doctorId)}</td>
-                        <td>
-                          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
-                            <Link
-                              to={`/patients/${patient.id}/visits/${v.id}`}
-                              aria-label={`Открыть визит ${v.id}`}
-                            >
+                    {visits.map((v) => {
+                      const href = `/patients/${patient.id}/visits/${v.id}`;
+                      return (
+                        <tr
+                          key={v.id}
+                          tabIndex={0}
+                          role="link"
+                          aria-label={`Открыть визит ${formatDateTime(v.startedAt)}`}
+                          onClick={() => navigate(href)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              navigate(href);
+                            }
+                          }}
+                          className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                        >
+                          <td className="text-[12px] text-muted-foreground tabular-nums">{formatDateTime(v.startedAt)}</td>
+                          <td>{VISIT_STATUS[v.status]}</td>
+                          <td className="max-w-[420px] truncate">{v.complaint}</td>
+                          <td className="text-[12px] text-muted-foreground">{getClinicById(v.clinicId)?.name ?? "—"}</td>
+                          <td className="text-[12px] text-muted-foreground">{userName(v.doctorId)}</td>
+                          <td>
+                            <span className="inline-flex items-center gap-1 text-[12px] font-medium text-primary">
                               Открыть
                               <ChevronRight className="h-4 w-4" aria-hidden />
-                            </Link>
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
