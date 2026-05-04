@@ -551,7 +551,9 @@ export default function AdminAnalyticsPage() {
 
           {/* Sources */}
           <SectionCard title="Источники лидов">
-            {bySource.length === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={3} />
+            ) : bySource.length === 0 ? (
               renderEmpty("sources")
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
