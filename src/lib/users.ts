@@ -68,7 +68,7 @@ export const DEMO_USERS: Record<Role, CurrentUser> = {
   },
   patient: {
     id: "u-pat-001",
-    email: "n.ivanova@mail.demo",
+    email: "n.ivanova@derma-pro.demo",
     fullName: "Иванова Наталья Олеговна",
     role: "patient",
     clinicId: null,
