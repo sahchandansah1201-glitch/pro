@@ -11,24 +11,38 @@ function renderPage() {
   );
 }
 
+function getStatusBadge(): HTMLElement {
+  // Берём именно бейдж в карточке защищённой ссылки.
+  const all = screen.getAllByRole("status");
+  const badge = all.find((el) => /активна|истекла/.test(el.textContent ?? ""));
+  if (!badge) throw new Error("status badge not found");
+  return badge;
+}
+
 describe("OperatorConsolePage protected link status badge a11y", () => {
-  it("по умолчанию (bd-001): role=status и aria-label про истёкшую ссылку", () => {
+  it("по умолчанию (bd-001): role=status и accessible name про истёкшую ссылку, без дублей", () => {
     renderPage();
-    const badge = screen.getByLabelText("Защищённая ссылка истекла");
+    const badge = getStatusBadge();
     expect(badge).toHaveAttribute("role", "status");
+    // Доступное имя собирается из sr-only "Защищённая ссылка " + видимого "истекла".
+    expect(badge).toHaveAccessibleName("Защищённая ссылка истекла");
+    // Не должно быть aria-label (чтобы не дублировать видимый/sr-only текст).
+    expect(badge).not.toHaveAttribute("aria-label");
+    // Видимый текст содержит только короткое слово, без "Защищённая ссылка".
     expect(within(badge).getByText("истекла")).toBeInTheDocument();
   });
 
-  it("после выбора bd-002: role=status и aria-label про активную ссылку", () => {
+  it("после выбора bd-002: role=status и accessible name про активную ссылку", () => {
     renderPage();
-    // Карточка диалога — div с onClick, не button.
     const bd002Label = screen.getAllByText("bd-002")[0];
     const card = bd002Label.closest("div.cursor-pointer") as HTMLElement | null;
     expect(card).toBeTruthy();
     fireEvent.click(card!);
 
-    const badge = screen.getByLabelText("Защищённая ссылка активна");
+    const badge = getStatusBadge();
     expect(badge).toHaveAttribute("role", "status");
+    expect(badge).toHaveAccessibleName("Защищённая ссылка активна");
+    expect(badge).not.toHaveAttribute("aria-label");
     expect(within(badge).getByText("активна")).toBeInTheDocument();
   });
 });
