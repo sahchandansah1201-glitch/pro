@@ -365,16 +365,30 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
                   <button
                     type="button"
                     onClick={() => setSelectedId(img.id)}
-                    className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-left text-[12px] ${
+                    className={`block w-full min-h-[44px] px-4 py-2 text-left ${
                       isSel ? "bg-surface-muted" : "hover:bg-surface-muted"
                     }`}
                   >
-                    <span className="tabular-nums text-muted-foreground">{formatDateTime(img.capturedAt)}</span>
-                    <span className="min-w-0 truncate">
-                      {KIND_LABEL[img.kind]} · {SOURCE_LABEL[img.source]} · {lesion ? lesion.label : "без привязки"}
-                    </span>
-                    <QualityChip image={img} compact />
+                    {/* Mobile: 2-line stacked */}
+                    <div className="flex flex-col gap-0.5 sm:hidden">
+                      <div className="flex items-center justify-between gap-2 text-[13px]">
+                        <span className="tabular-nums text-muted-foreground">{formatDateTime(img.capturedAt)}</span>
+                        <QualityChip image={img} compact />
+                      </div>
+                      <div className="text-[13px] text-foreground">
+                        {KIND_LABEL[img.kind]} · {SOURCE_LABEL[img.source]} · {lesion ? lesion.label : "без привязки"}
+                      </div>
+                    </div>
+                    {/* Desktop: dense single row */}
+                    <div className="hidden grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 text-[12px] sm:grid">
+                      <span className="tabular-nums text-muted-foreground">{formatDateTime(img.capturedAt)}</span>
+                      <span className="min-w-0 truncate">
+                        {KIND_LABEL[img.kind]} · {SOURCE_LABEL[img.source]} · {lesion ? lesion.label : "без привязки"}
+                      </span>
+                      <QualityChip image={img} compact />
+                    </div>
                   </button>
+
                 </li>
               );
             })}
@@ -389,7 +403,7 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
 
 function CaptureBtn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <Button size="sm" variant="secondary" className="h-8 gap-1.5 text-[12px]" onClick={onClick}>
+    <Button size="sm" variant="secondary" className="h-10 gap-1.5 text-[13px] sm:h-8 sm:text-[12px]" onClick={onClick}>
       {icon}
       {label}
     </Button>
@@ -438,7 +452,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 rounded-md border border-border bg-surface px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
+        className="h-10 rounded-md border border-border bg-surface px-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-ring sm:h-8 sm:text-[12px]"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
