@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/shell/AppSidebar";
 import { DemoNotice } from "@/components/shell/DemoNotice";
 import { RoleSwitcher } from "@/components/shell/RoleSwitcher";
 import { Input } from "@/components/ui/input";
-import { useRole } from "@/context/RoleContext";
+import { useRole } from "@/context/role-context";
 
 /**
  * AppShell — каркас рабочего места врача.

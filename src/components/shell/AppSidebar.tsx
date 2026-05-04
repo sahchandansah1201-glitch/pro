@@ -33,7 +33,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useRole } from "@/context/RoleContext";
+import { useRole } from "@/context/role-context";
 import type { Role } from "@/lib/roles";
 
 interface NavItem {

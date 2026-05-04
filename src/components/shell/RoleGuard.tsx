@@ -7,7 +7,7 @@
 import { useLocation } from "react-router-dom";
 import { Lock } from "lucide-react";
 
-import { useRole } from "@/context/RoleContext";
+import { useRole } from "@/context/role-context";
 import { canRoleAccess } from "@/lib/access";
 import { ROLES } from "@/lib/roles";
 import { Button } from "@/components/ui/button";

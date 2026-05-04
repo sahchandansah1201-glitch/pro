@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Stethoscope, ShieldAlert } from "lucide-react";
 
-import { useRole } from "@/context/RoleContext";
+import { useRole } from "@/context/role-context";
 import { ROLES, ROLE_BY_ID, type Role } from "@/lib/roles";
 import { DEMO_USERS } from "@/lib/users";
 import { Button } from "@/components/ui/button";

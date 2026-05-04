@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { useRole } from "@/context/RoleContext";
+import { useRole } from "@/context/role-context";
 import { ROLE_BY_ID } from "@/lib/roles";
 
 /**
