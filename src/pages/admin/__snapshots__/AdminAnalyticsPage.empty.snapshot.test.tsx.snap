@@ -1,0 +1,54 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AdminAnalyticsPage — empty states snapshot > снимок всех 6 empty states (заголовки + структура) 1`] = `
+[
+  {
+    "ariaLive": "polite",
+    "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
+    "iconTag": "svg",
+    "role": "status",
+    "title": "Нет лидов",
+  },
+  {
+    "ariaLive": "polite",
+    "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
+    "iconTag": "svg",
+    "role": "status",
+    "title": "Нет источников",
+  },
+  {
+    "ariaLive": "polite",
+    "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
+    "hint": "Добавьте клиники в справочнике, чтобы увидеть маршрутизацию.",
+    "iconTag": "svg",
+    "role": "status",
+    "title": "Нет клиник",
+  },
+  {
+    "ariaLive": "polite",
+    "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
+    "iconTag": "svg",
+    "role": "status",
+    "title": "Нет карточек предварительной оценки",
+  },
+  {
+    "ariaLive": "polite",
+    "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
+    "iconTag": "svg",
+    "role": "status",
+    "title": "Нет снимков",
+  },
+  {
+    "ariaLive": "polite",
+    "className": "flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-surface px-4 py-6 text-center",
+    "hint": "Нет данных за период «Все данные». Попробуйте выбрать другой диапазон.",
+    "iconTag": "svg",
+    "role": "status",
+    "title": "Нет диалогов",
+  },
+]
+`;
