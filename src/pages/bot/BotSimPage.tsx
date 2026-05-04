@@ -194,6 +194,32 @@ export default function BotSimPage() {
     setStep("recommendation");
   }
 
+  function handleBookingShortcut() {
+    push({ side: "user", text: "Запись" });
+    if (!scenario) {
+      push({
+        side: "bot",
+        text:
+          "Для записи сначала пришлите фото — я подготовлю безопасную рекомендацию и маршрут.",
+      });
+      setStep("instruction");
+      return;
+    }
+    if (scenario.cta === "repeat_photo") {
+      push({
+        side: "bot",
+        text:
+          "Перед записью нужно повторить фото по инструкции — текущее не подходит для оценки.",
+      });
+      setStep("instruction");
+      return;
+    }
+    setCtaStatus(
+      "Демо: лид подготовлен для оператора. В следующем шаге откроется Mini App записи.",
+    );
+    setStep("done");
+  }
+
   function handleCta() {
     if (!scenario) return;
     if (scenario.cta === "repeat_photo") {
@@ -392,7 +418,7 @@ export default function BotSimPage() {
               </div>
             )}
 
-            <div className="mt-2 grid grid-cols-4 gap-1 text-[11px]">
+            <div className="mt-2 grid grid-cols-5 gap-1 text-[11px]">
               <button
                 type="button"
                 className="rounded border border-border bg-background py-1"
@@ -416,6 +442,14 @@ export default function BotSimPage() {
                 onClick={handleWhy}
               >
                 Зачем
+              </button>
+              <button
+                type="button"
+                className="rounded border border-border bg-background py-1"
+                style={{ minHeight: 44 }}
+                onClick={handleBookingShortcut}
+              >
+                Запись
               </button>
               <button
                 type="button"
