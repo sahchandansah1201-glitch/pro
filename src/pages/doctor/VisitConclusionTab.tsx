@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   getAssessmentsByVisitId,
   getClinicById,
-  getImagesByLesionId,
+  getImagesByVisitId,
 } from "@/lib/mock-data";
 import type { Assessment, ClinicalImage, Lesion, Patient, Visit } from "@/lib/domain";
 import { DEMO_USERS } from "@/lib/users";
@@ -51,6 +51,7 @@ interface Props {
 
 export function VisitConclusionTab({ patient, visit, lesions }: Props) {
   const assessments = useMemo(() => getAssessmentsByVisitId(visit.id), [visit.id]);
+  const visitImages = useMemo(() => getImagesByVisitId(visit.id), [visit.id]);
   const clinic = getClinicById(visit.clinicId);
 
   const [selectedRoute, setSelectedRoute] = useState<typeof ROUTE_OPTIONS[number]["id"] | null>(
@@ -58,16 +59,17 @@ export function VisitConclusionTab({ patient, visit, lesions }: Props) {
   );
 
   const visitLesions = useMemo(() => {
-    const ids = new Set(assessments.map((a) => a.lesionId));
-    const inVisit = lesions.filter((l) => ids.has(l.id));
-    // include other patient lesions only as "no assessment" if assessments empty
-    return inVisit.length > 0 ? inVisit : lesions;
-  }, [assessments, lesions]);
+    const ids = new Set<string>();
+    for (const a of assessments) ids.add(a.lesionId);
+    for (const img of visitImages) {
+      if (img.lesionId) ids.add(img.lesionId);
+    }
+    return lesions.filter((l) => ids.has(l.id));
+  }, [assessments, visitImages, lesions]);
 
-  const assessedCount = assessments.length;
-  const withoutAssessment = visitLesions.filter(
-    (l) => !assessments.some((a) => a.lesionId === l.id),
-  ).length;
+  const assessedIds = useMemo(() => new Set(assessments.map((a) => a.lesionId)), [assessments]);
+  const assessedCount = visitLesions.filter((l) => assessedIds.has(l.id)).length;
+  const withoutAssessment = visitLesions.filter((l) => !assessedIds.has(l.id)).length;
 
   const followUps = assessments
     .map((a) => a.followUpPlan)
@@ -106,7 +108,7 @@ export function VisitConclusionTab({ patient, visit, lesions }: Props) {
           <ul className="divide-y divide-border">
             {visitLesions.map((lesion) => {
               const a: Assessment | undefined = assessments.find((x) => x.lesionId === lesion.id);
-              const images = getImagesByLesionId(lesion.id);
+              const images = visitImages.filter((img) => img.lesionId === lesion.id);
               const q = imageQualitySummary(images);
               return (
                 <li key={lesion.id} className="space-y-2 px-3 py-3 text-[13px]">
