@@ -206,7 +206,12 @@ export default function AdminAnalyticsPage() {
 
   const rangeLabel =
     RANGES.find((r) => r.key === range)?.label ?? "выбранный период";
-  const emptyHint = `Нет данных за период «${rangeLabel}». Попробуйте выбрать другой диапазон.`;
+
+  /** Хелпер для рендера empty-state через единый словарь. */
+  const renderEmpty = (key: EmptyStateKey) => {
+    const c = resolveEmptyCopy(key, rangeLabel);
+    return <EmptyState title={c.title} hint={c.hint} />;
+  };
 
   const all = useMemo(() => {
     const leads = getLeads();
