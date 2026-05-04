@@ -518,6 +518,3 @@ function Stat({ term, value }: { term: string; value: React.ReactNode }) {
     </div>
   );
 }
-
-// Suppress unused-warning helpers that are referenced by lesion lookup elsewhere.
-void getLesionById;
