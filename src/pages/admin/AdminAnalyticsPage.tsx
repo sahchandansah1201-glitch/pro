@@ -16,6 +16,7 @@ import type {
   PartnerTier,
   RiskLevel,
 } from "@/lib/domain";
+import { resolveEmptyCopy, type EmptyStateKey } from "./analytics-empty-copy";
 
 /**
  * Аналитика клиники (MVP): агрегаты по воронке лидов, источникам,
@@ -205,7 +206,12 @@ export default function AdminAnalyticsPage() {
 
   const rangeLabel =
     RANGES.find((r) => r.key === range)?.label ?? "выбранный период";
-  const emptyHint = `Нет данных за период «${rangeLabel}». Попробуйте выбрать другой диапазон.`;
+
+  /** Хелпер для рендера empty-state через единый словарь. */
+  const renderEmpty = (key: EmptyStateKey) => {
+    const c = resolveEmptyCopy(key, rangeLabel);
+    return <EmptyState title={c.title} hint={c.hint} />;
+  };
 
   const all = useMemo(() => {
     const leads = getLeads();
@@ -448,7 +454,7 @@ export default function AdminAnalyticsPage() {
           {/* Funnel */}
           <SectionCard title="Воронка" hint="MVP: расчёт построен на мок-данных.">
             {totalLeads === 0 ? (
-              <EmptyState title="Нет лидов" hint={emptyHint} />
+              renderEmpty("leads")
             ) : (
               <ul className="space-y-3">
                 {funnel.map((row) => {
@@ -474,7 +480,7 @@ export default function AdminAnalyticsPage() {
           {/* Sources */}
           <SectionCard title="Источники лидов">
             {bySource.length === 0 ? (
-              <EmptyState title="Нет источников" hint={emptyHint} />
+              renderEmpty("sources")
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
                 {bySource.map((s) => (
@@ -534,7 +540,7 @@ export default function AdminAnalyticsPage() {
             }
           >
             {byClinic.length === 0 ? (
-              <EmptyState title="Нет клиник" hint="Добавьте клиники в справочнике, чтобы увидеть маршрутизацию." />
+              renderEmpty("clinics")
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
                 {byClinic.map((c) => (
@@ -567,7 +573,7 @@ export default function AdminAnalyticsPage() {
             hint="по предварительному маршруту бот-воронки"
           >
             {totalCards === 0 ? (
-              <EmptyState title="Нет карточек предварительной оценки" hint={emptyHint} />
+              renderEmpty("analysisCards")
             ) : (
               <ul className="space-y-3">
                 {riskDist.map((r) => (
@@ -597,7 +603,7 @@ export default function AdminAnalyticsPage() {
             hint="техническое качество снимка, не диагноз"
           >
             {totalCards === 0 ? (
-              <EmptyState title="Нет снимков" hint={emptyHint} />
+              renderEmpty("imageQuality")
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <KpiCard label="Прошли проверку" value={passed} />
@@ -611,7 +617,7 @@ export default function AdminAnalyticsPage() {
           {/* Bot dialog states */}
           <SectionCard title="Состояния бот-диалогов">
             {data.dialogs.length === 0 ? (
-              <EmptyState title="Нет диалогов" hint={emptyHint} />
+              renderEmpty("botDialogs")
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {dialogStates.map((s) => (
