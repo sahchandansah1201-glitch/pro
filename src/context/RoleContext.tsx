@@ -7,7 +7,7 @@ import {
   type RoleContextValue,
 } from "@/context/role-context";
 
-export { useRole, useCurrentUser } from "@/context/role-context";
+
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   // Lazy initializer — читаем сохранённую демо-роль синхронно до первого рендера,
