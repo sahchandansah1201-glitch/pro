@@ -155,13 +155,24 @@ export default function AnalysisPublicPage() {
           </section>
         )}
 
-        <div className="pt-1">
+        <div className="space-y-3 pt-1">
           <Button
             type="button"
+            disabled={ctaState === "done"}
+            onClick={() => setCtaState("done")}
             className="min-h-11 w-full text-sm font-semibold sm:w-auto sm:min-h-10 sm:px-6"
           >
-            {ctaLabel}
+            {ctaState === "done" ? "Готово" : ctaLabel}
           </Button>
+          {ctaState === "done" && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground"
+            >
+              {CTA_DEMO_STATUS[card.ctaType]}
+            </div>
+          )}
         </div>
 
         <footer className="space-y-1 border-t border-border pt-4 text-xs text-muted-foreground">
