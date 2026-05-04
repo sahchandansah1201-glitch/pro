@@ -34,7 +34,7 @@ export const LesionPage = () => {
   );
 };
 
-// ───────── Администратор клиники ─────────
+// ───────── Администратор клиники (интеграции реализованы в AdminIntegrationsPage / AdminIntegrationDetailPage) ─────────
 export const AdminHomePage = () => (
   <PlaceholderPage title="Администрирование клиники" subtitle="Сводка по клинике, лидам и расписанию." />
 );
