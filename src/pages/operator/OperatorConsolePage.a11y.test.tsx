@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import OperatorConsolePage from "./OperatorConsolePage";
 
@@ -12,24 +12,23 @@ function renderPage() {
 }
 
 function getStatusBadge(): HTMLElement {
-  // Берём именно бейдж в карточке защищённой ссылки.
-  const all = screen.getAllByRole("status");
-  const badge = all.find((el) => /активна|истекла/.test(el.textContent ?? ""));
+  const badge = screen
+    .getAllByRole("status")
+    .find((el) => /активна|истекла/.test(el.getAttribute("aria-label") ?? ""));
   if (!badge) throw new Error("status badge not found");
   return badge;
 }
 
 describe("OperatorConsolePage protected link status badge a11y", () => {
-  it("по умолчанию (bd-001): role=status и accessible name про истёкшую ссылку, без дублей", () => {
+  it("по умолчанию (bd-001): role=status и accessible name про истёкшую ссылку", () => {
     renderPage();
     const badge = getStatusBadge();
     expect(badge).toHaveAttribute("role", "status");
-    // Доступное имя собирается из sr-only "Защищённая ссылка " + видимого "истекла".
     expect(badge).toHaveAccessibleName("Защищённая ссылка истекла");
-    // Не должно быть aria-label (чтобы не дублировать видимый/sr-only текст).
-    expect(badge).not.toHaveAttribute("aria-label");
-    // Видимый текст содержит только короткое слово, без "Защищённая ссылка".
-    expect(within(badge).getByText("истекла")).toBeInTheDocument();
+    // Видимая короткая метка скрыта от AT, чтобы не дублировать aria-label.
+    const visible = badge.querySelector("span[aria-hidden='true']:not(.bg-current)");
+    expect(visible).not.toBeNull();
+    expect(visible!.textContent).toBe("истекла");
   });
 
   it("после выбора bd-002: role=status и accessible name про активную ссылку", () => {
@@ -42,7 +41,8 @@ describe("OperatorConsolePage protected link status badge a11y", () => {
     const badge = getStatusBadge();
     expect(badge).toHaveAttribute("role", "status");
     expect(badge).toHaveAccessibleName("Защищённая ссылка активна");
-    expect(badge).not.toHaveAttribute("aria-label");
-    expect(within(badge).getByText("активна")).toBeInTheDocument();
+    const visible = badge.querySelector("span[aria-hidden='true']:not(.bg-current)");
+    expect(visible).not.toBeNull();
+    expect(visible!.textContent).toBe("активна");
   });
 });
