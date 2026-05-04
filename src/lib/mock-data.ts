@@ -915,6 +915,25 @@ export const getDevices = (): Device[] => DEVICES;
 export const getIntegrations = (): Integration[] => INTEGRATIONS;
 export const getAuditLogs = (): AuditLog[] => AUDIT_LOGS;
 
+export const getAnalysisCards = (): AnalysisCard[] => ANALYSIS_CARDS;
+export const getAnalysisCardById = (id: string): AnalysisCard | undefined =>
+  ANALYSIS_CARDS.find((a) => a.id === id);
+export const getAnalysisCardsByDialogId = (dialogId: string): AnalysisCard[] =>
+  ANALYSIS_CARDS.filter((a) => a.dialogId === dialogId);
+
+export const getProtectedAnalysisLinkById = (id: string): ProtectedAnalysisLink | undefined =>
+  PROTECTED_ANALYSIS_LINKS.find((p) => p.id === id);
+export const getProtectedAnalysisLinkByToken = (token: string): ProtectedAnalysisLink | undefined =>
+  PROTECTED_ANALYSIS_LINKS.find((p) => p.token === token);
+
+export const getAnalysisCardForLead = (leadId: string): AnalysisCard | undefined => {
+  const lead = LEADS.find((l) => l.id === leadId);
+  if (!lead?.protectedAnalysisLinkId) return undefined;
+  const link = getProtectedAnalysisLinkById(lead.protectedAnalysisLinkId);
+  if (!link) return undefined;
+  return getAnalysisCardById(link.analysisCardId);
+};
+
 // ───────── Внутренние проверки целостности ─────────
 
 /**
