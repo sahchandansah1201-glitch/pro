@@ -1,0 +1,604 @@
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  Camera,
+  FileUp,
+  HardDrive,
+  Smartphone,
+  QrCode,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  ChevronRight,
+  RefreshCw,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { getImagesByVisitId } from "@/lib/mock-data";
+import { formatDateTime } from "@/lib/format";
+import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
+
+// Порог качества изображения. Ниже — снимок «требует проверки».
+const QUALITY_THRESHOLD = 0.8;
+
+const KIND_LABEL: Record<ClinicalImage["kind"], string> = {
+  overview: "Обзор",
+  dermoscopy: "Дерматоскопия",
+  macro: "Макро",
+  body_map: "Body map",
+};
+
+const SOURCE_LABEL: Record<ClinicalImage["source"], string> = {
+  phone: "Телефон",
+  file: "Файл",
+  camera: "Камера",
+  device_bridge: "Device Bridge",
+  local_transfer: "Локальный перенос",
+};
+
+type KindFilter = "all" | ClinicalImage["kind"];
+type SourceFilter = "all" | ClinicalImage["source"];
+type QualityFilter = "all" | "needs_review";
+// "all" | "unlinked" | lesionId
+type LesionFilter = string;
+
+interface Props {
+  visit: Visit;
+  patientId: string;
+  lesions: Lesion[];
+}
+
+export function VisitImagingTab({ visit, patientId, lesions }: Props) {
+  const allImages = useMemo(
+    () => [...getImagesByVisitId(visit.id)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+    [visit.id],
+  );
+
+  const lesionMap = useMemo(() => {
+    const m = new Map<string, Lesion>();
+    for (const l of lesions) m.set(l.id, l);
+    return m;
+  }, [lesions]);
+
+  const [lesionFilter, setLesionFilter] = useState<LesionFilter>("all");
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [qualityFilter, setQualityFilter] = useState<QualityFilter>("all");
+
+  const [captureNotice, setCaptureNotice] = useState<string | null>(null);
+  const showCaptureNotice = (label: string) =>
+    setCaptureNotice(`Демо: источник «${label}» выбран, реальный захват будет подключён позже.`);
+
+  const filtered = useMemo(() => {
+    return allImages.filter((img) => {
+      if (lesionFilter === "unlinked" && img.lesionId !== null) return false;
+      if (lesionFilter !== "all" && lesionFilter !== "unlinked" && img.lesionId !== lesionFilter) return false;
+      if (kindFilter !== "all" && img.kind !== kindFilter) return false;
+      if (sourceFilter !== "all" && img.source !== sourceFilter) return false;
+      if (qualityFilter === "needs_review" && !needsReview(img)) return false;
+      return true;
+    });
+  }, [allImages, lesionFilter, kindFilter, sourceFilter, qualityFilter]);
+
+  const [selectedId, setSelectedId] = useState<string | null>(allImages[0]?.id ?? null);
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+
+  const selected = selectedId ? allImages.find((i) => i.id === selectedId) ?? null : null;
+  const compare = compareId ? allImages.find((i) => i.id === compareId) ?? null : null;
+
+  // Counts for compact summary.
+  const summary = useMemo(() => {
+    const total = allImages.length;
+    const dermoscopy = allImages.filter((i) => i.kind === "dermoscopy").length;
+    const lowQuality = allImages.filter(needsReview).length;
+    const unlinked = allImages.filter((i) => i.lesionId === null || i.kind === "body_map").length;
+    return { total, dermoscopy, lowQuality, unlinked };
+  }, [allImages]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Capture toolbar + summary */}
+      <section className="surface-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Захват
+            </span>
+            <CaptureBtn icon={<Smartphone className="h-3.5 w-3.5" />} label="Телефон" onClick={() => showCaptureNotice("Телефон")} />
+            <CaptureBtn icon={<FileUp className="h-3.5 w-3.5" />} label="Файл" onClick={() => showCaptureNotice("Файл")} />
+            <CaptureBtn icon={<HardDrive className="h-3.5 w-3.5" />} label="Device Bridge" onClick={() => showCaptureNotice("Device Bridge")} />
+            <CaptureBtn icon={<QrCode className="h-3.5 w-3.5" />} label="QR / локально" onClick={() => showCaptureNotice("Локальный перенос")} />
+          </div>
+          <SummaryStrip summary={summary} />
+        </div>
+        {captureNotice && (
+          <div className="border-t border-border bg-surface-muted px-3 py-1.5 text-[12px] text-muted-foreground">
+            {captureNotice}
+          </div>
+        )}
+      </section>
+
+      {/* Filters */}
+      <section className="surface-card">
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-2 px-3 py-2">
+          <FilterSelect
+            label="Образование"
+            value={lesionFilter}
+            onChange={setLesionFilter}
+            options={[
+              { value: "all", label: "Все образования" },
+              { value: "unlinked", label: "Body map / без привязки" },
+              ...lesions.map((l) => ({ value: l.id, label: `${l.label} · ${l.bodyZone}` })),
+            ]}
+          />
+          <FilterSelect
+            label="Тип"
+            value={kindFilter}
+            onChange={(v) => setKindFilter(v as KindFilter)}
+            options={[
+              { value: "all", label: "Все" },
+              { value: "overview", label: "Обзор" },
+              { value: "dermoscopy", label: "Дерматоскопия" },
+              { value: "macro", label: "Макро" },
+              { value: "body_map", label: "Body map" },
+            ]}
+          />
+          <FilterSelect
+            label="Источник"
+            value={sourceFilter}
+            onChange={(v) => setSourceFilter(v as SourceFilter)}
+            options={[
+              { value: "all", label: "Все" },
+              { value: "phone", label: "Телефон" },
+              { value: "camera", label: "Камера" },
+              { value: "device_bridge", label: "Device Bridge" },
+              { value: "local_transfer", label: "Локальный перенос" },
+              { value: "file", label: "Файл" },
+            ]}
+          />
+          <FilterSelect
+            label="Качество"
+            value={qualityFilter}
+            onChange={(v) => setQualityFilter(v as QualityFilter)}
+            options={[
+              { value: "all", label: "Все" },
+              { value: "needs_review", label: "Требуют проверки" },
+            ]}
+          />
+          <div className="ml-auto text-[12px] text-muted-foreground">
+            Показано {filtered.length} из {allImages.length}
+          </div>
+        </div>
+      </section>
+
+      {/* Main: grid + viewer */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+        {/* Grid */}
+        <section className="surface-card lg:col-span-7">
+          <div className="section-bar">
+            <h2 className="h-section">Снимки визита</h2>
+            <span className="h-section-hint">{filtered.length} шт.</span>
+          </div>
+          {filtered.length === 0 ? (
+            <div className="px-4 pb-4 text-[13px] text-muted-foreground">
+              По выбранным фильтрам снимков нет. Сбросьте фильтры или выберите другой источник.
+            </div>
+          ) : (
+            <ul className="grid grid-cols-2 gap-2 px-3 pb-3 sm:grid-cols-3">
+              {filtered.map((img) => {
+                const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
+                const isSel = img.id === selectedId;
+                const isCmp = img.id === compareId;
+                return (
+                  <li key={img.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(img.id)}
+                      className={`group flex w-full flex-col overflow-hidden rounded-md border text-left transition-colors ${
+                        isSel
+                          ? "border-primary ring-1 ring-primary"
+                          : isCmp
+                            ? "border-info"
+                            : "border-border hover:border-muted-foreground/40"
+                      }`}
+                    >
+                      <ThumbPlaceholder image={img} />
+                      <div className="flex flex-col gap-0.5 px-2 py-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-[12px] font-medium">{KIND_LABEL[img.kind]}</span>
+                          <QualityChip image={img} compact />
+                        </div>
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {lesion ? lesion.label : "Body map / без привязки"}
+                        </div>
+                        <div className="truncate text-[11px] text-muted-foreground">
+                          {SOURCE_LABEL[img.source]} · {formatDateTime(img.capturedAt)}
+                        </div>
+                        {img.quality.issues.length > 0 && (
+                          <div className="truncate text-[11px] text-warning">
+                            {img.quality.issues.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* Viewer + compare + timeline */}
+        <section className="surface-card lg:col-span-5">
+          <div className="section-bar">
+            <h2 className="h-section">Просмотр</h2>
+            {selected && <QualityChip image={selected} />}
+          </div>
+          {!selected ? (
+            <div className="px-4 pb-4 text-[13px] text-muted-foreground">Снимок не выбран.</div>
+          ) : (
+            <div className="flex flex-col gap-3 px-3 pb-3">
+              {/* Zoom toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-2 py-1.5">
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => clampZoom(z - 0.2))} aria-label="Уменьшить">
+                    <ZoomOut className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="w-12 text-center text-[12px] tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => clampZoom(z + 0.2))} aria-label="Увеличить">
+                    <ZoomIn className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom(1)} aria-label="Сбросить масштаб">
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <CompareSelect
+                  selectedId={selected.id}
+                  compareId={compareId}
+                  onChange={setCompareId}
+                  images={allImages}
+                  lesionMap={lesionMap}
+                />
+              </div>
+
+              {/* Preview(s) */}
+              <div
+                className={`grid gap-2 ${compare ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}
+              >
+                <PreviewPane image={selected} zoom={zoom} title="Основной" />
+                {compare && <PreviewPane image={compare} zoom={zoom} title="Сравнение" />}
+              </div>
+
+              {/* Quality panel */}
+              <QualityPanel image={selected} />
+
+              {/* Metadata */}
+              <ImageMeta image={selected} lesionMap={lesionMap} />
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2">
+                {selected.lesionId ? (
+                  <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+                    <Link to={`/patients/${patientId}/lesions/${selected.lesionId}`}>
+                      Открыть образование <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
+                    </Link>
+                  </Button>
+                ) : (
+                  <span className="text-[12px] text-muted-foreground">Снимок не привязан к образованию.</span>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-[12px]"
+                  onClick={() => showCaptureNotice("Повтор снимка")}
+                >
+                  <RefreshCw className="mr-1 h-3.5 w-3.5" /> Повторить снимок
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Timeline */}
+      <section className="surface-card">
+        <div className="section-bar">
+          <h2 className="h-section">Таймлайн снимков</h2>
+          <span className="h-section-hint">{allImages.length} событий</span>
+        </div>
+        {allImages.length === 0 ? (
+          <div className="px-4 pb-4 text-[13px] text-muted-foreground">Снимков визита нет.</div>
+        ) : (
+          <ol className="divide-y divide-border">
+            {allImages.map((img) => {
+              const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
+              const isSel = img.id === selectedId;
+              return (
+                <li key={img.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(img.id)}
+                    className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-left text-[12px] ${
+                      isSel ? "bg-surface-muted" : "hover:bg-surface-muted"
+                    }`}
+                  >
+                    <span className="tabular-nums text-muted-foreground">{formatDateTime(img.capturedAt)}</span>
+                    <span className="min-w-0 truncate">
+                      {KIND_LABEL[img.kind]} · {SOURCE_LABEL[img.source]} · {lesion ? lesion.label : "без привязки"}
+                    </span>
+                    <QualityChip image={img} compact />
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
+    </div>
+  );
+}
+
+// ───────── Subcomponents ─────────
+
+function CaptureBtn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <Button size="sm" variant="secondary" className="h-8 gap-1.5 text-[12px]" onClick={onClick}>
+      {icon}
+      {label}
+    </Button>
+  );
+}
+
+function SummaryStrip({ summary }: { summary: { total: number; dermoscopy: number; lowQuality: number; unlinked: number } }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
+      <SummaryItem label="Всего" value={summary.total} />
+      <SummaryItem label="Дерматоскопия" value={summary.dermoscopy} />
+      <SummaryItem label="Требуют проверки" value={summary.lowQuality} tone={summary.lowQuality > 0 ? "warning" : "muted"} />
+      <SummaryItem label="Без привязки" value={summary.unlinked} />
+    </div>
+  );
+}
+
+function SummaryItem({ label, value, tone = "muted" }: { label: string; value: number; tone?: "muted" | "warning" }) {
+  return (
+    <span className="inline-flex items-baseline gap-1">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-semibold tabular-nums ${tone === "warning" ? "text-warning" : "text-foreground"}`}>{value}</span>
+    </span>
+  );
+}
+
+interface Option {
+  value: string;
+  label: string;
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Option[];
+}) {
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 rounded-md border border-border bg-surface px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function CompareSelect({
+  selectedId,
+  compareId,
+  onChange,
+  images,
+  lesionMap,
+}: {
+  selectedId: string;
+  compareId: string | null;
+  onChange: (id: string | null) => void;
+  images: ClinicalImage[];
+  lesionMap: Map<string, Lesion>;
+}) {
+  const candidates = images.filter((i) => i.id !== selectedId);
+  return (
+    <label className="flex items-center gap-1.5 text-[12px]">
+      <span className="text-muted-foreground">Сравнить с</span>
+      <select
+        value={compareId ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="h-7 rounded-md border border-border bg-surface px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="">— нет —</option>
+        {candidates.map((img) => {
+          const lesion = img.lesionId ? lesionMap.get(img.lesionId) ?? null : null;
+          return (
+            <option key={img.id} value={img.id}>
+              {KIND_LABEL[img.kind]} · {lesion ? lesion.label : "без привязки"} · {formatDateTime(img.capturedAt)}
+            </option>
+          );
+        })}
+      </select>
+    </label>
+  );
+}
+
+function PreviewPane({ image, zoom, title }: { image: ClinicalImage; zoom: number; title: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span className="font-medium uppercase tracking-wide">{title}</span>
+        <span className="truncate">{KIND_LABEL[image.kind]} · {formatDateTime(image.capturedAt)}</span>
+      </div>
+      <div className="relative h-64 overflow-auto rounded-md border border-border bg-surface-sunken">
+        <div
+          className="mx-auto"
+          style={{ width: `${100 * zoom}%`, minWidth: `${100 * zoom}%` }}
+        >
+          <ThumbPlaceholder image={image} large />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ThumbPlaceholder({ image, large = false }: { image: ClinicalImage; large?: boolean }) {
+  // Детерминированный нейтральный тайл по id/kind. Не загружаем внешние медицинские фото.
+  const seed = hashString(image.id);
+  const hue = 200 + (seed % 30); // холодный клинический диапазон
+  const sat = image.kind === "dermoscopy" ? 18 : 12;
+  const light1 = 88 - (seed % 6);
+  const light2 = light1 - 8;
+  const angle = (seed % 90) - 45;
+
+  return (
+    <div
+      className={`relative w-full ${large ? "aspect-[4/3]" : "aspect-[4/3]"} overflow-hidden`}
+      style={{
+        backgroundImage: `linear-gradient(${angle}deg, hsl(${hue} ${sat}% ${light1}%), hsl(${hue} ${sat}% ${light2}%))`,
+      }}
+      aria-label={`Плейсхолдер снимка ${KIND_LABEL[image.kind]}`}
+    >
+      {/* Наложение, чтобы тайл выглядел клинически и было видно kind/source */}
+      <div className="absolute inset-0 flex items-end justify-between p-2 text-[10px] uppercase tracking-wide text-foreground/70">
+        <span className="rounded-sm bg-surface/80 px-1 py-0.5">{KIND_LABEL[image.kind]}</span>
+        <span className="rounded-sm bg-surface/80 px-1 py-0.5">{SOURCE_LABEL[image.source]}</span>
+      </div>
+      {/* Условная «рамка снимка» */}
+      <div className="pointer-events-none absolute inset-2 rounded-sm border border-foreground/10" />
+    </div>
+  );
+}
+
+function QualityChip({ image, compact = false }: { image: ClinicalImage; compact?: boolean }) {
+  const review = needsReview(image);
+  const text = review ? "Требует проверки" : "Хорошее качество";
+  const cls = review
+    ? "border-warning/40 bg-warning/10 text-warning"
+    : "border-success/40 bg-success/10 text-success";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}
+      title={`Оценка качества: ${(image.quality.score * 100).toFixed(0)}%`}
+    >
+      {compact ? `${Math.round(image.quality.score * 100)}%` : text}
+    </span>
+  );
+}
+
+function QualityPanel({ image }: { image: ClinicalImage }) {
+  const score = image.quality.score;
+  const issues = image.quality.issues;
+  const action = recommendedAction(image);
+  return (
+    <div className="rounded-md border border-border bg-surface px-3 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[12px] font-semibold">Контроль качества</span>
+        <span className="text-[12px] tabular-nums text-muted-foreground">
+          {(score * 100).toFixed(0)}% · порог {Math.round(QUALITY_THRESHOLD * 100)}%
+        </span>
+      </div>
+      {issues.length > 0 ? (
+        <ul className="mt-1 flex flex-wrap gap-1">
+          {issues.map((iss) => (
+            <li key={iss} className="rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning">
+              {iss}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-1 text-[12px] text-muted-foreground">Замечаний не выявлено.</div>
+      )}
+      <div className="mt-1.5 text-[12px]">
+        <span className="text-muted-foreground">Рекомендация: </span>
+        <span>{action}</span>
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        Только контроль качества. Это не клинический диагноз.
+      </p>
+    </div>
+  );
+}
+
+function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<string, Lesion> }) {
+  const lesion = image.lesionId ? lesionMap.get(image.lesionId) ?? null : null;
+  const e = image.exifMeta;
+  const rows: Array<[string, React.ReactNode]> = [
+    ["Тип", KIND_LABEL[image.kind]],
+    ["Источник", SOURCE_LABEL[image.source]],
+    ["Образование", lesion ? `${lesion.label} · ${lesion.bodyZone}` : "Body map / без привязки"],
+    ["Снято", formatDateTime(image.capturedAt)],
+    ["Устройство", image.deviceId ?? "—"],
+    ["Путь", <span key="p" className="font-mono text-[11px]">{image.storagePath}</span>],
+    ["Размер", `${e.width} × ${e.height}`],
+    ["ISO", e.iso ?? "—"],
+    ["Выдержка", e.shutter ?? "—"],
+    ["Диафрагма", e.aperture ?? "—"],
+    ["Фокус", e.focalLength ?? "—"],
+  ];
+  return (
+    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-md border border-border bg-surface px-3 py-2 text-[12px]">
+      {rows.map(([term, value]) => (
+        <div key={term} className="flex items-baseline justify-between gap-2 border-b border-dashed border-border/60 pb-1 last:border-b-0 last:pb-0">
+          <dt className="text-muted-foreground">{term}</dt>
+          <dd className="min-w-0 truncate text-right">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// ───────── Helpers ─────────
+
+function needsReview(image: ClinicalImage): boolean {
+  return image.quality.score < QUALITY_THRESHOLD || image.quality.issues.length > 0;
+}
+
+function recommendedAction(image: ClinicalImage): string {
+  const issues = image.quality.issues.join(" ").toLowerCase();
+  if (image.quality.score < 0.7 || issues.includes("размыт")) {
+    return "Повторить снимок: сфокусироваться, при дерматоскопии — обеспечить контакт.";
+  }
+  if (issues.includes("блик")) {
+    return "Снизить блики: использовать поляризацию или изменить угол.";
+  }
+  if (issues.includes("освещ") || issues.includes("тени")) {
+    return "Улучшить освещение: добавить рассеянный свет, убрать тени.";
+  }
+  if (image.quality.score < QUALITY_THRESHOLD) {
+    return "Желательно повторить снимок для уверенного просмотра.";
+  }
+  return "Можно использовать для просмотра.";
+}
+
+function clampZoom(z: number): number {
+  return Math.max(0.6, Math.min(2, +z.toFixed(2)));
+}
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+// Avoid unused-import warning: Camera reserved for future native camera path.
+void Camera;
