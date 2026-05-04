@@ -11,11 +11,11 @@ import { RoleHome } from "@/components/shell/RoleHome";
 
 import LoginPage from "./pages/Login";
 import NotFound from "./pages/NotFound.tsx";
+import DeskPage from "./pages/doctor/DeskPage";
+import PatientsPage from "./pages/doctor/PatientsPage";
+import PatientDetailPage from "./pages/doctor/PatientDetailPage";
 import {
-  // Doctor / clinical
-  DeskPage,
-  PatientsPage,
-  PatientDetailPage,
+  // Doctor placeholders (still TBD)
   VisitWorkspacePage,
   LesionPage,
   CapturePage,
