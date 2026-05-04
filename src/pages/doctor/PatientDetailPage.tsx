@@ -62,7 +62,7 @@ export default function PatientDetailPage() {
   const lastReport = reports[0];
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title={patient.fullName}
         subtitle={`${patient.code} · ${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет · фототип ${patient.phototype}`}
@@ -74,12 +74,12 @@ export default function PatientDetailPage() {
       />
 
       <Tabs defaultValue="overview" className="flex-1">
-        <div className="border-b border-border bg-surface px-3">
-          <TabsList className="h-9 bg-transparent p-0">
-            <TabsTrigger value="overview" className="text-[12px]">Обзор</TabsTrigger>
-            <TabsTrigger value="visits" className="text-[12px]">Визиты ({visits.length})</TabsTrigger>
-            <TabsTrigger value="lesions" className="text-[12px]">Образования ({lesions.length})</TabsTrigger>
-            <TabsTrigger value="reports" className="text-[12px]">Отчёты ({reports.length})</TabsTrigger>
+        <div className="border-b border-border bg-surface px-6">
+          <TabsList className="h-10 bg-transparent p-0">
+            <TabsTrigger value="overview" className="text-[13px]">Обзор</TabsTrigger>
+            <TabsTrigger value="visits" className="text-[13px]">Визиты ({visits.length})</TabsTrigger>
+            <TabsTrigger value="lesions" className="text-[13px]">Образования ({lesions.length})</TabsTrigger>
+            <TabsTrigger value="reports" className="text-[13px]">Отчёты ({reports.length})</TabsTrigger>
           </TabsList>
         </div>
 
