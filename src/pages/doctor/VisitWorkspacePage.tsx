@@ -17,6 +17,7 @@ import {
 import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
+import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -148,11 +149,7 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <PlannedTab
-            title="Клиническая оценка"
-            description="Здесь появятся: ABCD (TDS), 7-point checklist, AI-поддержка с уровнем риска и неопределённости, плейсхолдеры сегментации и XAI-карты. AI-поддержка не подменяет решение врача."
-            badges={["ABCD", "7-point", "AI support", "XAI placeholder"]}
-          />
+          <VisitAssessmentTab visit={visit} lesions={lesions} />
         </TabsContent>
 
         <TabsContent value="conclusion" className="m-0 min-h-0 flex-1 overflow-auto p-4">
