@@ -155,19 +155,11 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="conclusion" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <PlannedTab
-            title="Заключение врача"
-            description="Здесь появятся: поле итогового заключения, план наблюдения, маршрутизация на повторный приём или биопсию, шаблоны формулировок. Редактирование заключения недоступно в текущей задаче."
-            badges={["заключение", "план наблюдения", "маршрутизация"]}
-          />
+          <VisitConclusionTab patient={patient} visit={visit} lesions={lesions} />
         </TabsContent>
 
         <TabsContent value="report" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <PlannedTab
-            title="Отчёт пациента"
-            description="Здесь появятся: безопасный для пациента текст, расширенная версия для врача, защищённая ссылка с TTL, история рассылок. Отчёт визита не смешивается с предварительным анализом из бота."
-            badges={["patient-safe", "doctor version", "защищённая ссылка"]}
-          />
+          <VisitReportTab patient={patient} visit={visit} />
         </TabsContent>
       </Tabs>
     </div>
