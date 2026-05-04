@@ -14,9 +14,9 @@ import NotFound from "./pages/NotFound.tsx";
 import DeskPage from "./pages/doctor/DeskPage";
 import PatientsPage from "./pages/doctor/PatientsPage";
 import PatientDetailPage from "./pages/doctor/PatientDetailPage";
+import VisitWorkspacePage from "./pages/doctor/VisitWorkspacePage";
 import {
   // Doctor placeholders (still TBD)
-  VisitWorkspacePage,
   LesionPage,
   CapturePage,
   // Clinic admin
