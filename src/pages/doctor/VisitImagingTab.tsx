@@ -120,13 +120,11 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Capture toolbar + summary */}
-      <section className="surface-card">
+      {/* Patch 3: Capture toolbar — приглушённый фон без тени, отделяет управляющую зону. */}
+      <section className="surface-toolbar">
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Захват
-            </span>
+            <span className="mr-1 text-[12px] font-medium text-muted-foreground">Захват</span>
             <CaptureBtn icon={<Smartphone className="h-3.5 w-3.5" />} label="Телефон" onClick={() => showCaptureNotice("Телефон")} />
             <CaptureBtn icon={<FileUp className="h-3.5 w-3.5" />} label="Файл" onClick={() => showCaptureNotice("Файл")} />
             <CaptureBtn icon={<HardDrive className="h-3.5 w-3.5" />} label="Device Bridge" onClick={() => showCaptureNotice("Device Bridge")} />
@@ -135,61 +133,69 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
           <SummaryStrip summary={summary} />
         </div>
         {captureNotice && (
-          <div className="border-t border-border bg-surface-muted px-3 py-1.5 text-[12px] text-muted-foreground">
+          <div className="border-t border-border bg-surface px-3 py-1.5 text-[12px] text-muted-foreground">
             {captureNotice}
           </div>
         )}
       </section>
 
-      {/* Filters */}
-      <section className="surface-card">
-        <div className="flex flex-wrap items-end gap-x-3 gap-y-2 px-3 py-2">
-          <FilterSelect
-            label="Образование"
-            value={lesionFilter}
-            onChange={setLesionFilter}
-            options={[
-              { value: "all", label: "Все образования" },
-              { value: "unlinked", label: "Body map / без привязки" },
-              ...lesions.map((l) => ({ value: l.id, label: `${l.label} · ${l.bodyZone}` })),
-            ]}
-          />
-          <FilterSelect
-            label="Тип"
-            value={kindFilter}
-            onChange={(v) => setKindFilter(v as KindFilter)}
-            options={[
-              { value: "all", label: "Все" },
-              { value: "overview", label: "Обзор" },
-              { value: "dermoscopy", label: "Дерматоскопия" },
-              { value: "macro", label: "Макро" },
-              { value: "body_map", label: "Body map" },
-            ]}
-          />
-          <FilterSelect
-            label="Источник"
-            value={sourceFilter}
-            onChange={(v) => setSourceFilter(v as SourceFilter)}
-            options={[
-              { value: "all", label: "Все" },
-              { value: "phone", label: "Телефон" },
-              { value: "camera", label: "Камера" },
-              { value: "device_bridge", label: "Device Bridge" },
-              { value: "local_transfer", label: "Локальный перенос" },
-              { value: "file", label: "Файл" },
-            ]}
-          />
-          <FilterSelect
-            label="Качество"
-            value={qualityFilter}
-            onChange={(v) => setQualityFilter(v as QualityFilter)}
-            options={[
-              { value: "all", label: "Все" },
-              { value: "needs_review", label: "Требуют проверки" },
-            ]}
-          />
-          <div className="ml-auto text-[12px] text-muted-foreground">
-            Показано {filtered.length} из {allImages.length}
+      {/* Patch 3: Filters — 2 группы (Что показывать | Откуда/качество), разделитель + счётчик справа. */}
+      <section className="surface-toolbar">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2 px-3 py-2">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <FilterSelect
+              label="Образование"
+              value={lesionFilter}
+              onChange={setLesionFilter}
+              options={[
+                { value: "all", label: "Все образования" },
+                { value: "unlinked", label: "Body map / без привязки" },
+                ...lesions.map((l) => ({ value: l.id, label: `${l.label} · ${l.bodyZone}` })),
+              ]}
+            />
+            <FilterSelect
+              label="Тип"
+              value={kindFilter}
+              onChange={(v) => setKindFilter(v as KindFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "overview", label: "Обзор" },
+                { value: "dermoscopy", label: "Дерматоскопия" },
+                { value: "macro", label: "Макро" },
+                { value: "body_map", label: "Body map" },
+              ]}
+            />
+          </div>
+
+          <div className="hidden h-8 w-px self-end bg-border md:block" aria-hidden />
+
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <FilterSelect
+              label="Источник"
+              value={sourceFilter}
+              onChange={(v) => setSourceFilter(v as SourceFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "phone", label: "Телефон" },
+                { value: "camera", label: "Камера" },
+                { value: "device_bridge", label: "Device Bridge" },
+                { value: "local_transfer", label: "Локальный перенос" },
+                { value: "file", label: "Файл" },
+              ]}
+            />
+            <FilterSelect
+              label="Качество"
+              value={qualityFilter}
+              onChange={(v) => setQualityFilter(v as QualityFilter)}
+              options={[
+                { value: "all", label: "Все" },
+                { value: "needs_review", label: "Требуют проверки" },
+              ]}
+            />
+          </div>
+
+          <div className="ml-auto self-end text-[13px] tabular-nums text-muted-foreground">
+            Показано <span className="font-semibold text-foreground">{filtered.length}</span> из {allImages.length}
           </div>
         </div>
       </section>
@@ -226,19 +232,24 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
                       }`}
                     >
                       <ThumbPlaceholder image={img} />
-                      <div className="flex flex-col gap-0.5 px-2 py-1.5">
+                      {/* Patch 3: 3 строки вместо 5 — тип+лесион, источник·дата+чип, issues одной строкой. */}
+                      <div className="flex flex-col gap-1 px-2 py-2">
+                        <div className="flex min-w-0 items-baseline justify-between gap-2">
+                          <span className="truncate text-[13px] font-medium text-foreground">
+                            {KIND_LABEL[img.kind]}
+                          </span>
+                          <span className="shrink-0 truncate text-[12px] text-muted-foreground">
+                            {lesion ? lesion.label : "без привязки"}
+                          </span>
+                        </div>
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-[12px] font-medium">{KIND_LABEL[img.kind]}</span>
+                          <span className="truncate text-[12px] text-muted-foreground">
+                            {SOURCE_LABEL[img.source]} · {formatDateTime(img.capturedAt)}
+                          </span>
                           <QualityChip image={img} compact />
                         </div>
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {lesion ? lesion.label : "Body map / без привязки"}
-                        </div>
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {SOURCE_LABEL[img.source]} · {formatDateTime(img.capturedAt)}
-                        </div>
                         {img.quality.issues.length > 0 && (
-                          <div className="truncate text-[11px] text-warning">
+                          <div className="truncate text-[12px] text-warning">
                             {img.quality.issues.join(", ")}
                           </div>
                         )}
@@ -498,10 +509,10 @@ function ThumbPlaceholder({ image, large = false }: { image: ClinicalImage; larg
       }}
       aria-label={`Плейсхолдер снимка ${KIND_LABEL[image.kind]}`}
     >
-      {/* Наложение, чтобы тайл выглядел клинически и было видно kind/source */}
-      <div className="absolute inset-0 flex items-end justify-between p-2 text-[10px] uppercase tracking-wide text-foreground/70">
-        <span className="rounded-sm bg-surface/80 px-1 py-0.5">{KIND_LABEL[image.kind]}</span>
-        <span className="rounded-sm bg-surface/80 px-1 py-0.5">{SOURCE_LABEL[image.source]}</span>
+      {/* Patch 3: классификационные чипы — outline neutral, без uppercase. */}
+      <div className="absolute inset-0 flex items-end justify-between p-2 text-[11px] font-medium text-foreground/75">
+        <span className="rounded-sm border border-border bg-surface/85 px-1.5 py-0.5">{KIND_LABEL[image.kind]}</span>
+        <span className="rounded-sm border border-border bg-surface/85 px-1.5 py-0.5">{SOURCE_LABEL[image.source]}</span>
       </div>
       {/* Условная «рамка снимка» */}
       <div className="pointer-events-none absolute inset-2 rounded-sm border border-foreground/10" />
@@ -512,12 +523,13 @@ function ThumbPlaceholder({ image, large = false }: { image: ClinicalImage; larg
 function QualityChip({ image, compact = false }: { image: ClinicalImage; compact?: boolean }) {
   const review = needsReview(image);
   const text = review ? "Требует проверки" : "Хорошее качество";
+  // Patch 3: статусные чипы — solid с риск-цветом, без uppercase, чуть крупнее.
   const cls = review
-    ? "border-warning/40 bg-warning/10 text-warning"
-    : "border-success/40 bg-success/10 text-success";
+    ? "bg-warning text-warning-foreground"
+    : "bg-success text-success-foreground";
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-medium tabular-nums ${cls}`}
       title={`Оценка качества: ${(image.quality.score * 100).toFixed(0)}%`}
     >
       {compact ? `${Math.round(image.quality.score * 100)}%` : text}
