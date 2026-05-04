@@ -84,8 +84,30 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
   const [compareId, setCompareId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
 
-  const selected = selectedId ? allImages.find((i) => i.id === selectedId) ?? null : null;
-  const compare = compareId ? allImages.find((i) => i.id === compareId) ?? null : null;
+  // Fix 1: keep viewer selection in sync with active filters.
+  // If selectedId is not in `filtered`, snap to the first filtered image (or null).
+  const effectiveSelectedId =
+    selectedId && filtered.some((i) => i.id === selectedId)
+      ? selectedId
+      : filtered[0]?.id ?? null;
+  if (effectiveSelectedId !== selectedId) {
+    // Defer state update to after render to avoid setState-in-render warnings.
+    queueMicrotask(() => setSelectedId(effectiveSelectedId));
+  }
+
+  const selected = effectiveSelectedId
+    ? allImages.find((i) => i.id === effectiveSelectedId) ?? null
+    : null;
+
+  // Fix 2: never compare an image with itself.
+  const effectiveCompareId =
+    compareId && compareId !== effectiveSelectedId ? compareId : null;
+  if (effectiveCompareId !== compareId) {
+    queueMicrotask(() => setCompareId(effectiveCompareId));
+  }
+  const compare = effectiveCompareId
+    ? allImages.find((i) => i.id === effectiveCompareId) ?? null
+    : null;
 
   // Counts for compact summary.
   const summary = useMemo(() => {
