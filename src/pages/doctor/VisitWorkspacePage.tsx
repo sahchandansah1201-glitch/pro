@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronRight, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 
@@ -214,16 +214,30 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
 type View = "front" | "back";
 
 function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visit; lesions: Lesion[] }) {
-  const [view, setView] = useState<View>("front");
-  const [zoom, setZoom] = useState(1);
-  const [selected, setSelected] = useState<string | null>(lesions[0]?.id ?? null);
+  // Resolved points keep view stable across renders.
+  const placedLesions = useMemo(() => {
+    const placed = lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
+    return placed;
+  }, [lesions]);
 
-  const placedLesions = useMemo(
-    () => lesions.map((l) => ({ lesion: l, point: resolvePoint(l), num: 0 })),
-    [lesions],
-  );
-  // Numbering by stable order across all views
-  placedLesions.forEach((p, i) => (p.num = i + 1));
+  // Body map must open on the projection of the initially-selected lesion,
+  // otherwise users see an empty view (e.g., 3 back-side lesions but front shown).
+  const initialLesion = placedLesions[0] ?? null;
+  const initialView: View =
+    initialLesion?.point.view === "back" ? "back" : "front";
+
+  const [view, setView] = useState<View>(initialView);
+  const [zoom, setZoom] = useState(1);
+  const [selected, setSelected] = useState<string | null>(initialLesion?.lesion.id ?? null);
+
+  // Switch projection whenever the selected lesion lives on a different one.
+  useEffect(() => {
+    if (!selected) return;
+    const p = placedLesions.find((x) => x.lesion.id === selected)?.point;
+    if (!p) return;
+    const targetView: View = p.view === "back" ? "back" : "front";
+    setView((current) => (current === targetView ? current : targetView));
+  }, [selected, placedLesions]);
 
   const visiblePoints = placedLesions.filter((p) => {
     if (view === "front") return p.point.view === "front" || p.point.view === "left" || p.point.view === "right" || p.point.view === "scalp";
@@ -268,9 +282,11 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
+          {/* No maxWidth: zoom must visually scale beyond container width.
+              Pane itself scrolls (overflow-auto), so document scroll is unaffected. */}
           <div
             className="mx-auto"
-            style={{ width: `${320 * zoom}px`, maxWidth: "100%" }}
+            style={{ width: `${320 * zoom}px` }}
           >
             <BodySvg
               view={view}
