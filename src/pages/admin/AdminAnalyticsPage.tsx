@@ -613,7 +613,9 @@ export default function AdminAnalyticsPage() {
               </span>
             }
           >
-            {byClinic.length === 0 ? (
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : byClinic.length === 0 ? (
               renderEmpty("clinics")
             ) : (
               <div className="divide-y divide-border rounded-md border border-border">
