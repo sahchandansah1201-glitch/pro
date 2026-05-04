@@ -196,7 +196,48 @@ function EmptyState({
   );
 }
 
-// ───────── Page ─────────
+/**
+ * Унифицированный skeleton-загрузчик для секций аналитики.
+ * Показывается, пока данные «грузятся», и визуально отличается
+ * от пустого состояния (анимация + плейсхолдеры строк), чтобы
+ * пользователь не путал «грузим» с «нет данных».
+ */
+function SectionSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      data-loading="true"
+      aria-label="Загрузка данных секции"
+      className="flex min-h-[120px] flex-col gap-3"
+    >
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-12" />
+          </div>
+          <Skeleton className="h-2 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Skeleton для KPI-плитки. Сохраняет ту же высоту, что и реальный KpiCard.
+ */
+function KpiSkeleton() {
+  return (
+    <Card className="p-3" aria-busy="true" data-loading="true">
+      <Skeleton className="h-3 w-16" />
+      <Skeleton className="mt-2 h-5 w-12" />
+      <Skeleton className="mt-1 h-2.5 w-20" />
+    </Card>
+  );
+}
+
 
 export default function AdminAnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("all");
