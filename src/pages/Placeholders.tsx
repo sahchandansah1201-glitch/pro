@@ -33,9 +33,6 @@ export const LesionPage = () => {
     />
   );
 };
-export const CapturePage = () => (
-  <PlaceholderPage title="Съёмка" subtitle="Захват и контроль качества фото, привязка к визиту/lesion." />
-);
 
 // ───────── Администратор клиники ─────────
 export const AdminHomePage = () => (
