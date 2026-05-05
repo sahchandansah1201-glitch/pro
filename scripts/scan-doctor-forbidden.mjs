@@ -116,19 +116,56 @@ mkdirSync(dirname(REPORT_JSON), { recursive: true });
 writeFileSync(REPORT_JSON, JSON.stringify(report, null, 2) + "\n", "utf8");
 writeFileSync(REPORT_MD, mdLines.join("\n"), "utf8");
 
-console.log(`[doctor-hygiene-scan] ${SCAN_TS}`);
-console.log(`[doctor-hygiene-scan] просканировано файлов: ${files.length}`);
-console.log(`[doctor-hygiene-scan] запрещённых токенов: ${FORBIDDEN_TOKENS.length}`);
-console.log(`[doctor-hygiene-scan] отчёт: ${relative(ROOT, REPORT_JSON)}`);
-console.log(`[doctor-hygiene-scan] отчёт: ${relative(ROOT, REPORT_MD)}`);
+// ───────────────────────── Консольный вывод ─────────────────────────
+// Структурированный, человекочитаемый отчёт. ANSI-цвета — только в TTY.
+const isTTY = Boolean(process.stdout.isTTY);
+const c = (code, s) => (isTTY ? `\x1b[${code}m${s}\x1b[0m` : s);
+const dim = (s) => c("2", s);
+const bold = (s) => c("1", s);
+const red = (s) => c("31", s);
+const green = (s) => c("32", s);
+const yellow = (s) => c("33", s);
+const cyan = (s) => c("36", s);
+
+const HR = dim("─".repeat(72));
+console.log(HR);
+console.log(`${bold("doctor-hygiene-scan")}  ${dim(SCAN_TS)}`);
+console.log(HR);
+console.log(`  ${dim("Цели        :")} ${SCAN_TARGETS.join(", ")}`);
+console.log(`  ${dim("Файлов      :")} ${files.length}`);
+console.log(`  ${dim("Токенов     :")} ${FORBIDDEN_TOKENS.length}`);
+console.log(`  ${dim("Отчёт JSON  :")} ${relative(ROOT, REPORT_JSON)}`);
+console.log(`  ${dim("Отчёт MD    :")} ${relative(ROOT, REPORT_MD)}`);
+console.log(HR);
 
 if (findings.length === 0) {
-  console.log("[doctor-hygiene-scan] ✓ совпадений не найдено");
+  console.log(`  ${green("✓ Совпадений не найдено — doctor-контекст чист.")}`);
+  console.log(HR);
   process.exit(0);
 }
 
-console.log(`[doctor-hygiene-scan] ✗ найдено совпадений: ${findings.length}`);
-for (const f of findings) {
-  console.log(`  ${f.file}:${f.line}  [${f.token}]  ${f.text}`);
+console.log(`  ${red(`✗ Найдено совпадений: ${findings.length}`)} в ${Object.keys(byFile).length} файл(ах)`);
+console.log(HR);
+
+// Группированный вывод: файл → строки.
+const sortedFiles = Object.keys(byFile).sort();
+const maxLineW = Math.max(...findings.map((f) => String(f.line).length));
+const maxTokW = Math.min(28, Math.max(...findings.map((f) => f.token.length)));
+
+for (const file of sortedFiles) {
+  const items = byFile[file];
+  console.log(`\n  ${cyan(file)}  ${dim(`(${items.length})`)}`);
+  for (const it of items) {
+    const ln = String(it.line).padStart(maxLineW);
+    const tk = it.token.padEnd(maxTokW).slice(0, maxTokW);
+    const ctx = it.text.length > 80 ? it.text.slice(0, 77) + "…" : it.text;
+    console.log(`    ${dim(ln + " │")} ${yellow(tk)} ${dim("│")} ${ctx}`);
+  }
 }
+
+console.log("");
+console.log(HR);
+console.log(`  ${red("Сканирование завершено с ошибкой.")} Подробности: ${relative(ROOT, REPORT_MD)}`);
+console.log(HR);
 process.exit(1);
+

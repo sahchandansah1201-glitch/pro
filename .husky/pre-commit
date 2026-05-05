@@ -1,13 +1,15 @@
 #!/usr/bin/env sh
 # Pre-commit: блокирует коммит при наличии запрещённых паттернов в doctor-контексте.
-# Сканер запускается всегда (быстрый, ~12 файлов), не зависит от staged-выборки.
 
-echo "[pre-commit] doctor-hygiene-scan…"
+echo ""
+echo "▶ pre-commit · doctor-hygiene-scan"
+echo ""
 node scripts/scan-doctor-forbidden.mjs
 status=$?
 if [ $status -ne 0 ]; then
-  echo "[pre-commit] ✗ Коммит заблокирован: найдены запрещённые паттерны."
-  echo "[pre-commit]   Исправьте находки выше или используйте --no-verify (не рекомендуется)."
+  echo ""
+  echo "✗ Коммит заблокирован. Исправьте находки выше или используйте --no-verify (не рекомендуется)."
+  echo ""
   exit $status
 fi
 exit 0
