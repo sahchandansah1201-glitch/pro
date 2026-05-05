@@ -22,19 +22,7 @@
 Единый источник правды — [`scripts/forbidden-patterns.mjs`](./scripts/forbidden-patterns.mjs).
 Этот же список используют git-хуки, CI и vitest-тест `VisitImagingTab.hygiene.test.ts`.
 
-#### Имена полей/ключей (утечка чувствительных доменных контрактов)
+#### Имена полей/ключей
 
-| Паттерн | Почему запрещён |
-| --- | --- |
-| `doctorVersionText` | Внутренний врачебный текст не должен ссылаться по прямому ключу. |
-| `patientSafeText` | Безопасный для пациента текст читается через accessor `getReportSafeText`. |
-| `sharedLink` | Защищённая ссылка читается через `getReportLinkExpiry` / `getReportLinkToken`. |
-| `storagePath` | Путь к файлу не должен утечь во фронтовой слой. |
-| `photoRef` | Прямые ссылки на фото обходят слой доступа. |
-| `modelVersion` | Версия модели не передаётся в UI напрямую. |
-| `heatmapRef` | Heatmap-артефакты — только через accessor. |
-| `externalUserRef` | Внешний идентификатор не для doctor-страниц. |
-| `protectedAnalysisLink` | Защищённая ссылка анализа — только через слой доступа. |
-
-> Все эти ключи доступны через [`src/lib/report-access.ts`](./src/lib/report-access.ts),
-> где имена
+Эти строки не должны встречаться в исходниках doctor-контекста — они
+утекали бы во фронт чувствительные доменные контракты.
