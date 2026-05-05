@@ -574,6 +574,62 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
   );
 }
 
+// ───────── Send status (local-only) ─────────
+
+const SEND_STATUS_LABEL: Record<SendStatus, string> = {
+  idle: "Ещё не отправлялось",
+  sending: "Отправка…",
+  sent: "Отправлено (демо)",
+  failed: "Не отправлено",
+};
+
+function SendStatusBlock({ send }: { send: SendRecord }) {
+  const tone =
+    send.status === "sent"
+      ? "border-[hsl(var(--risk-low))]"
+      : send.status === "failed"
+        ? "border-[hsl(var(--risk-high))]"
+        : send.status === "sending"
+          ? "border-[hsl(var(--risk-medium))]"
+          : "border-dashed border-border";
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="send-status"
+      data-send-status={send.status}
+      className={`mt-3 rounded-md border bg-surface-muted p-3 text-[12px] ${tone}`}
+    >
+      <div className="mb-1 font-medium text-foreground">
+        Статус отправки пациенту: {SEND_STATUS_LABEL[send.status]}
+      </div>
+      {send.status === "idle" && (
+        <p className="text-muted-foreground">
+          Сначала сформируйте демо-отчёт и заполните «Текст для пациента».
+        </p>
+      )}
+      {send.status === "failed" && (
+        <p className="text-muted-foreground">{send.reason ?? "Неизвестная причина."}</p>
+      )}
+      {(send.status === "sent" || send.status === "sending") && (
+        <dl className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-3">
+          <dt className="text-muted-foreground">Время (демо)</dt>
+          <dd className="tabular-nums sm:col-span-2">{formatDateTime(send.at)}</dd>
+          <dt className="text-muted-foreground">Содержимое</dt>
+          <dd className="sm:col-span-2 whitespace-pre-wrap text-foreground">
+            {send.patientTextPreview}
+          </dd>
+        </dl>
+      )}
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Локальный статус сессии. Реальная отправка email/мессенджером будет
+        подключена на бэкенде.
+      </p>
+    </div>
+  );
+}
+
 // ───────── Small UI helpers ─────────
 
 function ChecklistItem({ ok, children }: { ok: boolean; children: React.ReactNode }) {
