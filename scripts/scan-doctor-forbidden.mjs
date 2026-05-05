@@ -17,6 +17,7 @@ const ROOT = process.cwd();
 const REPORT_DIR = join(ROOT, "reports", "doctor-hygiene");
 const REPORT_JSON = join(REPORT_DIR, "scan-report.json");
 const REPORT_MD = join(REPORT_DIR, "scan-report.md");
+const REPORT_MD_REL = "reports/doctor-hygiene/scan-report.md";
 const SCAN_TS = "2026-05-04T00:00:00Z";
 
 const argv = process.argv.slice(2);
@@ -191,9 +192,12 @@ console.log(HR);
 console.log(`  ${dim("Цели        :")} ${SCAN_TARGETS.join(", ")}`);
 console.log(`  ${dim("Файлов      :")} ${files.length}`);
 console.log(`  ${dim("Токенов     :")} ${FORBIDDEN_TOKENS.length}`);
+// file://-URL — кликабельная в большинстве терминалов и IDE.
+const fileUrl = (p) => "file://" + p.replace(/\\/g, "/");
 if (writeReports) {
   console.log(`  ${dim("Отчёт JSON  :")} ${relative(ROOT, REPORT_JSON)}`);
   console.log(`  ${dim("Отчёт MD    :")} ${relative(ROOT, REPORT_MD)}`);
+  console.log(`  ${dim("Открыть     :")} ${cyan(fileUrl(REPORT_MD))}`);
 }
 console.log(HR);
 
@@ -230,5 +234,11 @@ for (const file of sortedFiles) {
 console.log("");
 console.log(HR);
 console.log(`  ${red("Сканирование завершено с ошибкой.")}`);
+if (writeReports) {
+  console.log(`  ${dim("Подробный отчёт:")} ${cyan(fileUrl(REPORT_MD))}`);
+} else {
+  console.log(`  ${dim("Полный скан + отчёт:")} ${bold("npm run scan:doctor")}`);
+  console.log(`  ${dim("Откроется здесь    :")} ${cyan(fileUrl(REPORT_MD))}`);
+}
 console.log(HR);
 process.exit(1);
