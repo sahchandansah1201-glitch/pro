@@ -1,16 +1,12 @@
 #!/usr/bin/env sh
-# Pre-commit: сканирует только staged-файлы из doctor-контекста.
+# Pre-commit: сканирует только staged-файлы doctor-контекста (короткий вывод).
 
-echo ""
-echo "▶ pre-commit · doctor-hygiene-scan (staged)"
-echo ""
-node scripts/scan-doctor-forbidden.mjs --staged
+node scripts/scan-doctor-forbidden.mjs --staged --quiet
 status=$?
 if [ $status -ne 0 ]; then
   echo ""
   echo "✗ Коммит заблокирован."
-  echo "  Подробный отчёт (после полного скана):"
-  echo "    file://$(pwd)/reports/doctor-hygiene/scan-report.md"
+  echo "  Подробный отчёт: file://$(pwd)/reports/doctor-hygiene/scan-report.md"
   echo "  Команды:"
   echo "    npm run scan:doctor      # пересобрать отчёт"
   echo "    git commit --no-verify   # обойти (не рекомендуется)"

@@ -1,16 +1,12 @@
 #!/usr/bin/env sh
-# Pre-push: сканирует staged + изменённые файлы doctor-контекста.
+# Pre-push: сканирует staged + изменённые файлы doctor-контекста (короткий вывод).
 
-echo ""
-echo "▶ pre-push · doctor-hygiene-scan (changed)"
-echo ""
-node scripts/scan-doctor-forbidden.mjs --changed
+node scripts/scan-doctor-forbidden.mjs --changed --quiet
 status=$?
 if [ $status -ne 0 ]; then
   echo ""
   echo "✗ Push заблокирован."
-  echo "  Подробный отчёт (после полного скана):"
-  echo "    file://$(pwd)/reports/doctor-hygiene/scan-report.md"
+  echo "  Подробный отчёт: file://$(pwd)/reports/doctor-hygiene/scan-report.md"
   echo "  Команда: npm run scan:doctor"
   echo ""
   exit $status
