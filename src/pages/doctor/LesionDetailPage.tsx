@@ -70,21 +70,6 @@ export default function LesionDetailPage() {
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
 
-  if (!patient) {
-    return <NotFound title="Пациент не найден" hint="Карточка пациента отсутствует в демо-данных." />;
-  }
-  if (!lesion || lesion.patientId !== patient.id) {
-    return (
-      <div className="flex h-full flex-col">
-        <PageHeader title="Образование не найдено" subtitle="Запись отсутствует или не принадлежит пациенту." />
-        <div className="p-4">
-          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
-            <Link to={`/patients/${patient.id}`}>К карточке пациента</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   const images = useMemo(
     () => [...getImagesByLesionId(lesionId)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
