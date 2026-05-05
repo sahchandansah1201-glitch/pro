@@ -222,7 +222,7 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="report" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <VisitReportTab patient={patient} visit={visit} />
+          <VisitReportTab patient={patient} visit={visit} lesions={lesions} />
         </TabsContent>
       </Tabs>
     </div>
