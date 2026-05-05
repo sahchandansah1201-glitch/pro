@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
+import { ListEmptyState } from "@/components/admin/ListEmptyState";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { getClinics, getAppointments } from "@/lib/mock-data";
 import { DEMO_USERS } from "@/lib/users";
@@ -162,6 +163,24 @@ export default function AdminDoctorsPage() {
 
   const note = (text: string) => setActionNote(text);
 
+  const activeFilterLabels =
+    filter === "all" ? [] : [`фильтр: ${FILTERS.find((f) => f.key === filter)?.label}`];
+  const resetAll = () => {
+    setFilter("all");
+    setQuery("");
+  };
+  const isEmpty = rows.length === 0;
+  const emptyState = (
+    <ListEmptyState
+      itemNoun="врачей"
+      query={query}
+      activeFilters={activeFilterLabels}
+      totalUnfiltered={DOCTOR_ROWS.length}
+      onReset={resetAll}
+      hint="В демо-каталоге фиксированный список врачей. С бэкендом сюда добавятся живые данные клиники."
+    />
+  );
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Врачи" subtitle="Состав, специализации, расписание, лицензии." />
@@ -235,8 +254,10 @@ export default function AdminDoctorsPage() {
           </div>
         )}
 
+        {isEmpty && emptyState}
+
         {/* Desktop таблица */}
-        <Card className="hidden p-0 md:block">
+        <Card className={`hidden p-0 md:block ${isEmpty ? "md:hidden" : ""}`}>
           <table className="w-full text-[12px]">
             <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -250,14 +271,7 @@ export default function AdminDoctorsPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleRows.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
-                    Нет врачей по выбранным фильтрам.
-                  </td>
-                </tr>
-              ) : (
-                visibleRows.map((r) => (
+              {visibleRows.map((r) => (
                   <tr key={r.id} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2 font-medium">{r.fullName}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.specialty}</td>
@@ -307,20 +321,14 @@ export default function AdminDoctorsPage() {
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </Card>
 
         {/* Mobile карточки */}
-        <div className="grid grid-cols-1 gap-2 md:hidden">
-          {visibleRows.length === 0 ? (
-            <Card className="p-4 text-center text-[12px] text-muted-foreground">
-              Нет врачей по выбранным фильтрам.
-            </Card>
-          ) : (
-            visibleRows.map((r) => (
+        <div className={`grid grid-cols-1 gap-2 md:hidden ${isEmpty ? "hidden" : ""}`}>
+          {visibleRows.map((r) => (
               <Card key={r.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -372,8 +380,7 @@ export default function AdminDoctorsPage() {
                   </Button>
                 </div>
               </Card>
-            ))
-          )}
+          ))}
         </div>
 
         <ListPagination

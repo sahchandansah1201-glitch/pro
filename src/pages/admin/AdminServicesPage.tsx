@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
+import { ListEmptyState } from "@/components/admin/ListEmptyState";
 import { useListPagination } from "@/lib/use-list-pagination";
 
 /**
@@ -146,6 +147,24 @@ export default function AdminServicesPage() {
   });
   const visibleRows = pagination.visible;
 
+  const activeFilterLabels =
+    filter === "all" ? [] : [`фильтр: ${FILTERS.find((f) => f.key === filter)?.label}`];
+  const resetAll = () => {
+    setFilter("all");
+    setQuery("");
+  };
+  const isEmpty = rows.length === 0;
+  const emptyState = (
+    <ListEmptyState
+      itemNoun="услуг"
+      query={query}
+      activeFilters={activeFilterLabels}
+      totalUnfiltered={SERVICES.length}
+      onReset={resetAll}
+      hint="В демо-каталоге фиксированный список услуг. Реальные тарифы и категории придут с бэкендом."
+    />
+  );
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Услуги и тарифы" subtitle="Каталог услуг, цены, длительность." />
@@ -214,7 +233,9 @@ export default function AdminServicesPage() {
           </div>
         )}
 
-        <Card className="hidden p-0 md:block">
+        {isEmpty && emptyState}
+
+        <Card className={`hidden p-0 md:block ${isEmpty ? "md:hidden" : ""}`}>
           <table className="w-full text-[12px]">
             <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -230,77 +251,64 @@ export default function AdminServicesPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleRows.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
-                    Нет услуг по выбранным фильтрам.
+              {visibleRows.map((s) => (
+                <tr key={s.code} className="border-b border-border/60 last:border-0">
+                  <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{s.code}</td>
+                  <td className="px-3 py-2 font-medium">{s.name}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{CATEGORY_LABEL[s.category]}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{s.durationMin} мин</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {fmtPrice(s.priceMin, s.priceMax)}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">{s.consentNote}</td>
+                  <td className="px-3 py-2">
+                    {s.onlineBooking ? (
+                      <span className="text-[11px]" style={{ color: "hsl(var(--success))" }}>
+                        Да
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">Нет</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px]"
+                      style={{
+                        color: s.active
+                          ? "hsl(var(--success))"
+                          : "hsl(var(--muted-foreground))",
+                        border: `1px solid ${
+                          s.active
+                            ? "hsl(var(--success))"
+                            : "hsl(var(--muted-foreground))"
+                        }`,
+                      }}
+                    >
+                      {s.active ? "Активна" : "Отключена"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 min-h-[44px] sm:min-h-[32px]"
+                      onClick={() =>
+                        setActionNote(
+                          `Редактирование услуги «${s.name}» (${s.code}) появится с бэкендом.`,
+                        )
+                      }
+                    >
+                      Редактировать (демо)
+                    </Button>
                   </td>
                 </tr>
-              ) : (
-                visibleRows.map((s) => (
-                  <tr key={s.code} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{s.code}</td>
-                    <td className="px-3 py-2 font-medium">{s.name}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{CATEGORY_LABEL[s.category]}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{s.durationMin} мин</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {fmtPrice(s.priceMin, s.priceMax)}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{s.consentNote}</td>
-                    <td className="px-3 py-2">
-                      {s.onlineBooking ? (
-                        <span className="text-[11px]" style={{ color: "hsl(var(--success))" }}>
-                          Да
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">Нет</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[10px]"
-                        style={{
-                          color: s.active
-                            ? "hsl(var(--success))"
-                            : "hsl(var(--muted-foreground))",
-                          border: `1px solid ${
-                            s.active
-                              ? "hsl(var(--success))"
-                              : "hsl(var(--muted-foreground))"
-                          }`,
-                        }}
-                      >
-                        {s.active ? "Активна" : "Отключена"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-9 min-h-[44px] sm:min-h-[32px]"
-                        onClick={() =>
-                          setActionNote(
-                            `Редактирование услуги «${s.name}» (${s.code}) появится с бэкендом.`,
-                          )
-                        }
-                      >
-                        Редактировать (демо)
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </Card>
 
-        <div className="grid grid-cols-1 gap-2 md:hidden">
-          {visibleRows.length === 0 ? (
-            <Card className="p-4 text-center text-[12px] text-muted-foreground">
-              Нет услуг по выбранным фильтрам.
-            </Card>
-          ) : (
-            visibleRows.map((s) => (
+        <div className={`grid grid-cols-1 gap-2 md:hidden ${isEmpty ? "hidden" : ""}`}>
+          {visibleRows.map((s) => (
               <Card key={s.code} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -347,8 +355,7 @@ export default function AdminServicesPage() {
                   Редактировать (демо)
                 </Button>
               </Card>
-            ))
-          )}
+          ))}
         </div>
 
         <ListPagination

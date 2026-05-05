@@ -94,4 +94,31 @@ describe("Admin clinic core pages — render & safety", () => {
     // Используем within чтобы не сорить unused import warnings.
     expect(within(document.body)).toBeDefined();
   });
+
+  it("AdminDoctorsPage shows empty state with active query chip and reset", () => {
+    renderRouted(<AdminDoctorsPage />);
+    const input = screen.getByLabelText("Поиск врачей");
+    fireEvent.change(input, { target: { value: "ZZZZнетсовпадений" } });
+    expect(screen.getByText("Ничего не найдено")).toBeInTheDocument();
+    expect(screen.getByText(/поиск:/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Сбросить поиск и фильтры/ }));
+    expect(screen.queryByText("Ничего не найдено")).not.toBeInTheDocument();
+    expect((screen.getByLabelText("Поиск врачей") as HTMLInputElement).value).toBe("");
+  });
+
+  it("AdminServicesPage shows empty state with filter chip", () => {
+    renderRouted(<AdminServicesPage />);
+    fireEvent.change(screen.getByLabelText("Поиск услуг"), {
+      target: { value: "ZZZнет" },
+    });
+    expect(screen.getByText("Ничего не найдено")).toBeInTheDocument();
+    expect(screen.getByText(/поиск:/)).toBeInTheDocument();
+  });
+
+  it("AdminClinicsPage shows empty state when filter has no matches", () => {
+    renderRouted(<AdminClinicsPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Внешние" }));
+    expect(screen.getByText("Ничего не найдено")).toBeInTheDocument();
+    expect(screen.getByText(/фильтр:/)).toBeInTheDocument();
+  });
 });

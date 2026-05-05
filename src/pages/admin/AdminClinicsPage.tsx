@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ListPagination } from "@/components/admin/ListPagination";
+import { ListEmptyState } from "@/components/admin/ListEmptyState";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { getAppointments, getClinics, getIntegrations, getLeads } from "@/lib/mock-data";
 import type { PartnerTier } from "@/lib/domain";
@@ -109,6 +110,23 @@ export default function AdminClinicsPage() {
   });
   const visibleRows = pagination.visible;
 
+  const activeFilterLabels =
+    filter === "all" ? [] : [`фильтр: ${FILTERS.find((f) => f.key === filter)?.label}`];
+  const resetAll = () => {
+    setFilter("all");
+    setSort("priority");
+  };
+  const isEmpty = visible.length === 0;
+  const emptyState = (
+    <ListEmptyState
+      itemNoun="клиник"
+      activeFilters={activeFilterLabels}
+      totalUnfiltered={enriched.length}
+      onReset={resetAll}
+      hint="В демо-каталоге фиксированный список клиник. Реальный маршрутинг и партнёрские филиалы появятся с бэкендом."
+    />
+  );
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -194,14 +212,11 @@ export default function AdminClinicsPage() {
           </div>
         )}
 
+        {isEmpty && emptyState}
+
         {/* Desktop: список-карточки в две колонки */}
-        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          {visibleRows.length === 0 ? (
-            <Card className="p-4 text-center text-[12px] text-muted-foreground">
-              Нет клиник по выбранному фильтру.
-            </Card>
-          ) : (
-            visibleRows.map((row) => (
+        <div className={`grid grid-cols-1 gap-2 lg:grid-cols-2 ${isEmpty ? "hidden" : ""}`}>
+          {visibleRows.map((row) => (
               <Card key={row.clinic.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -301,8 +316,7 @@ export default function AdminClinicsPage() {
                   </Button>
                 </div>
               </Card>
-            ))
-          )}
+          ))}
         </div>
 
         <ListPagination
