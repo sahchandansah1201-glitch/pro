@@ -145,10 +145,12 @@ export default function MeReportsPage() {
             type="button"
             size="sm"
             variant="outline"
-            onClick={exportPdf}
+            disabled
+            aria-disabled="true"
+            title="Экспорт PDF будет подключён на бэкенде"
             className="min-h-[44px] sm:min-h-[32px]"
           >
-            <Printer className="h-3.5 w-3.5" aria-hidden /> Экспорт списка в PDF
+            <Printer className="h-3.5 w-3.5" aria-hidden /> Экспорт списка в PDF (демо)
           </Button>
         </div>
 
