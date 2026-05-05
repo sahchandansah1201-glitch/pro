@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
+import { ListEmptyState } from "@/components/admin/ListEmptyState";
 import { useListPagination } from "@/lib/use-list-pagination";
 
 /**
