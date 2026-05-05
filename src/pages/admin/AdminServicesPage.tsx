@@ -139,6 +139,13 @@ export default function AdminServicesPage() {
     });
   }, [filter, query]);
 
+  const pagination = useListPagination(rows, {
+    mobilePageSize: 4,
+    desktopPageSize: 8,
+    deps: [filter, query],
+  });
+  const visibleRows = pagination.visible;
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Услуги и тарифы" subtitle="Каталог услуг, цены, длительность." />
