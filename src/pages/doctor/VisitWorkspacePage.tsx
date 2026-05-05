@@ -563,6 +563,50 @@ function BodyMapTab({
               <Stat term="ABCD" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
               <Stat term="7-point" value={selAssessment ? selAssessment.sevenPoint.total : "—"} />
             </dl>
+            <div className="mt-2 rounded-md border border-border bg-surface-muted px-2.5 py-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold">
+                  <Images className="h-3.5 w-3.5" aria-hidden /> Связанные снимки
+                </div>
+                <span
+                  className={`rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${
+                    selImageCount === 0
+                      ? "border border-border bg-surface text-muted-foreground"
+                      : selNeedsReview
+                        ? "bg-warning text-warning-foreground"
+                        : "bg-success text-success-foreground"
+                  }`}
+                >
+                  {selImageCount === 0 ? "нет снимков" : selNeedsReview ? "нужен пересмотр" : "качество ок"}
+                </span>
+              </div>
+              <dl className="mt-1.5 grid grid-cols-2 gap-x-2 text-[11px]">
+                <Stat term="Всего" value={selImageCount} />
+                <Stat term="Последний" value={selLatestAt ? formatDate(selLatestAt) : "—"} />
+              </dl>
+              {selKinds.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {selKinds.map((k) => (
+                    <span key={k} className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                      {k === "overview" ? "Обзор" : k === "dermoscopy" ? "Дерматоскопия" : k === "macro" ? "Макро" : "Body map"}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => onOpenImaging(selectedLesion.id)}
+                >
+                  К снимкам этого очага <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Локальная навигация по визиту. Без обращений к хранилищу и без диагноза.
+              </p>
+            </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
               Клинические значения ABCD и 7-point — данные из существующих мок-оценок этого визита, без AI-диагноза.
             </p>
