@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FileText, ShieldAlert, Search, X, Download } from "lucide-react";
+import { FileText, ShieldAlert, Search, X, Download, Printer } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/shell/PageHeader";
@@ -122,6 +122,71 @@ export default function MeReportsPage() {
   }
   const hasAnyFilter = !!query || !!doctorQuery || clinic !== "all" || sort !== "new" || period !== "all";
 
+  const escapeHtml = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!),
+    );
+
+  const exportPdf = () => {
+    const w = window.open("", "_blank", "noopener,noreferrer");
+    if (!w) {
+      toast({
+        title: "Не удалось открыть окно",
+        description: "Разрешите всплывающие окна, чтобы экспортировать список.",
+      });
+      return;
+    }
+    const conditions = [
+      query.trim() && `поиск: «${query.trim()}»`,
+      doctorQuery.trim() && `врач: «${doctorQuery.trim()}»`,
+      clinic !== "all" && `клиника: ${clinic}`,
+      period !== "all" &&
+        (period === "custom"
+          ? `период: ${fromDate || "…"} — ${toDate || "…"}`
+          : `период: ${PERIOD_LABEL[period].toLowerCase()}`),
+      `сортировка: ${SORT_LABEL[sort].toLowerCase()}`,
+    ].filter(Boolean) as string[];
+
+    const rows = filtered
+      .map(
+        (r) => `
+          <tr>
+            <td>${escapeHtml(formatDate(r.visitDate))}</td>
+            <td>${escapeHtml(r.clinicName)}</td>
+            <td>${escapeHtml(r.doctorName)}</td>
+            <td>${escapeHtml(r.summary)}</td>
+          </tr>`,
+      )
+      .join("");
+
+    w.document.write(`<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Мои заключения · экспорт</title>
+<style>
+  body{font:13px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:24px}
+  h1{font-size:18px;margin:0 0 6px}
+  .meta{color:#555;font-size:12px;margin-bottom:12px}
+  .chips{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+  .chips li{border:1px solid #ccc;border-radius:999px;padding:2px 8px;font-size:11px;color:#444}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}
+  th{background:#f5f5f5}
+  tfoot td{font-size:11px;color:#666;border:none;padding-top:10px}
+  @media print{button{display:none}}
+</style></head><body>
+<h1>Мои заключения</h1>
+<div class="meta">Демо-экспорт. Сформировано локально, без отправки данных.</div>
+<ul class="chips">${conditions.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>
+<button onclick="window.print()" style="margin-bottom:12px;padding:6px 10px">Сохранить как PDF</button>
+<table>
+  <thead><tr><th>Дата</th><th>Клиника</th><th>Врач</th><th>Краткое заключение</th></tr></thead>
+  <tbody>${rows || `<tr><td colspan="4">Нет записей по текущим условиям.</td></tr>`}</tbody>
+  <tfoot><tr><td colspan="4">Всего записей: ${filtered.length}</td></tr></tfoot>
+</table>
+<script>window.addEventListener("load",()=>setTimeout(()=>window.print(),250))</script>
+</body></html>`);
+    w.document.close();
+  };
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Мои заключения" subtitle="Поиск, фильтр по клинике и сортировка." />
@@ -138,6 +203,18 @@ export default function MeReportsPage() {
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{DEMO_BANNER}</span>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={exportPdf}
+            className="min-h-[44px] sm:min-h-[32px]"
+          >
+            <Printer className="h-3.5 w-3.5" aria-hidden /> Экспорт списка в PDF
+          </Button>
         </div>
 
         <Card className="p-3">
