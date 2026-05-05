@@ -146,9 +146,17 @@ export default function LesionDetailPage() {
               <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" aria-hidden /> Локализация
               </div>
-              <div className="mt-1 text-[13px]">{lesion.bodyZone}</div>
-              <div className="text-[12px] text-muted-foreground">
-                Проекция: {VIEW_LABEL[lesion.mapPoint.view]} · x{(lesion.mapPoint.x * 100).toFixed(0)}% / y{(lesion.mapPoint.y * 100).toFixed(0)}%
+              <div className="mt-1 flex items-start gap-2">
+                <BodyMapMini view={lesion.mapPoint.view} x={lesion.mapPoint.x} y={lesion.mapPoint.y} />
+                <div className="min-w-0">
+                  <div className="text-[13px]">{lesion.bodyZone}</div>
+                  <div className="text-[12px] text-muted-foreground">
+                    Проекция: {VIEW_LABEL[lesion.mapPoint.view]}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground tabular-nums">
+                    x{(lesion.mapPoint.x * 100).toFixed(0)}% / y{(lesion.mapPoint.y * 100).toFixed(0)}%
+                  </div>
+                </div>
               </div>
             </div>
             <div>
