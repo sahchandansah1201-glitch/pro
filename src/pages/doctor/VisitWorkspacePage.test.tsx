@@ -118,7 +118,18 @@ describe("VisitWorkspacePage · production hygiene", () => {
     for (const f of files) {
       const src = await fs.readFile(f, "utf8");
       for (const t of FORBIDDEN) expect(src).not.toMatch(new RegExp(t));
-      expect(src).not.toMatch(/fetch\(|axios|XMLHttpRequest|sendBeacon|navigator\.clipboard|mediaDevices|localStorage|sessionStorage|Date\.now\(/);
+      const apiTokens = [
+        j("fetch", "\\("),
+        j("ax", "ios"),
+        j("XML", "Http", "Request"),
+        j("send", "Beacon"),
+        j("navigator", "\\.", "clipboard"),
+        j("media", "Devices"),
+        j("local", "Storage"),
+        j("session", "Storage"),
+        j("Date", "\\.", "now", "\\("),
+      ];
+      expect(src).not.toMatch(new RegExp(apiTokens.join("|")));
     }
   });
 });
