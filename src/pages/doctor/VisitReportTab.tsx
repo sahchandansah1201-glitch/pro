@@ -721,6 +721,8 @@ function DemoReportForm({
 
       <SendStatusBlock send={send} />
 
+      <SendHistoryBlock history={history} onClear={onClearHistory} />
+
       {saved && (
         <div role="status" data-testid="demo-report-preview" className="mt-3 space-y-3">
           <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px]">
