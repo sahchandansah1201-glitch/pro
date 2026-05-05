@@ -230,14 +230,14 @@ export default function AdminServicesPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {visibleRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
                     Нет услуг по выбранным фильтрам.
                   </td>
                 </tr>
               ) : (
-                rows.map((s) => (
+                visibleRows.map((s) => (
                   <tr key={s.code} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{s.code}</td>
                     <td className="px-3 py-2 font-medium">{s.name}</td>
