@@ -1,36 +1,11 @@
-import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  CLINICS,
-  getAnalysisCardById,
-  getProtectedAnalysisLinkByToken,
-} from "@/lib/mock-data";
 import { formatDateTime } from "@/lib/format";
-import type { RiskLevel } from "@/lib/domain";
+import { getPublicAnalysisView } from "@/lib/public-analysis-access";
 
-// Фиксированная демо-«сейчас» дата для MVP-проверки срока действия ссылок.
-const DEMO_NOW = "2026-05-04T00:00:00Z";
-
-const ROUTING_LABEL: Record<RiskLevel, string> = {
-  low: "Плановая запись",
-  moderate: "Рекомендуется запись",
-  high: "Приоритетная запись",
-  urgent: "Срочная очная оценка",
-};
-
-const CTA_LABEL = {
-  book: "Записаться в клинику",
-  urgent: "Связаться с клиникой",
-  repeat_photo: "Повторить фото",
-} as const;
-
-const CTA_DEMO_STATUS = {
-  book: "Демо: заявка на запись подготовлена. В реальном сервисе здесь откроется запись в клинику-партнёр.",
-  urgent: "Демо: запрос на срочную связь с клиникой подготовлен. В реальном сервисе оператор увидит приоритетное обращение.",
-  repeat_photo: "Демо: пациент будет возвращён в бот для повторной съёмки. Новый снимок снова пройдёт контроль качества.",
-} as const;
+const DISCLAIMER =
+  "AI не является диагнозом. Окончательное решение принимает врач.";
 
 function PublicShell({ children }: { children: React.ReactNode }) {
   return (
@@ -42,18 +17,21 @@ function PublicShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-3xl px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6 sm:py-8">
+        <div
+          role="note"
+          aria-label="Демонстрационный режим"
+          className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground"
+        >
+          Демо-режим. Содержимое не является медицинским заключением.
+        </div>
+        {children}
+      </main>
     </div>
   );
 }
 
-function StateBlock({
-  title,
-  body,
-}: {
-  title: string;
-  body: string;
-}) {
+function StateBlock({ title, body }: { title: string; body: string }) {
   return (
     <section className="rounded-md border border-border p-6">
       <h1 className="text-lg font-semibold">{title}</h1>
@@ -62,54 +40,59 @@ function StateBlock({
   );
 }
 
+function DemoActions() {
+  return (
+    <div className="flex flex-col gap-2 pt-1 sm:flex-row">
+      <Button
+        type="button"
+        disabled
+        aria-disabled="true"
+        className="min-h-[44px] w-full sm:w-auto"
+      >
+        Скачать PDF (демо)
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        disabled
+        aria-disabled="true"
+        className="min-h-[44px] w-full sm:w-auto"
+      >
+        Связаться с клиникой (демо)
+      </Button>
+    </div>
+  );
+}
+
 export default function AnalysisPublicPage() {
   const { token = "" } = useParams<{ token: string }>();
-  const [ctaState, setCtaState] = useState<"idle" | "done">("idle");
-  const link = getProtectedAnalysisLinkByToken(token);
+  const view = getPublicAnalysisView(token);
 
-  if (!link) {
+  if (view.status === "not_found") {
     return (
       <PublicShell>
         <StateBlock
-          title="Ссылка недоступна"
-          body="Ссылка недействительна или была введена с ошибкой."
+          title="Ссылка не найдена"
+          body="Ссылка не найдена. Проверьте адрес или обратитесь в клинику."
         />
       </PublicShell>
     );
   }
 
-  const nowMs = Date.parse(DEMO_NOW);
-  const expMs = Date.parse(link.expiresAt);
-  if (!Number.isFinite(expMs) || expMs < nowMs) {
+  if (view.status === "expired") {
     return (
       <PublicShell>
         <StateBlock
-          title="Срок действия ссылки истёк"
+          title="Ссылка истекла"
           body="Срок действия ссылки истёк. Обратитесь в клинику или повторите анализ через бота."
         />
       </PublicShell>
     );
   }
 
-  const card = getAnalysisCardById(link.analysisCardId);
-  if (!card) {
-    return (
-      <PublicShell>
-        <StateBlock
-          title="Ссылка недоступна"
-          body="Ссылка недействительна или была введена с ошибкой."
-        />
-      </PublicShell>
-    );
-  }
-
-  const clinic = CLINICS.find((c) => c.id === card.recommendedClinicId);
-  const qualityPct = Math.round(card.qualityGate.score * 100);
-  const ctaLabel = CTA_LABEL[card.ctaType];
-
   return (
     <PublicShell>
-      <article className="space-y-6">
+      <article className="space-y-5">
         <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold sm:text-2xl">
@@ -117,67 +100,41 @@ export default function AnalysisPublicPage() {
             </h1>
             <Badge variant="secondary">Не является диагнозом</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{card.safeSummary}</p>
+          {view.createdAt && (
+            <div className="text-xs text-muted-foreground">
+              Дата: {formatDateTime(view.createdAt)}
+            </div>
+          )}
+          {view.clinicName && (
+            <div className="text-sm">
+              Клиника: <span className="font-medium">{view.clinicName}</span>
+            </div>
+          )}
         </header>
+
+        <section className="rounded-md border border-border p-5">
+          <h2 className="text-sm font-semibold">Краткая сводка</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {view.safeSummary}
+          </p>
+        </section>
 
         <section className="rounded-md border border-border p-5">
           <h2 className="text-sm font-semibold">Качество снимка</h2>
           <div className="mt-2 text-sm">
-            {card.qualityGate.passed
+            {view.qualityPassed
               ? "Фото подходит для предварительной оценки"
               : "Фото требует повторения"}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Оценка качества: {qualityPct}%
-          </div>
-          {card.qualityGate.issues.length > 0 && (
-            <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
-              {card.qualityGate.issues.map((it) => (
-                <li key={it}>{it}</li>
-              ))}
-            </ul>
-          )}
         </section>
 
-        <section className="rounded-md border border-border p-5">
-          <h2 className="text-sm font-semibold">Маршрутизация</h2>
-          <div className="mt-2 text-sm">{ROUTING_LABEL[card.routingRisk]}</div>
-        </section>
-
-        {clinic && (
-          <section className="rounded-md border border-border p-5">
-            <h2 className="text-sm font-semibold">Рекомендованная клиника</h2>
-            <div className="mt-2 space-y-1 text-sm">
-              <div className="font-medium">{clinic.name}</div>
-              <div className="text-muted-foreground">{clinic.address}</div>
-              <div className="text-muted-foreground">{clinic.phone}</div>
-            </div>
-          </section>
-        )}
-
-        <div className="space-y-3 pt-1">
-          <Button
-            type="button"
-            disabled={ctaState === "done"}
-            onClick={() => setCtaState("done")}
-            className="min-h-11 w-full text-sm font-semibold sm:w-auto sm:min-h-10 sm:px-6"
-          >
-            {ctaState === "done" ? "Готово" : ctaLabel}
-          </Button>
-          {ctaState === "done" && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="rounded-md border border-border bg-muted/40 p-4 text-sm text-muted-foreground"
-            >
-              {CTA_DEMO_STATUS[card.ctaType]}
-            </div>
-          )}
-        </div>
+        <DemoActions />
 
         <footer className="space-y-1 border-t border-border pt-4 text-xs text-muted-foreground">
-          <div>Ссылка действительна до: {formatDateTime(link.expiresAt)}</div>
-          <div>Окончательное решение принимает врач на очном приёме.</div>
+          {view.expiresAt && (
+            <div>Ссылка действительна до: {formatDateTime(view.expiresAt)}</div>
+          )}
+          <div>{DISCLAIMER}</div>
         </footer>
       </article>
     </PublicShell>
