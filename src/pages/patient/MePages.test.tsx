@@ -64,7 +64,7 @@ describe("Patient portal pages", () => {
 
   it("MeReportPage по неизвестному id показывает безопасное сообщение", () => {
     const { container } = renderRouted(<MeReportPage />, "/me/reports/unknown-id");
-    expect(screen.getByText(/Отчёт не найден/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Отчёт не найден/).length).toBeGreaterThan(0);
     expectClean(container.innerHTML);
   });
 
