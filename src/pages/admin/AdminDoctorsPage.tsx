@@ -375,6 +375,17 @@ export default function AdminDoctorsPage() {
             ))
           )}
         </div>
+
+        <ListPagination
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          total={pagination.total}
+          rangeLabel={pagination.rangeLabel}
+          canPrev={pagination.canPrev}
+          canNext={pagination.canNext}
+          onPageChange={pagination.setPage}
+          itemNoun="врачей"
+        />
       </div>
     </div>
   );
