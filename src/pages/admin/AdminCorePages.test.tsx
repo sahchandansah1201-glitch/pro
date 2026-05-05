@@ -54,7 +54,7 @@ describe("Admin clinic core pages — render & safety", () => {
     renderRouted(<AdminServicesPage />);
     expect(screen.getByText("Услуги и тарифы")).toBeInTheDocument();
     const input = screen.getByLabelText("Поиск услуг");
-    fireEvent.change(input, { target: { value: "дермоскоп" } });
+    fireEvent.change(input, { target: { value: "дерматоск" } });
     expect(screen.getAllByText(/Дерматоскопия/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Удаление образования/)).not.toBeInTheDocument();
     // Хотя бы одна кнопка действия имеет min-h-[44px]
