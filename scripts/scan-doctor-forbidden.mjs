@@ -20,6 +20,7 @@ const ROOT = process.cwd();
 const REPORT_DIR = join(ROOT, "reports", "doctor-hygiene");
 const REPORT_JSON = join(REPORT_DIR, "scan-report.json");
 const REPORT_MD = join(REPORT_DIR, "scan-report.md");
+const REPORT_HTML = join(REPORT_DIR, "scan-report.html");
 const REPORT_MD_REL = "reports/doctor-hygiene/scan-report.md";
 const SCAN_TS = "2026-05-04T00:00:00Z";
 
@@ -187,6 +188,140 @@ if (writeReports) {
   mkdirSync(dirname(REPORT_JSON), { recursive: true });
   writeFileSync(REPORT_JSON, JSON.stringify(report, null, 2) + "\n", "utf8");
   writeFileSync(REPORT_MD, md.join("\n"), "utf8");
+  writeFileSync(REPORT_HTML, renderHtml(report, byFile), "utf8");
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function highlightLine(text, tokens) {
+  // Подсветка всех вхождений запрещённых токенов в строке.
+  const escaped = escapeHtml(text);
+  const uniq = Array.from(new Set(tokens)).sort((a, b) => b.length - a.length);
+  let out = escaped;
+  for (const tok of uniq) {
+    const escTok = escapeHtml(tok).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(escTok, "g"), (m) => `<mark>${m}</mark>`);
+  }
+  return out;
+}
+
+function renderHtml(report, byFile) {
+  const findings = report.findings;
+  const tokensInFiles = {};
+  for (const f of findings) (tokensInFiles[f.file] ||= []).push(f.token);
+
+  const byTok = {};
+  for (const f of findings) byTok[f.token] = (byTok[f.token] || 0) + 1;
+  const tokenRows = Object.entries(byTok).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  const statusOk = findings.length === 0;
+  const statusBadge = statusOk
+    ? `<span class="badge badge-ok">✓ clean</span>`
+    : `<span class="badge badge-bad">✗ violations: ${findings.length}</span>`;
+
+  const filesHtml = statusOk
+    ? `<p class="muted">Совпадений не найдено.</p>`
+    : Object.keys(byFile).sort().map((file) => {
+        const items = byFile[file];
+        const rows = items.map((f) => `
+          <tr>
+            <td class="line">${f.line}</td>
+            <td class="tok"><code>${escapeHtml(f.token)}</code></td>
+            <td class="ctx"><pre><code>${highlightLine(f.text, [f.token])}</code></pre></td>
+          </tr>`).join("");
+        return `
+        <section class="file-block">
+          <h3><code>${escapeHtml(file)}</code> <span class="muted">(${items.length})</span></h3>
+          <table class="findings">
+            <thead><tr><th>Стр.</th><th>Токен</th><th>Контекст</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </section>`;
+      }).join("");
+
+  const summaryHtml = statusOk ? "" : `
+    <section>
+      <h2>Сводка по токенам</h2>
+      <table class="summary">
+        <thead><tr><th>Токен</th><th>Совпадений</th></tr></thead>
+        <tbody>
+          ${tokenRows.map(([t, n]) => `<tr><td><code>${escapeHtml(t)}</code></td><td class="num">${n}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    </section>`;
+
+  return `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Doctor hygiene scan</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 16px; line-height: 1.45; }
+  h1 { margin: 0 0 8px; font-size: 22px; }
+  h2 { margin-top: 28px; font-size: 18px; border-bottom: 1px solid #8884; padding-bottom: 4px; }
+  h3 { margin: 18px 0 6px; font-size: 14px; font-weight: 600; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .muted { color: #8a8a8a; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: #666; margin: 8px 0 16px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge-ok { background: #1a7f3722; color: #1a7f37; }
+  .badge-bad { background: #cf222e22; color: #cf222e; }
+  table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #8882; vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #666; font-weight: 600; }
+  td.line { width: 56px; text-align: right; color: #888; font-variant-numeric: tabular-nums; }
+  td.tok { width: 220px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; width: 120px; }
+  table.summary { max-width: 480px; }
+  mark { background: #ffe49633; color: inherit; padding: 0 2px; border-radius: 3px; box-shadow: inset 0 -2px 0 #f0a000aa; }
+  .file-block { margin-bottom: 18px; }
+  .toolbar { margin: 12px 0 4px; }
+  .toolbar a { font-size: 12.5px; color: #0969da; text-decoration: none; margin-right: 14px; }
+  .toolbar a:hover { text-decoration: underline; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0d1117; color: #e6edf3; }
+    .muted, th, td.line, .meta { color: #8b949e; }
+    th, td { border-color: #30363d; }
+    mark { background: #f2cc6044; box-shadow: inset 0 -2px 0 #f2cc60aa; color: inherit; }
+    .toolbar a { color: #58a6ff; }
+  }
+</style>
+</head>
+<body>
+  <h1>Doctor hygiene scan ${statusBadge}</h1>
+  <div class="meta">
+    <span><b>Дата:</b> ${escapeHtml(report.scannedAt)}</span>
+    <span><b>Режим:</b> <code>${escapeHtml(report.mode)}</code></span>
+    <span><b>Файлов:</b> ${report.filesScannedCount}</span>
+    <span><b>Токенов:</b> ${report.tokensCount}</span>
+    <span><b>Совпадений:</b> ${report.findingsCount}</span>
+  </div>
+  <div class="toolbar">
+    <a href="./scan-report.md">📄 Markdown-отчёт</a>
+    <a href="./scan-report.json">🧾 JSON-отчёт</a>
+  </div>
+  ${summaryHtml}
+  <section>
+    <h2>Совпадения по файлам</h2>
+    ${filesHtml}
+  </section>
+  <section>
+    <h2 class="muted" style="font-size:14px">Цели сканирования</h2>
+    <p class="muted"><code>${report.targets.map(escapeHtml).join("</code>, <code>")}</code></p>
+  </section>
+</body>
+</html>
+`;
 }
 
 // Консольный вывод.
@@ -238,7 +373,9 @@ console.log(`  ${dim("Токенов     :")} ${FORBIDDEN_TOKENS.length}`);
 if (writeReports) {
   console.log(`  ${dim("Отчёт JSON  :")} ${relative(ROOT, REPORT_JSON)}`);
   console.log(`  ${dim("Отчёт MD    :")} ${relative(ROOT, REPORT_MD)}`);
-  console.log(`  ${dim("Открыть     :")} ${cyan(fileUrl(REPORT_MD))}`);
+  console.log(`  ${dim("Отчёт HTML  :")} ${relative(ROOT, REPORT_HTML)}`);
+  console.log(`  ${dim("Открыть MD  :")} ${cyan(fileUrl(REPORT_MD))}`);
+  console.log(`  ${dim("Открыть HTML:")} ${cyan(fileUrl(REPORT_HTML))}`);
 }
 console.log(HR);
 
