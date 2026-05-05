@@ -15,4 +15,15 @@
 
 Тестовые файлы (`*.test.ts(x)`, `*.hygiene.test.*`) исключаются автоматически.
 
-### Запрещённые паттер
+### Где живут правила
+
+Единый источник правды — [`scripts/forbidden-patterns.mjs`](./scripts/forbidden-patterns.mjs). Один и тот же список используют:
+
+- скрипт сканирования `scripts/scan-doctor-forbidden.mjs`;
+- git-хуки `.husky/pre-commit` и `.husky/pre-push`;
+- workflow `.github/workflows/doctor-hygiene-scan.yml` (push, PR, ежедневное расписание, ручной запуск);
+- vitest-тест `src/pages/doctor/VisitImagingTab.hygiene.test.ts`.
+
+### Запрещённые имена полей и ключей
+
+Прямые ссылки на чувствительные доменные контракты запрещены — их след
