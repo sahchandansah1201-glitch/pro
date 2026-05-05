@@ -1,15 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { z } from "zod";
-
-import {
-  appendSendHistory,
-  clearSendHistory,
-  loadSendHistory,
-  SEND_HISTORY_MAX,
-  type SendRecord,
-  type SendStatus,
-} from "@/pages/doctor/send-history-storage";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
