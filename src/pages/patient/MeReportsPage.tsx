@@ -14,11 +14,12 @@ import { getSafeReports, demoNow } from "./patient-data";
 const DEMO_BANNER =
   "Демо-режим. Список заключений сформирован из локальных данных.";
 
-type SortMode = "new" | "old" | "clinic";
+type SortMode = "new" | "old" | "clinic-asc" | "clinic-desc";
 const SORT_LABEL: Record<SortMode, string> = {
   new: "Сначала новые",
   old: "Сначала старые",
-  clinic: "По клинике",
+  "clinic-asc": "Клиника А→Я",
+  "clinic-desc": "Клиника Я→А",
 };
 
 type PeriodMode = "all" | "30" | "90" | "365" | "custom";
@@ -71,7 +72,12 @@ export default function MeReportsPage() {
       );
     });
     list = [...list].sort((a, b) => {
-      if (sort === "clinic") return a.clinicName.localeCompare(b.clinicName, "ru");
+      if (sort === "clinic-asc" || sort === "clinic-desc") {
+        const cmpC = a.clinicName.localeCompare(b.clinicName, "ru");
+        if (cmpC !== 0) return sort === "clinic-asc" ? cmpC : -cmpC;
+        // tie-break: новее сверху
+        return -a.visitDate.localeCompare(b.visitDate);
+      }
       const cmp = a.visitDate.localeCompare(b.visitDate);
       return sort === "new" ? -cmp : cmp;
     });
