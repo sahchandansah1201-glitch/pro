@@ -119,7 +119,6 @@ export default function VisitWorkspacePage() {
   const lesions = getLesionsByPatientId(patient.id);
   const clinic = getClinicById(visit.clinicId);
 
-  const [searchParams, setSearchParams] = useSearchParams();
   const validTabs = ["intake", "bodymap", "imaging", "assessment", "conclusion", "report"] as const;
   type TabKey = (typeof validTabs)[number];
   const tabParam = searchParams.get("tab");
@@ -127,22 +126,6 @@ export default function VisitWorkspacePage() {
     ? (tabParam as TabKey)
     : "intake";
   const lesionParam = searchParams.get("lesion");
-
-  const updateNav = useCallback(
-    (tab: TabKey, lesionId?: string | null) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set("tab", tab);
-          if (lesionId) next.set("lesion", lesionId);
-          else next.delete("lesion");
-          return next;
-        },
-        { replace: false },
-      );
-    },
-    [setSearchParams],
-  );
 
   const headerMeta: Array<{ label: string; value: string }> = [
     { label: "Код", value: patient.code },
