@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronRight, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DEMO_USERS } from "@/lib/users";
 import {
@@ -20,7 +21,15 @@ import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
-import { BodySilhouette, FIGURE_LABEL, pickFigure, type Figure } from "@/components/clinical/BodySilhouette";
+import {
+  BODY_MAP_VIEWS,
+  BODY_MAP_VIEW_BUTTON_LABEL,
+  bodyMapVariantLabel,
+  bodyMapViewLabel,
+  getBodyMapVariant,
+  suggestBodyZone,
+  type BodyMapVariant,
+} from "@/pages/doctor/body-map-model";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
