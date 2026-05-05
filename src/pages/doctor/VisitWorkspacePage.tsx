@@ -231,65 +231,88 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
 
 // ───────── Body map ─────────
 
-type View = "front" | "back";
+type View = BodyMapPoint["view"];
+
+interface PendingPoint {
+  view: View;
+  x: number;
+  y: number;
+  zone: string;
+}
 
 function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visit; lesions: Lesion[] }) {
-  const figure: Figure = pickFigure(patient.sex, calcAge(patient.birthDate));
-  // Resolved points keep view stable across renders.
+  const variant: BodyMapVariant = getBodyMapVariant(patient);
+  const variantLabel = bodyMapVariantLabel(variant);
+
   const placedLesions = useMemo(() => {
-    const placed = lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
-    return placed;
+    return lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
   }, [lesions]);
 
-  // Body map must open on the projection of the initially-selected lesion,
-  // otherwise users see an empty view (e.g., 3 back-side lesions but front shown).
   const initialLesion = placedLesions[0] ?? null;
-  const initialView: View =
-    initialLesion?.point.view === "back" ? "back" : "front";
+  const initialView: View = initialLesion?.point.view ?? "front";
 
   const [view, setView] = useState<View>(initialView);
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(initialLesion?.lesion.id ?? null);
+  const [pending, setPending] = useState<PendingPoint | null>(null);
+  const [zoneDraft, setZoneDraft] = useState("");
+  const [confirmedDemo, setConfirmedDemo] = useState<PendingPoint[]>([]);
 
   // Switch projection whenever the selected lesion lives on a different one.
   useEffect(() => {
     if (!selected) return;
     const p = placedLesions.find((x) => x.lesion.id === selected)?.point;
     if (!p) return;
-    const targetView: View = p.view === "back" ? "back" : "front";
-    setView((current) => (current === targetView ? current : targetView));
+    setView((current) => (current === p.view ? current : p.view));
   }, [selected, placedLesions]);
 
-  const visiblePoints = placedLesions.filter((p) => {
-    if (view === "front") return p.point.view === "front" || p.point.view === "left" || p.point.view === "right" || p.point.view === "scalp";
-    return p.point.view === "back";
-  });
+  // Drop pending placement when projection changes.
+  useEffect(() => {
+    setPending(null);
+  }, [view]);
 
+  const visiblePoints = placedLesions.filter((p) => p.point.view === view);
   const selectedLesion = selected ? lesions.find((l) => l.id === selected) ?? null : null;
   const visitAssessments = getAssessmentsByVisitId(visit.id);
+  const selImageCount = selectedLesion ? getImagesByLesionId(selectedLesion.id).length : 0;
+  const selAssessment = selectedLesion ? visitAssessments.find((a) => a.lesionId === selectedLesion.id) : undefined;
+
+  const handlePlace = (np: { view: View; x: number; y: number }) => {
+    const zone = suggestBodyZone(np.view, np.x, np.y);
+    setPending({ view: np.view, x: np.x, y: np.y, zone });
+    setZoneDraft(zone);
+  };
+
+  const confirmPending = () => {
+    if (!pending) return;
+    setConfirmedDemo((prev) => [...prev, { ...pending, zone: zoneDraft || pending.zone }]);
+    setPending(null);
+  };
+
+  const localDemoForView = confirmedDemo.filter((p) => p.view === view);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-12">
       {/* Map pane */}
       <div className="flex min-h-0 flex-col border-b border-border lg:col-span-7 lg:border-b-0 lg:border-r">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2">
-          <div className="inline-flex overflow-hidden rounded-sm border border-border">
-            <button
-              type="button"
-              onClick={() => setView("front")}
-              className={`px-2.5 py-1 text-[12px] ${view === "front" ? "bg-primary text-primary-foreground" : "bg-surface text-foreground hover:bg-surface-muted"}`}
-            >
-              Спереди
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("back")}
-              className={`border-l border-border px-2.5 py-1 text-[12px] ${view === "back" ? "bg-primary text-primary-foreground" : "bg-surface text-foreground hover:bg-surface-muted"}`}
-            >
-              Сзади
-            </button>
+          <div className="flex flex-wrap items-center gap-1">
+            {BODY_MAP_VIEWS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                className={`min-h-[44px] rounded-sm border px-2.5 text-[12px] sm:min-h-[32px] ${
+                  view === v
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-surface text-foreground hover:bg-surface-muted"
+                }`}
+              >
+                {BODY_MAP_VIEW_BUTTON_LABEL[v]}
+              </button>
+            ))}
           </div>
-          <div className="ml-2 hidden text-[11px] text-muted-foreground sm:inline">Силуэт: {FIGURE_LABEL[figure]}</div>
+          <div className="text-[11px] text-muted-foreground">Тип карты: {variantLabel}</div>
           <div className="flex items-center gap-1">
             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(2)))} aria-label="Уменьшить">
               <ZoomOut className="h-3.5 w-3.5" />
@@ -304,15 +327,10 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
-          {/* No maxWidth: zoom must visually scale beyond container width.
-              Pane itself scrolls (overflow-auto), so document scroll is unaffected. */}
-          <div
-            className="mx-auto"
-            style={{ width: `${320 * zoom}px` }}
-          >
+          <div className="mx-auto" style={{ width: `${320 * zoom}px` }}>
             <BodySvg
+              variant={variant}
               view={view}
-              figure={figure}
               points={visiblePoints.map((p) => ({
                 id: p.lesion.id,
                 num: p.num,
@@ -322,6 +340,9 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
                 onSelect: () => setSelected(p.lesion.id),
                 label: p.lesion.label,
               }))}
+              pending={pending && pending.view === view ? { x: pending.x, y: pending.y } : null}
+              demoPoints={localDemoForView}
+              onPlace={handlePlace}
             />
           </div>
         </div>
@@ -330,7 +351,7 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
       {/* List + detail pane */}
       <div className="flex min-h-0 flex-col lg:col-span-5">
         <div className="border-b border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          Образований у пациента: {lesions.length} · видно на проекции: {visiblePoints.length}
+          Образований у пациента: {lesions.length} · видно на проекции «{bodyMapViewLabel(view)}»: {visiblePoints.length}
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
           {lesions.length === 0 ? (
@@ -341,14 +362,13 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
                 const imageCount = getImagesByLesionId(lesion.id).length;
                 const a = visitAssessments.find((x) => x.lesionId === lesion.id);
                 const isSel = lesion.id === selected;
-                const onView = point.view === "back" ? "back" : "front";
                 return (
                   <li
                     key={lesion.id}
                     className={`cursor-pointer px-3 py-2 text-[13px] ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
                     onClick={() => {
                       setSelected(lesion.id);
-                      setView(onView);
+                      setView(point.view);
                     }}
                   >
                     <div className="flex items-baseline justify-between gap-2">
@@ -358,7 +378,9 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
                         </span>
                         <div className="min-w-0">
                           <div className="truncate font-medium">{lesion.label}</div>
-                          <div className="truncate text-[12px] text-muted-foreground">{lesion.bodyZone}</div>
+                          <div className="truncate text-[12px] text-muted-foreground">
+                            {lesion.bodyZone} · {bodyMapViewLabel(point.view)}
+                          </div>
                         </div>
                       </div>
                       <span className="shrink-0 rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
@@ -378,21 +400,65 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
           )}
         </div>
 
+        {pending && (
+          <div className="border-t border-border bg-surface p-3">
+            <div className="text-[13px] font-semibold">Новая точка (демо)</div>
+            <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+              <Stat term="Проекция" value={bodyMapViewLabel(pending.view)} />
+              <Stat term="X / Y" value={`${Math.round(pending.x * 100)}% / ${Math.round(pending.y * 100)}%`} />
+            </dl>
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              Подсказанная зона
+              <Input
+                value={zoneDraft}
+                onChange={(e) => setZoneDraft(e.target.value)}
+                className="mt-1 h-8 text-[12px]"
+              />
+            </label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                onClick={confirmPending}
+              >
+                Подтвердить демо-точку
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                onClick={() => setPending(null)}
+              >
+                Отменить
+              </Button>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Демо-точка не сохранена в мок-данные.
+            </p>
+          </div>
+        )}
+
         {selectedLesion && (
           <div className="border-t border-border bg-surface p-3">
             <div className="flex items-baseline justify-between gap-2">
               <div className="min-w-0">
                 <div className="truncate text-[13px] font-semibold">{selectedLesion.label}</div>
                 <div className="truncate text-[12px] text-muted-foreground">
-                  {selectedLesion.bodyZone} · проекция {labelForView(resolvePoint(selectedLesion).view)}
+                  {selectedLesion.bodyZone} · проекция {bodyMapViewLabel(resolvePoint(selectedLesion).view)}
                 </div>
               </div>
-              <Button asChild size="sm" variant="secondary" className="h-7 text-[12px]">
+              <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
                 <Link to={`/patients/${patient.id}/lesions/${selectedLesion.id}`}>
                   Открыть <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
                 </Link>
               </Button>
             </div>
+            <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
+              <Stat term="X / Y" value={`${Math.round(resolvePoint(selectedLesion).x * 100)}% / ${Math.round(resolvePoint(selectedLesion).y * 100)}%`} />
+              <Stat term="Снимков" value={selImageCount} />
+              <Stat term="ABCD" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
+              <Stat term="7-point" value={selAssessment ? selAssessment.sevenPoint.total : "—"} />
+            </dl>
             <p className="mt-2 text-[11px] text-muted-foreground">
               Клинические значения ABCD и 7-point — данные из существующих мок-оценок этого визита, без AI-диагноза.
             </p>
@@ -403,17 +469,7 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
   );
 }
 
-function labelForView(v: BodyMapPoint["view"]): string {
-  switch (v) {
-    case "front": return "спереди";
-    case "back": return "сзади";
-    case "left": return "слева";
-    case "right": return "справа";
-    case "scalp": return "волосистая часть";
-  }
-}
-
-// ───────── SVG body silhouette ─────────
+// ───────── SVG body silhouette (variant-aware) ─────────
 
 interface PointProps {
   id: string;
@@ -425,12 +481,53 @@ interface PointProps {
   onSelect: () => void;
 }
 
-function BodySvg({ view, figure, points }: { view: View; figure: Figure; points: PointProps[] }) {
+interface BodySvgProps {
+  variant: BodyMapVariant;
+  view: View;
+  points: PointProps[];
+  pending: { x: number; y: number } | null;
+  demoPoints: { x: number; y: number; view: View }[];
+  onPlace: (np: { view: View; x: number; y: number }) => void;
+}
+
+function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySvgProps) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const ariaLabel = `Body map · ${bodyMapVariantLabel(variant)} · ${bodyMapViewLabel(view)}`;
+
+  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    onPlace({ view, x: +x.toFixed(3), y: +y.toFixed(3) });
+  };
+
   return (
-    <svg viewBox="0 0 200 400" className="block h-auto w-full" role="img" aria-label={`Body map · ${view === "front" ? "спереди" : "сзади"} · ${FIGURE_LABEL[figure]}`}>
-      <BodySilhouette view={view} figure={figure} />
+    <svg
+      ref={svgRef}
+      viewBox="0 0 200 400"
+      className="block h-auto w-full cursor-crosshair"
+      role="img"
+      aria-label={ariaLabel}
+      onClick={handleClick}
+    >
+      <VariantSilhouette variant={variant} view={view} />
+      {demoPoints.map((p, i) => (
+        <circle
+          key={`demo-${i}`}
+          cx={p.x * 200}
+          cy={p.y * 400}
+          r={5}
+          fill="hsl(var(--surface))"
+          stroke="hsl(var(--primary))"
+          strokeDasharray="2 2"
+          strokeWidth={1.2}
+        />
+      ))}
       {points.map((p) => (
-        <g key={p.id} onClick={p.onSelect} style={{ cursor: "pointer" }}>
+        <g key={p.id} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
           <title>{`${p.num}. ${p.label}`}</title>
           <circle
             cx={p.x * 200}
@@ -452,7 +549,138 @@ function BodySvg({ view, figure, points }: { view: View; figure: Figure; points:
           </text>
         </g>
       ))}
+      {pending && (
+        <g pointerEvents="none">
+          <circle
+            cx={pending.x * 200}
+            cy={pending.y * 400}
+            r={9}
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeDasharray="3 2"
+            strokeWidth={1.4}
+          />
+          <text
+            x={pending.x * 200}
+            y={pending.y * 400 + 3}
+            textAnchor="middle"
+            fontSize={10}
+            fontWeight={700}
+            fill="hsl(var(--primary))"
+          >
+            +
+          </text>
+        </g>
+      )}
     </svg>
+  );
+}
+
+/**
+ * Neutral clinical silhouettes per variant and projection.
+ * Same viewBox 0 0 200 400; normalized x/y stay anatomically meaningful.
+ */
+function VariantSilhouette({ variant, view }: { variant: BodyMapVariant; view: View }) {
+  const stroke = "hsl(var(--border))";
+  const fill = "hsl(var(--surface))";
+
+  // Per-variant proportions (medically neutral).
+  const G = {
+    adult_female: { headR: 18, shoulderHalf: 32, waistHalf: 24, hipHalf: 38, headCy: 30 },
+    adult_male:   { headR: 19, shoulderHalf: 40, waistHalf: 32, hipHalf: 34, headCy: 30 },
+    child_girl:   { headR: 22, shoulderHalf: 26, waistHalf: 22, hipHalf: 28, headCy: 36 },
+    child_boy:    { headR: 22, shoulderHalf: 28, waistHalf: 24, hipHalf: 28, headCy: 36 },
+  }[variant];
+
+  const cx = 100;
+  const headCy = G.headCy;
+  const shoulderY = headCy + G.headR + 14;
+  const waistY = 160;
+  const hipY = 210;
+  const legBottom = 360;
+
+  if (view === "scalp") {
+    // Top-down view of head. Show scalp circle with parting line on female variants.
+    const showParting = variant === "adult_female" || variant === "child_girl";
+    return (
+      <g fill={fill} stroke={stroke} strokeWidth={1}>
+        <ellipse cx={cx} cy={200} rx={70} ry={90} />
+        {/* Schematic ears */}
+        <ellipse cx={cx - 70} cy={200} rx={6} ry={12} />
+        <ellipse cx={cx + 70} cy={200} rx={6} ry={12} />
+        {/* Forehead/back hint */}
+        <line x1={cx} y1={110} x2={cx} y2={130} stroke={stroke} strokeDasharray="2 2" />
+        <text x={cx} y={104} textAnchor="middle" fontSize={9} fill="hsl(var(--muted-foreground))" stroke="none">лоб</text>
+        <text x={cx} y={302} textAnchor="middle" fontSize={9} fill="hsl(var(--muted-foreground))" stroke="none">затылок</text>
+        {showParting && (
+          <line x1={cx} y1={130} x2={cx} y2={270} stroke={stroke} strokeDasharray="3 3" opacity={0.6} />
+        )}
+      </g>
+    );
+  }
+
+  if (view === "left" || view === "right") {
+    // Side profile: head, neck, torso column, arm hint, leg.
+    const facing = view === "left" ? -1 : 1; // direction the nose points
+    const noseX = cx + facing * 14;
+    return (
+      <g fill={fill} stroke={stroke} strokeWidth={1}>
+        {/* Head with subtle nose bump */}
+        <ellipse cx={cx} cy={headCy} rx={G.headR} ry={G.headR + 2} />
+        <path d={`M${cx + facing * (G.headR - 1)},${headCy - 2} Q${noseX},${headCy + 2} ${cx + facing * (G.headR - 1)},${headCy + 6}`} />
+        {/* Neck */}
+        <rect x={cx - 7} y={headCy + G.headR} width={14} height={shoulderY - (headCy + G.headR)} />
+        {/* Torso column */}
+        <path d={`M${cx - 22},${shoulderY} L${cx + 22},${shoulderY} L${cx + 18},${waistY} L${cx + 22},${hipY} L${cx - 22},${hipY} L${cx - 18},${waistY} Z`} />
+        {/* Arm hint, hanging on facing side */}
+        <path d={`M${cx + facing * 18},${shoulderY + 4} L${cx + facing * 22},${hipY - 4} L${cx + facing * 14},${hipY - 4} L${cx + facing * 12},${shoulderY + 8} Z`} />
+        {/* Leg */}
+        <path d={`M${cx - 14},${hipY} L${cx + 14},${hipY} L${cx + 10},${legBottom - 8} L${cx - 10},${legBottom - 8} Z`} />
+        {/* Foot */}
+        <ellipse cx={cx + facing * 8} cy={legBottom} rx={14} ry={6} />
+      </g>
+    );
+  }
+
+  // front / back
+  const sL = cx - G.shoulderHalf, sR = cx + G.shoulderHalf;
+  const wL = cx - G.waistHalf, wR = cx + G.waistHalf;
+  const hL = cx - G.hipHalf, hR = cx + G.hipHalf;
+
+  const torso = `M${sL},${shoulderY} L${sR},${shoulderY} L${wR},${waistY} L${hR},${hipY} L${hL},${hipY} L${wL},${waistY} Z`;
+  const armL = `M${sL},${shoulderY + 4} L${sL - 14},${waistY} L${sL - 18},${hipY + 28} L${sL - 8},${hipY + 30} L${sL - 6},${waistY + 4} L${sL + 6},${shoulderY + 8} Z`;
+  const armR = `M${sR},${shoulderY + 4} L${sR + 14},${waistY} L${sR + 18},${hipY + 28} L${sR + 8},${hipY + 30} L${sR + 6},${waistY + 4} L${sR - 6},${shoulderY + 8} Z`;
+  const legL = `M${hL},${hipY} L${cx - 22},${hipY + 60} L${cx - 16},${legBottom - 8} L${cx - 4},${legBottom - 8} L${cx - 4},${hipY} Z`;
+  const legR = `M${hR},${hipY} L${cx + 22},${hipY + 60} L${cx + 16},${legBottom - 8} L${cx + 4},${legBottom - 8} L${cx + 4},${hipY} Z`;
+
+  const isFemale = variant === "adult_female" || variant === "child_girl";
+  const hairBack = view === "back" && isFemale;
+
+  return (
+    <g fill={fill} stroke={stroke} strokeWidth={1}>
+      <ellipse cx={cx} cy={headCy} rx={G.headR} ry={G.headR + 2} />
+      {hairBack && (
+        <path
+          d={`M${cx - G.headR + 1},${headCy + 2} q0,${G.headR + 14} ${G.headR - 1},${G.headR + 18} q${G.headR - 1},-6 ${G.headR - 1},-${G.headR + 18}`}
+          fill="hsl(var(--surface-muted))"
+        />
+      )}
+      <rect x={cx - 7} y={headCy + G.headR} width={14} height={shoulderY - (headCy + G.headR)} />
+      <path d={armL} />
+      <path d={armR} />
+      <path d={torso} />
+      <path d={legL} />
+      <path d={legR} />
+      <ellipse cx={sL - 14} cy={hipY + 36} rx={8} ry={11} />
+      <ellipse cx={sR + 14} cy={hipY + 36} rx={8} ry={11} />
+      <ellipse cx={cx - 14} cy={legBottom + 2} rx={12} ry={6} />
+      <ellipse cx={cx + 14} cy={legBottom + 2} rx={12} ry={6} />
+      {/* Schematic separators */}
+      <g stroke={stroke} strokeDasharray="2 2" opacity={0.5} fill="none">
+        <line x1={wL} y1={waistY} x2={wR} y2={waistY} />
+        <line x1={cx} y1={shoulderY + 4} x2={cx} y2={hipY} />
+      </g>
+    </g>
   );
 }
 
