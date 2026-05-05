@@ -307,13 +307,8 @@ export default function AdminServicesPage() {
           </table>
         </Card>
 
-        <div className="grid grid-cols-1 gap-2 md:hidden">
-          {visibleRows.length === 0 ? (
-            <Card className="p-4 text-center text-[12px] text-muted-foreground">
-              Нет услуг по выбранным фильтрам.
-            </Card>
-          ) : (
-            visibleRows.map((s) => (
+        <div className={`grid grid-cols-1 gap-2 md:hidden ${isEmpty ? "hidden" : ""}`}>
+          {visibleRows.map((s) => (
               <Card key={s.code} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
