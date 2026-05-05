@@ -12,9 +12,9 @@ import {
   getMessagesByDialogId,
   getLeads,
   getAnalysisCardForLead,
-  getProtectedAnalysisLinkById,
   ANALYSIS_CARDS,
 } from "@/lib/mock-data";
+import { getDialogUserHandle, getLeadLink } from "@/lib/operator-adapters";
 import type { BotMessage, LeadStatus } from "@/lib/domain";
 
 const DEMO_NOW = new Date("2026-05-04T00:00:00Z");
@@ -76,10 +76,7 @@ export default function OperatorDialogPage() {
   const card = lead
     ? getAnalysisCardForLead(lead.id)
     : ANALYSIS_CARDS.find((c) => c.dialogId === id);
-  const link =
-    lead?.protectedAnalysisLinkId
-      ? getProtectedAnalysisLinkById(lead.protectedAnalysisLinkId)
-      : undefined;
+  const link = getLeadLink(lead);
 
   const linkActive = link ? new Date(link.expiresAt).getTime() > DEMO_NOW.getTime() : false;
 
@@ -113,7 +110,7 @@ export default function OperatorDialogPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title={`Диалог ${dialog.id}`}
-        subtitle={`${dialog.channel.toUpperCase()} · ${dialog.externalUserRef} · ${dialog.state} · ${formatDateTime(
+        subtitle={`${dialog.channel.toUpperCase()} · ${getDialogUserHandle(dialog)} · ${dialog.state} · ${formatDateTime(
           dialog.lastMessageAt,
         )} · оператор: ${dialog.assignedOperatorId ?? "не назначен"}`}
         actions={

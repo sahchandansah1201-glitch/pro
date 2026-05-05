@@ -11,9 +11,9 @@ import {
   getDialogs,
   getLeads,
   getMessagesByDialogId,
-  getProtectedAnalysisLinkById,
   ANALYSIS_CARDS,
 } from "@/lib/mock-data";
+import { getDialogUserHandle, getLeadLink } from "@/lib/operator-adapters";
 import type { BotChannel, BotDialogState } from "@/lib/domain";
 
 const DEMO_NOW = new Date("2026-05-04T00:00:00Z");
@@ -82,7 +82,7 @@ export default function OperatorConsolePage() {
       const lead = leadsByDialog.get(d.id);
       return (
         d.id.toLowerCase().includes(q) ||
-        d.externalUserRef.toLowerCase().includes(q) ||
+        getDialogUserHandle(d).toLowerCase().includes(q) ||
         (lead?.id.toLowerCase().includes(q) ?? false)
       );
     });
@@ -100,9 +100,7 @@ export default function OperatorConsolePage() {
   const selected = filtered.find((d) => d.id === selectedId) ?? filtered[0];
   const selectedLead = selected ? leadsByDialog.get(selected.id) : undefined;
   const selectedCard = selected ? cardsByDialog.get(selected.id) : undefined;
-  const selectedLink = selectedLead?.protectedAnalysisLinkId
-    ? getProtectedAnalysisLinkById(selectedLead.protectedAnalysisLinkId)
-    : undefined;
+  const selectedLink = getLeadLink(selectedLead);
   const lastMessage = selected ? getMessagesByDialogId(selected.id).slice(-1)[0] : undefined;
 
   return (
@@ -173,7 +171,7 @@ export default function OperatorConsolePage() {
                       <span className="rounded-sm border px-1.5 py-0.5 uppercase text-muted-foreground">
                         {d.channel}
                       </span>
-                      <span className="text-muted-foreground">{d.externalUserRef}</span>
+                      <span className="text-muted-foreground">{getDialogUserHandle(d)}</span>
                       <span className="rounded-sm bg-muted px-1.5 py-0.5">{STATE_LABEL[d.state]}</span>
                       {lead && (
                         <span className="rounded-sm border px-1.5 py-0.5">
@@ -205,7 +203,7 @@ export default function OperatorConsolePage() {
                   Превью диалога
                 </div>
                 <div className="font-mono">{selected.id}</div>
-                <div className="text-muted-foreground">{selected.externalUserRef}</div>
+                <div className="text-muted-foreground">{getDialogUserHandle(selected)}</div>
                 <div className="mt-1">{STATE_LABEL[selected.state]}</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   {formatDateTime(selected.lastMessageAt)}
