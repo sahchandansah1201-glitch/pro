@@ -1,8 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import BotSimPage from "./BotSimPage";
 import { ANALYSIS_CARDS, getDialogs, getLeads } from "@/lib/mock-data";
+
+beforeAll(() => {
+  // jsdom не реализует Element.scrollTo
+  if (!Element.prototype.scrollTo) {
+    Object.defineProperty(Element.prototype, "scrollTo", {
+      value: () => {},
+      writable: true,
+    });
+  }
+});
 
 const j = (...p: string[]) => p.join("");
 const FORBIDDEN = [
