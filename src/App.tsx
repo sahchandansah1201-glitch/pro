@@ -33,14 +33,13 @@ import SysUsersPage from "./pages/sys/SysUsersPage";
 import SysDevicesPage from "./pages/sys/SysDevicesPage";
 import SysAuditPage from "./pages/sys/SysAuditPage";
 import SysApiKeysPage from "./pages/sys/SysApiKeysPage";
+import MeHomePage from "./pages/patient/MeHomePage";
+import MeReportPage from "./pages/patient/MeReportPage";
+import MeBookingPage from "./pages/patient/MeBookingPage";
+import MeRemindersPage from "./pages/patient/MeRemindersPage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
-  // Patient
-  MeHomePage,
-  MeReportPage,
-  MeBookingPage,
-  MeRemindersPage,
   // Shared
   HelpPage,
 } from "./pages/Placeholders";
