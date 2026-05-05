@@ -54,7 +54,7 @@ const NotFound = ({ title, hint }: { title: string; hint: string }) => (
   <div className="flex h-full flex-col">
     <PageHeader title={title} subtitle={hint} />
     <div className="p-4">
-      <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+      <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
         <Link to="/patients">К списку пациентов</Link>
       </Button>
     </div>
@@ -89,7 +89,7 @@ export default function LesionDetailPage() {
       <div className="flex h-full flex-col">
         <PageHeader title="Образование не найдено" subtitle="Запись отсутствует или не принадлежит пациенту." />
         <div className="p-4">
-          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+          <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
             <Link to={`/patients/${patient.id}`}>К карточке пациента</Link>
           </Button>
         </div>
