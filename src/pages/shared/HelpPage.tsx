@@ -1,9 +1,12 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock } from "lucide-react";
+import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock, Search, X } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface RouteRef {
   path: string;
@@ -130,7 +133,54 @@ function Section({
   );
 }
 
+function matchRoute(r: RouteRef, q: string) {
+  return r.path.toLowerCase().includes(q) || r.description.toLowerCase().includes(q);
+}
+
+function matchRole(r: RoleRef, q: string) {
+  return (
+    r.title.toLowerCase().includes(q) ||
+    r.responsibilities.toLowerCase().includes(q) ||
+    r.routes.some((p) => p.toLowerCase().includes(q))
+  );
+}
+
 export default function HelpPage() {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+
+  const filtered = useMemo(() => {
+    if (!q) {
+      return {
+        roles: ROLES,
+        clinical: CLINICAL,
+        patient: PATIENT,
+        bot: BOT,
+        admin: ADMIN_ROUTES,
+        sys: SYS_ROUTES,
+      };
+    }
+    return {
+      roles: ROLES.filter((r) => matchRole(r, q)),
+      clinical: CLINICAL.filter((r) => matchRoute(r, q)),
+      patient: PATIENT.filter((r) => matchRoute(r, q)),
+      bot: BOT.filter((r) => matchRoute(r, q)),
+      admin: ADMIN_ROUTES.filter((r) => matchRoute(r, q)),
+      sys: SYS_ROUTES.filter((r) => matchRoute(r, q)),
+    };
+  }, [q]);
+
+  const totalMatches =
+    filtered.roles.length +
+    filtered.clinical.length +
+    filtered.patient.length +
+    filtered.bot.length +
+    filtered.admin.length +
+    filtered.sys.length;
+
+  const isSearching = q.length > 0;
+  const nothingFound = isSearching && totalMatches === 0;
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Справка" subtitle="Роли, маршруты и ограничения MVP" />
@@ -155,57 +205,109 @@ export default function HelpPage() {
           </ul>
         </div>
 
-        <Section icon={Users} title="Роли">
-          <ul className="divide-y divide-border">
-            {ROLES.map((r) => (
-              <li key={r.title} className="py-2">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-[13px] font-medium">{r.title}</span>
-                  {r.routes.map((p) => (
-                    <Badge key={p} variant="outline" className="font-mono text-[11px]">
-                      {p}
-                    </Badge>
-                  ))}
-                </div>
-                <p className="mt-1 text-[12px] text-muted-foreground">{r.responsibilities}</p>
-              </li>
-            ))}
-          </ul>
-        </Section>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Поиск по ролям и маршрутам, например: визит, /admin, оператор"
+            aria-label="Поиск по разделам справки"
+            className="h-11 pl-9 pr-20 text-[13px]"
+          />
+          {isSearching && (
+            <div
+              className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1"
+              aria-live="polite"
+            >
+              <span className="text-[11px] text-muted-foreground">
+                {totalMatches} {totalMatches === 1 ? "совпадение" : "совп."}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="pointer-events-auto h-8 w-8"
+                aria-label="Очистить поиск"
+                onClick={() => setQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
 
-        <Section icon={Stethoscope} title="Клинический поток">
-          <RouteList items={CLINICAL} />
-        </Section>
+        {nothingFound && (
+          <Card className="p-4 text-[12px] text-muted-foreground">
+            Ничего не найдено по запросу «{query}». Попробуйте другое ключевое слово.
+          </Card>
+        )}
 
-        <Section icon={User} title="Пациентский поток">
-          <RouteList items={PATIENT} />
-        </Section>
+        {filtered.roles.length > 0 && (
+          <Section icon={Users} title="Роли">
+            <ul className="divide-y divide-border">
+              {filtered.roles.map((r) => (
+                <li key={r.title} className="py-2">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="text-[13px] font-medium">{r.title}</span>
+                    {r.routes.map((p) => (
+                      <Badge key={p} variant="outline" className="font-mono text-[11px]">
+                        {p}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[12px] text-muted-foreground">{r.responsibilities}</p>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
 
-        <Section icon={Bot} title="Бот и запись">
-          <RouteList items={BOT} />
-        </Section>
+        {filtered.clinical.length > 0 && (
+          <Section icon={Stethoscope} title="Клинический поток">
+            <RouteList items={filtered.clinical} />
+          </Section>
+        )}
 
-        <Section icon={Building2} title="Администрирование">
-          <RouteList items={ADMIN_ROUTES} />
-        </Section>
+        {filtered.patient.length > 0 && (
+          <Section icon={User} title="Пациентский поток">
+            <RouteList items={filtered.patient} />
+          </Section>
+        )}
 
-        <Section icon={Server} title="Системный контур">
-          <RouteList items={SYS_ROUTES} />
-        </Section>
+        {filtered.bot.length > 0 && (
+          <Section icon={Bot} title="Бот и запись">
+            <RouteList items={filtered.bot} />
+          </Section>
+        )}
 
-        <Section icon={Lock} title="Политика данных">
-          <ul className="space-y-1.5 text-[12px]">
-            {DATA_POLICY.map((p) => (
-              <li key={p} className="flex items-start gap-2">
-                <span aria-hidden className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
-                <span>{p}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-[11px] italic text-muted-foreground">
-            Демо-контур: данные мок, интеграции и сетевые вызовы отсутствуют. На бэкенд-этапе политика будет реализована технически: разделение хранилищ, маскирование, аудит, протоколирование доступа.
-          </p>
-        </Section>
+        {filtered.admin.length > 0 && (
+          <Section icon={Building2} title="Администрирование">
+            <RouteList items={filtered.admin} />
+          </Section>
+        )}
+
+        {filtered.sys.length > 0 && (
+          <Section icon={Server} title="Системный контур">
+            <RouteList items={filtered.sys} />
+          </Section>
+        )}
+
+        {!isSearching && (
+          <Section icon={Lock} title="Политика данных">
+            <ul className="space-y-1.5 text-[12px]">
+              {DATA_POLICY.map((p) => (
+                <li key={p} className="flex items-start gap-2">
+                  <span aria-hidden className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-[11px] italic text-muted-foreground">
+              Демо-контур: данные мок, интеграции и сетевые вызовы отсутствуют. На бэкенд-этапе политика будет реализована технически: разделение хранилищ, маскирование, аудит, протоколирование доступа.
+            </p>
+          </Section>
+        )}
       </div>
     </div>
   );
