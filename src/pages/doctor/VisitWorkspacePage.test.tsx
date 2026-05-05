@@ -27,7 +27,10 @@ const renderAt = (path: string) =>
   );
 
 function openBodyMap() {
-  fireEvent.click(screen.getByRole("tab", { name: /body map/i }));
+  const t = screen.getByRole("tab", { name: /body map/i });
+  fireEvent.pointerDown(t, { button: 0 });
+  fireEvent.mouseDown(t, { button: 0 });
+  fireEvent.click(t);
 }
 
 describe("VisitWorkspacePage · Body map", () => {
