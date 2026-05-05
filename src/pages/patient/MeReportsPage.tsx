@@ -46,6 +46,15 @@ export default function MeReportsPage() {
   const [period, setPeriod] = useState<PeriodMode>("all");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
 
   const range = useMemo<{ from?: number; to?: number }>(() => {
     const now = demoNow();
