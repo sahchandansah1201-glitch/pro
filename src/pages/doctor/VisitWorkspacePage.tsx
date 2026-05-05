@@ -86,6 +86,23 @@ export default function VisitWorkspacePage() {
   const patient = id ? getPatientById(id) : undefined;
   const visit = visitId ? getVisitById(visitId) : undefined;
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const updateNav = useCallback(
+    (tab: string, lesionId?: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", tab);
+          if (lesionId) next.set("lesion", lesionId);
+          else next.delete("lesion");
+          return next;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
   if (!patient || !visit || visit.patientId !== patient.id) {
     return (
       <div className="flex h-full flex-col">
