@@ -102,9 +102,14 @@ export default function MeHomePage() {
 
         {reports.length > 0 && (
           <Card className="p-4">
-            <div className="mb-2 text-[13px] font-semibold">История заключений</div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-[13px] font-semibold">История заключений</div>
+              <Button asChild size="sm" variant="outline" className="min-h-[44px] sm:min-h-[32px]">
+                <Link to="/me/reports">Все заключения</Link>
+              </Button>
+            </div>
             <ul className="divide-y divide-border">
-              {reports.map((r) => (
+              {reports.slice(-5).map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-2 py-2">
                   <div className="min-w-0">
                     <div className="truncate text-[13px] font-medium">{formatDate(r.visitDate)} · {r.clinicName}</div>
