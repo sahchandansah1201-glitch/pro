@@ -163,6 +163,24 @@ export default function AdminDoctorsPage() {
 
   const note = (text: string) => setActionNote(text);
 
+  const activeFilterLabels =
+    filter === "all" ? [] : [`фильтр: ${FILTERS.find((f) => f.key === filter)?.label}`];
+  const resetAll = () => {
+    setFilter("all");
+    setQuery("");
+  };
+  const isEmpty = rows.length === 0;
+  const emptyState = (
+    <ListEmptyState
+      itemNoun="врачей"
+      query={query}
+      activeFilters={activeFilterLabels}
+      totalUnfiltered={DOCTOR_ROWS.length}
+      onReset={resetAll}
+      hint="В демо-каталоге фиксированный список врачей. С бэкендом сюда добавятся живые данные клиники."
+    />
+  );
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Врачи" subtitle="Состав, специализации, расписание, лицензии." />
