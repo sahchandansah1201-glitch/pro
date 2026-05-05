@@ -1,45 +1,7 @@
 #!/usr/bin/env node
 /**
  * Сканер запрещённых паттернов для doctor-контекста.
- * Список токенов и цели заданы в scripts/forbidden-patterns.mjs (единый источник).
- *
- * Запуск:
- *   node scripts/scan-doctor-forbidden.mjs
- *
- * Артефакты отчёта (всегда перезаписываются):
- *   reports/doctor-hygiene/scan-report.json — машиночитаемый
- *   reports/doctor-hygiene/scan-report.md   — для удобного просмотра
- */
-import { readdirSync, readFileSync, statSync, mkdirSync, writeFileSync } from "node:fs";
-import { join, relative, dirname } from "node:path";
-import {
-  FORBIDDEN_TOKENS,
-  SCAN_TARGETS,
-} from "./forbidden-patterns.mjs";
-
-const ROOT = process.cwd();
-const REPORT_DIR = join(ROOT, "reports", "doctor-hygiene");
-const REPORT_JSON = join(REPORT_DIR, "scan-report.json");
-const REPORT_MD = join(REPORT_DIR, "scan-report.md");
-// Детерминированный таймстамп — соответствует DEMO_NOW проекта.
-const SCAN_TS = "2026-05-04T00:00:00Z";
-
-function walk(path, out = []) {
-  const st = statSync(path);
-  if (st.isDirectory()) {
-    for (const name of readdirSync(path)) walk(join(path, name), out);
-  } else if (
-    st.isFile() &&
-    /\.(ts|tsx|js|jsx)$/.test(path) &&
-    !/\.test\.(ts|tsx)$/.test(path) &&
-    !/\.hygiene\.test\./.test(path)
-  ) {
-    out.push(path);
-  }
-  return out;
-}
-
-const files = SCAN_TARGETS.flatMap((t) => walk(join(ROOT, t)));
+ * Список токенов и цели заданы в scrip
 const findings = [];
 
 for (const file of files) {
