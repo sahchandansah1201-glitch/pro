@@ -848,6 +848,86 @@ function SendStatusBlock({ send }: { send: SendRecord }) {
   );
 }
 
+// ───────── Send history (persisted in localStorage) ─────────
+
+function SendHistoryBlock({
+  history,
+  onClear,
+}: {
+  history: SendRecord[];
+  onClear: () => void;
+}) {
+  return (
+    <section
+      aria-label="Журнал отправок пациенту"
+      data-testid="send-history"
+      data-send-history-count={history.length}
+      className="mt-3 rounded-md border border-border bg-surface p-3"
+    >
+      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[12px] font-semibold">
+          Журнал отправок (демо) · сохранён локально
+        </h3>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="tabular-nums">
+            {history.length}/{SEND_HISTORY_MAX}
+          </span>
+          {history.length > 0 && (
+            <button
+              type="button"
+              data-testid="send-history-clear"
+              onClick={onClear}
+              className="min-h-[28px] rounded-sm border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Очистить
+            </button>
+          )}
+        </div>
+      </header>
+
+      {history.length === 0 ? (
+        <p className="text-[12px] text-muted-foreground">
+          История пуста. Сохранится в этом браузере и переживёт перезагрузку.
+        </p>
+      ) : (
+        <ol
+          data-testid="send-history-list"
+          className="space-y-2"
+        >
+          {history.map((rec, idx) => (
+            <li
+              key={`${rec.at}-${idx}`}
+              data-testid="send-history-item"
+              data-send-status={rec.status}
+              className="rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-medium text-foreground">
+                  {SEND_STATUS_LABEL[rec.status]}
+                </span>
+                <span className="tabular-nums text-[11px] text-muted-foreground">
+                  {rec.at ? formatDateTime(rec.at) : "—"}
+                </span>
+              </div>
+              {rec.status === "failed" && rec.reason && (
+                <p className="mt-1 text-[11px] text-muted-foreground">{rec.reason}</p>
+              )}
+              {rec.patientTextPreview && (
+                <p className="mt-1 whitespace-pre-wrap text-[12px] text-foreground">
+                  {rec.patientTextPreview}
+                </p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Хранится в localStorage браузера, не отправляется во внешние сервисы.
+      </p>
+    </section>
+  );
+}
+
 // ───────── Small UI helpers ─────────
 
 function ChecklistItem({ ok, children }: { ok: boolean; children: React.ReactNode }) {
