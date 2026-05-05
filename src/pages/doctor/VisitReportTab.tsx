@@ -474,8 +474,6 @@ const PATIENT_TEMPLATES: PatientTemplate[] = [
 
 function DemoReportForm({
   assessment,
-  visitId,
-  lesionId,
 }: {
   assessment: Assessment | null;
   visitId: string;
