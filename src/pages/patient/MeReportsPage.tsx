@@ -9,7 +9,7 @@ import { ListEmptyState } from "@/components/admin/ListEmptyState";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { formatDate } from "@/lib/format";
-import { getSafeReports } from "./patient-data";
+import { getSafeReports, demoNow } from "./patient-data";
 
 const DEMO_BANNER =
   "Демо-режим. Список заключений сформирован из локальных данных.";
