@@ -629,7 +629,6 @@ function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<
     ["Образование", lesion ? `${lesion.label} · ${lesion.bodyZone}` : "Body map / без привязки"],
     ["Снято", formatDateTime(image.capturedAt)],
     ["Устройство", image.deviceId ?? "—"],
-    ["Путь", <span key="p" className="font-mono text-[11px]">{image.storagePath}</span>],
     ["Размер", `${e.width} × ${e.height}`],
     ["ISO", e.iso ?? "—"],
     ["Выдержка", e.shutter ?? "—"],
