@@ -261,23 +261,87 @@ export default function MeReportsPage() {
           />
         ) : (
           <Card className="p-3 sm:p-4">
-            <ul className="divide-y divide-border">
-              {pagination.visible.map((r) => (
-                <li key={r.id} className="flex items-start gap-3 py-3">
-                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
-                      <span className="font-medium">{formatDate(r.visitDate)}</span>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="truncate text-muted-foreground">{r.clinicName}</span>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{r.summary}</p>
+            {(() => {
+              const visibleIds = pagination.visible.map((r) => r.id);
+              const allOnPage = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+              const someOnPage = visibleIds.some((id) => selected.has(id));
+              const togglePage = () => {
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  if (allOnPage) visibleIds.forEach((id) => next.delete(id));
+                  else visibleIds.forEach((id) => next.add(id));
+                  return next;
+                });
+              };
+              const downloadDemo = () => {
+                toast({
+                  title: "Скачивание PDF (демо)",
+                  description: `Выбрано заключений: ${selected.size}. В реальной версии будет сформирован PDF.`,
+                });
+              };
+              return (
+                <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-border pb-2">
+                  <label className="flex items-center gap-2 text-[12px]">
+                    <Checkbox
+                      checked={allOnPage ? true : someOnPage ? "indeterminate" : false}
+                      onCheckedChange={togglePage}
+                      aria-label="Выбрать все на странице"
+                    />
+                    <span className="text-muted-foreground">
+                      Выбрано: <span className="tabular-nums">{selected.size}</span>
+                    </span>
+                  </label>
+                  <div className="ml-auto flex flex-wrap gap-2">
+                    {selected.size > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setSelected(new Set())}
+                        className="min-h-[44px] sm:min-h-[32px]"
+                      >
+                        Снять выбор
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={selected.size === 0}
+                      onClick={downloadDemo}
+                      className="min-h-[44px] sm:min-h-[32px]"
+                    >
+                      <Download className="h-3.5 w-3.5" aria-hidden /> Скачать PDF (демо)
+                    </Button>
                   </div>
-                  <Button asChild size="sm" variant="outline" className="shrink-0 min-h-[44px] sm:min-h-[32px]">
-                    <Link to={`/me/reports/${r.id}`}>Открыть</Link>
-                  </Button>
-                </li>
-              ))}
+                </div>
+              );
+            })()}
+            <ul className="divide-y divide-border">
+              {pagination.visible.map((r) => {
+                const checked = selected.has(r.id);
+                return (
+                  <li key={r.id} className="flex items-start gap-3 py-3">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleOne(r.id)}
+                      aria-label={`Выбрать заключение от ${formatDate(r.visitDate)}`}
+                      className="mt-1"
+                    />
+                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
+                        <span className="font-medium">{formatDate(r.visitDate)}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="truncate text-muted-foreground">{r.clinicName}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{r.summary}</p>
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="shrink-0 min-h-[44px] sm:min-h-[32px]">
+                      <Link to={`/me/reports/${r.id}`}>Открыть</Link>
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
             <div className="mt-3">
               <ListPagination
