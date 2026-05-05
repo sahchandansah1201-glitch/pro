@@ -1,5 +1,5 @@
 // Patient portal — детерминированные хелперы для демо-пациента.
-// SAFETY: только patient-safe данные. Никаких photoRef/storage/AI/diagnosis.
+// SAFETY: только безопасные для пациента данные.
 
 import {
   getAppointments,
