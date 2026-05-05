@@ -156,6 +156,53 @@ export default function MeReportsPage() {
               </select>
             </label>
 
+            <div
+              className="flex flex-wrap items-center gap-1 sm:col-span-full"
+              role="group"
+              aria-label="Период"
+            >
+              <span className="mr-1 text-[12px] text-muted-foreground">Период:</span>
+              {(Object.keys(PERIOD_LABEL) as PeriodMode[]).map((p) => (
+                <Button
+                  key={p}
+                  type="button"
+                  size="sm"
+                  variant={period === p ? "default" : "outline"}
+                  aria-pressed={period === p}
+                  className="min-h-[44px] sm:min-h-[32px]"
+                  onClick={() => setPeriod(p)}
+                >
+                  {PERIOD_LABEL[p]}
+                </Button>
+              ))}
+              {period === "custom" && (
+                <div className="flex flex-wrap items-center gap-1">
+                  <label className="flex items-center gap-1 text-[12px] text-muted-foreground">
+                    с
+                    <Input
+                      type="date"
+                      value={fromDate}
+                      max={toDate || undefined}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="h-11 w-[150px] text-[13px] sm:h-9"
+                      aria-label="Начало периода"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1 text-[12px] text-muted-foreground">
+                    по
+                    <Input
+                      type="date"
+                      value={toDate}
+                      min={fromDate || undefined}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="h-11 w-[150px] text-[13px] sm:h-9"
+                      aria-label="Конец периода"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Сортировка">
               {(Object.keys(SORT_LABEL) as SortMode[]).map((m) => (
                 <Button
@@ -172,7 +219,7 @@ export default function MeReportsPage() {
               ))}
             </div>
 
-            {(query || clinic !== "all" || sort !== "new") && (
+            {hasAnyFilter && (
               <Button
                 type="button"
                 variant="ghost"
