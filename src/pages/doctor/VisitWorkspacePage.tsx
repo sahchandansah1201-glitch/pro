@@ -303,6 +303,7 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
           >
             <BodySvg
               view={view}
+              figure={figure}
               points={visiblePoints.map((p) => ({
                 id: p.lesion.id,
                 num: p.num,
