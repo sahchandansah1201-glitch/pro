@@ -158,6 +158,16 @@ if (writeReports) {
     md.push(`Совпадений не найдено.`);
     md.push("");
   } else {
+    // Сводка по токенам — топ нарушаемых правил.
+    const byTok = {};
+    for (const f of findings) byTok[f.token] = (byTok[f.token] || 0) + 1;
+    const rows = Object.entries(byTok).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    md.push(`#### Сводка по токенам`);
+    md.push("");
+    md.push(`| Токен | Совпадений |`);
+    md.push(`| --- | ---: |`);
+    for (const [tok, cnt] of rows) md.push(`| \`${tok}\` | ${cnt} |`);
+    md.push("");
     for (const file of Object.keys(byFile).sort()) {
       md.push(`### \`${file}\``);
       md.push("");
@@ -229,6 +239,23 @@ for (const file of sortedFiles) {
     const ctx = it.text.length > 80 ? it.text.slice(0, 77) + "…" : it.text;
     console.log(`    ${dim(ln + " │")} ${yellow(tk)} ${dim("│")} ${ctx}`);
   }
+}
+
+// Сводка по токенам — какие правила чаще всего нарушаются.
+const byToken = {};
+for (const f of findings) byToken[f.token] = (byToken[f.token] || 0) + 1;
+const tokenRows = Object.entries(byToken).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+const maxSumTokW = Math.min(28, Math.max(...tokenRows.map(([t]) => t.length)));
+const maxSumCntW = String(tokenRows[0][1]).length;
+
+console.log("");
+console.log(HR);
+console.log(`  ${bold("Сводка по токенам")}  ${dim(`(${tokenRows.length} уникальных)`)}`);
+console.log(HR);
+for (const [tok, cnt] of tokenRows) {
+  const t = tok.padEnd(maxSumTokW).slice(0, maxSumTokW);
+  const n = String(cnt).padStart(maxSumCntW);
+  console.log(`    ${yellow(t)} ${dim("│")} ${bold(n)}`);
 }
 
 console.log("");
