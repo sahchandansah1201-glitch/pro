@@ -93,7 +93,29 @@ export default function AdminClinicsPage() {
   const integrationsActive = integrations.some((i) => i.status === "connected");
 
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [sort, setSort] = useState<SortKey>("priority");
+
+  // Сортировка синхронизируется с ?sort= в URL: значение сохраняется при
+  // перезагрузке страницы и шарится по ссылке. Дефолт "priority" в URL не
+  // прописываем, чтобы не засорять историю.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sortFromUrl = searchParams.get("sort");
+  const sort: SortKey = isSortKey(sortFromUrl) ? sortFromUrl : "priority";
+  const setSort = (next: SortKey) => {
+    const sp = new URLSearchParams(searchParams);
+    if (next === "priority") sp.delete("sort");
+    else sp.set("sort", next);
+    setSearchParams(sp, { replace: true });
+  };
+
+  // Если в URL пришло невалидное значение — мягко чистим параметр один раз.
+  useEffect(() => {
+    if (sortFromUrl !== null && !isSortKey(sortFromUrl)) {
+      const sp = new URLSearchParams(searchParams);
+      sp.delete("sort");
+      setSearchParams(sp, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortFromUrl]);
   const [actionNote, setActionNote] = useState<string | null>(null);
 
   const enriched = useMemo(() => {
