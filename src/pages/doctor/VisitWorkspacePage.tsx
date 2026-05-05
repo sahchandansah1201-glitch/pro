@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ChevronRight, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,23 @@ export default function VisitWorkspacePage() {
   const patient = id ? getPatientById(id) : undefined;
   const visit = visitId ? getVisitById(visitId) : undefined;
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const updateNav = useCallback(
+    (tab: string, lesionId?: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", tab);
+          if (lesionId) next.set("lesion", lesionId);
+          else next.delete("lesion");
+          return next;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
   if (!patient || !visit || visit.patientId !== patient.id) {
     return (
       <div className="flex h-full flex-col">
@@ -101,6 +118,14 @@ export default function VisitWorkspacePage() {
 
   const lesions = getLesionsByPatientId(patient.id);
   const clinic = getClinicById(visit.clinicId);
+
+  const validTabs = ["intake", "bodymap", "imaging", "assessment", "conclusion", "report"] as const;
+  type TabKey = (typeof validTabs)[number];
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabKey = (validTabs as readonly string[]).includes(tabParam ?? "")
+    ? (tabParam as TabKey)
+    : "intake";
+  const lesionParam = searchParams.get("lesion");
 
   const headerMeta: Array<{ label: string; value: string }> = [
     { label: "Код", value: patient.code },
@@ -139,7 +164,11 @@ export default function VisitWorkspacePage() {
         }
       />
 
-      <Tabs defaultValue="intake" className="flex min-h-0 flex-1 flex-col">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => updateNav(v as TabKey, lesionParam)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <div className="border-b border-border bg-surface px-3">
           <TabsList className="h-auto overflow-x-auto bg-transparent p-0 sm:h-9">
             <TabsTrigger value="intake" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Интейк</TabsTrigger>
@@ -156,11 +185,23 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="bodymap" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          <BodyMapTab patient={patient} visit={visit} lesions={lesions} />
+          <BodyMapTab
+            patient={patient}
+            visit={visit}
+            lesions={lesions}
+            initialLesionId={lesionParam}
+            onOpenImaging={(lesionId) => updateNav("imaging", lesionId)}
+          />
         </TabsContent>
 
         <TabsContent value="imaging" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <VisitImagingTab visit={visit} patientId={patient.id} lesions={lesions} />
+          <VisitImagingTab
+            visit={visit}
+            patientId={patient.id}
+            lesions={lesions}
+            initialLesionId={lesionParam}
+            onOpenBodyMap={(lesionId) => updateNav("bodymap", lesionId)}
+          />
         </TabsContent>
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
@@ -243,7 +284,19 @@ interface PendingPoint {
   zone: string;
 }
 
-function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visit; lesions: Lesion[] }) {
+function BodyMapTab({
+  patient,
+  visit,
+  lesions,
+  initialLesionId,
+  onOpenImaging,
+}: {
+  patient: Patient;
+  visit: Visit;
+  lesions: Lesion[];
+  initialLesionId?: string | null;
+  onOpenImaging: (lesionId: string) => void;
+}) {
   const variant: BodyMapVariant = getBodyMapVariant(patient);
   const variantLabel = bodyMapVariantLabel(variant);
 
@@ -251,7 +304,10 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
     return lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
   }, [lesions]);
 
-  const initialLesion = placedLesions[0] ?? null;
+  const initialFromParam = initialLesionId
+    ? placedLesions.find((p) => p.lesion.id === initialLesionId) ?? null
+    : null;
+  const initialLesion = initialFromParam ?? placedLesions[0] ?? null;
   const initialView: View = initialLesion?.point.view ?? "front";
 
   const [view, setView] = useState<View>(initialView);
@@ -260,6 +316,13 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
   const [pending, setPending] = useState<PendingPoint | null>(null);
   const [zoneDraft, setZoneDraft] = useState("");
   const [confirmedDemo, setConfirmedDemo] = useState<PendingPoint[]>([]);
+
+  // React to external (URL) lesion changes.
+  useEffect(() => {
+    if (initialLesionId && placedLesions.some((p) => p.lesion.id === initialLesionId)) {
+      setSelected(initialLesionId);
+    }
+  }, [initialLesionId, placedLesions]);
 
   // Switch projection whenever the selected lesion lives on a different one.
   useEffect(() => {
@@ -277,8 +340,14 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
   const visiblePoints = placedLesions.filter((p) => p.point.view === view);
   const selectedLesion = selected ? lesions.find((l) => l.id === selected) ?? null : null;
   const visitAssessments = getAssessmentsByVisitId(visit.id);
-  const selImageCount = selectedLesion ? getImagesByLesionId(selectedLesion.id).length : 0;
+  const selImages = selectedLesion ? getImagesByLesionId(selectedLesion.id) : [];
+  const selImageCount = selImages.length;
   const selAssessment = selectedLesion ? visitAssessments.find((a) => a.lesionId === selectedLesion.id) : undefined;
+  const selKinds = Array.from(new Set(selImages.map((i) => i.kind)));
+  const selNeedsReview = selImages.some((i) => i.quality.score < 0.8 || i.quality.issues.length > 0);
+  const selLatestAt = selImages.length
+    ? selImages.map((i) => i.capturedAt).sort().slice(-1)[0]
+    : null;
 
   const handlePlace = (np: { view: View; x: number; y: number }) => {
     const zone = suggestBodyZone(np.view, np.x, np.y);
@@ -373,8 +442,10 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
           ) : (
             <ul className="divide-y divide-border">
               {placedLesions.map(({ lesion, num, point }) => {
-                const imageCount = getImagesByLesionId(lesion.id).length;
+                const lImages = getImagesByLesionId(lesion.id);
+                const imageCount = lImages.length;
                 const a = visitAssessments.find((x) => x.lesionId === lesion.id);
+                const lNeedsReview = lImages.some((i) => i.quality.score < 0.8 || i.quality.issues.length > 0);
                 const isSel = lesion.id === selected;
                 return (
                   <li
@@ -407,6 +478,25 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
                       <Stat term="ABCD" value={a ? a.abcd.total.toFixed(1) : "—"} />
                       <Stat term="7-point" value={a ? a.sevenPoint.total : "—"} />
                     </dl>
+                    {(imageCount === 0 || !a || lNeedsReview) && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {imageCount === 0 && (
+                          <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                            нет снимков
+                          </span>
+                        )}
+                        {!a && (
+                          <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                            нет оценки
+                          </span>
+                        )}
+                        {lNeedsReview && (
+                          <span className="rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning">
+                            нужен пересмотр
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}
@@ -473,6 +563,50 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
               <Stat term="ABCD" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
               <Stat term="7-point" value={selAssessment ? selAssessment.sevenPoint.total : "—"} />
             </dl>
+            <div className="mt-2 rounded-md border border-border bg-surface-muted px-2.5 py-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold">
+                  <Images className="h-3.5 w-3.5" aria-hidden /> Связанные снимки
+                </div>
+                <span
+                  className={`rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${
+                    selImageCount === 0
+                      ? "border border-border bg-surface text-muted-foreground"
+                      : selNeedsReview
+                        ? "bg-warning text-warning-foreground"
+                        : "bg-success text-success-foreground"
+                  }`}
+                >
+                  {selImageCount === 0 ? "нет снимков" : selNeedsReview ? "нужен пересмотр" : "качество ок"}
+                </span>
+              </div>
+              <dl className="mt-1.5 grid grid-cols-2 gap-x-2 text-[11px]">
+                <Stat term="Всего" value={selImageCount} />
+                <Stat term="Последний" value={selLatestAt ? formatDate(selLatestAt) : "—"} />
+              </dl>
+              {selKinds.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {selKinds.map((k) => (
+                    <span key={k} className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                      {k === "overview" ? "Обзор" : k === "dermoscopy" ? "Дерматоскопия" : k === "macro" ? "Макро" : "Body map"}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => onOpenImaging(selectedLesion.id)}
+                >
+                  К снимкам этого очага <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Локальная навигация по визиту. Без обращений к хранилищу и без диагноза.
+              </p>
+            </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
               Клинические значения ABCD и 7-point — данные из существующих мок-оценок этого визита, без AI-диагноза.
             </p>

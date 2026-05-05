@@ -11,6 +11,7 @@ import {
   RotateCcw,
   ChevronRight,
   RefreshCw,
+  MapPin,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,9 +47,11 @@ interface Props {
   visit: Visit;
   patientId: string;
   lesions: Lesion[];
+  initialLesionId?: string | null;
+  onOpenBodyMap?: (lesionId: string) => void;
 }
 
-export function VisitImagingTab({ visit, patientId, lesions }: Props) {
+export function VisitImagingTab({ visit, patientId, lesions, initialLesionId, onOpenBodyMap }: Props) {
   const allImages = useMemo(
     () => [...getImagesByVisitId(visit.id)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
     [visit.id],
@@ -60,10 +63,19 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
     return m;
   }, [lesions]);
 
-  const [lesionFilter, setLesionFilter] = useState<LesionFilter>("all");
+  const [lesionFilter, setLesionFilter] = useState<LesionFilter>(
+    initialLesionId && lesions.some((l) => l.id === initialLesionId) ? initialLesionId : "all",
+  );
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [qualityFilter, setQualityFilter] = useState<QualityFilter>("all");
+
+  // React to URL-driven lesion changes after mount.
+  useEffect(() => {
+    if (initialLesionId && lesions.some((l) => l.id === initialLesionId)) {
+      setLesionFilter(initialLesionId);
+    }
+  }, [initialLesionId, lesions]);
 
   const [captureNotice, setCaptureNotice] = useState<string | null>(null);
   const showCaptureNotice = (label: string) =>
@@ -325,7 +337,7 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
               {/* Actions */}
               <div className="flex flex-wrap gap-2">
                 {selected.lesionId ? (
-                  <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+                  <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
                     <Link to={`/patients/${patientId}/lesions/${selected.lesionId}`}>
                       Открыть образование <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
                     </Link>
@@ -333,10 +345,20 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
                 ) : (
                   <span className="text-[12px] text-muted-foreground">Снимок не привязан к образованию.</span>
                 )}
+                {selected.lesionId && onOpenBodyMap && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    onClick={() => onOpenBodyMap(selected.lesionId!)}
+                  >
+                    <MapPin className="mr-1 h-3.5 w-3.5" aria-hidden /> Открыть на Body Map
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-8 text-[12px]"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                   onClick={() => showCaptureNotice("Повтор снимка")}
                 >
                   <RefreshCw className="mr-1 h-3.5 w-3.5" /> Повторить снимок
