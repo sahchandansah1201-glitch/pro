@@ -12,6 +12,9 @@ import { FORBIDDEN_TOKENS, SCAN_TARGETS } from "./forbidden-patterns.mjs";
 //   --staged         — только git staged-файлы (pre-commit)
 //   --changed        — staged + изменённые в рабочей копии (pre-push)
 //   path1 path2 ...  — явный список путей
+//
+// Флаги:
+//   --quiet, -q      — короткий вывод (статус, файлы, путь к отчёту)
 
 const ROOT = process.cwd();
 const REPORT_DIR = join(ROOT, "reports", "doctor-hygiene");
