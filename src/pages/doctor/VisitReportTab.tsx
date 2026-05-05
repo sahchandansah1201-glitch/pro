@@ -484,20 +484,6 @@ function DemoReportForm({
   const [internalNote, setInternalNote] = useState("");
   const [saved, setSaved] = useState<DemoReportDraft | null>(null);
 
-  // Persistent journal of attempts for this (visit, lesion) pair, restored on mount.
-  const [history, setHistory] = useState<SendRecord[]>(() =>
-    loadSendHistory(visitId, lesionId),
-  );
-
-  // Re-load when visit/lesion changes (key on parent already remounts on lesion change,
-  // but visit may also change without remount in some flows).
-  useEffect(() => {
-    setHistory(loadSendHistory(visitId, lesionId));
-  }, [visitId, lesionId]);
-
-  const send: SendRecord =
-    history[0] ?? { status: "idle", at: "", patientTextPreview: "" };
-
   const validation = useMemo(() => validatePatientText(patientText), [patientText]);
 
   const applyTemplate = (tpl: PatientTemplate, mode: "replace" | "append") => {
@@ -520,39 +506,6 @@ function DemoReportForm({
       createdAt: BODY_MAP_DEMO_NOW,
     });
   };
-
-  const canSend =
-    Boolean(saved && saved.patientText.length > 0) &&
-    send.status !== "sending" &&
-    validation.ok;
-
-  const pushRecord = (record: SendRecord) => {
-    setHistory(appendSendHistory(visitId, lesionId, record));
-  };
-
-  const onSendDemo = () => {
-    if (!saved) return;
-    if (!saved.patientText) {
-      pushRecord({
-        status: "failed",
-        at: BODY_MAP_DEMO_NOW,
-        patientTextPreview: "",
-        reason: "Текст для пациента пуст.",
-      });
-      return;
-    }
-    pushRecord({
-      status: "sent",
-      at: BODY_MAP_DEMO_NOW,
-      patientTextPreview: saved.patientText,
-    });
-  };
-
-  const onClearHistory = () => {
-    clearSendHistory(visitId, lesionId);
-    setHistory([]);
-  };
-
 
   return (
     <section
