@@ -286,6 +286,16 @@ interface PendingPoint {
   zone: string;
 }
 
+interface LocalLesionDraft {
+  id: string;
+  label: string;
+  bodyZone: string;
+  status: Lesion["status"];
+  mapPoint: BodyMapPoint;
+  note: string;
+  createdAt: string;
+}
+
 function BodyMapTab({
   patient,
   visit,
