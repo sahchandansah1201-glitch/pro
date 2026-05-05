@@ -467,7 +467,15 @@ function BodyMapTab({
                 label: p.lesion.label,
               }))}
               pending={pending && pending.view === view ? { x: pending.x, y: pending.y } : null}
-              demoPoints={localDemoForView}
+              demoPoints={localDraftsForView.map((d, i) => ({
+                id: d.id,
+                num: i + 1,
+                x: d.mapPoint.x,
+                y: d.mapPoint.y,
+                selected: d.id === selected,
+                onSelect: () => setSelected(d.id),
+                label: d.label,
+              }))}
               onPlace={handlePlace}
             />
           </div>
