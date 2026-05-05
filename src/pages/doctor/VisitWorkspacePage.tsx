@@ -20,6 +20,7 @@ import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
+import { BodySilhouette, FIGURE_LABEL, pickFigure, type Figure } from "@/components/clinical/BodySilhouette";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
