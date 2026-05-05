@@ -280,6 +280,7 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
               Сзади
             </button>
           </div>
+          <div className="ml-2 hidden text-[11px] text-muted-foreground sm:inline">Силуэт: {FIGURE_LABEL[figure]}</div>
           <div className="flex items-center gap-1">
             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(2)))} aria-label="Уменьшить">
               <ZoomOut className="h-3.5 w-3.5" />
