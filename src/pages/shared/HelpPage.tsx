@@ -1,9 +1,12 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock } from "lucide-react";
+import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock, Search, X } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface RouteRef {
   path: string;
