@@ -108,6 +108,36 @@ describe("VisitWorkspacePage · Body map", () => {
   });
 });
 
+describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
+  it("Body Map selected lesion shows 'Связанные снимки' panel for l-008", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
+    expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /К снимкам этого очага/ })).toBeInTheDocument();
+  });
+
+  it("clicking 'К снимкам этого очага' switches to Imaging tab with lesion preselected", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
+    fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
+    expect(screen.getByText(/Захват/)).toBeInTheDocument();
+    const selects = screen.getAllByRole("combobox") as HTMLSelectElement[];
+    const lesionSelect = selects.find((s) => s.value === "l-008");
+    expect(lesionSelect).toBeTruthy();
+  });
+
+  it("Imaging tab shows 'Открыть на Body Map' for selected linked image and returns to Body Map", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=imaging&lesion=l-008");
+    const btn = screen.getByRole("button", { name: /Открыть на Body Map/ });
+    fireEvent.click(btn);
+    expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
+  });
+
+  it("lesion list shows 'нет оценки' and 'нужен пересмотр' chips on v-005", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap");
+    expect(screen.getAllByText(/нет оценки/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/нужен пересмотр/).length).toBeGreaterThan(0);
+  });
+});
+
 describe("VisitWorkspacePage · production hygiene", () => {
   it("source files contain no forbidden tokens or restricted APIs", async () => {
     const fs = await import("fs/promises");
