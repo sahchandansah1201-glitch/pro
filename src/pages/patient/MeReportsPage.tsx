@@ -97,19 +97,20 @@ export default function MeReportsPage() {
       return sort === "new" ? -cmp : cmp;
     });
     return list;
-  }, [allReports, query, clinic, sort, range]);
+  }, [allReports, query, doctorQuery, clinic, sort, range]);
 
   const pagination = useListPagination(filtered, {
     mobilePageSize: 5,
     desktopPageSize: 10,
-    deps: [query, clinic, sort, period, fromDate, toDate],
+    deps: [query, doctorQuery, clinic, sort, period, fromDate, toDate],
   });
 
   const reset = () => {
-    setQuery(""); setClinic("all"); setSort("new");
+    setQuery(""); setDoctorQuery(""); setClinic("all"); setSort("new");
     setPeriod("all"); setFromDate(""); setToDate("");
   };
   const activeFilters: string[] = [];
+  if (doctorQuery.trim()) activeFilters.push(`врач: «${doctorQuery.trim()}»`);
   if (clinic !== "all") activeFilters.push(`клиника: ${clinic}`);
   if (sort !== "new") activeFilters.push(`сортировка: ${SORT_LABEL[sort].toLowerCase()}`);
   if (period !== "all") {
@@ -119,7 +120,7 @@ export default function MeReportsPage() {
         : `период: ${PERIOD_LABEL[period].toLowerCase()}`,
     );
   }
-  const hasAnyFilter = !!query || clinic !== "all" || sort !== "new" || period !== "all";
+  const hasAnyFilter = !!query || !!doctorQuery || clinic !== "all" || sort !== "new" || period !== "all";
 
   return (
     <div className="flex h-full flex-col">
@@ -147,7 +148,7 @@ export default function MeReportsPage() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск по тексту, клинике, дате"
+                placeholder="Поиск по тексту, клинике, врачу, дате"
                 className="h-11 pl-7 text-[13px] sm:h-9"
               />
               {query && (
@@ -155,6 +156,28 @@ export default function MeReportsPage() {
                   type="button"
                   aria-label="Очистить поиск"
                   onClick={() => setQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </label>
+
+            <label className="relative">
+              <span className="sr-only">Поиск по ФИО врача</span>
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <Input
+                value={doctorQuery}
+                onChange={(e) => setDoctorQuery(e.target.value)}
+                placeholder="Врач (ФИО)"
+                aria-label="Поиск по ФИО врача"
+                className="h-11 w-full pl-7 text-[13px] sm:h-9 sm:w-[220px]"
+              />
+              {doctorQuery && (
+                <button
+                  type="button"
+                  aria-label="Очистить поиск по врачу"
+                  onClick={() => setDoctorQuery("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <X className="h-3.5 w-3.5" />
