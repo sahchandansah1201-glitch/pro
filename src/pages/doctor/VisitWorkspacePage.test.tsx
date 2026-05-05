@@ -242,6 +242,53 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
   });
 });
 
+describe("VisitWorkspacePage · acceptance — URL params and isolation", () => {
+  it("invalid ?tab fallbacks to Intake", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=not-a-tab");
+    const intakeTab = screen.getByRole("tab", { name: /Интейк/ });
+    expect(intakeTab.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("invalid ?lesion is safely ignored on Body Map (no crash, tab opens)", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=does-not-exist");
+    const tab = screen.getByRole("tab", { name: /body map/i });
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+    // map renders
+    expect(screen.getByRole("img", { name: /Body map/ })).toBeInTheDocument();
+  });
+
+  it("invalid ?lesion is safely ignored on Imaging (filter falls back to 'all')", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=imaging&lesion=does-not-exist");
+    const tab = screen.getByRole("tab", { name: /снимки/i });
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+    const allFilter = (screen.getAllByRole("combobox") as HTMLSelectElement[]).find(
+      (s) => s.value === "all",
+    );
+    expect(allFilter).toBeTruthy();
+  });
+
+  it("local draft does not leak into Assessment, Conclusion, or Report", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=bodymap");
+    // create a draft on Body Map
+    const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
+    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    fireEvent.click(svg, { clientX: 100, clientY: 200 });
+    fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
+    expect(screen.getByText(/Локальные демо-очаги/)).toBeInTheDocument();
+
+    // switch to other tabs — draft must not appear
+    for (const tabName of [/Оценка/, /Заключение/, /Отчёт/]) {
+      const tab = screen.getByRole("tab", { name: tabName });
+      fireEvent.pointerDown(tab, { button: 0 });
+      fireEvent.mouseDown(tab, { button: 0 });
+      fireEvent.click(tab);
+      expect(screen.queryByText(/локально, не сохранено/)).toBeNull();
+      expect(screen.queryByText(/local-lesion-/)).toBeNull();
+    }
+  });
+});
+
 describe("VisitWorkspacePage · production hygiene", () => {
   it("source files contain no forbidden tokens or restricted APIs", async () => {
     const fs = await import("fs/promises");
