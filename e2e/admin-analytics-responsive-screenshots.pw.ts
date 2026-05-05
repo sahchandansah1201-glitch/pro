@@ -22,6 +22,15 @@ test.describe("/admin/analytics — responsive screenshots & tap target", () => 
   for (const size of SIZES) {
     test(`${size.name} (${size.width}x${size.height})`, async ({ page }) => {
       await page.setViewportSize({ width: size.width, height: size.height });
+      // Авто-вход в админ-панель: выставляем демо-роль clinic_admin
+      // в localStorage до загрузки приложения, чтобы RoleGuard пропустил /admin/*.
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem("derma-pro:demo-role", "clinic_admin");
+        } catch {
+          /* ignore */
+        }
+      });
       await page.goto("/admin/analytics", { waitUntil: "networkidle" });
 
       const tablist = page.locator(
