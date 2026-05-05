@@ -45,22 +45,8 @@ export const LesionPage = () => {
 
 
 // ───────── Системный администратор ─────────
-export const SysUsersPage = () => (
-  <PlaceholderPage
-    title="Пользователи и роли"
-    subtitle="Управление учётными записями и назначением ролей."
-    backendNote={BACKEND_NOTE}
-  />
-);
-export const SysDevicesPage = () => (
-  <PlaceholderPage title="Устройства" subtitle="Электронные дерматоскопы, Device Bridge, локальный перенос с телефона." />
-);
-export const SysAuditPage = () => (
-  <PlaceholderPage title="Аудит" subtitle="Журнал действий, экспорт, защищённые ссылки." />
-);
-export const SysApiKeysPage = () => (
-  <PlaceholderPage title="API-ключи" subtitle="Ключи интеграций и сервисных аккаунтов." backendNote={BACKEND_NOTE} />
-);
+// SysUsersPage, SysDevicesPage, SysAuditPage, SysApiKeysPage moved to
+// src/pages/sys/Sys{Users,Devices,Audit,ApiKeys}Page.tsx (Task 18).
 
 // ───────── Пациент ─────────
 export const MeHomePage = () => (

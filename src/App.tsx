@@ -29,17 +29,13 @@ import AdminHomePage from "./pages/admin/AdminHomePage";
 import AdminDoctorsPage from "./pages/admin/AdminDoctorsPage";
 import AdminServicesPage from "./pages/admin/AdminServicesPage";
 import AdminClinicsPage from "./pages/admin/AdminClinicsPage";
+import SysUsersPage from "./pages/sys/SysUsersPage";
+import SysDevicesPage from "./pages/sys/SysDevicesPage";
+import SysAuditPage from "./pages/sys/SysAuditPage";
+import SysApiKeysPage from "./pages/sys/SysApiKeysPage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
-  // Operator placeholders removed — real pages used
-
-
-  // System admin
-  SysUsersPage,
-  SysDevicesPage,
-  SysAuditPage,
-  SysApiKeysPage,
   // Patient
   MeHomePage,
   MeReportPage,
