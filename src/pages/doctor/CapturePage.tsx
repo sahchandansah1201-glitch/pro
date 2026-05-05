@@ -162,7 +162,7 @@ export default function CapturePage() {
       lesionId: lesionId || null,
       createdAt: new Date().toISOString(),
       quality: q,
-      storagePath: `local-mock://capture/${source}/${nextId("f")}.jpg`,
+      localFileKey: `local-mock://capture/${source}/${nextId("f")}.jpg`,
       deviceId: opts?.deviceId ?? null,
       linkStatus: "new",
     };
@@ -180,7 +180,7 @@ export default function CapturePage() {
       id: nextId("cap"),
       createdAt: new Date().toISOString(),
       quality: { score: 0.91, issues: [] },
-      storagePath: `local-mock://capture/${src.source}/${nextId("f")}.jpg`,
+      localFileKey: `local-mock://capture/${src.source}/${nextId("f")}.jpg`,
       linkStatus: "new",
     };
     setQueue((prev) => [newItem, ...prev]);
