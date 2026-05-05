@@ -361,6 +361,7 @@ export default function MeReportsPage() {
                         <span className="text-muted-foreground">·</span>
                         <span className="truncate text-muted-foreground">{r.clinicName}</span>
                       </div>
+                      <div className="mt-0.5 truncate text-[12px] text-muted-foreground">Врач: {r.doctorName}</div>
                       <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{r.summary}</p>
                     </div>
                     <Button asChild size="sm" variant="outline" className="shrink-0 min-h-[44px] sm:min-h-[32px]">
