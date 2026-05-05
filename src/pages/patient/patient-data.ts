@@ -13,6 +13,10 @@ import {
 export const DEMO_PATIENT_ID = "p-001";
 export const DEMO_PATIENT_GREETING = "Наталья";
 
+/** Детерминированная "текущая" точка времени для демо. */
+export const DEMO_NOW = "2026-05-04T00:00:00Z";
+export const demoNow = () => Date.parse(DEMO_NOW);
+
 export interface SafeReportRow {
   id: string;
   visitId: string;
@@ -121,15 +125,17 @@ export const DEMO_SERVICES = [
   { id: "svc-derm-followup", name: "Контрольный осмотр" },
 ];
 
-/** Детерминированные слоты на 7 дней вперёд от фиксированной точки. */
+/** Детерминированные слоты на 7 дней вперёд, только будущие относительно demoNow. */
 export function buildDemoSlots(seedISO = "2026-05-12T09:00:00Z"): string[] {
   const start = new Date(seedISO);
+  const now = demoNow();
   const slots: string[] = [];
   for (let day = 0; day < 7; day++) {
     for (const hour of [9, 11, 14, 16]) {
       const d = new Date(start);
       d.setDate(d.getDate() + day);
       d.setUTCHours(hour, 0, 0, 0);
+      if (d.getTime() < now) continue;
       slots.push(d.toISOString());
     }
   }
