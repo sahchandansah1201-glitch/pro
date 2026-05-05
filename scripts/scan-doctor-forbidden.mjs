@@ -373,7 +373,9 @@ console.log(`  ${dim("Токенов     :")} ${FORBIDDEN_TOKENS.length}`);
 if (writeReports) {
   console.log(`  ${dim("Отчёт JSON  :")} ${relative(ROOT, REPORT_JSON)}`);
   console.log(`  ${dim("Отчёт MD    :")} ${relative(ROOT, REPORT_MD)}`);
-  console.log(`  ${dim("Открыть     :")} ${cyan(fileUrl(REPORT_MD))}`);
+  console.log(`  ${dim("Отчёт HTML  :")} ${relative(ROOT, REPORT_HTML)}`);
+  console.log(`  ${dim("Открыть MD  :")} ${cyan(fileUrl(REPORT_MD))}`);
+  console.log(`  ${dim("Открыть HTML:")} ${cyan(fileUrl(REPORT_HTML))}`);
 }
 console.log(HR);
 
