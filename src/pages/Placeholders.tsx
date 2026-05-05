@@ -21,15 +21,7 @@ export const VisitWorkspacePage = () => {
     />
   );
 };
-export const LesionPage = () => {
-  const { id, lesionId } = useParams();
-  return (
-    <PlaceholderPage
-      title={`Образование ${lesionId ?? "—"}`}
-      subtitle={`Пациент ${id ?? "—"} · таймлайн снимков, сравнение, ABCD/7-point.`}
-    />
-  );
-};
+// LesionPage moved to src/pages/doctor/LesionDetailPage.tsx (Task 20).
 
 // ───────── Администратор клиники ─────────
 // AdminHomePage, AdminDoctorsPage, AdminServicesPage, AdminClinicsPage
