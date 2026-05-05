@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ListPagination } from "@/components/admin/ListPagination";
+import { ListEmptyState } from "@/components/admin/ListEmptyState";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { getAppointments, getClinics, getIntegrations, getLeads } from "@/lib/mock-data";
 import type { PartnerTier } from "@/lib/domain";
