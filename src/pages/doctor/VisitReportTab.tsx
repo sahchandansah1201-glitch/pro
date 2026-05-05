@@ -180,8 +180,6 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
           <DemoReportForm
             key={selectedLesion?.id ?? "none"}
             assessment={selAssessment}
-            visitId={visit.id}
-            lesionId={selectedLesion?.id ?? null}
           />
         </section>
 
