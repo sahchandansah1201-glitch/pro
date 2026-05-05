@@ -20,6 +20,7 @@ import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
+import { BodySilhouette, FIGURE_LABEL, pickFigure, type Figure } from "@/components/clinical/BodySilhouette";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -224,6 +225,7 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
 type View = "front" | "back";
 
 function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visit; lesions: Lesion[] }) {
+  const figure: Figure = pickFigure(patient.sex, calcAge(patient.birthDate));
   // Resolved points keep view stable across renders.
   const placedLesions = useMemo(() => {
     const placed = lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
@@ -278,6 +280,7 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
               Сзади
             </button>
           </div>
+          <div className="ml-2 hidden text-[11px] text-muted-foreground sm:inline">Силуэт: {FIGURE_LABEL[figure]}</div>
           <div className="flex items-center gap-1">
             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(2)))} aria-label="Уменьшить">
               <ZoomOut className="h-3.5 w-3.5" />
@@ -300,6 +303,7 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
           >
             <BodySvg
               view={view}
+              figure={figure}
               points={visiblePoints.map((p) => ({
                 id: p.lesion.id,
                 num: p.num,
@@ -412,10 +416,10 @@ interface PointProps {
   onSelect: () => void;
 }
 
-function BodySvg({ view, points }: { view: View; points: PointProps[] }) {
+function BodySvg({ view, figure, points }: { view: View; figure: Figure; points: PointProps[] }) {
   return (
-    <svg viewBox="0 0 200 400" className="block h-auto w-full" role="img" aria-label={`Body map · ${view === "front" ? "спереди" : "сзади"}`}>
-      <Silhouette view={view} />
+    <svg viewBox="0 0 200 400" className="block h-auto w-full" role="img" aria-label={`Body map · ${view === "front" ? "спереди" : "сзади"} · ${FIGURE_LABEL[figure]}`}>
+      <BodySilhouette view={view} figure={figure} />
       {points.map((p) => (
         <g key={p.id} onClick={p.onSelect} style={{ cursor: "pointer" }}>
           <title>{`${p.num}. ${p.label}`}</title>
@@ -440,55 +444,6 @@ function BodySvg({ view, points }: { view: View; points: PointProps[] }) {
         </g>
       ))}
     </svg>
-  );
-}
-
-function Silhouette({ view }: { view: View }) {
-  // Schematic anterior/posterior silhouette with anatomical zone outlines.
-  const stroke = "hsl(var(--border))";
-  const fill = "hsl(var(--surface))";
-  const zoneStroke = "hsl(var(--border))";
-  return (
-    <g fill={fill} stroke={stroke} strokeWidth={1}>
-      {/* Head */}
-      <ellipse cx={100} cy={28} rx={20} ry={24} />
-      {/* Neck */}
-      <rect x={92} y={50} width={16} height={12} />
-      {/* Torso */}
-      <path d="M70,62 L130,62 L138,110 L138,200 L62,200 L62,110 Z" />
-      {/* Arms */}
-      <path d="M70,66 L48,80 L40,160 L52,200 L62,200 L62,110 Z" />
-      <path d="M130,66 L152,80 L160,160 L148,200 L138,200 L138,110 Z" />
-      {/* Forearms / hands */}
-      <path d="M40,160 L34,235 L46,238 L52,200 Z" />
-      <path d="M160,160 L166,235 L154,238 L148,200 Z" />
-      <ellipse cx={40} cy={250} rx={9} ry={12} />
-      <ellipse cx={160} cy={250} rx={9} ry={12} />
-      {/* Hips / legs */}
-      <path d="M62,200 L138,200 L132,260 L108,260 L100,210 L92,260 L68,260 Z" />
-      <path d="M68,260 L62,340 L86,340 L96,260 Z" />
-      <path d="M132,260 L138,340 L114,340 L104,260 Z" />
-      {/* Feet */}
-      <ellipse cx={74} cy={356} rx={12} ry={8} />
-      <ellipse cx={126} cy={356} rx={12} ry={8} />
-
-      {/* Schematic zone separators (faint) */}
-      <g stroke={zoneStroke} strokeDasharray="2 2" opacity={0.6} fill="none">
-        {view === "front" ? (
-          <>
-            <line x1={62} y1={120} x2={138} y2={120} />
-            <line x1={62} y1={170} x2={138} y2={170} />
-            <line x1={100} y1={62} x2={100} y2={200} />
-          </>
-        ) : (
-          <>
-            <line x1={62} y1={130} x2={138} y2={130} />
-            <line x1={62} y1={180} x2={138} y2={180} />
-            <line x1={100} y1={62} x2={100} y2={200} />
-          </>
-        )}
-      </g>
-    </g>
   );
 }
 
