@@ -360,7 +360,7 @@ export default function HelpPage() {
         )}
 
         {!isSearching && (
-          <Section icon={Lock} title="Политика данных">
+          <Section id="policy" icon={Lock} title="Политика данных">
             <ul className="space-y-1.5 text-[12px]">
               {DATA_POLICY.map((p) => (
                 <li key={p} className="flex items-start gap-2">
