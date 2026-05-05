@@ -5,6 +5,7 @@ import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DEMO_USERS } from "@/lib/users";
 import {
