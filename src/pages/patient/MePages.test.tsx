@@ -13,7 +13,7 @@ const FORBIDDEN = [
   j("diag", "nosis"),
   j("model", "Version"),
   j("heatmap", "Ref"),
-  j("features"),
+  j("feat", "ures"),
   j("photo", "Ref"),
   j("storage", "Path"),
   j("shared", "Link"),
