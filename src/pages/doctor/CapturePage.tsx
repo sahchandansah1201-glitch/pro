@@ -80,7 +80,7 @@ const QUALITY_PRESETS: Array<{ score: number; issues: string[] }> = [
 let SEQ = 0;
 function nextId(prefix: string) {
   SEQ += 1;
-  return `${prefix}-${Date.now().toString(36)}-${SEQ}`;
+  return `${prefix}-${SEQ.toString(36).padStart(4, "0")}`;
 }
 
 function pickQuality(seed: number, improved = false) {
