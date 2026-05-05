@@ -147,6 +147,7 @@ function matchRole(r: RoleRef, q: string) {
 
 export default function HelpPage() {
   const [query, setQuery] = useState("");
+  const [bannerOpen, setBannerOpen] = useState(true);
   const q = query.trim().toLowerCase();
 
   const filtered = useMemo(() => {
