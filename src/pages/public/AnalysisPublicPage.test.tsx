@@ -42,7 +42,7 @@ describe("AnalysisPublicPage", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: /Предварительная оценка/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/Не является диагнозом/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Не является диагнозом/i).length).toBeGreaterThan(0);
     expect(
       screen.getByText(/AI не является диагнозом\. Окончательное решение принимает врач\./)
     ).toBeInTheDocument();
