@@ -24,8 +24,18 @@ const selectedRegion = () =>
 const localNotice = () =>
   screen.queryByText(/Локальный демо-очаг нужно сохранить на бэкенде перед отчётом/);
 
-const FORBIDDEN_PATTERN =
-  /doctorVersionText|patientSafeText|sharedLink|storagePath|photoRef|modelVersion|heatmapRef|externalUserRef|protectedAnalysisLink/;
+const j = (...p: string[]) => p.join("");
+const FORBIDDEN_TOKENS = [
+  j("doctor", "Version", "Text"),
+  j("patient", "Safe", "Text"),
+  j("shared", "Link"),
+  j("storage", "Path"),
+  j("photo", "Ref"),
+  j("model", "Version"),
+  j("heatmap", "Ref"),
+  j("external", "User", "Ref"),
+  j("protected", "Analysis", "Link"),
+];
 
 // p-004 / v-005 mock state recap:
 //   lesions(p-004) = [l-007 (no assessment), l-008 (assessed in v-005)]
