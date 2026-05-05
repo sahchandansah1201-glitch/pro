@@ -163,13 +163,15 @@ export default function AdminServicesPage() {
                 return (
                   <button
                     key={f.key}
+                    type="button"
                     role="tab"
                     aria-selected={active}
+                    aria-label={`Фильтр услуг: ${f.label}`}
                     onClick={() => setFilter(f.key)}
-                    className={`min-h-[44px] rounded-md border px-3 text-[12px] sm:min-h-[32px] ${
+                    className={`min-h-[44px] rounded-md border px-3 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[32px] ${
                       active
                         ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-surface text-foreground"
+                        : "border-border bg-surface text-foreground hover:bg-muted"
                     }`}
                   >
                     {f.label}
