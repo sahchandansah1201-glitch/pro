@@ -267,11 +267,11 @@ export default function PatientDetailPage() {
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                     <div className="text-row font-semibold tabular-nums">Отчёт от {formatDateTime(r.generatedAt)}</div>
                     <div className="text-meta">
-                      Защищённая ссылка до {formatDateTime(r.sharedLink.expiresAt)}
+                      Защищённый просмотр: демо-ссылка скрыта · до {formatDateTime(getReportLinkExpiry(r))}
                     </div>
                   </div>
                   <div className="mt-2 text-[11px] font-medium text-muted-foreground">Текст для пациента</div>
-                  <p className="mt-1 text-row">{r.patientSafeText}</p>
+                  <p className="mt-1 text-row">{getReportSafeText(r)}</p>
                 </li>
               ))}
             </ul>
