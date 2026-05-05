@@ -64,7 +64,7 @@ interface QueueItem {
   lesionId: string | null;
   createdAt: string;
   quality: { score: number; issues: string[] };
-  storagePath: string;
+  localFileKey: string;
   deviceId: string | null;
   linkStatus: LinkStatus;
 }
