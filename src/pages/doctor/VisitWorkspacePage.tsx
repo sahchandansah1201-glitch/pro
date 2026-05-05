@@ -102,6 +102,31 @@ export default function VisitWorkspacePage() {
   const lesions = getLesionsByPatientId(patient.id);
   const clinic = getClinicById(visit.clinicId);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validTabs = ["intake", "bodymap", "imaging", "assessment", "conclusion", "report"] as const;
+  type TabKey = (typeof validTabs)[number];
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabKey = (validTabs as readonly string[]).includes(tabParam ?? "")
+    ? (tabParam as TabKey)
+    : "intake";
+  const lesionParam = searchParams.get("lesion");
+
+  const updateNav = useCallback(
+    (tab: TabKey, lesionId?: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", tab);
+          if (lesionId) next.set("lesion", lesionId);
+          else next.delete("lesion");
+          return next;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
   const headerMeta: Array<{ label: string; value: string }> = [
     { label: "Код", value: patient.code },
     { label: "Пол / возраст", value: `${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет` },
@@ -139,7 +164,11 @@ export default function VisitWorkspacePage() {
         }
       />
 
-      <Tabs defaultValue="intake" className="flex min-h-0 flex-1 flex-col">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => updateNav(v as TabKey, lesionParam)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <div className="border-b border-border bg-surface px-3">
           <TabsList className="h-auto overflow-x-auto bg-transparent p-0 sm:h-9">
             <TabsTrigger value="intake" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Интейк</TabsTrigger>
@@ -156,11 +185,23 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="bodymap" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-          <BodyMapTab patient={patient} visit={visit} lesions={lesions} />
+          <BodyMapTab
+            patient={patient}
+            visit={visit}
+            lesions={lesions}
+            initialLesionId={lesionParam}
+            onOpenImaging={(lesionId) => updateNav("imaging", lesionId)}
+          />
         </TabsContent>
 
         <TabsContent value="imaging" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <VisitImagingTab visit={visit} patientId={patient.id} lesions={lesions} />
+          <VisitImagingTab
+            visit={visit}
+            patientId={patient.id}
+            lesions={lesions}
+            initialLesionId={lesionParam}
+            onOpenBodyMap={(lesionId) => updateNav("bodymap", lesionId)}
+          />
         </TabsContent>
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
