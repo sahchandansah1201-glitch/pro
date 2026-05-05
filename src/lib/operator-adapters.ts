@@ -25,6 +25,6 @@ export function getLeadLinkId(
 
 /** Защищённая ссылка анализа лида (или undefined). */
 export function getLeadLink(l: Lead | undefined) {
-  const id = getLeadLinkId(l as unknown as Record<string, unknown>);
+  const id = getLeadLinkId(l);
   return id ? getProtectedAnalysisLinkById(id) : undefined;
 }
