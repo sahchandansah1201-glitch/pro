@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   BODY_MAP_DEMO_NOW,
   BODY_MAP_VIEWS,
+  bodyMapSurfaceBadge,
+  bodyMapSurfaceHint,
+  bodyMapSurfaceLabel,
   bodyMapVariantLabel,
   calcAgeAt,
   getBodyMapVariant,
