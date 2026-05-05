@@ -16,12 +16,12 @@ const FORBIDDEN_TOKENS = [
 ];
 
 const FORBIDDEN_APIS = [
-  "fetch(",
-  "axios",
-  "XMLHttpRequest",
-  "sendBeacon",
+  j("fet", "ch", "("),
+  j("ax", "ios"),
+  j("XML", "Http", "Request"),
+  j("send", "Beacon"),
   j("navigator", ".", "clipboard"),
-  "mediaDevices",
+  j("media", "Devices"),
   j("local", "Storage"),
   j("session", "Storage"),
   j("Date", ".", "now", "("),
