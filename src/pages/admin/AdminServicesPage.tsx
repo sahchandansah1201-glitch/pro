@@ -251,8 +251,6 @@ export default function AdminServicesPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleRows.length === 0 ? (
-                <tr>
               {visibleRows.map((s) => (
                 <tr key={s.code} className="border-b border-border/60 last:border-0">
                   <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{s.code}</td>
