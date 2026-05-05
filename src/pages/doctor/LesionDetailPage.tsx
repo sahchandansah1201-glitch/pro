@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronRight, Image as ImageIcon, ClipboardList, MapPin, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ChevronRight, Image as ImageIcon, ClipboardList, MapPin, ShieldAlert, Maximize2 } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { RiskBadge } from "@/components/clinical/RiskBadge";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { BodySilhouette, pickFigure, FIGURE_LABEL, type Figure } from "@/components/clinical/BodySilhouette";
+import { calcAge, formatDate, formatDateTime } from "@/lib/format";
 import {
   getAssessmentsByLesionId,
   getClinicById,
