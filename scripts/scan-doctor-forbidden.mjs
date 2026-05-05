@@ -29,6 +29,7 @@ const mode = argv.includes("--staged")
     : explicitPaths.length > 0
       ? "explicit"
       : "full";
+const quiet = argv.includes("--quiet") || argv.includes("-q");
 
 function isScannable(path) {
   return (
