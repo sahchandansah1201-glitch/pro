@@ -82,21 +82,22 @@ describe("VisitWorkspacePage · Body map", () => {
     expect(svg.getAttribute("aria-label")).toMatch(/Левая боковая поверхность/);
   });
 
-  it("clicking SVG creates a 'Новая точка (демо)' with confirm/cancel; confirm shows demo-not-saved note", () => {
+  it("clicking SVG opens 'Новый очаг (демо)' panel with defaults; cancel hides it", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
-    // jsdom getBoundingClientRect returns zeros — patch it for this test.
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
-    expect(screen.getByText(/Новая точка \(демо\)/)).toBeInTheDocument();
-    const confirm = screen.getByRole("button", { name: /Подтвердить демо-точку/ });
+    expect(screen.getByText(/Новый очаг \(демо\)/)).toBeInTheDocument();
+    const labelInput = screen.getByDisplayValue("Новый очаг") as HTMLInputElement;
+    expect(labelInput).toBeInTheDocument();
+    const statusSelect = screen.getByLabelText(/Статус демо-очага/) as HTMLSelectElement;
+    expect(statusSelect.value).toBe("active");
+    expect(screen.getByRole("button", { name: /Добавить локально/ })).toBeInTheDocument();
     const cancel = screen.getByRole("button", { name: /Отменить/ });
-    expect(confirm).toBeInTheDocument();
-    expect(cancel).toBeInTheDocument();
-    fireEvent.click(confirm);
-    expect(screen.queryByText(/Новая точка \(демо\)/)).toBeNull();
+    fireEvent.click(cancel);
+    expect(screen.queryByText(/Новый очаг \(демо\)/)).toBeNull();
   });
 
   it("does not contain forbidden tokens or placeholder text in DOM", () => {
