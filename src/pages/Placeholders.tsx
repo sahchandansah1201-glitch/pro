@@ -1,9 +1,6 @@
 import { useParams } from "react-router-dom";
 import { PlaceholderPage } from "@/components/shell/PageHeader";
 
-const BACKEND_NOTE =
-  "Реальные роли, RLS и аудит включаются на этапе бэкенда.";
-
 // ───────── Клиника / врач ─────────
 export const DeskPage = () => (
   <PlaceholderPage title="Рабочий стол врача" subtitle="Очередь визитов, приоритеты, последние пациенты." />
