@@ -122,21 +122,24 @@ describe("VisitReportTab · local-lesion-* fallback", () => {
   });
 });
 
-describe("VisitReportTab · fallback when visit has no assessments (v-001 of p-001)", () => {
-  // p-001 lesions = l-001..l-005, visit v-001 has no assessments → fallback should pick lesions[0]
-  it("no ?lesion param → falls back to first persisted lesion of patient", () => {
+describe("VisitReportTab · fallback for visits with existing assessments (v-001 of p-001)", () => {
+  it("no ?lesion param → falls back to first ASSESSED lesion of the visit", () => {
     renderAt("/patients/p-001/visits/v-001?tab=report");
     reportTabSelected();
-    expect(selectedRegion()).toBeInTheDocument();
-    // No assessment yet for the fallback → expect the "needs assessment" guidance
+    const region = selectedRegion();
+    // Assessed fallback → assessment CTAs are present
+    expect(within(region).getByRole("button", { name: /К оценке очага/ })).toBeInTheDocument();
+    expect(within(region).getByRole("button", { name: /К снимкам очага/ })).toBeInTheDocument();
     expect(
-      within(selectedRegion()).getByText(/Перед отчётом нужна структурированная оценка очага/),
-    ).toBeInTheDocument();
+      within(region).queryByText(/Перед отчётом нужна структурированная оценка очага/),
+    ).toBeNull();
   });
 
-  it("?lesion=bad-id → also falls back to first persisted lesion (no crash)", () => {
+  it("?lesion=bad-id → also falls back to first ASSESSED lesion (no crash)", () => {
     renderAt("/patients/p-001/visits/v-001?tab=report&lesion=bad-id");
     reportTabSelected();
-    expect(selectedRegion()).toBeInTheDocument();
+    expect(
+      within(selectedRegion()).getByRole("button", { name: /К оценке очага/ }),
+    ).toBeInTheDocument();
   });
 });
