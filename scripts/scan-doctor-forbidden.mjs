@@ -17,6 +17,7 @@ const ROOT = process.cwd();
 const REPORT_DIR = join(ROOT, "reports", "doctor-hygiene");
 const REPORT_JSON = join(REPORT_DIR, "scan-report.json");
 const REPORT_MD = join(REPORT_DIR, "scan-report.md");
+const REPORT_MD_REL = "reports/doctor-hygiene/scan-report.md";
 const SCAN_TS = "2026-05-04T00:00:00Z";
 
 const argv = process.argv.slice(2);
