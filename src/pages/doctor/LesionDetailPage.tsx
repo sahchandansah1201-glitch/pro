@@ -87,14 +87,31 @@ export default function LesionDetailPage() {
   }
 
   const images = useMemo(
-    () => [...getImagesByLesionId(lesion.id)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
-    [lesion.id],
+    () => [...getImagesByLesionId(lesionId)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+    [lesionId],
   );
   const assessments = useMemo(
-    () => [...getAssessmentsByLesionId(lesion.id)].sort((a, b) => a.decidedAt.localeCompare(b.decidedAt)),
-    [lesion.id],
+    () => [...getAssessmentsByLesionId(lesionId)].sort((a, b) => a.decidedAt.localeCompare(b.decidedAt)),
+    [lesionId],
   );
-  const visits = useMemo(() => getVisitsByPatientId(patient.id), [patient.id]);
+  const visits = useMemo(() => (patient ? getVisitsByPatientId(patient.id) : []), [patient]);
+
+  if (!patient) {
+    return <NotFound title="Пациент не найден" hint="Карточка пациента отсутствует в демо-данных." />;
+  }
+  if (!lesion || lesion.patientId !== patient.id) {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader title="Образование не найдено" subtitle="Запись отсутствует или не принадлежит пациенту." />
+        <div className="p-4">
+          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+            <Link to={`/patients/${patient.id}`}>К карточке пациента</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const visitById = (vid: string) => visits.find((v) => v.id === vid);
 
   const needReview = images.filter((i) => i.quality.score < 0.75 || i.quality.issues.length > 0).length;
