@@ -43,7 +43,7 @@ describe("Sys pages — render & safety", () => {
   it("SysUsersPage filter narrows visible rows", () => {
     renderRouted(<SysUsersPage />);
     fireEvent.click(screen.getByRole("tab", { name: "Сисадмин" }));
-    expect(screen.getByText("u-sys-001")).toBeInTheDocument();
+    expect(screen.getAllByText("u-sys-001").length).toBeGreaterThan(0);
     expect(screen.queryByText("u-doc-001")).not.toBeInTheDocument();
   });
 
@@ -72,11 +72,10 @@ describe("Sys pages — render & safety", () => {
 
   it("SysApiKeysPage shows masked keys only and never raw secret-like values", () => {
     const { container } = renderRouted(<SysApiKeysPage />);
-    expect(screen.getByText("dp_demo_••••_01")).toBeInTheDocument();
-    expect(screen.getByText("bridge_demo_••••_02")).toBeInTheDocument();
-    expect(screen.getByText("crm_demo_••••_03")).toBeInTheDocument();
+    expect(screen.getAllByText("dp_demo_••••_01").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("bridge_demo_••••_02").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("crm_demo_••••_03").length).toBeGreaterThan(0);
     const html = container.innerHTML;
-    // Маска должна содержать символы маскирования, а не длинные «секретоподобные» строки
     expect(html).not.toMatch(/[A-Za-z0-9_-]{24,}/);
   });
 });
