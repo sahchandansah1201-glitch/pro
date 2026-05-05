@@ -372,11 +372,25 @@ interface DemoReportDraft {
   createdAt: string;
 }
 
+type SendStatus = "idle" | "sending" | "sent" | "failed";
+
+interface SendRecord {
+  status: SendStatus;
+  at: string;
+  patientTextPreview: string;
+  reason?: string;
+}
+
 function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
   const [title, setTitle] = useState("");
   const [patientText, setPatientText] = useState("");
   const [internalNote, setInternalNote] = useState("");
   const [saved, setSaved] = useState<DemoReportDraft | null>(null);
+  const [send, setSend] = useState<SendRecord>({
+    status: "idle",
+    at: "",
+    patientTextPreview: "",
+  });
 
   const onSave = () => {
     setSaved({
@@ -384,6 +398,32 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
       patientText: patientText.trim(),
       internalNote: internalNote.trim(),
       createdAt: BODY_MAP_DEMO_NOW,
+    });
+  };
+
+  const canSend = Boolean(saved && saved.patientText.length > 0) && send.status !== "sending";
+
+  const onSendDemo = () => {
+    if (!saved) return;
+    if (!saved.patientText) {
+      setSend({
+        status: "failed",
+        at: BODY_MAP_DEMO_NOW,
+        patientTextPreview: "",
+        reason: "Текст для пациента пуст.",
+      });
+      return;
+    }
+    setSend({
+      status: "sending",
+      at: BODY_MAP_DEMO_NOW,
+      patientTextPreview: saved.patientText,
+    });
+    // Local UI-only transition; no network, no timers persisted across renders.
+    setSend({
+      status: "sent",
+      at: BODY_MAP_DEMO_NOW,
+      patientTextPreview: saved.patientText,
     });
   };
 
