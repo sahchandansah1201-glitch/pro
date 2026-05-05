@@ -18,6 +18,7 @@ import {
 } from "@/lib/mock-data";
 import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
 import type { Lesion, Visit } from "@/lib/domain";
+import { getReportLinkExpiry, getReportSafeText } from "@/lib/report-access";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
