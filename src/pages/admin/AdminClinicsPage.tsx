@@ -159,7 +159,7 @@ export default function AdminClinicsPage() {
                     type="button"
                     role="tab"
                     aria-selected={active}
-                    aria-label={`Сортировка: ${s.label}`}
+                    
                     onClick={() => setSort(s.key)}
                     className={`min-h-[44px] rounded-md border px-3 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[28px] sm:text-[11px] ${
                       active
