@@ -316,8 +316,7 @@ export default function AdminClinicsPage() {
                   </Button>
                 </div>
               </Card>
-            ))
-          )}
+          ))}
         </div>
 
         <ListPagination
