@@ -1,22 +1,27 @@
-# Дерматолог Про
+# Project Name
 
-Платформа клинической поддержки решений для дерматологов и дермато-онкологов.
+Welcome to the project.
 
----
+## Doctor Hygiene Scan
 
-## Doctor-hygiene scan
+This project uses `doctor-hygiene` to maintain code quality and consistency.
 
-Чтобы защитить doctor-контекст от регрессий по безопасности данных, сетевым
-вызовам и недетерминированному времени, в репозитории работает автоматический
-сканер запрещённых паттернов.
+### Forbidden Patterns
+The following patterns are prohibited and will cause the scan to fail:
+- Use of `console.log` in production code.
+- Hardcoded API keys or secrets.
+- Usage of deprecated internal modules.
+- Missing JSDoc comments for public functions.
 
-### Что сканируется
+### How to run the scan locally
+To check your code for violations, run the following command in your terminal:
 
-- `src/pages/doctor/**` — страницы и логика рабочего места врача.
-- `src/App.tsx` — корневой роутинг.
+```bash
+npm run doctor-hygiene
+```
 
-Тестовые файлы (`*.test.ts(x)`, `*.hygiene.test.*`) исключаются.
-
-### Запрещённые паттерны
-
-Единый источник
+### How to fix violations
+1. Run the scan to see the list of errors.
+2. Open the files indicated in the output.
+3. Apply the suggested fixes (e.g., remove logs, add documentation, or replace deprecated code).
+4. Run `npm run doctor-hygiene` again to verify that all issues are resolved.
