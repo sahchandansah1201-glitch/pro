@@ -23,6 +23,7 @@ import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
 import {
+  BODY_MAP_DEMO_NOW,
   BODY_MAP_VIEWS,
   BODY_MAP_VIEW_BUTTON_LABEL,
   bodyMapSurfaceBadge,
