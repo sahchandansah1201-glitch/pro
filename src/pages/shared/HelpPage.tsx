@@ -203,7 +203,9 @@ function matchRole(r: RoleRef, q: string) {
   return (
     r.title.toLowerCase().includes(q) ||
     r.responsibilities.toLowerCase().includes(q) ||
-    r.routes.some((p) => p.toLowerCase().includes(q))
+    r.routes.some((p) => p.toLowerCase().includes(q)) ||
+    r.safe.some((s) => s.toLowerCase().includes(q)) ||
+    r.forbidden.some((s) => s.toLowerCase().includes(q))
   );
 }
 
