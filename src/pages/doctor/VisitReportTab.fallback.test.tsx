@@ -115,7 +115,10 @@ describe("VisitReportTab · local-lesion-* fallback", () => {
     // No link/anchor leaks the local draft id
     expect(document.querySelectorAll("a[href*='/lesions/local-lesion']").length).toBe(0);
     // No forbidden token leaks anywhere on the page
-    expect(document.body.innerHTML).not.toMatch(FORBIDDEN_PATTERN);
+    const html = document.body.innerHTML;
+    for (const token of FORBIDDEN_TOKENS) {
+      expect(html.includes(token)).toBe(false);
+    }
   });
 
   it("?lesion=local-lesion-9999 (extreme suffix) → still shows notice and falls back safely", () => {
