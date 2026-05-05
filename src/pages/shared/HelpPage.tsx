@@ -119,7 +119,7 @@ function RouteList({ items }: { items: RouteRef[] }) {
 
 function Section({
   icon: Icon, title, children,
-}: { icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>; title: string; children: React.ReactNode }) {
+}: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
     <Card className="p-3 sm:p-4">
       <h2 className="flex items-center gap-2 text-[13px] font-semibold">
