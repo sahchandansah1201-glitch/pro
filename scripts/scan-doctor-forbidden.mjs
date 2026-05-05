@@ -1,45 +1,105 @@
 #!/usr/bin/env node
-/**
- * Сканер запрещённых паттернов для doctor-контекста.
- * Список токенов и цели заданы в scripts/forbidden-patterns.mjs (единый источник).
- *
- * Запуск:
- *   node scripts/scan-doctor-forbidden.mjs
- *
- * Артефакты отчёта (всегда перезаписываются):
- *   reports/doctor-hygiene/scan-report.json — машиночитаемый
- *   reports/doctor-hygiene/scan-report.md   — для удобного просмотра
- */
-import { readdirSync, readFileSync, statSync, mkdirSync, writeFileSync } from "node:fs";
-import { join, relative, dirname } from "node:path";
-import {
-  FORBIDDEN_TOKENS,
-  SCAN_TARGETS,
-} from "./forbidden-patterns.mjs";
+import { readdirSync, readFileSync, statSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { join, relative, dirname, resolve } from "node:path";
+import { execSync } from "node:child_process";
+import { FORBIDDEN_TOKENS, SCAN_TARGETS } from "./forbidden-patterns.mjs";
+
+// Сканер запрещённых паттернов для doctor-контекста.
+// Список токенов и цели — в scripts/forbidden-patterns.mjs.
+//
+// Режимы:
+//   (по умолчанию)   — полный скан SCAN_TARGETS, пишет отчёты в reports/
+//   --staged         — только git staged-файлы (pre-commit)
+//   --changed        — staged + изменённые в рабочей копии (pre-push)
+//   path1 path2 ...  — явный список путей
 
 const ROOT = process.cwd();
 const REPORT_DIR = join(ROOT, "reports", "doctor-hygiene");
 const REPORT_JSON = join(REPORT_DIR, "scan-report.json");
 const REPORT_MD = join(REPORT_DIR, "scan-report.md");
-// Детерминированный таймстамп — соответствует DEMO_NOW проекта.
 const SCAN_TS = "2026-05-04T00:00:00Z";
 
-function walk(path, out = []) {
-  const st = statSync(path);
-  if (st.isDirectory()) {
-    for (const name of readdirSync(path)) walk(join(path, name), out);
-  } else if (
-    st.isFile() &&
+const argv = process.argv.slice(2);
+const explicitPaths = argv.filter((a) => !a.startsWith("--"));
+const mode = argv.includes("--staged")
+  ? "staged"
+  : argv.includes("--changed")
+    ? "changed"
+    : explicitPaths.length > 0
+      ? "explicit"
+      : "full";
+
+function isScannable(path) {
+  return (
     /\.(ts|tsx|js|jsx)$/.test(path) &&
     !/\.test\.(ts|tsx)$/.test(path) &&
     !/\.hygiene\.test\./.test(path)
-  ) {
+  );
+}
+
+function walk(path, out = []) {
+  if (!existsSync(path)) return out;
+  const st = statSync(path);
+  if (st.isDirectory()) {
+    for (const name of readdirSync(path)) walk(join(path, name), out);
+  } else if (st.isFile() && isScannable(path)) {
     out.push(path);
   }
   return out;
 }
 
-const files = SCAN_TARGETS.flatMap((t) => walk(join(ROOT, t)));
+// Относительные пути целей — для фильтра staged/changed/explicit.
+const TARGET_FILES = new Set();
+const TARGET_DIRS = [];
+for (const t of SCAN_TARGETS) {
+  const abs = resolve(ROOT, t);
+  if (existsSync(abs) && statSync(abs).isDirectory()) {
+    TARGET_DIRS.push(t.replace(/\/+$/, "") + "/");
+  } else {
+    TARGET_FILES.add(t);
+  }
+}
+
+function inTargets(relPath) {
+  if (TARGET_FILES.has(relPath)) return true;
+  return TARGET_DIRS.some((d) => relPath.startsWith(d));
+}
+
+function gitFiles(args) {
+  try {
+    return execSync(`git ${args}`, { cwd: ROOT, encoding: "utf8" })
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function collectFiles() {
+  if (mode === "full") {
+    return SCAN_TARGETS.flatMap((t) => walk(join(ROOT, t)));
+  }
+  let candidates = [];
+  if (mode === "explicit") {
+    candidates = explicitPaths;
+  } else if (mode === "staged") {
+    candidates = gitFiles("diff --cached --name-only --diff-filter=ACMRTUXB");
+  } else if (mode === "changed") {
+    candidates = [
+      ...gitFiles("diff --cached --name-only --diff-filter=ACMRTUXB"),
+      ...gitFiles("diff --name-only --diff-filter=ACMRTUXB"),
+      ...gitFiles("ls-files --others --exclude-standard"),
+    ];
+  }
+  const uniq = Array.from(new Set(candidates));
+  return uniq
+    .filter((rel) => inTargets(rel) && isScannable(rel))
+    .map((rel) => join(ROOT, rel))
+    .filter((abs) => existsSync(abs));
+}
+
+const files = collectFiles();
 const findings = [];
 
 for (const file of files) {
@@ -58,66 +118,63 @@ for (const file of files) {
   });
 }
 
-// Группировка для отчёта.
 const byFile = {};
-for (const f of findings) {
-  (byFile[f.file] ||= []).push(f);
-}
+for (const f of findings) (byFile[f.file] ||= []).push(f);
 
-const report = {
-  scannedAt: SCAN_TS,
-  targets: SCAN_TARGETS,
-  filesScanned: files.map((f) => relative(ROOT, f)).sort(),
-  filesScannedCount: files.length,
-  tokensCount: FORBIDDEN_TOKENS.length,
-  findingsCount: findings.length,
-  findings,
-  status: findings.length === 0 ? "clean" : "violations",
-};
+// Отчёты пишем только при полном скане, чтобы хуки/explicit не перезаписывали
+// "official" артефакт.
+const writeReports = mode === "full";
 
-// Markdown-версия — для людей.
-const mdLines = [];
-mdLines.push(`# Doctor hygiene scan`);
-mdLines.push("");
-mdLines.push(`- Дата сканирования: \`${SCAN_TS}\``);
-mdLines.push(`- Цели: ${SCAN_TARGETS.map((t) => `\`${t}\``).join(", ")}`);
-mdLines.push(`- Файлов просканировано: **${files.length}**`);
-mdLines.push(`- Токенов в наборе: **${FORBIDDEN_TOKENS.length}**`);
-mdLines.push(
-  `- Статус: ${findings.length === 0 ? "✅ **clean**" : `❌ **violations** (${findings.length})`}`,
-);
-mdLines.push("");
-mdLines.push(`## Просканированные файлы`);
-mdLines.push("");
-for (const f of report.filesScanned) mdLines.push(`- \`${f}\``);
-mdLines.push("");
-if (findings.length > 0) {
-  mdLines.push(`## Совпадения`);
-  mdLines.push("");
-  for (const file of Object.keys(byFile).sort()) {
-    mdLines.push(`### \`${file}\``);
-    mdLines.push("");
-    mdLines.push(`| Строка | Токен | Контекст |`);
-    mdLines.push(`| ---: | --- | --- |`);
-    for (const f of byFile[file]) {
-      const safe = f.text.replace(/\|/g, "\\|");
-      mdLines.push(`| ${f.line} | \`${f.token}\` | \`${safe}\` |`);
+if (writeReports) {
+  const report = {
+    scannedAt: SCAN_TS,
+    mode,
+    targets: SCAN_TARGETS,
+    filesScanned: files.map((f) => relative(ROOT, f)).sort(),
+    filesScannedCount: files.length,
+    tokensCount: FORBIDDEN_TOKENS.length,
+    findingsCount: findings.length,
+    findings,
+    status: findings.length === 0 ? "clean" : "violations",
+  };
+  const md = [];
+  md.push(`# Doctor hygiene scan`);
+  md.push("");
+  md.push(`- Дата сканирования: \`${SCAN_TS}\``);
+  md.push(`- Режим: \`${mode}\``);
+  md.push(`- Цели: ${SCAN_TARGETS.map((t) => `\`${t}\``).join(", ")}`);
+  md.push(`- Файлов просканировано: **${files.length}**`);
+  md.push(`- Токенов в наборе: **${FORBIDDEN_TOKENS.length}**`);
+  md.push(`- Статус: ${findings.length === 0 ? "✅ **clean**" : `❌ **violations** (${findings.length})`}`);
+  md.push("");
+  md.push(`## Просканированные файлы`);
+  md.push("");
+  for (const f of report.filesScanned) md.push(`- \`${f}\``);
+  md.push("");
+  md.push(`## Совпадения`);
+  md.push("");
+  if (findings.length === 0) {
+    md.push(`Совпадений не найдено.`);
+    md.push("");
+  } else {
+    for (const file of Object.keys(byFile).sort()) {
+      md.push(`### \`${file}\``);
+      md.push("");
+      md.push(`| Строка | Токен | Контекст |`);
+      md.push(`| ---: | --- | --- |`);
+      for (const f of byFile[file]) {
+        const safe = f.text.replace(/\|/g, "\\|");
+        md.push(`| ${f.line} | \`${f.token}\` | \`${safe}\` |`);
+      }
+      md.push("");
     }
-    mdLines.push("");
   }
-} else {
-  mdLines.push(`## Совпадения`);
-  mdLines.push("");
-  mdLines.push(`Совпадений не найдено.`);
-  mdLines.push("");
+  mkdirSync(dirname(REPORT_JSON), { recursive: true });
+  writeFileSync(REPORT_JSON, JSON.stringify(report, null, 2) + "\n", "utf8");
+  writeFileSync(REPORT_MD, md.join("\n"), "utf8");
 }
 
-mkdirSync(dirname(REPORT_JSON), { recursive: true });
-writeFileSync(REPORT_JSON, JSON.stringify(report, null, 2) + "\n", "utf8");
-writeFileSync(REPORT_MD, mdLines.join("\n"), "utf8");
-
-// ───────────────────────── Консольный вывод ─────────────────────────
-// Структурированный, человекочитаемый отчёт. ANSI-цвета — только в TTY.
+// Консольный вывод.
 const isTTY = Boolean(process.stdout.isTTY);
 const c = (code, s) => (isTTY ? `\x1b[${code}m${s}\x1b[0m` : s);
 const dim = (s) => c("2", s);
@@ -129,14 +186,22 @@ const cyan = (s) => c("36", s);
 
 const HR = dim("─".repeat(72));
 console.log(HR);
-console.log(`${bold("doctor-hygiene-scan")}  ${dim(SCAN_TS)}`);
+console.log(`${bold("doctor-hygiene-scan")}  ${dim(SCAN_TS)}  ${dim("режим:")} ${bold(mode)}`);
 console.log(HR);
 console.log(`  ${dim("Цели        :")} ${SCAN_TARGETS.join(", ")}`);
 console.log(`  ${dim("Файлов      :")} ${files.length}`);
 console.log(`  ${dim("Токенов     :")} ${FORBIDDEN_TOKENS.length}`);
-console.log(`  ${dim("Отчёт JSON  :")} ${relative(ROOT, REPORT_JSON)}`);
-console.log(`  ${dim("Отчёт MD    :")} ${relative(ROOT, REPORT_MD)}`);
+if (writeReports) {
+  console.log(`  ${dim("Отчёт JSON  :")} ${relative(ROOT, REPORT_JSON)}`);
+  console.log(`  ${dim("Отчёт MD    :")} ${relative(ROOT, REPORT_MD)}`);
+}
 console.log(HR);
+
+if (files.length === 0) {
+  console.log(`  ${green("✓ Нет файлов для сканирования в этом режиме.")}`);
+  console.log(HR);
+  process.exit(0);
+}
 
 if (findings.length === 0) {
   console.log(`  ${green("✓ Совпадений не найдено — doctor-контекст чист.")}`);
@@ -147,7 +212,6 @@ if (findings.length === 0) {
 console.log(`  ${red(`✗ Найдено совпадений: ${findings.length}`)} в ${Object.keys(byFile).length} файл(ах)`);
 console.log(HR);
 
-// Группированный вывод: файл → строки.
 const sortedFiles = Object.keys(byFile).sort();
 const maxLineW = Math.max(...findings.map((f) => String(f.line).length));
 const maxTokW = Math.min(28, Math.max(...findings.map((f) => f.token.length)));
@@ -165,7 +229,6 @@ for (const file of sortedFiles) {
 
 console.log("");
 console.log(HR);
-console.log(`  ${red("Сканирование завершено с ошибкой.")} Подробности: ${relative(ROOT, REPORT_MD)}`);
+console.log(`  ${red("Сканирование завершено с ошибкой.")}`);
 console.log(HR);
 process.exit(1);
-
