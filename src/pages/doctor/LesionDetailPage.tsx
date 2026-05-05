@@ -99,7 +99,7 @@ export default function LesionDetailPage() {
   // Локальный UI-state для демо-действий (не сетевой и не storage).
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
-
+  const [mapOpen, setMapOpen] = useState(false);
 
   const images = useMemo(
     () => [...getImagesByLesionId(lesionId)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
