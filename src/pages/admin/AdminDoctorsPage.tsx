@@ -315,12 +315,12 @@ export default function AdminDoctorsPage() {
 
         {/* Mobile карточки */}
         <div className="grid grid-cols-1 gap-2 md:hidden">
-          {rows.length === 0 ? (
+          {visibleRows.length === 0 ? (
             <Card className="p-4 text-center text-[12px] text-muted-foreground">
               Нет врачей по выбранным фильтрам.
             </Card>
           ) : (
-            rows.map((r) => (
+            visibleRows.map((r) => (
               <Card key={r.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
