@@ -8,7 +8,10 @@ node scripts/scan-doctor-forbidden.mjs --changed
 status=$?
 if [ $status -ne 0 ]; then
   echo ""
-  echo "✗ Push заблокирован. Подробности — в выводе выше."
+  echo "✗ Push заблокирован."
+  echo "  Подробный отчёт (после полного скана):"
+  echo "    file://$(pwd)/reports/doctor-hygiene/scan-report.md"
+  echo "  Команда: npm run scan:doctor"
   echo ""
   exit $status
 fi
