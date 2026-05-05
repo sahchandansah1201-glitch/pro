@@ -329,6 +329,17 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
             </Button>
           </div>
         </div>
+        <div
+          className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-border bg-surface-muted px-3 py-1.5"
+          aria-live="polite"
+        >
+          <span className="text-[13px] font-semibold text-foreground">
+            {bodyMapSurfaceLabel(view)}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {bodyMapSurfaceHint(view)}
+          </span>
+        </div>
         <div className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
           <div className="mx-auto" style={{ width: `${320 * zoom}px` }}>
             <BodySvg
