@@ -21,6 +21,13 @@ const SIZES = [
   { name: "desktop-1440", width: 1440, height: 900 },
 ] as const;
 
+// В sandbox playwright headless shell не поднимается из-за нехватки системных
+// библиотек, зато доступен системный chromium. На CI/локально без переменной
+// PW_CHROMIUM_PATH будет использоваться обычный bundled Playwright Chromium.
+if (process.env.PW_CHROMIUM_PATH) {
+  test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
+}
+
 test.describe("/admin/analytics — visual regression (pixel diff)", () => {
   for (const size of SIZES) {
     test(`${size.name} (${size.width}x${size.height})`, async ({ page }) => {
