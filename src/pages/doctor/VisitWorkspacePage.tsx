@@ -685,7 +685,7 @@ interface BodySvgProps {
   view: View;
   points: PointProps[];
   pending: { x: number; y: number } | null;
-  demoPoints: { x: number; y: number; view: View }[];
+  demoPoints: PointProps[];
   onPlace: (np: { view: View; x: number; y: number }) => void;
 }
 
@@ -738,17 +738,30 @@ function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySv
           {badge}
         </text>
       </g>
-      {demoPoints.map((p, i) => (
-        <circle
-          key={`demo-${i}`}
-          cx={p.x * 200}
-          cy={p.y * 400}
-          r={5}
-          fill="hsl(var(--surface))"
-          stroke="hsl(var(--primary))"
-          strokeDasharray="2 2"
-          strokeWidth={1.2}
-        />
+      {demoPoints.map((p) => (
+        <g key={`demo-${p.id}`} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
+          <title>{`Локальный демо-очаг: ${p.label}`}</title>
+          <circle
+            cx={p.x * 200}
+            cy={p.y * 400}
+            r={p.selected ? 8 : 6}
+            fill="hsl(var(--surface))"
+            stroke="hsl(var(--primary))"
+            strokeDasharray="2 2"
+            strokeWidth={1.4}
+            opacity={0.85}
+          />
+          <text
+            x={p.x * 200}
+            y={p.y * 400 + 3}
+            textAnchor="middle"
+            fontSize={8}
+            fontWeight={700}
+            fill="hsl(var(--primary))"
+          >
+            {p.num}
+          </text>
+        </g>
       ))}
       {points.map((p) => (
         <g key={p.id} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
