@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ListPagination } from "@/components/admin/ListPagination";
+import { useListPagination } from "@/lib/use-list-pagination";
 import { getClinics, getAppointments } from "@/lib/mock-data";
 import { DEMO_USERS } from "@/lib/users";
 
