@@ -80,6 +80,81 @@ function BodyMapMini({ view, x, y }: { view: Lesion["mapPoint"]["view"]; x: numb
   );
 }
 
+function BodyMapDialog({
+  open, onOpenChange, figure, view, x, y, bodyZone, label,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  figure: Figure;
+  view: Lesion["mapPoint"]["view"];
+  x: number;
+  y: number;
+  bodyZone: string;
+  label: string;
+}) {
+  // BodySilhouette поддерживает только front/back. left/right/scalp проецируем на front
+  // и подсвечиваем словом-подсказкой ниже карты.
+  const projected: "front" | "back" = view === "back" ? "back" : "front";
+  const note =
+    view === "left" || view === "right"
+      ? `Боковая проекция (${VIEW_LABEL[view]}) показана на фронтальном силуэте.`
+      : view === "scalp"
+        ? "Локализация на волосистой части головы — точка отнесена к зоне головы фронтального силуэта."
+        : null;
+
+  // Координаты в системе viewBox 200x400 у BodySilhouette.
+  const cx = Math.max(0, Math.min(1, x)) * 200;
+  const cy = Math.max(0, Math.min(1, y)) * 400;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-[14px]">Карта тела · {label}</DialogTitle>
+          <DialogDescription className="text-[12px]">
+            {bodyZone} · проекция {VIEW_LABEL[view]} · координаты x{(x * 100).toFixed(0)}% / y{(y * 100).toFixed(0)}% · силуэт: {FIGURE_LABEL[figure]}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mx-auto w-full max-w-[360px]">
+          <svg
+            viewBox="0 0 200 400"
+            role="img"
+            aria-label={`Увеличенная карта тела: ${VIEW_LABEL[view]}, x ${(x * 100).toFixed(0)}%, y ${(y * 100).toFixed(0)}%`}
+            className="block h-auto w-full"
+          >
+            <BodySilhouette view={projected} figure={figure} />
+            {/* Прицельные линии X/Y */}
+            <g stroke="hsl(var(--destructive) / 0.45)" strokeDasharray="3 3" strokeWidth={0.8}>
+              <line x1={0} y1={cy} x2={200} y2={cy} />
+              <line x1={cx} y1={0} x2={cx} y2={400} />
+            </g>
+            {/* Пульсирующее кольцо */}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={14}
+              fill="hsl(var(--destructive) / 0.15)"
+              stroke="hsl(var(--destructive) / 0.5)"
+              strokeWidth={0.8}
+            />
+            <circle
+              cx={cx}
+              cy={cy}
+              r={6}
+              fill="hsl(var(--destructive))"
+              stroke="hsl(var(--background))"
+              strokeWidth={1.5}
+            />
+          </svg>
+          {note && (
+            <p className="mt-2 text-center text-[11px] italic text-muted-foreground">{note}</p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const NotFound = ({ title, hint }: { title: string; hint: string }) => (
   <div className="flex h-full flex-col">
     <PageHeader title={title} subtitle={hint} />
