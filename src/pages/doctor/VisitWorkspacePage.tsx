@@ -506,7 +506,8 @@ interface BodySvgProps {
 
 function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySvgProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const ariaLabel = `Body map · ${bodyMapVariantLabel(variant)} · ${bodyMapViewLabel(view)}`;
+  const ariaLabel = `Body map · ${bodyMapVariantLabel(variant)} · ${bodyMapSurfaceLabel(view)}`;
+  const badge = bodyMapSurfaceBadge(view);
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
@@ -528,6 +529,30 @@ function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySv
       onClick={handleClick}
     >
       <VariantSilhouette variant={variant} view={view} />
+      {/* Non-interactive surface badge, top-left */}
+      <g pointerEvents="none">
+        <rect
+          x={4}
+          y={4}
+          rx={2}
+          ry={2}
+          width={badge.length * 5.4 + 10}
+          height={14}
+          fill="hsl(var(--primary))"
+          opacity={0.9}
+        />
+        <text
+          x={9}
+          y={14}
+          fontSize={9}
+          fontWeight={700}
+          letterSpacing="0.5"
+          fill="hsl(var(--primary-foreground))"
+          stroke="none"
+        >
+          {badge}
+        </text>
+      </g>
       {demoPoints.map((p, i) => (
         <circle
           key={`demo-${i}`}
