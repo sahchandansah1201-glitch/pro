@@ -147,6 +147,24 @@ export default function AdminServicesPage() {
   });
   const visibleRows = pagination.visible;
 
+  const activeFilterLabels =
+    filter === "all" ? [] : [`фильтр: ${FILTERS.find((f) => f.key === filter)?.label}`];
+  const resetAll = () => {
+    setFilter("all");
+    setQuery("");
+  };
+  const isEmpty = rows.length === 0;
+  const emptyState = (
+    <ListEmptyState
+      itemNoun="услуг"
+      query={query}
+      activeFilters={activeFilterLabels}
+      totalUnfiltered={SERVICES.length}
+      onReset={resetAll}
+      hint="В демо-каталоге фиксированный список услуг. Реальные тарифы и категории придут с бэкендом."
+    />
+  );
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Услуги и тарифы" subtitle="Каталог услуг, цены, длительность." />
