@@ -8,6 +8,10 @@ import { test, expect } from "@playwright/test";
  * admin e2e). Сетевые/clipboard/storage-вызовы не делаем.
  */
 
+if (process.env.PW_CHROMIUM_PATH) {
+  test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
+}
+
 const ROUTES = ["/admin", "/admin/doctors", "/admin/services", "/admin/clinics"] as const;
 
 const SIZES = [
