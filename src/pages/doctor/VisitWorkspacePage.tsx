@@ -442,8 +442,10 @@ function BodyMapTab({
           ) : (
             <ul className="divide-y divide-border">
               {placedLesions.map(({ lesion, num, point }) => {
-                const imageCount = getImagesByLesionId(lesion.id).length;
+                const lImages = getImagesByLesionId(lesion.id);
+                const imageCount = lImages.length;
                 const a = visitAssessments.find((x) => x.lesionId === lesion.id);
+                const lNeedsReview = lImages.some((i) => i.quality.score < 0.8 || i.quality.issues.length > 0);
                 const isSel = lesion.id === selected;
                 return (
                   <li
@@ -476,6 +478,25 @@ function BodyMapTab({
                       <Stat term="ABCD" value={a ? a.abcd.total.toFixed(1) : "—"} />
                       <Stat term="7-point" value={a ? a.sevenPoint.total : "—"} />
                     </dl>
+                    {(imageCount === 0 || !a || lNeedsReview) && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {imageCount === 0 && (
+                          <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                            нет снимков
+                          </span>
+                        )}
+                        {!a && (
+                          <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                            нет оценки
+                          </span>
+                        )}
+                        {lNeedsReview && (
+                          <span className="rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning">
+                            нужен пересмотр
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}
