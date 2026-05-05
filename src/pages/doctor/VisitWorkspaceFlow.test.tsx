@@ -46,7 +46,7 @@ describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () 
   it("Assessment → Imaging and Assessment → Conclusion preserve lesion", () => {
     renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
     expect(tabSelected(/Оценка/)).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /К снимкам этого очага/ })[0]);
     expect(tabSelected(/снимки/i)).toBe(true);
     const sel = (screen.getAllByRole("combobox") as HTMLSelectElement[]).find(
       (s) => s.value === "l-008",
@@ -54,17 +54,17 @@ describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () 
     expect(sel).toBeTruthy();
 
     renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
-    fireEvent.click(screen.getByRole("button", { name: /К заключению по визиту/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /К заключению по визиту/ })[0]);
     expect(tabSelected(/Заключение/)).toBe(true);
   });
 
   it("Conclusion → Assessment, Imaging, Report preserve lesion", () => {
     renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
-    fireEvent.click(screen.getByRole("button", { name: /К оценке очага/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /К оценке очага/ })[0]);
     expect(tabSelected(/Оценка/)).toBe(true);
 
     renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
-    fireEvent.click(screen.getByRole("button", { name: /К снимкам очага/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /К снимкам очага/ })[0]);
     expect(tabSelected(/снимки/i)).toBe(true);
 
     renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
@@ -74,15 +74,15 @@ describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () 
 
   it("Report → Assessment, Conclusion, Imaging preserve lesion", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    fireEvent.click(screen.getByRole("button", { name: /К оценке очага/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /К оценке очага/ })[0]);
     expect(tabSelected(/Оценка/)).toBe(true);
 
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    fireEvent.click(screen.getByRole("button", { name: /К заключению по визиту/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /К заключению по визиту/ })[0]);
     expect(tabSelected(/Заключение/)).toBe(true);
 
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    fireEvent.click(screen.getByRole("button", { name: /К снимкам очага/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /К снимкам очага/ })[0]);
     expect(tabSelected(/снимки/i)).toBe(true);
   });
 
