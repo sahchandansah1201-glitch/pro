@@ -3,6 +3,8 @@ import { ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ListPagination } from "@/components/admin/ListPagination";
+import { useListPagination } from "@/lib/use-list-pagination";
 import { getAppointments, getClinics, getIntegrations, getLeads } from "@/lib/mock-data";
 import type { PartnerTier } from "@/lib/domain";
 
@@ -100,6 +102,13 @@ export default function AdminClinicsPage() {
     return sorted;
   }, [enriched, filter, sort]);
 
+  const pagination = useListPagination(visible, {
+    mobilePageSize: 4,
+    desktopPageSize: 6,
+    deps: [filter, sort],
+  });
+  const visibleRows = pagination.visible;
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -187,12 +196,12 @@ export default function AdminClinicsPage() {
 
         {/* Desktop: список-карточки в две колонки */}
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          {visible.length === 0 ? (
+          {visibleRows.length === 0 ? (
             <Card className="p-4 text-center text-[12px] text-muted-foreground">
               Нет клиник по выбранному фильтру.
             </Card>
           ) : (
-            visible.map((row) => (
+            visibleRows.map((row) => (
               <Card key={row.clinic.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -295,6 +304,17 @@ export default function AdminClinicsPage() {
             ))
           )}
         </div>
+
+        <ListPagination
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          total={pagination.total}
+          rangeLabel={pagination.rangeLabel}
+          canPrev={pagination.canPrev}
+          canNext={pagination.canNext}
+          onPageChange={pagination.setPage}
+          itemNoun="клиник"
+        />
       </div>
     </div>
   );

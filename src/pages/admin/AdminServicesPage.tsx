@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ListPagination } from "@/components/admin/ListPagination";
+import { useListPagination } from "@/lib/use-list-pagination";
 
 /**
  * Admin Services — каталог услуг и тарифов (MVP, read-only).
@@ -137,6 +139,13 @@ export default function AdminServicesPage() {
     });
   }, [filter, query]);
 
+  const pagination = useListPagination(rows, {
+    mobilePageSize: 4,
+    desktopPageSize: 8,
+    deps: [filter, query],
+  });
+  const visibleRows = pagination.visible;
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Услуги и тарифы" subtitle="Каталог услуг, цены, длительность." />
@@ -221,14 +230,14 @@ export default function AdminServicesPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {visibleRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
                     Нет услуг по выбранным фильтрам.
                   </td>
                 </tr>
               ) : (
-                rows.map((s) => (
+                visibleRows.map((s) => (
                   <tr key={s.code} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{s.code}</td>
                     <td className="px-3 py-2 font-medium">{s.name}</td>
@@ -286,12 +295,12 @@ export default function AdminServicesPage() {
         </Card>
 
         <div className="grid grid-cols-1 gap-2 md:hidden">
-          {rows.length === 0 ? (
+          {visibleRows.length === 0 ? (
             <Card className="p-4 text-center text-[12px] text-muted-foreground">
               Нет услуг по выбранным фильтрам.
             </Card>
           ) : (
-            rows.map((s) => (
+            visibleRows.map((s) => (
               <Card key={s.code} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -341,6 +350,17 @@ export default function AdminServicesPage() {
             ))
           )}
         </div>
+
+        <ListPagination
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          total={pagination.total}
+          rangeLabel={pagination.rangeLabel}
+          canPrev={pagination.canPrev}
+          canNext={pagination.canNext}
+          onPageChange={pagination.setPage}
+          itemNoun="услуг"
+        />
       </div>
     </div>
   );
