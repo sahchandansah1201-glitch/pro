@@ -337,7 +337,7 @@ export function VisitImagingTab({ visit, patientId, lesions, initialLesionId, on
               {/* Actions */}
               <div className="flex flex-wrap gap-2">
                 {selected.lesionId ? (
-                  <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+                  <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
                     <Link to={`/patients/${patientId}/lesions/${selected.lesionId}`}>
                       Открыть образование <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
                     </Link>
@@ -345,10 +345,20 @@ export function VisitImagingTab({ visit, patientId, lesions, initialLesionId, on
                 ) : (
                   <span className="text-[12px] text-muted-foreground">Снимок не привязан к образованию.</span>
                 )}
+                {selected.lesionId && onOpenBodyMap && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    onClick={() => onOpenBodyMap(selected.lesionId!)}
+                  >
+                    <MapPin className="mr-1 h-3.5 w-3.5" aria-hidden /> Открыть на Body Map
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-8 text-[12px]"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                   onClick={() => showCaptureNotice("Повтор снимка")}
                 >
                   <RefreshCw className="mr-1 h-3.5 w-3.5" /> Повторить снимок
