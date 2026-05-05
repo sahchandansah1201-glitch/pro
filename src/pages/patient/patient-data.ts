@@ -60,7 +60,8 @@ export function getSafeAppointments(): SafeAppointment[] {
 }
 
 export function getNextAppointment(): SafeAppointment | undefined {
-  const now = Date.now();
+  const DEMO_NOW = "2026-05-04T00:00:00Z";
+  const now = Date.parse(DEMO_NOW);
   return getSafeAppointments().find(
     (a) => new Date(a.slotAt).getTime() >= now && (a.status === "planned" || a.status === "confirmed"),
   );
