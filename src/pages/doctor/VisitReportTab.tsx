@@ -382,6 +382,102 @@ interface SendRecord {
   reason?: string;
 }
 
+// ───────── Patient text validation & templates ─────────
+
+export const PATIENT_TEXT_MAX_CHARS = 1000;
+export const PATIENT_TEXT_MAX_LINES = 20;
+export const PATIENT_TEXT_MAX_LINE_LEN = 200;
+
+/**
+ * Normalize line breaks and whitespace so the editor produces predictable
+ * output regardless of where the doctor pasted the text from.
+ */
+export function normalizePatientText(input: string): string {
+  return input
+    .replace(/\r\n?/g, "\n")
+    .replace(/\u00A0/g, " ")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+$/g, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\n+|\n+$/g, "");
+}
+
+const patientTextSchema = z
+  .string()
+  .trim()
+  .min(1, { message: "Текст для пациента не может быть пустым." })
+  .max(PATIENT_TEXT_MAX_CHARS, {
+    message: `Не более ${PATIENT_TEXT_MAX_CHARS} символов.`,
+  })
+  .refine((v) => !/[<>]/.test(v), { message: "Символы < и > запрещены." })
+  .refine((v) => v.split("\n").length <= PATIENT_TEXT_MAX_LINES, {
+    message: `Не более ${PATIENT_TEXT_MAX_LINES} строк.`,
+  })
+  .refine(
+    (v) => v.split("\n").every((l) => l.length <= PATIENT_TEXT_MAX_LINE_LEN),
+    { message: `В одной строке не более ${PATIENT_TEXT_MAX_LINE_LEN} символов.` },
+  );
+
+export interface PatientTextValidation {
+  ok: boolean;
+  errors: string[];
+  chars: number;
+  lines: number;
+}
+
+export function validatePatientText(raw: string): PatientTextValidation {
+  const normalized = normalizePatientText(raw);
+  const result = patientTextSchema.safeParse(normalized);
+  return {
+    ok: result.success,
+    errors: result.success ? [] : result.error.issues.map((i) => i.message),
+    chars: normalized.length,
+    lines: normalized.length === 0 ? 0 : normalized.split("\n").length,
+  };
+}
+
+interface PatientTemplate {
+  id: string;
+  label: string;
+  body: string;
+}
+
+const PATIENT_TEMPLATES: PatientTemplate[] = [
+  {
+    id: "monitoring",
+    label: "Наблюдение через 3 месяца",
+    body:
+      "По итогам осмотра рекомендуется наблюдение очага.\n" +
+      "Пожалуйста, запишитесь на повторный осмотр через 3 месяца.\n" +
+      "При появлении изменений (рост, изменение цвета, зуд, кровоточивость) — обратитесь раньше.",
+  },
+  {
+    id: "in-person",
+    label: "Очный осмотр требуется",
+    body:
+      "По снимкам однозначное заключение сделать нельзя.\n" +
+      "Рекомендуется очный осмотр у дерматолога для уточнения.\n" +
+      "Это не диагноз, а рекомендация для дополнительной проверки.",
+  },
+  {
+    id: "urgent",
+    label: "Срочная консультация",
+    body:
+      "Рекомендуется записаться на консультацию в ближайшие дни.\n" +
+      "Это решение принято для дополнительной проверки и не означает диагноз.\n" +
+      "Администратор клиники поможет выбрать удобное время.",
+  },
+  {
+    id: "self-care",
+    label: "Самонаблюдение и фотофиксация",
+    body:
+      "Очаг не требует срочных действий.\n" +
+      "Рекомендуется самонаблюдение: раз в месяц делать фото в одинаковом освещении.\n" +
+      "При любых заметных изменениях — записаться на осмотр.",
+  },
+];
+
 function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
   const [title, setTitle] = useState("");
   const [patientText, setPatientText] = useState("");
@@ -393,16 +489,33 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
     patientTextPreview: "",
   });
 
+  const validation = useMemo(() => validatePatientText(patientText), [patientText]);
+
+  const applyTemplate = (tpl: PatientTemplate, mode: "replace" | "append") => {
+    setPatientText((prev) => {
+      const base = mode === "replace" || prev.trim() === "" ? "" : prev + "\n\n";
+      return normalizePatientText(base + tpl.body);
+    });
+  };
+
+  const onNormalize = () => {
+    setPatientText((prev) => normalizePatientText(prev));
+  };
+
   const onSave = () => {
+    if (!validation.ok) return;
     setSaved({
       title: title.trim(),
-      patientText: patientText.trim(),
+      patientText: normalizePatientText(patientText),
       internalNote: internalNote.trim(),
       createdAt: BODY_MAP_DEMO_NOW,
     });
   };
 
-  const canSend = Boolean(saved && saved.patientText.length > 0) && send.status !== "sending";
+  const canSend =
+    Boolean(saved && saved.patientText.length > 0) &&
+    send.status !== "sending" &&
+    validation.ok;
 
   const onSendDemo = () => {
     if (!saved) return;
@@ -420,7 +533,6 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
       at: BODY_MAP_DEMO_NOW,
       patientTextPreview: saved.patientText,
     });
-    // Local UI-only transition; no network, no timers persisted across renders.
     setSend({
       status: "sent",
       at: BODY_MAP_DEMO_NOW,
@@ -445,24 +557,100 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Например: Отчёт по визиту от 04.05.2026"
+            maxLength={200}
             className="min-h-[44px] sm:min-h-[32px]"
           />
         </FormField>
+
         <FormField id="demo-report-patient" label="Текст для пациента">
+          <div
+            className="mb-2 flex flex-wrap gap-1.5"
+            aria-label="Шаблоны текста для пациента"
+          >
+            {PATIENT_TEMPLATES.map((tpl) => (
+              <div
+                key={tpl.id}
+                className="inline-flex overflow-hidden rounded-sm border border-border"
+              >
+                <button
+                  type="button"
+                  data-testid={`tpl-${tpl.id}-replace`}
+                  onClick={() => applyTemplate(tpl, "replace")}
+                  className="min-h-[32px] bg-surface px-2 py-1 text-[12px] hover:bg-surface-muted"
+                  title="Заменить текст шаблоном"
+                >
+                  {tpl.label}
+                </button>
+                <button
+                  type="button"
+                  data-testid={`tpl-${tpl.id}-append`}
+                  onClick={() => applyTemplate(tpl, "append")}
+                  className="min-h-[32px] border-l border-border bg-surface-muted px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+                  title="Добавить шаблон в конец"
+                  aria-label={`Добавить шаблон: ${tpl.label}`}
+                >
+                  +
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              data-testid="patient-text-normalize"
+              onClick={onNormalize}
+              className="min-h-[32px] rounded-sm border border-dashed border-border bg-surface px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+            >
+              Нормализовать переносы
+            </button>
+          </div>
+
           <Textarea
             id="demo-report-patient"
             value={patientText}
             onChange={(e) => setPatientText(e.target.value)}
-            rows={3}
+            rows={6}
+            maxLength={PATIENT_TEXT_MAX_CHARS + 200}
+            aria-invalid={!validation.ok && patientText.length > 0}
+            aria-describedby="demo-report-patient-help demo-report-patient-errors"
             placeholder="Безопасная формулировка для пациента: «требуется дополнительное наблюдение»."
+            className="font-mono"
           />
+
+          <div
+            id="demo-report-patient-help"
+            data-testid="patient-text-counter"
+            className="mt-1 flex flex-wrap justify-between gap-2 text-[11px] text-muted-foreground"
+          >
+            <span>
+              Лимиты: до {PATIENT_TEXT_MAX_CHARS} символов, до{" "}
+              {PATIENT_TEXT_MAX_LINES} строк, до {PATIENT_TEXT_MAX_LINE_LEN} симв./строку.
+              Символы &lt;, &gt; запрещены.
+            </span>
+            <span className="tabular-nums">
+              {validation.chars}/{PATIENT_TEXT_MAX_CHARS} симв. ·{" "}
+              {validation.lines}/{PATIENT_TEXT_MAX_LINES} строк
+            </span>
+          </div>
+          {!validation.ok && patientText.length > 0 && (
+            <ul
+              id="demo-report-patient-errors"
+              role="alert"
+              data-testid="patient-text-errors"
+              className="mt-1 list-inside list-disc text-[11px] text-[hsl(var(--risk-high))]"
+            >
+              {validation.errors.map((msg, idx) => (
+                <li key={idx}>{msg}</li>
+              ))}
+            </ul>
+          )}
         </FormField>
+
         <FormField id="demo-report-internal" label="Внутренняя заметка врача">
           <Textarea
             id="demo-report-internal"
             value={internalNote}
             onChange={(e) => setInternalNote(e.target.value)}
             rows={2}
+            maxLength={2000}
             placeholder="Внутренний контекст: дифференциальная диагностика, план."
           />
         </FormField>
@@ -473,6 +661,7 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
           type="button"
           size="sm"
           className="min-h-[44px] sm:min-h-[32px]"
+          disabled={!validation.ok}
           onClick={onSave}
         >
           Сформировать демо-отчёт
