@@ -5,6 +5,7 @@ import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DEMO_USERS } from "@/lib/users";
 import {
@@ -22,6 +23,7 @@ import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
 import {
+  BODY_MAP_DEMO_NOW,
   BODY_MAP_VIEWS,
   BODY_MAP_VIEW_BUTTON_LABEL,
   bodyMapSurfaceBadge,
@@ -284,6 +286,16 @@ interface PendingPoint {
   zone: string;
 }
 
+interface LocalLesionDraft {
+  id: string;
+  label: string;
+  bodyZone: string;
+  status: Lesion["status"];
+  mapPoint: BodyMapPoint;
+  note: string;
+  createdAt: string;
+}
+
 function BodyMapTab({
   patient,
   visit,
@@ -314,8 +326,14 @@ function BodyMapTab({
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(initialLesion?.lesion.id ?? null);
   const [pending, setPending] = useState<PendingPoint | null>(null);
+  const [draftLabel, setDraftLabel] = useState("Новый очаг");
+  const [draftStatus, setDraftStatus] = useState<Lesion["status"]>("active");
+  const [draftNote, setDraftNote] = useState("");
   const [zoneDraft, setZoneDraft] = useState("");
-  const [confirmedDemo, setConfirmedDemo] = useState<PendingPoint[]>([]);
+  const [localDrafts, setLocalDrafts] = useState<LocalLesionDraft[]>([]);
+
+  const isLocalId = (id: string | null) => !!id && id.startsWith("local-lesion-");
+  const selectedDraft = selected && isLocalId(selected) ? localDrafts.find((d) => d.id === selected) ?? null : null;
 
   // React to external (URL) lesion changes.
   useEffect(() => {
@@ -327,10 +345,15 @@ function BodyMapTab({
   // Switch projection whenever the selected lesion lives on a different one.
   useEffect(() => {
     if (!selected) return;
+    if (isLocalId(selected)) {
+      const d = localDrafts.find((x) => x.id === selected);
+      if (d) setView((current) => (current === d.mapPoint.view ? current : d.mapPoint.view));
+      return;
+    }
     const p = placedLesions.find((x) => x.lesion.id === selected)?.point;
     if (!p) return;
     setView((current) => (current === p.view ? current : p.view));
-  }, [selected, placedLesions]);
+  }, [selected, placedLesions, localDrafts]);
 
   // Drop pending placement when projection changes.
   useEffect(() => {
@@ -338,7 +361,7 @@ function BodyMapTab({
   }, [view]);
 
   const visiblePoints = placedLesions.filter((p) => p.point.view === view);
-  const selectedLesion = selected ? lesions.find((l) => l.id === selected) ?? null : null;
+  const selectedLesion = selected && !isLocalId(selected) ? lesions.find((l) => l.id === selected) ?? null : null;
   const visitAssessments = getAssessmentsByVisitId(visit.id);
   const selImages = selectedLesion ? getImagesByLesionId(selectedLesion.id) : [];
   const selImageCount = selImages.length;
@@ -353,15 +376,35 @@ function BodyMapTab({
     const zone = suggestBodyZone(np.view, np.x, np.y);
     setPending({ view: np.view, x: np.x, y: np.y, zone });
     setZoneDraft(zone);
+    setDraftLabel("Новый очаг");
+    setDraftStatus("active");
+    setDraftNote("");
   };
 
-  const confirmPending = () => {
-    if (!pending) return;
-    setConfirmedDemo((prev) => [...prev, { ...pending, zone: zoneDraft || pending.zone }]);
+  const cancelPending = () => {
     setPending(null);
+    setDraftNote("");
   };
 
-  const localDemoForView = confirmedDemo.filter((p) => p.view === view);
+  const addLocalDraft = () => {
+    if (!pending) return;
+    const id = `local-lesion-${localDrafts.length + 1}`;
+    const draft: LocalLesionDraft = {
+      id,
+      label: draftLabel.trim() || "Новый очаг",
+      bodyZone: zoneDraft.trim() || pending.zone,
+      status: draftStatus,
+      mapPoint: { view: pending.view, x: pending.x, y: pending.y },
+      note: draftNote,
+      createdAt: BODY_MAP_DEMO_NOW,
+    };
+    setLocalDrafts((prev) => [...prev, draft]);
+    setSelected(id);
+    setPending(null);
+    setDraftNote("");
+  };
+
+  const localDraftsForView = localDrafts.filter((d) => d.mapPoint.view === view);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-12">
@@ -424,7 +467,15 @@ function BodyMapTab({
                 label: p.lesion.label,
               }))}
               pending={pending && pending.view === view ? { x: pending.x, y: pending.y } : null}
-              demoPoints={localDemoForView}
+              demoPoints={localDraftsForView.map((d, i) => ({
+                id: d.id,
+                num: i + 1,
+                x: d.mapPoint.x,
+                y: d.mapPoint.y,
+                selected: d.id === selected,
+                onSelect: () => setSelected(d.id),
+                label: d.label,
+              }))}
               onPlace={handlePlace}
             />
           </div>
@@ -504,9 +555,53 @@ function BodyMapTab({
           )}
         </div>
 
+        {localDrafts.length > 0 && (
+          <div className="border-t border-border bg-surface">
+            <div className="bg-surface-muted px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+              Локальные демо-очаги ({localDrafts.length})
+            </div>
+            <ul className="divide-y divide-border">
+              {localDrafts.map((d, i) => {
+                const isSel = d.id === selected;
+                return (
+                  <li
+                    key={d.id}
+                    className={`cursor-pointer px-3 py-2 text-[13px] ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
+                    onClick={() => {
+                      setSelected(d.id);
+                      setView(d.mapPoint.view);
+                    }}
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="flex min-w-0 items-baseline gap-2">
+                        <span
+                          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-dashed text-[11px] tabular-nums ${
+                            isSel ? "border-primary bg-primary/10 text-primary" : "border-primary/60 bg-surface text-primary"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{d.label}</div>
+                          <div className="truncate text-[12px] text-muted-foreground">
+                            {d.bodyZone} · {bodyMapViewLabel(d.mapPoint.view)}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-sm border border-dashed border-primary/60 bg-surface px-1.5 py-0.5 text-[11px] text-primary">
+                        локально, не сохранено
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         {pending && (
           <div className="border-t border-border bg-surface p-3">
-            <div className="text-[13px] font-semibold">Новая точка (демо)</div>
+            <div className="text-[13px] font-semibold">Новый очаг (демо)</div>
             <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
               <Stat term="Проекция" value={bodyMapViewLabel(pending.view)} />
               <Stat term="X / Y" value={`${Math.round(pending.x * 100)}% / ${Math.round(pending.y * 100)}%`} />
@@ -519,25 +614,88 @@ function BodyMapTab({
                 className="mt-1 h-8 text-[12px]"
               />
             </label>
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              Метка очага
+              <Input
+                value={draftLabel}
+                onChange={(e) => setDraftLabel(e.target.value)}
+                className="mt-1 h-8 text-[12px]"
+              />
+            </label>
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              Статус
+              <select
+                value={draftStatus}
+                onChange={(e) => setDraftStatus(e.target.value as Lesion["status"])}
+                className="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-[12px]"
+                aria-label="Статус демо-очага"
+              >
+                {(Object.keys(LESION_STATUS) as Array<Lesion["status"]>).map((s) => (
+                  <option key={s} value={s}>{LESION_STATUS[s]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              Комментарий врача (демо)
+              <Textarea
+                value={draftNote}
+                onChange={(e) => setDraftNote(e.target.value)}
+                className="mt-1 min-h-[60px] text-[12px]"
+              />
+            </label>
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 size="sm"
                 className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                onClick={confirmPending}
+                onClick={addLocalDraft}
               >
-                Подтвердить демо-точку
+                Добавить локально
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
                 className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                onClick={() => setPending(null)}
+                onClick={cancelPending}
               >
                 Отменить
               </Button>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Демо-точка не сохранена в мок-данные.
+              Демо-очаг не сохранён в мок-данные.
+            </p>
+          </div>
+        )}
+
+        {selectedDraft && (
+          <div className="border-t border-border bg-surface p-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="min-w-0">
+                <div className="truncate text-[13px] font-semibold">{selectedDraft.label}</div>
+                <div className="truncate text-[12px] text-muted-foreground">
+                  {selectedDraft.bodyZone} · проекция {bodyMapViewLabel(selectedDraft.mapPoint.view)}
+                </div>
+              </div>
+              <span className="shrink-0 rounded-sm border border-dashed border-primary/60 bg-surface px-1.5 py-0.5 text-[11px] text-primary">
+                локально, не сохранено
+              </span>
+            </div>
+            <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
+              <Stat term="X / Y" value={`${Math.round(selectedDraft.mapPoint.x * 100)}% / ${Math.round(selectedDraft.mapPoint.y * 100)}%`} />
+              <Stat term="Снимков" value="—" />
+              <Stat term="ABCD" value="—" />
+              <Stat term="7-point" value="—" />
+            </dl>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+              <Stat term="Статус" value={LESION_STATUS[selectedDraft.status]} />
+              <Stat term="ID" value={<span className="font-mono">{selectedDraft.id}</span>} />
+            </dl>
+            {selectedDraft.note && (
+              <div className="mt-2 rounded-sm border border-dashed border-border bg-surface-muted px-2 py-1.5 text-[12px]">
+                {selectedDraft.note}
+              </div>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Это демо-очаг. Он существует только в UI текущего визита.
             </p>
           </div>
         )}
@@ -634,7 +792,7 @@ interface BodySvgProps {
   view: View;
   points: PointProps[];
   pending: { x: number; y: number } | null;
-  demoPoints: { x: number; y: number; view: View }[];
+  demoPoints: PointProps[];
   onPlace: (np: { view: View; x: number; y: number }) => void;
 }
 
@@ -687,17 +845,30 @@ function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySv
           {badge}
         </text>
       </g>
-      {demoPoints.map((p, i) => (
-        <circle
-          key={`demo-${i}`}
-          cx={p.x * 200}
-          cy={p.y * 400}
-          r={5}
-          fill="hsl(var(--surface))"
-          stroke="hsl(var(--primary))"
-          strokeDasharray="2 2"
-          strokeWidth={1.2}
-        />
+      {demoPoints.map((p) => (
+        <g key={`demo-${p.id}`} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
+          <title>{`Локальный демо-очаг: ${p.label}`}</title>
+          <circle
+            cx={p.x * 200}
+            cy={p.y * 400}
+            r={p.selected ? 8 : 6}
+            fill="hsl(var(--surface))"
+            stroke="hsl(var(--primary))"
+            strokeDasharray="2 2"
+            strokeWidth={1.4}
+            opacity={0.85}
+          />
+          <text
+            x={p.x * 200}
+            y={p.y * 400 + 3}
+            textAnchor="middle"
+            fontSize={8}
+            fontWeight={700}
+            fill="hsl(var(--primary))"
+          >
+            {p.num}
+          </text>
+        </g>
       ))}
       {points.map((p) => (
         <g key={p.id} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
