@@ -30,21 +30,20 @@ test.describe("Admin core pages — tap target ≥ 44px @ 390x844", () => {
       await page.goto(route, { waitUntil: "networkidle" });
 
       const offenders = await page.evaluate((MIN: number) => {
+        // Скоупим проверку контентом страницы — не shell/header/sidebar.
+        const root = document.querySelector("main") ?? document.body;
         const sel = 'button, a[href], input:not([type="hidden"]), [role="tab"]';
-        const nodes = Array.from(document.querySelectorAll<HTMLElement>(sel));
+        const nodes = Array.from(root.querySelectorAll<HTMLElement>(sel));
         const bad: { tag: string; text: string; h: number; w: number }[] = [];
         for (const el of nodes) {
           const rect = el.getBoundingClientRect();
-          // Скрытые / off-screen / нулевые
           if (rect.width === 0 || rect.height === 0) continue;
           const cs = getComputedStyle(el);
           if (cs.visibility === "hidden" || cs.display === "none") continue;
-          // Sidebar (sheet) триггеры скрыты overlay-логикой могут давать ложные срабатывания —
-          // но для нас валидно проверить всё видимое.
           if (rect.height < MIN) {
             bad.push({
               tag: el.tagName.toLowerCase(),
-              text: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 60),
+              text: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 80),
               h: Math.round(rect.height),
               w: Math.round(rect.width),
             });
@@ -53,15 +52,7 @@ test.describe("Admin core pages — tap target ≥ 44px @ 390x844", () => {
         return bad;
       }, MIN_TAP);
 
-      // Разрешаем элементы из shell (sidebar/header) — фильтруем по data-testid? Нет такого.
-      // Допускаем «иконочные» элементы внутри SidebarTrigger / RoleSwitcher — они
-      // не относятся к контенту страницы; их идентификаторы стабильно содержат "sidebar".
-      // Для строгости пропускаем только элементы внутри <header data-shell="...">.
-      const filtered = offenders.filter((o) => {
-        // Иконки close/menu сайдбара оставим зелёными, если их текст пуст и ширина < 44.
-        // Контент страницы — все остальные. Здесь упрощённо: если текст непустой, считаем нарушением.
-        return o.text.length > 0;
-      });
+      const filtered = offenders;
 
       expect(
         filtered,
