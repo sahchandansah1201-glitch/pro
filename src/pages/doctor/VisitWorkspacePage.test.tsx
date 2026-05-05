@@ -137,6 +137,36 @@ describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
     expect(screen.getAllByText(/нет оценки/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/нужен пересмотр/).length).toBeGreaterThan(0);
   });
+
+  it("регрессия: round-trip Body Map → Imaging → Body Map сохраняет lesion и переключает таб", async () => {
+    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
+
+    const bodymapTab = screen.getByRole("tab", { name: /body map/i });
+    const imagingTab = screen.getByRole("tab", { name: /снимки/i });
+    expect(bodymapTab.getAttribute("aria-selected")).toBe("true");
+    expect(imagingTab.getAttribute("aria-selected")).toBe("false");
+    expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
+
+    // Body Map → Imaging: таб переключился, lesion предвыбран.
+    fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
+    expect(imagingTab.getAttribute("aria-selected")).toBe("true");
+    expect(bodymapTab.getAttribute("aria-selected")).toBe("false");
+    const lesionSelect = (screen.getAllByRole("combobox") as HTMLSelectElement[]).find(
+      (s) => s.value === "l-008",
+    );
+    expect(lesionSelect).toBeTruthy();
+
+    // Imaging → Body Map: возврат с тем же lesion.
+    fireEvent.click(screen.getByRole("button", { name: /Открыть на Body Map/ }));
+    expect(bodymapTab.getAttribute("aria-selected")).toBe("true");
+    expect(imagingTab.getAttribute("aria-selected")).toBe("false");
+    expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
+
+    const lesion = (await import("@/lib/mock-data"))
+      .getLesionsByPatientId("p-004")
+      .find((l) => l.id === "l-008")!;
+    expect(screen.getAllByText(new RegExp(lesion.label)).length).toBeGreaterThan(0);
+  });
 });
 
 describe("VisitWorkspacePage · Local lesion draft workflow", () => {
