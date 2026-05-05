@@ -1,15 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { z } from "zod";
-
-import {
-  appendSendHistory,
-  clearSendHistory,
-  loadSendHistory,
-  SEND_HISTORY_MAX,
-  type SendRecord,
-  type SendStatus,
-} from "@/pages/doctor/send-history-storage";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -189,8 +180,6 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
           <DemoReportForm
             key={selectedLesion?.id ?? "none"}
             assessment={selAssessment}
-            visitId={visit.id}
-            lesionId={selectedLesion?.id ?? null}
           />
         </section>
 
@@ -384,7 +373,6 @@ interface DemoReportDraft {
   createdAt: string;
 }
 
-// SendStatus / SendRecord types are imported from send-history-storage.
 
 // ───────── Patient text validation & templates ─────────
 
@@ -484,31 +472,13 @@ const PATIENT_TEMPLATES: PatientTemplate[] = [
 
 function DemoReportForm({
   assessment,
-  visitId,
-  lesionId,
 }: {
   assessment: Assessment | null;
-  visitId: string;
-  lesionId: string | null;
 }) {
   const [title, setTitle] = useState("");
   const [patientText, setPatientText] = useState("");
   const [internalNote, setInternalNote] = useState("");
   const [saved, setSaved] = useState<DemoReportDraft | null>(null);
-
-  // Persistent journal of attempts for this (visit, lesion) pair, restored on mount.
-  const [history, setHistory] = useState<SendRecord[]>(() =>
-    loadSendHistory(visitId, lesionId),
-  );
-
-  // Re-load when visit/lesion changes (key on parent already remounts on lesion change,
-  // but visit may also change without remount in some flows).
-  useEffect(() => {
-    setHistory(loadSendHistory(visitId, lesionId));
-  }, [visitId, lesionId]);
-
-  const send: SendRecord =
-    history[0] ?? { status: "idle", at: "", patientTextPreview: "" };
 
   const validation = useMemo(() => validatePatientText(patientText), [patientText]);
 
@@ -532,39 +502,6 @@ function DemoReportForm({
       createdAt: BODY_MAP_DEMO_NOW,
     });
   };
-
-  const canSend =
-    Boolean(saved && saved.patientText.length > 0) &&
-    send.status !== "sending" &&
-    validation.ok;
-
-  const pushRecord = (record: SendRecord) => {
-    setHistory(appendSendHistory(visitId, lesionId, record));
-  };
-
-  const onSendDemo = () => {
-    if (!saved) return;
-    if (!saved.patientText) {
-      pushRecord({
-        status: "failed",
-        at: BODY_MAP_DEMO_NOW,
-        patientTextPreview: "",
-        reason: "Текст для пациента пуст.",
-      });
-      return;
-    }
-    pushRecord({
-      status: "sent",
-      at: BODY_MAP_DEMO_NOW,
-      patientTextPreview: saved.patientText,
-    });
-  };
-
-  const onClearHistory = () => {
-    clearSendHistory(visitId, lesionId);
-    setHistory([]);
-  };
-
 
   return (
     <section
@@ -705,23 +642,17 @@ function DemoReportForm({
           type="button"
           size="sm"
           variant="secondary"
-          disabled={!canSend}
-          aria-disabled={!canSend}
+          disabled
+          aria-disabled
           data-testid="send-to-patient-demo"
           className="min-h-[44px] sm:min-h-[32px]"
-          onClick={onSendDemo}
         >
           Отправить пациенту (демо)
         </Button>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Печать/PDF будут подключены на бэкенде. Отправка пациенту в этом режиме
-        работает локально и не уходит во внешние сервисы.
+        Отправка и PDF будут подключены на бэкенде
       </p>
-
-      <SendStatusBlock send={send} />
-
-      <SendHistoryBlock history={history} onClear={onClearHistory} />
 
       {saved && (
         <div role="status" data-testid="demo-report-preview" className="mt-3 space-y-3">
@@ -788,142 +719,6 @@ function DemoReportForm({
           </div>
         </div>
       )}
-    </section>
-  );
-}
-
-// ───────── Send status (local-only) ─────────
-
-const SEND_STATUS_LABEL: Record<SendStatus, string> = {
-  idle: "Ещё не отправлялось",
-  sending: "Отправка…",
-  sent: "Отправлено (демо)",
-  failed: "Не отправлено",
-};
-
-function SendStatusBlock({ send }: { send: SendRecord }) {
-  const tone =
-    send.status === "sent"
-      ? "border-[hsl(var(--risk-low))]"
-      : send.status === "failed"
-        ? "border-[hsl(var(--risk-high))]"
-        : send.status === "sending"
-          ? "border-[hsl(var(--risk-medium))]"
-          : "border-dashed border-border";
-
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      data-testid="send-status"
-      data-send-status={send.status}
-      className={`mt-3 rounded-md border bg-surface-muted p-3 text-[12px] ${tone}`}
-    >
-      <div className="mb-1 font-medium text-foreground">
-        Статус отправки пациенту: {SEND_STATUS_LABEL[send.status]}
-      </div>
-      {send.status === "idle" && (
-        <p className="text-muted-foreground">
-          Сначала сформируйте демо-отчёт и заполните «Текст для пациента».
-        </p>
-      )}
-      {send.status === "failed" && (
-        <p className="text-muted-foreground">{send.reason ?? "Неизвестная причина."}</p>
-      )}
-      {(send.status === "sent" || send.status === "sending") && (
-        <dl className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-3">
-          <dt className="text-muted-foreground">Время (демо)</dt>
-          <dd className="tabular-nums sm:col-span-2">{formatDateTime(send.at)}</dd>
-          <dt className="text-muted-foreground">Содержимое</dt>
-          <dd className="sm:col-span-2 whitespace-pre-wrap text-foreground">
-            {send.patientTextPreview}
-          </dd>
-        </dl>
-      )}
-      <p className="mt-2 text-[11px] text-muted-foreground">
-        Локальный статус сессии. Реальная отправка email/мессенджером будет
-        подключена на бэкенде.
-      </p>
-    </div>
-  );
-}
-
-// ───────── Send history (persisted in localStorage) ─────────
-
-function SendHistoryBlock({
-  history,
-  onClear,
-}: {
-  history: SendRecord[];
-  onClear: () => void;
-}) {
-  return (
-    <section
-      aria-label="Журнал отправок пациенту"
-      data-testid="send-history"
-      data-send-history-count={history.length}
-      className="mt-3 rounded-md border border-border bg-surface p-3"
-    >
-      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[12px] font-semibold">
-          Журнал отправок (демо) · сохранён локально
-        </h3>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span className="tabular-nums">
-            {history.length}/{SEND_HISTORY_MAX}
-          </span>
-          {history.length > 0 && (
-            <button
-              type="button"
-              data-testid="send-history-clear"
-              onClick={onClear}
-              className="min-h-[28px] rounded-sm border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              Очистить
-            </button>
-          )}
-        </div>
-      </header>
-
-      {history.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">
-          История пуста. Сохранится в этом браузере и переживёт перезагрузку.
-        </p>
-      ) : (
-        <ol
-          data-testid="send-history-list"
-          className="space-y-2"
-        >
-          {history.map((rec, idx) => (
-            <li
-              key={`${rec.at}-${idx}`}
-              data-testid="send-history-item"
-              data-send-status={rec.status}
-              className="rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="font-medium text-foreground">
-                  {SEND_STATUS_LABEL[rec.status]}
-                </span>
-                <span className="tabular-nums text-[11px] text-muted-foreground">
-                  {rec.at ? formatDateTime(rec.at) : "—"}
-                </span>
-              </div>
-              {rec.status === "failed" && rec.reason && (
-                <p className="mt-1 text-[11px] text-muted-foreground">{rec.reason}</p>
-              )}
-              {rec.patientTextPreview && (
-                <p className="mt-1 whitespace-pre-wrap text-[12px] text-foreground">
-                  {rec.patientTextPreview}
-                </p>
-              )}
-            </li>
-          ))}
-        </ol>
-      )}
-      <p className="mt-2 text-[11px] text-muted-foreground">
-        Хранится в localStorage браузера, не отправляется во внешние сервисы.
-      </p>
     </section>
   );
 }

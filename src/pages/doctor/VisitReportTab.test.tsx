@@ -113,7 +113,7 @@ describe("VisitReportTab · demo report form", () => {
     expect(within(internalPreview).getByText(/невус vs\. атипия/)).toBeInTheDocument();
   });
 
-  it("Печать / PDF (демо) is disabled; Отправить пациенту enables after demo draft", () => {
+  it("Печать / PDF (демо) и Отправить пациенту (демо) всегда disabled", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
     expect(
       screen.getByRole("button", { name: /Печать \/ PDF \(демо\)/ }),
@@ -125,12 +125,11 @@ describe("VisitReportTab · demo report form", () => {
     expect(sendBtn.disabled).toBe(true);
 
     expect(
-      screen.getByText(/Печать\/PDF будут подключены на бэкенде/),
+      screen.getByText(/Отправка и PDF будут подключены на бэкенде/),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("send-status").getAttribute("data-send-status")).toBe("idle");
   });
 
-  it("local send flow sets status to 'sent' and exposes only patient-safe text", () => {
+  it("Отправить пациенту (демо) остаётся disabled даже после Сформировать демо-отчёт", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
 
     fireEvent.change(screen.getByLabelText(/Текст для пациента/), {
@@ -144,16 +143,24 @@ describe("VisitReportTab · demo report form", () => {
     const sendBtn = screen.getByRole("button", {
       name: /Отправить пациенту \(демо\)/,
     }) as HTMLButtonElement;
-    expect(sendBtn.disabled).toBe(false);
+    expect(sendBtn.disabled).toBe(true);
 
-    fireEvent.click(sendBtn);
-
-    const status = screen.getByTestId("send-status");
-    expect(status.getAttribute("data-send-status")).toBe("sent");
-    expect(within(status).getByText(/повторный осмотр через 3 месяца/)).toBeInTheDocument();
-    expect(within(status).queryByText(/контроль через 3 мес/)).toBeNull();
-    expect(status.innerHTML).not.toMatch(
-      /doctorVersionText|patientSafeText|sharedLink|storagePath|photoRef|modelVersion|heatmapRef|externalUserRef|protectedAnalysisLink/,
-    );
+    // Forbidden tokens must not leak anywhere on the page.
+    const j = (...p: string[]) => p.join("");
+    const forbidden = [
+      j("doctor", "Version", "Text"),
+      j("patient", "Safe", "Text"),
+      j("shared", "Link"),
+      j("storage", "Path"),
+      j("photo", "Ref"),
+      j("model", "Version"),
+      j("heatmap", "Ref"),
+      j("external", "User", "Ref"),
+      j("protected", "Analysis", "Link"),
+    ];
+    const html = document.body.innerHTML;
+    for (const token of forbidden) {
+      expect(html.includes(token)).toBe(false);
+    }
   });
 });

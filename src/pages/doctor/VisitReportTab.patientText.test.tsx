@@ -119,14 +119,14 @@ describe("VisitReportTab · patient text editor", () => {
     expect(textarea.value).toBe("a\n\nb");
   });
 
-  it("save then send carries normalized patient text into status block", () => {
+  it("Отправить пациенту (демо) остаётся disabled даже после save и применения шаблона", () => {
     renderAt(path);
     fireEvent.click(screen.getByTestId("tpl-self-care-replace"));
     fireEvent.click(screen.getByRole("button", { name: /Сформировать демо-отчёт/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Отправить пациенту \(демо\)/ }));
 
-    const status = screen.getByTestId("send-status");
-    expect(status.getAttribute("data-send-status")).toBe("sent");
-    expect(within(status).getByText(/самонаблюдение/i)).toBeInTheDocument();
+    const sendBtn = screen.getByRole("button", {
+      name: /Отправить пациенту \(демо\)/,
+    }) as HTMLButtonElement;
+    expect(sendBtn.disabled).toBe(true);
   });
 });

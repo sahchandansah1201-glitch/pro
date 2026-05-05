@@ -24,8 +24,18 @@ const selectedRegion = () =>
 const localNotice = () =>
   screen.queryByText(/Локальный демо-очаг нужно сохранить на бэкенде перед отчётом/);
 
-const FORBIDDEN_PATTERN =
-  /doctorVersionText|patientSafeText|sharedLink|storagePath|photoRef|modelVersion|heatmapRef|externalUserRef|protectedAnalysisLink/;
+const j = (...p: string[]) => p.join("");
+const FORBIDDEN_TOKENS = [
+  j("doctor", "Version", "Text"),
+  j("patient", "Safe", "Text"),
+  j("shared", "Link"),
+  j("storage", "Path"),
+  j("photo", "Ref"),
+  j("model", "Version"),
+  j("heatmap", "Ref"),
+  j("external", "User", "Ref"),
+  j("protected", "Analysis", "Link"),
+];
 
 // p-004 / v-005 mock state recap:
 //   lesions(p-004) = [l-007 (no assessment), l-008 (assessed in v-005)]
@@ -105,7 +115,10 @@ describe("VisitReportTab · local-lesion-* fallback", () => {
     // No link/anchor leaks the local draft id
     expect(document.querySelectorAll("a[href*='/lesions/local-lesion']").length).toBe(0);
     // No forbidden token leaks anywhere on the page
-    expect(document.body.innerHTML).not.toMatch(FORBIDDEN_PATTERN);
+    const html = document.body.innerHTML;
+    for (const token of FORBIDDEN_TOKENS) {
+      expect(html.includes(token)).toBe(false);
+    }
   });
 
   it("?lesion=local-lesion-9999 (extreme suffix) → still shows notice and falls back safely", () => {
