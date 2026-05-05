@@ -62,4 +62,22 @@ describe("body-map-model", () => {
     expect(suggestBodyZone("front", 0.5, 0.05)).toMatch(/лицо/);
     expect(suggestBodyZone("back", 0.5, 0.05)).toMatch(/затылок/);
   });
+
+  it("surface labels, hints and badges cover all five projections", () => {
+    expect(bodyMapSurfaceLabel("front")).toBe("Передняя поверхность");
+    expect(bodyMapSurfaceLabel("back")).toBe("Задняя поверхность");
+    expect(bodyMapSurfaceLabel("left")).toBe("Левая боковая поверхность");
+    expect(bodyMapSurfaceLabel("right")).toBe("Правая боковая поверхность");
+    expect(bodyMapSurfaceLabel("scalp")).toBe("Верх головы");
+
+    expect(bodyMapSurfaceBadge("front")).toBe("ПЕРЕД");
+    expect(bodyMapSurfaceBadge("back")).toBe("СПИНА");
+    expect(bodyMapSurfaceBadge("left")).toBe("ЛЕВЫЙ БОК");
+    expect(bodyMapSurfaceBadge("right")).toBe("ПРАВЫЙ БОК");
+    expect(bodyMapSurfaceBadge("scalp")).toBe("ГОЛОВА");
+
+    expect(bodyMapSurfaceHint("front")).toMatch(/лицо/);
+    expect(bodyMapSurfaceHint("back")).toMatch(/лопатки/);
+    expect(bodyMapSurfaceHint("back")).toMatch(/позвоночник/);
+  });
 });
