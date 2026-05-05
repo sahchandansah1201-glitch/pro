@@ -46,19 +46,8 @@ export const LesionPage = () => {
 // src/pages/sys/Sys{Users,Devices,Audit,ApiKeys}Page.tsx (Task 18).
 
 // ───────── Пациент ─────────
-export const MeHomePage = () => (
-  <PlaceholderPage title="Личный кабинет" subtitle="Отчёты, записи, напоминания." />
-);
-export const MeReportPage = () => {
-  const { id } = useParams();
-  return <PlaceholderPage title={`Отчёт ${id ?? "—"}`} subtitle="Заключение врача, рекомендации, повторный визит." />;
-};
-export const MeBookingPage = () => (
-  <PlaceholderPage title="Запись на приём" subtitle="Выбор врача, услуги и слота." />
-);
-export const MeRemindersPage = () => (
-  <PlaceholderPage title="Напоминания" subtitle="Контроль рехаба, плановые осмотры, follow-up." />
-);
+// MeHomePage, MeReportPage, MeBookingPage, MeRemindersPage moved to
+// src/pages/patient/Me{Home,Report,Booking,Reminders}Page.tsx (Task 19).
 
 // ───────── Защищённый просмотр и бот-симулятор ─────────
 export const AnalysisTokenPage = () => {
