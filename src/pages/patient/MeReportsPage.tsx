@@ -21,6 +21,15 @@ const SORT_LABEL: Record<SortMode, string> = {
   clinic: "По клинике",
 };
 
+type PeriodMode = "all" | "30" | "90" | "365" | "custom";
+const PERIOD_LABEL: Record<PeriodMode, string> = {
+  all: "Всё время",
+  "30": "30 дней",
+  "90": "90 дней",
+  "365": "Год",
+  custom: "Период…",
+};
+
 export default function MeReportsPage() {
   const allReports = useMemo(() => getSafeReports(), []);
   const clinics = useMemo(
@@ -31,11 +40,29 @@ export default function MeReportsPage() {
   const [query, setQuery] = useState("");
   const [clinic, setClinic] = useState<string>("all");
   const [sort, setSort] = useState<SortMode>("new");
+  const [period, setPeriod] = useState<PeriodMode>("all");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+
+  const range = useMemo<{ from?: number; to?: number }>(() => {
+    const now = demoNow();
+    if (period === "all") return {};
+    if (period === "custom") {
+      const from = fromDate ? Date.parse(`${fromDate}T00:00:00Z`) : undefined;
+      const to = toDate ? Date.parse(`${toDate}T23:59:59Z`) : undefined;
+      return { from, to };
+    }
+    const days = Number(period);
+    return { from: now - days * 24 * 60 * 60 * 1000, to: now };
+  }, [period, fromDate, toDate]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = allReports.filter((r) => {
       if (clinic !== "all" && r.clinicName !== clinic) return false;
+      const t = Date.parse(r.visitDate);
+      if (range.from !== undefined && t < range.from) return false;
+      if (range.to !== undefined && t > range.to) return false;
       if (!q) return true;
       return (
         r.summary.toLowerCase().includes(q) ||
@@ -49,18 +76,29 @@ export default function MeReportsPage() {
       return sort === "new" ? -cmp : cmp;
     });
     return list;
-  }, [allReports, query, clinic, sort]);
+  }, [allReports, query, clinic, sort, range]);
 
   const pagination = useListPagination(filtered, {
     mobilePageSize: 5,
     desktopPageSize: 10,
-    deps: [query, clinic, sort],
+    deps: [query, clinic, sort, period, fromDate, toDate],
   });
 
-  const reset = () => { setQuery(""); setClinic("all"); setSort("new"); };
+  const reset = () => {
+    setQuery(""); setClinic("all"); setSort("new");
+    setPeriod("all"); setFromDate(""); setToDate("");
+  };
   const activeFilters: string[] = [];
   if (clinic !== "all") activeFilters.push(`клиника: ${clinic}`);
   if (sort !== "new") activeFilters.push(`сортировка: ${SORT_LABEL[sort].toLowerCase()}`);
+  if (period !== "all") {
+    activeFilters.push(
+      period === "custom"
+        ? `период: ${fromDate || "…"} — ${toDate || "…"}`
+        : `период: ${PERIOD_LABEL[period].toLowerCase()}`,
+    );
+  }
+  const hasAnyFilter = !!query || clinic !== "all" || sort !== "new" || period !== "all";
 
   return (
     <div className="flex h-full flex-col">
