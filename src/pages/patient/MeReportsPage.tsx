@@ -14,11 +14,12 @@ import { getSafeReports, demoNow } from "./patient-data";
 const DEMO_BANNER =
   "Демо-режим. Список заключений сформирован из локальных данных.";
 
-type SortMode = "new" | "old" | "clinic";
+type SortMode = "new" | "old" | "clinic-asc" | "clinic-desc";
 const SORT_LABEL: Record<SortMode, string> = {
   new: "Сначала новые",
   old: "Сначала старые",
-  clinic: "По клинике",
+  "clinic-asc": "Клиника А→Я",
+  "clinic-desc": "Клиника Я→А",
 };
 
 type PeriodMode = "all" | "30" | "90" | "365" | "custom";
