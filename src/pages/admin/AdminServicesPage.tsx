@@ -253,64 +253,58 @@ export default function AdminServicesPage() {
             <tbody>
               {visibleRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
-                    Нет услуг по выбранным фильтрам.
+              {visibleRows.map((s) => (
+                <tr key={s.code} className="border-b border-border/60 last:border-0">
+                  <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{s.code}</td>
+                  <td className="px-3 py-2 font-medium">{s.name}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{CATEGORY_LABEL[s.category]}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{s.durationMin} мин</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {fmtPrice(s.priceMin, s.priceMax)}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">{s.consentNote}</td>
+                  <td className="px-3 py-2">
+                    {s.onlineBooking ? (
+                      <span className="text-[11px]" style={{ color: "hsl(var(--success))" }}>
+                        Да
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">Нет</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px]"
+                      style={{
+                        color: s.active
+                          ? "hsl(var(--success))"
+                          : "hsl(var(--muted-foreground))",
+                        border: `1px solid ${
+                          s.active
+                            ? "hsl(var(--success))"
+                            : "hsl(var(--muted-foreground))"
+                        }`,
+                      }}
+                    >
+                      {s.active ? "Активна" : "Отключена"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 min-h-[44px] sm:min-h-[32px]"
+                      onClick={() =>
+                        setActionNote(
+                          `Редактирование услуги «${s.name}» (${s.code}) появится с бэкендом.`,
+                        )
+                      }
+                    >
+                      Редактировать (демо)
+                    </Button>
                   </td>
                 </tr>
-              ) : (
-                visibleRows.map((s) => (
-                  <tr key={s.code} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{s.code}</td>
-                    <td className="px-3 py-2 font-medium">{s.name}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{CATEGORY_LABEL[s.category]}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{s.durationMin} мин</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {fmtPrice(s.priceMin, s.priceMax)}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">{s.consentNote}</td>
-                    <td className="px-3 py-2">
-                      {s.onlineBooking ? (
-                        <span className="text-[11px]" style={{ color: "hsl(var(--success))" }}>
-                          Да
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">Нет</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[10px]"
-                        style={{
-                          color: s.active
-                            ? "hsl(var(--success))"
-                            : "hsl(var(--muted-foreground))",
-                          border: `1px solid ${
-                            s.active
-                              ? "hsl(var(--success))"
-                              : "hsl(var(--muted-foreground))"
-                          }`,
-                        }}
-                      >
-                        {s.active ? "Активна" : "Отключена"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-9 min-h-[44px] sm:min-h-[32px]"
-                        onClick={() =>
-                          setActionNote(
-                            `Редактирование услуги «${s.name}» (${s.code}) появится с бэкендом.`,
-                          )
-                        }
-                      >
-                        Редактировать (демо)
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </Card>
