@@ -351,6 +351,17 @@ export default function LesionDetailPage() {
           )}
         </Card>
       </div>
+
+      <BodyMapDialog
+        open={mapOpen}
+        onOpenChange={setMapOpen}
+        figure={pickFigure(patient.sex, calcAge(patient.birthDate))}
+        view={lesion.mapPoint.view}
+        x={lesion.mapPoint.x}
+        y={lesion.mapPoint.y}
+        bodyZone={lesion.bodyZone}
+        label={lesion.label}
+      />
     </div>
   );
 }
