@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
-# Pre-commit: блокирует коммит при наличии запрещённых паттернов в doctor-контексте.
+# Pre-commit: сканирует только staged-файлы из doctor-контекста.
 
 echo ""
-echo "▶ pre-commit · doctor-hygiene-scan"
+echo "▶ pre-commit · doctor-hygiene-scan (staged)"
 echo ""
-node scripts/scan-doctor-forbidden.mjs
+node scripts/scan-doctor-forbidden.mjs --staged
 status=$?
 if [ $status -ne 0 ]; then
   echo ""
