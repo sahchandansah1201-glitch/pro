@@ -153,6 +153,13 @@ export default function AdminDoctorsPage() {
     });
   }, [filter, query]);
 
+  const pagination = useListPagination(rows, {
+    mobilePageSize: 4,
+    desktopPageSize: 8,
+    deps: [filter, query],
+  });
+  const visibleRows = pagination.visible;
+
   const note = (text: string) => setActionNote(text);
 
   return (
