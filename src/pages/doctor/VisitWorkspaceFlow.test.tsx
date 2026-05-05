@@ -31,7 +31,7 @@ const tabSelected = (name: RegExp) =>
 
 describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () => {
   it("Body Map → Imaging → Body Map preserves lesion via URL", () => {
-    renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
+    const view = renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
     expect(tabSelected(/body map/i)).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
     expect(tabSelected(/снимки/i)).toBe(true);
@@ -41,49 +41,68 @@ describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () 
     expect(lesionSelect).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Открыть на Body Map/ }));
     expect(tabSelected(/body map/i)).toBe(true);
+    view.unmount();
   });
 
-  it("Assessment → Imaging and Assessment → Conclusion preserve lesion", () => {
-    renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
+  it("Assessment → Imaging preserves lesion", () => {
+    const v = renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
     expect(tabSelected(/Оценка/)).toBe(true);
-    fireEvent.click(screen.getAllByRole("button", { name: /К снимкам этого очага/ })[0]);
+    fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
     expect(tabSelected(/снимки/i)).toBe(true);
     const sel = (screen.getAllByRole("combobox") as HTMLSelectElement[]).find(
       (s) => s.value === "l-008",
     );
     expect(sel).toBeTruthy();
-
-    renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
-    fireEvent.click(screen.getAllByRole("button", { name: /К заключению по визиту/ })[0]);
-    expect(tabSelected(/Заключение/)).toBe(true);
+    v.unmount();
   });
 
-  it("Conclusion → Assessment, Imaging, Report preserve lesion", () => {
-    renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
-    fireEvent.click(screen.getAllByRole("button", { name: /К оценке очага/ })[0]);
+  it("Assessment → Conclusion preserves lesion", () => {
+    const v = renderAt("/patients/p-004/visits/v-005?tab=assessment&lesion=l-008");
+    fireEvent.click(screen.getByRole("button", { name: /К заключению по визиту/ }));
+    expect(tabSelected(/Заключение/)).toBe(true);
+    v.unmount();
+  });
+
+  it("Conclusion → Assessment preserves lesion", () => {
+    const v = renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
+    fireEvent.click(screen.getByRole("button", { name: /К оценке очага/ }));
     expect(tabSelected(/Оценка/)).toBe(true);
+    v.unmount();
+  });
 
-    renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
-    fireEvent.click(screen.getAllByRole("button", { name: /К снимкам очага/ })[0]);
+  it("Conclusion → Imaging preserves lesion", () => {
+    const v = renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
+    fireEvent.click(screen.getByRole("button", { name: /К снимкам очага/ }));
     expect(tabSelected(/снимки/i)).toBe(true);
+    v.unmount();
+  });
 
-    renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
+  it("Conclusion → Report preserves lesion", () => {
+    const v = renderAt("/patients/p-004/visits/v-005?tab=conclusion&lesion=l-008");
     fireEvent.click(screen.getAllByRole("button", { name: /К отчёту по визиту/ })[0]);
     expect(tabSelected(/Отчёт/)).toBe(true);
+    v.unmount();
   });
 
-  it("Report → Assessment, Conclusion, Imaging preserve lesion", () => {
-    renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    fireEvent.click(screen.getAllByRole("button", { name: /К оценке очага/ })[0]);
+  it("Report → Assessment preserves lesion", () => {
+    const v = renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
+    fireEvent.click(screen.getByRole("button", { name: /К оценке очага/ }));
     expect(tabSelected(/Оценка/)).toBe(true);
+    v.unmount();
+  });
 
-    renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    fireEvent.click(screen.getAllByRole("button", { name: /К заключению по визиту/ })[0]);
+  it("Report → Conclusion preserves lesion", () => {
+    const v = renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
+    fireEvent.click(screen.getByRole("button", { name: /К заключению по визиту/ }));
     expect(tabSelected(/Заключение/)).toBe(true);
+    v.unmount();
+  });
 
-    renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    fireEvent.click(screen.getAllByRole("button", { name: /К снимкам очага/ })[0]);
+  it("Report → Imaging preserves lesion", () => {
+    const v = renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
+    fireEvent.click(screen.getByRole("button", { name: /К снимкам очага/ }));
     expect(tabSelected(/снимки/i)).toBe(true);
+    v.unmount();
   });
 
   it("each downstream tab opens with l-008 context preserved via URL", () => {
