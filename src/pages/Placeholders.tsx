@@ -34,21 +34,12 @@ export const LesionPage = () => {
   );
 };
 
-// ───────── Администратор клиники (интеграции реализованы в AdminIntegrationsPage / AdminIntegrationDetailPage) ─────────
-export const AdminHomePage = () => (
-  <PlaceholderPage title="Администрирование клиники" subtitle="Сводка по клинике, лидам и расписанию." />
-);
-export const AdminDoctorsPage = () => (
-  <PlaceholderPage title="Врачи" subtitle="Состав, специализации, расписание, лицензии." />
-);
-export const AdminServicesPage = () => (
-  <PlaceholderPage title="Услуги и тарифы" subtitle="Каталог услуг, цены, длительность." />
-);
-export const AdminClinicsPage = () => (
-  <PlaceholderPage title="Клиники и филиалы" subtitle="Адреса, контакты, партнёрский маршрутинг." />
-);
+// ───────── Администратор клиники ─────────
+// AdminHomePage, AdminDoctorsPage, AdminServicesPage, AdminClinicsPage
+//   moved to src/pages/admin/Admin{Home,Doctors,Services,Clinics}Page.tsx (Task 17).
 // AdminBotPage moved to src/pages/admin/AdminBotSettingsPage.tsx (Task 15).
 // AdminAnalyticsPage moved to src/pages/admin/AdminAnalyticsPage.tsx (Task 16).
+// AdminIntegrationsPage / AdminIntegrationDetailPage реализованы отдельно.
 
 // ───────── Оператор поддержки (реализован в OperatorConsolePage / OperatorDialogPage) ─────────
 
