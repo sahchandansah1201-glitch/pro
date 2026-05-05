@@ -24,6 +24,9 @@ import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
 import {
   BODY_MAP_VIEWS,
   BODY_MAP_VIEW_BUTTON_LABEL,
+  bodyMapSurfaceBadge,
+  bodyMapSurfaceHint,
+  bodyMapSurfaceLabel,
   bodyMapVariantLabel,
   bodyMapViewLabel,
   getBodyMapVariant,
