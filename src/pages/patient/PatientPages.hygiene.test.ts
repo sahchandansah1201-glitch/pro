@@ -47,7 +47,7 @@ describe("Patient pages — hygiene scan", () => {
     }
   });
 
-  it("source contains no network/storage/Date.now/window.print", () => {
+  it("source contains no network/storage/timing/print APIs", () => {
     for (const f of files) {
       const src = readFileSync(f, "utf8");
       for (const a of FORBIDDEN_APIS) {
