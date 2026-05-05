@@ -34,12 +34,29 @@ function openBodyMap() {
 }
 
 describe("VisitWorkspacePage · Body map", () => {
-  it("p-001/v-001 (female) shows 'Тип карты: Женщина' and aria-label includes Женщина", () => {
+  it("p-001/v-001 (female) shows 'Тип карты: Женщина', front surface label, badge and aria-label", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
+    fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
     expect(screen.getByText(/Тип карты:\s*Женщина/)).toBeInTheDocument();
+    expect(screen.getByText(/Передняя поверхность/)).toBeInTheDocument();
     const svg = screen.getByRole("img", { name: /Body map/ });
     expect(svg.getAttribute("aria-label")).toMatch(/Женщина/);
+    expect(svg.getAttribute("aria-label")).toMatch(/Передняя поверхность/);
+    expect(svg.textContent).toMatch(/ПЕРЕД/);
+  });
+
+  it("clicking 'Сзади' switches to back surface with hint and aria-label", () => {
+    renderAt("/patients/p-001/visits/v-001");
+    openBodyMap();
+    fireEvent.click(screen.getByRole("button", { name: "Сзади" }));
+    expect(screen.getByText(/Задняя поверхность/)).toBeInTheDocument();
+    const hint = screen.getByText(/Ориентиры:/);
+    expect(hint.textContent).toMatch(/лопатки/);
+    expect(hint.textContent).toMatch(/позвоночник/);
+    const svg = screen.getByRole("img", { name: /Body map/ });
+    expect(svg.getAttribute("aria-label")).toMatch(/Задняя поверхность/);
+    expect(svg.textContent).toMatch(/СПИНА/);
   });
 
   it("p-004/v-005 (male) shows 'Тип карты: Мужчина'", () => {
@@ -62,7 +79,7 @@ describe("VisitWorkspacePage · Body map", () => {
     openBodyMap();
     fireEvent.click(screen.getByText(/Очаг B/));
     const svg = screen.getByRole("img", { name: /Body map/ });
-    expect(svg.getAttribute("aria-label")).toMatch(/слева/);
+    expect(svg.getAttribute("aria-label")).toMatch(/Левая боковая поверхность/);
   });
 
   it("clicking SVG creates a 'Новая точка (демо)' with confirm/cancel; confirm shows demo-not-saved note", () => {
