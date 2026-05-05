@@ -1,8 +1,8 @@
 name: doctor-hygiene-scan
 
 # Регулярное сканирование запрещённых паттернов в doctor-контексте.
-# Запускается на каждый push/PR и по расписанию (ежедневно в 03:00 UTC),
-# чтобы своевременно ловить регрессии.
+# Запускается на каждый push/PR, по расписанию и вручную.
+# Отчёт сохраняется как артефакт сборки (reports/doctor-hygiene/).
 
 on:
   push:
@@ -11,12 +11,14 @@ on:
       - "src/pages/doctor/**"
       - "src/App.tsx"
       - "scripts/scan-doctor-forbidden.mjs"
+      - "scripts/forbidden-patterns.mjs"
       - ".github/workflows/doctor-hygiene-scan.yml"
   pull_request:
     paths:
       - "src/pages/doctor/**"
       - "src/App.tsx"
       - "scripts/scan-doctor-forbidden.mjs"
+      - "scripts/forbidden-patterns.mjs"
   schedule:
     - cron: "0 3 * * *"
   workflow_dispatch:
@@ -35,4 +37,21 @@ jobs:
           node-version: "20"
 
       - name: Запуск сканера
+        id: scan
         run: node scripts/scan-doctor-forbidden.mjs
+
+      - name: Публикация отчёта в GitHub Step Summary
+        if: always()
+        run: |
+          if [ -f reports/doctor-hygiene/scan-report.md ]; then
+            cat reports/doctor-hygiene/scan-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Загрузка артефакта отчёта
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctor-hygiene-scan-report
+          path: reports/doctor-hygiene/
+          if-no-files-found: warn
+          retention-days: 30
