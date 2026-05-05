@@ -326,8 +326,14 @@ function BodyMapTab({
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<string | null>(initialLesion?.lesion.id ?? null);
   const [pending, setPending] = useState<PendingPoint | null>(null);
+  const [draftLabel, setDraftLabel] = useState("Новый очаг");
+  const [draftStatus, setDraftStatus] = useState<Lesion["status"]>("active");
+  const [draftNote, setDraftNote] = useState("");
   const [zoneDraft, setZoneDraft] = useState("");
-  const [confirmedDemo, setConfirmedDemo] = useState<PendingPoint[]>([]);
+  const [localDrafts, setLocalDrafts] = useState<LocalLesionDraft[]>([]);
+
+  const isLocalId = (id: string | null) => !!id && id.startsWith("local-lesion-");
+  const selectedDraft = selected && isLocalId(selected) ? localDrafts.find((d) => d.id === selected) ?? null : null;
 
   // React to external (URL) lesion changes.
   useEffect(() => {
@@ -339,10 +345,15 @@ function BodyMapTab({
   // Switch projection whenever the selected lesion lives on a different one.
   useEffect(() => {
     if (!selected) return;
+    if (isLocalId(selected)) {
+      const d = localDrafts.find((x) => x.id === selected);
+      if (d) setView((current) => (current === d.mapPoint.view ? current : d.mapPoint.view));
+      return;
+    }
     const p = placedLesions.find((x) => x.lesion.id === selected)?.point;
     if (!p) return;
     setView((current) => (current === p.view ? current : p.view));
-  }, [selected, placedLesions]);
+  }, [selected, placedLesions, localDrafts]);
 
   // Drop pending placement when projection changes.
   useEffect(() => {
@@ -350,7 +361,7 @@ function BodyMapTab({
   }, [view]);
 
   const visiblePoints = placedLesions.filter((p) => p.point.view === view);
-  const selectedLesion = selected ? lesions.find((l) => l.id === selected) ?? null : null;
+  const selectedLesion = selected && !isLocalId(selected) ? lesions.find((l) => l.id === selected) ?? null : null;
   const visitAssessments = getAssessmentsByVisitId(visit.id);
   const selImages = selectedLesion ? getImagesByLesionId(selectedLesion.id) : [];
   const selImageCount = selImages.length;
@@ -365,15 +376,35 @@ function BodyMapTab({
     const zone = suggestBodyZone(np.view, np.x, np.y);
     setPending({ view: np.view, x: np.x, y: np.y, zone });
     setZoneDraft(zone);
+    setDraftLabel("Новый очаг");
+    setDraftStatus("active");
+    setDraftNote("");
   };
 
-  const confirmPending = () => {
-    if (!pending) return;
-    setConfirmedDemo((prev) => [...prev, { ...pending, zone: zoneDraft || pending.zone }]);
+  const cancelPending = () => {
     setPending(null);
+    setDraftNote("");
   };
 
-  const localDemoForView = confirmedDemo.filter((p) => p.view === view);
+  const addLocalDraft = () => {
+    if (!pending) return;
+    const id = `local-lesion-${localDrafts.length + 1}`;
+    const draft: LocalLesionDraft = {
+      id,
+      label: draftLabel.trim() || "Новый очаг",
+      bodyZone: zoneDraft.trim() || pending.zone,
+      status: draftStatus,
+      mapPoint: { view: pending.view, x: pending.x, y: pending.y },
+      note: draftNote,
+      createdAt: BODY_MAP_DEMO_NOW,
+    };
+    setLocalDrafts((prev) => [...prev, draft]);
+    setSelected(id);
+    setPending(null);
+    setDraftNote("");
+  };
+
+  const localDraftsForView = localDrafts.filter((d) => d.mapPoint.view === view);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-12">
