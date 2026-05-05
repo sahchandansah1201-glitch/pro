@@ -41,6 +41,7 @@ export default function MeReportsPage() {
   );
 
   const [query, setQuery] = useState("");
+  const [doctorQuery, setDoctorQuery] = useState("");
   const [clinic, setClinic] = useState<string>("all");
   const [sort, setSort] = useState<SortMode>("new");
   const [period, setPeriod] = useState<PeriodMode>("all");
@@ -70,15 +71,18 @@ export default function MeReportsPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const dq = doctorQuery.trim().toLowerCase();
     let list = allReports.filter((r) => {
       if (clinic !== "all" && r.clinicName !== clinic) return false;
       const t = Date.parse(r.visitDate);
       if (range.from !== undefined && t < range.from) return false;
       if (range.to !== undefined && t > range.to) return false;
+      if (dq && !r.doctorName.toLowerCase().includes(dq)) return false;
       if (!q) return true;
       return (
         r.summary.toLowerCase().includes(q) ||
         r.clinicName.toLowerCase().includes(q) ||
+        r.doctorName.toLowerCase().includes(q) ||
         formatDate(r.visitDate).toLowerCase().includes(q)
       );
     });
