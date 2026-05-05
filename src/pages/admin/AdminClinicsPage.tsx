@@ -110,6 +110,23 @@ export default function AdminClinicsPage() {
   });
   const visibleRows = pagination.visible;
 
+  const activeFilterLabels =
+    filter === "all" ? [] : [`фильтр: ${FILTERS.find((f) => f.key === filter)?.label}`];
+  const resetAll = () => {
+    setFilter("all");
+    setSort("priority");
+  };
+  const isEmpty = visible.length === 0;
+  const emptyState = (
+    <ListEmptyState
+      itemNoun="клиник"
+      activeFilters={activeFilterLabels}
+      totalUnfiltered={enriched.length}
+      onReset={resetAll}
+      hint="В демо-каталоге фиксированный список клиник. Реальный маршрутинг и партнёрские филиалы появятся с бэкендом."
+    />
+  );
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
