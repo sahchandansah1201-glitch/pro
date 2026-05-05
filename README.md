@@ -26,4 +26,16 @@
 
 ### Запрещённые имена полей и ключей
 
-Прямые ссылки на чувствительные доменные контракты запрещены — их след
+Прямые ссылки на чувствительные доменные контракты запрещены — их следует читать через accessor-слой [`src/lib/report-access.ts`](./src/lib/report-access.ts):
+
+| Паттерн | Чем заменить |
+| --- | --- |
+| `doctorVersionText` | accessor `getReportInternalText(report)` |
+| `patientSafeText` | accessor `getReportSafeText(report)` |
+| `sharedLink` | accessors `getReportLinkExpiry` / `getReportLinkToken` |
+| `storagePath` | локальный мок-ключ (например, `localFileKey`) |
+| `photoRef` | доменные id фото из `mock-data` |
+| `modelVersion` | не пробрасывать в UI |
+| `heatmapRef` | accessor (когда появится), не строковый ключ |
+| `externalUserRef` | использовать только в operator/admin контексте |
+| `prot
