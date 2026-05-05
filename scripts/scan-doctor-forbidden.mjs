@@ -231,6 +231,23 @@ for (const file of sortedFiles) {
   }
 }
 
+// Сводка по токенам — какие правила чаще всего нарушаются.
+const byToken = {};
+for (const f of findings) byToken[f.token] = (byToken[f.token] || 0) + 1;
+const tokenRows = Object.entries(byToken).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+const maxSumTokW = Math.min(28, Math.max(...tokenRows.map(([t]) => t.length)));
+const maxSumCntW = String(tokenRows[0][1]).length;
+
+console.log("");
+console.log(HR);
+console.log(`  ${bold("Сводка по токенам")}  ${dim(`(${tokenRows.length} уникальных)`)}`);
+console.log(HR);
+for (const [tok, cnt] of tokenRows) {
+  const t = tok.padEnd(maxSumTokW).slice(0, maxSumTokW);
+  const n = String(cnt).padStart(maxSumCntW);
+  console.log(`    ${yellow(t)} ${dim("│")} ${bold(n)}`);
+}
+
 console.log("");
 console.log(HR);
 console.log(`  ${red("Сканирование завершено с ошибкой.")}`);
