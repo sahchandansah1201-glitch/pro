@@ -250,14 +250,14 @@ export default function AdminDoctorsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {visibleRows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                     Нет врачей по выбранным фильтрам.
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
+                visibleRows.map((r) => (
                   <tr key={r.id} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2 font-medium">{r.fullName}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.specialty}</td>
