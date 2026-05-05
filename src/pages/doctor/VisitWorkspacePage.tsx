@@ -284,7 +284,19 @@ interface PendingPoint {
   zone: string;
 }
 
-function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visit; lesions: Lesion[] }) {
+function BodyMapTab({
+  patient,
+  visit,
+  lesions,
+  initialLesionId,
+  onOpenImaging,
+}: {
+  patient: Patient;
+  visit: Visit;
+  lesions: Lesion[];
+  initialLesionId?: string | null;
+  onOpenImaging: (lesionId: string) => void;
+}) {
   const variant: BodyMapVariant = getBodyMapVariant(patient);
   const variantLabel = bodyMapVariantLabel(variant);
 
@@ -292,7 +304,10 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
     return lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
   }, [lesions]);
 
-  const initialLesion = placedLesions[0] ?? null;
+  const initialFromParam = initialLesionId
+    ? placedLesions.find((p) => p.lesion.id === initialLesionId) ?? null
+    : null;
+  const initialLesion = initialFromParam ?? placedLesions[0] ?? null;
   const initialView: View = initialLesion?.point.view ?? "front";
 
   const [view, setView] = useState<View>(initialView);
@@ -301,6 +316,13 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
   const [pending, setPending] = useState<PendingPoint | null>(null);
   const [zoneDraft, setZoneDraft] = useState("");
   const [confirmedDemo, setConfirmedDemo] = useState<PendingPoint[]>([]);
+
+  // React to external (URL) lesion changes.
+  useEffect(() => {
+    if (initialLesionId && placedLesions.some((p) => p.lesion.id === initialLesionId)) {
+      setSelected(initialLesionId);
+    }
+  }, [initialLesionId, placedLesions]);
 
   // Switch projection whenever the selected lesion lives on a different one.
   useEffect(() => {
@@ -318,8 +340,14 @@ function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visi
   const visiblePoints = placedLesions.filter((p) => p.point.view === view);
   const selectedLesion = selected ? lesions.find((l) => l.id === selected) ?? null : null;
   const visitAssessments = getAssessmentsByVisitId(visit.id);
-  const selImageCount = selectedLesion ? getImagesByLesionId(selectedLesion.id).length : 0;
+  const selImages = selectedLesion ? getImagesByLesionId(selectedLesion.id) : [];
+  const selImageCount = selImages.length;
   const selAssessment = selectedLesion ? visitAssessments.find((a) => a.lesionId === selectedLesion.id) : undefined;
+  const selKinds = Array.from(new Set(selImages.map((i) => i.kind)));
+  const selNeedsReview = selImages.some((i) => i.quality.score < 0.8 || i.quality.issues.length > 0);
+  const selLatestAt = selImages.length
+    ? selImages.map((i) => i.capturedAt).sort().slice(-1)[0]
+    : null;
 
   const handlePlace = (np: { view: View; x: number; y: number }) => {
     const zone = suggestBodyZone(np.view, np.x, np.y);
