@@ -384,14 +384,7 @@ interface DemoReportDraft {
   createdAt: string;
 }
 
-type SendStatus = "idle" | "sending" | "sent" | "failed";
-
-interface SendRecord {
-  status: SendStatus;
-  at: string;
-  patientTextPreview: string;
-  reason?: string;
-}
+// SendStatus / SendRecord types are imported from send-history-storage.
 
 // ───────── Patient text validation & templates ─────────
 
