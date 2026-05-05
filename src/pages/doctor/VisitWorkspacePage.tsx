@@ -225,6 +225,7 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
 type View = "front" | "back";
 
 function BodyMapTab({ patient, visit, lesions }: { patient: Patient; visit: Visit; lesions: Lesion[] }) {
+  const figure: Figure = pickFigure(patient.sex, calcAge(patient.birthDate));
   // Resolved points keep view stable across renders.
   const placedLesions = useMemo(() => {
     const placed = lesions.map((l, i) => ({ lesion: l, point: resolvePoint(l), num: i + 1 }));
