@@ -355,8 +355,7 @@ export default function AdminServicesPage() {
                   Редактировать (демо)
                 </Button>
               </Card>
-            ))
-          )}
+          ))}
         </div>
 
         <ListPagination
