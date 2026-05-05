@@ -207,7 +207,14 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <VisitAssessmentTab visit={visit} lesions={lesions} />
+          <VisitAssessmentTab
+            visit={visit}
+            lesions={lesions}
+            selectedLesionId={lesionParam}
+            onSelectLesion={(lesionId) => updateNav("assessment", lesionId)}
+            onOpenImaging={(lesionId) => updateNav("imaging", lesionId)}
+            onOpenConclusion={(lesionId) => updateNav("conclusion", lesionId)}
+          />
         </TabsContent>
 
         <TabsContent value="conclusion" className="m-0 min-h-0 flex-1 overflow-auto p-4">
