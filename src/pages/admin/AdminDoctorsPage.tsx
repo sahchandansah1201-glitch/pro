@@ -327,13 +327,8 @@ export default function AdminDoctorsPage() {
         </Card>
 
         {/* Mobile карточки */}
-        <div className="grid grid-cols-1 gap-2 md:hidden">
-          {visibleRows.length === 0 ? (
-            <Card className="p-4 text-center text-[12px] text-muted-foreground">
-              Нет врачей по выбранным фильтрам.
-            </Card>
-          ) : (
-            visibleRows.map((r) => (
+        <div className={`grid grid-cols-1 gap-2 md:hidden ${isEmpty ? "hidden" : ""}`}>
+          {visibleRows.map((r) => (
               <Card key={r.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
