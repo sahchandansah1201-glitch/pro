@@ -79,9 +79,10 @@ export default function DeskPage() {
 
   const devices = getDevices();
   const devicesTotal = devices.length;
+  const DEMO_NOW_MS = Date.parse("2026-05-04T00:00:00Z");
   const devicesRecent = devices.filter((d) => {
     const last = new Date(d.lastSeenAt).getTime();
-    return Date.now() - last < 1000 * 60 * 60 * 24 * 30;
+    return DEMO_NOW_MS - last < 1000 * 60 * 60 * 24 * 30;
   }).length;
 
   return (

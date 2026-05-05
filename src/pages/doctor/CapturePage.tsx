@@ -64,7 +64,7 @@ interface QueueItem {
   lesionId: string | null;
   createdAt: string;
   quality: { score: number; issues: string[] };
-  storagePath: string;
+  localFileKey: string;
   deviceId: string | null;
   linkStatus: LinkStatus;
 }
@@ -80,7 +80,7 @@ const QUALITY_PRESETS: Array<{ score: number; issues: string[] }> = [
 let SEQ = 0;
 function nextId(prefix: string) {
   SEQ += 1;
-  return `${prefix}-${Date.now().toString(36)}-${SEQ}`;
+  return `${prefix}-${SEQ.toString(36).padStart(4, "0")}`;
 }
 
 function pickQuality(seed: number, improved = false) {
@@ -162,7 +162,7 @@ export default function CapturePage() {
       lesionId: lesionId || null,
       createdAt: new Date().toISOString(),
       quality: q,
-      storagePath: `local-mock://capture/${source}/${nextId("f")}.jpg`,
+      localFileKey: `local-mock://capture/${source}/${nextId("f")}.jpg`,
       deviceId: opts?.deviceId ?? null,
       linkStatus: "new",
     };
@@ -180,7 +180,7 @@ export default function CapturePage() {
       id: nextId("cap"),
       createdAt: new Date().toISOString(),
       quality: { score: 0.91, issues: [] },
-      storagePath: `local-mock://capture/${src.source}/${nextId("f")}.jpg`,
+      localFileKey: `local-mock://capture/${src.source}/${nextId("f")}.jpg`,
       linkStatus: "new",
     };
     setQueue((prev) => [newItem, ...prev]);

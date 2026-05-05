@@ -2,8 +2,12 @@ import { Button } from "@/components/ui/button";
 import { getReportByVisitId } from "@/lib/mock-data";
 import type { Patient, Visit } from "@/lib/domain";
 import { formatDate, formatDateTime } from "@/lib/format";
-
-const DEMO_NOW = "2026-05-04T00:00:00Z";
+import {
+  DEMO_NOW_ISO,
+  getReportInternalText,
+  getReportLinkExpiry,
+  getReportSafeText,
+} from "@/lib/report-access";
 
 interface Props {
   patient: Patient;
@@ -37,8 +41,11 @@ export function VisitReportTab({ patient, visit }: Props) {
     );
   }
 
-  const expiryMs = Date.parse(report.sharedLink.expiresAt);
-  const nowMs = Date.parse(DEMO_NOW);
+  const safeText = getReportSafeText(report);
+  const internalText = getReportInternalText(report);
+  const expiresAt = getReportLinkExpiry(report);
+  const expiryMs = expiresAt ? Date.parse(expiresAt) : 0;
+  const nowMs = Date.parse(DEMO_NOW_ISO);
   const isActive = expiryMs >= nowMs;
 
   return (
@@ -64,17 +71,14 @@ export function VisitReportTab({ patient, visit }: Props) {
         <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-3">
           <Field term="Сформирован" value={formatDateTime(report.generatedAt)} />
           <Field term="ID отчёта" value={<span className="font-mono">{report.id}</span>} />
-          <Field
-            term="Статус ссылки"
-            value={isActive ? "активна" : "истекла"}
-          />
+          <Field term="Статус ссылки" value={isActive ? "активна" : "истекла"} />
         </dl>
       </section>
 
       <section className="rounded-md border border-border bg-surface p-3">
         <h3 className="mb-1 text-[13px] font-semibold">Текст для пациента</h3>
         <p className="whitespace-pre-wrap text-[13px] leading-relaxed sm:text-[14px]">
-          {report.patientSafeText}
+          {safeText}
         </p>
         <p className="mt-2 text-[12px] text-muted-foreground">
           Безопасная формулировка для пациента.
@@ -84,7 +88,7 @@ export function VisitReportTab({ patient, visit }: Props) {
       <section className="rounded-md border border-border bg-surface p-3">
         <h3 className="mb-1 text-[13px] font-semibold">Версия для врача</h3>
         <p className="whitespace-pre-wrap text-[13px] leading-relaxed sm:text-[14px]">
-          {report.doctorVersionText}
+          {internalText}
         </p>
         <p className="mt-2 text-[12px] text-muted-foreground">
           Внутренняя врачебная версия. Не отправляется в CRM по умолчанию.
@@ -94,11 +98,8 @@ export function VisitReportTab({ patient, visit }: Props) {
       <section className="rounded-md border border-border bg-surface p-3">
         <h3 className="mb-2 text-[13px] font-semibold">Защищённая ссылка отчёта</h3>
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-2">
-          <Field
-            term="Токен (демо)"
-            value={<span className="font-mono break-all">{report.sharedLink.token}</span>}
-          />
-          <Field term="Действует до" value={formatDateTime(report.sharedLink.expiresAt)} />
+          <Field term="Просмотр" value="Защищённый просмотр: демо-ссылка скрыта" />
+          {expiresAt && <Field term="Действует до" value={formatDateTime(expiresAt)} />}
           <Field term="Статус" value={isActive ? "активна" : "истекла"} />
         </dl>
         {!isActive && (
