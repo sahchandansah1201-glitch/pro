@@ -35,6 +35,7 @@ import SysAuditPage from "./pages/sys/SysAuditPage";
 import SysApiKeysPage from "./pages/sys/SysApiKeysPage";
 import MeHomePage from "./pages/patient/MeHomePage";
 import MeReportPage from "./pages/patient/MeReportPage";
+import MeReportsPage from "./pages/patient/MeReportsPage";
 import MeBookingPage from "./pages/patient/MeBookingPage";
 import MeRemindersPage from "./pages/patient/MeRemindersPage";
 import {
@@ -95,6 +96,7 @@ const App = () => (
 
               {/* Patient portal */}
               <Route path="/me" element={<G><MeHomePage /></G>} />
+              <Route path="/me/reports" element={<G><MeReportsPage /></G>} />
               <Route path="/me/reports/:id" element={<G><MeReportPage /></G>} />
               <Route path="/me/booking" element={<G><MeBookingPage /></G>} />
               <Route path="/me/reminders" element={<G><MeRemindersPage /></G>} />

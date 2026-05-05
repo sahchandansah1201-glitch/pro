@@ -1,0 +1,197 @@
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { FileText, ShieldAlert, Search, X } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ListEmptyState } from "@/components/admin/ListEmptyState";
+import { ListPagination } from "@/components/admin/ListPagination";
+import { useListPagination } from "@/lib/use-list-pagination";
+import { formatDate } from "@/lib/format";
+import { getSafeReports } from "./patient-data";
+
+const DEMO_BANNER =
+  "Демо-режим. Список заключений сформирован из локальных данных.";
+
+type SortMode = "new" | "old" | "clinic";
+const SORT_LABEL: Record<SortMode, string> = {
+  new: "Сначала новые",
+  old: "Сначала старые",
+  clinic: "По клинике",
+};
+
+export default function MeReportsPage() {
+  const allReports = useMemo(() => getSafeReports(), []);
+  const clinics = useMemo(
+    () => Array.from(new Set(allReports.map((r) => r.clinicName))).sort(),
+    [allReports],
+  );
+
+  const [query, setQuery] = useState("");
+  const [clinic, setClinic] = useState<string>("all");
+  const [sort, setSort] = useState<SortMode>("new");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = allReports.filter((r) => {
+      if (clinic !== "all" && r.clinicName !== clinic) return false;
+      if (!q) return true;
+      return (
+        r.summary.toLowerCase().includes(q) ||
+        r.clinicName.toLowerCase().includes(q) ||
+        formatDate(r.visitDate).toLowerCase().includes(q)
+      );
+    });
+    list = [...list].sort((a, b) => {
+      if (sort === "clinic") return a.clinicName.localeCompare(b.clinicName, "ru");
+      const cmp = a.visitDate.localeCompare(b.visitDate);
+      return sort === "new" ? -cmp : cmp;
+    });
+    return list;
+  }, [allReports, query, clinic, sort]);
+
+  const pagination = useListPagination(filtered, {
+    mobilePageSize: 5,
+    desktopPageSize: 10,
+    deps: [query, clinic, sort],
+  });
+
+  const reset = () => { setQuery(""); setClinic("all"); setSort("new"); };
+  const activeFilters: string[] = [];
+  if (clinic !== "all") activeFilters.push(`клиника: ${clinic}`);
+  if (sort !== "new") activeFilters.push(`сортировка: ${SORT_LABEL[sort].toLowerCase()}`);
+
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader title="Мои заключения" subtitle="Поиск, фильтр по клинике и сортировка." />
+
+      <div className="space-y-3 p-3 sm:p-4">
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]"
+          style={{
+            background: "hsl(var(--info) / 0.08)",
+            borderColor: "hsl(var(--info) / 0.30)",
+            color: "hsl(var(--info))",
+          }}
+        >
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>{DEMO_BANNER}</span>
+        </div>
+
+        <Card className="p-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
+            <label className="relative">
+              <span className="sr-only">Поиск по заключениям</span>
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Поиск по тексту, клинике, дате"
+                className="h-11 pl-7 text-[13px] sm:h-9"
+              />
+              {query && (
+                <button
+                  type="button"
+                  aria-label="Очистить поиск"
+                  onClick={() => setQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </label>
+
+            <label className="flex items-center gap-2 text-[12px]">
+              <span className="text-muted-foreground">Клиника</span>
+              <select
+                value={clinic}
+                onChange={(e) => setClinic(e.target.value)}
+                className="h-11 rounded-md border border-input bg-background px-2 text-[13px] sm:h-9"
+                aria-label="Фильтр по клинике"
+              >
+                <option value="all">Все ({allReports.length})</option>
+                {clinics.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Сортировка">
+              {(Object.keys(SORT_LABEL) as SortMode[]).map((m) => (
+                <Button
+                  key={m}
+                  type="button"
+                  size="sm"
+                  variant={sort === m ? "default" : "outline"}
+                  aria-pressed={sort === m}
+                  className="min-h-[44px] sm:min-h-[32px]"
+                  onClick={() => setSort(m)}
+                >
+                  {SORT_LABEL[m]}
+                </Button>
+              ))}
+            </div>
+
+            {(query || clinic !== "all" || sort !== "new") && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={reset}
+                className="min-h-[44px] sm:min-h-[32px]"
+              >
+                Сбросить
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        {filtered.length === 0 ? (
+          <ListEmptyState
+            itemNoun="заключений"
+            query={query}
+            activeFilters={activeFilters}
+            totalUnfiltered={allReports.length}
+            onReset={reset}
+            hint="Уточните поиск или выберите другую клинику."
+          />
+        ) : (
+          <Card className="p-3 sm:p-4">
+            <ul className="divide-y divide-border">
+              {pagination.visible.map((r) => (
+                <li key={r.id} className="flex items-start gap-3 py-3">
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
+                      <span className="font-medium">{formatDate(r.visitDate)}</span>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="truncate text-muted-foreground">{r.clinicName}</span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{r.summary}</p>
+                  </div>
+                  <Button asChild size="sm" variant="outline" className="shrink-0 min-h-[44px] sm:min-h-[32px]">
+                    <Link to={`/me/reports/${r.id}`}>Открыть</Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3">
+              <ListPagination
+                page={pagination.page}
+                pageCount={pagination.pageCount}
+                total={pagination.total}
+                rangeLabel={pagination.rangeLabel}
+                canPrev={pagination.canPrev}
+                canNext={pagination.canNext}
+                onPageChange={pagination.setPage}
+                itemNoun="заключений"
+              />
+            </div>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
