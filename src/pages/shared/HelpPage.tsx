@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock, Search, X, ChevronDown, ChevronUp } from "lucide-react";
+import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock, Search, X, ChevronDown, ChevronUp, Check, Ban } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
