@@ -102,6 +102,13 @@ export default function AdminClinicsPage() {
     return sorted;
   }, [enriched, filter, sort]);
 
+  const pagination = useListPagination(visible, {
+    mobilePageSize: 4,
+    desktopPageSize: 6,
+    deps: [filter, sort],
+  });
+  const visibleRows = pagination.visible;
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
