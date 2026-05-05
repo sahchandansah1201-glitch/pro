@@ -257,7 +257,7 @@ export default function AdminDoctorsPage() {
         {isEmpty && emptyState}
 
         {/* Desktop таблица */}
-        <Card className="hidden p-0 md:block">
+        <Card className={`hidden p-0 md:block ${isEmpty ? "md:hidden" : ""}`}>
           <table className="w-full text-[12px]">
             <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
