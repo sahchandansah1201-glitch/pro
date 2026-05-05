@@ -474,8 +474,6 @@ function DemoReportForm({
   assessment,
 }: {
   assessment: Assessment | null;
-  visitId: string;
-  lesionId: string | null;
 }) {
   const [title, setTitle] = useState("");
   const [patientText, setPatientText] = useState("");
