@@ -40,8 +40,6 @@ import MeReportsPage from "./pages/patient/MeReportsPage";
 import MeBookingPage from "./pages/patient/MeBookingPage";
 import MeRemindersPage from "./pages/patient/MeRemindersPage";
 import {
-  // Doctor placeholders (still TBD)
-  LesionPage,
   // Shared
   HelpPage,
 } from "./pages/Placeholders";
@@ -72,7 +70,7 @@ const App = () => (
               <Route path="/patients" element={<G><PatientsPage /></G>} />
               <Route path="/patients/:id" element={<G><PatientDetailPage /></G>} />
               <Route path="/patients/:id/visits/:visitId" element={<G><VisitWorkspacePage /></G>} />
-              <Route path="/patients/:id/lesions/:lesionId" element={<G><LesionPage /></G>} />
+              <Route path="/patients/:id/lesions/:lesionId" element={<G><LesionDetailPage /></G>} />
               <Route path="/capture" element={<G><CapturePage /></G>} />
 
               {/* Clinic admin */}
