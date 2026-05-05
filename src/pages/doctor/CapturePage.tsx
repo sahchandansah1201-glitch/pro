@@ -24,6 +24,7 @@ import {
 import type { ImageKind, ImageSource } from "@/lib/domain";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { BODY_MAP_DEMO_NOW as DEMO_NOW } from "@/pages/doctor/body-map-model";
 
 type DeviceStatus = "connected" | "standby" | "offline";
 const DEVICE_STATUS: Record<string, DeviceStatus> = {
@@ -160,7 +161,7 @@ export default function CapturePage() {
       patientId,
       visitId,
       lesionId: lesionId || null,
-      createdAt: new Date().toISOString(),
+      createdAt: DEMO_NOW,
       quality: q,
       localFileKey: `local-mock://capture/${source}/${nextId("f")}.jpg`,
       deviceId: opts?.deviceId ?? null,
@@ -178,7 +179,7 @@ export default function CapturePage() {
     const newItem: QueueItem = {
       ...src,
       id: nextId("cap"),
-      createdAt: new Date().toISOString(),
+      createdAt: DEMO_NOW,
       quality: { score: 0.91, issues: [] },
       localFileKey: `local-mock://capture/${src.source}/${nextId("f")}.jpg`,
       linkStatus: "new",
