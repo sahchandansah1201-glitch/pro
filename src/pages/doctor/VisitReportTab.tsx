@@ -489,15 +489,21 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
           type="button"
           size="sm"
           variant="secondary"
-          disabled
+          disabled={!canSend}
+          aria-disabled={!canSend}
+          data-testid="send-to-patient-demo"
           className="min-h-[44px] sm:min-h-[32px]"
+          onClick={onSendDemo}
         >
           Отправить пациенту (демо)
         </Button>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Отправка и PDF будут подключены на бэкенде.
+        Печать/PDF будут подключены на бэкенде. Отправка пациенту в этом режиме
+        работает локально и не уходит во внешние сервисы.
       </p>
+
+      <SendStatusBlock send={send} />
 
       {saved && (
         <div role="status" data-testid="demo-report-preview" className="mt-3 space-y-3">
