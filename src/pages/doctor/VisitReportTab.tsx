@@ -375,7 +375,6 @@ interface DemoReportDraft {
   createdAt: string;
 }
 
-// SendStatus / SendRecord types are imported from send-history-storage.
 
 // ───────── Patient text validation & templates ─────────
 
