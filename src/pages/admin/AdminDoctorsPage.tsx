@@ -380,8 +380,7 @@ export default function AdminDoctorsPage() {
                   </Button>
                 </div>
               </Card>
-            ))
-          )}
+          ))}
         </div>
 
         <ListPagination
