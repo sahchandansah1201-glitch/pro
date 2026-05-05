@@ -1,0 +1,252 @@
+import { useMemo, useState } from "react";
+import { ShieldAlert, Search } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ListPagination } from "@/components/admin/ListPagination";
+import { useListPagination } from "@/lib/use-list-pagination";
+import { getAuditLogs } from "@/lib/mock-data";
+import { DEMO_USERS } from "@/lib/users";
+import { ROLE_BY_ID } from "@/lib/roles";
+import { formatDateTime } from "@/lib/format";
+
+/**
+ * Sys Audit — журнал действий (MVP, демо).
+ * SAFETY: только action / entity / id / безопасный summary.
+ * Без имён пациентов, фото, текстов отчётов, токенов, AI-метаданных.
+ */
+
+const DEMO_BANNER =
+  "Демо-режим. Реальные роли, RLS, аудит, ключи и Device Bridge включаются на этапе бэкенда.";
+
+const ACTOR_LABEL = new Map<string, string>(
+  Object.values(DEMO_USERS).map((u) => [
+    u.id,
+    u.role === "patient" ? "Демо-пациент" : `${u.fullName.split(" ")[0]} · ${ROLE_BY_ID[u.role].short}`,
+  ]),
+);
+
+// Безопасные ключи payload для рендера. Всё остальное скрываем.
+const SAFE_PAYLOAD_KEYS = new Set([
+  "clinicId", "kind", "deviceId", "channel", "source", "status",
+  "to", "reason", "model", "durationMin", "expiresInDays",
+]);
+
+function safeSummary(payload: Record<string, string | number | boolean | null>): string {
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(payload)) {
+    if (!SAFE_PAYLOAD_KEYS.has(k)) continue;
+    if (v === null) continue;
+    parts.push(`${k}=${String(v)}`);
+  }
+  return parts.length === 0 ? "—" : parts.join(" · ");
+}
+
+type FilterKey = "all" | "visits" | "reports" | "devices" | "integrations" | "leads_dialogs";
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: "all", label: "Все" },
+  { key: "visits", label: "Визиты" },
+  { key: "reports", label: "Отчёты" },
+  { key: "devices", label: "Устройства" },
+  { key: "integrations", label: "Интеграции" },
+  { key: "leads_dialogs", label: "Лиды и диалоги" },
+];
+
+const ENTITY_BUCKET: Record<string, FilterKey> = {
+  visit: "visits",
+  assessment: "visits",
+  lesion: "visits",
+  image: "visits",
+  report: "reports",
+  device: "devices",
+  integration: "integrations",
+  lead: "leads_dialogs",
+  bot_dialog: "leads_dialogs",
+  appointment: "leads_dialogs",
+};
+
+export default function SysAuditPage() {
+  const logs = getAuditLogs();
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const [query, setQuery] = useState("");
+  const [integrity, setIntegrity] = useState<null | {
+    total: number;
+    actors: number;
+    entities: number;
+  }>(null);
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return logs.filter((l) => {
+      if (filter !== "all" && ENTITY_BUCKET[l.entity] !== filter) return false;
+      if (q && !`${l.action} ${l.entity} ${l.entityId}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [logs, filter, query]);
+
+  const pagination = useListPagination(rows, {
+    mobilePageSize: 5,
+    desktopPageSize: 10,
+    deps: [filter, query],
+  });
+  const visible = pagination.visible;
+
+  const checkIntegrity = () => {
+    const total = logs.length;
+    const actors = new Set(logs.map((l) => l.actorId)).size;
+    const entities = new Set(logs.map((l) => l.entity)).size;
+    setIntegrity({ total, actors, entities });
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader title="Аудит" subtitle="Журнал действий, проверка целостности." />
+
+      <div className="space-y-3 p-3 sm:p-4">
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]"
+          style={{
+            background: "hsl(var(--info) / 0.08)",
+            borderColor: "hsl(var(--info) / 0.30)",
+            color: "hsl(var(--info))",
+          }}
+        >
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>{DEMO_BANNER}</span>
+        </div>
+
+        <Card className="p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div role="tablist" aria-label="Фильтр аудита" className="flex flex-wrap gap-1">
+              {FILTERS.map((f) => {
+                const active = filter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setFilter(f.key)}
+                    className={`min-h-[44px] rounded-md border px-3 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[32px] ${
+                      active
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-surface text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+            <label className="relative block w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Поиск по действию или сущности"
+                aria-label="Поиск аудита"
+                className="h-11 pl-7 text-[12px] sm:h-9"
+              />
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 min-h-[44px] sm:min-h-[32px]"
+              onClick={checkIntegrity}
+            >
+              Проверить целостность (демо)
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled
+              aria-disabled="true"
+              title="Экспорт появится с бэкендом"
+              className="h-9 min-h-[44px] sm:min-h-[32px]"
+            >
+              Экспорт (демо, отключено)
+            </Button>
+          </div>
+        </Card>
+
+        {integrity && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+          >
+            Целостность (локально): записей {integrity.total} · акторов {integrity.actors} · типов сущностей {integrity.entities}.
+            Без сетевых вызовов и экспорта.
+          </div>
+        )}
+
+        {/* Desktop */}
+        <Card className="hidden p-0 md:block">
+          <table className="w-full text-[12px]">
+            <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Когда</th>
+                <th className="px-3 py-2">Актор</th>
+                <th className="px-3 py-2">Действие</th>
+                <th className="px-3 py-2">Сущность</th>
+                <th className="px-3 py-2">ID</th>
+                <th className="px-3 py-2">Payload</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((l) => (
+                <tr key={l.id} className="border-b border-border/60 last:border-0">
+                  <td className="px-3 py-2 text-muted-foreground">{formatDateTime(l.createdAt)}</td>
+                  <td className="px-3 py-2">{ACTOR_LABEL.get(l.actorId) ?? l.actorId}</td>
+                  <td className="px-3 py-2 font-mono text-[11px]">{l.action}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{l.entity}</td>
+                  <td className="px-3 py-2 font-mono text-[11px]">{l.entityId}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{safeSummary(l.payload)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+
+        {/* Mobile */}
+        <div className="grid grid-cols-1 gap-2 md:hidden">
+          {visible.map((l) => (
+            <Card key={l.id} className="p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate font-mono text-[12px]">{l.action}</div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {ACTOR_LABEL.get(l.actorId) ?? l.actorId} · {formatDateTime(l.createdAt)}
+                  </div>
+                </div>
+              </div>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                <dt className="text-muted-foreground">Сущность</dt>
+                <dd className="text-right">{l.entity}</dd>
+                <dt className="text-muted-foreground">ID</dt>
+                <dd className="text-right font-mono text-[11px]">{l.entityId}</dd>
+                <dt className="text-muted-foreground">Payload</dt>
+                <dd className="text-right">{safeSummary(l.payload)}</dd>
+              </dl>
+            </Card>
+          ))}
+        </div>
+
+        <ListPagination
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          total={pagination.total}
+          rangeLabel={pagination.rangeLabel}
+          canPrev={pagination.canPrev}
+          canNext={pagination.canNext}
+          onPageChange={pagination.setPage}
+          itemNoun="записей"
+        />
+      </div>
+    </div>
+  );
+}
