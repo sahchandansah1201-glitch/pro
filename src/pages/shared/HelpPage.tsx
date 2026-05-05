@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock, Search, X } from "lucide-react";
+import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock, Search, X, ChevronDown, ChevronUp } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -147,6 +147,7 @@ function matchRole(r: RoleRef, q: string) {
 
 export default function HelpPage() {
   const [query, setQuery] = useState("");
+  const [bannerOpen, setBannerOpen] = useState(true);
   const q = query.trim().toLowerCase();
 
   const filtered = useMemo(() => {
@@ -189,20 +190,40 @@ export default function HelpPage() {
         <div
           role="note"
           aria-label="Граничные условия безопасности"
-          className="flex items-start gap-2 rounded-md border px-3 py-2 text-[12px]"
+          className="sticky top-2 z-10 rounded-md border px-3 py-2 text-[12px] shadow-sm backdrop-blur"
           style={{
-            background: "hsl(var(--warning) / 0.08)",
+            background: "hsl(var(--warning) / 0.12)",
             borderColor: "hsl(var(--warning) / 0.30)",
             color: "hsl(var(--warning))",
           }}
         >
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <ul className="space-y-1">
-            <li>RoleGuard — это UX-симуляция, а не реальная граница безопасности.</li>
-            <li>Не используйте реальные данные пациентов в демо-контуре.</li>
-            <li>AI — только поддержка принятия решений, не диагноз.</li>
-            <li>Финальное медицинское решение принимает врач.</li>
-          </ul>
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <div className="flex-1">
+              <button
+                type="button"
+                onClick={() => setBannerOpen((v) => !v)}
+                aria-expanded={bannerOpen}
+                aria-controls="safety-banner-body"
+                className="flex min-h-[32px] w-full items-center justify-between gap-2 text-left font-medium focus:outline-none focus-visible:underline"
+              >
+                <span>Безопасность и границы MVP</span>
+                {bannerOpen ? (
+                  <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
+                ) : (
+                  <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+              </button>
+              {bannerOpen && (
+                <ul id="safety-banner-body" className="mt-1 space-y-1">
+                  <li>RoleGuard — это UX-симуляция, а не реальная граница безопасности.</li>
+                  <li>Не используйте реальные данные пациентов в демо-контуре.</li>
+                  <li>AI — только поддержка принятия решений, не диагноз.</li>
+                  <li>Финальное медицинское решение принимает врач.</li>
+                </ul>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="relative">
