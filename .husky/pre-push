@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# Pre-push: повторное сканирование запрещённых паттернов перед отправкой в remote.
+
+echo "[pre-push] doctor-hygiene-scan…"
+node scripts/scan-doctor-forbidden.mjs
+status=$?
+if [ $status -ne 0 ]; then
+  echo "[pre-push] ✗ Push заблокирован: найдены запрещённые паттерны."
+  exit $status
+fi
+exit 0
