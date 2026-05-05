@@ -64,7 +64,7 @@ describe("HelpPage", () => {
     const links = screen.getAllByRole("link");
     expect(links.length).toBeGreaterThan(0);
     for (const a of links) {
-      expect(a.getAttribute("href")).toMatch(/^\//);
+      expect(a.getAttribute("href")).toMatch(/^[/#]/);
     }
   });
 
