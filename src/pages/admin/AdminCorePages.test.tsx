@@ -120,5 +120,24 @@ describe("Admin clinic core pages — render & safety", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Внешние" }));
     expect(screen.getByText("Ничего не найдено")).toBeInTheDocument();
     expect(screen.getByText(/фильтр:/)).toBeInTheDocument();
+  it("AdminClinicsPage reads sort from ?sort=conversion in URL", () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/clinics?sort=conversion"]}>
+        <AdminClinicsPage />
+      </MemoryRouter>,
+    );
+    const sortTab = screen.getByRole("tab", { name: "По конверсии" });
+    expect(sortTab.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText(/Сортировка: По конверсии/)).toBeInTheDocument();
+  });
+
+  it("AdminClinicsPage ignores invalid ?sort= value and falls back to priority", () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/clinics?sort=BOGUS"]}>
+        <AdminClinicsPage />
+      </MemoryRouter>,
+    );
+    const sortTab = screen.getByRole("tab", { name: "По приоритету" });
+    expect(sortTab.getAttribute("aria-selected")).toBe("true");
   });
 });
