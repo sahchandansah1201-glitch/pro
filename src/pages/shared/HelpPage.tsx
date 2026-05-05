@@ -268,6 +268,41 @@ export default function HelpPage() {
           )}
         </div>
 
+        <nav aria-label="Разделы справки" className="flex flex-wrap gap-1.5">
+          {ANCHORS.map((a) => {
+            const available =
+              (a.id === "roles" && filtered.roles.length > 0) ||
+              (a.id === "clinical" && filtered.clinical.length > 0) ||
+              (a.id === "patient" && filtered.patient.length > 0) ||
+              (a.id === "bot" && filtered.bot.length > 0) ||
+              (a.id === "admin" && filtered.admin.length > 0) ||
+              (a.id === "sys" && filtered.sys.length > 0) ||
+              (a.id === "policy" && !isSearching);
+            return (
+              <a
+                key={a.id}
+                href={`#${a.id}`}
+                aria-disabled={!available}
+                onClick={(e) => {
+                  if (!available) {
+                    e.preventDefault();
+                    return;
+                  }
+                  e.preventDefault();
+                  document.getElementById(a.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className={`inline-flex min-h-[32px] items-center rounded-md border px-2.5 text-[12px] transition-colors ${
+                  available
+                    ? "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                    : "pointer-events-none border-dashed border-border/60 text-muted-foreground/60"
+                }`}
+              >
+                {a.label}
+              </a>
+            );
+          })}
+        </nav>
+
         {nothingFound && (
           <Card className="p-4 text-[12px] text-muted-foreground">
             Ничего не найдено по запросу «{query}». Попробуйте другое ключевое слово.
@@ -275,7 +310,7 @@ export default function HelpPage() {
         )}
 
         {filtered.roles.length > 0 && (
-          <Section icon={Users} title="Роли">
+          <Section id="roles" icon={Users} title="Роли">
             <ul className="divide-y divide-border">
               {filtered.roles.map((r) => (
                 <li key={r.title} className="py-2">
@@ -295,31 +330,31 @@ export default function HelpPage() {
         )}
 
         {filtered.clinical.length > 0 && (
-          <Section icon={Stethoscope} title="Клинический поток">
+          <Section id="clinical" icon={Stethoscope} title="Клинический поток">
             <RouteList items={filtered.clinical} />
           </Section>
         )}
 
         {filtered.patient.length > 0 && (
-          <Section icon={User} title="Пациентский поток">
+          <Section id="patient" icon={User} title="Пациентский поток">
             <RouteList items={filtered.patient} />
           </Section>
         )}
 
         {filtered.bot.length > 0 && (
-          <Section icon={Bot} title="Бот и запись">
+          <Section id="bot" icon={Bot} title="Бот и запись">
             <RouteList items={filtered.bot} />
           </Section>
         )}
 
         {filtered.admin.length > 0 && (
-          <Section icon={Building2} title="Администрирование">
+          <Section id="admin" icon={Building2} title="Администрирование">
             <RouteList items={filtered.admin} />
           </Section>
         )}
 
         {filtered.sys.length > 0 && (
-          <Section icon={Server} title="Системный контур">
+          <Section id="sys" icon={Server} title="Системный контур">
             <RouteList items={filtered.sys} />
           </Section>
         )}
