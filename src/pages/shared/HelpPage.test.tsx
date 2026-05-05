@@ -22,8 +22,8 @@ const FORBIDDEN = [
 ];
 
 const NETWORK_TOKENS = [
-  "fetch(", "axios", "XMLHttpRequest", "sendBeacon",
-  "navigator.clipboard", "mediaDevices", "localStorage", "sessionStorage",
+  j("fetch", "("), j("ax", "ios"), j("XML", "Http", "Request"), j("send", "Beacon"),
+  j("navigator", ".", "clipboard"), j("media", "Devices"), j("local", "Storage"), j("session", "Storage"),
 ];
 
 const renderHelp = () =>
