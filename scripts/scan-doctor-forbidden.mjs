@@ -198,7 +198,36 @@ const red = (s) => c("31", s);
 const green = (s) => c("32", s);
 const yellow = (s) => c("33", s);
 const cyan = (s) => c("36", s);
+const fileUrl = (p) => "file://" + p.replace(/\\/g, "/");
 
+// ── Короткий вывод (--quiet) ────────────────────────────────────────────
+if (quiet) {
+  const status = files.length === 0
+    ? "no-files"
+    : findings.length === 0
+      ? "clean"
+      : "violations";
+  const head = status === "violations"
+    ? red(`✗ violations: ${findings.length} в ${Object.keys(byFile).length} файл(ах)`)
+    : status === "clean"
+      ? green(`✓ clean (файлов: ${files.length})`)
+      : green(`✓ no-files`);
+  console.log(`[doctor-hygiene-scan] ${dim(`режим=${mode}`)} ${head}`);
+  if (findings.length > 0) {
+    for (const f of Object.keys(byFile).sort()) {
+      console.log(`  ${cyan(f)} ${dim(`(${byFile[f].length})`)}`);
+    }
+    if (writeReports) {
+      console.log(`  ${dim("Отчёт:")} ${cyan(fileUrl(REPORT_MD))}`);
+    } else {
+      console.log(`  ${dim("Подробнее:")} ${bold("npm run scan:doctor")} → ${cyan(fileUrl(REPORT_MD))}`);
+    }
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+// ── Подробный вывод ─────────────────────────────────────────────────────
 const HR = dim("─".repeat(72));
 console.log(HR);
 console.log(`${bold("doctor-hygiene-scan")}  ${dim(SCAN_TS)}  ${dim("режим:")} ${bold(mode)}`);
@@ -206,8 +235,6 @@ console.log(HR);
 console.log(`  ${dim("Цели        :")} ${SCAN_TARGETS.join(", ")}`);
 console.log(`  ${dim("Файлов      :")} ${files.length}`);
 console.log(`  ${dim("Токенов     :")} ${FORBIDDEN_TOKENS.length}`);
-// file://-URL — кликабельная в большинстве терминалов и IDE.
-const fileUrl = (p) => "file://" + p.replace(/\\/g, "/");
 if (writeReports) {
   console.log(`  ${dim("Отчёт JSON  :")} ${relative(ROOT, REPORT_JSON)}`);
   console.log(`  ${dim("Отчёт MD    :")} ${relative(ROOT, REPORT_MD)}`);
