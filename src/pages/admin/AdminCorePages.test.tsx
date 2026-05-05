@@ -93,6 +93,8 @@ describe("Admin clinic core pages — render & safety", () => {
     }
     // Используем within чтобы не сорить unused import warnings.
     expect(within(document.body)).toBeDefined();
+  });
+
   it("AdminDoctorsPage shows empty state with active query chip and reset", () => {
     renderRouted(<AdminDoctorsPage />);
     const input = screen.getByLabelText("Поиск врачей");
