@@ -192,9 +192,12 @@ console.log(HR);
 console.log(`  ${dim("Цели        :")} ${SCAN_TARGETS.join(", ")}`);
 console.log(`  ${dim("Файлов      :")} ${files.length}`);
 console.log(`  ${dim("Токенов     :")} ${FORBIDDEN_TOKENS.length}`);
+// file://-URL — кликабельная в большинстве терминалов и IDE.
+const fileUrl = (p) => "file://" + p.replace(/\\/g, "/");
 if (writeReports) {
   console.log(`  ${dim("Отчёт JSON  :")} ${relative(ROOT, REPORT_JSON)}`);
   console.log(`  ${dim("Отчёт MD    :")} ${relative(ROOT, REPORT_MD)}`);
+  console.log(`  ${dim("Открыть     :")} ${cyan(fileUrl(REPORT_MD))}`);
 }
 console.log(HR);
 
