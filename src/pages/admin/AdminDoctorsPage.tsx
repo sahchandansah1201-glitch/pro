@@ -321,8 +321,7 @@ export default function AdminDoctorsPage() {
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </Card>
