@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images, MapPin } from "lucide-react";
+import { ChevronRight, ZoomIn, ZoomOut, RotateCcw, Images } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
