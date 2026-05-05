@@ -47,9 +47,11 @@ interface Props {
   visit: Visit;
   patientId: string;
   lesions: Lesion[];
+  initialLesionId?: string | null;
+  onOpenBodyMap?: (lesionId: string) => void;
 }
 
-export function VisitImagingTab({ visit, patientId, lesions }: Props) {
+export function VisitImagingTab({ visit, patientId, lesions, initialLesionId, onOpenBodyMap }: Props) {
   const allImages = useMemo(
     () => [...getImagesByVisitId(visit.id)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
     [visit.id],
@@ -61,10 +63,19 @@ export function VisitImagingTab({ visit, patientId, lesions }: Props) {
     return m;
   }, [lesions]);
 
-  const [lesionFilter, setLesionFilter] = useState<LesionFilter>("all");
+  const [lesionFilter, setLesionFilter] = useState<LesionFilter>(
+    initialLesionId && lesions.some((l) => l.id === initialLesionId) ? initialLesionId : "all",
+  );
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [qualityFilter, setQualityFilter] = useState<QualityFilter>("all");
+
+  // React to URL-driven lesion changes after mount.
+  useEffect(() => {
+    if (initialLesionId && lesions.some((l) => l.id === initialLesionId)) {
+      setLesionFilter(initialLesionId);
+    }
+  }, [initialLesionId, lesions]);
 
   const [captureNotice, setCaptureNotice] = useState<string | null>(null);
   const showCaptureNotice = (label: string) =>
