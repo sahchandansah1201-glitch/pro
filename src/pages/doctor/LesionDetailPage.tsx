@@ -50,6 +50,34 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
   scalp: "волосистая часть",
 };
 
+function BodyMapMini({ view, x, y }: { view: Lesion["mapPoint"]["view"]; x: number; y: number }) {
+  const cx = Math.max(0, Math.min(1, x)) * 60;
+  const cy = Math.max(0, Math.min(1, y)) * 88;
+  const silhouette =
+    view === "scalp" ? (
+      <ellipse cx="30" cy="44" rx="22" ry="26" />
+    ) : view === "left" || view === "right" ? (
+      <path d="M30 4 c6 0 10 4 10 10 c0 4 -2 7 -4 9 l4 8 v34 c0 4 -2 6 -4 8 l-2 12 h-8 l-2 -12 c-2 -2 -4 -4 -4 -8 v-34 l4 -8 c-2 -2 -4 -5 -4 -9 c0 -6 4 -10 10 -10 z" />
+    ) : (
+      <path d="M30 4 c5 0 9 4 9 9 c0 5 -4 9 -9 9 c-5 0 -9 -4 -9 -9 c0 -5 4 -9 9 -9 z M18 24 h24 l4 18 l-4 2 l-2 -10 v22 h-6 v28 h-8 v-28 h-8 v-22 l-2 10 l-4 -2 z" />
+    );
+  return (
+    <svg
+      viewBox="0 0 60 88"
+      width={44}
+      height={64}
+      role="img"
+      aria-label={`Карта тела: ${VIEW_LABEL[view]}, x ${(x * 100).toFixed(0)}%, y ${(y * 100).toFixed(0)}%`}
+      className="shrink-0 rounded border bg-muted/30"
+    >
+      <g fill="hsl(var(--muted-foreground) / 0.25)" stroke="hsl(var(--muted-foreground) / 0.6)" strokeWidth="1">
+        {silhouette}
+      </g>
+      <circle cx={cx} cy={cy} r="3.5" fill="hsl(var(--destructive))" stroke="hsl(var(--background))" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
 const NotFound = ({ title, hint }: { title: string; hint: string }) => (
   <div className="flex h-full flex-col">
     <PageHeader title={title} subtitle={hint} />
@@ -146,9 +174,17 @@ export default function LesionDetailPage() {
               <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" aria-hidden /> Локализация
               </div>
-              <div className="mt-1 text-[13px]">{lesion.bodyZone}</div>
-              <div className="text-[12px] text-muted-foreground">
-                Проекция: {VIEW_LABEL[lesion.mapPoint.view]} · x{(lesion.mapPoint.x * 100).toFixed(0)}% / y{(lesion.mapPoint.y * 100).toFixed(0)}%
+              <div className="mt-1 flex items-start gap-2">
+                <BodyMapMini view={lesion.mapPoint.view} x={lesion.mapPoint.x} y={lesion.mapPoint.y} />
+                <div className="min-w-0">
+                  <div className="text-[13px]">{lesion.bodyZone}</div>
+                  <div className="text-[12px] text-muted-foreground">
+                    Проекция: {VIEW_LABEL[lesion.mapPoint.view]}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground tabular-nums">
+                    x{(lesion.mapPoint.x * 100).toFixed(0)}% / y{(lesion.mapPoint.y * 100).toFixed(0)}%
+                  </div>
+                </div>
               </div>
             </div>
             <div>
