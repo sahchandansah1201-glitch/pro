@@ -121,10 +121,10 @@ function RouteList({ items }: { items: RouteRef[] }) {
 }
 
 function Section({
-  icon: Icon, title, children,
-}: { icon: React.ElementType; title: string; children: React.ReactNode }) {
+  id, icon: Icon, title, children,
+}: { id?: string; icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
-    <Card className="p-3 sm:p-4">
+    <Card id={id} className="scroll-mt-24 p-3 sm:p-4">
       <h2 className="flex items-center gap-2 text-[13px] font-semibold">
         <Icon className="h-4 w-4 text-muted-foreground" aria-hidden /> {title}
       </h2>
@@ -132,6 +132,16 @@ function Section({
     </Card>
   );
 }
+
+const ANCHORS: { id: string; label: string; has: (f: ReturnType<typeof Object>) => boolean }[] = [
+  { id: "roles", label: "Роли", has: (f) => f.roles.length > 0 },
+  { id: "clinical", label: "Клинический поток", has: (f) => f.clinical.length > 0 },
+  { id: "patient", label: "Пациентский поток", has: (f) => f.patient.length > 0 },
+  { id: "bot", label: "Бот и запись", has: (f) => f.bot.length > 0 },
+  { id: "admin", label: "Администрирование", has: (f) => f.admin.length > 0 },
+  { id: "sys", label: "Системный контур", has: (f) => f.sys.length > 0 },
+  { id: "policy", label: "Политика данных", has: (f) => !f.searching },
+];
 
 function matchRoute(r: RouteRef, q: string) {
   return r.path.toLowerCase().includes(q) || r.description.toLowerCase().includes(q);
