@@ -8,6 +8,7 @@ import {
   getReportsByPatientId,
   getVisitsByPatientId,
 } from "@/lib/mock-data";
+import { DEMO_USERS } from "@/lib/users";
 
 /** Постоянный демо-пациент портала. */
 export const DEMO_PATIENT_ID = "p-001";
@@ -17,11 +18,18 @@ export const DEMO_PATIENT_GREETING = "Наталья";
 export const DEMO_NOW = "2026-05-04T00:00:00Z";
 export const demoNow = () => Date.parse(DEMO_NOW);
 
+const DOCTOR_NAME_BY_ID: Record<string, string> = Object.fromEntries(
+  Object.values(DEMO_USERS)
+    .filter((u) => u.role === "doctor" || u.role === "private_doctor")
+    .map((u) => [u.id, u.fullName]),
+);
+
 export interface SafeReportRow {
   id: string;
   visitId: string;
   visitDate: string;
   clinicName: string;
+  doctorName: string;
   summary: string;
 }
 
@@ -35,6 +43,7 @@ export function getSafeReports(): SafeReportRow[] {
       visitId: r.visitId,
       visitDate: v?.startedAt ?? r.generatedAt,
       clinicName: v ? getClinicById(v.clinicId)?.name ?? "—" : "—",
+      doctorName: v ? DOCTOR_NAME_BY_ID[v.doctorId] ?? "—" : "—",
       summary: r.patientSafeText,
     };
   });
