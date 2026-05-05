@@ -233,7 +233,9 @@ export default function AdminServicesPage() {
           </div>
         )}
 
-        <Card className="hidden p-0 md:block">
+        {isEmpty && emptyState}
+
+        <Card className={`hidden p-0 md:block ${isEmpty ? "md:hidden" : ""}`}>
           <table className="w-full text-[12px]">
             <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
