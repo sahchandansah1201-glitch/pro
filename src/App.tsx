@@ -39,10 +39,7 @@ import MeReportPage from "./pages/patient/MeReportPage";
 import MeReportsPage from "./pages/patient/MeReportsPage";
 import MeBookingPage from "./pages/patient/MeBookingPage";
 import MeRemindersPage from "./pages/patient/MeRemindersPage";
-import {
-  // Shared
-  HelpPage,
-} from "./pages/Placeholders";
+import HelpPage from "./pages/shared/HelpPage";
 
 const queryClient = new QueryClient();
 

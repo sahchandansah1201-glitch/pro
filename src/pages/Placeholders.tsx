@@ -51,7 +51,4 @@ export const AnalysisTokenPage = () => {
     />
   );
 };
-// ───────── Общее ─────────
-export const HelpPage = () => (
-  <PlaceholderPage title="Справка" subtitle="Документация по ролям и потокам." />
-);
+// HelpPage moved to src/pages/shared/HelpPage.tsx (Task 21).
