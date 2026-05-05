@@ -130,7 +130,7 @@ export default function SysDevicesPage() {
           <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
             Device Bridge
           </h2>
-          <Card className="p-0">
+          <Card className="hidden p-0 md:block">
             <table className="w-full text-[12px]">
               <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -176,6 +176,43 @@ export default function SysDevicesPage() {
               </tbody>
             </table>
           </Card>
+
+          {/* Bridges — Mobile */}
+          <div className="grid grid-cols-1 gap-2 md:hidden">
+            {BRIDGES.map((b) => (
+              <Card key={b.id} className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-mono text-[12px] font-semibold">{b.id}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">{b.host}</div>
+                  </div>
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px]"
+                    style={{ color: LAN_TONE[b.lan], border: `1px solid ${LAN_TONE[b.lan]}` }}
+                  >
+                    {LAN_LABEL[b.lan]}
+                  </span>
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                  <dt className="text-muted-foreground">Версия</dt>
+                  <dd className="text-right">{b.version}</dd>
+                  <dt className="text-muted-foreground">Устройств</dt>
+                  <dd className="text-right tabular-nums">{b.pairedCount}</dd>
+                  <dt className="text-muted-foreground">Heartbeat</dt>
+                  <dd className="text-right">{formatDateTime(b.lastHeartbeatAt)}</dd>
+                </dl>
+                <div className="mt-3">
+                  <Button
+                    variant="outline"
+                    className="w-full min-h-[44px] text-[12px]"
+                    onClick={() => setNote(`Проверка моста ${b.id} — демо-действие.`)}
+                  >
+                    Проверить мост (демо)
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
         </section>
 
         {/* Filters */}
