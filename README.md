@@ -1,27 +1,40 @@
-# Project Name
+# Дерматолог Про
 
-Welcome to the project.
+Платформа клинической поддержки решений для дерматологов и дермато-онкологов.
 
-## Doctor Hygiene Scan
+---
 
-This project uses `doctor-hygiene` to maintain code quality and consistency.
+## Doctor-hygiene scan
 
-### Forbidden Patterns
-The following patterns are prohibited and will cause the scan to fail:
-- Use of `console.log` in production code.
-- Hardcoded API keys or secrets.
-- Usage of deprecated internal modules.
-- Missing JSDoc comments for public functions.
+Чтобы защитить doctor-контекст от регрессий по безопасности данных, сетевым
+вызовам и недетерминированному времени, в репозитории работает автоматический
+сканер запрещённых паттернов.
 
-### How to run the scan locally
-To check your code for violations, run the following command in your terminal:
+### Что сканируется
 
-```bash
-npm run doctor-hygiene
-```
+- `src/pages/doctor/**` — страницы и логика рабочего места врача.
+- `src/App.tsx` — корневой роутинг.
 
-### How to fix violations
-1. Run the scan to see the list of errors.
-2. Open the files indicated in the output.
-3. Apply the suggested fixes (e.g., remove logs, add documentation, or replace deprecated code).
-4. Run `npm run doctor-hygiene` again to verify that all issues are resolved.
+Тестовые файлы (`*.test.ts(x)`, `*.hygiene.test.*`) исключаются автоматически.
+
+### Запрещённые паттерны
+
+Единый источник правды — [`scripts/forbidden-patterns.mjs`](./scripts/forbidden-patterns.mjs).
+Этот же список используют git-хуки, CI и vitest-тест `VisitImagingTab.hygiene.test.ts`.
+
+#### Имена полей/ключей (утечка чувствительных доменных контрактов)
+
+| Паттерн | Почему запрещён |
+| --- | --- |
+| `doctorVersionText` | Внутренний врачебный текст не должен ссылаться по прямому ключу. |
+| `patientSafeText` | Безопасный для пациента текст читается через accessor `getReportSafeText`. |
+| `sharedLink` | Защищённая ссылка читается через `getReportLinkExpiry` / `getReportLinkToken`. |
+| `storagePath` | Путь к файлу не должен утечь во фронтовой слой. |
+| `photoRef` | Прямые ссылки на фото обходят слой доступа. |
+| `modelVersion` | Версия модели не передаётся в UI напрямую. |
+| `heatmapRef` | Heatmap-артефакты — только через accessor. |
+| `externalUserRef` | Внешний идентификатор не для doctor-страниц. |
+| `protectedAnalysisLink` | Защищённая ссылка анализа — только через слой доступа. |
+
+> Все эти ключи доступны через [`src/lib/report-access.ts`](./src/lib/report-access.ts),
+> где имена
