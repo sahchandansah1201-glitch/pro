@@ -40,6 +40,29 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 type SortKey = "priority" | "conversion";
 
+const SORT_OPTIONS: {
+  key: SortKey;
+  label: string;
+  hint: string;
+  Icon: typeof ArrowUpNarrowWide;
+}[] = [
+  {
+    key: "priority",
+    label: "По приоритету",
+    hint: "сначала клиники с меньшим номером маршрутинга",
+    Icon: ArrowUpNarrowWide,
+  },
+  {
+    key: "conversion",
+    label: "По конверсии",
+    hint: "сначала клиники с лучшим отношением записей к лидам",
+    Icon: ArrowDownWideNarrow,
+  },
+];
+
+const isSortKey = (v: string | null): v is SortKey =>
+  v === "priority" || v === "conversion";
+
 // Детерминированная демо-готовность инфраструктуры по клинике.
 const READINESS: Record<
   string,
