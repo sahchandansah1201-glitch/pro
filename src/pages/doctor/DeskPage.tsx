@@ -17,6 +17,7 @@ import {
 } from "@/lib/mock-data";
 import { calcAge, formatDateTime, sexShort } from "@/lib/format";
 import type { Visit } from "@/lib/domain";
+import { BODY_MAP_DEMO_NOW } from "@/pages/doctor/body-map-model";
 
 const QUALITY_THRESHOLD = 0.8;
 
@@ -79,7 +80,7 @@ export default function DeskPage() {
 
   const devices = getDevices();
   const devicesTotal = devices.length;
-  const DEMO_NOW_MS = Date.parse("2026-05-04T00:00:00Z");
+  const DEMO_NOW_MS = Date.parse(BODY_MAP_DEMO_NOW);
   const devicesRecent = devices.filter((d) => {
     const last = new Date(d.lastSeenAt).getTime();
     return DEMO_NOW_MS - last < 1000 * 60 * 60 * 24 * 30;
