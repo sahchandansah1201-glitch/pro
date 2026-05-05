@@ -48,6 +48,7 @@ const INTEGRATION_KIND_LABEL: Record<Integration["kind"], string> = {
   erp: "ERP",
   mis: "МИС",
   messenger: "Мессенджер",
+  telephony: "Телефония",
 };
 
 const STATUS_TONE: Record<IntegrationStatus, string> = {
@@ -62,7 +63,7 @@ const APPOINTMENT_STATUS_LABEL: Record<Appointment["status"], string> = {
   confirmed: "Подтверждён",
   completed: "Завершён",
   cancelled: "Отменён",
-  noshow: "Не пришёл",
+  no_show: "Не пришёл",
 };
 
 const APPOINTMENT_STATUS_TONE: Record<Appointment["status"], string> = {
@@ -70,7 +71,7 @@ const APPOINTMENT_STATUS_TONE: Record<Appointment["status"], string> = {
   confirmed: "hsl(var(--success))",
   completed: "hsl(var(--muted-foreground))",
   cancelled: "hsl(var(--destructive))",
-  noshow: "hsl(var(--warning))",
+  no_show: "hsl(var(--warning))",
 };
 
 function fmtDateShort(iso: string): string {
