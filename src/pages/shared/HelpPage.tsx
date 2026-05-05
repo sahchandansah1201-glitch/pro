@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock, Search, X, ChevronDown, ChevronUp } from "lucide-react";
+import { ShieldAlert, Users, Stethoscope, User, Bot, Building2, Server, Lock, Search, X, ChevronDown, ChevronUp, Check, Ban } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,8 @@ interface RoleRef {
   title: string;
   responsibilities: string;
   routes: string[];
+  safe: string[];
+  forbidden: string[];
 }
 
 const ROLES: RoleRef[] = [
@@ -25,30 +27,80 @@ const ROLES: RoleRef[] = [
     responsibilities:
       "Ведение визита, документация образований, дерматоскопия, ABCD/7-point, итоговое заключение.",
     routes: ["/desk", "/patients", "/capture"],
+    safe: [
+      "Документировать образования и снимки.",
+      "Использовать AI/XAI как поддержку решения.",
+      "Формировать заключение и пациентский отчёт.",
+    ],
+    forbidden: [
+      "Передавать AI-вывод как окончательный диагноз.",
+      "Отправлять снимки во внешние мессенджеры/CRM.",
+      "Работать с реальными ПДн в демо-контуре.",
+    ],
   },
   {
     title: "Администратор клиники",
     responsibilities:
       "Доктора, услуги, расписание, маршрутизация, интеграции, бот-настройки, аналитика клиники.",
     routes: ["/admin", "/admin/doctors", "/admin/services", "/admin/clinics", "/admin/integrations", "/admin/bot", "/admin/analytics"],
+    safe: [
+      "Управлять докторами, услугами и расписанием.",
+      "Настраивать маршрутизацию лидов и тексты бота.",
+      "Смотреть агрегированную аналитику клиники.",
+    ],
+    forbidden: [
+      "Открывать клинические карточки и снимки.",
+      "Менять врачебные заключения.",
+      "Выгружать медицинские данные в CRM/ERP.",
+    ],
   },
   {
     title: "Оператор поддержки",
     responsibilities:
       "Мониторинг диалогов бота, помощь с записью, эскалация в клинику. Не ставит диагноз.",
     routes: ["/operator"],
+    safe: [
+      "Помогать с записью и навигацией по боту.",
+      "Эскалировать сложные случаи в клинику.",
+      "Отвечать в безопасных формулировках.",
+    ],
+    forbidden: [
+      "Интерпретировать снимки или AI-результат.",
+      "Давать медицинские рекомендации.",
+      "Запрашивать у пациента ПДн сверх необходимого.",
+    ],
   },
   {
     title: "Системный администратор",
     responsibilities:
       "Пользователи и роли, устройства, аудит, API-ключи. Безопасность и конфигурация контура.",
     routes: ["/sys/users", "/sys/devices", "/sys/audit", "/sys/api-keys"],
+    safe: [
+      "Назначать роли и управлять доступами.",
+      "Подключать устройства и API-ключи интеграций.",
+      "Просматривать журнал аудита.",
+    ],
+    forbidden: [
+      "Открывать клинические данные пациентов.",
+      "Хранить ключи и секреты во фронтенде.",
+      "Отключать аудит и логирование доступа.",
+    ],
   },
   {
     title: "Пациент",
     responsibilities:
       "Личный кабинет: безопасные заключения, запись, напоминания. Без врачебных деталей и AI-внутренностей.",
     routes: ["/me", "/me/reports", "/me/booking", "/me/reminders"],
+    safe: [
+      "Смотреть пациент-безопасные заключения.",
+      "Записываться на приём и принимать напоминания.",
+      "Загружать снимки только по запросу врача/бота.",
+    ],
+    forbidden: [
+      "Видеть AI/XAI-внутренности и врачебные пометки.",
+      "Получать диагноз от бота автоматически.",
+      "Делиться чужими медицинскими данными.",
+    ],
   },
 ];
 
@@ -151,7 +203,9 @@ function matchRole(r: RoleRef, q: string) {
   return (
     r.title.toLowerCase().includes(q) ||
     r.responsibilities.toLowerCase().includes(q) ||
-    r.routes.some((p) => p.toLowerCase().includes(q))
+    r.routes.some((p) => p.toLowerCase().includes(q)) ||
+    r.safe.some((s) => s.toLowerCase().includes(q)) ||
+    r.forbidden.some((s) => s.toLowerCase().includes(q))
   );
 }
 
@@ -313,7 +367,7 @@ export default function HelpPage() {
           <Section id="roles" icon={Users} title="Роли">
             <ul className="divide-y divide-border">
               {filtered.roles.map((r) => (
-                <li key={r.title} className="py-2">
+                <li key={r.title} className="py-3">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="text-[13px] font-medium">{r.title}</span>
                     {r.routes.map((p) => (
@@ -323,6 +377,52 @@ export default function HelpPage() {
                     ))}
                   </div>
                   <p className="mt-1 text-[12px] text-muted-foreground">{r.responsibilities}</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <div
+                      className="rounded-md border px-2.5 py-2"
+                      style={{
+                        background: "hsl(var(--success) / 0.06)",
+                        borderColor: "hsl(var(--success) / 0.25)",
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                        style={{ color: "hsl(var(--success))" }}
+                      >
+                        <Check className="h-3.5 w-3.5" aria-hidden /> Можно
+                      </div>
+                      <ul className="mt-1 space-y-1 text-[12px]">
+                        {r.safe.map((s) => (
+                          <li key={s} className="flex items-start gap-1.5">
+                            <span aria-hidden className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div
+                      className="rounded-md border px-2.5 py-2"
+                      style={{
+                        background: "hsl(var(--destructive) / 0.06)",
+                        borderColor: "hsl(var(--destructive) / 0.25)",
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                        style={{ color: "hsl(var(--destructive))" }}
+                      >
+                        <Ban className="h-3.5 w-3.5" aria-hidden /> Нельзя
+                      </div>
+                      <ul className="mt-1 space-y-1 text-[12px]">
+                        {r.forbidden.map((s) => (
+                          <li key={s} className="flex items-start gap-1.5">
+                            <span aria-hidden className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
