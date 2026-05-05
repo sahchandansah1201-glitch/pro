@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,29 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 type SortKey = "priority" | "conversion";
 
+const SORT_OPTIONS: {
+  key: SortKey;
+  label: string;
+  hint: string;
+  Icon: typeof ArrowUpNarrowWide;
+}[] = [
+  {
+    key: "priority",
+    label: "По приоритету",
+    hint: "сначала клиники с меньшим номером маршрутинга",
+    Icon: ArrowUpNarrowWide,
+  },
+  {
+    key: "conversion",
+    label: "По конверсии",
+    hint: "сначала клиники с лучшим отношением записей к лидам",
+    Icon: ArrowDownWideNarrow,
+  },
+];
+
+const isSortKey = (v: string | null): v is SortKey =>
+  v === "priority" || v === "conversion";
+
 // Детерминированная демо-готовность инфраструктуры по клинике.
 const READINESS: Record<
   string,
@@ -69,7 +93,29 @@ export default function AdminClinicsPage() {
   const integrationsActive = integrations.some((i) => i.status === "connected");
 
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [sort, setSort] = useState<SortKey>("priority");
+
+  // Сортировка синхронизируется с ?sort= в URL: значение сохраняется при
+  // перезагрузке страницы и шарится по ссылке. Дефолт "priority" в URL не
+  // прописываем, чтобы не засорять историю.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sortFromUrl = searchParams.get("sort");
+  const sort: SortKey = isSortKey(sortFromUrl) ? sortFromUrl : "priority";
+  const setSort = (next: SortKey) => {
+    const sp = new URLSearchParams(searchParams);
+    if (next === "priority") sp.delete("sort");
+    else sp.set("sort", next);
+    setSearchParams(sp, { replace: true });
+  };
+
+  // Если в URL пришло невалидное значение — мягко чистим параметр один раз.
+  useEffect(() => {
+    if (sortFromUrl !== null && !isSortKey(sortFromUrl)) {
+      const sp = new URLSearchParams(searchParams);
+      sp.delete("sort");
+      setSearchParams(sp, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortFromUrl]);
   const [actionNote, setActionNote] = useState<string | null>(null);
 
   const enriched = useMemo(() => {
@@ -172,32 +218,46 @@ export default function AdminClinicsPage() {
                 );
               })}
             </div>
-            <div role="tablist" aria-label="Сортировка клиник" className="flex flex-wrap gap-1">
-              {(
-                [
-                  { key: "priority", label: "По приоритету" },
-                  { key: "conversion", label: "По конверсии" },
-                ] as const
-              ).map((s) => {
-                const active = sort === s.key;
-                return (
-                  <button
-                    key={s.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    
-                    onClick={() => setSort(s.key)}
-                    className={`min-h-[44px] rounded-md border px-3 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[28px] sm:text-[11px] ${
-                      active
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-surface text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                );
-              })}
+            <div className="flex flex-col gap-1 sm:items-end">
+              <div
+                role="tablist"
+                aria-label="Сортировка клиник"
+                className="flex flex-wrap gap-1"
+              >
+                {SORT_OPTIONS.map((s) => {
+                  const active = sort === s.key;
+                  const Icon = s.Icon;
+                  return (
+                    <button
+                      key={s.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      aria-pressed={active}
+                      title={s.hint}
+                      onClick={() => setSort(s.key)}
+                      className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-md border px-3 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[28px] sm:text-[11px] ${
+                        active
+                          ? "border-primary bg-primary/15 font-medium text-primary shadow-[inset_0_-2px_0_0_hsl(var(--primary))]"
+                          : "border-border bg-surface text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <Icon
+                        className="h-3.5 w-3.5 shrink-0"
+                        aria-hidden
+                        style={active ? { color: "hsl(var(--primary))" } : undefined}
+                      />
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div
+                aria-live="polite"
+                className="text-[11px] text-muted-foreground sm:text-right"
+              >
+                Сортировка: {SORT_OPTIONS.find((s) => s.key === sort)?.label}
+              </div>
             </div>
           </div>
         </Card>
