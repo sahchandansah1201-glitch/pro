@@ -37,12 +37,12 @@ describe("VisitWorkspacePage · Body map", () => {
   it("p-001/v-001 (female) shows 'Тип карты: Женщина', front surface label, badge and aria-label", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
+    fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
     expect(screen.getByText(/Тип карты:\s*Женщина/)).toBeInTheDocument();
     expect(screen.getByText(/Передняя поверхность/)).toBeInTheDocument();
     const svg = screen.getByRole("img", { name: /Body map/ });
     expect(svg.getAttribute("aria-label")).toMatch(/Женщина/);
     expect(svg.getAttribute("aria-label")).toMatch(/Передняя поверхность/);
-    // Badge text rendered inside SVG
     expect(svg.textContent).toMatch(/ПЕРЕД/);
   });
 
