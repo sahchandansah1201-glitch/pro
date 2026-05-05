@@ -719,6 +719,33 @@ function VariantSilhouette({ variant, view }: { variant: BodyMapVariant; view: V
         <line x1={wL} y1={waistY} x2={wR} y2={waistY} />
         <line x1={cx} y1={shoulderY + 4} x2={cx} y2={hipY} />
       </g>
+      {/* Anatomical markers — different for front vs back so the surface is unambiguous */}
+      {view === "front" ? (
+        <g fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={0.8} opacity={0.75}>
+          {/* Eyes */}
+          <circle cx={cx - 6} cy={headCy - 2} r={1.2} fill="hsl(var(--muted-foreground))" stroke="none" />
+          <circle cx={cx + 6} cy={headCy - 2} r={1.2} fill="hsl(var(--muted-foreground))" stroke="none" />
+          {/* Nose */}
+          <path d={`M${cx},${headCy + 1} l-1.5,5 h3 z`} />
+          {/* Mouth */}
+          <line x1={cx - 4} y1={headCy + 9} x2={cx + 4} y2={headCy + 9} stroke="hsl(var(--muted-foreground))" />
+          {/* Sternum / chest guide */}
+          <line x1={cx} y1={shoulderY + 8} x2={cx} y2={waistY - 12} strokeDasharray="3 2" />
+          {/* Navel */}
+          <circle cx={cx} cy={(waistY + hipY) / 2} r={1.6} fill="hsl(var(--muted-foreground))" stroke="none" />
+        </g>
+      ) : view === "back" ? (
+        <g fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={0.8} opacity={0.75}>
+          {/* Spine line */}
+          <line x1={cx} y1={shoulderY + 6} x2={cx} y2={hipY - 4} strokeDasharray="3 2" />
+          {/* Shoulder blades */}
+          <path d={`M${cx - 16},${shoulderY + 16} q-6,14 0,28`} />
+          <path d={`M${cx + 16},${shoulderY + 16} q6,14 0,28`} />
+          {/* Lumbar / lower-back guide */}
+          <line x1={cx - 14} y1={waistY + 16} x2={cx + 14} y2={waistY + 16} />
+          <text x={cx + 18} y={waistY + 19} fontSize={7} fill="hsl(var(--muted-foreground))" stroke="none">поясница</text>
+        </g>
+      ) : null}
     </g>
   );
 }
