@@ -555,9 +555,53 @@ function BodyMapTab({
           )}
         </div>
 
+        {localDrafts.length > 0 && (
+          <div className="border-t border-border bg-surface">
+            <div className="bg-surface-muted px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+              Локальные демо-очаги ({localDrafts.length})
+            </div>
+            <ul className="divide-y divide-border">
+              {localDrafts.map((d, i) => {
+                const isSel = d.id === selected;
+                return (
+                  <li
+                    key={d.id}
+                    className={`cursor-pointer px-3 py-2 text-[13px] ${isSel ? "bg-surface-muted" : "bg-surface hover:bg-surface-muted"}`}
+                    onClick={() => {
+                      setSelected(d.id);
+                      setView(d.mapPoint.view);
+                    }}
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="flex min-w-0 items-baseline gap-2">
+                        <span
+                          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-dashed text-[11px] tabular-nums ${
+                            isSel ? "border-primary bg-primary/10 text-primary" : "border-primary/60 bg-surface text-primary"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{d.label}</div>
+                          <div className="truncate text-[12px] text-muted-foreground">
+                            {d.bodyZone} · {bodyMapViewLabel(d.mapPoint.view)}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-sm border border-dashed border-primary/60 bg-surface px-1.5 py-0.5 text-[11px] text-primary">
+                        локально, не сохранено
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         {pending && (
           <div className="border-t border-border bg-surface p-3">
-            <div className="text-[13px] font-semibold">Новая точка (демо)</div>
+            <div className="text-[13px] font-semibold">Новый очаг (демо)</div>
             <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
               <Stat term="Проекция" value={bodyMapViewLabel(pending.view)} />
               <Stat term="X / Y" value={`${Math.round(pending.x * 100)}% / ${Math.round(pending.y * 100)}%`} />
@@ -570,25 +614,88 @@ function BodyMapTab({
                 className="mt-1 h-8 text-[12px]"
               />
             </label>
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              Метка очага
+              <Input
+                value={draftLabel}
+                onChange={(e) => setDraftLabel(e.target.value)}
+                className="mt-1 h-8 text-[12px]"
+              />
+            </label>
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              Статус
+              <select
+                value={draftStatus}
+                onChange={(e) => setDraftStatus(e.target.value as Lesion["status"])}
+                className="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-[12px]"
+                aria-label="Статус демо-очага"
+              >
+                {(Object.keys(LESION_STATUS) as Array<Lesion["status"]>).map((s) => (
+                  <option key={s} value={s}>{LESION_STATUS[s]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              Комментарий врача (демо)
+              <Textarea
+                value={draftNote}
+                onChange={(e) => setDraftNote(e.target.value)}
+                className="mt-1 min-h-[60px] text-[12px]"
+              />
+            </label>
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 size="sm"
                 className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                onClick={confirmPending}
+                onClick={addLocalDraft}
               >
-                Подтвердить демо-точку
+                Добавить локально
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
                 className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                onClick={() => setPending(null)}
+                onClick={cancelPending}
               >
                 Отменить
               </Button>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Демо-точка не сохранена в мок-данные.
+              Демо-очаг не сохранён в мок-данные.
+            </p>
+          </div>
+        )}
+
+        {selectedDraft && (
+          <div className="border-t border-border bg-surface p-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="min-w-0">
+                <div className="truncate text-[13px] font-semibold">{selectedDraft.label}</div>
+                <div className="truncate text-[12px] text-muted-foreground">
+                  {selectedDraft.bodyZone} · проекция {bodyMapViewLabel(selectedDraft.mapPoint.view)}
+                </div>
+              </div>
+              <span className="shrink-0 rounded-sm border border-dashed border-primary/60 bg-surface px-1.5 py-0.5 text-[11px] text-primary">
+                локально, не сохранено
+              </span>
+            </div>
+            <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
+              <Stat term="X / Y" value={`${Math.round(selectedDraft.mapPoint.x * 100)}% / ${Math.round(selectedDraft.mapPoint.y * 100)}%`} />
+              <Stat term="Снимков" value="—" />
+              <Stat term="ABCD" value="—" />
+              <Stat term="7-point" value="—" />
+            </dl>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+              <Stat term="Статус" value={LESION_STATUS[selectedDraft.status]} />
+              <Stat term="ID" value={<span className="font-mono">{selectedDraft.id}</span>} />
+            </dl>
+            {selectedDraft.note && (
+              <div className="mt-2 rounded-sm border border-dashed border-border bg-surface-muted px-2 py-1.5 text-[12px]">
+                {selectedDraft.note}
+              </div>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Это демо-очаг. Он существует только в UI текущего визита.
             </p>
           </div>
         )}
