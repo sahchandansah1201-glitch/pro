@@ -72,7 +72,12 @@ export default function MeReportsPage() {
       );
     });
     list = [...list].sort((a, b) => {
-      if (sort === "clinic") return a.clinicName.localeCompare(b.clinicName, "ru");
+      if (sort === "clinic-asc" || sort === "clinic-desc") {
+        const cmpC = a.clinicName.localeCompare(b.clinicName, "ru");
+        if (cmpC !== 0) return sort === "clinic-asc" ? cmpC : -cmpC;
+        // tie-break: новее сверху
+        return -a.visitDate.localeCompare(b.visitDate);
+      }
       const cmp = a.visitDate.localeCompare(b.visitDate);
       return sort === "new" ? -cmp : cmp;
     });
