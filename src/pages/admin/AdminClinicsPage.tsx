@@ -132,7 +132,7 @@ export default function AdminClinicsPage() {
                     type="button"
                     role="tab"
                     aria-selected={active}
-                    aria-label={`Фильтр клиник: ${f.label}`}
+                    
                     onClick={() => setFilter(f.key)}
                     className={`min-h-[44px] rounded-md border px-3 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-[32px] ${
                       active
