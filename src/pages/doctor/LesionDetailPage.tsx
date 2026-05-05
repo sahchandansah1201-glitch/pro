@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronRight, Image as ImageIcon, ClipboardList, MapPin, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ChevronRight, Image as ImageIcon, ClipboardList, MapPin, ShieldAlert, Maximize2 } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { RiskBadge } from "@/components/clinical/RiskBadge";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { BodySilhouette, pickFigure, FIGURE_LABEL, type Figure } from "@/components/clinical/BodySilhouette";
+import { calcAge, formatDate, formatDateTime } from "@/lib/format";
 import {
   getAssessmentsByLesionId,
   getClinicById,
@@ -78,6 +80,81 @@ function BodyMapMini({ view, x, y }: { view: Lesion["mapPoint"]["view"]; x: numb
   );
 }
 
+function BodyMapDialog({
+  open, onOpenChange, figure, view, x, y, bodyZone, label,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  figure: Figure;
+  view: Lesion["mapPoint"]["view"];
+  x: number;
+  y: number;
+  bodyZone: string;
+  label: string;
+}) {
+  // BodySilhouette поддерживает только front/back. left/right/scalp проецируем на front
+  // и подсвечиваем словом-подсказкой ниже карты.
+  const projected: "front" | "back" = view === "back" ? "back" : "front";
+  const note =
+    view === "left" || view === "right"
+      ? `Боковая проекция (${VIEW_LABEL[view]}) показана на фронтальном силуэте.`
+      : view === "scalp"
+        ? "Локализация на волосистой части головы — точка отнесена к зоне головы фронтального силуэта."
+        : null;
+
+  // Координаты в системе viewBox 200x400 у BodySilhouette.
+  const cx = Math.max(0, Math.min(1, x)) * 200;
+  const cy = Math.max(0, Math.min(1, y)) * 400;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-[14px]">Карта тела · {label}</DialogTitle>
+          <DialogDescription className="text-[12px]">
+            {bodyZone} · проекция {VIEW_LABEL[view]} · координаты x{(x * 100).toFixed(0)}% / y{(y * 100).toFixed(0)}% · силуэт: {FIGURE_LABEL[figure]}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mx-auto w-full max-w-[360px]">
+          <svg
+            viewBox="0 0 200 400"
+            role="img"
+            aria-label={`Увеличенная карта тела: ${VIEW_LABEL[view]}, x ${(x * 100).toFixed(0)}%, y ${(y * 100).toFixed(0)}%`}
+            className="block h-auto w-full"
+          >
+            <BodySilhouette view={projected} figure={figure} />
+            {/* Прицельные линии X/Y */}
+            <g stroke="hsl(var(--destructive) / 0.45)" strokeDasharray="3 3" strokeWidth={0.8}>
+              <line x1={0} y1={cy} x2={200} y2={cy} />
+              <line x1={cx} y1={0} x2={cx} y2={400} />
+            </g>
+            {/* Пульсирующее кольцо */}
+            <circle
+              cx={cx}
+              cy={cy}
+              r={14}
+              fill="hsl(var(--destructive) / 0.15)"
+              stroke="hsl(var(--destructive) / 0.5)"
+              strokeWidth={0.8}
+            />
+            <circle
+              cx={cx}
+              cy={cy}
+              r={6}
+              fill="hsl(var(--destructive))"
+              stroke="hsl(var(--background))"
+              strokeWidth={1.5}
+            />
+          </svg>
+          {note && (
+            <p className="mt-2 text-center text-[11px] italic text-muted-foreground">{note}</p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const NotFound = ({ title, hint }: { title: string; hint: string }) => (
   <div className="flex h-full flex-col">
     <PageHeader title={title} subtitle={hint} />
@@ -97,7 +174,7 @@ export default function LesionDetailPage() {
   // Локальный UI-state для демо-действий (не сетевой и не storage).
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
-
+  const [mapOpen, setMapOpen] = useState(false);
 
   const images = useMemo(
     () => [...getImagesByLesionId(lesionId)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
@@ -175,7 +252,17 @@ export default function LesionDetailPage() {
                 <MapPin className="h-3.5 w-3.5" aria-hidden /> Локализация
               </div>
               <div className="mt-1 flex items-start gap-2">
-                <BodyMapMini view={lesion.mapPoint.view} x={lesion.mapPoint.x} y={lesion.mapPoint.y} />
+                <button
+                  type="button"
+                  onClick={() => setMapOpen(true)}
+                  aria-label="Открыть увеличенную карту тела"
+                  className="group relative shrink-0 rounded border bg-muted/30 p-0 transition hover:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <BodyMapMini view={lesion.mapPoint.view} x={lesion.mapPoint.x} y={lesion.mapPoint.y} />
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-0.5 rounded-b bg-background/85 py-0.5 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                    <Maximize2 className="h-2.5 w-2.5" aria-hidden /> увеличить
+                  </span>
+                </button>
                 <div className="min-w-0">
                   <div className="text-[13px]">{lesion.bodyZone}</div>
                   <div className="text-[12px] text-muted-foreground">
@@ -184,6 +271,13 @@ export default function LesionDetailPage() {
                   <div className="text-[12px] text-muted-foreground tabular-nums">
                     x{(lesion.mapPoint.x * 100).toFixed(0)}% / y{(lesion.mapPoint.y * 100).toFixed(0)}%
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setMapOpen(true)}
+                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-primary hover:underline focus:outline-none focus-visible:underline"
+                  >
+                    <Maximize2 className="h-3 w-3" aria-hidden /> Открыть карту
+                  </button>
                 </div>
               </div>
             </div>
@@ -332,6 +426,17 @@ export default function LesionDetailPage() {
           )}
         </Card>
       </div>
+
+      <BodyMapDialog
+        open={mapOpen}
+        onOpenChange={setMapOpen}
+        figure={pickFigure(patient.sex, calcAge(patient.birthDate))}
+        view={lesion.mapPoint.view}
+        x={lesion.mapPoint.x}
+        y={lesion.mapPoint.y}
+        bodyZone={lesion.bodyZone}
+        label={lesion.label}
+      />
     </div>
   );
 }
