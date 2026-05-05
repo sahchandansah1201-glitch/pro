@@ -372,11 +372,25 @@ interface DemoReportDraft {
   createdAt: string;
 }
 
+type SendStatus = "idle" | "sending" | "sent" | "failed";
+
+interface SendRecord {
+  status: SendStatus;
+  at: string;
+  patientTextPreview: string;
+  reason?: string;
+}
+
 function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
   const [title, setTitle] = useState("");
   const [patientText, setPatientText] = useState("");
   const [internalNote, setInternalNote] = useState("");
   const [saved, setSaved] = useState<DemoReportDraft | null>(null);
+  const [send, setSend] = useState<SendRecord>({
+    status: "idle",
+    at: "",
+    patientTextPreview: "",
+  });
 
   const onSave = () => {
     setSaved({
@@ -384,6 +398,32 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
       patientText: patientText.trim(),
       internalNote: internalNote.trim(),
       createdAt: BODY_MAP_DEMO_NOW,
+    });
+  };
+
+  const canSend = Boolean(saved && saved.patientText.length > 0) && send.status !== "sending";
+
+  const onSendDemo = () => {
+    if (!saved) return;
+    if (!saved.patientText) {
+      setSend({
+        status: "failed",
+        at: BODY_MAP_DEMO_NOW,
+        patientTextPreview: "",
+        reason: "Текст для пациента пуст.",
+      });
+      return;
+    }
+    setSend({
+      status: "sending",
+      at: BODY_MAP_DEMO_NOW,
+      patientTextPreview: saved.patientText,
+    });
+    // Local UI-only transition; no network, no timers persisted across renders.
+    setSend({
+      status: "sent",
+      at: BODY_MAP_DEMO_NOW,
+      patientTextPreview: saved.patientText,
     });
   };
 
@@ -449,15 +489,21 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
           type="button"
           size="sm"
           variant="secondary"
-          disabled
+          disabled={!canSend}
+          aria-disabled={!canSend}
+          data-testid="send-to-patient-demo"
           className="min-h-[44px] sm:min-h-[32px]"
+          onClick={onSendDemo}
         >
           Отправить пациенту (демо)
         </Button>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Отправка и PDF будут подключены на бэкенде.
+        Печать/PDF будут подключены на бэкенде. Отправка пациенту в этом режиме
+        работает локально и не уходит во внешние сервисы.
       </p>
+
+      <SendStatusBlock send={send} />
 
       {saved && (
         <div role="status" data-testid="demo-report-preview" className="mt-3 space-y-3">
@@ -525,6 +571,62 @@ function DemoReportForm({ assessment }: { assessment: Assessment | null }) {
         </div>
       )}
     </section>
+  );
+}
+
+// ───────── Send status (local-only) ─────────
+
+const SEND_STATUS_LABEL: Record<SendStatus, string> = {
+  idle: "Ещё не отправлялось",
+  sending: "Отправка…",
+  sent: "Отправлено (демо)",
+  failed: "Не отправлено",
+};
+
+function SendStatusBlock({ send }: { send: SendRecord }) {
+  const tone =
+    send.status === "sent"
+      ? "border-[hsl(var(--risk-low))]"
+      : send.status === "failed"
+        ? "border-[hsl(var(--risk-high))]"
+        : send.status === "sending"
+          ? "border-[hsl(var(--risk-medium))]"
+          : "border-dashed border-border";
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="send-status"
+      data-send-status={send.status}
+      className={`mt-3 rounded-md border bg-surface-muted p-3 text-[12px] ${tone}`}
+    >
+      <div className="mb-1 font-medium text-foreground">
+        Статус отправки пациенту: {SEND_STATUS_LABEL[send.status]}
+      </div>
+      {send.status === "idle" && (
+        <p className="text-muted-foreground">
+          Сначала сформируйте демо-отчёт и заполните «Текст для пациента».
+        </p>
+      )}
+      {send.status === "failed" && (
+        <p className="text-muted-foreground">{send.reason ?? "Неизвестная причина."}</p>
+      )}
+      {(send.status === "sent" || send.status === "sending") && (
+        <dl className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-3">
+          <dt className="text-muted-foreground">Время (демо)</dt>
+          <dd className="tabular-nums sm:col-span-2">{formatDateTime(send.at)}</dd>
+          <dt className="text-muted-foreground">Содержимое</dt>
+          <dd className="sm:col-span-2 whitespace-pre-wrap text-foreground">
+            {send.patientTextPreview}
+          </dd>
+        </dl>
+      )}
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Локальный статус сессии. Реальная отправка email/мессенджером будет
+        подключена на бэкенде.
+      </p>
+    </div>
   );
 }
 

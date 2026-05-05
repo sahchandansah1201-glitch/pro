@@ -113,16 +113,47 @@ describe("VisitReportTab · demo report form", () => {
     expect(within(internalPreview).getByText(/невус vs\. атипия/)).toBeInTheDocument();
   });
 
-  it("Печать / PDF (демо) and Отправить пациенту (демо) are disabled", () => {
+  it("Печать / PDF (демо) is disabled; Отправить пациенту enables after demo draft", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
     expect(
       screen.getByRole("button", { name: /Печать \/ PDF \(демо\)/ }),
     ).toBeDisabled();
+
+    const sendBtn = screen.getByRole("button", {
+      name: /Отправить пациенту \(демо\)/,
+    }) as HTMLButtonElement;
+    expect(sendBtn.disabled).toBe(true);
+
     expect(
-      screen.getByRole("button", { name: /Отправить пациенту \(демо\)/ }),
-    ).toBeDisabled();
-    expect(
-      screen.getByText(/Отправка и PDF будут подключены на бэкенде/),
+      screen.getByText(/Печать\/PDF будут подключены на бэкенде/),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("send-status").getAttribute("data-send-status")).toBe("idle");
+  });
+
+  it("local send flow sets status to 'sent' and exposes only patient-safe text", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
+
+    fireEvent.change(screen.getByLabelText(/Текст для пациента/), {
+      target: { value: "Запишитесь на повторный осмотр через 3 месяца." },
+    });
+    fireEvent.change(screen.getByLabelText(/Внутренняя заметка врача/), {
+      target: { value: "ABCD граничный, контроль через 3 мес." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Сформировать демо-отчёт/ }));
+
+    const sendBtn = screen.getByRole("button", {
+      name: /Отправить пациенту \(демо\)/,
+    }) as HTMLButtonElement;
+    expect(sendBtn.disabled).toBe(false);
+
+    fireEvent.click(sendBtn);
+
+    const status = screen.getByTestId("send-status");
+    expect(status.getAttribute("data-send-status")).toBe("sent");
+    expect(within(status).getByText(/повторный осмотр через 3 месяца/)).toBeInTheDocument();
+    expect(within(status).queryByText(/контроль через 3 мес/)).toBeNull();
+    expect(status.innerHTML).not.toMatch(
+      /doctorVersionText|patientSafeText|sharedLink|storagePath|photoRef|modelVersion|heatmapRef|externalUserRef|protectedAnalysisLink/,
+    );
   });
 });

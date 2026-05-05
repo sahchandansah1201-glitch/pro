@@ -193,7 +193,7 @@ describe("Visit Workspace · local draft isolation across downstream tabs", () =
 });
 
 describe("Visit Workspace · Report demo-only actions", () => {
-  it("Печать / PDF and Отправить пациенту are disabled; no window.print used", () => {
+  it("Печать / PDF disabled; Отправить пациенту is initially disabled (no demo draft)", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
     const printBtn = screen.getByRole("button", { name: /Печать \/ PDF/ }) as HTMLButtonElement;
     const sendBtn = screen.getByRole("button", { name: /Отправить пациенту/ }) as HTMLButtonElement;
