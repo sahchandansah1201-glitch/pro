@@ -254,6 +254,8 @@ export default function AdminDoctorsPage() {
           </div>
         )}
 
+        {isEmpty && emptyState}
+
         {/* Desktop таблица */}
         <Card className="hidden p-0 md:block">
           <table className="w-full text-[12px]">
