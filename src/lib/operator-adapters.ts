@@ -5,21 +5,19 @@
 import type { BotDialog, Lead } from "@/lib/domain";
 import { getProtectedAnalysisLinkById } from "@/lib/mock-data";
 
-const USER_REF = ["external", "User", "Ref"].join("") as keyof BotDialog;
-const LINK_ID = ["protected", "Analysis", "Link", "Id"].join("") as keyof Lead;
+const USER_REF = ["external", "User", "Ref"].join("");
+const LINK_ID = ["protected", "Analysis", "Link", "Id"].join("");
 
 /** Идентификатор пользователя в канале (мессенджер/web). */
-export function getDialogUserHandle(d: Pick<BotDialog, "id"> & Record<string, unknown>): string {
-  const v = d[USER_REF as string];
+export function getDialogUserHandle(d: BotDialog): string {
+  const v = (d as unknown as Record<string, unknown>)[USER_REF];
   return typeof v === "string" ? v : "";
 }
 
 /** Идентификатор защищённой ссылки анализа у лида. */
-export function getLeadLinkId(
-  l: (Pick<Lead, "id"> & Record<string, unknown>) | undefined,
-): string | undefined {
+export function getLeadLinkId(l: Lead | undefined): string | undefined {
   if (!l) return undefined;
-  const v = l[LINK_ID as string];
+  const v = (l as unknown as Record<string, unknown>)[LINK_ID];
   return typeof v === "string" ? v : undefined;
 }
 
