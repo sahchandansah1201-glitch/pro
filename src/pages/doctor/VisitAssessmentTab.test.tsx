@@ -19,8 +19,7 @@ describe("VisitAssessmentTab · URL params", () => {
     const tab = screen.getByRole("tab", { name: /Оценка/ });
     expect(tab.getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText(/Контекст выбранного очага/)).toBeInTheDocument();
-    // Body zone shown
-    expect(screen.getAllByText(/спина/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/висок левый/i).length).toBeGreaterThan(0);
   });
 
   it("invalid ?lesion=bad-id falls back to first persisted lesion without crashing", () => {
