@@ -367,7 +367,7 @@ export default function HelpPage() {
           <Section id="roles" icon={Users} title="Роли">
             <ul className="divide-y divide-border">
               {filtered.roles.map((r) => (
-                <li key={r.title} className="py-2">
+                <li key={r.title} className="py-3">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="text-[13px] font-medium">{r.title}</span>
                     {r.routes.map((p) => (
@@ -377,6 +377,52 @@ export default function HelpPage() {
                     ))}
                   </div>
                   <p className="mt-1 text-[12px] text-muted-foreground">{r.responsibilities}</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <div
+                      className="rounded-md border px-2.5 py-2"
+                      style={{
+                        background: "hsl(var(--success) / 0.06)",
+                        borderColor: "hsl(var(--success) / 0.25)",
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                        style={{ color: "hsl(var(--success))" }}
+                      >
+                        <Check className="h-3.5 w-3.5" aria-hidden /> Можно
+                      </div>
+                      <ul className="mt-1 space-y-1 text-[12px]">
+                        {r.safe.map((s) => (
+                          <li key={s} className="flex items-start gap-1.5">
+                            <span aria-hidden className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div
+                      className="rounded-md border px-2.5 py-2"
+                      style={{
+                        background: "hsl(var(--destructive) / 0.06)",
+                        borderColor: "hsl(var(--destructive) / 0.25)",
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                        style={{ color: "hsl(var(--destructive))" }}
+                      >
+                        <Ban className="h-3.5 w-3.5" aria-hidden /> Нельзя
+                      </div>
+                      <ul className="mt-1 space-y-1 text-[12px]">
+                        {r.forbidden.map((s) => (
+                          <li key={s} className="flex items-start gap-1.5">
+                            <span aria-hidden className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
