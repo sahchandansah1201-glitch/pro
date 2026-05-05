@@ -234,5 +234,11 @@ for (const file of sortedFiles) {
 console.log("");
 console.log(HR);
 console.log(`  ${red("Сканирование завершено с ошибкой.")}`);
+if (writeReports) {
+  console.log(`  ${dim("Подробный отчёт:")} ${cyan(fileUrl(REPORT_MD))}`);
+} else {
+  console.log(`  ${dim("Полный скан + отчёт:")} ${bold("npm run scan:doctor")}`);
+  console.log(`  ${dim("Откроется здесь    :")} ${cyan(fileUrl(REPORT_MD))}`);
+}
 console.log(HR);
 process.exit(1);
