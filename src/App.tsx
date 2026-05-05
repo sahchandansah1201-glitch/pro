@@ -25,15 +25,15 @@ import AdminIntegrationsPage from "./pages/admin/AdminIntegrationsPage";
 import AdminIntegrationDetailPage from "./pages/admin/AdminIntegrationDetailPage";
 import AdminBotSettingsPage from "./pages/admin/AdminBotSettingsPage";
 import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
+import AdminHomePage from "./pages/admin/AdminHomePage";
+import AdminDoctorsPage from "./pages/admin/AdminDoctorsPage";
+import AdminServicesPage from "./pages/admin/AdminServicesPage";
+import AdminClinicsPage from "./pages/admin/AdminClinicsPage";
 import {
   // Doctor placeholders (still TBD)
   LesionPage,
-  // Clinic admin
-  AdminHomePage,
-  AdminDoctorsPage,
-  AdminServicesPage,
-  AdminClinicsPage,
   // Operator placeholders removed — real pages used
+
 
   // System admin
   SysUsersPage,
