@@ -120,6 +120,8 @@ describe("Admin clinic core pages — render & safety", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Внешние" }));
     expect(screen.getByText("Ничего не найдено")).toBeInTheDocument();
     expect(screen.getByText(/фильтр:/)).toBeInTheDocument();
+  });
+
   it("AdminClinicsPage reads sort from ?sort=conversion in URL", () => {
     render(
       <MemoryRouter initialEntries={["/admin/clinics?sort=conversion"]}>
