@@ -55,6 +55,39 @@ export function bodyMapViewLabel(v: BodyMapPoint["view"]): string {
   }
 }
 
+/** Prominent active-surface label shown above the canvas and in aria-label. */
+export function bodyMapSurfaceLabel(v: BodyMapPoint["view"]): string {
+  switch (v) {
+    case "front": return "Передняя поверхность";
+    case "back": return "Задняя поверхность";
+    case "left": return "Левая боковая поверхность";
+    case "right": return "Правая боковая поверхность";
+    case "scalp": return "Верх головы";
+  }
+}
+
+/** Short anatomical landmark hint shown next to the surface label. */
+export function bodyMapSurfaceHint(v: BodyMapPoint["view"]): string {
+  switch (v) {
+    case "front": return "Ориентиры: лицо, грудная клетка, живот";
+    case "back": return "Ориентиры: затылок, лопатки, позвоночник, поясница";
+    case "left": return "Ориентиры: левый висок, левое плечо, левое бедро";
+    case "right": return "Ориентиры: правый висок, правое плечо, правое бедро";
+    case "scalp": return "Ориентиры: темя, пробор, затылок";
+  }
+}
+
+/** Compact uppercase badge rendered inside the SVG. */
+export function bodyMapSurfaceBadge(v: BodyMapPoint["view"]): string {
+  switch (v) {
+    case "front": return "ПЕРЕД";
+    case "back": return "СПИНА";
+    case "left": return "ЛЕВЫЙ БОК";
+    case "right": return "ПРАВЫЙ БОК";
+    case "scalp": return "ГОЛОВА";
+  }
+}
+
 export const BODY_MAP_VIEWS: BodyMapPoint["view"][] = [
   "front",
   "back",
