@@ -2,9 +2,17 @@
 
 Tests-only slice. They exercise the running `supabase/functions/api-read`
 Edge Function over a local Supabase stack, using HS256 JWTs minted locally
-from `SUPABASE_JWT_SECRET` for the seeded demo `auth.users.id` values.
+from `API_READ_JWT_SECRET` for the seeded demo `auth.users.id` values.
 Stage 1A RLS remains the security boundary. There is no service-role usage,
 no admin client, and no password sign-in.
+
+> **Why `API_READ_JWT_SECRET` and not `SUPABASE_JWT_SECRET`?**
+> The Supabase CLI strips any env var whose name starts with `SUPABASE_`
+> from `--env-file` ("Env name cannot start with SUPABASE_, skipping: …"),
+> so the function would never see it. We pass the same local HS256 secret
+> under a non-reserved name. The function-side code accepts either name
+> (`API_READ_JWT_SECRET` first, `SUPABASE_JWT_SECRET` as fallback for
+> hosted environments where the platform injects it).
 
 ## Local prerequisites (developer machine)
 
@@ -18,7 +26,12 @@ npx supabase db reset
 # 3. Confirm Stage 1A is still green.
 npx supabase test db   # must report 39/39
 
-# 4. Serve the function with JWT gateway verification disabled, so the
+# 4. Put the JWT secret into ./supabase/.env.local under a NON-reserved
+#    name (the Supabase CLI skips SUPABASE_*):
+#
+#      API_READ_JWT_SECRET=<local JWT secret from `supabase status`>
+#
+# 5. Serve the function with JWT gateway verification disabled, so the
 #    function itself returns canonical auth errors.
 npx supabase functions serve api-read \
   --env-file ./supabase/.env.local --no-verify-jwt
@@ -28,7 +41,8 @@ Required environment for the test runner:
 
 ```
 SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_JWT_SECRET=<local JWT secret, printed by `supabase status`>
+API_READ_JWT_SECRET=<local JWT secret, printed by `supabase status`>
+# SUPABASE_JWT_SECRET is also accepted as a fallback for the test runner.
 # optional:
 # API_READ_BASE_URL=http://127.0.0.1:54321/functions/v1/api-read
 ```
