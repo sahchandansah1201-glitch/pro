@@ -295,6 +295,13 @@ Deno.serve(async (req) => {
 
   try {
     const ctx = await authenticate(req);
+    if (path.startsWith("/doctor/") || path === "/doctor") {
+      const hasDoctorRole = ctx.roles.includes("doctor") ||
+        ctx.roles.includes("private_doctor");
+      if (!hasDoctorRole) {
+        throw new HttpError("forbidden", "Doctor role required");
+      }
+    }
     const body = await matched.route.handler(ctx, matched.params);
     return okResponse(body, correlationId);
   } catch (err) {
