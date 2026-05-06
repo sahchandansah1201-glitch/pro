@@ -95,7 +95,8 @@ export function toPatientReportSummaryDTO(row: {
 export interface PatientReportVersionDTO {
   id: string;
   status: "final" | "amended";
-  patientSafeText: string;
+  /** Patient-safe text. External DTO key is `text`; DB column is `patient_safe_text`. */
+  text: string;
   createdAt: string;
 }
 
@@ -108,7 +109,7 @@ export function toPatientReportVersionDTO(row: {
   return {
     id: row.id,
     status: row.status,
-    patientSafeText: row.patient_safe_text,
+    text: row.patient_safe_text,
     createdAt: row.created_at,
   };
 }
