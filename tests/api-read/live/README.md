@@ -1,10 +1,10 @@
 # Stage 1B-B · Live API contract tests
 
 Tests-only slice. They exercise the running `supabase/functions/api-read`
-Edge Function over a local Supabase stack, using JWTs minted by signing in
-as the seeded demo users. Stage 1A RLS is the security boundary; the
-service role is used ONLY in test setup to assign demo passwords to
-already-seeded users (their `auth.users.id` is never mutated).
+Edge Function over a local Supabase stack, using HS256 JWTs minted locally
+from `SUPABASE_JWT_SECRET` for the seeded demo `auth.users.id` values.
+Stage 1A RLS remains the security boundary. There is no service-role usage,
+no admin client, and no password sign-in.
 
 ## Local prerequisites (developer machine)
 
@@ -24,24 +24,21 @@ npx supabase functions serve api-read \
   --env-file ./supabase/.env.local --no-verify-jwt
 ```
 
-`./supabase/.env.local` must export:
+Required environment for the test runner:
 
 ```
 SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_ANON_KEY=<local anon JWT, printed by `supabase status`>
-SUPABASE_SERVICE_ROLE_KEY=<local service role JWT, printed by `supabase status`>
+SUPABASE_JWT_SECRET=<local JWT secret, printed by `supabase status`>
+# optional:
+# API_READ_BASE_URL=http://127.0.0.1:54321/functions/v1/api-read
 ```
 
-The same three variables must be present in your shell when running tests:
-
-```bash
-export $(grep -v '^#' supabase/.env.local | xargs)
-```
+No service-role key or anon key is required by these tests.
 
 ## Run the tests
 
 ```bash
-deno test --allow-env --allow-net --no-check \
+deno test --allow-env --allow-net --allow-read --no-check \
   --config tests/api-read/live/deno.json \
   tests/api-read/live/contract.test.ts
 ```

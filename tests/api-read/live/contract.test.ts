@@ -5,12 +5,12 @@
 //   2. `npx supabase db reset`             (loads Stage 1A schema/RLS/seed)
 //   3. `npx supabase functions serve api-read \
 //        --env-file ./supabase/.env.local --no-verify-jwt`
-//   4. Export SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
-//      (service role is used ONLY to set demo passwords on seeded users —
-//       the API itself never sees it).
+//   4. Export SUPABASE_URL and SUPABASE_JWT_SECRET. JWTs are minted
+//      locally (HS256) for seeded auth.users.id values; no service role,
+//      no admin client, no password sign-in.
 //
 // Run:
-//   deno test --allow-env --allow-net --no-check \
+//   deno test --allow-env --allow-net --allow-read --no-check \
 //     --config tests/api-read/live/deno.json \
 //     tests/api-read/live/contract.test.ts
 //
