@@ -174,7 +174,8 @@ export interface DoctorReportVersionDTO {
   reportId: string;
   version: number;
   status: "draft" | "final" | "amended" | "revoked";
-  patientSafeText: string;
+  /** Patient-facing text. External key intentionally `patientText`, not `patientSafeText`. */
+  patientText: string;
   doctorText: string;
   createdAt: string;
   signedAt: string | null;
@@ -195,7 +196,7 @@ export function toDoctorReportVersionDTO(row: {
     reportId: row.report_id,
     version: row.version,
     status: row.status,
-    patientSafeText: row.patient_safe_text,
+    patientText: row.patient_safe_text,
     doctorText: row.doctor_text,
     createdAt: row.created_at,
     signedAt: row.signed_at,
