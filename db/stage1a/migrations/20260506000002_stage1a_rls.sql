@@ -16,6 +16,23 @@ begin
   end loop;
 end $$;
 
+-- ── Least privilege: deny INSERT/UPDATE/DELETE to non-system app roles ─────
+-- Stage 1A is read-only for app roles. Revoking write privileges ensures any
+-- write attempt fails with SQLSTATE 42501 (insufficient_privilege) rather
+-- than silently affecting zero rows under RLS.
+do $$
+declare t text;
+begin
+  for t in select unnest(array[
+      'clinics','profiles','user_roles','patient_user_link',
+      'patients','visits','lesions','assets','assessments','conclusions',
+      'reports','report_versions','public_signed_links','protected_analysis_links',
+      'consents','audit_logs'
+  ]) loop
+    execute format('revoke insert, update, delete on public.%I from authenticated, anon;', t);
+  end loop;
+end $$;
+
 -- Drop any pre-existing policies (idempotent re-run).
 do $$
 declare r record;
