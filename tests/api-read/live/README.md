@@ -33,8 +33,7 @@ SUPABASE_JWT_SECRET=<local JWT secret, printed by `supabase status`>
 # API_READ_BASE_URL=http://127.0.0.1:54321/functions/v1/api-read
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_ANON_KEY` are **not** required by
-these tests.
+No service-role key or anon key is required by these tests.
 
 ## Run the tests
 
