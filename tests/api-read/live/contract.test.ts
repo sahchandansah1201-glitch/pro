@@ -243,12 +243,21 @@ Deno.test("/doctor/reports/:id/versions returns doctorText + patientText", async
 });
 
 // ── Cross-surface: patient hits doctor route ───────────────────────────────
-Deno.test("patient calling /doctor/patients sees no rows (RLS)", async () => {
+Deno.test("patient calling /doctor/patients → 403 forbidden", async () => {
   const jwt = await getJwtFor(DEMO_USERS.patient);
   const res = await callApi("/doctor/patients", { jwt });
-  assertEquals(res.status, 200);
-  const body = res.body as { data: unknown[] };
-  assertEquals(body.data.length, 0);
+  assertEquals(res.status, 403);
+  assertErrorEnvelope(res.body, "forbidden");
+});
+
+Deno.test("patient calling /doctor/patients/:id → 403 forbidden", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.patient);
+  const res = await callApi(
+    `/doctor/patients/${FIXTURES.patientP001}`,
+    { jwt },
+  );
+  assertEquals(res.status, 403);
+  assertErrorEnvelope(res.body, "forbidden");
 });
 
 Deno.test("private doctor cannot read main-clinic patient (RLS → 404)", async () => {
