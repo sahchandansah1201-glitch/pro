@@ -99,7 +99,7 @@ Deno.test("toPatientReportSummaryDTO maps created_at→generatedAt and strips cl
   );
 });
 
-Deno.test("toPatientReportVersionDTO never carries doctor_text or signed_by", () => {
+Deno.test("toPatientReportVersionDTO exposes `text`, never `patientSafeText` or doctor_text", () => {
   const dto = toPatientReportVersionDTO(
     dirty(
       {
@@ -121,9 +121,13 @@ Deno.test("toPatientReportVersionDTO never carries doctor_text or signed_by", ()
   assertEquals(Object.keys(dto).sort(), [
     "createdAt",
     "id",
-    "patientSafeText",
     "status",
+    "text",
   ]);
+  // External DTO key MUST be `text`, not `patientSafeText`.
+  // deno-lint-ignore no-explicit-any
+  assertEquals((dto as any).patientSafeText, undefined);
+  assertEquals(dto.text, "safe");
   assertNoForbiddenKeys(
     { data: [dto] },
     FORBIDDEN_PATIENT_KEYS,
