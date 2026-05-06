@@ -62,34 +62,48 @@ supabase/functions/api-read/
 
 ## Local verification
 
-### Pure unit tests (no DB, no JWT) — already passing
+### Type-check (`deno check`)
+
+The function uses `@supabase/supabase-js` via an esm.sh import map declared
+in `supabase/functions/api-read/deno.json`. This avoids needing a
+`node_modules` directory or any change to root `package.json` /
+`package-lock.json`.
 
 ```bash
-deno test --allow-env --no-check supabase/functions/api-read/_tests/projections.test.ts
+deno check --config supabase/functions/api-read/deno.json \
+  supabase/functions/api-read/index.ts
+```
+
+Result on this commit: **passes** (single `Check supabase/functions/api-read/index.ts` line, no errors).
+
+### Projection unit tests (no DB, no JWT)
+
+```bash
+deno test --allow-env --no-check \
+  supabase/functions/api-read/_tests/projections.test.ts
 ```
 
 Result on this commit: **9 passed / 0 failed**.
 
-These tests prove:
+These are **projection unit tests only**. They prove:
 * every DTO returns ONLY allow-listed keys,
 * forbidden fields injected into raw rows are stripped,
+* the patient report-version DTO exposes `text` (not the long-form key),
 * the forbidden-field scanner detects nested leaks,
 * the uuid validator rejects junk,
 * `/me` roles are deduped and sorted.
 
-### Live integration (requires local Supabase stack)
+**Live API/RLS contract tests are deferred to Stage 1B-B.** They require
+a running local Supabase stack and seeded JWTs, and are not run as part
+of Stage 1B-A acceptance.
 
-Not run automatically. To verify locally:
+### Live integration (Stage 1B-B, not run here)
 
 ```bash
 npx supabase start
-npx supabase db reset                # applies Stage 1A migrations + seed
+npx supabase db reset
 npx supabase functions serve api-read --env-file ./supabase/.env
 ```
-
-Then issue authenticated GETs with a JWT minted from the seeded users
-(`b001` patient, `d001` doctor, etc.). Live tests are deferred to a
-later Stage 1B-B slice; do not claim they passed without running them.
 
 ## Constraints honoured in this slice
 
