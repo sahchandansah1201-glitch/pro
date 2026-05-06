@@ -29,9 +29,12 @@ import { assertUuid } from "../validators.ts";
 import { HttpError } from "../errors.ts";
 
 // ── Helper: cast row with extra fields, simulating a leaked-field DB row.
+// ── Helper: build a row carrying extra "leaked" fields, simulating a row
+// that arrived from the DB with columns the projection must drop. The spread
+// is on a CLONE inside test fixtures only; it is never used in response paths.
 // deno-lint-ignore no-explicit-any
-const dirty = <T,>(row: T, extra: Record<string, unknown>): T =>
-  ({ ...row, ...extra } as any);
+const dirty = <T,>(base: T, extra: Record<string, unknown>): T =>
+  (Object.assign({}, base, extra) as any);
 
 // ── /me DTO ────────────────────────────────────────────────────────────────
 Deno.test("toMeDTO: only allow-listed keys, roles deduped+sorted", () => {
