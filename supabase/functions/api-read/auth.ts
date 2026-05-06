@@ -1,6 +1,6 @@
 // Stage 1B-A · Per-request Supabase client bound to caller JWT.
 // All reads go through Stage 1A RLS — service role is never used here.
-import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "./errors.ts";
 
 export interface CallerContext {
