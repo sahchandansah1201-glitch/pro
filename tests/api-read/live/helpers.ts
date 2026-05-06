@@ -98,10 +98,11 @@ export interface Env {
 
 export function readEnv(): Env {
   const url = Deno.env.get("SUPABASE_URL");
-  const jwtSecret = Deno.env.get("SUPABASE_JWT_SECRET");
+  const jwtSecret = Deno.env.get("API_READ_JWT_SECRET") ??
+    Deno.env.get("SUPABASE_JWT_SECRET");
   if (!url || !jwtSecret) {
     throw new Error(
-      "Missing SUPABASE_URL / SUPABASE_JWT_SECRET (local only).",
+      "Missing SUPABASE_URL / API_READ_JWT_SECRET (local only).",
     );
   }
   const apiReadBaseUrl = Deno.env.get("API_READ_BASE_URL") ??
