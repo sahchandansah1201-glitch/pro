@@ -70,7 +70,7 @@ create table if not exists public.user_roles (
 create index if not exists user_roles_user_idx on public.user_roles(user_id);
 create index if not exists user_roles_role_idx on public.user_roles(role);
 
--- ── Helper functions ───────────────────────────────────────────────────────
+-- ── Helper functions (role checks; only depend on user_roles) ─────────────
 create or replace function public.has_role(_user_id uuid, _role public.app_role)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.user_roles
@@ -85,13 +85,7 @@ returns boolean language sql stable security definer set search_path = public as
                    and role in ('doctor','private_doctor','assistant','clinic_admin'))
 $$;
 
-create or replace function public.is_linked_patient(_user_id uuid, _patient_id uuid)
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.patient_user_link
-                 where user_id = _user_id
-                   and patient_id = _patient_id
-                   and revoked_at is null)
-$$;
+-- is_linked_patient is defined AFTER public.patient_user_link is created.
 
 -- ── Patients ───────────────────────────────────────────────────────────────
 create table if not exists public.patients (
