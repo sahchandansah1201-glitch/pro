@@ -71,22 +71,18 @@ create policy profiles_clinic_select on public.profiles
   );
 
 -- ── user_roles ─────────────────────────────────────────────────────────────
+-- Stage 1A keeps user_roles policies strictly NON-RECURSIVE.
+-- Any policy on user_roles that calls has_role() (which itself reads
+-- user_roles) causes "infinite recursion detected in policy" because
+-- FORCE ROW LEVEL SECURITY is enabled and BYPASSRLS does not apply
+-- inside SECURITY DEFINER functions whose owner is forced.
+-- Therefore: only a self-select policy. Broader role visibility for
+-- system_admin / clinic_admin is intentionally deferred past Stage 1A.
+-- has_role() still works correctly when invoked from OTHER tables'
+-- policies, because the self-select predicate (user_id = auth.uid())
+-- is sufficient for has_role to find the caller's own role rows.
 create policy user_roles_self_select on public.user_roles
   for select to authenticated using (user_id = auth.uid());
-
-create policy user_roles_sysadmin_select on public.user_roles
-  for select to authenticated
-  using (public.has_role(auth.uid(), 'system_admin'));
-
-create policy user_roles_clinic_admin_select on public.user_roles
-  for select to authenticated
-  using (
-    clinic_id is not null
-    and exists (select 1 from public.user_roles ca
-                where ca.user_id = auth.uid()
-                  and ca.role = 'clinic_admin'
-                  and ca.clinic_id = user_roles.clinic_id)
-  );
 
 -- ── patient_user_link ──────────────────────────────────────────────────────
 create policy pul_self_select on public.patient_user_link
