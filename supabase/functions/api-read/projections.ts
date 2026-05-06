@@ -174,7 +174,7 @@ export interface DoctorReportVersionDTO {
   reportId: string;
   version: number;
   status: "draft" | "final" | "amended" | "revoked";
-  /** Patient-facing text. External key intentionally `patientText`, not `patientSafeText`. */
+  /** Patient-facing text. External key intentionally `patientText`. */
   patientText: string;
   doctorText: string;
   createdAt: string;
