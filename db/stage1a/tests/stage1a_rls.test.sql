@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap;
 
-select plan(34);
+select plan(39);
 
 -- ── Helpers ─────────────────────────────────────────────────────────────────
 create or replace function _act_as(_uid uuid) returns void
