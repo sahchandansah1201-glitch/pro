@@ -1,26 +1,14 @@
 // Stage 1B-B · Live contract test helpers.
 //
-// These helpers are TEST-ONLY. They use the service role key to:
-//   * set deterministic passwords on the seeded auth.users (without mutating
-//     auth.users.id),
-// then exchange password sign-in for a real JWT and call the running
-// `api-read` Edge Function. The Edge Function itself never sees the service
-// role; it only sees the per-user JWT, so Stage 1A RLS remains the boundary.
+// TEST-ONLY. Mints HS256 JWTs locally using SUPABASE_JWT_SECRET so the
+// running api-read Edge Function (served with --no-verify-jwt) sees a
+// per-user JWT and Stage 1A RLS remains the security boundary. No service
+// role, no admin client, no password sign-in.
 //
-// Environment (local only — never CI in this stage):
+// Environment (local only):
 //   SUPABASE_URL                     e.g. http://127.0.0.1:54321
-//   SUPABASE_ANON_KEY                local anon JWT
-//   SUPABASE_SERVICE_ROLE_KEY        local service-role JWT (TEST SETUP ONLY)
+//   SUPABASE_JWT_SECRET              local HS256 secret (from `supabase status`)
 //   API_READ_BASE_URL  (optional)    defaults to ${SUPABASE_URL}/functions/v1/api-read
-//
-// Run the function with JWT gateway verification disabled so the function
-// itself returns canonical auth errors:
-//   npx supabase functions serve api-read \
-//     --env-file ./supabase/.env.local --no-verify-jwt
-
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-
-export const DEMO_PASSWORD = "stage1b-b-demo-Pass!9";
 
 export interface DemoUser {
   key:
@@ -90,7 +78,6 @@ export const DEMO_USERS: Record<DemoUser["key"], DemoUser> = {
 };
 
 export const FIXTURES = {
-  // Seed UUIDs — mirror db/stage1a/seed.sql.
   patientLinkedReport: "c1000000-0000-0000-0000-000000000002",
   patientLinkedReportVersion: "d1000000-0000-0000-0000-000000000002",
   northReport: "c1000000-0000-0000-0000-000000000001",
@@ -105,70 +92,77 @@ export const FIXTURES = {
 
 export interface Env {
   url: string;
-  anonKey: string;
-  serviceRoleKey: string;
+  jwtSecret: string;
   apiReadBaseUrl: string;
 }
 
 export function readEnv(): Env {
   const url = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !anonKey || !serviceRoleKey) {
+  const jwtSecret = Deno.env.get("SUPABASE_JWT_SECRET");
+  if (!url || !jwtSecret) {
     throw new Error(
-      "Missing SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY (local only).",
+      "Missing SUPABASE_URL / SUPABASE_JWT_SECRET (local only).",
     );
   }
   const apiReadBaseUrl = Deno.env.get("API_READ_BASE_URL") ??
     `${url.replace(/\/+$/, "")}/functions/v1/api-read`;
-  return { url, anonKey, serviceRoleKey, apiReadBaseUrl };
+  return { url, jwtSecret, apiReadBaseUrl };
 }
 
-let cachedAdmin: SupabaseClient | null = null;
-function admin(env: Env): SupabaseClient {
-  if (cachedAdmin) return cachedAdmin;
-  cachedAdmin = createClient(env.url, env.serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return cachedAdmin;
+// --- base64url + HS256 signing -------------------------------------------------
+
+function base64urlEncode(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function utf8(s: string): Uint8Array {
+  return new TextEncoder().encode(s);
+}
+
+async function signHs256(
+  secret: string,
+  signingInput: string,
+): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    utf8(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, utf8(signingInput));
+  return base64urlEncode(new Uint8Array(sig));
 }
 
 const jwtCache = new Map<string, string>();
 
-/** Set demo password on seeded user (id is NOT mutated) and sign in. */
 export async function getJwtFor(user: DemoUser): Promise<string> {
   const cached = jwtCache.get(user.key);
   if (cached) return cached;
   const env = readEnv();
 
-  // Set password via admin (id-preserving update on auth.users).
-  const updateRes = await admin(env).auth.admin.updateUserById(user.id, {
-    password: DEMO_PASSWORD,
-    email_confirm: true,
-  });
-  if (updateRes.error) {
-    throw new Error(
-      `admin.updateUserById(${user.email}) failed: ${updateRes.error.message}`,
-    );
-  }
-
-  // Password sign-in via anon client.
-  const anon = createClient(env.url, env.anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const signIn = await anon.auth.signInWithPassword({
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "HS256", typ: "JWT" };
+  const payload = {
+    sub: user.id,
+    role: "authenticated",
+    aud: "authenticated",
     email: user.email,
-    password: DEMO_PASSWORD,
-  });
-  if (signIn.error || !signIn.data.session?.access_token) {
-    throw new Error(
-      `signInWithPassword(${user.email}) failed: ${signIn.error?.message}`,
-    );
-  }
-  const jwt = signIn.data.session.access_token;
+    iat: now,
+    exp: now + 3600,
+  };
+  const headerB64 = base64urlEncode(utf8(JSON.stringify(header)));
+  const payloadB64 = base64urlEncode(utf8(JSON.stringify(payload)));
+  const signingInput = `${headerB64}.${payloadB64}`;
+  const sig = await signHs256(env.jwtSecret, signingInput);
+  const jwt = `${signingInput}.${sig}`;
   jwtCache.set(user.key, jwt);
   return jwt;
 }
+
+// --- HTTP -----------------------------------------------------------------------
 
 export interface ApiResponse {
   status: number;
