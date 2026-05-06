@@ -61,8 +61,10 @@ deno test --allow-env --allow-net --no-check \
   (main + north), never the private-clinic patient. Cross-clinic detail
   (`p-006`) → 404. Own-clinic detail (`p-004`) → 200 with `riskFactors`.
   Doctor report-versions expose both `doctorText` and `patientText`.
-* Cross-surface: patient hitting `/doctor/patients` sees an empty list
-  under RLS; private doctor cannot read a main-clinic patient (404).
+* Cross-surface: patient access to ANY `/doctor/*` endpoint
+  (`/doctor/patients`, `/doctor/patients/:id`, etc.) MUST return
+  `403 forbidden` with the canonical error envelope — NOT `200` with an
+  empty list. Private doctor cannot read a main-clinic patient (404).
 * Recursive forbidden-field scanner runs on every response and trips on
   any leak.
 
