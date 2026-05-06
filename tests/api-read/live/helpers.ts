@@ -1,13 +1,18 @@
 // Stage 1B-B · Live contract test helpers.
 //
-// TEST-ONLY. Mints HS256 JWTs locally using SUPABASE_JWT_SECRET so the
-// running api-read Edge Function (served with --no-verify-jwt) sees a
-// per-user JWT and Stage 1A RLS remains the security boundary. No service
-// role, no admin client, no password sign-in.
+// TEST-ONLY. Mints HS256 JWTs locally using API_READ_JWT_SECRET (the same
+// value as Supabase's local JWT secret) so the running api-read Edge
+// Function (served with --no-verify-jwt) sees a per-user JWT and Stage 1A
+// RLS remains the security boundary. No service role, no admin client, no
+// password sign-in.
+//
+// NOTE: Supabase CLI strips env vars beginning with `SUPABASE_` from
+// --env-file, so the function-side secret MUST be named API_READ_JWT_SECRET.
 //
 // Environment (local only):
 //   SUPABASE_URL                     e.g. http://127.0.0.1:54321
-//   SUPABASE_JWT_SECRET              local HS256 secret (from `supabase status`)
+//   API_READ_JWT_SECRET              local HS256 secret (from `supabase status`)
+//                                    (SUPABASE_JWT_SECRET is accepted as fallback)
 //   API_READ_BASE_URL  (optional)    defaults to ${SUPABASE_URL}/functions/v1/api-read
 
 export interface DemoUser {
@@ -98,10 +103,11 @@ export interface Env {
 
 export function readEnv(): Env {
   const url = Deno.env.get("SUPABASE_URL");
-  const jwtSecret = Deno.env.get("SUPABASE_JWT_SECRET");
+  const jwtSecret = Deno.env.get("API_READ_JWT_SECRET") ??
+    Deno.env.get("SUPABASE_JWT_SECRET");
   if (!url || !jwtSecret) {
     throw new Error(
-      "Missing SUPABASE_URL / SUPABASE_JWT_SECRET (local only).",
+      "Missing SUPABASE_URL / API_READ_JWT_SECRET (local only).",
     );
   }
   const apiReadBaseUrl = Deno.env.get("API_READ_BASE_URL") ??
