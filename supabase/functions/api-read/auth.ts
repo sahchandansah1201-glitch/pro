@@ -18,11 +18,11 @@ interface JwtClaims {
   [k: string]: unknown;
 }
 
-function base64UrlDecode(input: string): Uint8Array {
+function base64UrlDecode(input: string): Uint8Array<ArrayBuffer> {
   const pad = input.length % 4 === 0 ? 0 : 4 - (input.length % 4);
   const b64 = input.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(pad);
   const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
+  const out = new Uint8Array(new ArrayBuffer(bin.length));
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
