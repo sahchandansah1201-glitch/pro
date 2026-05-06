@@ -94,7 +94,11 @@ export async function authenticate(req: Request): Promise<CallerContext> {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const jwtSecret = Deno.env.get("SUPABASE_JWT_SECRET");
+  // Supabase CLI strips env vars beginning with SUPABASE_ from --env-file,
+  // so prefer API_READ_JWT_SECRET. Fall back to SUPABASE_JWT_SECRET for
+  // environments (e.g. hosted) where it is injected by the platform.
+  const jwtSecret = Deno.env.get("API_READ_JWT_SECRET") ??
+    Deno.env.get("SUPABASE_JWT_SECRET");
   let userId: string;
   let email: string | null;
 
