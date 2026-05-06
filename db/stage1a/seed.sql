@@ -195,6 +195,31 @@ where id = 'c1000000-0000-0000-0000-000000000001'
   and (current_version_id is null
        or current_version_id <> 'd1000000-0000-0000-0000-000000000001');
 
+-- Report + final version for the linked patient (p-001, visit v-001, clinic main).
+-- Required so patient `b001` (linked to p-001) can read exactly one final
+-- patient-safe report version under RLS.
+insert into public.reports (id, clinic_id, visit_id)
+values
+  ('c1000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','70000000-0000-0000-0000-000000000001')
+on conflict (id) do nothing;
+
+insert into public.report_versions (id, clinic_id, report_id, version, status,
+                                    patient_safe_text, doctor_text, created_by, created_at, signed_by, signed_at)
+values
+  ('d1000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111',
+   'c1000000-0000-0000-0000-000000000002', 1, 'final',
+   'Контроль через 6 месяцев. При изменениях обратитесь к врачу.',
+   'Множественные невусы на спине: динамическое наблюдение, контроль через 6 месяцев.',
+   'a0000000-0000-0000-0000-00000000d001','2026-03-02T09:15:00Z',
+   'a0000000-0000-0000-0000-00000000d001','2026-03-02T09:16:00Z')
+on conflict (id) do nothing;
+
+update public.reports
+set current_version_id = 'd1000000-0000-0000-0000-000000000002'
+where id = 'c1000000-0000-0000-0000-000000000002'
+  and (current_version_id is null
+       or current_version_id <> 'd1000000-0000-0000-0000-000000000002');
+
 -- ── public_signed_links + protected_analysis_links (token HASH only) ───────
 -- Hashes are sha-256 of synthetic plaintext labels that are NOT stored.
 insert into public.public_signed_links (id, clinic_id, report_version_id, token_hash, expires_at, created_by)
