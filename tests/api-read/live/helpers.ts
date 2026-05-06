@@ -64,7 +64,9 @@ export const DEMO_USERS: Record<DemoUser["key"], DemoUser> = {
     id: "a0000000-0000-0000-0000-00000000f001",
     email: "operator@derma-pro.demo",
     expectedRoles: ["operator"],
-    expectedClinicId: null,
+    // Stage 1A seed sets profiles.clinic_id for operator to main clinic
+    // (user_roles.clinic_id is null). /me DTO returns profile.clinic_id.
+    expectedClinicId: "11111111-1111-1111-1111-111111111111",
   },
   systemAdmin: {
     key: "systemAdmin",
