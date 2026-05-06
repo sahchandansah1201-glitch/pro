@@ -104,7 +104,7 @@ create table if not exists public.patients (
 );
 create index if not exists patients_clinic_idx on public.patients(clinic_id);
 
-create table if not exists public.patient_user_link (
+create table public.patient_user_link (
   id uuid primary key default gen_random_uuid(),
   patient_id uuid not null references public.patients(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
