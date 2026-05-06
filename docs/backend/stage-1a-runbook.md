@@ -1,7 +1,25 @@
 # Stage 1A — Backend Setup Runbook
 
-Этот документ описывает только **scaffolding-этап** перед Stage 1A.
-Никаких таблиц, RLS, миграций и seed-данных на этом этапе не создаётся.
+Этот документ описывает scaffolding-этап для Stage 1A. Сами SQL-артефакты
+Stage 1A (схема, RLS, seed, pgTAP-тесты) живут в `db/stage1a/` — см.
+[`db/stage1a/README.md`](../../db/stage1a/README.md).
+
+**Статус Stage 1A: локально проверено.**
+- `npx supabase db reset` — OK
+- `npx supabase test db` — 39/39 pgTAP assertions
+- `npm test -- --run` — 321/321
+- `node scripts/scan-doctor-forbidden.mjs` — 0 matches
+- `src/**` и package-файлы не изменялись
+
+Локально-only команды на этом этапе:
+- `npx supabase db reset`
+- `npx supabase test db`
+
+**Не запускайте `supabase db push`** против удалённого проекта
+`exayfgindfbupzpnjzfl` на Stage 1A. Stage 1A — это только schema/RLS/seed,
+без API, Edge Functions и frontend-обвязки. Проекция patient-safe колонок
+остаётся ответственностью API/приложения и переносится в Stage 1B; Stage 1A
+обеспечивает только row-level access.
 
 ## 1. Требования
 
