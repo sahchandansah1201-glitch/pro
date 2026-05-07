@@ -15,8 +15,6 @@
 --   * Allowed report_version transitions: draft→final, final→amended.
 --     `amended` is terminal. Any transition to/from `revoked` is rejected.
 
-set search_path = public;
-
 -- ── Helpers ────────────────────────────────────────────────────────────────
 
 -- Doctor or private_doctor membership in the given clinic.
@@ -104,7 +102,7 @@ create policy patients_doctor_insert on public.patients
   with check (public.is_clinic_doctor(auth.uid(), clinic_id));
 create policy patients_doctor_update on public.patients
   for update to authenticated
-  using       (public.is_clinic_doctor(auth.uid(), clinic_id))
+  using       (auth.uid() is not null)
   with check  (public.is_clinic_doctor(auth.uid(), clinic_id));
 
 -- visits
@@ -179,7 +177,8 @@ begin
 end $$;
 
 drop trigger if exists tg_patients_write_guard on public.patients;
-create trigger tg_patients_write_guard
+drop trigger if exists tg_00_stage1c_patients_write_guard on public.patients;
+create trigger tg_00_stage1c_patients_write_guard
   before insert or update on public.patients
   for each row execute function public.tg_patients_write_guard();
 
@@ -236,7 +235,8 @@ begin
 end $$;
 
 drop trigger if exists tg_visits_write_guard on public.visits;
-create trigger tg_visits_write_guard
+drop trigger if exists tg_00_stage1c_visits_write_guard on public.visits;
+create trigger tg_00_stage1c_visits_write_guard
   before insert or update on public.visits
   for each row execute function public.tg_visits_write_guard();
 
@@ -264,7 +264,8 @@ begin
 end $$;
 
 drop trigger if exists tg_lesions_write_guard on public.lesions;
-create trigger tg_lesions_write_guard
+drop trigger if exists tg_00_stage1c_lesions_write_guard on public.lesions;
+create trigger tg_00_stage1c_lesions_write_guard
   before insert or update on public.lesions
   for each row execute function public.tg_lesions_write_guard();
 
@@ -300,7 +301,8 @@ begin
 end $$;
 
 drop trigger if exists tg_assessments_write_guard on public.assessments;
-create trigger tg_assessments_write_guard
+drop trigger if exists tg_00_stage1c_assessments_write_guard on public.assessments;
+create trigger tg_00_stage1c_assessments_write_guard
   before insert or update on public.assessments
   for each row execute function public.tg_assessments_write_guard();
 
@@ -323,7 +325,8 @@ begin
 end $$;
 
 drop trigger if exists tg_conclusions_write_guard on public.conclusions;
-create trigger tg_conclusions_write_guard
+drop trigger if exists tg_00_stage1c_conclusions_write_guard on public.conclusions;
+create trigger tg_00_stage1c_conclusions_write_guard
   before insert or update on public.conclusions
   for each row execute function public.tg_conclusions_write_guard();
 
@@ -369,7 +372,8 @@ begin
 end $$;
 
 drop trigger if exists tg_reports_write_guard on public.reports;
-create trigger tg_reports_write_guard
+drop trigger if exists tg_00_stage1c_reports_write_guard on public.reports;
+create trigger tg_00_stage1c_reports_write_guard
   before insert or update on public.reports
   for each row execute function public.tg_reports_write_guard();
 
@@ -433,6 +437,9 @@ begin
 end $$;
 
 drop trigger if exists tg_report_versions_write_guard on public.report_versions;
-create trigger tg_report_versions_write_guard
+drop trigger if exists tg_00_stage1c_report_versions_write_guard on public.report_versions;
+create trigger tg_00_stage1c_report_versions_write_guard
   before insert or update on public.report_versions
   for each row execute function public.tg_report_versions_write_guard();
+
+reset search_path;
