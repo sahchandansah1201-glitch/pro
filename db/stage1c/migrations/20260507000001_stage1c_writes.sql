@@ -301,7 +301,8 @@ begin
 end $$;
 
 drop trigger if exists tg_assessments_write_guard on public.assessments;
-create trigger tg_assessments_write_guard
+drop trigger if exists tg_00_stage1c_assessments_write_guard on public.assessments;
+create trigger tg_00_stage1c_assessments_write_guard
   before insert or update on public.assessments
   for each row execute function public.tg_assessments_write_guard();
 
@@ -324,7 +325,8 @@ begin
 end $$;
 
 drop trigger if exists tg_conclusions_write_guard on public.conclusions;
-create trigger tg_conclusions_write_guard
+drop trigger if exists tg_00_stage1c_conclusions_write_guard on public.conclusions;
+create trigger tg_00_stage1c_conclusions_write_guard
   before insert or update on public.conclusions
   for each row execute function public.tg_conclusions_write_guard();
 
@@ -370,7 +372,8 @@ begin
 end $$;
 
 drop trigger if exists tg_reports_write_guard on public.reports;
-create trigger tg_reports_write_guard
+drop trigger if exists tg_00_stage1c_reports_write_guard on public.reports;
+create trigger tg_00_stage1c_reports_write_guard
   before insert or update on public.reports
   for each row execute function public.tg_reports_write_guard();
 
