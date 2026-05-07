@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap;
 
-select plan(56);
+select plan(57);
 
 -- ── Helpers ────────────────────────────────────────────────────────────────
 create or replace function _act_as(_uid uuid) returns void
@@ -400,6 +400,11 @@ select throws_ok(
     values ('DP-X1','x','1990-01-01','female','II')$$,
   '42501', null,
   'patient role cannot INSERT patients');
+select throws_ok(
+  $$update public.patients set full_name='hacker'
+    where id = '50000000-0000-0000-0000-000000000001'$$,
+  '42501', null,
+  'patient cannot UPDATE patients after Stage 1C grants');
 select _reset_role();
 
 select _act_as('a0000000-0000-0000-0000-00000000f001');  -- operator
