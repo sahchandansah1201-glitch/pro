@@ -311,6 +311,13 @@ select throws_ok(
   'P0001', null,
   'report_version amended→final rejected (amended is terminal)');
 
+-- amended → amended (no-op UPDATE on amended row) rejected
+select throws_ok(
+  $$update public.report_versions set patient_safe_text=patient_safe_text
+    where report_id=(select v from _t1c where k='report_new') and version=1$$,
+  'P0001', null,
+  'report_version amended→amended (no-op UPDATE) rejected');
+
 -- draft → amended rejected (use a new draft on report c1...002 — clinic 1111)
 select lives_ok(
   $$insert into public.report_versions (report_id, patient_safe_text, doctor_text)
