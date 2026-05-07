@@ -344,8 +344,10 @@ begin
     if NEW.visit_id   is distinct from OLD.visit_id   then raise exception 'reports.visit_id_immutable'   using errcode = 'P0001'; end if;
     if NEW.created_at is distinct from OLD.created_at then raise exception 'reports.created_at_immutable' using errcode = 'P0001'; end if;
     NEW.id := OLD.id;
-    if NEW.current_version_id is distinct from OLD.current_version_id
-       and NEW.current_version_id is not null then
+    if NEW.current_version_id is distinct from OLD.current_version_id then
+      if NEW.current_version_id is null then
+        raise exception 'reports.current_version_cannot_clear' using errcode = 'P0001';
+      end if;
       select rv.report_id, rv.clinic_id, rv.status
         into _ver_report, _ver_clinic, _ver_status
         from public.report_versions rv where rv.id = NEW.current_version_id;
@@ -402,8 +404,16 @@ begin
       raise exception 'report_versions.revoked_not_allowed_in_stage_1c' using errcode = 'P0001';
     end if;
 
+    -- Stage 1C transitions: draft→draft (text edits), draft→final, final→amended.
+    -- amended is terminal: any UPDATE on amended row (including no-op) is rejected.
+    -- final→final is rejected: a finalized version is locked unless transitioning to amended.
+    if OLD.status = 'amended' then
+      raise exception 'report_versions.amended_is_terminal' using errcode = 'P0001';
+    end if;
+    if OLD.status = 'final' and NEW.status = 'final' then
+      raise exception 'report_versions.final_is_locked' using errcode = 'P0001';
+    end if;
     if NEW.status is distinct from OLD.status then
-      -- Allowed: draft→final, final→amended.
       if not (
         (OLD.status = 'draft' and NEW.status = 'final')
         or (OLD.status = 'final' and NEW.status = 'amended')
@@ -414,13 +424,7 @@ begin
       NEW.signed_by := auth.uid();
       NEW.signed_at := now();
     else
-      -- No status change: text edits only allowed while still draft.
-      if OLD.status <> 'draft' then
-        if NEW.patient_safe_text is distinct from OLD.patient_safe_text
-           or NEW.doctor_text    is distinct from OLD.doctor_text then
-          raise exception 'report_versions.text_locked_after_finalization' using errcode = 'P0001';
-        end if;
-      end if;
+      -- No status change. Only draft→draft reaches here (final/amended rejected above).
       if NEW.signed_by is distinct from OLD.signed_by then raise exception 'report_versions.signed_by_immutable' using errcode = 'P0001'; end if;
       if NEW.signed_at is distinct from OLD.signed_at then raise exception 'report_versions.signed_at_immutable' using errcode = 'P0001'; end if;
     end if;
