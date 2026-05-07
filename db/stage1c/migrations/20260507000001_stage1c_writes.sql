@@ -437,6 +437,9 @@ begin
 end $$;
 
 drop trigger if exists tg_report_versions_write_guard on public.report_versions;
-create trigger tg_report_versions_write_guard
+drop trigger if exists tg_00_stage1c_report_versions_write_guard on public.report_versions;
+create trigger tg_00_stage1c_report_versions_write_guard
   before insert or update on public.report_versions
   for each row execute function public.tg_report_versions_write_guard();
+
+reset search_path;
