@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap;
 
-select plan(53);
+select plan(56);
 
 -- ── Helpers ────────────────────────────────────────────────────────────────
 create or replace function _act_as(_uid uuid) returns void
@@ -311,6 +311,13 @@ select throws_ok(
   'P0001', null,
   'report_version amended→final rejected (amended is terminal)');
 
+-- amended → amended (no-op UPDATE on amended row) rejected
+select throws_ok(
+  $$update public.report_versions set patient_safe_text=patient_safe_text
+    where report_id=(select v from _t1c where k='report_new') and version=1$$,
+  'P0001', null,
+  'report_version amended→amended (no-op UPDATE) rejected');
+
 -- draft → amended rejected (use a new draft on report c1...002 — clinic 1111)
 select lives_ok(
   $$insert into public.report_versions (report_id, patient_safe_text, doctor_text)
@@ -369,6 +376,20 @@ select lives_ok(
         where id='c1000000-0000-0000-0000-000000000002';
     end $body$$$,
   'reports.current_version_id pointing at final version of same report accepted');
+
+-- final → final rejected (locked once finalized; only final→amended is allowed)
+select throws_ok(
+  $$update public.report_versions set status='final'
+    where report_id='c1000000-0000-0000-0000-000000000002' and status='final'$$,
+  'P0001', null,
+  'report_version final→final rejected (finalized version is locked)');
+
+-- clearing current_version_id back to NULL is rejected
+select throws_ok(
+  $$update public.reports set current_version_id=null
+    where id='c1000000-0000-0000-0000-000000000002'$$,
+  'P0001', null,
+  'reports.current_version_id cannot be cleared to NULL');
 
 select _reset_role();
 
