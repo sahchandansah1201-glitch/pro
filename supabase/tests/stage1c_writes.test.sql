@@ -56,10 +56,10 @@ select has_function('public','is_clinic_doctor', array['uuid','uuid'],
 select has_function('public','is_clinic_staff',  array['uuid','uuid'],
                     'is_clinic_staff exists');
 select ok(
-  exists (select 1 from pg_trigger where tgname = 'tg_patients_write_guard'),
+  exists (select 1 from pg_trigger where tgname = 'tg_00_stage1c_patients_write_guard'),
   'patients write-guard trigger exists');
 select ok(
-  exists (select 1 from pg_trigger where tgname = 'tg_report_versions_write_guard'),
+  exists (select 1 from pg_trigger where tgname = 'tg_00_stage1c_report_versions_write_guard'),
   'report_versions write-guard trigger exists');
 
 -- ── 2. Doctor happy paths (clinic 1111) ────────────────────────────────────
@@ -365,7 +365,7 @@ select throws_ok(
 -- pointing at final version of same report → OK
 -- finalize draft2 first, then point.
 select lives_ok(
-  $$do $body$
+  $test$do $body$
     declare _vid uuid;
     begin
       update public.report_versions set status='final'
@@ -374,7 +374,7 @@ select lives_ok(
         returning id into _vid;
       update public.reports set current_version_id=_vid
         where id='c1000000-0000-0000-0000-000000000002';
-    end $body$$$,
+    end $body$;$test$,
   'reports.current_version_id pointing at final version of same report accepted');
 
 -- final → final rejected (locked once finalized; only final→amended is allowed)
