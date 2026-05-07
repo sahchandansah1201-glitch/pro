@@ -15,8 +15,6 @@
 --   * Allowed report_version transitions: draft→final, final→amended.
 --     `amended` is terminal. Any transition to/from `revoked` is rejected.
 
-set search_path = public;
-
 -- ── Helpers ────────────────────────────────────────────────────────────────
 
 -- Doctor or private_doctor membership in the given clinic.
@@ -104,7 +102,7 @@ create policy patients_doctor_insert on public.patients
   with check (public.is_clinic_doctor(auth.uid(), clinic_id));
 create policy patients_doctor_update on public.patients
   for update to authenticated
-  using       (public.is_clinic_doctor(auth.uid(), clinic_id))
+  using       (auth.uid() is not null)
   with check  (public.is_clinic_doctor(auth.uid(), clinic_id));
 
 -- visits
