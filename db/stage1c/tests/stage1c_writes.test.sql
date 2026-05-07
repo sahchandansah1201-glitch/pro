@@ -377,6 +377,20 @@ select lives_ok(
     end $body$$$,
   'reports.current_version_id pointing at final version of same report accepted');
 
+-- final → final rejected (locked once finalized; only final→amended is allowed)
+select throws_ok(
+  $$update public.report_versions set status='final'
+    where report_id='c1000000-0000-0000-0000-000000000002' and status='final'$$,
+  'P0001', null,
+  'report_version final→final rejected (finalized version is locked)');
+
+-- clearing current_version_id back to NULL is rejected
+select throws_ok(
+  $$update public.reports set current_version_id=null
+    where id='c1000000-0000-0000-0000-000000000002'$$,
+  'P0001', null,
+  'reports.current_version_id cannot be cleared to NULL');
+
 select _reset_role();
 
 -- ── 11. Non-doctor INSERT denial (RLS WITH CHECK fails, 42501) ─────────────
