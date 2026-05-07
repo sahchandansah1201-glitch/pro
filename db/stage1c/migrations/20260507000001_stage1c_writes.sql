@@ -344,8 +344,10 @@ begin
     if NEW.visit_id   is distinct from OLD.visit_id   then raise exception 'reports.visit_id_immutable'   using errcode = 'P0001'; end if;
     if NEW.created_at is distinct from OLD.created_at then raise exception 'reports.created_at_immutable' using errcode = 'P0001'; end if;
     NEW.id := OLD.id;
-    if NEW.current_version_id is distinct from OLD.current_version_id
-       and NEW.current_version_id is not null then
+    if NEW.current_version_id is distinct from OLD.current_version_id then
+      if NEW.current_version_id is null then
+        raise exception 'reports.current_version_cannot_clear' using errcode = 'P0001';
+      end if;
       select rv.report_id, rv.clinic_id, rv.status
         into _ver_report, _ver_clinic, _ver_status
         from public.report_versions rv where rv.id = NEW.current_version_id;
