@@ -177,7 +177,8 @@ begin
 end $$;
 
 drop trigger if exists tg_patients_write_guard on public.patients;
-create trigger tg_patients_write_guard
+drop trigger if exists tg_00_stage1c_patients_write_guard on public.patients;
+create trigger tg_00_stage1c_patients_write_guard
   before insert or update on public.patients
   for each row execute function public.tg_patients_write_guard();
 
@@ -234,7 +235,8 @@ begin
 end $$;
 
 drop trigger if exists tg_visits_write_guard on public.visits;
-create trigger tg_visits_write_guard
+drop trigger if exists tg_00_stage1c_visits_write_guard on public.visits;
+create trigger tg_00_stage1c_visits_write_guard
   before insert or update on public.visits
   for each row execute function public.tg_visits_write_guard();
 
@@ -262,7 +264,8 @@ begin
 end $$;
 
 drop trigger if exists tg_lesions_write_guard on public.lesions;
-create trigger tg_lesions_write_guard
+drop trigger if exists tg_00_stage1c_lesions_write_guard on public.lesions;
+create trigger tg_00_stage1c_lesions_write_guard
   before insert or update on public.lesions
   for each row execute function public.tg_lesions_write_guard();
 
