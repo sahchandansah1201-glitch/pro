@@ -53,10 +53,29 @@ as $$
   )
 $$;
 
+-- Request-path write role guard. Used only for early 42501 failures before
+-- parent-row lookups; same-clinic authorization remains in table RLS policies.
+create or replace function public.has_stage1c_write_role(_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.user_roles
+    where user_id = _user_id
+      and role in ('doctor','private_doctor')
+  )
+$$;
+
 revoke all on function public.is_clinic_doctor(uuid, uuid) from public;
 revoke all on function public.is_clinic_staff(uuid, uuid)  from public;
+revoke all on function public.has_stage1c_write_role(uuid) from public;
 grant execute on function public.is_clinic_doctor(uuid, uuid) to authenticated;
 grant execute on function public.is_clinic_staff(uuid, uuid)  to authenticated;
+grant execute on function public.has_stage1c_write_role(uuid) to authenticated;
 
 -- ── Column-level grants (writes) ───────────────────────────────────────────
 -- IMPORTANT: server-controlled columns are intentionally omitted.
@@ -102,7 +121,8 @@ create policy patients_doctor_insert on public.patients
   with check (public.is_clinic_doctor(auth.uid(), clinic_id));
 create policy patients_doctor_update on public.patients
   for update to authenticated
-  using       (auth.uid() is not null)
+  using       (public.is_clinic_doctor(auth.uid(), clinic_id)
+               or public.is_linked_patient(auth.uid(), id))
   with check  (public.is_clinic_doctor(auth.uid(), clinic_id));
 
 -- visits
