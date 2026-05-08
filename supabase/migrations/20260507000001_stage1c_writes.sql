@@ -53,10 +53,29 @@ as $$
   )
 $$;
 
+-- Request-path write role guard. Used only for early 42501 failures before
+-- parent-row lookups; same-clinic authorization remains in table RLS policies.
+create or replace function public.has_stage1c_write_role(_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.user_roles
+    where user_id = _user_id
+      and role in ('doctor','private_doctor')
+  )
+$$;
+
 revoke all on function public.is_clinic_doctor(uuid, uuid) from public;
 revoke all on function public.is_clinic_staff(uuid, uuid)  from public;
+revoke all on function public.has_stage1c_write_role(uuid) from public;
 grant execute on function public.is_clinic_doctor(uuid, uuid) to authenticated;
 grant execute on function public.is_clinic_staff(uuid, uuid)  to authenticated;
+grant execute on function public.has_stage1c_write_role(uuid) to authenticated;
 
 -- ── Column-level grants (writes) ───────────────────────────────────────────
 -- IMPORTANT: server-controlled columns are intentionally omitted.
@@ -102,7 +121,8 @@ create policy patients_doctor_insert on public.patients
   with check (public.is_clinic_doctor(auth.uid(), clinic_id));
 create policy patients_doctor_update on public.patients
   for update to authenticated
-  using       (auth.uid() is not null)
+  using       (public.is_clinic_doctor(auth.uid(), clinic_id)
+               or public.is_linked_patient(auth.uid(), id))
   with check  (public.is_clinic_doctor(auth.uid(), clinic_id));
 
 -- visits
@@ -158,6 +178,12 @@ create or replace function public.tg_patients_write_guard()
 returns trigger language plpgsql as $$
 declare _caller_clinic uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select p.clinic_id into _caller_clinic
       from public.profiles p where p.id = auth.uid();
@@ -187,6 +213,12 @@ create or replace function public.tg_visits_write_guard()
 returns trigger language plpgsql as $$
 declare _patient_clinic uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select pa.clinic_id into _patient_clinic
       from public.patients pa where pa.id = NEW.patient_id;
@@ -245,6 +277,12 @@ create or replace function public.tg_lesions_write_guard()
 returns trigger language plpgsql as $$
 declare _patient_clinic uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select pa.clinic_id into _patient_clinic
       from public.patients pa where pa.id = NEW.patient_id;
@@ -274,6 +312,12 @@ create or replace function public.tg_assessments_write_guard()
 returns trigger language plpgsql as $$
 declare _v_clinic uuid; _v_patient uuid; _l_clinic uuid; _l_patient uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'UPDATE' then
     raise exception 'assessments.append_only' using errcode = 'P0001';
   end if;
@@ -311,6 +355,12 @@ create or replace function public.tg_conclusions_write_guard()
 returns trigger language plpgsql as $$
 declare _v_clinic uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'UPDATE' then
     raise exception 'conclusions.append_only' using errcode = 'P0001';
   end if;
@@ -335,6 +385,12 @@ create or replace function public.tg_reports_write_guard()
 returns trigger language plpgsql as $$
 declare _v_clinic uuid; _ver_report uuid; _ver_clinic uuid; _ver_status report_version_status;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select v.clinic_id into _v_clinic from public.visits v where v.id = NEW.visit_id;
     if _v_clinic is null then
@@ -382,6 +438,12 @@ create or replace function public.tg_report_versions_write_guard()
 returns trigger language plpgsql as $$
 declare _r_clinic uuid; _next_version int;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select r.clinic_id into _r_clinic from public.reports r where r.id = NEW.report_id;
     if _r_clinic is null then
