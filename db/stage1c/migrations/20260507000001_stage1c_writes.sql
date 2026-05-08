@@ -312,6 +312,12 @@ create or replace function public.tg_assessments_write_guard()
 returns trigger language plpgsql as $$
 declare _v_clinic uuid; _v_patient uuid; _l_clinic uuid; _l_patient uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'UPDATE' then
     raise exception 'assessments.append_only' using errcode = 'P0001';
   end if;
@@ -349,6 +355,12 @@ create or replace function public.tg_conclusions_write_guard()
 returns trigger language plpgsql as $$
 declare _v_clinic uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'UPDATE' then
     raise exception 'conclusions.append_only' using errcode = 'P0001';
   end if;
@@ -373,6 +385,12 @@ create or replace function public.tg_reports_write_guard()
 returns trigger language plpgsql as $$
 declare _v_clinic uuid; _ver_report uuid; _ver_clinic uuid; _ver_status report_version_status;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select v.clinic_id into _v_clinic from public.visits v where v.id = NEW.visit_id;
     if _v_clinic is null then
@@ -420,6 +438,12 @@ create or replace function public.tg_report_versions_write_guard()
 returns trigger language plpgsql as $$
 declare _r_clinic uuid; _next_version int;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select r.clinic_id into _r_clinic from public.reports r where r.id = NEW.report_id;
     if _r_clinic is null then
