@@ -178,6 +178,12 @@ create or replace function public.tg_patients_write_guard()
 returns trigger language plpgsql as $$
 declare _caller_clinic uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select p.clinic_id into _caller_clinic
       from public.profiles p where p.id = auth.uid();
@@ -207,6 +213,12 @@ create or replace function public.tg_visits_write_guard()
 returns trigger language plpgsql as $$
 declare _patient_clinic uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select pa.clinic_id into _patient_clinic
       from public.patients pa where pa.id = NEW.patient_id;
@@ -265,6 +277,12 @@ create or replace function public.tg_lesions_write_guard()
 returns trigger language plpgsql as $$
 declare _patient_clinic uuid;
 begin
+  if auth.uid() is null then
+    return NEW;
+  end if;
+  if not public.has_stage1c_write_role(auth.uid()) then
+    raise exception 'stage1c_doctor_role_required' using errcode = '42501';
+  end if;
   if tg_op = 'INSERT' then
     select pa.clinic_id into _patient_clinic
       from public.patients pa where pa.id = NEW.patient_id;
