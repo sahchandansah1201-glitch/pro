@@ -463,12 +463,15 @@ interface ApiAssetsPanelProps {
   apiBaseUrl: string | null;
 }
 
+type ErrorContext = "list" | "download" | "upload";
+
 function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) {
   const configured = Boolean(apiToken && apiBaseUrl);
   const [assets, setAssets] = useState<SafeAssetDTO[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<AssetsApiError | null>(null);
+  const [errorContext, setErrorContext] = useState<ErrorContext | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -481,6 +484,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     let cancelled = false;
     setBusy(true);
     setError(null);
+    setErrorContext(null);
     listVisitAssets({ token: apiToken, baseUrl: apiBaseUrl, visitId })
       .then((res) => {
         if (cancelled) return;
@@ -488,6 +492,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           setAssets(res.value ?? []);
         } else {
           setError(res.error);
+          setErrorContext("list");
         }
       })
       .finally(() => {
@@ -513,6 +518,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       if (!file) return;
       setBusy(true);
       setError(null);
+      setErrorContext(null);
       setStatus("Отправка снимка…");
       const res = await uploadVisitAsset({
         token: apiToken,
@@ -526,7 +532,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         setStatus("Снимок загружен.");
         setReloadTick((n) => n + 1);
       } else {
+        // Do not clear `assets` — keep already-rendered rows visible.
         setError(res.error);
+        setErrorContext("upload");
         setStatus(null);
       }
       setBusy(false);
@@ -537,6 +545,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const handleRefresh = useCallback(() => {
     setStatus(null);
     setError(null);
+    setErrorContext(null);
     setReloadTick((n) => n + 1);
   }, []);
 
@@ -544,6 +553,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     async (assetId: string) => {
       setBusy(true);
       setError(null);
+      setErrorContext(null);
       setStatus("Подготовка ссылки…");
       const res = await getAssetDownloadUrl({
         token: apiToken,
@@ -556,6 +566,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         window.open(res.value.downloadUrl, "_blank", "noopener,noreferrer");
       } else if (!res.ok) {
         setError(res.error);
+        setErrorContext("download");
         setStatus(null);
       }
     },
