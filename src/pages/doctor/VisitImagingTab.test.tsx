@@ -198,13 +198,14 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
     const headers = (dlCall[1] as RequestInit).headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer doctor-jwt");
 
-    await waitFor(() => {
-      expect(openSpy).toHaveBeenCalledWith(
-        "https://signed.example/asset-1?sig=xyz",
-        "_blank",
-        "noopener,noreferrer",
-      );
-    });
+    // Stage 1K-A: success now opens an in-app preview dialog rather than
+    // calling window.open directly. The signed URL is the img src.
+    const dialog = await screen.findByRole("dialog");
+    const img = within(dialog).getByRole("img", {
+      name: /Снимок a-1/i,
+    }) as HTMLImageElement;
+    expect(img.src).toBe("https://signed.example/asset-1?sig=xyz");
+    expect(openSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -462,5 +463,148 @@ describe("VisitImagingTab · API panel · retry UX", () => {
 
     await within(region).findByRole("alert");
     expect(within(region).queryByRole("button", { name: /Повторить$/ })).not.toBeInTheDocument();
+  });
+});
+
+// Stage 1K-A · Signed image preview dialog.
+describe("VisitImagingTab · API panel · preview dialog", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+  const SIGNED_URL = "https://signed.example/asset-1?sig=xyz";
+
+  function makeOkFetch() {
+    return vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              assetId: "a-1",
+              clinicId: "c-1",
+              visitId: visit.id,
+              downloadUrl: SIGNED_URL,
+              expiresIn: 300,
+              expiresAt: "2026-05-09T10:05:00Z",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("opens an in-app preview dialog with the signed URL as img src", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+
+    const dialog = await screen.findByRole("dialog");
+    const img = within(dialog).getByRole("img", { name: /Снимок a-1/i }) as HTMLImageElement;
+    expect(img.src).toBe(SIGNED_URL);
+    expect(openSpy).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it("clicking 'Открыть в новой вкладке' calls window.open with the signed URL", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await userEvent.click(
+      await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: /Открыть в новой вкладке/i }),
+    );
+
+    expect(openSpy).toHaveBeenCalledWith(SIGNED_URL, "_blank", "noopener,noreferrer");
+    openSpy.mockRestore();
+  });
+
+  it("closing the dialog removes the preview but keeps the asset row", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await userEvent.click(
+      await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Закрыть/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(
+      within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("download 404 still shows 'Снимок не найден.' and does not open dialog or window.open", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "missing" }), { status: 404 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await userEvent.click(
+      await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
+    );
+
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(/Снимок не найден\./);
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(openSpy).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it("dialog visible text does not contain storageObjectPath / exif tokens", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await userEvent.click(
+      await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const text = dialog.textContent ?? "";
+    expect(text).not.toMatch(/storageObjectPath/);
+    expect(text).not.toMatch(/storage_object_path/);
+    expect(text).not.toMatch(/\bexif\b/i);
   });
 });
