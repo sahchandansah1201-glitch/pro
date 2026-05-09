@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap;
 
-select plan(22);
+select plan(26);
 
 -- ── Helpers (mirror Stage 1C / 1D) ─────────────────────────────────────────
 create or replace function _act_as(_uid uuid) returns void
@@ -98,16 +98,17 @@ select ok(
 );
 
 -- ── 2. Doctor in own clinic can INSERT (happy path) ────────────────────────
+-- NOTE: id is server-controlled (not granted). Omit it; lookup by
+-- storage_object_path which is unique per asset path.
 select _act_as('a0000000-0000-0000-0000-00000000d001');
 select lives_ok(
   $$insert into public.assets
-      (id, visit_id, lesion_id, kind, source,
+      (visit_id, lesion_id, kind, source,
        storage_object_path, captured_at, quality_score, quality_issues, exif)
     values
-      ('90000000-0000-0000-0000-0000000000a1',
-       '70000000-0000-0000-0000-000000000001',
+      ('70000000-0000-0000-0000-000000000001',
        null, 'overview', 'phone',
-       'clinic/11111111-1111-1111-1111-111111111111/visit/70000000-0000-0000-0000-000000000001/90000000-0000-0000-0000-0000000000a1.jpg',
+       'clinic/11111111-1111-1111-1111-111111111111/visit/70000000-0000-0000-0000-000000000001/stage1e-a1.jpg',
        '2026-04-01T09:00:00Z',
        0.900, array[]::text[], '{"width":4032,"height":3024}'::jsonb)$$,
   'doctor in clinic 1111 can INSERT asset for own-clinic visit'
@@ -116,7 +117,8 @@ select lives_ok(
 -- The trigger must have forced clinic_id from the visit, not from any client value.
 select is(
   (select clinic_id from public.assets
-    where id = '90000000-0000-0000-0000-0000000000a1'),
+    where storage_object_path =
+      'clinic/11111111-1111-1111-1111-111111111111/visit/70000000-0000-0000-0000-000000000001/stage1e-a1.jpg'),
   '11111111-1111-1111-1111-111111111111'::uuid,
   'write-guard set assets.clinic_id from the parent visit'
 );
@@ -126,13 +128,12 @@ select _reset_role();
 select _act_as('a0000000-0000-0000-0000-0000000000d2');
 select lives_ok(
   $$insert into public.assets
-      (id, visit_id, lesion_id, kind, source,
+      (visit_id, lesion_id, kind, source,
        storage_object_path, captured_at, quality_score, quality_issues, exif)
     values
-      ('90000000-0000-0000-0000-0000000000a2',
-       '70000000-0000-0000-0000-000000000007',
+      ('70000000-0000-0000-0000-000000000007',
        null, 'dermoscopy', 'device_bridge',
-       'clinic/33333333-3333-3333-3333-333333333333/visit/70000000-0000-0000-0000-000000000007/90000000-0000-0000-0000-0000000000a2.jpg',
+       'clinic/33333333-3333-3333-3333-333333333333/visit/70000000-0000-0000-0000-000000000007/stage1e-a2.jpg',
        '2026-04-01T10:00:00Z',
        0.880, array[]::text[], '{}'::jsonb)$$,
   'private_doctor in clinic 3333 can INSERT asset for own-clinic visit'
@@ -144,11 +145,10 @@ select _reset_role();
 select _act_as('a0000000-0000-0000-0000-00000000d001');
 select throws_ok(
   $$insert into public.assets
-      (id, visit_id, lesion_id, kind, source,
+      (visit_id, lesion_id, kind, source,
        storage_object_path, captured_at, quality_score, quality_issues, exif)
     values
-      (gen_random_uuid(),
-       '70000000-0000-0000-0000-000000000007',
+      ('70000000-0000-0000-0000-000000000007',
        null, 'overview', 'phone',
        'clinic/33333333-3333-3333-3333-333333333333/visit/70000000-0000-0000-0000-000000000007/x.jpg',
        '2026-04-01T11:00:00Z',
@@ -163,11 +163,10 @@ select _reset_role();
 select _act_as('a0000000-0000-0000-0000-00000000a001');
 select throws_ok(
   $$insert into public.assets
-      (id, visit_id, lesion_id, kind, source,
+      (visit_id, lesion_id, kind, source,
        storage_object_path, captured_at, quality_score, quality_issues, exif)
     values
-      (gen_random_uuid(),
-       '70000000-0000-0000-0000-000000000001',
+      ('70000000-0000-0000-0000-000000000001',
        null, 'overview', 'phone',
        'clinic/11111111-1111-1111-1111-111111111111/visit/70000000-0000-0000-0000-000000000001/x.jpg',
        '2026-04-01T11:00:00Z',
@@ -181,11 +180,10 @@ select _reset_role();
 select _act_as('a0000000-0000-0000-0000-00000000b001');
 select throws_ok(
   $$insert into public.assets
-      (id, visit_id, lesion_id, kind, source,
+      (visit_id, lesion_id, kind, source,
        storage_object_path, captured_at, quality_score, quality_issues, exif)
     values
-      (gen_random_uuid(),
-       '70000000-0000-0000-0000-000000000001',
+      ('70000000-0000-0000-0000-000000000001',
        null, 'overview', 'phone',
        'clinic/11111111-1111-1111-1111-111111111111/visit/70000000-0000-0000-0000-000000000001/x.jpg',
        '2026-04-01T11:00:00Z',
@@ -210,11 +208,10 @@ select is(
 );
 select throws_ok(
   $$insert into public.assets
-      (id, visit_id, lesion_id, kind, source,
+      (visit_id, lesion_id, kind, source,
        storage_object_path, captured_at, quality_score, quality_issues, exif)
     values
-      (gen_random_uuid(),
-       '70000000-0000-0000-0000-000000000001',
+      ('70000000-0000-0000-0000-000000000001',
        null, 'overview', 'phone',
        'clinic/11111111-1111-1111-1111-111111111111/visit/70000000-0000-0000-0000-000000000001/x.jpg',
        '2026-04-01T11:00:00Z',
@@ -237,12 +234,14 @@ select _reset_role();
 -- ── 9. UPDATE write-guard: identity / capture columns are immutable ───────
 select _act_as('a0000000-0000-0000-0000-00000000d001');
 
+-- clinic_id is not UPDATE-granted at the column level, so the column-grant
+-- check fires before the trigger and produces 42501 (permission denied).
 select throws_ok(
   $$update public.assets
        set clinic_id = '11111111-1111-1111-1111-111111111111'
      where id = '90000000-0000-0000-0000-000000000010'$$,
-  'P0001', null,
-  'cannot UPDATE assets.clinic_id (write-guard)'
+  '42501', null,
+  'cannot UPDATE assets.clinic_id (column not granted)'
 );
 
 select throws_ok(
@@ -269,7 +268,7 @@ select lives_ok(
   $$select public.log_clinical_write(
       '11111111-1111-1111-1111-111111111111'::uuid,
       'create','asset',
-      '90000000-0000-0000-0000-0000000000a1'::uuid,
+      '90000000-0000-0000-0000-000000000010'::uuid,
       '{"correlation_id":"cid-asset-1","route":"POST /doctor/visits/:id/assets",
         "changed_fields":["kind","source","capturedAt","qualityScore"]}'::jsonb)$$,
   'log_clinical_write accepts entity=asset'
