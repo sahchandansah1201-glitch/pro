@@ -662,6 +662,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           aria-hidden
           tabIndex={-1}
         />
+        <span className="text-[12px] text-muted-foreground">
+          JPEG, PNG, WebP или HEIC
+        </span>
       </div>
 
       {!configured && (
