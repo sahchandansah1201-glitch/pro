@@ -54,14 +54,44 @@ import {
   VISIT_COLS,
 } from "./projections.ts";
 import { insertRow, updateRow } from "./db.ts";
+import { AuditAction, AuditEntity, recordWrite } from "./audit.ts";
 
 type Method = "POST" | "PATCH";
+
+interface RouteMeta {
+  method: Method;
+  path: string;            // canonical pattern, used in audit "route" field
+  action: AuditAction;
+  entity: AuditEntity;
+}
 
 type Handler = (
   ctx: CallerContext,
   params: Record<string, string>,
   body: Record<string, unknown>,
+  meta: RouteMeta,
+  correlationId: string,
 ) => Promise<{ status: number; data: unknown }>;
+
+function changedFields(body: Record<string, unknown>): string[] {
+  return Object.keys(body);
+}
+
+function rowClinicId(row: Record<string, unknown>): string {
+  const c = row["clinic_id"];
+  if (typeof c !== "string" || !c) {
+    throw new HttpError("internal_error", "Missing clinic_id on returned row");
+  }
+  return c;
+}
+
+function rowId(row: Record<string, unknown>): string {
+  const id = row["id"];
+  if (typeof id !== "string" || !id) {
+    throw new HttpError("internal_error", "Missing id on returned row");
+  }
+  return id;
+}
 
 interface Route {
   method: Method;
