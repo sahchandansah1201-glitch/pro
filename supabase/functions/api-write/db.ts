@@ -90,7 +90,7 @@ export async function insertRow(
 ): Promise<Record<string, unknown>> {
   const res = await client.from(table).insert(values).select(selectCols).single();
   if (res.error) mapPgError(res.error);
-  return res.data as Record<string, unknown>;
+  return expectRecordRow(res.data);
 }
 
 export async function updateRow(
@@ -110,5 +110,12 @@ export async function updateRow(
     .select(selectCols)
     .single();
   if (res.error) mapPgError(res.error);
-  return res.data as Record<string, unknown>;
+  return expectRecordRow(res.data);
+}
+
+function expectRecordRow(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new HttpError("internal_error", "Expected database row");
+  }
+  return data as Record<string, unknown>;
 }
