@@ -8,6 +8,7 @@
 //   GET /doctor/patients
 //   GET /doctor/patients/:patientId
 //   GET /doctor/reports/:reportId/versions
+//   GET /doctor/visits/:visitId/assets
 //
 // All reads use the per-request Supabase client built from the caller JWT,
 // so Stage 1A RLS is the enforced security boundary. The projection layer
@@ -19,6 +20,7 @@ import { authenticate, CallerContext } from "./auth.ts";
 import { errorResponse, HttpError, okResponse } from "./errors.ts";
 import { assertUuid } from "./validators.ts";
 import {
+  toDoctorAssetDTO,
   toDoctorPatientDetailDTO,
   toDoctorPatientListDTO,
   toDoctorReportVersionDTO,
@@ -213,6 +215,23 @@ const handleDoctorReportVersions: Handler = async (ctx, params) => {
   return { data, nextCursor: null };
 };
 
+// Stage 1E-B: doctor asset metadata read (binary URL issuance is Stage 1E-C).
+const handleDoctorVisitAssets: Handler = async (ctx, params) => {
+  const visitId = assertUuid(params.visitId, "visitId");
+  const res = await ctx.client
+    .from("assets")
+    .select(
+      "id, clinic_id, visit_id, lesion_id, kind, source, storage_object_path, captured_at, device_id, quality_score, quality_issues, exif, created_at",
+    )
+    .eq("visit_id", visitId)
+    .order("captured_at", { ascending: true });
+  if (res.error) throw new HttpError("internal_error", res.error.message);
+  const data = (res.data ?? []).map((r) =>
+    toDoctorAssetDTO(r as Parameters<typeof toDoctorAssetDTO>[0])
+  );
+  return { data, nextCursor: null };
+};
+
 // ── Route table ─────────────────────────────────────────────────────────────
 const routes: Route[] = [
   route("/me", [], handleMe),
@@ -233,6 +252,11 @@ const routes: Route[] = [
     "/doctor/reports/:reportId/versions",
     ["reportId"],
     handleDoctorReportVersions,
+  ),
+  route(
+    "/doctor/visits/:visitId/assets",
+    ["visitId"],
+    handleDoctorVisitAssets,
   ),
 ];
 

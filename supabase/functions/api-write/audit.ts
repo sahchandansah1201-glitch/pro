@@ -32,7 +32,8 @@ export type AuditEntity =
   | "assessment"
   | "conclusion"
   | "report"
-  | "report_version";
+  | "report_version"
+  | "asset";
 
 // Top-level payload keys the function may attach. Anything else is dropped.
 const PAYLOAD_TOP_KEYS = new Set([

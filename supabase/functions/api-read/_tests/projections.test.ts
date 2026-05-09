@@ -249,3 +249,30 @@ Deno.test("assertNoForbiddenKeys finds nested leaks", () => {
     'forbidden field "doctor_text"',
   );
 });
+
+import { toDoctorAssetDTO } from "../projections.ts";
+
+Deno.test("toDoctorAssetDTO: camelCase-only, no patient-forbidden leak", () => {
+  const dto = toDoctorAssetDTO({
+    id: "as-1",
+    clinic_id: "c-1",
+    visit_id: "v-1",
+    lesion_id: "l-1",
+    kind: "dermoscopy",
+    source: "device_bridge",
+    storage_object_path: "clinic/c-1/visit/v-1/as-1.jpg",
+    captured_at: "2026-05-09T08:00:00Z",
+    device_id: null,
+    quality_score: 0.83,
+    quality_issues: ["glare"],
+    exif: { width: 2048 },
+    created_at: "2026-05-09T08:00:01Z",
+  });
+  assertEquals(Object.keys(dto).sort(), [
+    "capturedAt", "clinicId", "createdAt", "deviceId", "exif",
+    "id", "kind", "lesionId", "qualityIssues", "qualityScore",
+    "source", "storageObjectPath", "visitId",
+  ]);
+  // Doctor surface: only token/hash/secret keys are forbidden — none present.
+  assertNoForbiddenKeys({ data: dto }, FORBIDDEN_DOCTOR_KEYS, "/doctor/visits/:visitId/assets");
+});

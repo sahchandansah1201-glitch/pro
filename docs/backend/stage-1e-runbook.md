@@ -1,4 +1,14 @@
-# Stage 1E-A runbook — Clinical assets + private storage (DB layer)
+# Stage 1E runbook — Clinical assets + private storage
+
+Stage 1E is delivered in slices:
+
+- **1E-A** (committed): DB layer — assets RLS / write-guard / private Storage
+  bucket policies. No Edge Function or frontend changes.
+- **1E-B** (this slice): asset metadata API routes (api-write + a single
+  api-read route). No binary upload/download URL issuance, no frontend.
+- **1E-C** (deferred): Storage upload/download URL issuance + frontend.
+
+## Stage 1E-B — asset metadata API routes
 
 Scope: backend-only DB / storage slice. No api-read / api-write route changes,
 no frontend changes, no live contract tests.
@@ -80,3 +90,106 @@ files from both `db/stage1e/` and `supabase/`.
   Stage 1E migration).
 - No frontend or Edge Function code change.
 - No new dependencies, no lock files, no `supabase db push`.
+
+### Routes added
+
+`api-write` (POST/PATCH, doctor / private_doctor only):
+
+- `POST  /doctor/visits/:visitId/assets` → 201, returns `AssetDTO`.
+- `PATCH /doctor/assets/:assetId` → 200, returns `AssetDTO`.
+
+`api-read` (GET, doctor / private_doctor only):
+
+- `GET   /doctor/visits/:visitId/assets` → 200, returns
+  `{ data: AssetDTO[], nextCursor: null }`.
+
+### Body schemas
+
+`POST /doctor/visits/:visitId/assets` (camelCase only):
+
+```
+{
+  "kind": "overview|dermoscopy|macro|body_map",
+  "source": "phone|file|camera|device_bridge|local_transfer",
+  "storageObjectPath": "clinic/{clinicId}/visit/{visitId}/...",
+  "capturedAt": "ISO timestamp",
+  "qualityScore": 0..1,
+  "lesionId": "uuid|null (optional)",
+  "deviceId": "uuid|null (optional)",
+  "qualityIssues": "string[] (optional)",
+  "exif": "object (optional)"
+}
+```
+
+> The `kind` and `source` enums are pinned to the Stage 1A DB enums
+> `image_kind` and `image_source` (the Stage 1A schema is frozen). This is a
+> deliberate divergence from the Stage 1E planning doc, which mentioned
+> `closeup`/`other`/`import` — those are not present in the DB enums and would
+> require a Stage 1A migration, which is forbidden in this slice.
+
+`PATCH /doctor/assets/:assetId` (allow-list mirrors the Stage 1E-A column
+UPDATE grants):
+
+```
+{ "lesionId"?: "uuid|null", "deviceId"?: "uuid|null",
+  "qualityScore"?: 0..1, "qualityIssues"?: "string[]", "exif"?: "object" }
+```
+
+Server-controlled fields (`id`, `clinicId`, `createdAt`, `kind`, `source`,
+`storageObjectPath`, `capturedAt`, `visitId`) are rejected with `422
+validation_error`. The `clinic_id` is forced from the parent visit by the
+Stage 1E-A BEFORE INSERT trigger.
+
+### Defence-in-depth path binding
+
+`storageObjectPath` is verified to contain `/visit/{visitId}/`. Storage
+RLS already requires the full `clinic/{clinicId}/visit/{visitId}/...` shape;
+this client-side check fails fast before the DB round-trip.
+
+### Audit
+
+Every successful asset write goes through `public.log_clinical_write` with
+`entity = 'asset'` (added to the immutable allow-list helper in Stage 1E-A).
+The audit payload only carries `correlation_id`, `route`, `changed_fields`
+(camelCase names only), and `parent_ids = { visitId, lesionId? }`. Clinical
+free text is never logged.
+
+### Verify locally
+
+Backend pgTAP suite (unchanged from 1E-A):
+
+```
+npx supabase db reset
+npx supabase test db    # Files=4, Result=PASS
+```
+
+api-write unit + live (start the function in another shell):
+
+```
+deno test --no-check supabase/functions/api-write/_tests/projections.test.ts
+deno test --no-check supabase/functions/api-write/_tests/audit.test.ts
+
+npx supabase functions serve api-write \
+  --env-file ./supabase/.env.local --no-verify-jwt
+deno test --allow-env --allow-net --allow-read --no-check \
+  --config tests/api-write/live/deno.json \
+  tests/api-write/live/contract.test.ts
+```
+
+api-read live regression:
+
+```
+npx supabase functions serve api-read \
+  --env-file ./supabase/.env.local --no-verify-jwt
+deno test --allow-env --allow-net --allow-read --no-check \
+  --config tests/api-read/live/deno.json \
+  tests/api-read/live/contract.test.ts
+```
+
+### Stop conditions met for 1E-B
+
+- No DB migration changes (only the Edge Functions and tests).
+- No service role usage anywhere.
+- No frontend / `src/**` changes.
+- No new dependencies.
+- No Storage URL issuance — deferred to Stage 1E-C.

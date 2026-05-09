@@ -17,6 +17,13 @@ const VISIT_STATUS = ["scheduled", "in_progress", "closed", "cancelled"] as cons
 const LESION_STATUS = ["active", "monitoring", "removed", "archived"] as const;
 const MAP_VIEW = ["front", "back", "left", "right", "scalp"] as const;
 const RISK = ["low", "moderate", "high", "urgent"] as const;
+const ASSET_KIND = ["overview", "dermoscopy", "macro", "body_map"] as const;
+const ASSET_SOURCE = [
+  "phone", "file", "camera", "device_bridge", "local_transfer",
+] as const;
+const LESION_STATUS = ["active", "monitoring", "removed", "archived"] as const;
+const MAP_VIEW = ["front", "back", "left", "right", "scalp"] as const;
+const RISK = ["low", "moderate", "high", "urgent"] as const;
 // Stage 1C accepts only final/amended on PATCH. draft is the implicit insert state.
 const REPORT_VERSION_PATCH_STATUS = ["final", "amended"] as const;
 
@@ -166,6 +173,56 @@ export function mapReportVersionUpdate(body: Record<string, unknown>) {
   }
   if ("doctorText" in body) {
     out.doctor_text = asString(body, "doctorText", { min: 1, max: 32000 });
+  }
+  return out;
+}
+
+// ── Asset (Stage 1E-B) ─────────────────────────────────────────────────────
+// `clinic_id` is forced by the BEFORE INSERT trigger from the parent visit;
+// `id` and `created_at` are server-controlled. We do NOT pass them.
+export function mapAssetInsert(
+  visitId: string,
+  body: Record<string, unknown>,
+) {
+  const out: Record<string, unknown> = {
+    visit_id: visitId,
+    kind: asEnum(body, "kind", ASSET_KIND)!,
+    source: asEnum(body, "source", ASSET_SOURCE)!,
+    storage_object_path: asString(body, "storageObjectPath", { min: 1, max: 1024 })!,
+    captured_at: asTimestamp(body, "capturedAt")!,
+    quality_score: asNumber(body, "qualityScore", { min: 0, max: 1 })!,
+  };
+  if ("lesionId" in body) {
+    out.lesion_id = body.lesionId === null ? null : asString(body, "lesionId");
+  }
+  if ("deviceId" in body) {
+    out.device_id = body.deviceId === null ? null : asString(body, "deviceId");
+  }
+  if ("qualityIssues" in body) {
+    out.quality_issues = asStringArray(body, "qualityIssues") ?? [];
+  }
+  if ("exif" in body) {
+    out.exif = asObject(body, "exif") ?? {};
+  }
+  return out;
+}
+
+export function mapAssetUpdate(body: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  if ("lesionId" in body) {
+    out.lesion_id = body.lesionId === null ? null : asString(body, "lesionId");
+  }
+  if ("deviceId" in body) {
+    out.device_id = body.deviceId === null ? null : asString(body, "deviceId");
+  }
+  if ("qualityScore" in body) {
+    out.quality_score = asNumber(body, "qualityScore", { min: 0, max: 1 });
+  }
+  if ("qualityIssues" in body) {
+    out.quality_issues = asStringArray(body, "qualityIssues");
+  }
+  if ("exif" in body) {
+    out.exif = asObject(body, "exif");
   }
   return out;
 }

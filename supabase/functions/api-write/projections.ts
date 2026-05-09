@@ -207,3 +207,44 @@ export function toReportVersionDTO(row: Record<string, unknown>): ReportVersionD
     signedAt: (row.signed_at as string | null) ?? null,
   };
 }
+
+// ── Asset (Stage 1E-B) ─────────────────────────────────────────────────────
+// `kind` and `source` enums mirror the Stage 1A DB enums image_kind and
+// image_source. Storage upload/download URL issuance is deferred to Stage 1E-C.
+export interface AssetDTO {
+  id: string;
+  clinicId: string;
+  visitId: string;
+  lesionId: string | null;
+  kind: "overview" | "dermoscopy" | "macro" | "body_map";
+  source: "phone" | "file" | "camera" | "device_bridge" | "local_transfer";
+  storageObjectPath: string;
+  capturedAt: string;
+  deviceId: string | null;
+  qualityScore: number;
+  qualityIssues: string[];
+  exif: unknown;
+  createdAt: string;
+}
+export const ASSET_COLS =
+  "id, clinic_id, visit_id, lesion_id, kind, source, storage_object_path, captured_at, device_id, quality_score, quality_issues, exif, created_at";
+
+export function toAssetDTO(row: Record<string, unknown>): AssetDTO {
+  return {
+    id: String(row.id),
+    clinicId: String(row.clinic_id),
+    visitId: String(row.visit_id),
+    lesionId: (row.lesion_id as string | null) ?? null,
+    kind: row.kind as AssetDTO["kind"],
+    source: row.source as AssetDTO["source"],
+    storageObjectPath: String(row.storage_object_path),
+    capturedAt: String(row.captured_at),
+    deviceId: (row.device_id as string | null) ?? null,
+    qualityScore: Number(row.quality_score),
+    qualityIssues: Array.isArray(row.quality_issues)
+      ? Array.from(row.quality_issues as string[])
+      : [],
+    exif: row.exif ?? {},
+    createdAt: String(row.created_at),
+  };
+}

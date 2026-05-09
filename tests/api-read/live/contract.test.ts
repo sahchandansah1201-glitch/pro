@@ -269,3 +269,51 @@ Deno.test("private doctor cannot read main-clinic patient (RLS → 404)", async 
   assertEquals(res.status, 404);
   assertErrorEnvelope(res.body, "not_found");
 });
+
+// ── Stage 1E-B: doctor asset metadata read ────────────────────────────────
+Deno.test("doctor GET /doctor/visits/:visitId/assets returns seeded assets", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const visitId = "70000000-0000-0000-0000-000000000005"; // clinicNorth seeded
+  const res = await callApi(`/doctor/visits/${visitId}/assets`, { jwt });
+  assertEquals(res.status, 200);
+  const body = res.body as { data: Array<Record<string, unknown>> };
+  if (body.data.length !== 3) {
+    throw new Error(`expected 3 seeded assets, got ${body.data.length}`);
+  }
+  for (const a of body.data) {
+    assertEquals(a.visitId, visitId);
+    if (typeof a.storageObjectPath !== "string") {
+      throw new Error("storageObjectPath must be a string");
+    }
+    if (typeof a.qualityScore !== "number") {
+      throw new Error("qualityScore must be a number");
+    }
+  }
+  assertNoForbiddenKeys(body, FORBIDDEN_DOCTOR_KEYS, "/doctor/visits/:id/assets");
+});
+
+Deno.test("private doctor GET assets on cross-clinic visit → empty list (RLS)", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.privateDoctor);
+  const visitId = "70000000-0000-0000-0000-000000000005";
+  const res = await callApi(`/doctor/visits/${visitId}/assets`, { jwt });
+  assertEquals(res.status, 200);
+  const body = res.body as { data: unknown[] };
+  assertEquals(body.data.length, 0);
+});
+
+Deno.test("patient GET /doctor/visits/:id/assets → 403 forbidden", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.patient);
+  const res = await callApi(
+    `/doctor/visits/70000000-0000-0000-0000-000000000005/assets`,
+    { jwt },
+  );
+  assertEquals(res.status, 403);
+  assertErrorEnvelope(res.body, "forbidden");
+});
+
+Deno.test("doctor GET assets with invalid uuid → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const res = await callApi("/doctor/visits/not-a-uuid/assets", { jwt });
+  assertEquals(res.status, 422);
+  assertErrorEnvelope(res.body, "validation_error");
+});
