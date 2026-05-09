@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Camera,
@@ -12,12 +12,22 @@ import {
   ChevronRight,
   RefreshCw,
   MapPin,
+  CloudUpload,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getImagesByVisitId } from "@/lib/mock-data";
 import { formatDateTime } from "@/lib/format";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
+import {
+  getAssetDownloadUrl,
+  listVisitAssets,
+  uploadVisitAsset,
+  type AssetsApiError,
+  type SafeAssetDTO,
+} from "@/lib/clinical-assets-api";
 
 // Порог качества изображения. Ниже — снимок «требует проверки».
 const QUALITY_THRESHOLD = 0.8;
@@ -49,9 +59,25 @@ interface Props {
   lesions: Lesion[];
   initialLesionId?: string | null;
   onOpenBodyMap?: (lesionId: string) => void;
+  /**
+   * Bearer JWT for the clinical assets API. When omitted the imaging tab
+   * stays in demo mode and the API panel renders a muted "not configured"
+   * status without attempting any network call.
+   */
+  apiToken?: string | null;
+  /** Origin of the Supabase project. Optional for the same reason as the token. */
+  apiBaseUrl?: string | null;
 }
 
-export function VisitImagingTab({ visit, patientId, lesions, initialLesionId, onOpenBodyMap }: Props) {
+export function VisitImagingTab({
+  visit,
+  patientId,
+  lesions,
+  initialLesionId,
+  onOpenBodyMap,
+  apiToken,
+  apiBaseUrl,
+}: Props) {
   const allImages = useMemo(
     () => [...getImagesByVisitId(visit.id)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
     [visit.id],
@@ -417,8 +443,247 @@ export function VisitImagingTab({ visit, patientId, lesions, initialLesionId, on
           </ol>
         )}
       </section>
+
+      {/* Stage 1E-E · API assets panel. Network calls live in
+          src/lib/clinical-assets-api.ts; this component only consumes them. */}
+      <ApiAssetsPanel
+        visitId={visit.id}
+        apiToken={apiToken ?? null}
+        apiBaseUrl={apiBaseUrl ?? null}
+      />
     </div>
   );
+}
+
+// ───────── API assets panel ─────────
+
+interface ApiAssetsPanelProps {
+  visitId: string;
+  apiToken: string | null;
+  apiBaseUrl: string | null;
+}
+
+function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) {
+  const configured = Boolean(apiToken && apiBaseUrl);
+  const [assets, setAssets] = useState<SafeAssetDTO[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<AssetsApiError | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Initial load + manual reload trigger.
+  useEffect(() => {
+    if (!configured) {
+      setAssets(null);
+      return;
+    }
+    let cancelled = false;
+    setBusy(true);
+    setError(null);
+    listVisitAssets({ token: apiToken, baseUrl: apiBaseUrl, visitId })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) {
+          setAssets(res.value ?? []);
+        } else {
+          setError(res.error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [configured, apiToken, apiBaseUrl, visitId, reloadTick]);
+
+  const handleUploadClick = useCallback(() => {
+    if (!configured) {
+      setStatus("Загрузка снимков требует авторизованной сессии API.");
+      return;
+    }
+    fileInputRef.current?.click();
+  }, [configured]);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0] ?? null;
+      e.target.value = "";
+      if (!file) return;
+      setBusy(true);
+      setError(null);
+      setStatus("Отправка снимка…");
+      const res = await uploadVisitAsset({
+        token: apiToken,
+        baseUrl: apiBaseUrl,
+        visitId,
+        file,
+        kind: "overview",
+        source: "file",
+      });
+      if (res.ok) {
+        setStatus("Снимок загружен.");
+        setReloadTick((n) => n + 1);
+      } else {
+        setError(res.error);
+        setStatus(null);
+      }
+      setBusy(false);
+    },
+    [apiToken, apiBaseUrl, visitId],
+  );
+
+  const handleRefresh = useCallback(() => {
+    setStatus(null);
+    setError(null);
+    setReloadTick((n) => n + 1);
+  }, []);
+
+  const handleOpen = useCallback(
+    async (assetId: string) => {
+      setBusy(true);
+      setError(null);
+      setStatus("Подготовка ссылки…");
+      const res = await getAssetDownloadUrl({
+        token: apiToken,
+        baseUrl: apiBaseUrl,
+        assetId,
+      });
+      setBusy(false);
+      if (res.ok && res.value) {
+        setStatus(null);
+        window.open(res.value.downloadUrl, "_blank", "noopener,noreferrer");
+      } else if (!res.ok) {
+        setError(res.error);
+        setStatus(null);
+      }
+    },
+    [apiToken, apiBaseUrl],
+  );
+
+  return (
+    <section className="surface-card" aria-label="API ассеты визита">
+      <div className="section-bar">
+        <h2 className="h-section">API ассеты</h2>
+        <span className="h-section-hint">
+          {configured
+            ? assets
+              ? `${assets.length} шт.`
+              : busy
+                ? "загрузка…"
+                : "—"
+            : "демо-режим"}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-10 gap-1.5 text-[13px] sm:h-8 sm:text-[12px]"
+          onClick={handleUploadClick}
+          disabled={busy}
+          aria-label="Загрузить снимок"
+        >
+          <CloudUpload className="h-3.5 w-3.5" /> Загрузить снимок
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-10 gap-1.5 text-[13px] sm:h-8 sm:text-[12px]"
+          onClick={handleRefresh}
+          disabled={!configured || busy}
+          aria-label="Обновить список ассетов"
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+          )}
+          Обновить
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+          aria-hidden
+          tabIndex={-1}
+        />
+      </div>
+
+      {!configured && (
+        <p className="px-3 pb-3 text-[12px] text-muted-foreground">
+          Демо-режим: API клинических ассетов не сконфигурирован для текущей сессии.
+          Загрузка и подписанные ссылки доступны только при авторизованной сессии.
+        </p>
+      )}
+
+      {status && (
+        <p className="px-3 pb-2 text-[12px] text-muted-foreground" role="status">
+          {status}
+        </p>
+      )}
+
+      {error && (
+        <p className="px-3 pb-2 text-[12px] text-warning" role="alert">
+          {assetsErrorMessage(error)}
+        </p>
+      )}
+
+      {configured && assets && assets.length === 0 && !busy && (
+        <p className="px-3 pb-3 text-[12px] text-muted-foreground">
+          В API ещё нет ассетов для этого визита.
+        </p>
+      )}
+
+      {configured && assets && assets.length > 0 && (
+        <ul className="divide-y divide-border">
+          {assets.map((a) => (
+            <li
+              key={a.id}
+              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+            >
+              <div className="min-w-0 text-[12px]">
+                <div className="truncate font-medium text-foreground">
+                  {KIND_LABEL[a.kind]} · {SOURCE_LABEL[a.source]}
+                </div>
+                <div className="truncate text-muted-foreground">
+                  Снято: {formatDateTime(a.capturedAt)} · качество{" "}
+                  {Math.round((a.qualityScore || 0) * 100)}%
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-10 gap-1.5 text-[12px] sm:h-8"
+                onClick={() => handleOpen(a.id)}
+                disabled={busy}
+                aria-label={`Открыть снимок ${a.id}`}
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Открыть
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function assetsErrorMessage(err: AssetsApiError): string {
+  if (err.kind === "not_configured") {
+    return "API не сконфигурирован для текущей сессии.";
+  }
+  if (err.kind === "validation") return err.message;
+  if (err.kind === "http") {
+    if (err.status === 401 || err.status === 403) return "Недостаточно прав в текущей сессии.";
+    if (err.status === 404) return "Ассет не найден.";
+    return `Ошибка API (${err.status ?? "?"}).`;
+  }
+  return "Сбой сети при обращении к API.";
 }
 
 // ───────── Subcomponents ─────────
