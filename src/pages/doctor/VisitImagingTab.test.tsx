@@ -202,7 +202,7 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
     // calling window.open directly. The signed URL is the img src.
     const dialog = await screen.findByRole("dialog");
     const img = within(dialog).getByRole("img", {
-      name: /Снимок a-1/i,
+      name: /Клинический снимок Дерматоскопия/i,
     }) as HTMLImageElement;
     expect(img.src).toBe("https://signed.example/asset-1?sig=xyz");
     expect(openSpy).not.toHaveBeenCalled();
@@ -521,7 +521,7 @@ describe("VisitImagingTab · API panel · preview dialog", () => {
     await userEvent.click(openBtn);
 
     const dialog = await screen.findByRole("dialog");
-    const img = within(dialog).getByRole("img", { name: /Снимок a-1/i }) as HTMLImageElement;
+    const img = within(dialog).getByRole("img", { name: /Клинический снимок Дерматоскопия/i }) as HTMLImageElement;
     expect(img.src).toBe(SIGNED_URL);
     expect(openSpy).not.toHaveBeenCalled();
     openSpy.mockRestore();
