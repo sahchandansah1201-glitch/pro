@@ -250,13 +250,19 @@ export async function fetchAuditLogsByCorrelationId(
   correlationId: string,
 ): Promise<AuditLogRow[]> {
   const env = readEnv();
+  const apiKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!apiKey) {
+    throw new Error(
+      "Missing SUPABASE_ANON_KEY (required for direct PostgREST audit_logs query).",
+    );
+  }
   const url = `${env.url.replace(/\/+$/, "")}/rest/v1/audit_logs` +
     `?select=id,clinic_id,actor_id,action,entity,entity_id,payload,created_at` +
     `&payload->>correlation_id=eq.${encodeURIComponent(correlationId)}`;
   const res = await fetch(url, {
     headers: {
       authorization: `Bearer ${jwt}`,
-      apikey: jwt,
+      apikey: apiKey,
       accept: "application/json",
     },
   });
