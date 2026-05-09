@@ -17,6 +17,8 @@
 //   PATCH  /doctor/reports/:reportId
 //   POST   /doctor/reports/:reportId/versions
 //   PATCH  /doctor/report-versions/:versionId
+//   POST   /doctor/visits/:visitId/assets
+//   PATCH  /doctor/assets/:assetId
 
 import { corsHeaders } from "./cors.ts";
 import { getCorrelationId } from "./correlation.ts";
@@ -25,6 +27,8 @@ import { errorResponse, HttpError, jsonResponse } from "./errors.ts";
 import { assertUuid, parseJsonBody, validateBody } from "./validators.ts";
 import {
   mapAssessmentInsert,
+  mapAssetInsert,
+  mapAssetUpdate,
   mapConclusionInsert,
   mapLesionInsert,
   mapLesionUpdate,
@@ -39,12 +43,14 @@ import {
 } from "./mapping.ts";
 import {
   ASSESSMENT_COLS,
+  ASSET_COLS,
   CONCLUSION_COLS,
   LESION_COLS,
   PATIENT_COLS,
   REPORT_COLS,
   REPORT_VERSION_COLS,
   toAssessmentDTO,
+  toAssetDTO,
   toConclusionDTO,
   toLesionDTO,
   toPatientDTO,
