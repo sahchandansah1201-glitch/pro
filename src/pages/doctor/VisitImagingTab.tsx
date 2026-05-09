@@ -732,6 +732,13 @@ interface AssetPreviewDialogProps {
 
 function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDialogProps) {
   const open = preview !== null;
+  const [imageError, setImageError] = useState(false);
+
+  // Reset image-load error whenever the previewed asset changes (or closes).
+  useEffect(() => {
+    setImageError(false);
+  }, [preview?.asset.id]);
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-3xl">
@@ -746,11 +753,21 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
         {preview && (
           <div className="flex flex-col gap-3">
             <div className="overflow-hidden rounded-md border border-border bg-surface-sunken">
-              <img
-                src={preview.downloadUrl}
-                alt={`Снимок ${preview.asset.id}`}
-                className="block max-h-[60vh] w-full object-contain"
-              />
+              {imageError ? (
+                <p
+                  className="px-3 py-6 text-center text-[13px] text-warning"
+                  role="alert"
+                >
+                  Не удалось отобразить изображение. Откройте его в новой вкладке.
+                </p>
+              ) : (
+                <img
+                  src={preview.downloadUrl}
+                  alt={`Клинический снимок ${KIND_LABEL[preview.asset.kind]}`}
+                  className="block max-h-[60vh] w-full object-contain"
+                  onError={() => setImageError(true)}
+                />
+              )}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
