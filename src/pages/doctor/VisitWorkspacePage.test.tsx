@@ -1,6 +1,17 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+
+// Stage 1I-A · Mock the api-session hook with a mutable container so the
+// majority of tests keep the demo (null) session, while the auth smoke
+// tests below can flip it to a doctor JWT before rendering.
+const apiSessionMock = vi.hoisted(() => ({
+  current: { apiToken: null as string | null, apiBaseUrl: null as string | null },
+}));
+vi.mock("@/lib/api-session", () => ({
+  useApiSession: () => apiSessionMock.current,
+}));
+
 import VisitWorkspacePage from "./VisitWorkspacePage";
 
 const j = (...p: string[]) => p.join("");
