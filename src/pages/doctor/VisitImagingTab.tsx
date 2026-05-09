@@ -733,11 +733,15 @@ interface AssetPreviewDialogProps {
 function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDialogProps) {
   const open = preview !== null;
   const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Reset image-load error whenever the previewed asset changes (or closes).
+  // Reset image-load state whenever the previewed asset changes (or closes).
   useEffect(() => {
     setImageError(false);
+    setImageLoaded(false);
   }, [preview?.asset.id]);
+
+  const isLoading = preview !== null && !imageLoaded && !imageError;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -752,7 +756,10 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
         </DialogHeader>
         {preview && (
           <div className="flex flex-col gap-3">
-            <div className="overflow-hidden rounded-md border border-border bg-surface-sunken">
+            <div
+              className="relative overflow-hidden rounded-md border border-border bg-surface-sunken"
+              aria-busy={isLoading}
+            >
               {imageError ? (
                 <p
                   className="px-3 py-6 text-center text-[13px] text-warning"
@@ -761,12 +768,26 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
                   Не удалось отобразить изображение. Откройте его в новой вкладке.
                 </p>
               ) : (
-                <img
-                  src={preview.downloadUrl}
-                  alt={`Клинический снимок ${KIND_LABEL[preview.asset.kind]}`}
-                  className="block max-h-[60vh] w-full object-contain"
-                  onError={() => setImageError(true)}
-                />
+                <>
+                  {isLoading && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center gap-2 bg-surface-sunken/80 text-[12px] text-muted-foreground"
+                      role="status"
+                      aria-live="polite"
+                      data-testid="preview-loading"
+                    >
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      <span>Загрузка изображения…</span>
+                    </div>
+                  )}
+                  <img
+                    src={preview.downloadUrl}
+                    alt={`Клинический снимок ${KIND_LABEL[preview.asset.kind]}`}
+                    className="block max-h-[60vh] w-full object-contain"
+                    onLoad={() => setImageLoaded(true)}
+                    onError={() => setImageError(true)}
+                  />
+                </>
               )}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -793,6 +814,7 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
     </Dialog>
   );
 }
+
 
 function scrubLeaks(s: string): string {
   return s
