@@ -25,7 +25,7 @@ export function toPatientDTO(row: Record<string, unknown>): PatientDTO {
     birthDate: String(row.birth_date),
     sex: row.sex as PatientDTO["sex"],
     phototype: row.phototype as PatientDTO["phototype"],
-    riskFactors: Array.isArray(row.risk_factors) ? [...row.risk_factors as string[]] : [],
+    riskFactors: Array.isArray(row.risk_factors) ? Array.from(row.risk_factors as string[]) : [],
     createdBy: (row.created_by as string | null) ?? null,
     createdAt: String(row.created_at),
   };
@@ -123,9 +123,9 @@ export function toAssessmentDTO(row: Record<string, unknown>): AssessmentDTO {
     aiConfidence: row.ai_confidence === null || row.ai_confidence === undefined
       ? null
       : Number(row.ai_confidence),
-    aiFeatures: Array.isArray(row.ai_features) ? [...row.ai_features as string[]] : [],
+    aiFeatures: Array.isArray(row.ai_features) ? Array.from(row.ai_features as string[]) : [],
     aiUncertaintyNotes: Array.isArray(row.ai_uncertainty_notes)
-      ? [...row.ai_uncertainty_notes as string[]]
+      ? Array.from(row.ai_uncertainty_notes as string[])
       : [],
     aiXaiNotes: String(row.ai_xai_notes ?? ""),
     decidedBy: (row.decided_by as string | null) ?? null,
