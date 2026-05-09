@@ -221,7 +221,7 @@ const handleDoctorVisitAssets: Handler = async (ctx, params) => {
   const res = await ctx.client
     .from("assets")
     .select(
-      "id, clinic_id, visit_id, lesion_id, kind, source, storage_object_path, captured_at, device_id, quality_score, quality_issues, exif, created_at",
+      "id, clinic_id, visit_id, lesion_id, kind, source, captured_at, device_id, quality_score, quality_issues, created_at",
     )
     .eq("visit_id", visitId)
     .order("captured_at", { ascending: true });

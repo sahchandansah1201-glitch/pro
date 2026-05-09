@@ -146,6 +146,23 @@ Stage 1E-A BEFORE INSERT trigger.
 RLS already requires the full `clinic/{clinicId}/visit/{visitId}/...` shape;
 this client-side check fails fast before the DB round-trip.
 
+### Response DTO surface (intentional omissions)
+
+Both `POST /doctor/visits/:visitId/assets` and
+`PATCH /doctor/assets/:assetId` accept `storageObjectPath` and `exif` on the
+request body. The response DTO (`AssetDTO` in `api-write`,
+`DoctorAssetDTO` in `api-read`) **intentionally does NOT expose**:
+
+- `storageObjectPath` / `storage_object_path` — raw bucket paths must not
+  leak through the JSON API. Binary access will be brokered via short-lived
+  signed URLs in Stage 1E-C; until then clients have no need for the path.
+- `exif` — EXIF blobs may carry GPS coordinates, device serials, and other
+  PII. They are persisted server-side for downstream analytics but are not
+  rendered on any read surface.
+
+Unit and live contract tests assert these keys are absent from every asset
+response payload.
+
 ### Audit
 
 Every successful asset write goes through `public.log_clinical_write` with

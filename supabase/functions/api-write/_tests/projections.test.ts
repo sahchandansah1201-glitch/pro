@@ -248,7 +248,9 @@ Deno.test("FORBIDDEN_DOCTOR_WRITE_KEYS includes critical snake_case keys", () =>
 
 import { toAssetDTO } from "../projections.ts";
 
-Deno.test("toAssetDTO: camelCase-only DTO with no snake_case leak", () => {
+Deno.test("toAssetDTO: camelCase-only DTO; no storageObjectPath/exif leak", () => {
+  // Even if the upstream row carries storage_object_path/exif, the DTO must
+  // strip them — raw storage paths and EXIF are server-side only.
   const dto = toAssetDTO({
     id: "as-1",
     clinic_id: "c-1",
@@ -265,16 +267,20 @@ Deno.test("toAssetDTO: camelCase-only DTO with no snake_case leak", () => {
     created_at: "2026-05-09T08:00:01Z",
   });
   assertEquals(Object.keys(dto).sort(), [
-    "capturedAt", "clinicId", "createdAt", "deviceId", "exif",
+    "capturedAt", "clinicId", "createdAt", "deviceId",
     "id", "kind", "lesionId", "qualityIssues", "qualityScore",
-    "source", "storageObjectPath", "visitId",
+    "source", "visitId",
   ]);
+  const leak = dto as unknown as Record<string, unknown>;
+  if ("storageObjectPath" in leak) throw new Error("storageObjectPath must not leak");
+  if ("storage_object_path" in leak) throw new Error("storage_object_path must not leak");
+  if ("exif" in leak) throw new Error("exif must not leak");
   assertEquals(dto.qualityScore, 0.83);
   assertEquals(dto.qualityIssues, ["glare"]);
   assertNoForbiddenWriteKeys({ data: dto }, "POST /doctor/assets");
 });
 
-Deno.test("toAssetDTO: lesionId nullable, exif defaults to {}", () => {
+Deno.test("toAssetDTO: lesionId nullable; storage/exif still absent", () => {
   const dto = toAssetDTO({
     id: "as-2",
     clinic_id: "c-1",
@@ -291,5 +297,7 @@ Deno.test("toAssetDTO: lesionId nullable, exif defaults to {}", () => {
     created_at: "2026-05-09T08:00:01Z",
   });
   assertEquals(dto.lesionId, null);
-  assertEquals(dto.exif, {});
+  const leak = dto as unknown as Record<string, unknown>;
+  if ("storageObjectPath" in leak) throw new Error("storageObjectPath must not leak");
+  if ("exif" in leak) throw new Error("exif must not leak");
 });

@@ -282,12 +282,13 @@ Deno.test("doctor GET /doctor/visits/:visitId/assets returns seeded assets", asy
   }
   for (const a of body.data) {
     assertEquals(a.visitId, visitId);
-    if (typeof a.storageObjectPath !== "string") {
-      throw new Error("storageObjectPath must be a string");
-    }
     if (typeof a.qualityScore !== "number") {
       throw new Error("qualityScore must be a number");
     }
+    // Stage 1E-B safety: raw storage path and EXIF must NEVER appear.
+    if ("storageObjectPath" in a) throw new Error("storageObjectPath must not leak");
+    if ("storage_object_path" in a) throw new Error("storage_object_path must not leak");
+    if ("exif" in a) throw new Error("exif must not leak");
   }
   assertNoForbiddenKeys(body, FORBIDDEN_DOCTOR_KEYS, "/doctor/visits/:id/assets");
 });
