@@ -39,6 +39,17 @@ import {
 // Порог качества изображения. Ниже — снимок «требует проверки».
 const QUALITY_THRESHOLD = 0.8;
 
+// Stage 2E-A: client-side preflight allow-list. Server-side validation
+// remains the final authority — this is purely UX guidance.
+const ACCEPTED_IMAGE_MIME = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+];
+
 const KIND_LABEL: Record<ClinicalImage["kind"], string> = {
   overview: "Обзор",
   dermoscopy: "Дерматоскопия",
@@ -523,10 +534,17 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       const file = e.target.files?.[0] ?? null;
       e.target.value = "";
       if (!file) return;
+      const type = (file.type || "").toLowerCase();
+      if (!type.startsWith("image/") || !ACCEPTED_IMAGE_MIME.includes(type)) {
+        setError(null);
+        setErrorContext(null);
+        setStatus("Выберите файл изображения: JPEG, PNG, WebP или HEIC.");
+        return;
+      }
       setBusy(true);
       setError(null);
       setErrorContext(null);
-      setStatus("Отправка снимка…");
+      setStatus(`Загружаем: ${file.name}`);
       const res = await uploadVisitAsset({
         token: apiToken,
         baseUrl: apiBaseUrl,
@@ -644,6 +662,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           aria-hidden
           tabIndex={-1}
         />
+        <span className="text-[12px] text-muted-foreground">
+          JPEG, PNG, WebP или HEIC
+        </span>
       </div>
 
       {!configured && (
