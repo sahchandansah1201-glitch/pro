@@ -631,9 +631,13 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const [preview, setPreview] = useState<
     { asset: SafeAssetDTO; downloadUrl: string } | null
   >(null);
+  // Stage 2E-E: remember the opener so we can return focus on close.
+  const previewOpenerRef = useRef<HTMLElement | null>(null);
 
   const handleOpen = useCallback(
-    async (asset: SafeAssetDTO) => {
+    async (asset: SafeAssetDTO, opener?: HTMLElement | null) => {
+      previewOpenerRef.current =
+        opener ?? (typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null);
       setBusy(true);
       setError(null);
       setErrorContext(null);
@@ -658,6 +662,14 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
 
   const handleClosePreview = useCallback(() => {
     setPreview(null);
+    const opener = previewOpenerRef.current;
+    previewOpenerRef.current = null;
+    if (opener && typeof opener.focus === "function" && opener.isConnected) {
+      // Defer to allow Radix to release focus trap before we restore.
+      queueMicrotask(() => {
+        if (opener.isConnected) opener.focus();
+      });
+    }
   }, []);
 
   const handleOpenInNewTab = useCallback(() => {
