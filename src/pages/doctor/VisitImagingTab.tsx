@@ -463,12 +463,15 @@ interface ApiAssetsPanelProps {
   apiBaseUrl: string | null;
 }
 
+type ErrorContext = "list" | "download" | "upload";
+
 function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) {
   const configured = Boolean(apiToken && apiBaseUrl);
   const [assets, setAssets] = useState<SafeAssetDTO[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<AssetsApiError | null>(null);
+  const [errorContext, setErrorContext] = useState<ErrorContext | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -481,6 +484,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     let cancelled = false;
     setBusy(true);
     setError(null);
+    setErrorContext(null);
     listVisitAssets({ token: apiToken, baseUrl: apiBaseUrl, visitId })
       .then((res) => {
         if (cancelled) return;
@@ -488,6 +492,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           setAssets(res.value ?? []);
         } else {
           setError(res.error);
+          setErrorContext("list");
         }
       })
       .finally(() => {
@@ -513,6 +518,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       if (!file) return;
       setBusy(true);
       setError(null);
+      setErrorContext(null);
       setStatus("Отправка снимка…");
       const res = await uploadVisitAsset({
         token: apiToken,
@@ -526,7 +532,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         setStatus("Снимок загружен.");
         setReloadTick((n) => n + 1);
       } else {
+        // Do not clear `assets` — keep already-rendered rows visible.
         setError(res.error);
+        setErrorContext("upload");
         setStatus(null);
       }
       setBusy(false);
@@ -537,6 +545,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const handleRefresh = useCallback(() => {
     setStatus(null);
     setError(null);
+    setErrorContext(null);
     setReloadTick((n) => n + 1);
   }, []);
 
@@ -544,6 +553,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     async (assetId: string) => {
       setBusy(true);
       setError(null);
+      setErrorContext(null);
       setStatus("Подготовка ссылки…");
       const res = await getAssetDownloadUrl({
         token: apiToken,
@@ -556,6 +566,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         window.open(res.value.downloadUrl, "_blank", "noopener,noreferrer");
       } else if (!res.ok) {
         setError(res.error);
+        setErrorContext("download");
         setStatus(null);
       }
     },
@@ -627,9 +638,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         </p>
       )}
 
-      {error && (
+      {error && errorContext && (
         <p className="px-3 pb-2 text-[12px] text-warning" role="alert">
-          {assetsErrorMessage(error)}
+          {assetsErrorMessage(error, errorContext)}
         </p>
       )}
 
@@ -673,17 +684,47 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   );
 }
 
-function assetsErrorMessage(err: AssetsApiError): string {
-  if (err.kind === "not_configured") {
-    return "API не сконфигурирован для текущей сессии.";
+function scrubLeaks(s: string): string {
+  return s
+    .replace(/storageObjectPath/gi, "")
+    .replace(/storage_object_path/gi, "")
+    .replace(/\bexif\w*/gi, "")
+    .replace(/\bclinic\/[^\s"'<>]+/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function assetsErrorMessage(err: AssetsApiError, ctx: ErrorContext): string {
+  if (err.kind === "validation") {
+    const msg = scrubLeaks(err.message || "");
+    if (msg) return msg;
   }
-  if (err.kind === "validation") return err.message;
+  if (ctx === "list") {
+    if (err.kind === "network") return "Сбой сети при загрузке ассетов.";
+    if (err.kind === "http") {
+      if (err.status === 401 || err.status === 403) return "Недостаточно прав для просмотра ассетов.";
+      if (err.status === 404) return "Визит или ассеты не найдены.";
+      return "Не удалось загрузить ассеты.";
+    }
+    return "Не удалось загрузить ассеты.";
+  }
+  if (ctx === "download") {
+    if (err.kind === "network") return "Сбой сети при подготовке ссылки.";
+    if (err.kind === "http") {
+      if (err.status === 401 || err.status === 403) return "Недостаточно прав для открытия снимка.";
+      if (err.status === 404) return "Снимок не найден.";
+      return "Не удалось подготовить ссылку.";
+    }
+    return "Не удалось подготовить ссылку.";
+  }
+  // upload
+  if (err.kind === "network") return "Сбой сети при загрузке снимка.";
   if (err.kind === "http") {
-    if (err.status === 401 || err.status === 403) return "Недостаточно прав в текущей сессии.";
-    if (err.status === 404) return "Ассет не найден.";
-    return `Ошибка API (${err.status ?? "?"}).`;
+    if (err.status === 401 || err.status === 403) return "Недостаточно прав для загрузки снимка.";
+    if (err.status === 422) return "Проверьте файл и параметры снимка.";
+    return "Не удалось загрузить снимок.";
   }
-  return "Сбой сети при обращении к API.";
+  return "Не удалось загрузить снимок.";
 }
 
 // ───────── Subcomponents ─────────
