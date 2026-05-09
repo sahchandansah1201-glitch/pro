@@ -176,3 +176,53 @@ export function mapReportVersionUpdate(body: Record<string, unknown>) {
   }
   return out;
 }
+
+// ── Asset (Stage 1E-B) ─────────────────────────────────────────────────────
+// `clinic_id` is forced by the BEFORE INSERT trigger from the parent visit;
+// `id` and `created_at` are server-controlled. We do NOT pass them.
+export function mapAssetInsert(
+  visitId: string,
+  body: Record<string, unknown>,
+) {
+  const out: Record<string, unknown> = {
+    visit_id: visitId,
+    kind: asEnum(body, "kind", ASSET_KIND)!,
+    source: asEnum(body, "source", ASSET_SOURCE)!,
+    storage_object_path: asString(body, "storageObjectPath", { min: 1, max: 1024 })!,
+    captured_at: asTimestamp(body, "capturedAt")!,
+    quality_score: asNumber(body, "qualityScore", { min: 0, max: 1 })!,
+  };
+  if ("lesionId" in body) {
+    out.lesion_id = body.lesionId === null ? null : asString(body, "lesionId");
+  }
+  if ("deviceId" in body) {
+    out.device_id = body.deviceId === null ? null : asString(body, "deviceId");
+  }
+  if ("qualityIssues" in body) {
+    out.quality_issues = asStringArray(body, "qualityIssues") ?? [];
+  }
+  if ("exif" in body) {
+    out.exif = asObject(body, "exif") ?? {};
+  }
+  return out;
+}
+
+export function mapAssetUpdate(body: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  if ("lesionId" in body) {
+    out.lesion_id = body.lesionId === null ? null : asString(body, "lesionId");
+  }
+  if ("deviceId" in body) {
+    out.device_id = body.deviceId === null ? null : asString(body, "deviceId");
+  }
+  if ("qualityScore" in body) {
+    out.quality_score = asNumber(body, "qualityScore", { min: 0, max: 1 });
+  }
+  if ("qualityIssues" in body) {
+    out.quality_issues = asStringArray(body, "qualityIssues");
+  }
+  if ("exif" in body) {
+    out.exif = asObject(body, "exif");
+  }
+  return out;
+}
