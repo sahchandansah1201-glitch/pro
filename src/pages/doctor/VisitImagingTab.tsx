@@ -18,6 +18,13 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getImagesByVisitId } from "@/lib/mock-data";
 import { formatDateTime } from "@/lib/format";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
