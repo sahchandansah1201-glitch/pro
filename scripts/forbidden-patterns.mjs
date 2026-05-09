@@ -68,7 +68,8 @@ export const API_WRITE_FORBIDDEN_TOKENS = [
 
 export const API_WRITE_SCAN_DIR = "supabase/functions/api-write";
 
-/** Stage 1C + 1D byte-identity pairs: canonical vs install copy must match. */
+/** Stage 1C + 1D + 1E byte-identity pairs: canonical vs install copy must match.
+ *  Name is kept as STAGE1C_* for backward compatibility with existing imports. */
 export const STAGE1C_BYTE_IDENTITY_PAIRS = [
   [
     "db/stage1c/migrations/20260507000001_stage1c_writes.sql",
@@ -85,6 +86,14 @@ export const STAGE1C_BYTE_IDENTITY_PAIRS = [
   [
     "db/stage1d/tests/stage1d_audit.test.sql",
     "supabase/tests/stage1d_audit.test.sql",
+  ],
+  [
+    "db/stage1e/migrations/20260509000001_stage1e_assets.sql",
+    "supabase/migrations/20260509000001_stage1e_assets.sql",
+  ],
+  [
+    "db/stage1e/tests/stage1e_assets.test.sql",
+    "supabase/tests/stage1e_assets.test.sql",
   ],
 ];
 
