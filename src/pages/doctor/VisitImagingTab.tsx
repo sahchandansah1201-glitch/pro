@@ -743,6 +743,14 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           <span aria-hidden>·</span>
           <span>JPEG, PNG, WebP или HEIC</span>
         </div>
+        {uploading && (
+          <span
+            className="text-[12px] text-muted-foreground"
+            data-testid="upload-busy-indicator"
+          >
+            Идёт загрузка…
+          </span>
+        )}
       </div>
 
       {!configured && (
