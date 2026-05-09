@@ -96,10 +96,21 @@ export function RoleSwitcher() {
           className="h-8 px-2 text-[12px]"
           onClick={handleLogout}
           aria-label="Выйти из аккаунта"
+          disabled={pending}
+          aria-busy={pending || undefined}
         >
           <LogOut className="h-3.5 w-3.5" aria-hidden />
-          <span className="hidden sm:inline">Выйти</span>
+          <span className="hidden sm:inline">{pending ? "Выход…" : "Выйти"}</span>
         </Button>
+      ) : null}
+      {logoutError ? (
+        <span
+          role="alert"
+          data-testid="logout-error"
+          className="text-[11px] text-destructive"
+        >
+          {logoutError}
+        </span>
       ) : null}
     </div>
   );
