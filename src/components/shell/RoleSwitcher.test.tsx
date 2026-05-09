@@ -97,4 +97,62 @@ describe("RoleSwitcher", () => {
     );
     expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
   });
+
+  it("disables Выйти while signOut is pending", async () => {
+    let resolve: (v: { error: null }) => void = () => {};
+    const signOut = vi.fn(
+      () => new Promise<{ error: null }>((r) => { resolve = r; }),
+    );
+    renderSwitcher(authValue({ status: "authenticated", accessToken: "tok", signOut }));
+
+    const btn = screen.getByRole("button", { name: /выйти/i }) as HTMLButtonElement;
+    fireEvent.click(btn);
+    await waitFor(() => expect(btn).toBeDisabled());
+    expect(btn).toHaveTextContent(/Выход…/);
+
+    resolve({ error: null });
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/login", { replace: true }),
+    );
+  });
+
+  it("shows an inline error and does not navigate when signOut fails", async () => {
+    const signOut = vi.fn(async () => ({ error: new Error("boom") }));
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "operator");
+    renderSwitcher(authValue({ status: "authenticated", accessToken: "tok", signOut }));
+
+    fireEvent.click(screen.getByRole("button", { name: /выйти/i }));
+
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText(/Не удалось выйти\. Попробуйте ещё раз\./),
+    ).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("operator");
+  });
+
+  it("retry after a failed logout clears the error and navigates", async () => {
+    let call = 0;
+    const signOut = vi.fn(async () => {
+      call += 1;
+      return call === 1 ? { error: new Error("boom") } : { error: null };
+    });
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "operator");
+    renderSwitcher(authValue({ status: "authenticated", accessToken: "tok", signOut }));
+
+    fireEvent.click(screen.getByRole("button", { name: /выйти/i }));
+    expect(
+      await screen.findByText(/Не удалось выйти\. Попробуйте ещё раз\./),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /выйти/i }));
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/login", { replace: true }),
+    );
+    expect(
+      screen.queryByText(/Не удалось выйти\. Попробуйте ещё раз\./),
+    ).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+  });
 });
