@@ -192,4 +192,32 @@ describe("LoginPage", () => {
     );
     expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
   });
+
+  it("already-authenticated visit with app_metadata.role=clinic_admin navigates /admin", async () => {
+    renderPage(
+      authValue({
+        status: "authenticated",
+        user: makeUser({ app_metadata: { role: "clinic_admin" } }),
+        accessToken: "tok",
+      }),
+    );
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/admin", { replace: true }),
+    );
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("clinic_admin");
+  });
+
+  it("already-authenticated visit with unknown role falls back to doctor /desk", async () => {
+    renderPage(
+      authValue({
+        status: "authenticated",
+        user: makeUser({ app_metadata: { role: "ceo" } }),
+        accessToken: "tok",
+      }),
+    );
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+    );
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+  });
 });

@@ -59,9 +59,29 @@ describe("RoleSwitcher", () => {
     expect(screen.queryByRole("button", { name: /выйти/i })).not.toBeInTheDocument();
   });
 
+  it("does not show the session chip when anonymous", () => {
+    renderSwitcher();
+    expect(screen.queryByText(/Сессия активна/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("auth-session-chip")).not.toBeInTheDocument();
+  });
+
   it("shows Выйти when authenticated", () => {
     renderSwitcher(authValue({ status: "authenticated", accessToken: "tok" }));
     expect(screen.getByRole("button", { name: /выйти/i })).toBeInTheDocument();
+  });
+
+  it("shows the session chip when authenticated", () => {
+    renderSwitcher(
+      authValue({
+        status: "authenticated",
+        accessToken: "tok",
+        user: { id: "u", email: "doc@x.co" } as never,
+      }),
+    );
+    const chip = screen.getByTestId("auth-session-chip");
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveTextContent(/Сессия активна/);
+    expect(chip.getAttribute("aria-label")).toMatch(/doc@x\.co/);
   });
 
   it("clicking Выйти calls signOut, resets role to doctor and navigates /login", async () => {

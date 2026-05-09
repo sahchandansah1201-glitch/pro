@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useRole } from "@/context/role-context";
 import { useAuth } from "@/context/use-auth";
 import { ROLES, type Role } from "@/lib/roles";
+import { ShieldCheck } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,10 +22,12 @@ import { UserCog, LogOut } from "lucide-react";
  */
 export function RoleSwitcher() {
   const { role, setRole, label, currentUser } = useRole();
-  const { status, signOut } = useAuth();
+  const { status, signOut, user } = useAuth();
   const navigate = useNavigate();
 
   const showLogout = status === "authenticated";
+  const showSession = status === "authenticated";
+  const sessionEmail = user?.email ?? null;
 
   const handleLogout = async () => {
     await signOut();
@@ -59,6 +62,17 @@ export function RoleSwitcher() {
           ))}
         </SelectContent>
       </Select>
+      {showSession ? (
+        <span
+          data-testid="auth-session-chip"
+          className="hidden items-center gap-1 rounded-md border border-border bg-surface-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline-flex"
+          title={sessionEmail ?? "Сессия активна"}
+          aria-label={sessionEmail ? `Сессия активна: ${sessionEmail}` : "Сессия активна"}
+        >
+          <ShieldCheck className="h-3 w-3 text-success" aria-hidden />
+          <span>Сессия активна</span>
+        </span>
+      ) : null}
       {showLogout ? (
         <Button
           type="button"
