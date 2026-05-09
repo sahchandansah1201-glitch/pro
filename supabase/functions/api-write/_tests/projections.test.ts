@@ -301,3 +301,43 @@ Deno.test("toAssetDTO: lesionId nullable; storage/exif still absent", () => {
   if ("storageObjectPath" in leak) throw new Error("storageObjectPath must not leak");
   if ("exif" in leak) throw new Error("exif must not leak");
 });
+
+// ── Stage 1E-C · Upload helpers ─────────────────────────────────────────────
+import { extForMime, parseJsonField } from "../upload.ts";
+
+Deno.test("extForMime: maps accepted image MIMEs", () => {
+  assertEquals(extForMime("image/jpeg"), "jpg");
+  assertEquals(extForMime("image/PNG"), "png");
+  assertEquals(extForMime("image/webp"), "webp");
+  assertEquals(extForMime("image/heic"), "heic");
+  assertEquals(extForMime("application/pdf"), undefined);
+  assertEquals(extForMime("text/plain"), undefined);
+});
+
+Deno.test("parseJsonField: array of strings ok; reject non-array / non-string", () => {
+  assertEquals(parseJsonField('["a","b"]', "qualityIssues", "array"), ["a", "b"]);
+  assertEquals(parseJsonField(undefined, "qualityIssues", "array"), undefined);
+  assertEquals(parseJsonField("", "qualityIssues", "array"), undefined);
+  assertThrows(
+    () => parseJsonField("not json", "qualityIssues", "array"),
+    HttpError,
+  );
+  assertThrows(
+    () => parseJsonField('"a"', "qualityIssues", "array"),
+    HttpError,
+  );
+  assertThrows(
+    () => parseJsonField("[1,2]", "qualityIssues", "array"),
+    HttpError,
+  );
+});
+
+Deno.test("parseJsonField: object ok; reject array / scalar", () => {
+  assertEquals(
+    parseJsonField('{"a":1}', "exif", "object"),
+    { a: 1 } as unknown,
+  );
+  assertThrows(() => parseJsonField("[1,2]", "exif", "object"), HttpError);
+  assertThrows(() => parseJsonField("123", "exif", "object"), HttpError);
+  assertThrows(() => parseJsonField("oops", "exif", "object"), HttpError);
+});
