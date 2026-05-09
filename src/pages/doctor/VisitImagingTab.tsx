@@ -697,7 +697,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
                 size="sm"
                 variant="secondary"
                 className="h-10 gap-1.5 text-[12px] sm:h-8"
-                onClick={() => handleOpen(a.id)}
+                onClick={() => handleOpen(a)}
                 disabled={busy}
                 aria-label={`Открыть снимок ${a.id}`}
               >
