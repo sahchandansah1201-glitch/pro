@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Stethoscope, ShieldAlert } from "lucide-react";
 
@@ -13,13 +13,13 @@ import { roleFromAuthUser } from "@/lib/auth-role";
 /**
  * Демо-логин с выбором роли/пользователя. UX-симуляция, не настоящая авторизация.
  * Stage 1G-C: над демо-пикером смонтирована реальная форма входа через Lovable Cloud.
- * После успешного входа роль маппится из app_metadata.role / user_metadata.role.
+ * Stage 1H-A: если пользователь уже аутентифицирован при заходе на /login —
+ * сразу маппим роль и редиректим на её домашний экран.
  */
 export default function LoginPage() {
   const navigate = useNavigate();
   const { setRole } = useRole();
   const { status, user } = useAuth();
-  const realLoginTriggered = useRef(false);
 
   const pick = (r: Role) => {
     setRole(r);
@@ -27,15 +27,15 @@ export default function LoginPage() {
   };
 
   const handleRealLoginSuccess = () => {
-    realLoginTriggered.current = true;
+    // No-op: real navigation is handled by the auth-state effect below so the
+    // already-authenticated case and the just-signed-in case share one path.
   };
 
-  // Stage 1G-C: maps role from auth user once authenticated, then navigates.
+  // Когда статус «authenticated» — независимо от того, вошёл ли пользователь
+  // только что или уже имел сессию — маппим роль и переходим домой.
   useEffect(() => {
-    if (!realLoginTriggered.current) return;
     if (status !== "authenticated") return;
     const mapped = roleFromAuthUser(user);
-    realLoginTriggered.current = false;
     setRole(mapped);
     navigate(ROLE_BY_ID[mapped].home, { replace: true });
   }, [status, user, setRole, navigate]);
