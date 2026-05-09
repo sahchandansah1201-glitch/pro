@@ -57,9 +57,24 @@ export interface AssetsApiError {
   status?: number;
 }
 
-export type AssetsApiResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: AssetsApiError };
+/**
+ * Flat result shape (instead of a discriminated union) so consumers can
+ * inspect `error` even with `strictNullChecks` disabled in tsconfig.
+ *   * If `ok` is true, `value` is set and `error` is null.
+ *   * If `ok` is false, `error` is set and `value` is null.
+ */
+export interface AssetsApiResult<T> {
+  ok: boolean;
+  value: T | null;
+  error: AssetsApiError | null;
+}
+
+function ok<T>(value: T): AssetsApiResult<T> {
+  return { ok: true, value, error: null };
+}
+function fail<T>(error: AssetsApiError): AssetsApiResult<T> {
+  return { ok: false, value: null, error };
+}
 
 interface BaseArgs {
   /** Bearer JWT for the api-read / api-write surfaces. */
