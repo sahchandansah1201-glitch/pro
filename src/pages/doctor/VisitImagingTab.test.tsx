@@ -924,7 +924,7 @@ describe("VisitImagingTab · API panel · upload UX polish", () => {
     const pdf = new File(["x"], "doc.pdf", { type: "application/pdf" });
     await userEvent.upload(fileInput, pdf);
 
-    expect(within(region).getByRole("status")).toHaveTextContent(
+    expect(await within(region).findByRole("status")).toHaveTextContent(
       /Выберите файл изображения: JPEG, PNG, WebP или HEIC\./,
     );
     expect(fetchMock).not.toHaveBeenCalled();
