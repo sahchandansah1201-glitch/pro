@@ -153,8 +153,8 @@ select throws_ok(
        'clinic/33333333-3333-3333-3333-333333333333/visit/70000000-0000-0000-0000-000000000007/x.jpg',
        '2026-04-01T11:00:00Z',
        0.800, array[]::text[], '{}'::jsonb)$$,
-  '42501', null,
-  'doctor cannot INSERT asset into a clinic where they are not a doctor'
+  'P0001', 'visit_not_found',
+  'doctor cannot INSERT asset into hidden cross-clinic visit'
 );
 select _reset_role();
 
