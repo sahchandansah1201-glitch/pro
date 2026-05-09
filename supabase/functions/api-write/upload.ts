@@ -296,9 +296,14 @@ export async function handleAssetUpload(
     (visitLookup.data as { clinic_id: string }).clinic_id,
   );
 
-  const assetId = crypto.randomUUID();
+  // Storage object filename uses an independently generated UUID. It is
+  // intentionally NOT the assets.id — the `id` column has no INSERT grant
+  // (column-level GRANT in Stage 1E-A migration) and writing it would yield
+  // 42501 → forbidden. The DB DEFAULT (gen_random_uuid()) supplies assets.id.
+  const objectKey = crypto.randomUUID();
   const objectPath =
-    `clinic/${clinicId}/visit/${visitId}/${assetId}.${ext}`;
+    `clinic/${clinicId}/visit/${visitId}/${objectKey}.${ext}`;
+  const PATH_SHAPE = "clinic/{clinicId}/visit/{visitId}/{uuid}.{ext}";
 
   // Upload to private bucket. Storage RLS additionally enforces caller is a
   // doctor/private_doctor of `clinicId` and that the path is under the visit.
@@ -316,26 +321,26 @@ export async function handleAssetUpload(
     };
     const sc = String(sErr.statusCode ?? "");
     const msg = sErr.message ?? "";
-    if (sc === "409" || /exists|duplicate/i.test(msg)) {
-      throw new HttpError("conflict", "Storage object already exists", {
-        storage_status: sc,
-      });
-    }
-    if (sc === "403" || /not authorized|permission|denied/i.test(msg)) {
-      throw new HttpError("forbidden", "Storage upload denied", {
-        storage_status: sc,
-      });
-    }
-    throw new HttpError("internal_error", "Storage upload failed", {
+    const baseDetails = {
       storage_status: sc,
       storage_message: msg,
-    });
+      bucket: "clinical-assets",
+      path_shape: PATH_SHAPE,
+    };
+    if (sc === "409" || /exists|duplicate/i.test(msg)) {
+      throw new HttpError("conflict", "Storage object already exists", baseDetails);
+    }
+    if (sc === "403" || /not authorized|permission|denied/i.test(msg)) {
+      throw new HttpError("forbidden", "Storage upload denied", baseDetails);
+    }
+    throw new HttpError("internal_error", "Storage upload failed", baseDetails);
   }
 
   // Insert metadata row. If this fails, best-effort delete the just-uploaded
   // object to avoid orphaning storage. We do NOT expose a public delete API.
+  // NOTE: `id` is intentionally omitted — it is not in the column-level INSERT
+  // grant on public.assets and the DB default (gen_random_uuid()) supplies it.
   const insertCols: Record<string, unknown> = {
-    id: assetId,
     visit_id: visitId,
     kind,
     source,
