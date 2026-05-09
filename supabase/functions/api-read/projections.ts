@@ -202,3 +202,52 @@ export function toDoctorReportVersionDTO(row: {
     signedAt: row.signed_at,
   };
 }
+
+// ── Doctor asset (Stage 1E-B) ───────────────────────────────────────────────
+export interface DoctorAssetDTO {
+  id: string;
+  clinicId: string;
+  visitId: string;
+  lesionId: string | null;
+  kind: "overview" | "dermoscopy" | "macro" | "body_map";
+  source: "phone" | "file" | "camera" | "device_bridge" | "local_transfer";
+  storageObjectPath: string;
+  capturedAt: string;
+  deviceId: string | null;
+  qualityScore: number;
+  qualityIssues: string[];
+  exif: unknown;
+  createdAt: string;
+}
+
+export function toDoctorAssetDTO(row: {
+  id: string;
+  clinic_id: string;
+  visit_id: string;
+  lesion_id: string | null;
+  kind: DoctorAssetDTO["kind"];
+  source: DoctorAssetDTO["source"];
+  storage_object_path: string;
+  captured_at: string;
+  device_id: string | null;
+  quality_score: number | string;
+  quality_issues: string[] | null;
+  exif: unknown;
+  created_at: string;
+}): DoctorAssetDTO {
+  return {
+    id: row.id,
+    clinicId: row.clinic_id,
+    visitId: row.visit_id,
+    lesionId: row.lesion_id ?? null,
+    kind: row.kind,
+    source: row.source,
+    storageObjectPath: row.storage_object_path,
+    capturedAt: row.captured_at,
+    deviceId: row.device_id ?? null,
+    qualityScore: Number(row.quality_score),
+    qualityIssues: Array.isArray(row.quality_issues) ? [...row.quality_issues] : [],
+    exif: row.exif ?? {},
+    createdAt: row.created_at,
+  };
+}
