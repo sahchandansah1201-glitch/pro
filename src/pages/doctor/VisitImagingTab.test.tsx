@@ -1416,3 +1416,156 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     ).toBeInTheDocument();
   });
 });
+
+// Stage 2E-D · Dropzone accessibility and busy-state hardening.
+describe("VisitImagingTab · API panel · dropzone a11y + busy state", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function getDropZone(region: HTMLElement) {
+    return within(region).getByRole("button", {
+      name: /Перетащите снимок сюда для загрузки/i,
+    });
+  }
+
+  function makeDataTransfer(files: File[]) {
+    return {
+      files: Object.assign(files, {
+        item: (i: number) => files[i] ?? null,
+      }) as unknown as FileList,
+      types: ["Files"],
+      items: [],
+    } as unknown as DataTransfer;
+  }
+
+  it("dropzone has accessible role/name", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
+    );
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByText(/В API ещё нет ассетов/i);
+    const zone = getDropZone(region);
+    expect(zone).toBeInTheDocument();
+    expect(zone.getAttribute("aria-label")).toMatch(/Перетащите снимок сюда/);
+  });
+
+  it("Enter on dropzone triggers file input click", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
+    );
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByText(/В API ещё нет ассетов/i);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const clickSpy = vi.spyOn(fileInput, "click").mockImplementation(() => {});
+    const zone = getDropZone(region);
+    zone.focus();
+    fireEvent.keyDown(zone, { key: "Enter" });
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("Space on dropzone triggers file input click", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
+    );
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByText(/В API ещё нет ассетов/i);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const clickSpy = vi.spyOn(fileInput, "click").mockImplementation(() => {});
+    const zone = getDropZone(region);
+    zone.focus();
+    fireEvent.keyDown(zone, { key: " " });
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("while not busy, dropzone does not expose aria-disabled=true", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
+    );
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByText(/В API ещё нет ассетов/i);
+    const zone = getDropZone(region);
+    expect(zone.getAttribute("aria-disabled")).not.toBe("true");
+  });
+
+  it("while upload is pending: aria-disabled=true, 'Идёт загрузка…' visible, drop creates no second POST", async () => {
+    let resolveUpload: ((res: Response) => void) | null = null;
+    const uploadPromise = new Promise<Response>((r) => {
+      resolveUpload = r;
+    });
+    let postCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        postCalls += 1;
+        return uploadPromise;
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      fileInput,
+      new File(["x"], "lesion.png", { type: "image/png" }),
+    );
+
+    await waitFor(() => {
+      expect(within(region).getByText(/Идёт загрузка…/)).toBeInTheDocument();
+    });
+    const zone = getDropZone(region);
+    expect(zone.getAttribute("aria-disabled")).toBe("true");
+    expect(
+      within(region).getByRole("button", { name: /Загрузить снимок/i }),
+    ).toBeDisabled();
+
+    fireEvent.drop(zone, {
+      dataTransfer: makeDataTransfer([
+        new File(["y"], "second.png", { type: "image/png" }),
+      ]),
+    });
+    expect(postCalls).toBe(1);
+
+    resolveUpload!(
+      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+    );
+    await waitFor(() => {
+      expect(within(region).queryByText(/Идёт загрузка…/)).not.toBeInTheDocument();
+    });
+    expect(postCalls).toBe(1);
+  });
+});
