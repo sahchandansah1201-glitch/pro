@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Stethoscope, ShieldAlert } from "lucide-react";
 
 import { useRole } from "@/context/role-context";
@@ -9,15 +9,27 @@ import { DEMO_USERS } from "@/lib/users";
 import { Button } from "@/components/ui/button";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { roleFromAuthUser } from "@/lib/auth-role";
+import { canRoleAccess } from "@/lib/access";
+
+/** Accept only same-origin absolute paths starting with a single "/". */
+function safeFromPath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (!value.startsWith("/")) return null;
+  if (value.startsWith("//")) return null;
+  if (value.startsWith("/\\")) return null;
+  return value;
+}
 
 /**
  * Демо-логин с выбором роли/пользователя. UX-симуляция, не настоящая авторизация.
  * Stage 1G-C: над демо-пикером смонтирована реальная форма входа через Lovable Cloud.
- * Stage 1H-A: если пользователь уже аутентифицирован при заходе на /login —
- * сразу маппим роль и редиректим на её домашний экран.
+ * Stage 1H-A: уже аутентифицированных пользователей редиректим на роль-home.
+ * Stage 1H-B: при наличии безопасного location.state.from возвращаем туда,
+ * если маппированная роль имеет доступ к этому маршруту.
  */
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setRole } = useRole();
   const { status, user } = useAuth();
 
@@ -27,18 +39,19 @@ export default function LoginPage() {
   };
 
   const handleRealLoginSuccess = () => {
-    // No-op: real navigation is handled by the auth-state effect below so the
-    // already-authenticated case and the just-signed-in case share one path.
+    // No-op: real navigation is handled by the auth-state effect below.
   };
 
-  // Когда статус «authenticated» — независимо от того, вошёл ли пользователь
-  // только что или уже имел сессию — маппим роль и переходим домой.
   useEffect(() => {
     if (status !== "authenticated") return;
     const mapped = roleFromAuthUser(user);
     setRole(mapped);
-    navigate(ROLE_BY_ID[mapped].home, { replace: true });
-  }, [status, user, setRole, navigate]);
+    const fromState = (location.state as { from?: unknown } | null)?.from;
+    const from = safeFromPath(fromState);
+    const target =
+      from && canRoleAccess(mapped, from) ? from : ROLE_BY_ID[mapped].home;
+    navigate(target, { replace: true });
+  }, [status, user, setRole, navigate, location.state]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-muted p-6">

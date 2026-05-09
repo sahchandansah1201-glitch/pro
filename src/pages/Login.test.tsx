@@ -48,9 +48,17 @@ function makeUser(meta: Partial<Pick<User, "app_metadata" | "user_metadata">>): 
   } as unknown as User;
 }
 
-function renderPage(value: AuthContextValue = authValue()) {
+function renderPage(
+  value: AuthContextValue = authValue(),
+  opts: { from?: string } = {},
+) {
+  const initialEntries = [
+    opts.from !== undefined
+      ? { pathname: "/login", state: { from: opts.from } }
+      : { pathname: "/login" },
+  ];
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <AuthContext.Provider value={value}>
         <RoleProvider>
           <LoginPage />
@@ -219,5 +227,52 @@ describe("LoginPage", () => {
       expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
     );
     expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+  });
+
+  describe("return-to (Stage 1H-B)", () => {
+    const authedDoctor = () =>
+      authValue({
+        status: "authenticated",
+        user: makeUser({ app_metadata: { role: "doctor" } }),
+        accessToken: "tok",
+      });
+
+    it("returns to allowed from-path after auth", async () => {
+      renderPage(authedDoctor(), { from: "/patients/p-1/visits/v-1" });
+      await waitFor(() =>
+        expect(navigateMock).toHaveBeenCalledWith("/patients/p-1/visits/v-1", {
+          replace: true,
+        }),
+      );
+    });
+
+    it("ignores from-path the mapped role cannot access; goes to role home", async () => {
+      renderPage(authedDoctor(), { from: "/sys/users" });
+      await waitFor(() =>
+        expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+      );
+      expect(navigateMock).not.toHaveBeenCalledWith("/sys/users", { replace: true });
+    });
+
+    it("ignores absolute external URLs", async () => {
+      renderPage(authedDoctor(), { from: "https://evil.test/steal" });
+      await waitFor(() =>
+        expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+      );
+    });
+
+    it("ignores protocol-relative URLs starting with //", async () => {
+      renderPage(authedDoctor(), { from: "//evil.test/steal" });
+      await waitFor(() =>
+        expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+      );
+    });
+
+    it("direct already-authenticated visit (no from) still navigates role home", async () => {
+      renderPage(authedDoctor());
+      await waitFor(() =>
+        expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+      );
+    });
   });
 });
