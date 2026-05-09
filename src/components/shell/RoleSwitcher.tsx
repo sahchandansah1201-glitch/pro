@@ -1,4 +1,6 @@
+import { useNavigate } from "react-router-dom";
 import { useRole } from "@/context/role-context";
+import { useAuth } from "@/context/use-auth";
 import { ROLES, type Role } from "@/lib/roles";
 import {
   Select,
@@ -7,14 +9,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserCog } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { UserCog, LogOut } from "lucide-react";
 
 /**
  * Демо-переключатель роли. UX-симуляция, не настоящая авторизация.
  * Используется только для демонстрации интерфейса разных ролей.
+ *
+ * Stage 1G-C: при наличии аутентифицированной сессии Lovable Cloud рядом
+ * показывается кнопка «Выйти», которая завершает реальную сессию.
  */
 export function RoleSwitcher() {
   const { role, setRole, label, currentUser } = useRole();
+  const { status, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const showLogout = status === "authenticated";
+
+  const handleLogout = async () => {
+    await signOut();
+    setRole("doctor");
+    navigate("/login", { replace: true });
+  };
 
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -25,7 +41,6 @@ export function RoleSwitcher() {
           aria-label="Демо-режим. Доступ не является реальной защитой. Сменить роль/пользователя."
           title={`Демо-режим. ${currentUser.fullName} · ${label}`}
         >
-          {/* Кастомный value, чтобы не наследовать многострочный SelectItem и не обрезаться */}
           <SelectValue>
             <span className="block truncate">{label}</span>
           </SelectValue>
@@ -44,6 +59,19 @@ export function RoleSwitcher() {
           ))}
         </SelectContent>
       </Select>
+      {showLogout ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-[12px]"
+          onClick={handleLogout}
+          aria-label="Выйти из аккаунта"
+        >
+          <LogOut className="h-3.5 w-3.5" aria-hidden />
+          <span className="hidden sm:inline">Выйти</span>
+        </Button>
+      ) : null}
     </div>
   );
 }
