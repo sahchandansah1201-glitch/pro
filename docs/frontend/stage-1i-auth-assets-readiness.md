@@ -220,3 +220,63 @@ The final frontend sweep ran green across:
 - Bulk asset operations (multi-select upload/download/delete).
 - Production bundle splitting / dynamic imports to address the
   Vite chunk size warning.
+
+---
+
+## 6. Optional Stage 2A live smoke
+
+`e2e/auth-assets-smoke.pw.ts` is an **opt-in** Playwright smoke that
+exercises the real-auth doctor assets flow end-to-end against a
+configured Supabase environment. It is skipped automatically when
+the required env vars are not set, so CI without credentials stays
+green.
+
+Required env vars:
+
+- `E2E_DOCTOR_EMAIL` — doctor account email.
+- `E2E_DOCTOR_PASSWORD` — doctor account password.
+- `E2E_VISIT_ROUTE` — doctor visit route, e.g.
+  `/patients/<patientId>/visits/<visitId>?tab=imaging`. The test
+  also clicks the «Снимки» tab if it is not already active.
+
+Optional env vars:
+
+- `E2E_EXPECT_ASSET_ROW=1` — require at least one
+  `Открыть снимок …` button (fails if the visit has no assets).
+- `E2E_TRY_PREVIEW=1` — click the first row and assert that either
+  the «Просмотр снимка» dialog opens (with no signed URL /
+  `storageObjectPath` / `storage_object_path` / `exif` leakage in
+  visible text), or one of the safe download error messages
+  appears (`Снимок не найден.`,
+  `Недостаточно прав для открытия снимка.`, etc.).
+
+The test is read-only: it never uploads, deletes, or otherwise
+mutates assets, and never logs tokens, signed URLs, or raw storage
+paths.
+
+Run it locally:
+
+```bash
+# terminal 1
+npm run dev -- --host 0.0.0.0 --port 8080
+
+# terminal 2
+E2E_DOCTOR_EMAIL="doctor@example.com" \
+E2E_DOCTOR_PASSWORD="..." \
+E2E_VISIT_ROUTE="/patients/<patientId>/visits/<visitId>?tab=imaging" \
+npx playwright test e2e/auth-assets-smoke.pw.ts
+```
+
+To also assert preview behavior on a visit known to have assets:
+
+```bash
+E2E_DOCTOR_EMAIL="doctor@example.com" \
+E2E_DOCTOR_PASSWORD="..." \
+E2E_VISIT_ROUTE="/patients/<patientId>/visits/<visitId>?tab=imaging" \
+E2E_EXPECT_ASSET_ROW=1 \
+E2E_TRY_PREVIEW=1 \
+npx playwright test e2e/auth-assets-smoke.pw.ts
+```
+
+`PW_CHROMIUM_PATH` is honored to pin a Chromium binary, matching
+the convention used by other `e2e/*.pw.ts` tests.
