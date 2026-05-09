@@ -21,9 +21,6 @@ const ASSET_KIND = ["overview", "dermoscopy", "macro", "body_map"] as const;
 const ASSET_SOURCE = [
   "phone", "file", "camera", "device_bridge", "local_transfer",
 ] as const;
-const LESION_STATUS = ["active", "monitoring", "removed", "archived"] as const;
-const MAP_VIEW = ["front", "back", "left", "right", "scalp"] as const;
-const RISK = ["low", "moderate", "high", "urgent"] as const;
 // Stage 1C accepts only final/amended on PATCH. draft is the implicit insert state.
 const REPORT_VERSION_PATCH_STATUS = ["final", "amended"] as const;
 
