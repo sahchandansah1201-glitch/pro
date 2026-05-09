@@ -1,0 +1,14 @@
+// Stage 1G-B · useAuth() hook.
+//
+// Thin accessor for AuthContext. Throws if used outside <AuthProvider>.
+
+import { useContext } from "react";
+import { AuthContext, type AuthContextValue } from "@/context/auth-context";
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within <AuthProvider>");
+  }
+  return ctx;
+}
