@@ -804,7 +804,11 @@ Deno.test("doctor POST /assets/upload happy path: 201, DTO, no path/exif leak, a
     form,
     cid,
   );
-  assertEquals(res.status, 201);
+  if (res.status !== 201) {
+    throw new Error(
+      `expected 201, got ${res.status}; body=${JSON.stringify(res.body)}`,
+    );
+  }
   const dto = (res.body as { data: Record<string, unknown> }).data;
   assertEquals(dto.visitId, visitId);
   assertEquals(dto.clinicId, clinicId);
