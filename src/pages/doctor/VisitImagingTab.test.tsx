@@ -1223,8 +1223,13 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
   });
 
   it("drag over marks the drop target active", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
     const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByText(/В API ещё нет ассетов/i);
     const zone = getDropZone(region);
     expect(zone.getAttribute("data-active")).toBe("false");
     fireEvent.dragOver(zone, { dataTransfer: makeDataTransfer([]) });
