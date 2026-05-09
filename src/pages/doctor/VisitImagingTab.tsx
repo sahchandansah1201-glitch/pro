@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Camera,
@@ -12,12 +12,22 @@ import {
   ChevronRight,
   RefreshCw,
   MapPin,
+  CloudUpload,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getImagesByVisitId } from "@/lib/mock-data";
 import { formatDateTime } from "@/lib/format";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
+import {
+  getAssetDownloadUrl,
+  listVisitAssets,
+  uploadVisitAsset,
+  type AssetsApiError,
+  type SafeAssetDTO,
+} from "@/lib/clinical-assets-api";
 
 // Порог качества изображения. Ниже — снимок «требует проверки».
 const QUALITY_THRESHOLD = 0.8;
