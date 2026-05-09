@@ -551,6 +551,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       }
       setBusy(true);
       busyRef.current = true;
+      setUploading(true);
       setError(null);
       setErrorContext(null);
       setStatus(`Загружаем: ${file.name}`);
@@ -573,6 +574,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       }
       setBusy(false);
       busyRef.current = false;
+      setUploading(false);
     },
     [apiToken, apiBaseUrl, visitId],
   );
