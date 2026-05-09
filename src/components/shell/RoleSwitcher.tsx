@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRole } from "@/context/role-context";
 import { useAuth } from "@/context/use-auth";
@@ -29,10 +30,24 @@ export function RoleSwitcher() {
   const showSession = status === "authenticated";
   const sessionEmail = user?.email ?? null;
 
+  const [pending, setPending] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
   const handleLogout = async () => {
-    await signOut();
-    setRole("doctor");
-    navigate("/login", { replace: true });
+    if (pending) return;
+    setPending(true);
+    try {
+      const { error } = await signOut();
+      if (error) {
+        setLogoutError("Не удалось выйти. Попробуйте ещё раз.");
+        return;
+      }
+      setLogoutError(null);
+      setRole("doctor");
+      navigate("/login", { replace: true });
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
@@ -81,10 +96,21 @@ export function RoleSwitcher() {
           className="h-8 px-2 text-[12px]"
           onClick={handleLogout}
           aria-label="Выйти из аккаунта"
+          disabled={pending}
+          aria-busy={pending || undefined}
         >
           <LogOut className="h-3.5 w-3.5" aria-hidden />
-          <span className="hidden sm:inline">Выйти</span>
+          <span className="hidden sm:inline">{pending ? "Выход…" : "Выйти"}</span>
         </Button>
+      ) : null}
+      {logoutError ? (
+        <span
+          role="alert"
+          data-testid="logout-error"
+          className="text-[11px] text-destructive"
+        >
+          {logoutError}
+        </span>
       ) : null}
     </div>
   );
