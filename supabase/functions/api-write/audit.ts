@@ -7,8 +7,15 @@
 //
 // No service role. The same per-request user-JWT client is used.
 
-import { SupabaseClient } from "@supabase/supabase-js";
 import { CallerContext } from "./auth.ts";
+
+type RpcClient = {
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => PromiseLike<{ error: { message: string; code?: string } | null }>;
+};
+
 import { HttpError } from "./errors.ts";
 
 export type AuditAction =
@@ -127,7 +134,7 @@ export function buildAuditPayload(
 }
 
 export async function recordWrite(
-  client: SupabaseClient,
+  client: RpcClient,
   _ctx: CallerContext,
   input: RecordWriteInput,
 ): Promise<void> {
