@@ -1,235 +1,196 @@
-
-# Stage 1D Plan — Audit Logging + CI Guardrails
+# Stage 1E — Clinical Assets + Secure Media Access (Plan)
 
 ## 1. Exact scope
 
-Both candidates, in two independently revertible slices:
+Backend-only slice adding controlled clinical asset metadata routes and a private Storage bucket for clinical media, accessible only via caller-JWT-authorized Edge Function operations. No frontend wiring.
 
-- **Slice 1D-A — Clinical write audit logging for `api-write`:**
-  - One additive migration introducing a single `SECURITY DEFINER` RPC `public.log_clinical_write(...)`.
-  - `api-write` calls the RPC after each successful write, using the per-request user-JWT client (no service role).
-  - New pgTAP suite covering RPC behavior + RLS posture for `audit_logs`.
-  - New Deno unit tests for the payload builder.
-  - Additive live-contract cases verifying audit visibility for `clinic_admin` and invisibility for `doctor`.
+In scope:
+- New migration `db/stage1e/migrations/20260509000001_stage1e_assets.sql` adding:
+  - INSERT/UPDATE/DELETE RLS policies for `public.assets` (doctor/private_doctor in-clinic write; patient never writes).
+  - A Stage-1C-style write-guard pattern for assets (clinic_id immutable, FK consistency to visit/lesion via composite key already enforced by schema).
+  - Extension of audit allowlist via a Stage-1E `_stage1e_allowed_entities()` shim that unions in `'asset'` and additional actions `'soft_delete'`. Implemented as a NEW function plus a replacement of `log_clinical_write` validation that consults both Stage-1D and Stage-1E lists. Stage-1D file is NOT mutated.
+  - Optional: column `deleted_at timestamptz` on `public.assets` (soft delete) — only if approved; otherwise omit and use hard DELETE under RLS.
+- Private Supabase Storage bucket `clinical-assets` created via SQL migration (`storage.buckets` insert) and `storage.objects` RLS policies that reuse `public.has_clinic_access()` by parsing `clinic_id` from the object path prefix `clinic/{clinic_id}/visit/{visit_id}/{asset_id}.{ext}`.
+- New api-write routes:
+  - `POST   /doctor/visits/:visitId/assets` — register asset metadata (after client uploads to storage).
+  - `PATCH  /doctor/assets/:assetId` — update mutable fields (`lesionId`, `qualityScore`, `qualityIssues`, `exif` whitelist).
+  - `DELETE /doctor/assets/:assetId` — remove metadata row (hard or soft per decision); does not delete storage object (separate route below).
+- New api-read routes:
+  - `GET /doctor/visits/:visitId/assets` — list metadata.
+  - `GET /doctor/assets/:assetId` — single metadata.
+  - `GET /doctor/assets/:assetId/download-url` — short-lived signed download URL via storage RLS (caller JWT only, no service role).
+- Upload flow: Edge Function returns a **signed upload URL** scoped to a deterministic object path. Two design options handled in §5/§3.
 
-- **Slice 1D-B — CI / local guardrails:**
-  - New GitHub Actions workflow `backend-guardrails.yml` running: `supabase db reset`, `supabase test db`, `deno check` for both functions, api-read + api-write projection tests, doctor hygiene scan, canonical↔install byte-identity check, and a "no tracked/working `deno.lock`" check.
-  - Two new helper scripts (`check-canonical-install-identity.mjs`, `check-no-deno-locks.mjs`).
-  - Optional additive `.husky/pre-push` extension that calls the same scripts locally.
-  - Live contracts for api-read / api-write are **not** added to CI in this stage (they need a running Supabase stack and seeded JWTs); they remain documented as local-only and are still runnable from the existing `tests/api-*/live` suites.
+Out of scope (explicit exclusions in §2).
 
 ## 2. Explicit exclusions
 
 - No frontend changes.
-- No in-place edits of Stage 1A or Stage 1C migrations or tests.
-- No service-role usage anywhere in the request path.
-- No new packages, lockfile changes, or `tsconfig`/`vite.config`/`package.json` edits beyond husky-script registration if needed.
-- No `supabase db push`.
-- No DELETE grants and no widening of any existing RLS policy.
-- No raw clinical text in audit payloads (no `patient_safe_text`, `notes`, `summary`, freeform ABCD fields, dictation transcripts).
-- No backfill of historical audit rows.
-- Live contract suites are not wired into CI in Stage 1D.
-- No changes to `audit_logs` table schema or its existing Stage 1A SELECT policies.
+- No patient-facing asset routes (patient report assets deferred to a later slice).
+- No service-role usage in any request path.
+- No DICOM/PACS, no thumbnail generation, no AI pipeline, no virus scan.
+- No changes to Stage 1A/1C/1D migration files.
+- No new dependencies, no package/lockfile edits.
+- No `supabase db push`. Migrations are applied locally via `npx supabase db reset`.
+- No deletion of storage objects from the Edge Function (deferred; metadata DELETE only).
+- No changes to existing api-read 23/23 or api-write 25/25 contracts.
 
-## 3. DB / RLS changes
+## 3. Existing schema verification notes
 
-All additive. One new migration: `db/stage1d/migrations/20260508000001_stage1d_audit.sql` (canonical) + byte-identical install copy in `supabase/migrations/`.
+Verified against current code:
+- `public.assets` exists with columns: `id, clinic_id, visit_id, lesion_id, kind, source, storage_object_path, captured_at, device_id, quality_score, quality_issues[], exif jsonb, created_at`. Composite FKs `(visit_id,clinic_id)` and `(lesion_id,clinic_id)` already enforce clinic isolation.
+- Stage 1A RLS on `public.assets` currently has SELECT only (`assets_sysadmin_select`, `assets_clinic_select`). No INSERT/UPDATE/DELETE policies → all writes are blocked under RLS today. Stage 1E must add them.
+- Patient role intentionally cannot SELECT asset metadata (Stage 1A comment line 166). Preserve this.
+- Stage 1D `_stage1d_allowed_entities()` does NOT include `'asset'`. Audit must be extended without mutating Stage-1D file.
+- Enums `image_kind` and `image_source` already exist.
+- No existing Storage bucket configured for clinical media.
 
-### 3.1 New SECURITY DEFINER RPC
+## 4. DB / RLS / Storage changes
 
-```text
-public.log_clinical_write(
-  _clinic_id  uuid,
-  _action     text,   -- 'create' | 'update' | 'finalize' | 'amend' | 'set_current_version'
-  _entity     text,   -- 'patient'|'visit'|'lesion'|'assessment'|'conclusion'|'report'|'report_version'
-  _entity_id  uuid,
-  _payload    jsonb default '{}'::jsonb
-) returns uuid
-language plpgsql
-security definer
-set search_path = public
-```
+New file: `db/stage1e/migrations/20260509000001_stage1e_assets.sql`
 
-Behavior:
+a) RLS on `public.assets`:
+- `assets_doctor_insert` — `for insert to authenticated with check (has_clinic_access(auth.uid(), clinic_id) and (has_role(auth.uid(),'doctor') or has_role(auth.uid(),'private_doctor')))`.
+- `assets_doctor_update` — same predicate, plus a write-guard trigger that forbids changing `clinic_id`, `visit_id`, `storage_object_path`, `kind`, `source`, `captured_at`, `created_at`. Only `lesion_id`, `quality_score`, `quality_issues`, `exif` mutable.
+- `assets_doctor_delete` — same predicate (or replaced by soft-delete update if `deleted_at` chosen).
 
-1. If `auth.uid()` is null → fail with `errcode '42501'`.
-2. If `_action` or `_entity` not in their allow-list → fail.
-3. If `public.is_clinic_doctor(auth.uid(), _clinic_id)` is false → fail (`42501`). Reuses the existing Stage 1C helper; no new role logic.
-4. If `_payload` contains any key in the denylist (`patient_safe_text`, `notes`, `summary`, `recommendation_text`, any `*_freeform`, `dictation_*`, `raw_text`) → fail (`P0001`). Enforced via `jsonb_object_keys` scan.
-5. If `octet_length(_payload::text) > 4096` → fail.
-6. Insert into `public.audit_logs` with `clinic_id=_clinic_id`, `actor_id=auth.uid()`; return the new `id`.
+b) Audit extension:
+- New helpers `public._stage1e_allowed_entities()` returning `array['asset']` and `public._stage1e_allowed_actions()` returning `array['soft_delete','delete']`.
+- `create or replace function public.log_clinical_write(...)` body updated to allow `_entity` if it is in EITHER `_stage1d_allowed_entities()` OR `_stage1e_allowed_entities()`, and `_action` if in either action list. Signature unchanged → no api-write code changes required for the call site.
 
-`grant execute on function public.log_clinical_write(...) to authenticated;` — no other grants.
+c) Storage bucket and policies:
+- `insert into storage.buckets (id,name,public) values ('clinical-assets','clinical-assets',false) on conflict do nothing;`
+- Object path convention: `clinic/{clinic_id}/visit/{visit_id}/{asset_id}.{ext}`.
+- Policies on `storage.objects` for `bucket_id='clinical-assets'`:
+  - SELECT: `has_clinic_access(auth.uid(), (split_part(name,'/',2))::uuid)` AND (sysadmin OR doctor/private_doctor/assistant in clinic).
+  - INSERT: same clinic check + role in (doctor, private_doctor, assistant), plus path shape regex check.
+  - UPDATE/DELETE: deferred (no policy → blocked).
+- All policies use caller JWT exclusively.
 
-### 3.2 Why this does NOT weaken RLS
+## 5. Edge Function route changes
 
-- The function performs exactly one parameter-bound `INSERT` into `audit_logs`. No `GRANT INSERT ON public.audit_logs` is added; direct INSERT remains forbidden.
-- All Stage 1A SELECT policies on `audit_logs` are unchanged; doctors still cannot read it. Only `system_admin` and same-clinic `clinic_admin` can read.
-- Authorization is gated by the same `is_clinic_doctor(auth.uid(), _clinic_id)` predicate that gates Stage 1C writes, so the function cannot be used to forge rows for a clinic the caller has no doctor role in.
-- `set search_path = public` blocks search-path injection.
-- The denylist + size cap forbid using the function as a side channel to leak free clinical text into a less-restricted projection.
+api-write (`supabase/functions/api-write/index.ts`):
+- Add routes listed in §1; new handlers in same file pattern as existing.
+- Add mappings in `mapping.ts`, projections in `projections.ts` (`ASSET_COLS`, `toAssetDTO`).
+- Validators: `assertUuid`, whitelist `kind ∈ image_kind`, `source ∈ image_source`, `qualityScore ∈ [0,1]`, `qualityIssues: string[]`, `exif: object`. Reject any free-text keys.
+- Audit: each handler calls `recordWrite(client, ctx, { entity: 'asset', action: 'create'|'update'|'delete', entityId, clinicId, route, changedFields, parentIds: { visitId, lesionId? } })`. `storage_object_path`, `exif` contents, and any device serial fields are NEVER passed in `changedFields` payload — only top-level field names allowed by Stage-1D denylist rules.
 
-### 3.3 Logged events (Stage 1D scope)
+Upload URL flow (chosen approach — caller-JWT-only, no service role):
+- Client requests `POST /doctor/visits/:visitId/assets/upload-url` with `{ kind, source, contentType, ext }`.
+- Function:
+  1. Verifies caller has clinic access to the visit's clinic (single SELECT under RLS).
+  2. Generates `assetId = uuid()` and deterministic `path = clinic/{clinicId}/visit/{visitId}/{assetId}.{ext}`.
+  3. Calls `supabase.storage.from('clinical-assets').createSignedUploadUrl(path)` using the **caller-JWT client**. This works without service role because storage INSERT policy authorizes the caller.
+  4. Returns `{ assetId, path, uploadUrl, token, expiresAt }`. No metadata row is created yet.
+- Client uploads bytes directly to storage signed URL.
+- Client then calls `POST /doctor/visits/:visitId/assets` with `{ assetId, path, kind, source, capturedAt, qualityScore, qualityIssues, exif, lesionId? }`. Function verifies path shape matches `(clinicId,visitId,assetId)` and inserts metadata under RLS.
 
-| Endpoint | action | entity |
-|---|---|---|
-| POST /doctor/patients | create | patient |
-| PATCH /doctor/patients | update | patient |
-| POST /doctor/visits | create | visit |
-| PATCH /doctor/visits | update | visit |
-| POST /doctor/lesions | create | lesion |
-| PATCH /doctor/lesions | update | lesion |
-| POST /doctor/assessments | create | assessment |
-| POST /doctor/conclusions | create | conclusion |
-| POST /doctor/reports | create | report |
-| PATCH /doctor/reports (sets `current_version_id`) | set_current_version | report |
-| POST /doctor/report-versions | create | report_version |
-| PATCH /doctor/report-versions (draft→final) | finalize | report_version |
-| PATCH /doctor/report-versions (final→amended) | amend | report_version |
+Download URL flow:
+- `GET /doctor/assets/:assetId/download-url` → SELECT metadata row (RLS), then `createSignedUrl(path, 60s)` with caller JWT. Return `{ url, expiresAt }`.
 
-### 3.4 Safe payload schema
+api-read (`supabase/functions/api-read/index.ts`): list/get routes use existing patterns; projections strip `storage_object_path` from default DTO (path only returned in dedicated download-url response).
 
-Allow-listed top-level keys only:
+## 6. DTO / projection rules
 
-- `correlation_id` (string)
-- `route` (e.g. `POST /doctor/visits`)
-- `changed_fields` (array of camelCase field names — names only, never values)
-- `prev_state` / `next_state` (only for `report_version` transitions; enum strings)
-- `parent_ids` (object of UUIDs: `patientId`, `visitId`, `lesionId`, `reportId`)
+`AssetDTO` exposes: `id, visitId, lesionId, kind, source, capturedAt, qualityScore, qualityIssues, exifSummary, createdAt`.
 
-The Edge Function builds the payload from request metadata + diff keys; it never copies request body values into the payload. The DB denylist is the second line of defense.
+Strict rules:
+- Never include `storage_object_path` in any list/get DTO. Path lives only inside signed-URL responses, server-side.
+- Never include raw `exif` as-is. Project to a fixed subset: `{ make, model, lensModel, iso, fNumber, exposureTime, focalLength, dateTimeOriginal }`. Drop GPS, serial, owner, and any unknown keys.
+- Never include `device_id` until a Devices stage exists; omit from DTO.
+- Forbidden-fields hygiene scanner extended to include: `storage_object_path`, `signedUrl token`, `device_id`, raw `exif`.
 
-## 4. Edge Function changes
+## 7. Audit logging behavior
 
-`supabase/functions/api-write/`:
+- Entity: `'asset'`. Actions: `'create' | 'update' | 'delete'` (and `'soft_delete'` if soft-delete approved).
+- `changedFields` allowed: `lesionId, qualityScore, qualityIssues, kind, source, capturedAt`. Never log `storage_object_path`, `exif`, `deviceId`.
+- `parentIds`: `{ visitId, lesionId? }`.
+- Upload-URL issuance is NOT a write and is NOT audited as a clinical write. (Optionally logged via a separate non-audit telemetry log line; out of scope here.)
+- All audit calls go through existing `recordWrite()` → `log_clinical_write` RPC. Stage-1E migration extends the RPC's allowlist only.
 
-- **New** `audit.ts` exporting `recordWrite(client, ctx, params)` that calls `client.rpc('log_clinical_write', { ... })` on the per-request user-JWT client. On RPC error, throws `HttpError("internal_error", ...)` so the response is 500 — unlogged clinical writes violate the audit guarantee. (Decision documented in the runbook; alternative log-and-continue mode is feature-flagged off.)
-- `index.ts`: after each successful insert/update, call `recordWrite` with the resolved `clinic_id`, action, entity, returned id, and computed safe payload. No second client. No service role.
-- `mapping.ts` / `validators.ts` / `projections.ts`: unchanged.
-- No new external imports; reuse existing `@supabase/supabase-js` client.
+## 8. Test plan
 
-`supabase/functions/api-read/`: **no changes**.
+pgTAP — new file `db/stage1e/tests/stage1e_assets.test.sql`:
+- Doctor in clinic A can INSERT asset for visit in clinic A; cannot for clinic B.
+- Doctor cannot UPDATE `clinic_id`, `visit_id`, `storage_object_path`, `kind`, `source`, `captured_at` (write-guard).
+- Patient cannot SELECT/INSERT/UPDATE/DELETE assets.
+- Assistant role permissions: SELECT yes via existing clinic_select; INSERT yes (storage upload); metadata write — restrict to doctor/private_doctor (assistant blocked).
+- `log_clinical_write` accepts `entity='asset', action='create'|'update'|'delete'` and rejects unknown actions.
+- Storage policy tests (where pgTAP can inspect `storage.objects` policies): policy presence + predicate text contains `has_clinic_access`.
+- Total target: ≥15 new pgTAP tests; combined suite goal `Files=4, Tests≥125, PASS`.
 
-## 5. Test plan
+Unit tests (Deno) — `supabase/functions/api-write/_tests/`:
+- New `assets.test.ts`: mapping/projection/validator coverage; ensure `storage_object_path` and raw `exif` never appear in DTO; `changedFields` excludes denylisted keys.
+- Extend `projections.test.ts` and `forbidden-fields.ts` for asset DTO.
 
-### 5.1 pgTAP — `db/stage1d/tests/stage1d_audit.test.sql` (+ install copy)
+Live contract tests:
+- `tests/api-write/live/contract.test.ts`: add cases for upload-url issuance, metadata create, update, delete, cross-clinic 404/403, invalid path shape rejection.
+- `tests/api-read/live/contract.test.ts`: list/get/download-url, ensure `storage_object_path` absent.
+- Targets: api-write live ≥30 tests pass; api-read live ≥27 pass. Existing 23/25 must remain green.
 
-- ✓ `log_clinical_write` exists with the expected signature and is `security definer`.
-- ✓ Anonymous (no `auth.uid()`) call → `42501`.
-- ✓ Patient role call → fails (not clinic doctor).
-- ✓ Doctor in clinic A, `_clinic_id` = clinic B → fails.
-- ✓ Doctor in clinic A, `_clinic_id` = clinic A → inserts one row visible to that clinic's `clinic_admin`, invisible to clinic B's `clinic_admin`, invisible to the doctor.
-- ✓ Disallowed `_action` / `_entity` → fails.
-- ✓ Payload with any denylist key → fails.
-- ✓ Oversized payload → fails.
-- ✓ Direct `INSERT INTO public.audit_logs` as a doctor still fails (RLS unchanged).
-- ✓ Doctor still cannot SELECT from `audit_logs` (RLS unchanged).
+Static / hygiene:
+- `scripts/forbidden-patterns.mjs` extended with `storage_object_path`, raw `exif`, `device_serial`.
+- `scripts/check-canonical-install-identity.mjs` extended to include the new Stage-1E migration mirrored under `supabase/migrations/`.
+- `scripts/check-no-deno-locks.mjs` unchanged.
+- Backend guardrails workflow runs all the above.
 
-Expected aggregate after Stage 1D: `Files=3, Tests = 96 + ~12, PASS`.
+## 9. File plan
 
-### 5.2 Deno unit tests
+Create:
+- `db/stage1e/README.md`
+- `db/stage1e/migrations/20260509000001_stage1e_assets.sql`
+- `db/stage1e/tests/stage1e_assets.test.sql`
+- `supabase/migrations/20260509000001_stage1e_assets.sql` (byte-identical mirror)
+- `supabase/tests/stage1e_assets.test.sql` (byte-identical mirror)
+- `docs/backend/stage-1e-runbook.md`
+- `supabase/functions/api-write/_tests/assets.test.ts`
 
-`supabase/functions/api-write/_tests/audit.test.ts`: payload builder behavior (changed_fields extraction, denylist filter, parent_ids resolution, size cap) without DB.
+Edit:
+- `supabase/functions/api-write/index.ts` — add routes/handlers.
+- `supabase/functions/api-write/mapping.ts` — `mapAssetInsert/Update`.
+- `supabase/functions/api-write/projections.ts` — `ASSET_COLS`, `toAssetDTO`.
+- `supabase/functions/api-write/validators.ts` — asset whitelists.
+- `supabase/functions/api-write/audit.ts` — extend `AuditEntity`/`AuditAction` TS union only.
+- `supabase/functions/api-read/index.ts`, `projections.ts`, `_tests/projections.test.ts`, `_tests/forbidden-fields.ts` — read routes + DTOs.
+- `tests/api-write/live/contract.test.ts`, `tests/api-read/live/contract.test.ts`, helpers if needed.
+- `scripts/forbidden-patterns.mjs`.
+- `scripts/check-canonical-install-identity.mjs` (only if it lists files explicitly).
+- `.lovable/plan.md`.
 
-Existing api-write `projections.test.ts` (18) and api-read `projections.test.ts` (9) remain unchanged and must stay green.
+Do NOT edit: Stage 1A/1C/1D migrations or RPC files.
 
-### 5.3 Live contracts (local only)
+## 10. Rollback plan
 
-`tests/api-write/live/contract.test.ts` adds:
+- Migration is additive; rollback = `drop policy ... on public.assets`, `drop function public._stage1e_allowed_entities/_actions`, restore prior `log_clinical_write` body, `delete from storage.buckets where id='clinical-assets'` (only if empty).
+- Code rollback: revert the api-write/api-read commits; routes are net-new, so no existing client breaks.
+- DB reset path: `npx supabase db reset` reapplies Stage 1A→1D and skips Stage 1E once the migration file is removed.
 
-- After a successful create/update, a `clinic_admin` JWT can SELECT a matching `audit_logs` row (via direct PostgREST in `helpers.ts`, since api-read does not expose audit logs).
-- A failed write (e.g. validation 400) produces zero new audit rows.
-- A doctor JWT receives the successful write response but cannot SELECT from `audit_logs` (control case).
+## 11. Stop conditions
 
-Existing 22 api-write + 23 api-read contracts remain unchanged and must still pass.
+Stop and request guidance if any of:
+- pgTAP combined run is not `PASS` or test count drops below current 110.
+- api-read live drops below 23/23 or api-write live drops below 25/25.
+- Signed upload URL creation requires service role in tested Supabase version (then defer §5 upload-url route to a follow-up; keep metadata routes only).
+- Storage policy on `storage.objects` cannot reference `public.has_clinic_access` (permission/extension issue) — defer Storage bucket to follow-up.
+- Hygiene scan flags any `storage_object_path` / raw `exif` leak.
+- Generated `deno.lock` files appear in `git status`.
+- Any change would require editing a Stage 1A/1C/1D migration in place.
+- Any path requires service-role credentials in the Edge Function request path.
 
-### 5.4 How audit insertion is tested without granting INSERT
+## 12. Recommended implementation slicing
 
-- pgTAP tests authenticate as a doctor via `set local role` + `set local request.jwt.claims` and call the RPC; the privileged INSERT happens inside `SECURITY DEFINER`. They then re-auth as `clinic_admin` to SELECT and assert the row is visible. This proves the function works without ever granting the doctor direct INSERT.
-- Live contract tests use the JWT-bound user-client to call api-write; no service-role key is used.
+Slice 1E-A — DB + Audit extension:
+- Stage-1E migration (RLS + write-guard + audit allowlist), pgTAP tests, canonical-mirror copy, hygiene patterns. No Edge Function changes. Verify `Files=4, Tests≥125, PASS`.
 
-## 6. Static / hygiene checks
+Slice 1E-B — Metadata routes (api-write + api-read):
+- Add create/update/delete and list/get routes. Unit tests + live contract tests. No storage bucket yet. Doctor can register a row referencing a path that may not yet exist (acceptable for this slice; documented).
 
-- `deno check` for both `api-read` and `api-write`.
-- `node scripts/scan-doctor-forbidden.mjs` — extend `scripts/forbidden-patterns.mjs` to flag any direct `from("audit_logs").insert(...)` in Edge Function code (must go via RPC).
-- New `scripts/check-canonical-install-identity.mjs`: byte-equality between `db/stage1a/migrations/*` ↔ `supabase/migrations/*`, same for stage1c and stage1d, and the same for `db/*/tests/*` ↔ `supabase/tests/*`.
-- New `scripts/check-no-deno-locks.mjs`: fails if any `deno.lock` exists in the working tree.
+Slice 1E-C — Storage bucket + policies:
+- Add bucket and `storage.objects` policies in a follow-up migration `20260509000002_stage1e_storage.sql`. Add download-url route. Add storage-policy presence pgTAP tests.
 
-## 7. File plan
+Slice 1E-D — Signed upload URL route:
+- Only proceed if Slice 1E-C confirms caller-JWT signed uploads work without service role. Otherwise defer and document.
 
-Created (Slice 1D-A):
-
-- `db/stage1d/README.md`
-- `db/stage1d/migrations/20260508000001_stage1d_audit.sql`
-- `db/stage1d/tests/stage1d_audit.test.sql`
-- `supabase/migrations/20260508000001_stage1d_audit.sql` — byte-identical install copy
-- `supabase/tests/stage1d_audit.test.sql` — byte-identical install copy
-- `supabase/functions/api-write/audit.ts`
-- `supabase/functions/api-write/_tests/audit.test.ts`
-- `docs/backend/stage-1d-runbook.md`
-
-Created (Slice 1D-B):
-
-- `scripts/check-canonical-install-identity.mjs`
-- `scripts/check-no-deno-locks.mjs`
-- `.github/workflows/backend-guardrails.yml`
-
-Modified (additive only):
-
-- `supabase/functions/api-write/index.ts` — add `recordWrite` calls per route.
-- `scripts/forbidden-patterns.mjs` — add `audit_logs` direct-insert pattern.
-- `tests/api-write/live/contract.test.ts` and `tests/api-write/live/helpers.ts` — add audit visibility cases.
-- `.husky/pre-push` — optional, additive invocation of the two new scripts.
-
-Untouched:
-
-- All Stage 1A and Stage 1C migrations and tests (must remain byte-identical).
-- All `src/**` frontend code.
-- `package.json`, lockfiles, vite/tsconfig, `supabase/functions/api-read/**`.
-
-## 8. Rollback plan
-
-- Slice 1D-A: revert the commit. Optional cleanup migration `drop function if exists public.log_clinical_write(uuid,text,text,uuid,jsonb);` — `audit_logs` schema is unchanged, so no data migration is required. Existing audit rows can be retained or deleted by a `system_admin` if desired.
-- Slice 1D-B: delete the workflow file and the two helper scripts; the optional husky lines are gated by script presence.
-- Degraded mode: if RPC failures appear in production, flip the documented `AUDIT_FAIL_OPEN` flag in `audit.ts` to log-and-continue temporarily, while investigating. The runbook documents this as an explicit, time-boxed exception.
-
-## 9. Stop conditions
-
-Halt and request guidance if any of the following occur:
-
-- Stage 1A or Stage 1C pgTAP regress from `Files=2, Tests=96, PASS`.
-- api-read live contracts drop below 23/23.
-- api-write live contracts drop below 22/22.
-- api-read projection tests drop below 9/9; api-write below 18/18.
-- Doctor hygiene scan reports any new violation.
-- Canonical/install byte-identity check fails for any Stage 1A/1C file.
-- Any change is required in `supabase/functions/api-read/**`.
-- Any change is required to a Stage 1A or Stage 1C migration body.
-- The audit RPC cannot be implemented without granting direct INSERT on `audit_logs` or without service role.
-- A required event (e.g. report finalize) cannot be logged without including clinical free text.
-- Any generated `deno.lock` is staged or appears in `git status` after the run.
-
-## 10. Recommended implementation slicing
-
-**Slice 1D-A — Audit logging (DB + Edge Function):**
-
-1. Add the canonical migration + install copy.
-2. Add the canonical pgTAP test + install copy.
-3. `npx supabase db reset` then `npx supabase test db` → expect `Files=3, PASS`.
-4. Add `audit.ts` and wire `recordWrite` calls in `api-write/index.ts`.
-5. Add the Deno `audit.test.ts`; run `deno check` + unit tests.
-6. Run hygiene scan, both projection suites, both live contract suites locally.
-7. Commit: `Stage 1D-A: clinical write audit logging`.
-
-**Slice 1D-B — CI guardrails:**
-
-1. Add `scripts/check-canonical-install-identity.mjs` + `scripts/check-no-deno-locks.mjs`; verify locally.
-2. Add `.github/workflows/backend-guardrails.yml`.
-3. Optionally extend `.husky/pre-push`.
-4. Commit: `Stage 1D-B: CI backend guardrails`.
-
-Each slice is independently revertible and ships only after its own verification gate passes.
-
----
+Slice 1E-E — Patient report assets (separate future stage, not Stage 1E).
 
 Plan complete; ready for implementation prompt.
