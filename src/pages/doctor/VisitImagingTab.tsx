@@ -684,17 +684,47 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   );
 }
 
-function assetsErrorMessage(err: AssetsApiError): string {
-  if (err.kind === "not_configured") {
-    return "API не сконфигурирован для текущей сессии.";
+function scrubLeaks(s: string): string {
+  return s
+    .replace(/storageObjectPath/gi, "")
+    .replace(/storage_object_path/gi, "")
+    .replace(/\bexif\w*/gi, "")
+    .replace(/\bclinic\/[^\s"'<>]+/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function assetsErrorMessage(err: AssetsApiError, ctx: ErrorContext): string {
+  if (err.kind === "validation") {
+    const msg = scrubLeaks(err.message || "");
+    if (msg) return msg;
   }
-  if (err.kind === "validation") return err.message;
+  if (ctx === "list") {
+    if (err.kind === "network") return "Сбой сети при загрузке ассетов.";
+    if (err.kind === "http") {
+      if (err.status === 401 || err.status === 403) return "Недостаточно прав для просмотра ассетов.";
+      if (err.status === 404) return "Визит или ассеты не найдены.";
+      return "Не удалось загрузить ассеты.";
+    }
+    return "Не удалось загрузить ассеты.";
+  }
+  if (ctx === "download") {
+    if (err.kind === "network") return "Сбой сети при подготовке ссылки.";
+    if (err.kind === "http") {
+      if (err.status === 401 || err.status === 403) return "Недостаточно прав для открытия снимка.";
+      if (err.status === 404) return "Снимок не найден.";
+      return "Не удалось подготовить ссылку.";
+    }
+    return "Не удалось подготовить ссылку.";
+  }
+  // upload
+  if (err.kind === "network") return "Сбой сети при загрузке снимка.";
   if (err.kind === "http") {
-    if (err.status === 401 || err.status === 403) return "Недостаточно прав в текущей сессии.";
-    if (err.status === 404) return "Ассет не найден.";
-    return `Ошибка API (${err.status ?? "?"}).`;
+    if (err.status === 401 || err.status === 403) return "Недостаточно прав для загрузки снимка.";
+    if (err.status === 422) return "Проверьте файл и параметры снимка.";
+    return "Не удалось загрузить снимок.";
   }
-  return "Сбой сети при обращении к API.";
+  return "Не удалось загрузить снимок.";
 }
 
 // ───────── Subcomponents ─────────
