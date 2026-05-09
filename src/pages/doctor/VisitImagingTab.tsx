@@ -487,10 +487,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const configured = Boolean(apiToken && apiBaseUrl);
   const [assets, setAssets] = useState<SafeAssetDTO[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<AssetsApiError | null>(null);
   const [errorContext, setErrorContext] = useState<ErrorContext | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Initial load + manual reload trigger.
@@ -501,6 +503,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     }
     let cancelled = false;
     setBusy(true);
+    busyRef.current = true;
     setError(null);
     setErrorContext(null);
     listVisitAssets({ token: apiToken, baseUrl: apiBaseUrl, visitId })
@@ -514,7 +517,10 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         }
       })
       .finally(() => {
-        if (!cancelled) setBusy(false);
+        if (!cancelled) {
+          setBusy(false);
+          busyRef.current = false;
+        }
       });
     return () => {
       cancelled = true;
@@ -529,11 +535,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     fileInputRef.current?.click();
   }, [configured]);
 
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0] ?? null;
-      e.target.value = "";
+  const processFile = useCallback(
+    async (file: File | null) => {
       if (!file) return;
+      // Guard against duplicate uploads while one is pending. The button
+      // is disabled while busy, but drag/drop has no built-in disable.
+      if (busyRef.current) return;
       const type = (file.type || "").toLowerCase();
       if (!type.startsWith("image/") || !ACCEPTED_IMAGE_MIME.includes(type)) {
         setError(null);
@@ -542,6 +549,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         return;
       }
       setBusy(true);
+      busyRef.current = true;
       setError(null);
       setErrorContext(null);
       setStatus(`Загружаем: ${file.name}`);
@@ -563,8 +571,51 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         setStatus(null);
       }
       setBusy(false);
+      busyRef.current = false;
     },
     [apiToken, apiBaseUrl, visitId],
+  );
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0] ?? null;
+      e.target.value = "";
+      await processFile(file);
+    },
+    [processFile],
+  );
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      if (!configured || busyRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(true);
+    },
+    [configured],
+  );
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+      if (!configured) {
+        setStatus("Загрузка снимков требует авторизованной сессии API.");
+        return;
+      }
+      if (busyRef.current) return;
+      // Multiple files: only the first is used.
+      const file = e.dataTransfer?.files?.[0] ?? null;
+      await processFile(file);
+    },
+    [configured, processFile],
   );
 
   const handleRefresh = useCallback(() => {
@@ -662,9 +713,33 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           aria-hidden
           tabIndex={-1}
         />
-        <span className="text-[12px] text-muted-foreground">
-          JPEG, PNG, WebP или HEIC
-        </span>
+        <div
+          role="button"
+          tabIndex={configured && !busy ? 0 : -1}
+          aria-label="Перетащите снимок сюда для загрузки"
+          aria-disabled={!configured || busy}
+          onClick={handleUploadClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleUploadClick();
+            }
+          }}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          data-active={dragActive ? "true" : "false"}
+          className={`flex flex-1 min-w-[180px] flex-wrap items-center gap-x-2 gap-y-0 rounded-md border border-dashed px-2 py-1.5 text-[12px] transition-colors ${
+            dragActive
+              ? "border-primary bg-primary/5 text-foreground"
+              : "border-border text-muted-foreground hover:border-muted-foreground/50"
+          } ${!configured || busy ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+        >
+          <span>Перетащите снимок сюда</span>
+          <span aria-hidden>·</span>
+          <span>JPEG, PNG, WebP или HEIC</span>
+        </div>
       </div>
 
       {!configured && (
