@@ -759,7 +759,6 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           <span
             className="text-[12px] text-muted-foreground"
             data-testid="upload-busy-indicator"
-            role="status"
             aria-live="polite"
           >
             Идёт загрузка…
