@@ -1,113 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
 
-import {
-  AUTH_CHANGED_EVENT,
-  readSupabaseSession,
-  useApiSession,
-} from "@/lib/api-session";
+import * as apiSession from "@/lib/api-session";
+import { useApiSession } from "@/lib/use-api-session";
 
-const REF = "abcd1234";
-const URL = `https://${REF}.supabase.co`;
-const KEY = `sb-${REF}-auth-token`;
+// Stage 1G-A · The old Stage 1F implementation was replaced by the
+// AuthContext-backed hook. This file now only verifies the compatibility
+// shim still re-exports `useApiSession` so callers keep working.
 
-function setEnv(url: string | undefined) {
-  vi.stubEnv("VITE_SUPABASE_URL", url ?? "");
-}
-
-beforeEach(() => {
-  window.localStorage.clear();
-  setEnv(URL);
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
-
-describe("readSupabaseSession", () => {
-  it("returns nulls when VITE_SUPABASE_URL is empty", () => {
-    setEnv("");
-    expect(readSupabaseSession()).toEqual({ apiToken: null, apiBaseUrl: null });
+describe("api-session compatibility shim", () => {
+  it("re-exports useApiSession from use-api-session", () => {
+    expect(apiSession.useApiSession).toBe(useApiSession);
   });
 
-  it("returns nulls when no auth-token entry exists", () => {
-    expect(readSupabaseSession()).toEqual({ apiToken: null, apiBaseUrl: null });
-  });
-
-  it("returns nulls when JSON is malformed", () => {
-    window.localStorage.setItem(KEY, "{not json");
-    expect(readSupabaseSession()).toEqual({ apiToken: null, apiBaseUrl: null });
-  });
-
-  it("returns nulls when access_token is missing", () => {
-    window.localStorage.setItem(KEY, JSON.stringify({ expires_at: 9999999999 }));
-    expect(readSupabaseSession()).toEqual({ apiToken: null, apiBaseUrl: null });
-  });
-
-  it("returns nulls when token is expired", () => {
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({ access_token: "tok", expires_at: 1000 }),
-    );
-    expect(readSupabaseSession(2000)).toEqual({ apiToken: null, apiBaseUrl: null });
-  });
-
-  it("returns token + base url for a fresh session (flat shape)", () => {
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({ access_token: "tok-flat", expires_at: 9999999999 }),
-    );
-    expect(readSupabaseSession(1000)).toEqual({
-      apiToken: "tok-flat",
-      apiBaseUrl: URL,
-    });
-  });
-
-  it("supports nested currentSession shape", () => {
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({
-        currentSession: { access_token: "tok-nested", expires_at: 9999999999 },
-      }),
-    );
-    expect(readSupabaseSession(1000).apiToken).toBe("tok-nested");
-  });
-
-  it("strips trailing slashes from base url", () => {
-    setEnv(`${URL}/`);
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify({ access_token: "tok", expires_at: 9999999999 }),
-    );
-    expect(readSupabaseSession(1000).apiBaseUrl).toBe(URL);
-  });
-});
-
-describe("useApiSession", () => {
-  it("re-reads on dermpro:auth-changed event", () => {
-    const { result } = renderHook(() => useApiSession());
-    expect(result.current.apiToken).toBeNull();
-
-    act(() => {
-      window.localStorage.setItem(
-        KEY,
-        JSON.stringify({ access_token: "tok-evt", expires_at: 9999999999 }),
-      );
-      window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
-    });
-    expect(result.current.apiToken).toBe("tok-evt");
-    expect(result.current.apiBaseUrl).toBe(URL);
-  });
-
-  it("re-reads on storage event", () => {
-    const { result } = renderHook(() => useApiSession());
-    act(() => {
-      window.localStorage.setItem(
-        KEY,
-        JSON.stringify({ access_token: "tok-storage", expires_at: 9999999999 }),
-      );
-      window.dispatchEvent(new StorageEvent("storage", { key: KEY }));
-    });
-    expect(result.current.apiToken).toBe("tok-storage");
+  it("does not export the removed Stage 1F symbols", () => {
+    expect((apiSession as Record<string, unknown>).AUTH_CHANGED_EVENT).toBeUndefined();
+    expect((apiSession as Record<string, unknown>).readSupabaseSession).toBeUndefined();
   });
 });
