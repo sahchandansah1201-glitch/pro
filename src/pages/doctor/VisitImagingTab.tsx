@@ -639,9 +639,22 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       )}
 
       {error && errorContext && (
-        <p className="px-3 pb-2 text-[12px] text-warning" role="alert">
-          {assetsErrorMessage(error, errorContext)}
-        </p>
+        <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
+          <p className="text-[12px] text-warning" role="alert">
+            {assetsErrorMessage(error, errorContext)}
+          </p>
+          {errorContext === "list" && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8 gap-1.5 text-[12px]"
+              onClick={handleRefresh}
+              disabled={busy}
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить
+            </Button>
+          )}
+        </div>
       )}
 
       {configured && assets && assets.length === 0 && !busy && (

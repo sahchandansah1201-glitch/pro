@@ -343,3 +343,124 @@ describe("VisitImagingTab · API panel · error UX", () => {
     expect(html).not.toMatch(/clinic\/[a-z0-9-]+\/visit/i);
   });
 });
+
+// Stage 1I-C · Retry UX for list errors only.
+describe("VisitImagingTab · API panel · retry UX", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("list 403 then retry success renders asset row and clears error", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const alert = await within(region).findByRole("alert");
+    expect(alert).toHaveTextContent(/Недостаточно прав для просмотра ассетов\./);
+
+    const retry = within(region).getByRole("button", { name: /Повторить$/ });
+    await userEvent.click(retry);
+
+    await waitFor(() => {
+      expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
+    });
+    expect(
+      within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("list network failure then retry empty success shows empty state", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) return Promise.reject(new Error("boom"));
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("alert");
+
+    const retry = within(region).getByRole("button", { name: /Повторить$/ });
+    await userEvent.click(retry);
+
+    await waitFor(() => {
+      expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
+    });
+    expect(within(region).getByText(/В API ещё нет ассетов/i)).toBeInTheDocument();
+  });
+
+  it("download 404 error does NOT render Повторить", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "missing" }), { status: 404 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+
+    await within(region).findByRole("alert");
+    expect(within(region).queryByRole("button", { name: /Повторить$/ })).not.toBeInTheDocument();
+  });
+
+  it("upload 422 error does NOT render Повторить", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "invalid" }), { status: 422 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, new File(["x"], "x.jpg", { type: "image/jpeg" }));
+
+    await within(region).findByRole("alert");
+    expect(within(region).queryByRole("button", { name: /Повторить$/ })).not.toBeInTheDocument();
+  });
+});
