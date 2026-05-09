@@ -325,6 +325,11 @@ const routes: Route[] = [
     ["visitId"],
     handleDoctorVisitAssets,
   ),
+  route(
+    "/doctor/assets/:assetId/download-url",
+    ["assetId"],
+    handleDoctorAssetDownloadUrl,
+  ),
 ];
 
 // ── Path normalization ──────────────────────────────────────────────────────
