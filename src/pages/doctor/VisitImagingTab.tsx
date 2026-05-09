@@ -761,7 +761,11 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       )}
 
       {status && (
-        <p className="px-3 pb-2 text-[12px] text-muted-foreground" role="status">
+        <p
+          className="px-3 pb-2 text-[12px] text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
           {status}
         </p>
       )}
