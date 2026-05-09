@@ -39,6 +39,17 @@ import {
 // Порог качества изображения. Ниже — снимок «требует проверки».
 const QUALITY_THRESHOLD = 0.8;
 
+// Stage 2E-A: client-side preflight allow-list. Server-side validation
+// remains the final authority — this is purely UX guidance.
+const ACCEPTED_IMAGE_MIME = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+];
+
 const KIND_LABEL: Record<ClinicalImage["kind"], string> = {
   overview: "Обзор",
   dermoscopy: "Дерматоскопия",
