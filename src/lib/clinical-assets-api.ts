@@ -183,13 +183,10 @@ async function request(
   try {
     res = await fetch(url, init);
   } catch (e) {
-    return {
-      ok: false,
-      error: {
-        kind: "network",
-        message: e instanceof Error ? e.message : "Сбой сети при обращении к API.",
-      },
-    };
+    return fail({
+      kind: "network",
+      message: e instanceof Error ? e.message : "Сбой сети при обращении к API.",
+    });
   }
   const body = await parseJsonSafe(res);
   if (!res.ok) {
@@ -197,43 +194,40 @@ async function request(
       body && typeof body === "object" && body !== null && "message" in body
         ? String((body as { message: unknown }).message)
         : `HTTP ${res.status}`;
-    return {
-      ok: false,
-      error: { kind: "http", status: res.status, message },
-    };
+    return fail({ kind: "http", status: res.status, message });
   }
-  return { ok: true, value: body };
+  return ok<unknown>(body);
 }
 
 export async function listVisitAssets(
   args: ListVisitAssetsArgs,
 ): Promise<AssetsApiResult<SafeAssetDTO[]>> {
   const cfg = ensureConfigured(args);
-  if (cfg) return { ok: false, error: cfg };
+  if (cfg) return fail(cfg);
   if (!args.visitId) {
-    return { ok: false, error: { kind: "validation", message: "visitId обязателен." } };
+    return fail({ kind: "validation", message: "visitId обязателен." });
   }
   const url = buildApiReadUrl(args.baseUrl as string, `/doctor/visits/${args.visitId}/assets`);
   const r = await request(url, { method: "GET", headers: authHeaders(args.token as string) });
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return fail(r.error as AssetsApiError);
   const arr = Array.isArray(r.value)
     ? r.value
     : r.value && typeof r.value === "object" && Array.isArray((r.value as { items?: unknown[] }).items)
       ? ((r.value as { items: unknown[] }).items as unknown[])
       : [];
-  const items = arr
+  const items = (arr as unknown[])
     .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
     .map(toSafeAssetDTO);
-  return { ok: true, value: items };
+  return ok(items);
 }
 
 export async function uploadVisitAsset(
   args: UploadVisitAssetArgs,
 ): Promise<AssetsApiResult<SafeAssetDTO>> {
   const cfg = ensureConfigured(args);
-  if (cfg) return { ok: false, error: cfg };
+  if (cfg) return fail(cfg);
   if (!args.visitId || !args.file) {
-    return { ok: false, error: { kind: "validation", message: "visitId и file обязательны." } };
+    return fail({ kind: "validation", message: "visitId и file обязательны." });
   }
   const form = new FormData();
   form.append("file", args.file);
@@ -249,18 +243,18 @@ export async function uploadVisitAsset(
     headers: { Authorization: `Bearer ${args.token as string}` },
     body: form,
   });
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return fail(r.error as AssetsApiError);
   const obj = (r.value && typeof r.value === "object" ? (r.value as Record<string, unknown>) : {});
-  return { ok: true, value: toSafeAssetDTO(obj) };
+  return ok(toSafeAssetDTO(obj));
 }
 
 export async function getAssetDownloadUrl(
   args: GetAssetDownloadUrlArgs,
 ): Promise<AssetsApiResult<SignedDownloadDTO>> {
   const cfg = ensureConfigured(args);
-  if (cfg) return { ok: false, error: cfg };
+  if (cfg) return fail(cfg);
   if (!args.assetId) {
-    return { ok: false, error: { kind: "validation", message: "assetId обязателен." } };
+    return fail({ kind: "validation", message: "assetId обязателен." });
   }
   const qs = args.expiresIn ? `?expiresIn=${encodeURIComponent(String(args.expiresIn))}` : "";
   const url = buildApiReadUrl(
@@ -268,7 +262,8 @@ export async function getAssetDownloadUrl(
     `/doctor/assets/${args.assetId}/download-url${qs}`,
   );
   const r = await request(url, { method: "GET", headers: authHeaders(args.token as string) });
-  if (!r.ok) return { ok: false, error: r.error };
+  if (!r.ok) return fail(r.error as AssetsApiError);
   const obj = (r.value && typeof r.value === "object" ? (r.value as Record<string, unknown>) : {});
-  return { ok: true, value: toSignedDownloadDTO(obj) };
+  return ok(toSignedDownloadDTO(obj));
 }
+
