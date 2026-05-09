@@ -383,7 +383,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     const alert = await within(region).findByRole("alert");
     expect(alert).toHaveTextContent(/Недостаточно прав для просмотра ассетов\./);
 
-    const retry = within(region).getByRole("button", { name: /Повторить$/ });
+    const retry = within(region).getByRole("button", { name: /Повторить загрузку ассетов/ });
     await userEvent.click(retry);
 
     await waitFor(() => {
@@ -407,7 +407,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     const region = await screen.findByRole("region", { name: /API ассеты визита/i });
     await within(region).findByRole("alert");
 
-    const retry = within(region).getByRole("button", { name: /Повторить$/ });
+    const retry = within(region).getByRole("button", { name: /Повторить загрузку ассетов/ });
     await userEvent.click(retry);
 
     await waitFor(() => {
@@ -437,7 +437,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     await userEvent.click(openBtn);
 
     await within(region).findByRole("alert");
-    expect(within(region).queryByRole("button", { name: /Повторить$/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ })).not.toBeInTheDocument();
   });
 
   it("upload 422 error does NOT render Повторить", async () => {
@@ -462,7 +462,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     await userEvent.upload(fileInput, new File(["x"], "x.jpg", { type: "image/jpeg" }));
 
     await within(region).findByRole("alert");
-    expect(within(region).queryByRole("button", { name: /Повторить$/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ })).not.toBeInTheDocument();
   });
 });
 
