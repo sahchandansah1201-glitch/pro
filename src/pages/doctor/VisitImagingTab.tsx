@@ -784,8 +784,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       )}
 
       {error && errorContext && (
-        <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
-          <p className="text-[12px] text-warning" role="alert">
+        <div
+          className="flex flex-wrap items-center gap-2 px-3 pb-2"
+          role="alert"
+          aria-live="assertive"
+        >
+          <p className="text-[12px] text-warning">
             {assetsErrorMessage(error, errorContext)}
           </p>
           {errorContext === "list" && (
@@ -795,6 +799,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
               className="h-8 gap-1.5 text-[12px]"
               onClick={handleRefresh}
               disabled={busy}
+              aria-label="Повторить загрузку ассетов"
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить
             </Button>
