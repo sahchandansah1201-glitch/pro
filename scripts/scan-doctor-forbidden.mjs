@@ -2,7 +2,13 @@
 import { readdirSync, readFileSync, statSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, relative, dirname, resolve } from "node:path";
 import { execSync } from "node:child_process";
-import { FORBIDDEN_TOKENS, SCAN_TARGETS } from "./forbidden-patterns.mjs";
+import {
+  API_WRITE_FORBIDDEN_TOKENS,
+  API_WRITE_SCAN_DIR,
+  FORBIDDEN_TOKENS,
+  SCAN_TARGETS,
+  STAGE1C_BYTE_IDENTITY_PAIRS,
+} from "./forbidden-patterns.mjs";
 
 // Сканер запрещённых паттернов для doctor-контекста.
 // Список токенов и цели — в scripts/forbidden-patterns.mjs.
@@ -23,6 +29,40 @@ const REPORT_MD = join(REPORT_DIR, "scan-report.md");
 const REPORT_HTML = join(REPORT_DIR, "scan-report.html");
 const REPORT_MD_REL = "reports/doctor-hygiene/scan-report.md";
 const SCAN_TS = "2026-05-04T00:00:00Z";
+
+// ── Stage 1C extra checks (api-write hygiene + byte-identity) ──────────────
+function walkAll(p, out = []) {
+  if (!existsSync(p)) return out;
+  const st = statSync(p);
+  if (st.isDirectory()) for (const n of readdirSync(p)) walkAll(join(p, n), out);
+  else if (st.isFile() && /\.(ts|tsx|js|mjs)$/.test(p) && !/\.test\.(ts|tsx)$/.test(p)) out.push(p);
+  return out;
+}
+const extraViolations = [];
+const apiWriteAbs = join(ROOT, API_WRITE_SCAN_DIR);
+if (existsSync(apiWriteAbs)) {
+  for (const f of walkAll(apiWriteAbs)) {
+    const lines = readFileSync(f, "utf8").split("\n");
+    lines.forEach((line, i) => {
+      for (const tok of API_WRITE_FORBIDDEN_TOKENS) {
+        if (line.includes(tok)) {
+          extraViolations.push({ kind: "api-write", file: relative(ROOT, f), line: i + 1, token: tok });
+        }
+      }
+    });
+  }
+}
+for (const [a, b] of STAGE1C_BYTE_IDENTITY_PAIRS) {
+  const ap = join(ROOT, a), bp = join(ROOT, b);
+  if (!existsSync(ap) || !existsSync(bp) || readFileSync(ap, "utf8") !== readFileSync(bp, "utf8")) {
+    extraViolations.push({ kind: "byte-identity", file: `${a} ⇎ ${b}`, line: 0, token: "DIFFERENT" });
+  }
+}
+if (extraViolations.length > 0) {
+  console.error("[stage1c-extra-checks] violations:");
+  for (const v of extraViolations) console.error(`  [${v.kind}] ${v.file}:${v.line} ${v.token}`);
+  process.exit(1);
+}
 
 const argv = process.argv.slice(2);
 const explicitPaths = argv.filter((a) => !a.startsWith("--"));

@@ -49,5 +49,33 @@ No Stage 1A object is altered, so removal is symmetric. Easiest dev rollback: de
   - `42501` → 403 `forbidden`
   - `23505` → 409 `conflict`
   - `23503` → 404 `not_found` (or 409 if FK is to a sibling row)
-  - `P0001` → 409 `conflict`
+- `P0001` → 409 `conflict`, except trigger messages containing `*_not_found` (`patient_not_found`, `visit_not_found`, `lesion_not_found`, `report_not_found`) which map to 404 `not_found`, and `stage1c_doctor_role_required` which maps to 403 `forbidden`.
 - Auth failures use code `unauthenticated` (HTTP 401). Authorization failures use `forbidden` (HTTP 403).
+
+## Slice 2 (`api-write`) — local run
+
+```
+# Apply DB + run pgTAP (must remain Files=2, Tests=96).
+npx supabase db reset
+npx supabase test db
+
+# Static checks (no live stack required):
+deno check --config supabase/functions/api-write/deno.json \
+  supabase/functions/api-write/index.ts
+deno test --allow-env --no-check \
+  supabase/functions/api-write/_tests/projections.test.ts
+node scripts/scan-doctor-forbidden.mjs
+
+# Serve api-write locally (in one shell):
+npx supabase functions serve api-write \
+  --env-file ./supabase/.env.local --no-verify-jwt
+
+# Live contracts (in a second shell):
+deno test --allow-env --allow-net --allow-read --no-check \
+  --config tests/api-write/live/deno.json \
+  tests/api-write/live/contract.test.ts
+```
+
+The function uses only the caller-bound anon client (no service role).
+Required env: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and either
+`API_READ_JWT_SECRET` or `SUPABASE_JWT_SECRET`.
