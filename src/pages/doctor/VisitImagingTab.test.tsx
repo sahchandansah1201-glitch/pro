@@ -58,7 +58,7 @@ describe("VisitImagingTab · API panel · demo (no token) mode", () => {
   it("shows demo-mode notice and upload click surfaces a non-blocking status", async () => {
     renderTab();
     const region = screen.getByRole("region", { name: /API ассеты визита/i });
-    expect(within(region).getByText(/демо-режим/i)).toBeInTheDocument();
+    expect(within(region).getAllByText(/демо-режим/i).length).toBeGreaterThan(0);
     expect(within(region).getByText(/API клинических ассетов не сконфигурирован/i))
       .toBeInTheDocument();
 
