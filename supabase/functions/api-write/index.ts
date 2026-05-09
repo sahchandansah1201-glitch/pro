@@ -97,6 +97,7 @@ interface Route {
   method: Method;
   pattern: RegExp;
   paramNames: string[];
+  meta: RouteMeta;
   handler: Handler;
 }
 
@@ -104,27 +105,43 @@ function route(
   method: Method,
   pattern: string,
   paramNames: string[],
+  meta: Omit<RouteMeta, "method" | "path">,
   handler: Handler,
 ): Route {
   const re = "^" +
     pattern.replace(/:[a-zA-Z0-9_]+/g, "([^/]+)").replace(/\//g, "\\/") +
     "$";
-  return { method, pattern: new RegExp(re), paramNames, handler };
+  return {
+    method,
+    pattern: new RegExp(re),
+    paramNames,
+    meta: { method, path: pattern, action: meta.action, entity: meta.entity },
+    handler,
+  };
 }
 
 // ── Handlers ────────────────────────────────────────────────────────────────
 
-const hCreatePatient: Handler = async (ctx, _p, body) => {
+const hCreatePatient: Handler = async (ctx, _p, body, meta, cid) => {
   validateBody(body, {
     allow: ["code", "fullName", "birthDate", "sex", "phototype", "riskFactors"],
     required: ["code", "fullName", "birthDate", "sex", "phototype"],
   });
   const cols = mapPatientInsert(body);
   const row = await insertRow(ctx.client, "patients", cols, PATIENT_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "create",
+    entity: "patient",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+  });
   return { status: 201, data: toPatientDTO(row) };
 };
 
-const hUpdatePatient: Handler = async (ctx, p, body) => {
+const hUpdatePatient: Handler = async (ctx, p, body, meta, cid) => {
   const id = assertUuid(p.patientId, "patientId");
   validateBody(body, {
     allow: ["fullName", "birthDate", "sex", "phototype", "riskFactors"],
@@ -132,10 +149,19 @@ const hUpdatePatient: Handler = async (ctx, p, body) => {
   });
   const cols = mapPatientUpdate(body);
   const row = await updateRow(ctx.client, "patients", id, cols, PATIENT_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "update",
+    entity: "patient",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+  });
   return { status: 200, data: toPatientDTO(row) };
 };
 
-const hCreateVisit: Handler = async (ctx, p, body) => {
+const hCreateVisit: Handler = async (ctx, p, body, meta, cid) => {
   const patientId = assertUuid(p.patientId, "patientId");
   validateBody(body, {
     allow: ["startedAt", "complaint", "assistantId"],
@@ -143,10 +169,20 @@ const hCreateVisit: Handler = async (ctx, p, body) => {
   });
   const cols = mapVisitInsert(patientId, body);
   const row = await insertRow(ctx.client, "visits", cols, VISIT_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "create",
+    entity: "visit",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+    parentIds: { patientId },
+  });
   return { status: 201, data: toVisitDTO(row) };
 };
 
-const hUpdateVisit: Handler = async (ctx, p, body) => {
+const hUpdateVisit: Handler = async (ctx, p, body, meta, cid) => {
   const id = assertUuid(p.visitId, "visitId");
   validateBody(body, {
     allow: ["status", "closedAt", "complaint", "assistantId"],
@@ -154,10 +190,19 @@ const hUpdateVisit: Handler = async (ctx, p, body) => {
   });
   const cols = mapVisitUpdate(body);
   const row = await updateRow(ctx.client, "visits", id, cols, VISIT_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "update",
+    entity: "visit",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+  });
   return { status: 200, data: toVisitDTO(row) };
 };
 
-const hCreateLesion: Handler = async (ctx, p, body) => {
+const hCreateLesion: Handler = async (ctx, p, body, meta, cid) => {
   const patientId = assertUuid(p.patientId, "patientId");
   validateBody(body, {
     allow: ["bodyZone", "mapView", "mapX", "mapY", "label", "firstSeenAt", "status"],
@@ -165,10 +210,20 @@ const hCreateLesion: Handler = async (ctx, p, body) => {
   });
   const cols = mapLesionInsert(patientId, body);
   const row = await insertRow(ctx.client, "lesions", cols, LESION_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "create",
+    entity: "lesion",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+    parentIds: { patientId },
+  });
   return { status: 201, data: toLesionDTO(row) };
 };
 
-const hUpdateLesion: Handler = async (ctx, p, body) => {
+const hUpdateLesion: Handler = async (ctx, p, body, meta, cid) => {
   const id = assertUuid(p.lesionId, "lesionId");
   validateBody(body, {
     allow: ["bodyZone", "mapView", "mapX", "mapY", "label", "status"],
@@ -176,10 +231,19 @@ const hUpdateLesion: Handler = async (ctx, p, body) => {
   });
   const cols = mapLesionUpdate(body);
   const row = await updateRow(ctx.client, "lesions", id, cols, LESION_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "update",
+    entity: "lesion",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+  });
   return { status: 200, data: toLesionDTO(row) };
 };
 
-const hCreateAssessment: Handler = async (ctx, p, body) => {
+const hCreateAssessment: Handler = async (ctx, p, body, meta, cid) => {
   const visitId = assertUuid(p.visitId, "visitId");
   validateBody(body, {
     allow: [
@@ -198,10 +262,20 @@ const hCreateAssessment: Handler = async (ctx, p, body) => {
   assertUuid(String(body.lesionId), "lesionId");
   const cols = mapAssessmentInsert(visitId, body);
   const row = await insertRow(ctx.client, "assessments", cols, ASSESSMENT_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "create",
+    entity: "assessment",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+    parentIds: { visitId, lesionId: String(body.lesionId) },
+  });
   return { status: 201, data: toAssessmentDTO(row) };
 };
 
-const hCreateConclusion: Handler = async (ctx, p, body) => {
+const hCreateConclusion: Handler = async (ctx, p, body, meta, cid) => {
   const visitId = assertUuid(p.visitId, "visitId");
   validateBody(body, {
     allow: ["doctorText", "followUpPlan"],
@@ -209,10 +283,22 @@ const hCreateConclusion: Handler = async (ctx, p, body) => {
   });
   const cols = mapConclusionInsert(visitId, body);
   const row = await insertRow(ctx.client, "conclusions", cols, CONCLUSION_COLS);
+  // changedFields is intentionally NOT passed: the request body keys for
+  // conclusions are themselves clinical-text field names (doctorText,
+  // followUpPlan) that the audit denylist forbids. Only metadata is logged.
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "create",
+    entity: "conclusion",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    parentIds: { visitId },
+  });
   return { status: 201, data: toConclusionDTO(row) };
 };
 
-const hCreateReport: Handler = async (ctx, p, body) => {
+const hCreateReport: Handler = async (ctx, p, body, meta, cid) => {
   const visitId = assertUuid(p.visitId, "visitId");
   validateBody(body, { allow: [] });
   const row = await insertRow(
@@ -221,10 +307,19 @@ const hCreateReport: Handler = async (ctx, p, body) => {
     mapReportInsert(visitId),
     REPORT_COLS,
   );
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "create",
+    entity: "report",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    parentIds: { visitId },
+  });
   return { status: 201, data: toReportDTO(row) };
 };
 
-const hUpdateReport: Handler = async (ctx, p, body) => {
+const hUpdateReport: Handler = async (ctx, p, body, meta, cid) => {
   const id = assertUuid(p.reportId, "reportId");
   validateBody(body, {
     allow: ["currentVersionId"],
@@ -239,10 +334,19 @@ const hUpdateReport: Handler = async (ctx, p, body) => {
     mapReportUpdate(body),
     REPORT_COLS,
   );
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "set_current_version",
+    entity: "report",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    parentIds: { reportVersionId: String(body.currentVersionId) },
+  });
   return { status: 200, data: toReportDTO(row) };
 };
 
-const hCreateReportVersion: Handler = async (ctx, p, body) => {
+const hCreateReportVersion: Handler = async (ctx, p, body, meta, cid) => {
   const reportId = assertUuid(p.reportId, "reportId");
   validateBody(body, {
     allow: ["patientText", "doctorText"],
@@ -255,10 +359,19 @@ const hCreateReportVersion: Handler = async (ctx, p, body) => {
     cols,
     REPORT_VERSION_COLS,
   );
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "create",
+    entity: "report_version",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    parentIds: { reportId },
+  });
   return { status: 201, data: toReportVersionDTO(row) };
 };
 
-const hUpdateReportVersion: Handler = async (ctx, p, body) => {
+const hUpdateReportVersion: Handler = async (ctx, p, body, meta, cid) => {
   const id = assertUuid(p.versionId, "versionId");
   validateBody(body, {
     allow: ["status", "patientText", "doctorText"],
@@ -272,23 +385,38 @@ const hUpdateReportVersion: Handler = async (ctx, p, body) => {
     cols,
     REPORT_VERSION_COLS,
   );
+  const nextStatus = typeof body.status === "string" ? body.status : undefined;
+  const action: AuditAction = nextStatus === "final"
+    ? "finalize"
+    : nextStatus === "amended"
+      ? "amend"
+      : "update";
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action,
+    entity: "report_version",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    nextState: nextStatus,
+  });
   return { status: 200, data: toReportVersionDTO(row) };
 };
 
 // ── Route table ─────────────────────────────────────────────────────────────
 const routes: Route[] = [
-  route("POST",  "/doctor/patients", [], hCreatePatient),
-  route("PATCH", "/doctor/patients/:patientId", ["patientId"], hUpdatePatient),
-  route("POST",  "/doctor/patients/:patientId/visits", ["patientId"], hCreateVisit),
-  route("PATCH", "/doctor/visits/:visitId", ["visitId"], hUpdateVisit),
-  route("POST",  "/doctor/patients/:patientId/lesions", ["patientId"], hCreateLesion),
-  route("PATCH", "/doctor/lesions/:lesionId", ["lesionId"], hUpdateLesion),
-  route("POST",  "/doctor/visits/:visitId/assessments", ["visitId"], hCreateAssessment),
-  route("POST",  "/doctor/visits/:visitId/conclusions", ["visitId"], hCreateConclusion),
-  route("POST",  "/doctor/visits/:visitId/reports", ["visitId"], hCreateReport),
-  route("PATCH", "/doctor/reports/:reportId", ["reportId"], hUpdateReport),
-  route("POST",  "/doctor/reports/:reportId/versions", ["reportId"], hCreateReportVersion),
-  route("PATCH", "/doctor/report-versions/:versionId", ["versionId"], hUpdateReportVersion),
+  route("POST",  "/doctor/patients", [], { action: "create", entity: "patient" }, hCreatePatient),
+  route("PATCH", "/doctor/patients/:patientId", ["patientId"], { action: "update", entity: "patient" }, hUpdatePatient),
+  route("POST",  "/doctor/patients/:patientId/visits", ["patientId"], { action: "create", entity: "visit" }, hCreateVisit),
+  route("PATCH", "/doctor/visits/:visitId", ["visitId"], { action: "update", entity: "visit" }, hUpdateVisit),
+  route("POST",  "/doctor/patients/:patientId/lesions", ["patientId"], { action: "create", entity: "lesion" }, hCreateLesion),
+  route("PATCH", "/doctor/lesions/:lesionId", ["lesionId"], { action: "update", entity: "lesion" }, hUpdateLesion),
+  route("POST",  "/doctor/visits/:visitId/assessments", ["visitId"], { action: "create", entity: "assessment" }, hCreateAssessment),
+  route("POST",  "/doctor/visits/:visitId/conclusions", ["visitId"], { action: "create", entity: "conclusion" }, hCreateConclusion),
+  route("POST",  "/doctor/visits/:visitId/reports", ["visitId"], { action: "create", entity: "report" }, hCreateReport),
+  route("PATCH", "/doctor/reports/:reportId", ["reportId"], { action: "set_current_version", entity: "report" }, hUpdateReport),
+  route("POST",  "/doctor/reports/:reportId/versions", ["reportId"], { action: "create", entity: "report_version" }, hCreateReportVersion),
+  route("PATCH", "/doctor/report-versions/:versionId", ["versionId"], { action: "update", entity: "report_version" }, hUpdateReportVersion),
 ];
 
 // ── Path normalization ──────────────────────────────────────────────────────
