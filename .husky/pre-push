@@ -1,5 +1,14 @@
 #!/usr/bin/env sh
-# Pre-push: сканирует staged + изменённые файлы doctor-контекста (короткий вывод).
+# Pre-push: блокирует deno.lock и сканирует staged + изменённые файлы doctor-контекста.
+
+node scripts/check-no-deno-locks.mjs
+status=$?
+if [ $status -ne 0 ]; then
+  echo ""
+  echo "✗ Push blocked: generated deno.lock files present."
+  echo ""
+  exit $status
+fi
 
 node scripts/scan-doctor-forbidden.mjs --changed --quiet
 status=$?
