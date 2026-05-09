@@ -978,3 +978,203 @@ describe("VisitImagingTab · API panel · upload UX polish", () => {
     expect(within(region).getByRole("button", { name: /Загрузить снимок/i })).not.toBeDisabled();
   });
 });
+
+// Stage 2E-B · Upload edge hardening.
+describe("VisitImagingTab · API panel · upload edge hardening", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("hidden file input has the explicit accept attribute", async () => {
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput.getAttribute("accept")).toBe(
+      "image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif",
+    );
+  });
+
+  it("after rejecting an invalid file, selecting a valid image still uploads normally", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    fetchMock.mockClear();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      fileInput,
+      new File(["x"], "doc.pdf", { type: "application/pdf" }),
+      { applyAccept: false },
+    );
+    expect(await within(region).findByRole("status")).toHaveTextContent(
+      /Выберите файл изображения/,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await userEvent.upload(
+      fileInput,
+      new File(["x"], "lesion.jpg", { type: "image/jpeg" }),
+    );
+    await waitFor(() => {
+      const posts = fetchMock.mock.calls.filter(
+        (c) => ((c[1] as RequestInit)?.method ?? "GET") === "POST",
+      );
+      expect(posts.length).toBe(1);
+    });
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
+    });
+  });
+
+  it("selecting the same filename again after a failed upload triggers a new upload (input value reset)", async () => {
+    let postCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        postCalls += 1;
+        if (postCalls === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ message: "invalid" }), { status: 422 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const sameName = () => new File(["x"], "lesion.jpg", { type: "image/jpeg" });
+
+    await userEvent.upload(fileInput, sameName());
+    await within(region).findByRole("alert");
+    expect(fileInput.value).toBe("");
+
+    await userEvent.upload(fileInput, sameName());
+    await waitFor(() => expect(postCalls).toBe(2));
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
+    });
+  });
+
+  it("upload failure keeps the existing asset row visible and shows the mapped upload error", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "invalid" }), { status: 422 }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify([sampleAsset]), { status: 200 }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      fileInput,
+      new File(["x"], "lesion.jpg", { type: "image/jpeg" }),
+    );
+
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(
+        /Проверьте файл и параметры снимка\./,
+      );
+    });
+    expect(
+      within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("upload pending state prevents duplicate upload calls", async () => {
+    let resolveUpload: ((res: Response) => void) | null = null;
+    const uploadPromise = new Promise<Response>((r) => {
+      resolveUpload = r;
+    });
+    let postCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        postCalls += 1;
+        return uploadPromise;
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify([sampleAsset]), { status: 200 }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      fileInput,
+      new File(["x"], "lesion.png", { type: "image/png" }),
+    );
+
+    const uploadBtn = await within(region).findByRole("button", {
+      name: /Загрузить снимок/i,
+    });
+    await waitFor(() => expect(uploadBtn).toBeDisabled());
+
+    // Attempting to click again while pending must not enqueue another POST.
+    await userEvent.click(uploadBtn);
+    await userEvent.click(uploadBtn);
+    expect(postCalls).toBe(1);
+
+    resolveUpload!(
+      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+    );
+    await waitFor(() => {
+      expect(within(region).getByRole("button", { name: /Загрузить снимок/i })).not.toBeDisabled();
+    });
+  });
+});
