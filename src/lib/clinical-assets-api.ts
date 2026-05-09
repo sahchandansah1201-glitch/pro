@@ -200,7 +200,7 @@ export async function listVisitAssets(
   }
   const url = buildApiReadUrl(args.baseUrl as string, `/doctor/visits/${args.visitId}/assets`);
   const r = await request(url, { method: "GET", headers: authHeaders(args.token as string) });
-  if (!r.ok) return r;
+  if (!r.ok) return { ok: false, error: r.error };
   const arr = Array.isArray(r.value)
     ? r.value
     : r.value && typeof r.value === "object" && Array.isArray((r.value as { items?: unknown[] }).items)
@@ -234,7 +234,7 @@ export async function uploadVisitAsset(
     headers: { Authorization: `Bearer ${args.token as string}` },
     body: form,
   });
-  if (!r.ok) return r;
+  if (!r.ok) return { ok: false, error: r.error };
   const obj = (r.value && typeof r.value === "object" ? (r.value as Record<string, unknown>) : {});
   return { ok: true, value: toSafeAssetDTO(obj) };
 }
@@ -253,7 +253,7 @@ export async function getAssetDownloadUrl(
     `/doctor/assets/${args.assetId}/download-url${qs}`,
   );
   const r = await request(url, { method: "GET", headers: authHeaders(args.token as string) });
-  if (!r.ok) return r;
+  if (!r.ok) return { ok: false, error: r.error };
   const obj = (r.value && typeof r.value === "object" ? (r.value as Record<string, unknown>) : {});
   return { ok: true, value: toSignedDownloadDTO(obj) };
 }
