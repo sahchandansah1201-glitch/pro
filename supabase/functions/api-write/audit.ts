@@ -134,7 +134,7 @@ export function buildAuditPayload(
 }
 
 export async function recordWrite(
-  client: SupabaseClient,
+  client: RpcClient,
   _ctx: CallerContext,
   input: RecordWriteInput,
 ): Promise<void> {
