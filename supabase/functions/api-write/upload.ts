@@ -385,11 +385,12 @@ export async function handleAssetUpload(
   if (deviceId !== null) changedFields.push("deviceId");
   if (qualityIssues !== undefined) changedFields.push("qualityIssues");
 
+  const newAssetId = String((row as { id: string }).id);
   await recordWrite(ctx.client, ctx, {
     clinicId,
     action: "create",
     entity: "asset",
-    entityId: assetId,
+    entityId: newAssetId,
     correlationId,
     route: "POST /doctor/visits/:visitId/assets/upload",
     changedFields,
