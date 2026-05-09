@@ -922,7 +922,7 @@ describe("VisitImagingTab · API panel · upload UX polish", () => {
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     const pdf = new File(["x"], "doc.pdf", { type: "application/pdf" });
-    await userEvent.upload(fileInput, pdf);
+    await userEvent.upload(fileInput, pdf, { applyAccept: false });
 
     expect(await within(region).findByRole("status")).toHaveTextContent(
       /Выберите файл изображения: JPEG, PNG, WebP или HEIC\./,
