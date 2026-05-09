@@ -250,11 +250,12 @@ Deno.test("assertNoForbiddenKeys finds nested leaks", () => {
   );
 });
 
-import { toDoctorAssetDTO } from "../projections.ts";
+import { toDoctorAssetDTO, toDoctorAssetDownloadDTO } from "../projections.ts";
+import { assertExpiresIn } from "../validators.ts";
 
 Deno.test("toDoctorAssetDTO: camelCase-only; no storageObjectPath/exif leak", () => {
   // Raw storage paths and EXIF must never reach the JSON API. Binary access
-  // is brokered via signed URLs in Stage 1E-C; EXIF is server-side only.
+  // is brokered via signed URLs in Stage 1E-D; EXIF is server-side only.
   const dto = toDoctorAssetDTO({
     id: "as-1",
     clinic_id: "c-1",
@@ -279,4 +280,48 @@ Deno.test("toDoctorAssetDTO: camelCase-only; no storageObjectPath/exif leak", ()
   if ("exif" in leak) throw new Error("exif must not leak");
   // Doctor surface: only token/hash/secret keys are forbidden — none present.
   assertNoForbiddenKeys({ data: dto }, FORBIDDEN_DOCTOR_KEYS, "/doctor/visits/:visitId/assets");
+});
+
+// ── Stage 1E-D · signed download URL DTO ───────────────────────────────────
+Deno.test("toDoctorAssetDownloadDTO: only allow-listed keys; never leaks path/exif", () => {
+  const dto = toDoctorAssetDownloadDTO({
+    assetId: "as-1",
+    visitId: "v-1",
+    clinicId: "c-1",
+    downloadUrl: "https://example/storage/v1/object/sign/clinical-assets/x?token=t",
+    expiresIn: 300,
+    expiresAt: "2026-05-09T08:05:00Z",
+  });
+  assertEquals(Object.keys(dto).sort(), [
+    "assetId",
+    "clinicId",
+    "downloadUrl",
+    "expiresAt",
+    "expiresIn",
+    "visitId",
+  ]);
+  const leak = dto as unknown as Record<string, unknown>;
+  if ("storageObjectPath" in leak) throw new Error("storageObjectPath must not leak");
+  if ("storage_object_path" in leak) throw new Error("storage_object_path must not leak");
+  if ("exif" in leak) throw new Error("exif must not leak");
+  assertNoForbiddenKeys({ data: dto }, FORBIDDEN_DOCTOR_KEYS, "/doctor/assets/:id/download-url");
+});
+
+Deno.test("assertExpiresIn: defaults, integer-only, bounds", () => {
+  // null / empty → default
+  assertEquals(assertExpiresIn(null), 300);
+  assertEquals(assertExpiresIn(""), 300);
+  // valid integers within bounds
+  assertEquals(assertExpiresIn("60"), 60);
+  assertEquals(assertExpiresIn("900"), 900);
+  assertEquals(assertExpiresIn("450"), 450);
+  // non-integer → 422
+  assertThrows(() => assertExpiresIn("12.5"), HttpError);
+  assertThrows(() => assertExpiresIn("abc"), HttpError);
+  assertThrows(() => assertExpiresIn(" 300"), HttpError);
+  // out of bounds → 422 (rejected, NOT silently clamped)
+  assertThrows(() => assertExpiresIn("59"), HttpError);
+  assertThrows(() => assertExpiresIn("901"), HttpError);
+  assertThrows(() => assertExpiresIn("0"), HttpError);
+  assertThrows(() => assertExpiresIn("-1"), HttpError);
 });
