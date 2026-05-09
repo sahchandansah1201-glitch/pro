@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useRole } from "@/context/role-context";
 import { useAuth } from "@/context/use-auth";
 import { ROLES, type Role } from "@/lib/roles";
+import { ShieldCheck } from "lucide-react";
 import {
   Select,
   SelectContent,
