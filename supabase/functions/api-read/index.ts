@@ -18,9 +18,10 @@ import { corsHeaders } from "./cors.ts";
 import { getCorrelationId } from "./correlation.ts";
 import { authenticate, CallerContext } from "./auth.ts";
 import { errorResponse, HttpError, okResponse } from "./errors.ts";
-import { assertUuid } from "./validators.ts";
+import { assertExpiresIn, assertUuid } from "./validators.ts";
 import {
   toDoctorAssetDTO,
+  toDoctorAssetDownloadDTO,
   toDoctorPatientDetailDTO,
   toDoctorPatientListDTO,
   toDoctorReportVersionDTO,
