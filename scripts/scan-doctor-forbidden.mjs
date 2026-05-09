@@ -2,7 +2,13 @@
 import { readdirSync, readFileSync, statSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, relative, dirname, resolve } from "node:path";
 import { execSync } from "node:child_process";
-import { FORBIDDEN_TOKENS, SCAN_TARGETS } from "./forbidden-patterns.mjs";
+import {
+  API_WRITE_FORBIDDEN_TOKENS,
+  API_WRITE_SCAN_DIR,
+  FORBIDDEN_TOKENS,
+  SCAN_TARGETS,
+  STAGE1C_BYTE_IDENTITY_PAIRS,
+} from "./forbidden-patterns.mjs";
 
 // Сканер запрещённых паттернов для doctor-контекста.
 // Список токенов и цели — в scripts/forbidden-patterns.mjs.
