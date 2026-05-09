@@ -22,10 +22,12 @@ import { UserCog, LogOut } from "lucide-react";
  */
 export function RoleSwitcher() {
   const { role, setRole, label, currentUser } = useRole();
-  const { status, signOut } = useAuth();
+  const { status, signOut, user } = useAuth();
   const navigate = useNavigate();
 
   const showLogout = status === "authenticated";
+  const showSession = status === "authenticated";
+  const sessionEmail = user?.email ?? null;
 
   const handleLogout = async () => {
     await signOut();
