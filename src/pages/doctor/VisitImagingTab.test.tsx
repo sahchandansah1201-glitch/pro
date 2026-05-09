@@ -198,13 +198,14 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
     const headers = (dlCall[1] as RequestInit).headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer doctor-jwt");
 
-    await waitFor(() => {
-      expect(openSpy).toHaveBeenCalledWith(
-        "https://signed.example/asset-1?sig=xyz",
-        "_blank",
-        "noopener,noreferrer",
-      );
-    });
+    // Stage 1K-A: success now opens an in-app preview dialog rather than
+    // calling window.open directly. The signed URL is the img src.
+    const dialog = await screen.findByRole("dialog");
+    const img = within(dialog).getByRole("img", {
+      name: /Снимок a-1/i,
+    }) as HTMLImageElement;
+    expect(img.src).toBe("https://signed.example/asset-1?sig=xyz");
+    expect(openSpy).not.toHaveBeenCalled();
   });
 });
 
