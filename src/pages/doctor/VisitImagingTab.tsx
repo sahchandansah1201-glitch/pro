@@ -493,6 +493,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const [errorContext, setErrorContext] = useState<ErrorContext | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Initial load + manual reload trigger.
