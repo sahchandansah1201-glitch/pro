@@ -490,6 +490,8 @@ Deno.serve(async (req) => {
       ctx,
       matched.params,
       body,
+      matched.route.meta,
+      correlationId,
     );
     return jsonResponse(status, { data }, correlationId);
   } catch (err) {
