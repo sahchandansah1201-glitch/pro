@@ -59,9 +59,25 @@ interface Props {
   lesions: Lesion[];
   initialLesionId?: string | null;
   onOpenBodyMap?: (lesionId: string) => void;
+  /**
+   * Bearer JWT for the clinical assets API. When omitted the imaging tab
+   * stays in demo mode and the API panel renders a muted "not configured"
+   * status without attempting any network call.
+   */
+  apiToken?: string | null;
+  /** Origin of the Supabase project. Optional for the same reason as the token. */
+  apiBaseUrl?: string | null;
 }
 
-export function VisitImagingTab({ visit, patientId, lesions, initialLesionId, onOpenBodyMap }: Props) {
+export function VisitImagingTab({
+  visit,
+  patientId,
+  lesions,
+  initialLesionId,
+  onOpenBodyMap,
+  apiToken,
+  apiBaseUrl,
+}: Props) {
   const allImages = useMemo(
     () => [...getImagesByVisitId(visit.id)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
     [visit.id],
