@@ -1569,3 +1569,149 @@ describe("VisitImagingTab · API panel · dropzone a11y + busy state", () => {
     expect(postCalls).toBe(1);
   });
 });
+
+// Stage 2E-E · Live status + focus return.
+describe("VisitImagingTab · API panel · live status + focus return", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+  const SIGNED_URL = "https://signed.example/asset-1?sig=xyz";
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("dropzone accessible label is exactly 'Перетащите снимок сюда для загрузки'", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
+    );
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByText(/В API ещё нет ассетов/i);
+    const zone = within(region).getByRole("button", {
+      name: "Перетащите снимок сюда для загрузки",
+    });
+    expect(zone.getAttribute("aria-label")).toBe("Перетащите снимок сюда для загрузки");
+  });
+
+  it("validation message is rendered in a polite live status region", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
+    );
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByText(/В API ещё нет ассетов/i);
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      fileInput,
+      new File(["x"], "doc.pdf", { type: "application/pdf" }),
+      { applyAccept: false },
+    );
+
+    const status = await within(region).findByRole("status");
+    expect(status).toHaveTextContent(/Выберите файл изображения/);
+    expect(status.getAttribute("aria-live")).toBe("polite");
+  });
+
+  it("pending message 'Загружаем: <filename>' is in the polite live status region and 'Идёт загрузка…' is announced", async () => {
+    let resolveUpload: ((res: Response) => void) | null = null;
+    const uploadPromise = new Promise<Response>((r) => {
+      resolveUpload = r;
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") return uploadPromise;
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByText(/В API ещё нет ассетов/i);
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      fileInput,
+      new File(["x"], "lesion.png", { type: "image/png" }),
+    );
+
+    await waitFor(() => {
+      const statuses = within(region).getAllByRole("status");
+      const texts = statuses.map((n) => n.textContent ?? "");
+      expect(texts.some((t) => /Загружаем: lesion\.png/.test(t))).toBe(true);
+      expect(texts.some((t) => /Идёт загрузка…/.test(t))).toBe(true);
+      // All status nodes are polite live regions.
+      for (const n of statuses) {
+        expect(n.getAttribute("aria-live")).toBe("polite");
+      }
+    });
+
+    resolveUpload!(
+      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+    );
+  });
+
+  it("preview dialog close returns focus to the opener 'Открыть снимок …' button", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              assetId: "a-1",
+              clinicId: "c-1",
+              visitId: visit.id,
+              downloadUrl: SIGNED_URL,
+              expiresIn: 300,
+              expiresAt: "2026-05-09T10:05:00Z",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      const restored = within(region).getByRole("button", {
+        name: /Открыть снимок a-1/i,
+      });
+      expect(document.activeElement).toBe(restored);
+    });
+  });
+});
