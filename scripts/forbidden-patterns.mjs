@@ -46,7 +46,36 @@ export const FORBIDDEN_APIS = [
 export const FORBIDDEN_TOKENS = [...FORBIDDEN_FIELDS, ...FORBIDDEN_APIS];
 
 /** Цели сканирования по умолчанию. */
-export const SCAN_TARGETS = ["src/pages/doctor", "src/App.tsx", "supabase/functions/api-write"];
+export const SCAN_TARGETS = ["src/pages/doctor", "src/App.tsx"];
+
+/**
+ * Stage 1C api-write hygiene: forbidden tokens that must NEVER appear in
+ * the api-write edge function source (server-side controlled).
+ */
+export const API_WRITE_FORBIDDEN_TOKENS = [
+  "service_role",
+  "SERVICE_ROLE",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  j("...row"),
+  j("...data"),
+  j("...body"),
+  j("patient", "Safe", "Text"),
+  "console.log",
+];
+
+export const API_WRITE_SCAN_DIR = "supabase/functions/api-write";
+
+/** Stage 1C byte-identity pairs: canonical vs install copy must match. */
+export const STAGE1C_BYTE_IDENTITY_PAIRS = [
+  [
+    "db/stage1c/migrations/20260507000001_stage1c_writes.sql",
+    "supabase/migrations/20260507000001_stage1c_writes.sql",
+  ],
+  [
+    "db/stage1c/tests/stage1c_writes.test.sql",
+    "supabase/tests/stage1c_writes.test.sql",
+  ],
+];
 
 /** Экранирование подстроки для безопасной вставки в RegExp. */
 export function escapeRegex(s) {
