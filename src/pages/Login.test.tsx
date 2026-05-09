@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
+import type { User } from "@supabase/supabase-js";
 
 import { AuthContext, type AuthContextValue } from "@/context/auth-context";
 import { RoleProvider } from "@/context/RoleContext";
@@ -36,6 +38,16 @@ function authValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue 
   };
 }
 
+function makeUser(meta: Partial<Pick<User, "app_metadata" | "user_metadata">>): User {
+  return {
+    id: "u",
+    aud: "authenticated",
+    created_at: "2025-01-01",
+    app_metadata: meta.app_metadata ?? {},
+    user_metadata: meta.user_metadata ?? {},
+  } as unknown as User;
+}
+
 function renderPage(value: AuthContextValue = authValue()) {
   return render(
     <MemoryRouter>
@@ -46,6 +58,28 @@ function renderPage(value: AuthContextValue = authValue()) {
       </AuthContext.Provider>
     </MemoryRouter>,
   );
+}
+
+/** Render with a controllable AuthContext for testing post-login transitions. */
+function renderControlled() {
+  let setAuth: (v: AuthContextValue) => void = () => {};
+  function Harness() {
+    const [v, set] = useState<AuthContextValue>(authValue({
+      signInWithPassword: async () => ({ error: null }),
+    }));
+    setAuth = set;
+    return (
+      <MemoryRouter>
+        <AuthContext.Provider value={v}>
+          <RoleProvider>
+            <LoginPage />
+          </RoleProvider>
+        </AuthContext.Provider>
+      </MemoryRouter>
+    );
+  }
+  const utils = render(<Harness />);
+  return { ...utils, setAuth: (v: AuthContextValue) => setAuth(v) };
 }
 
 beforeEach(() => {
@@ -68,19 +102,91 @@ describe("LoginPage", () => {
     renderPage();
     expect(screen.getByRole("heading", { name: /Вход в Дерматолог Про/ })).toBeInTheDocument();
     expect(screen.getByText(/Войти как/)).toBeInTheDocument();
-    // Demo entry for doctor still rendered:
     expect(screen.getAllByRole("button", { name: /Дерматолог/ }).length).toBeGreaterThan(0);
   });
 
-  it("successful real login navigates to the doctor home and stores doctor role", async () => {
-    const signInWithPassword = vi.fn(async () => ({ error: null }));
-    renderPage(authValue({ signInWithPassword }));
-
+  it("after real sign-in with no role metadata, falls back to doctor and navigates /desk", async () => {
+    const { setAuth } = renderControlled();
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "doc@x.co" } });
     fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /^Войти$|Вход…/ }));
 
-    await waitFor(() => expect(signInWithPassword).toHaveBeenCalledWith("doc@x.co", "pw"));
+    await act(async () => {
+      setAuth(
+        authValue({
+          status: "authenticated",
+          user: makeUser({}),
+          accessToken: "tok",
+        }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
+    );
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("doctor");
+  });
+
+  it("maps app_metadata.role=clinic_admin and navigates to /admin", async () => {
+    const { setAuth } = renderControlled();
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@x" } });
+    fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Войти$|Вход…/ }));
+
+    await act(async () => {
+      setAuth(
+        authValue({
+          status: "authenticated",
+          user: makeUser({ app_metadata: { role: "clinic_admin" } }),
+          accessToken: "tok",
+        }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/admin", { replace: true }),
+    );
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("clinic_admin");
+  });
+
+  it("falls back to user_metadata.role when app_metadata.role missing", async () => {
+    const { setAuth } = renderControlled();
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@x" } });
+    fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Войти$|Вход…/ }));
+
+    await act(async () => {
+      setAuth(
+        authValue({
+          status: "authenticated",
+          user: makeUser({ user_metadata: { role: "operator" } }),
+          accessToken: "tok",
+        }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith("/operator", { replace: true }),
+    );
+    expect(window.localStorage.getItem(ROLE_STORAGE_KEY)).toBe("operator");
+  });
+
+  it("unknown role falls back to doctor", async () => {
+    const { setAuth } = renderControlled();
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@x" } });
+    fireEvent.change(screen.getByLabelText(/пароль/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Войти$|Вход…/ }));
+
+    await act(async () => {
+      setAuth(
+        authValue({
+          status: "authenticated",
+          user: makeUser({ app_metadata: { role: "ceo" } }),
+          accessToken: "tok",
+        }),
+      );
+    });
+
     await waitFor(() =>
       expect(navigateMock).toHaveBeenCalledWith("/desk", { replace: true }),
     );
