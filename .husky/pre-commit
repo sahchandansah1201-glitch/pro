@@ -1,5 +1,14 @@
 #!/usr/bin/env sh
-# Pre-commit: сканирует только staged-файлы doctor-контекста (короткий вывод).
+# Pre-commit: блокирует deno.lock и сканирует staged-файлы doctor-контекста.
+
+node scripts/check-no-deno-locks.mjs
+status=$?
+if [ $status -ne 0 ]; then
+  echo ""
+  echo "✗ Commit blocked: generated deno.lock files present."
+  echo ""
+  exit $status
+fi
 
 node scripts/scan-doctor-forbidden.mjs --staged --quiet
 status=$?

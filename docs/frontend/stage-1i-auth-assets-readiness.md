@@ -280,3 +280,20 @@ npx playwright test e2e/auth-assets-smoke.pw.ts
 
 `PW_CHROMIUM_PATH` is honored to pin a Chromium binary, matching
 the convention used by other `e2e/*.pw.ts` tests.
+
+---
+
+## 7. Guardrails
+
+- CI workflow `.github/workflows/no-deno-locks.yml` runs
+  `node scripts/check-no-deno-locks.mjs` on every push, pull request,
+  and manual dispatch — including frontend-only changes. The existing
+  `backend-guardrails.yml` keeps its own copy of the check; duplicate
+  protection is intentional.
+- Husky `pre-commit` and `pre-push` run `check-no-deno-locks` **before**
+  the doctor hygiene scan so generated `deno.lock` files fail fast with
+  a clear message before any other check runs.
+- Playwright artifacts under `test-results/` (and `playwright-report/`)
+  are gitignored and must not be committed.
+- `package-lock.json` is expected in the tree because
+  `@supabase/supabase-js` was installed for Stage 1G; do not revert it.
