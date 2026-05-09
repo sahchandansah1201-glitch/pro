@@ -35,6 +35,7 @@ import {
 type Handler = (
   ctx: CallerContext,
   params: Record<string, string>,
+  url: URL,
 ) => Promise<unknown>;
 
 interface Route {
