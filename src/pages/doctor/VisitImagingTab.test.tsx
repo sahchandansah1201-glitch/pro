@@ -3,7 +3,7 @@
 // surface when an explicit token + baseUrl are passed via props.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
@@ -968,9 +968,11 @@ describe("VisitImagingTab · API panel · upload UX polish", () => {
       within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
     ).toBeInTheDocument();
 
-    resolveUpload!(
-      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
-    );
+    await act(async () => {
+      resolveUpload!(
+        new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+      );
+    });
 
     await waitFor(() => {
       expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
@@ -1170,9 +1172,11 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     await userEvent.click(uploadBtn);
     expect(postCalls).toBe(1);
 
-    resolveUpload!(
-      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
-    );
+    await act(async () => {
+      resolveUpload!(
+        new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+      );
+    });
     await waitFor(() => {
       expect(within(region).getByRole("button", { name: /Загрузить снимок/i })).not.toBeDisabled();
     });
@@ -1289,9 +1293,11 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
         /Загружаем: lesion\.heic/,
       );
     });
-    resolveUpload!(
-      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
-    );
+    await act(async () => {
+      resolveUpload!(
+        new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+      );
+    });
     await waitFor(() => {
       expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
     });
@@ -1373,9 +1379,11 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     expect(postCalls).toBe(1);
     expect(within(region).getByRole("status")).toHaveTextContent(/Загружаем: first\.png/);
 
-    resolveUpload!(
-      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
-    );
+    await act(async () => {
+      resolveUpload!(
+        new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+      );
+    });
     await waitFor(() => {
       expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
     });
@@ -1560,9 +1568,11 @@ describe("VisitImagingTab · API panel · dropzone a11y + busy state", () => {
     });
     expect(postCalls).toBe(1);
 
-    resolveUpload!(
-      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
-    );
+    await act(async () => {
+      resolveUpload!(
+        new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+      );
+    });
     await waitFor(() => {
       expect(within(region).queryByText(/Идёт загрузка…/)).not.toBeInTheDocument();
     });
@@ -1662,9 +1672,11 @@ describe("VisitImagingTab · API panel · live status + focus return", () => {
       expect(busy.getAttribute("aria-live")).toBe("polite");
     });
 
-    resolveUpload!(
-      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
-    );
+    await act(async () => {
+      resolveUpload!(
+        new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+      );
+    });
   });
 
   it("preview dialog close returns focus to the opener 'Открыть снимок …' button", async () => {
