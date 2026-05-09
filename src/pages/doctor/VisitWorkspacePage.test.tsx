@@ -1,6 +1,17 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+
+// Stage 1I-A · Mock the api-session hook with a mutable container so the
+// majority of tests keep the demo (null) session, while the auth smoke
+// tests below can flip it to a doctor JWT before rendering.
+const apiSessionMock = vi.hoisted(() => ({
+  current: { apiToken: null as string | null, apiBaseUrl: null as string | null },
+}));
+vi.mock("@/lib/api-session", () => ({
+  useApiSession: () => apiSessionMock.current,
+}));
+
 import VisitWorkspacePage from "./VisitWorkspacePage";
 
 const j = (...p: string[]) => p.join("");
@@ -312,5 +323,61 @@ describe("VisitWorkspacePage · production hygiene", () => {
       ];
       expect(src).not.toMatch(new RegExp(apiTokens.join("|")));
     }
+  });
+});
+
+// Stage 1I-A · Authenticated API session smoke.
+//
+// Confirms that when useApiSession exposes a real JWT + base URL, the
+// VisitImagingTab API panel leaves demo mode and hits the Stage 1E
+// api-read endpoint with a Bearer header — without touching backend code.
+describe("VisitWorkspacePage · Stage 1I-A · authenticated API session smoke", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    apiSessionMock.current = {
+      apiToken: "doctor-jwt",
+      apiBaseUrl: "https://abc.supabase.co",
+    };
+    fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    apiSessionMock.current = { apiToken: null, apiBaseUrl: null };
+    vi.unstubAllGlobals();
+  });
+
+  it("propagates JWT/baseUrl to the API panel and calls api-read with Bearer header", async () => {
+    renderAt("/patients/p-001/visits/v-001?tab=imaging");
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(
+      "https://abc.supabase.co/functions/v1/api-read/doctor/visits/v-001/assets",
+    );
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer doctor-jwt");
+    expect((init as RequestInit).method).toBe("GET");
+  });
+
+  it("API panel does not show the demo not-configured notice when authenticated", async () => {
+    renderAt("/patients/p-001/visits/v-001?tab=imaging");
+
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+    expect(
+      within(region).queryByText(/API клинических ассетов не сконфигурирован/i),
+    ).toBeNull();
   });
 });

@@ -102,3 +102,108 @@ describe("VisitImagingTab · API panel · with token", () => {
     });
   });
 });
+
+// Stage 1I-A · Asset row rendering + signed download flow.
+describe("VisitImagingTab · API panel · asset row + signed download", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let openSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              assetId: "a-1",
+              clinicId: "c-1",
+              visitId: visit.id,
+              downloadUrl: "https://signed.example/asset-1?sig=xyz",
+              expiresIn: 300,
+              expiresAt: "2026-05-09T10:05:00Z",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify([sampleAsset]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    openSpy.mockRestore();
+  });
+
+  it("renders the asset row from api-read without leaking storage path / exif", async () => {
+    const { container } = renderTab({
+      apiToken: "doctor-jwt",
+      apiBaseUrl: "https://abc.supabase.co",
+    });
+
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => {
+      expect(
+        within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
+      ).toBeInTheDocument();
+    });
+
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/storageObjectPath/);
+    expect(html).not.toMatch(/storage_object_path/);
+    expect(html).not.toMatch(/\bexif\b/i);
+  });
+
+  it("clicking 'Открыть' calls download-url endpoint and opens the signed URL", async () => {
+    renderTab({
+      apiToken: "doctor-jwt",
+      apiBaseUrl: "https://abc.supabase.co",
+    });
+
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(calls.some((u) => u.includes("/api-read/doctor/assets/a-1/download-url"))).toBe(true);
+    });
+
+    const dlCall = fetchMock.mock.calls.find((c) =>
+      String(c[0]).includes("/download-url"),
+    )!;
+    const headers = (dlCall[1] as RequestInit).headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer doctor-jwt");
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://signed.example/asset-1?sig=xyz",
+        "_blank",
+        "noopener,noreferrer",
+      );
+    });
+  });
+});
