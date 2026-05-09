@@ -549,8 +549,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     setReloadTick((n) => n + 1);
   }, []);
 
+  const [preview, setPreview] = useState<
+    { asset: SafeAssetDTO; downloadUrl: string } | null
+  >(null);
+
   const handleOpen = useCallback(
-    async (assetId: string) => {
+    async (asset: SafeAssetDTO) => {
       setBusy(true);
       setError(null);
       setErrorContext(null);
@@ -558,12 +562,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       const res = await getAssetDownloadUrl({
         token: apiToken,
         baseUrl: apiBaseUrl,
-        assetId,
+        assetId: asset.id,
       });
       setBusy(false);
       if (res.ok && res.value) {
         setStatus(null);
-        window.open(res.value.downloadUrl, "_blank", "noopener,noreferrer");
+        setPreview({ asset, downloadUrl: res.value.downloadUrl });
       } else if (!res.ok) {
         setError(res.error);
         setErrorContext("download");
@@ -572,6 +576,16 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     },
     [apiToken, apiBaseUrl],
   );
+
+  const handleClosePreview = useCallback(() => {
+    setPreview(null);
+  }, []);
+
+  const handleOpenInNewTab = useCallback(() => {
+    if (preview) {
+      window.open(preview.downloadUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [preview]);
 
   return (
     <section className="surface-card" aria-label="API ассеты визита">
