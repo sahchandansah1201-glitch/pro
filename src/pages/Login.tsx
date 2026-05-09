@@ -5,19 +5,25 @@ import { useRole } from "@/context/role-context";
 import { ROLES, ROLE_BY_ID, type Role } from "@/lib/roles";
 import { DEMO_USERS } from "@/lib/users";
 import { Button } from "@/components/ui/button";
+import { LoginForm } from "@/components/auth/LoginForm";
 
 /**
  * Демо-логин с выбором роли/пользователя. UX-симуляция, не настоящая авторизация.
- * Реальный auth появится при подключении Lovable Cloud.
+ * Stage 1G-B: над демо-пикером смонтирована реальная форма входа через Lovable Cloud.
  */
 export default function LoginPage() {
   const navigate = useNavigate();
   const { setRole } = useRole();
 
   const pick = (r: Role) => {
-    // setRole сохраняет роль в localStorage и синхронизирует currentUser.
     setRole(r);
     navigate(ROLE_BY_ID[r].home, { replace: true });
+  };
+
+  const handleRealLoginSuccess = () => {
+    // Stage 1G-B: маппинг app_metadata.role появится в Stage 1G-C.
+    setRole("doctor");
+    navigate(ROLE_BY_ID.doctor.home, { replace: true });
   };
 
   return (
@@ -43,6 +49,16 @@ export default function LoginPage() {
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>Демо-режим. Доступ не является реальной защитой.</span>
         </div>
+
+        <section aria-labelledby="login-real-heading" className="mb-6">
+          <h2
+            id="login-real-heading"
+            className="mb-2 text-[13px] font-semibold leading-tight"
+          >
+            Вход в Дерматолог Про
+          </h2>
+          <LoginForm onSuccess={handleRealLoginSuccess} />
+        </section>
 
         <div className="text-[12px] uppercase tracking-wide text-muted-foreground">
           Войти как
