@@ -409,6 +409,84 @@ const hUpdateReportVersion: Handler = async (ctx, p, body, meta, cid) => {
   return { status: 200, data: toReportVersionDTO(row) };
 };
 
+// ── Asset (Stage 1E-B) ─────────────────────────────────────────────────────
+const hCreateAsset: Handler = async (ctx, p, body, meta, cid) => {
+  const visitId = assertUuid(p.visitId, "visitId");
+  validateBody(body, {
+    allow: [
+      "lesionId",
+      "kind",
+      "source",
+      "storageObjectPath",
+      "capturedAt",
+      "deviceId",
+      "qualityScore",
+      "qualityIssues",
+      "exif",
+    ],
+    required: ["kind", "source", "storageObjectPath", "capturedAt", "qualityScore"],
+  });
+  if (typeof body.storageObjectPath === "string") {
+    // Defence in depth: bind the path to this visit. Storage RLS additionally
+    // requires `clinic/{clinic_id}/visit/{visit_id}/...` (Stage 1E-A).
+    if (!body.storageObjectPath.includes(`/visit/${visitId}/`)) {
+      throw new HttpError(
+        "validation_error",
+        "storageObjectPath must contain /visit/{visitId}/",
+        { field: "storageObjectPath" },
+      );
+    }
+  }
+  if (body.lesionId !== undefined && body.lesionId !== null) {
+    assertUuid(String(body.lesionId), "lesionId");
+  }
+  if (body.deviceId !== undefined && body.deviceId !== null) {
+    assertUuid(String(body.deviceId), "deviceId");
+  }
+  const cols = mapAssetInsert(visitId, body);
+  const row = await insertRow(ctx.client, "assets", cols, ASSET_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "create",
+    entity: "asset",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+    parentIds: {
+      visitId,
+      lesionId: typeof body.lesionId === "string" ? body.lesionId : undefined,
+    },
+  });
+  return { status: 201, data: toAssetDTO(row) };
+};
+
+const hUpdateAsset: Handler = async (ctx, p, body, meta, cid) => {
+  const id = assertUuid(p.assetId, "assetId");
+  validateBody(body, {
+    allow: ["lesionId", "deviceId", "qualityScore", "qualityIssues", "exif"],
+    atLeastOne: true,
+  });
+  if (body.lesionId !== undefined && body.lesionId !== null) {
+    assertUuid(String(body.lesionId), "lesionId");
+  }
+  if (body.deviceId !== undefined && body.deviceId !== null) {
+    assertUuid(String(body.deviceId), "deviceId");
+  }
+  const cols = mapAssetUpdate(body);
+  const row = await updateRow(ctx.client, "assets", id, cols, ASSET_COLS);
+  await recordWrite(ctx.client, ctx, {
+    clinicId: rowClinicId(row),
+    action: "update",
+    entity: "asset",
+    entityId: rowId(row),
+    correlationId: cid,
+    route: `${meta.method} ${meta.path}`,
+    changedFields: changedFields(body),
+  });
+  return { status: 200, data: toAssetDTO(row) };
+};
+
 // ── Route table ─────────────────────────────────────────────────────────────
 const routes: Route[] = [
   route("POST",  "/doctor/patients", [], { action: "create", entity: "patient" }, hCreatePatient),
@@ -423,6 +501,8 @@ const routes: Route[] = [
   route("PATCH", "/doctor/reports/:reportId", ["reportId"], { action: "set_current_version", entity: "report" }, hUpdateReport),
   route("POST",  "/doctor/reports/:reportId/versions", ["reportId"], { action: "create", entity: "report_version" }, hCreateReportVersion),
   route("PATCH", "/doctor/report-versions/:versionId", ["versionId"], { action: "update", entity: "report_version" }, hUpdateReportVersion),
+  route("POST",  "/doctor/visits/:visitId/assets", ["visitId"], { action: "create", entity: "asset" }, hCreateAsset),
+  route("PATCH", "/doctor/assets/:assetId", ["assetId"], { action: "update", entity: "asset" }, hUpdateAsset),
 ];
 
 // ── Path normalization ──────────────────────────────────────────────────────
