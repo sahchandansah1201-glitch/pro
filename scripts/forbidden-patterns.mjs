@@ -46,7 +46,7 @@ export const FORBIDDEN_APIS = [
 export const FORBIDDEN_TOKENS = [...FORBIDDEN_FIELDS, ...FORBIDDEN_APIS];
 
 /** Цели сканирования по умолчанию. */
-export const SCAN_TARGETS = ["src/pages/doctor", "src/App.tsx"];
+export const SCAN_TARGETS = ["src/pages/doctor", "src/App.tsx", "supabase/functions/api-write"];
 
 /** Экранирование подстроки для безопасной вставки в RegExp. */
 export function escapeRegex(s) {
