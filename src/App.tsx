@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { RoleProvider } from "@/context/RoleContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { AppLayout } from "@/components/shell/AppLayout";
 import { RoleGuard } from "@/components/shell/RoleGuard";
 import { RoleHome } from "@/components/shell/RoleHome";
@@ -51,8 +52,9 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <RoleProvider>
-        <BrowserRouter>
+      <AuthProvider>
+        <RoleProvider>
+          <BrowserRouter>
           <Routes>
             {/* Публичные/без shell-маршруты */}
             <Route path="/login" element={<LoginPage />} />
@@ -109,7 +111,8 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-      </RoleProvider>
+        </RoleProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
