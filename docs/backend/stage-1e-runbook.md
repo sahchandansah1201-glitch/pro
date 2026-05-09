@@ -4,9 +4,40 @@ Stage 1E is delivered in slices:
 
 - **1E-A** (committed): DB layer — assets RLS / write-guard / private Storage
   bucket policies. No Edge Function or frontend changes.
-- **1E-B** (this slice): asset metadata API routes (api-write + a single
+- **1E-B** (committed): asset metadata API routes (api-write + a single
   api-read route). No binary upload/download URL issuance, no frontend.
-- **1E-C** (deferred): Storage upload/download URL issuance + frontend.
+- **1E-C** (this slice): doctor/private_doctor asset upload via multipart.
+  No frontend, no delete endpoint, no signed download URLs (deferred).
+
+## Stage 1E-C — asset upload (multipart)
+
+Adds one route to api-write:
+
+- `POST /doctor/visits/:visitId/assets/upload` — multipart/form-data.
+  - Required: `file` (image/* only), `kind`, `source`, `capturedAt`,
+    `qualityScore`.
+  - Optional: `lesionId`, `deviceId`, `qualityIssues` (JSON string array),
+    `exif` (JSON object).
+  - Storage path is generated server-side as
+    `clinic/{clinicId}/visit/{visitId}/{assetId}.{ext}` from the file's MIME
+    type. Clients cannot supply `storageObjectPath` or `path` — these are
+    rejected with 422.
+  - Uses only the per-request caller-JWT Supabase client (no service role).
+    Storage RLS (Stage 1E-A) enforces that the caller is a doctor /
+    private_doctor of `clinicId` and that the path begins with
+    `clinic/{clinicId}/visit/{visitId}/`.
+  - On DB insert failure after storage upload, the just-uploaded object is
+    best-effort removed via the same caller-JWT client. No public delete
+    endpoint is added.
+  - Response is the standard `AssetDTO` and intentionally never returns the
+    raw storage path or EXIF (Stage 1E-B safety contract).
+  - Audit log uses safe top-level keys only — no `storage_object_path` or
+    `exif` ever appear in the audit payload.
+  - Error mapping: invalid body / missing file / non-image / supplied path
+    → 422; non-doctor → 403; unknown / RLS-hidden visit → 404; storage
+    duplicate → 409; storage / DB unexpected → 500.
+
+
 
 ## Stage 1E-B — asset metadata API routes
 
