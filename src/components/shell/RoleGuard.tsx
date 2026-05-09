@@ -1,25 +1,55 @@
-// UX-only, NOT a security boundary.
+// UX-only for demo role access; the real-session gate added in Stage 1H-A
+// is the only auth-aware piece here.
+//
 // RoleGuard показывает аккуратный экран "Нет доступа в демо-режиме",
-// если активная демо-роль не имеет права на маршрут.
-// Это исключительно UX-симуляция для демонстрации разных ролевых зон.
-// Реальная авторизация и RLS появятся при подключении Lovable Cloud.
+// если активная демо-роль не имеет права на маршрут. Это UX-симуляция.
+//
+// Stage 1H-A: когда Lovable Cloud сконфигурирован, неаутентифицированных
+// пользователей редиректим на /login до проверки демо-роли. Когда Cloud
+// не сконфигурирован — поведение прежнее, чисто демо.
 
-import { useLocation } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Lock, Loader2 } from "lucide-react";
 
 import { useRole } from "@/context/role-context";
+import { useAuth } from "@/context/use-auth";
+import { isSupabaseConfigured } from "@/lib/supabase-client";
 import { canRoleAccess } from "@/lib/access";
 import { ROLES } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 
 export function RoleGuard({ children }: { children: React.ReactNode }) {
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
   const { role, setRole, label } = useRole();
+  const { status } = useAuth();
+  const configured = isSupabaseConfigured();
+
+  if (configured) {
+    if (status === "loading") return <AuthLoadingScreen />;
+    if (status === "anonymous") {
+      const from = `${pathname}${search}${hash}`;
+      return <Navigate to="/login" replace state={{ from }} />;
+    }
+  }
 
   if (canRoleAccess(role, pathname)) return <>{children}</>;
 
   return <NoAccessScreen currentLabel={label} onSwitchRole={setRole} />;
+}
+
+function AuthLoadingScreen() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex h-full items-center justify-center p-6"
+    >
+      <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+        <span>Проверяем сессию…</span>
+      </div>
+    </div>
+  );
 }
 
 function NoAccessScreen({
