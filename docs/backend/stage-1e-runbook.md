@@ -1,4 +1,14 @@
-# Stage 1E-A runbook — Clinical assets + private storage (DB layer)
+# Stage 1E runbook — Clinical assets + private storage
+
+Stage 1E is delivered in slices:
+
+- **1E-A** (committed): DB layer — assets RLS / write-guard / private Storage
+  bucket policies. No Edge Function or frontend changes.
+- **1E-B** (this slice): asset metadata API routes (api-write + a single
+  api-read route). No binary upload/download URL issuance, no frontend.
+- **1E-C** (deferred): Storage upload/download URL issuance + frontend.
+
+## Stage 1E-B — asset metadata API routes
 
 Scope: backend-only DB / storage slice. No api-read / api-write route changes,
 no frontend changes, no live contract tests.
