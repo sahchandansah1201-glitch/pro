@@ -777,7 +777,7 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
                       data-testid="preview-loading"
                     >
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                      <span>Загрузка изображения…</span>
+                      <span>Загружаем изображение…</span>
                     </div>
                   )}
                   <img
