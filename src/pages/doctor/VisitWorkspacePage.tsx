@@ -88,6 +88,7 @@ export default function VisitWorkspacePage() {
   const { id, visitId } = useParams<{ id: string; visitId: string }>();
   const patient = id ? getPatientById(id) : undefined;
   const visit = visitId ? getVisitById(visitId) : undefined;
+  const apiSession = useApiSession();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const updateNav = useCallback(
@@ -204,6 +205,8 @@ export default function VisitWorkspacePage() {
             lesions={lesions}
             initialLesionId={lesionParam}
             onOpenBodyMap={(lesionId) => updateNav("bodymap", lesionId)}
+            apiToken={apiSession.apiToken}
+            apiBaseUrl={apiSession.apiBaseUrl}
           />
         </TabsContent>
 
