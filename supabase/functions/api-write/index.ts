@@ -61,6 +61,9 @@ import {
 } from "./projections.ts";
 import { insertRow, updateRow } from "./db.ts";
 import { AuditAction, AuditEntity, recordWrite } from "./audit.ts";
+import { handleAssetUpload } from "./upload.ts";
+
+const UPLOAD_RE = /^\/doctor\/visits\/([^/]+)\/assets\/upload$/;
 
 type Method = "POST" | "PATCH";
 
@@ -543,22 +546,25 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const path = normalizePath(url.pathname);
 
-  let matched: { route: Route; params: Record<string, string> } | null = null;
-  for (const r of routes) {
-    if (r.method !== req.method) continue;
-    const m = r.pattern.exec(path);
-    if (!m) continue;
-    const params: Record<string, string> = {};
-    r.paramNames.forEach((n, i) => (params[n] = decodeURIComponent(m[i + 1])));
-    matched = { route: r, params };
-    break;
-  }
+  const uploadMatch = req.method === "POST" ? UPLOAD_RE.exec(path) : null;
 
-  if (!matched) {
-    return errorResponse("not_found", "Route not found", correlationId, {
-      method: req.method,
-      path,
-    });
+  let matched: { route: Route; params: Record<string, string> } | null = null;
+  if (!uploadMatch) {
+    for (const r of routes) {
+      if (r.method !== req.method) continue;
+      const m = r.pattern.exec(path);
+      if (!m) continue;
+      const params: Record<string, string> = {};
+      r.paramNames.forEach((n, i) => (params[n] = decodeURIComponent(m[i + 1])));
+      matched = { route: r, params };
+      break;
+    }
+    if (!matched) {
+      return errorResponse("not_found", "Route not found", correlationId, {
+        method: req.method,
+        path,
+      });
+    }
   }
 
   try {
@@ -569,14 +575,20 @@ Deno.serve(async (req) => {
       throw new HttpError("forbidden", "Doctor role required");
     }
 
+    if (uploadMatch) {
+      const visitId = decodeURIComponent(uploadMatch[1]);
+      const out = await handleAssetUpload(ctx, visitId, req, correlationId);
+      return jsonResponse(out.status, { data: out.data }, correlationId);
+    }
+
     const text = await req.text();
     const body = parseJsonBody(text);
 
-    const { status, data } = await matched.route.handler(
+    const { status, data } = await matched!.route.handler(
       ctx,
-      matched.params,
+      matched!.params,
       body,
-      matched.route.meta,
+      matched!.route.meta,
       correlationId,
     );
     return jsonResponse(status, { data }, correlationId);

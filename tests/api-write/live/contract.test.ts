@@ -745,3 +745,206 @@ Deno.test("doctor cannot PATCH cross-clinic asset (RLS-hidden) → 404", async (
   assertEquals(res.status, 404);
   assertErrorEnvelope(res.body, "not_found");
 });
+
+// ── 10) Stage 1E-C · Asset upload (multipart) ──────────────────────────────
+
+import { readEnv } from "./helpers.ts";
+
+// Tiny valid PNG (1x1, 67 bytes): used so live tests don't depend on disk.
+const PNG_1X1 = new Uint8Array([
+  0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,
+  0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1f,0x15,0xc4,
+  0x89,0x00,0x00,0x00,0x0d,0x49,0x44,0x41,0x54,0x78,0x9c,0x63,0x00,0x01,0x00,0x00,
+  0x05,0x00,0x01,0x0d,0x0a,0x2d,0xb4,0x00,0x00,0x00,0x00,0x49,0x45,0x4e,0x44,0xae,
+  0x42,0x60,0x82,
+]);
+
+async function postMultipart(
+  pathname: string,
+  jwt: string | undefined,
+  form: FormData,
+  correlationId?: string,
+): Promise<{ status: number; body: unknown; correlationId: string | null }> {
+  const env = readEnv();
+  const url = `${env.apiWriteBaseUrl}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+  const headers: Record<string, string> = {};
+  if (jwt) headers["authorization"] = `Bearer ${jwt}`;
+  if (correlationId) headers["x-correlation-id"] = correlationId;
+  const res = await fetch(url, { method: "POST", headers, body: form });
+  const text = await res.text();
+  let body: unknown;
+  try { body = text.length ? JSON.parse(text) : null; } catch { body = { __nonJson: text }; }
+  return {
+    status: res.status,
+    body,
+    correlationId: res.headers.get("x-correlation-id"),
+  };
+}
+
+Deno.test("doctor POST /assets/upload happy path: 201, DTO, no path/exif leak, audit", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId, clinicId } = await newPatientVisit(jwt);
+
+  const cid = crypto.randomUUID();
+  const form = new FormData();
+  form.append(
+    "file",
+    new File([PNG_1X1], "lesion.png", { type: "image/png" }),
+  );
+  form.append("kind", "overview");
+  form.append("source", "phone");
+  form.append("capturedAt", new Date().toISOString());
+  form.append("qualityScore", "0.9");
+  form.append("qualityIssues", JSON.stringify([]));
+  form.append("exif", JSON.stringify({ width: 1, height: 1 }));
+
+  const res = await postMultipart(
+    `/doctor/visits/${visitId}/assets/upload`,
+    jwt,
+    form,
+    cid,
+  );
+  assertEquals(res.status, 201);
+  const dto = (res.body as { data: Record<string, unknown> }).data;
+  assertEquals(dto.visitId, visitId);
+  assertEquals(dto.clinicId, clinicId);
+  assertEquals(dto.kind, "overview");
+  assertEquals(dto.source, "phone");
+  if (!isUuid(dto.id)) throw new Error("asset.id must be uuid");
+  if ("storageObjectPath" in dto) throw new Error("storageObjectPath must not leak");
+  if ("storage_object_path" in dto) throw new Error("storage_object_path must not leak");
+  if ("exif" in dto) throw new Error("exif must not leak");
+  // Raw path must not appear anywhere in the response body.
+  const raw = JSON.stringify(res.body);
+  if (raw.includes("clinic/") || raw.includes("/visit/")) {
+    throw new Error("raw storage path must not appear in response body");
+  }
+  assertNoForbiddenWriteKeys(res.body, "POST /doctor/visits/:visitId/assets/upload");
+
+  // Audit visibility for clinic_admin only.
+  const adminJwt = await getJwtFor(DEMO_USERS.clinicAdmin);
+  const rows = await fetchAuditLogsByCorrelationId(adminJwt, cid);
+  if (rows.length !== 1) throw new Error(`expected 1 audit row, got ${rows.length}`);
+  assertEquals(rows[0].entity, "asset");
+  assertEquals(rows[0].action, "create");
+  // Audit payload must not leak storage path.
+  const payloadStr = JSON.stringify(rows[0].payload);
+  if (payloadStr.includes("clinic/") || payloadStr.includes("storage_object_path")) {
+    throw new Error("audit payload must not contain raw storage path");
+  }
+});
+
+Deno.test("non-doctor (assistant) POST /assets/upload → 403", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.assistant);
+  const fakeVisit = crypto.randomUUID();
+  const form = new FormData();
+  form.append("file", new File([PNG_1X1], "x.png", { type: "image/png" }));
+  form.append("kind", "overview");
+  form.append("source", "phone");
+  form.append("capturedAt", new Date().toISOString());
+  form.append("qualityScore", "0.5");
+  const res = await postMultipart(
+    `/doctor/visits/${fakeVisit}/assets/upload`,
+    jwt,
+    form,
+  );
+  assertEquals(res.status, 403);
+  assertErrorEnvelope(res.body, "forbidden");
+});
+
+Deno.test("doctor POST /assets/upload on unknown visit → 404", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const fakeVisit = crypto.randomUUID();
+  const form = new FormData();
+  form.append("file", new File([PNG_1X1], "x.png", { type: "image/png" }));
+  form.append("kind", "overview");
+  form.append("source", "phone");
+  form.append("capturedAt", new Date().toISOString());
+  form.append("qualityScore", "0.5");
+  const res = await postMultipart(
+    `/doctor/visits/${fakeVisit}/assets/upload`,
+    jwt,
+    form,
+  );
+  assertEquals(res.status, 404);
+  assertErrorEnvelope(res.body, "not_found");
+});
+
+Deno.test("doctor POST /assets/upload non-multipart body → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId } = await newPatientVisit(jwt);
+  const env = readEnv();
+  const url = `${env.apiWriteBaseUrl}/doctor/visits/${visitId}/assets/upload`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${jwt}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ kind: "overview" }),
+  });
+  assertEquals(res.status, 422);
+  const body = await res.json();
+  assertErrorEnvelope(body, "validation_error");
+});
+
+Deno.test("doctor POST /assets/upload missing file field → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId } = await newPatientVisit(jwt);
+  const form = new FormData();
+  form.append("kind", "overview");
+  form.append("source", "phone");
+  form.append("capturedAt", new Date().toISOString());
+  form.append("qualityScore", "0.5");
+  const res = await postMultipart(
+    `/doctor/visits/${visitId}/assets/upload`,
+    jwt,
+    form,
+  );
+  assertEquals(res.status, 422);
+  const env = assertErrorEnvelope(res.body, "validation_error");
+  assertEquals(env.error.details.field, "file");
+});
+
+Deno.test("doctor POST /assets/upload non-image file → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId } = await newPatientVisit(jwt);
+  const form = new FormData();
+  form.append(
+    "file",
+    new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "doc.pdf", {
+      type: "application/pdf",
+    }),
+  );
+  form.append("kind", "overview");
+  form.append("source", "phone");
+  form.append("capturedAt", new Date().toISOString());
+  form.append("qualityScore", "0.5");
+  const res = await postMultipart(
+    `/doctor/visits/${visitId}/assets/upload`,
+    jwt,
+    form,
+  );
+  assertEquals(res.status, 422);
+  assertErrorEnvelope(res.body, "validation_error");
+});
+
+Deno.test("doctor POST /assets/upload supplied storageObjectPath → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId, clinicId } = await newPatientVisit(jwt);
+  const form = new FormData();
+  form.append("file", new File([PNG_1X1], "x.png", { type: "image/png" }));
+  form.append("kind", "overview");
+  form.append("source", "phone");
+  form.append("capturedAt", new Date().toISOString());
+  form.append("qualityScore", "0.5");
+  form.append("storageObjectPath", `clinic/${clinicId}/visit/${visitId}/x.png`);
+  const res = await postMultipart(
+    `/doctor/visits/${visitId}/assets/upload`,
+    jwt,
+    form,
+  );
+  assertEquals(res.status, 422);
+  const env = assertErrorEnvelope(res.body, "validation_error");
+  assertEquals(env.error.details.field, "storageObjectPath");
+});
