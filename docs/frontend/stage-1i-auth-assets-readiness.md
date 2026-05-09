@@ -148,3 +148,75 @@ Expected outcome:
   `package-lock.json` modification from the
   `@supabase/supabase-js` install is preserved and **not**
   reverted; no `deno.lock` files appear).
+
+---
+
+## 5. Stage 1E–1K Handoff
+
+### Completion summary
+
+- **Stage 1E** — Asset metadata table, upload endpoint, signed
+  download URL endpoint, and the safe DTO contract enforced in
+  both `api-read` and `api-write` Edge Functions.
+- **Stage 1F–1H** — Real Supabase auth in the browser:
+  `supabase-client` singleton, `AuthProvider`/`useAuth`,
+  `LoginForm`, role mapping (`app_metadata.role` →
+  `user_metadata.role` → `"doctor"`), logout affordance in the
+  role switcher, `RoleGuard` redirects to `/login` with
+  `state.from`, and `LoginPage` honors the return-to target when
+  the resolved role can access it.
+- **Stage 1I** — Authenticated assets UI smoke in
+  `VisitImagingTab`: real list/upload/signed-download against
+  Stage 1E endpoints (1I-A), context-specific non-leaky error UX
+  for list/download/upload (1I-B), and a list-only `Повторить`
+  retry control that re-runs the list request without disturbing
+  download/upload state (1I-C).
+- **Stage 1K** — In-app signed image preview dialog
+  (`Открыть` → signed URL → `<img>` in a Radix dialog), with the
+  external "Открыть в новой вкладке" action made explicit (1K-A),
+  plus accessibility hardening (named title, descriptive alt,
+  Escape-to-close) and an `onError` fallback message when the
+  signed image fails to render (1K-B).
+
+### Final verification snapshot
+
+The final frontend sweep ran green across:
+
+- `src/lib/supabase-client.test.ts`
+- `src/context/AuthContext.test.tsx`
+- `src/components/auth/LoginForm.test.tsx`
+- `src/pages/Login.test.tsx`
+- `src/components/shell/RoleGuard.test.tsx`
+- `src/components/shell/RoleSwitcher.test.tsx`
+- `src/lib/use-api-session.test.tsx`
+- `src/lib/auth-role.test.ts`
+- `src/lib/clinical-assets-api.test.ts`
+- `src/pages/doctor/VisitWorkspacePage.test.tsx`
+- `src/pages/doctor/VisitImagingTab.test.tsx`
+- `src/pages/doctor/VisitImagingTab.hygiene.test.ts`
+- `node scripts/scan-doctor-forbidden.mjs`
+- `npm run build`
+- `node scripts/check-no-deno-locks.mjs`
+
+### Commit hygiene
+
+- **Keep** `package-lock.json` — it reflects the
+  `@supabase/supabase-js` install required by Stage 1G and must
+  ship with this work.
+- **Do not** commit any `deno.lock` files; the
+  `check-no-deno-locks.mjs` guard enforces this.
+- The following warnings are observed but **non-blocking** and
+  should not be treated as regressions:
+  - React Router v7 future-flag warnings.
+  - Vite "chunk size > 500 kB" warning on `npm run build`.
+  - Browserslist "caniuse-lite is X months old" warning.
+
+### Deferred work (out of scope for Stage 1E–1K)
+
+- Self-serve signup and password reset flows.
+- Real auth wiring for patient / operator / admin roles beyond
+  the existing demo role switcher.
+- Asset delete endpoint and corresponding UI control.
+- Bulk asset operations (multi-select upload/download/delete).
+- Production bundle splitting / dynamic imports to address the
+  Vite chunk size warning.
