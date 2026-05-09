@@ -1178,3 +1178,236 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     });
   });
 });
+
+// Stage 2E-C · Drag-and-drop upload.
+describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function getDropZone(region: HTMLElement) {
+    return within(region).getByRole("button", {
+      name: /Перетащите снимок сюда для загрузки/i,
+    });
+  }
+
+  function makeDataTransfer(files: File[]) {
+    return {
+      files: Object.assign(files, {
+        item: (i: number) => files[i] ?? null,
+      }) as unknown as FileList,
+      types: ["Files"],
+      items: [],
+    } as unknown as DataTransfer;
+  }
+
+  it("shows the drop target text and helper text", async () => {
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    expect(within(region).getByText(/Перетащите снимок сюда/)).toBeInTheDocument();
+    expect(within(region).getByText(/JPEG, PNG, WebP или HEIC/)).toBeInTheDocument();
+  });
+
+  it("drag over marks the drop target active", async () => {
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const zone = getDropZone(region);
+    expect(zone.getAttribute("data-active")).toBe("false");
+    fireEvent.dragOver(zone, { dataTransfer: makeDataTransfer([]) });
+    expect(zone.getAttribute("data-active")).toBe("true");
+  });
+
+  it("dropping application/pdf shows client-side validation and does not POST", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    fetchMock.mockClear();
+
+    const zone = getDropZone(region);
+    fireEvent.drop(zone, {
+      dataTransfer: makeDataTransfer([
+        new File(["x"], "doc.pdf", { type: "application/pdf" }),
+      ]),
+    });
+
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(
+        /Выберите файл изображения/,
+      );
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("dropping image/heic uploads normally and shows pending status", async () => {
+    let resolveUpload: ((res: Response) => void) | null = null;
+    const uploadPromise = new Promise<Response>((r) => {
+      resolveUpload = r;
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") return uploadPromise;
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const zone = getDropZone(region);
+    fireEvent.drop(zone, {
+      dataTransfer: makeDataTransfer([
+        new File(["x"], "lesion.heic", { type: "image/heic" }),
+      ]),
+    });
+
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(
+        /Загружаем: lesion\.heic/,
+      );
+    });
+    resolveUpload!(
+      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+    );
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
+    });
+  });
+
+  it("dropping multiple valid images uploads only the first file", async () => {
+    let postCalls = 0;
+    const uploadedNames: string[] = [];
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        postCalls += 1;
+        const fd = (init?.body as FormData) ?? null;
+        const f = fd?.get("file") as File | null;
+        if (f) uploadedNames.push(f.name);
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...sampleAsset, id: `a-${postCalls}` }), {
+            status: 201,
+          }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const zone = getDropZone(region);
+    fireEvent.drop(zone, {
+      dataTransfer: makeDataTransfer([
+        new File(["a"], "first.png", { type: "image/png" }),
+        new File(["b"], "second.png", { type: "image/png" }),
+      ]),
+    });
+
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
+    });
+    expect(postCalls).toBe(1);
+    expect(uploadedNames).toEqual(["first.png"]);
+  });
+
+  it("dropping while upload is pending does not create a second POST", async () => {
+    let resolveUpload: ((res: Response) => void) | null = null;
+    const uploadPromise = new Promise<Response>((r) => {
+      resolveUpload = r;
+    });
+    let postCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        postCalls += 1;
+        return uploadPromise;
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const zone = getDropZone(region);
+    fireEvent.drop(zone, {
+      dataTransfer: makeDataTransfer([
+        new File(["a"], "first.png", { type: "image/png" }),
+      ]),
+    });
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(/Загружаем: first\.png/);
+    });
+
+    fireEvent.drop(zone, {
+      dataTransfer: makeDataTransfer([
+        new File(["b"], "second.png", { type: "image/png" }),
+      ]),
+    });
+    // No second POST despite the drop.
+    expect(postCalls).toBe(1);
+    expect(within(region).getByRole("status")).toHaveTextContent(/Загружаем: first\.png/);
+
+    resolveUpload!(
+      new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+    );
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
+    });
+    expect(postCalls).toBe(1);
+  });
+
+  it("upload failure from drop keeps existing asset row visible and shows mapped upload error", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "invalid" }), { status: 422 }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify([sampleAsset]), { status: 200 }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+
+    const zone = getDropZone(region);
+    fireEvent.drop(zone, {
+      dataTransfer: makeDataTransfer([
+        new File(["x"], "lesion.png", { type: "image/png" }),
+      ]),
+    });
+
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(
+        /Проверьте файл и параметры снимка\./,
+      );
+    });
+    expect(
+      within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
+    ).toBeInTheDocument();
+  });
+});
