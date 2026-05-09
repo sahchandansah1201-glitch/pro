@@ -62,6 +62,17 @@ export function RoleSwitcher() {
           ))}
         </SelectContent>
       </Select>
+      {showSession ? (
+        <span
+          data-testid="auth-session-chip"
+          className="hidden items-center gap-1 rounded-md border border-border bg-surface-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline-flex"
+          title={sessionEmail ?? "Сессия активна"}
+          aria-label={sessionEmail ? `Сессия активна: ${sessionEmail}` : "Сессия активна"}
+        >
+          <ShieldCheck className="h-3 w-3 text-success" aria-hidden />
+          <span>Сессия активна</span>
+        </span>
+      ) : null}
       {showLogout ? (
         <Button
           type="button"
