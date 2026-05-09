@@ -61,6 +61,9 @@ import {
 } from "./projections.ts";
 import { insertRow, updateRow } from "./db.ts";
 import { AuditAction, AuditEntity, recordWrite } from "./audit.ts";
+import { handleAssetUpload } from "./upload.ts";
+
+const UPLOAD_RE = /^\/doctor\/visits\/([^/]+)\/assets\/upload$/;
 
 type Method = "POST" | "PATCH";
 
