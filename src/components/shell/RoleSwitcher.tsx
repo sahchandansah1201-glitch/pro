@@ -30,10 +30,24 @@ export function RoleSwitcher() {
   const showSession = status === "authenticated";
   const sessionEmail = user?.email ?? null;
 
+  const [pending, setPending] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
   const handleLogout = async () => {
-    await signOut();
-    setRole("doctor");
-    navigate("/login", { replace: true });
+    if (pending) return;
+    setPending(true);
+    try {
+      const { error } = await signOut();
+      if (error) {
+        setLogoutError("Не удалось выйти. Попробуйте ещё раз.");
+        return;
+      }
+      setLogoutError(null);
+      setRole("doctor");
+      navigate("/login", { replace: true });
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
