@@ -792,7 +792,11 @@ describe("VisitImagingTab · API panel · preview dialog loading state", () => {
     const loader = await within(dialog).findByTestId("preview-loading");
     expect(loader).toBeInTheDocument();
     expect(loader).toHaveAttribute("role", "status");
-    expect(within(dialog).getByText(/Загрузка изображения…/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Загружаем изображение…/)).toBeInTheDocument();
+    // "Открыть в новой вкладке" remains available while loading.
+    expect(
+      within(dialog).getByRole("button", { name: /Открыть в новой вкладке/i }),
+    ).toBeInTheDocument();
   });
 
   it("hides the loading indicator after the image loads", async () => {
