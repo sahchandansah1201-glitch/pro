@@ -215,6 +215,23 @@ const handleDoctorReportVersions: Handler = async (ctx, params) => {
   return { data, nextCursor: null };
 };
 
+// Stage 1E-B: doctor asset metadata read (binary URL issuance is Stage 1E-C).
+const handleDoctorVisitAssets: Handler = async (ctx, params) => {
+  const visitId = assertUuid(params.visitId, "visitId");
+  const res = await ctx.client
+    .from("assets")
+    .select(
+      "id, clinic_id, visit_id, lesion_id, kind, source, storage_object_path, captured_at, device_id, quality_score, quality_issues, exif, created_at",
+    )
+    .eq("visit_id", visitId)
+    .order("captured_at", { ascending: true });
+  if (res.error) throw new HttpError("internal_error", res.error.message);
+  const data = (res.data ?? []).map((r) =>
+    toDoctorAssetDTO(r as Parameters<typeof toDoctorAssetDTO>[0])
+  );
+  return { data, nextCursor: null };
+};
+
 // ── Route table ─────────────────────────────────────────────────────────────
 const routes: Route[] = [
   route("/me", [], handleMe),
@@ -235,6 +252,11 @@ const routes: Route[] = [
     "/doctor/reports/:reportId/versions",
     ["reportId"],
     handleDoctorReportVersions,
+  ),
+  route(
+    "/doctor/visits/:visitId/assets",
+    ["visitId"],
+    handleDoctorVisitAssets,
   ),
 ];
 
