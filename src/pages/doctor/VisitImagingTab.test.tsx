@@ -383,7 +383,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     const alert = await within(region).findByRole("alert");
     expect(alert).toHaveTextContent(/Недостаточно прав для просмотра ассетов\./);
 
-    const retry = within(region).getByRole("button", { name: /Повторить$/ });
+    const retry = within(region).getByRole("button", { name: /Повторить загрузку ассетов/ });
     await userEvent.click(retry);
 
     await waitFor(() => {
@@ -407,7 +407,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     const region = await screen.findByRole("region", { name: /API ассеты визита/i });
     await within(region).findByRole("alert");
 
-    const retry = within(region).getByRole("button", { name: /Повторить$/ });
+    const retry = within(region).getByRole("button", { name: /Повторить загрузку ассетов/ });
     await userEvent.click(retry);
 
     await waitFor(() => {
@@ -437,7 +437,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     await userEvent.click(openBtn);
 
     await within(region).findByRole("alert");
-    expect(within(region).queryByRole("button", { name: /Повторить$/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ })).not.toBeInTheDocument();
   });
 
   it("upload 422 error does NOT render Повторить", async () => {
@@ -462,7 +462,7 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     await userEvent.upload(fileInput, new File(["x"], "x.jpg", { type: "image/jpeg" }));
 
     await within(region).findByRole("alert");
-    expect(within(region).queryByRole("button", { name: /Повторить$/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ })).not.toBeInTheDocument();
   });
 });
 
@@ -1711,5 +1711,160 @@ describe("VisitImagingTab · API panel · live status + focus return", () => {
       });
       expect(document.activeElement).toBe(restored);
     });
+  });
+});
+
+// Stage 2E-F · Accessible retry + assertive error announcements.
+describe("VisitImagingTab · API panel · accessible retry + assertive errors", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("list error alert has role='alert' and aria-live='assertive'; retry has the specific label", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+      ),
+    );
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const alert = await within(region).findByRole("alert");
+    expect(alert.getAttribute("aria-live")).toBe("assertive");
+
+    const retry = within(region).getByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку ассетов");
+    expect(retry).toHaveTextContent(/Повторить/);
+  });
+
+  it("upload error alert has role='alert' and aria-live='assertive'", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "invalid" }), { status: 422 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      fileInput,
+      new File(["x"], "lesion.png", { type: "image/png" }),
+    );
+    const alert = await within(region).findByRole("alert");
+    expect(alert.getAttribute("aria-live")).toBe("assertive");
+    expect(
+      within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("download error alert has role='alert' and aria-live='assertive'", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "missing" }), { status: 404 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+    const alert = await within(region).findByRole("alert");
+    expect(alert.getAttribute("aria-live")).toBe("assertive");
+    expect(
+      within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("pressing Enter on retry triggers a new list request, clearing the prior alert", async () => {
+    let calls = 0;
+    let resolveSecond: ((res: Response) => void) | null = null;
+    const fetchMock = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+        );
+      }
+      return new Promise<Response>((r) => {
+        resolveSecond = r;
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("alert");
+
+    const retry = within(region).getByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    retry.focus();
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => {
+      expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
+    });
+    expect(calls).toBe(2);
+
+    resolveSecond!(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+  });
+
+  it("retry failure renders a fresh assertive alert", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn(() => {
+      calls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const firstAlert = await within(region).findByRole("alert");
+    expect(firstAlert.getAttribute("aria-live")).toBe("assertive");
+
+    await userEvent.click(
+      within(region).getByRole("button", { name: "Повторить загрузку ассетов" }),
+    );
+
+    await waitFor(() => expect(calls).toBe(2));
+    const nextAlert = await within(region).findByRole("alert");
+    expect(nextAlert.getAttribute("aria-live")).toBe("assertive");
+    expect(nextAlert).toHaveTextContent(/Недостаточно прав для просмотра ассетов\./);
   });
 });
