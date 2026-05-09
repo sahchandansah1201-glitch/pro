@@ -207,3 +207,139 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
     });
   });
 });
+
+// Stage 1I-B · Error UX for list / download / upload.
+describe("VisitImagingTab · API panel · error UX", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("list 403 shows 'Недостаточно прав для просмотра ассетов.'", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+      ),
+    );
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(
+        /Недостаточно прав для просмотра ассетов\./,
+      );
+    });
+  });
+
+  it("list network failure shows 'Сбой сети при загрузке ассетов.'", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("boom")));
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(
+        /Сбой сети при загрузке ассетов\./,
+      );
+    });
+  });
+
+  it("download 404 shows 'Снимок не найден.' and does not open a window", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "missing" }), { status: 404 }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify([sampleAsset]), { status: 200 }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(/Снимок не найден\./);
+    });
+    expect(openSpy).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it("upload 422 shows hint and keeps existing asset row visible", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "invalid" }), { status: 422 }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify([sampleAsset]), { status: 200 }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["x"], "x.jpg", { type: "image/jpeg" });
+    await userEvent.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(
+        /Проверьте файл и параметры снимка\./,
+      );
+    });
+    // Asset row still rendered.
+    expect(
+      within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("hostile error body containing storage path / exif tokens is not rendered", async () => {
+    const hostile =
+      "leak storageObjectPath=clinic/c-1/visit/v-1/file.jpg exif metadata";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: hostile }), { status: 400 }),
+      ),
+    );
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toBeInTheDocument();
+    });
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/storageObjectPath/);
+    expect(html).not.toMatch(/storage_object_path/);
+    expect(html).not.toMatch(/\bexif\b/i);
+    expect(html).not.toMatch(/clinic\/[a-z0-9-]+\/visit/i);
+  });
+});
