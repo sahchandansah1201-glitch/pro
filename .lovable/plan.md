@@ -189,7 +189,7 @@ Untouched:
 
 ## 8. Rollback plan
 
-- Slice 1D-A: revert the commit. Optional cleanup migration `drop function if exists public.log_clinical_write(uuid,text,text,uuid,jsonb);` since the original migration is `create or replace` + new tests only. `audit_logs` schema is unchanged; no data migration required. Existing audit rows can be retained or `delete`d by a `system_admin` if desired.
+- Slice 1D-A: revert the commit. Optional cleanup migration `drop function if exists public.log_clinical_write(uuid,text,text,uuid,jsonb);` — `audit_logs` schema is unchanged, so no data migration is required. Existing audit rows can be retained or deleted by a `system_admin` if desired.
 - Slice 1D-B: delete the workflow file and the two helper scripts; the optional husky lines are gated by script presence.
 - Degraded mode: if RPC failures appear in production, flip the documented `AUDIT_FAIL_OPEN` flag in `audit.ts` to log-and-continue temporarily, while investigating. The runbook documents this as an explicit, time-boxed exception.
 

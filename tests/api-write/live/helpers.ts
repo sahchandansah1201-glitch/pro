@@ -229,3 +229,46 @@ export function uniqueCode(prefix = "AW"): string {
   const rnd = crypto.randomUUID().slice(0, 8);
   return `${prefix}-${ts}-${rnd}`;
 }
+
+// ── Stage 1D · audit_logs read helper (PostgREST direct, user-JWT only) ───
+// Used in live contracts to verify audit visibility for clinic_admin and
+// invisibility for doctor. No service role.
+
+export interface AuditLogRow {
+  id: string;
+  clinic_id: string;
+  actor_id: string | null;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export async function fetchAuditLogsByCorrelationId(
+  jwt: string,
+  correlationId: string,
+): Promise<AuditLogRow[]> {
+  const env = readEnv();
+  const apiKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!apiKey) {
+    throw new Error(
+      "Missing SUPABASE_ANON_KEY (required for direct PostgREST audit_logs query).",
+    );
+  }
+  const url = `${env.url.replace(/\/+$/, "")}/rest/v1/audit_logs` +
+    `?select=id,clinic_id,actor_id,action,entity,entity_id,payload,created_at` +
+    `&payload->>correlation_id=eq.${encodeURIComponent(correlationId)}`;
+  const res = await fetch(url, {
+    headers: {
+      authorization: `Bearer ${jwt}`,
+      apikey: apiKey,
+      accept: "application/json",
+    },
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`audit_logs query failed: ${res.status} ${t}`);
+  }
+  return await res.json() as AuditLogRow[];
+}

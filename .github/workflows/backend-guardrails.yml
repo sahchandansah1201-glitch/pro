@@ -1,0 +1,88 @@
+name: backend-guardrails
+
+on:
+  push:
+    paths:
+      - "db/**"
+      - "supabase/**"
+      - "tests/api-**/**"
+      - "scripts/**"
+      - ".github/workflows/backend-guardrails.yml"
+  pull_request:
+    paths:
+      - "db/**"
+      - "supabase/**"
+      - "tests/api-**/**"
+      - "scripts/**"
+      - ".github/workflows/backend-guardrails.yml"
+  workflow_dispatch:
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # ── Static guardrails (fast, no infra) ────────────────────────────────
+      - name: No generated deno.lock files
+        run: node scripts/check-no-deno-locks.mjs
+
+      - name: Canonical ↔ install byte-identity
+        run: node scripts/check-canonical-install-identity.mjs
+
+      - name: Doctor + api-write hygiene scan
+        run: node scripts/scan-doctor-forbidden.mjs
+
+      - name: deno check api-read
+        run: |
+          deno check \
+            --config supabase/functions/api-read/deno.json \
+            supabase/functions/api-read/index.ts
+
+      - name: deno check api-write
+        run: |
+          deno check \
+            --config supabase/functions/api-write/deno.json \
+            supabase/functions/api-write/index.ts
+
+      - name: api-read projection unit tests
+        run: |
+          deno test --no-check \
+            --config supabase/functions/api-read/deno.json \
+            supabase/functions/api-read/_tests/
+
+      - name: api-write projection + audit unit tests
+        run: |
+          deno test --no-check \
+            --config supabase/functions/api-write/deno.json \
+            supabase/functions/api-write/_tests/
+
+      # ── DB stack (Docker on the runner) ────────────────────────────────────
+      - name: Start Supabase
+        run: supabase start
+
+      - name: db reset
+        run: supabase db reset --no-seed=false
+
+      - name: pgTAP test db
+        run: supabase test db
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup

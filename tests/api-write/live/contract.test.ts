@@ -476,3 +476,68 @@ Deno.test("every response carries x-correlation-id (uuid)", async () => {
     }
   }
 });
+
+// ── 8) Stage 1D · audit logging (visibility + isolation) ─────────────────
+import { fetchAuditLogsByCorrelationId } from "./helpers.ts";
+
+Deno.test("successful patient create writes a clinic_admin-visible audit row", async () => {
+  const cid = crypto.randomUUID();
+  const doctorJwt = await getJwtFor(DEMO_USERS.doctor);
+  const create = await callApi("POST", "/doctor/patients", {
+    jwt: doctorJwt,
+    correlationId: cid,
+    body: {
+      code: uniqueCode("AW1D"),
+      fullName: "Аудит Один",
+      birthDate: "1990-01-01",
+      sex: "female",
+      phototype: "II",
+    },
+  });
+  assertEquals(create.status, 201);
+
+  const adminJwt = await getJwtFor(DEMO_USERS.clinicAdmin);
+  const rows = await fetchAuditLogsByCorrelationId(adminJwt, cid);
+  if (rows.length !== 1) {
+    throw new Error(`expected 1 audit row, got ${rows.length}`);
+  }
+  assertEquals(rows[0].action, "create");
+  assertEquals(rows[0].entity, "patient");
+  if ((rows[0].payload as { route?: string }).route !== "POST /doctor/patients") {
+    throw new Error("audit payload.route mismatch");
+  }
+});
+
+Deno.test("doctor cannot SELECT audit_logs even for own clinic", async () => {
+  const cid = crypto.randomUUID();
+  const doctorJwt = await getJwtFor(DEMO_USERS.doctor);
+  const create = await callApi("POST", "/doctor/patients", {
+    jwt: doctorJwt,
+    correlationId: cid,
+    body: {
+      code: uniqueCode("AW1D"),
+      fullName: "Аудит Два",
+      birthDate: "1990-01-01",
+      sex: "female",
+      phototype: "II",
+    },
+  });
+  assertEquals(create.status, 201);
+  const rows = await fetchAuditLogsByCorrelationId(doctorJwt, cid);
+  assertEquals(rows.length, 0);
+});
+
+Deno.test("failed validation does not write an audit row", async () => {
+  const cid = crypto.randomUUID();
+  const doctorJwt = await getJwtFor(DEMO_USERS.doctor);
+  // Missing required fields → 422 validation_error.
+  const res = await callApi("POST", "/doctor/patients", {
+    jwt: doctorJwt,
+    correlationId: cid,
+    body: { code: "X" },
+  });
+  if (res.status === 201) throw new Error("expected validation failure");
+  const adminJwt = await getJwtFor(DEMO_USERS.clinicAdmin);
+  const rows = await fetchAuditLogsByCorrelationId(adminJwt, cid);
+  assertEquals(rows.length, 0);
+});
