@@ -1,0 +1,36 @@
+name: auth-assets-smoke-skip
+
+on:
+  pull_request:
+    paths:
+      - "e2e/auth-assets-smoke.pw.ts"
+      - "playwright.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/auth-assets-smoke-skip.yml"
+      - "docs/frontend/stage-1i-auth-assets-readiness.md"
+  push:
+    paths:
+      - "e2e/auth-assets-smoke.pw.ts"
+      - "playwright.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/auth-assets-smoke-skip.yml"
+      - "docs/frontend/stage-1i-auth-assets-readiness.md"
+  workflow_dispatch:
+
+jobs:
+  smoke-skip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run opt-in smoke (expected to skip without env vars)
+        run: npx playwright test e2e/auth-assets-smoke.pw.ts

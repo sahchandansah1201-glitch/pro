@@ -314,3 +314,8 @@ the convention used by other `e2e/*.pw.ts` tests.
 - Backend guardrails (`backend-guardrails.yml`) and the global
   `no-deno-locks.yml` workflow remain separate; duplicate
   `check-no-deno-locks` coverage is intentional.
+- `.github/workflows/auth-assets-smoke-skip.yml` validates that the
+  opt-in `e2e/auth-assets-smoke.pw.ts` imports and skips cleanly
+  without credentials (syntax/skip guard only). The real smoke still
+  requires manual `E2E_DOCTOR_*` env vars and a running Vite dev
+  server as described in §6.
