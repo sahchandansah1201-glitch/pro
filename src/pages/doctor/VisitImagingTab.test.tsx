@@ -608,3 +608,125 @@ describe("VisitImagingTab · API panel · preview dialog", () => {
     expect(text).not.toMatch(/\bexif\b/i);
   });
 });
+
+// Stage 1K-B · A11y + image-load fallback for the preview dialog.
+describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+  const SIGNED_URL = "https://signed.example/asset-1?sig=secret-token";
+
+  function makeOkFetch() {
+    return vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              assetId: "a-1",
+              clinicId: "c-1",
+              visitId: visit.id,
+              downloadUrl: SIGNED_URL,
+              expiresIn: 300,
+              expiresAt: "2026-05-09T10:05:00Z",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+  }
+
+  async function openDialog() {
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+    return await screen.findByRole("dialog");
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("dialog has accessible title and image alt", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+
+    expect(within(dialog).getByText("Просмотр снимка")).toBeInTheDocument();
+    const img = within(dialog).getByRole("img", {
+      name: /Клинический снимок Дерматоскопия/i,
+    });
+    expect(img).toBeInTheDocument();
+  });
+
+  it("Escape closes the dialog and the asset row remains", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    await openDialog();
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    expect(
+      within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("image onError shows the fallback message and keeps 'Открыть в новой вкладке'", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+    const img = within(dialog).getByRole("img", {
+      name: /Клинический снимок Дерматоскопия/i,
+    });
+    fireEvent.error(img);
+
+    const fallback = await within(dialog).findByText(
+      /Не удалось отобразить изображение\. Откройте его в новой вкладке\./,
+    );
+    expect(fallback).toBeInTheDocument();
+
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: /Открыть в новой вкладке/i }),
+    );
+    expect(openSpy).toHaveBeenCalledWith(SIGNED_URL, "_blank", "noopener,noreferrer");
+    openSpy.mockRestore();
+  });
+
+  it("dialog visible text never contains the signed URL or forbidden tokens", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+    const text = dialog.textContent ?? "";
+    expect(text).not.toContain(SIGNED_URL);
+    expect(text).not.toContain("signed.example");
+    expect(text).not.toMatch(/storageObjectPath/);
+    expect(text).not.toMatch(/storage_object_path/);
+    expect(text).not.toMatch(/\bexif\b/i);
+    expect(text).not.toMatch(/clinic\/[a-z0-9-]+\/visit/i);
+  });
+});
