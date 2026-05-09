@@ -90,7 +90,7 @@ export async function insertRow(
 ): Promise<Record<string, unknown>> {
   const res = await client.from(table).insert(values).select(selectCols).single();
   if (res.error) mapPgError(res.error);
-  return res.data as Record<string, unknown>;
+  return expectRecordRow(res.data);
 }
 
 export async function updateRow(
