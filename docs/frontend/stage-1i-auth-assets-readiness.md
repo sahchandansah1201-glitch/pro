@@ -297,3 +297,20 @@ the convention used by other `e2e/*.pw.ts` tests.
   are gitignored and must not be committed.
 - `package-lock.json` is expected in the tree because
   `@supabase/supabase-js` was installed for Stage 1G; do not revert it.
+
+---
+
+## 8. CI split
+
+- `.github/workflows/frontend-auth-assets.yml` runs the key auth /
+  assets frontend test suites, the doctor forbidden-patterns scan,
+  the Vite build, and `check-no-deno-locks` on PRs/pushes that touch
+  the frontend auth/assets surface. It uses `npm ci` and never starts
+  Supabase, Deno, or Playwright, and does not require real Supabase
+  env vars.
+- The Stage 2A Playwright real-auth smoke (`auth-assets-smoke.pw.ts`)
+  remains opt-in / manual: it only runs locally when the
+  `E2E_DOCTOR_*` env vars are set.
+- Backend guardrails (`backend-guardrails.yml`) and the global
+  `no-deno-locks.yml` workflow remain separate; duplicate
+  `check-no-deno-locks` coverage is intentional.
