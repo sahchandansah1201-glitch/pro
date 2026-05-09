@@ -1,174 +1,235 @@
-## Stage 1C — Controlled Write API + Write RLS (plan only)
 
-### 1. Proposed exact scope
+# Stage 1D Plan — Audit Logging + CI Guardrails
 
-Smallest safe scope to unblock the existing doctor workflow:
+## 1. Exact scope
 
-- New Edge Function `api-write` (sibling of `api-read`), JWT-authenticated, RLS-enforced, no service role.
-- Additive write RLS migration that grants `INSERT`/`UPDATE` (no `DELETE`) to `authenticated` for a small set of clinical tables, with policies restricted to `doctor` / `private_doctor` in the same clinic.
-- pgTAP write-RLS test suite + live api-write contract tests + static hygiene checks.
-- Reused auth/cors/errors/correlation/validators utilities from `api-read` via copy (not import) to keep the two functions independently deployable.
+Both candidates, in two independently revertible slices:
 
-Explicitly **out of scope** (deferred):
-- No `assistant`, `clinic_admin`, `operator`, `system_admin`, `patient` writes.
-- No `patient_user_link` / `consents` / `audit_logs` writes (audit_logs may be appended via `SECURITY DEFINER` helper; see §4 — if rejected, drop and defer).
-- No `assets` writes (image upload pipeline is a separate stage; metadata insert deferred).
-- No deletes anywhere.
-- No operator entities (`bot_dialogs`, `bot_messages`, `analysis_cards`).
-- No signed-link / protected-link token issuance.
-- No remote `supabase db push`.
-- No frontend wiring (`src/**` untouched).
-- No changes to existing Stage 1B read behaviour.
+- **Slice 1D-A — Clinical write audit logging for `api-write`:**
+  - One additive migration introducing a single `SECURITY DEFINER` RPC `public.log_clinical_write(...)`.
+  - `api-write` calls the RPC after each successful write, using the per-request user-JWT client (no service role).
+  - New pgTAP suite covering RPC behavior + RLS posture for `audit_logs`.
+  - New Deno unit tests for the payload builder.
+  - Additive live-contract cases verifying audit visibility for `clinic_admin` and invisibility for `doctor`.
 
-### 2. Routes/methods (grouped by surface)
+- **Slice 1D-B — CI / local guardrails:**
+  - New GitHub Actions workflow `backend-guardrails.yml` running: `supabase db reset`, `supabase test db`, `deno check` for both functions, api-read + api-write projection tests, doctor hygiene scan, canonical↔install byte-identity check, and a "no tracked/working `deno.lock`" check.
+  - Two new helper scripts (`check-canonical-install-identity.mjs`, `check-no-deno-locks.mjs`).
+  - Optional additive `.husky/pre-push` extension that calls the same scripts locally.
+  - Live contracts for api-read / api-write are **not** added to CI in this stage (they need a running Supabase stack and seeded JWTs); they remain documented as local-only and are still runnable from the existing `tests/api-*/live` suites.
 
-All routes require `Authorization: Bearer <jwt>`; doctor surface gated by `roles ∩ {doctor, private_doctor}`. Only `POST` and `PATCH`. No `DELETE`.
+## 2. Explicit exclusions
 
-Doctor surface (`/doctor/*`):
-- `POST   /doctor/patients`                                 — create patient in caller's clinic
-- `PATCH  /doctor/patients/:patientId`                      — edit demographics / risk_factors
-- `POST   /doctor/patients/:patientId/visits`               — open a visit
-- `PATCH  /doctor/visits/:visitId`                          — update status / complaint / closed_at
-- `POST   /doctor/visits/:visitId/lesions`                  — add lesion (body-map point)
-- `PATCH  /doctor/lesions/:lesionId`                        — update label/status/coords
-- `POST   /doctor/visits/:visitId/assessments`              — create assessment (ABCD, 7-pt, AI fields)
-- `POST   /doctor/visits/:visitId/conclusions`              — create conclusion (doctor_text, follow_up_plan)
-- `POST   /doctor/visits/:visitId/reports`                  — ensure report exists, return id
-- `POST   /doctor/reports/:reportId/versions`               — create new draft `report_version`
-- `PATCH  /doctor/report-versions/:versionId`               — status transitions: `draft → final → amended`; never to `revoked` in 1C; sets `signed_by/signed_at` on `final`
+- No frontend changes.
+- No in-place edits of Stage 1A or Stage 1C migrations or tests.
+- No service-role usage anywhere in the request path.
+- No new packages, lockfile changes, or `tsconfig`/`vite.config`/`package.json` edits beyond husky-script registration if needed.
+- No `supabase db push`.
+- No DELETE grants and no widening of any existing RLS policy.
+- No raw clinical text in audit payloads (no `patient_safe_text`, `notes`, `summary`, freeform ABCD fields, dictation transcripts).
+- No backfill of historical audit rows.
+- Live contract suites are not wired into CI in Stage 1D.
+- No changes to `audit_logs` table schema or its existing Stage 1A SELECT policies.
 
-Patient/public/operator surfaces: **no write routes** in Stage 1C.
+## 3. DB / RLS changes
 
-### 3. Tables affected and exact write actions
+All additive. One new migration: `db/stage1d/migrations/20260508000001_stage1d_audit.sql` (canonical) + byte-identical install copy in `supabase/migrations/`.
 
-| Table | INSERT | UPDATE | Notes |
-|---|---|---|---|
-| `patients`         | ✅ doctor | ✅ doctor | `clinic_id` forced server-side from caller's primary clinic; `created_by = auth.uid()` |
-| `visits`           | ✅ doctor | ✅ doctor | `doctor_id = auth.uid()` on insert; `clinic_id` inherited from patient |
-| `lesions`          | ✅ doctor | ✅ doctor | clinic_id inherited from patient via composite FK |
-| `assessments`      | ✅ doctor | ❌       | append-only in 1C |
-| `conclusions`      | ✅ doctor | ❌       | append-only in 1C |
-| `reports`          | ✅ doctor | ✅ doctor | UPDATE only to set `current_version_id` |
-| `report_versions`  | ✅ doctor | ✅ doctor | status transitions only; `patient_safe_text` and `doctor_text` set on insert |
-| `audit_logs`       | (via SECURITY DEFINER helper `public.log_audit(...)`) | ❌ | If reviewer rejects helper, drop and defer audit logging to Stage 1D |
+### 3.1 New SECURITY DEFINER RPC
 
-Untouched by writes: `clinics`, `profiles`, `user_roles`, `patient_user_link`, `assets`, `consents`, `public_signed_links`, `protected_analysis_links`.
-
-### 4. RLS / GRANT strategy
-
-New additive migration `db/stage1c/migrations/20260507000001_stage1c_writes.sql`.
-
-**Grants** (selectively re-grant what Stage 1A revoked):
-```sql
-grant insert, update on
-  public.patients, public.visits, public.lesions,
-  public.assessments, public.conclusions,
-  public.reports, public.report_versions
-to authenticated;
--- DELETE remains revoked everywhere.
+```text
+public.log_clinical_write(
+  _clinic_id  uuid,
+  _action     text,   -- 'create' | 'update' | 'finalize' | 'amend' | 'set_current_version'
+  _entity     text,   -- 'patient'|'visit'|'lesion'|'assessment'|'conclusion'|'report'|'report_version'
+  _entity_id  uuid,
+  _payload    jsonb default '{}'::jsonb
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
 ```
 
-**Helper functions** (`SECURITY DEFINER`, `set search_path = public`, all `STABLE` except writes):
-- `public.is_clinic_doctor(_user_id uuid, _clinic_id uuid) returns boolean` — true iff `user_roles` has `doctor` or `private_doctor` for `(_user_id, _clinic_id)`.
-- (Optional) `public.log_audit(_clinic uuid, _action text, _entity text, _entity_id uuid, _payload jsonb) returns void` — single insert into `audit_logs` with `actor_id = auth.uid()`. Used by `api-write` so audit insertion is uniform without granting raw INSERT on `audit_logs` to authenticated.
+Behavior:
 
-**Same-clinic enforcement** (per-table policy pattern):
-```sql
-create policy patients_doctor_insert on public.patients
-  for insert to authenticated
-  with check (public.is_clinic_doctor(auth.uid(), clinic_id));
+1. If `auth.uid()` is null → fail with `errcode '42501'`.
+2. If `_action` or `_entity` not in their allow-list → fail.
+3. If `public.is_clinic_doctor(auth.uid(), _clinic_id)` is false → fail (`42501`). Reuses the existing Stage 1C helper; no new role logic.
+4. If `_payload` contains any key in the denylist (`patient_safe_text`, `notes`, `summary`, `recommendation_text`, any `*_freeform`, `dictation_*`, `raw_text`) → fail (`P0001`). Enforced via `jsonb_object_keys` scan.
+5. If `octet_length(_payload::text) > 4096` → fail.
+6. Insert into `public.audit_logs` with `clinic_id=_clinic_id`, `actor_id=auth.uid()`; return the new `id`.
 
-create policy patients_doctor_update on public.patients
-  for update to authenticated
-  using  (public.is_clinic_doctor(auth.uid(), clinic_id))
-  with check (public.is_clinic_doctor(auth.uid(), clinic_id));
-```
+`grant execute on function public.log_clinical_write(...) to authenticated;` — no other grants.
 
-For child tables (`visits`, `lesions`, `assets`-style children, `assessments`, `conclusions`, `reports`, `report_versions`), `WITH CHECK` calls `is_clinic_doctor(auth.uid(), clinic_id)` directly — composite FKs already pin `clinic_id` to the parent.
+### 3.2 Why this does NOT weaken RLS
 
-**Why patient/public/operator writes remain impossible:**
-- Stage 1A revokes `INSERT/UPDATE/DELETE` from `authenticated` and `anon`. Stage 1C re-grants only the listed tables, only to `authenticated`.
-- Every write policy `WITH CHECK` is gated by `public.is_clinic_doctor(auth.uid(), clinic_id)`, which only returns true for `doctor`/`private_doctor` rows in `user_roles` — `patient`/`operator`/`clinic_admin` cannot satisfy it.
-- `anon` is never granted writes.
-- No service role in `api-write` request paths.
+- The function performs exactly one parameter-bound `INSERT` into `audit_logs`. No `GRANT INSERT ON public.audit_logs` is added; direct INSERT remains forbidden.
+- All Stage 1A SELECT policies on `audit_logs` are unchanged; doctors still cannot read it. Only `system_admin` and same-clinic `clinic_admin` can read.
+- Authorization is gated by the same `is_clinic_doctor(auth.uid(), _clinic_id)` predicate that gates Stage 1C writes, so the function cannot be used to forge rows for a clinic the caller has no doctor role in.
+- `set search_path = public` blocks search-path injection.
+- The denylist + size cap forbid using the function as a side channel to leak free clinical text into a less-restricted projection.
 
-### 5. DTO / input validation strategy
+### 3.3 Logged events (Stage 1D scope)
 
-In `api-write`:
-- Per-route Zod-equivalent (or hand-written) schemas in `validators.ts` (extended). Validate: UUID shape on path params, ISO timestamps, enum values (`visit_status`, `lesion_status`, `report_version_status`), numeric bounds (`map_x/map_y ∈ [0,1]`, `ai_confidence ∈ [0,1]`), max string lengths.
-- Server **forces** `clinic_id`, `created_by`, `doctor_id`, `decided_by`, `signed_by` from `auth.uid()` / caller context — these fields are stripped from request bodies.
-- Response DTOs reuse the existing read-side projection style: explicit allow-list, **no raw row spread**, no `patient_safe_text` field-name leakage to patient-facing responses (none in 1C, but the lint check stays).
-- Status-transition guard for `report_versions.status` enforced both in API (allowed transitions table) and in DB via additional trigger or `CHECK`-style policy in the migration.
+| Endpoint | action | entity |
+|---|---|---|
+| POST /doctor/patients | create | patient |
+| PATCH /doctor/patients | update | patient |
+| POST /doctor/visits | create | visit |
+| PATCH /doctor/visits | update | visit |
+| POST /doctor/lesions | create | lesion |
+| PATCH /doctor/lesions | update | lesion |
+| POST /doctor/assessments | create | assessment |
+| POST /doctor/conclusions | create | conclusion |
+| POST /doctor/reports | create | report |
+| PATCH /doctor/reports (sets `current_version_id`) | set_current_version | report |
+| POST /doctor/report-versions | create | report_version |
+| PATCH /doctor/report-versions (draft→final) | finalize | report_version |
+| PATCH /doctor/report-versions (final→amended) | amend | report_version |
 
-### 6. Test plan
+### 3.4 Safe payload schema
 
-**pgTAP write-RLS tests** — `db/stage1c/tests/stage1c_writes.test.sql` (mirrors Stage 1A pattern, JWT-sub impersonation):
-- Doctor in clinic A can `INSERT`/`UPDATE` patients/visits/lesions/assessments/conclusions/reports/report_versions in clinic A.
-- Doctor in clinic A **cannot** insert/update rows with `clinic_id = clinic B`.
-- Patient/operator/clinic_admin/assistant/anon **cannot** insert/update any of the above (expect SQLSTATE `42501` or zero affected rows).
-- `DELETE` denied for everyone on all listed tables.
-- `audit_logs`: direct `INSERT` denied to authenticated; helper `log_audit()` succeeds.
-- Append-only invariant: `assessments`/`conclusions` `UPDATE` denied even for owning doctor.
+Allow-listed top-level keys only:
 
-**Live API contract tests** — `tests/api-write/live/contract.test.ts` (new, mirrors `tests/api-read/live`):
-- Bootstrap reuses `tests/api-read/live/helpers.ts` JWT minting helpers (extracted into shared `tests/_shared/` if duplication grows; otherwise copy).
-- Cases: doctor happy paths (each route 2xx, response DTO shape), doctor cross-clinic write returns 403/404, patient/operator/anon return 403, malformed body returns 400, missing JWT returns 401.
-- Idempotency: re-running suite is safe (creates fresh patients with unique `code`).
+- `correlation_id` (string)
+- `route` (e.g. `POST /doctor/visits`)
+- `changed_fields` (array of camelCase field names — names only, never values)
+- `prev_state` / `next_state` (only for `report_version` transitions; enum strings)
+- `parent_ids` (object of UUIDs: `patientId`, `visitId`, `lesionId`, `reportId`)
 
-**Static checks** (extend existing `scripts/scan-doctor-forbidden.mjs` / hygiene workflow):
-- `rg -n 'service_role|SERVICE_ROLE' supabase/functions/api-write/` must be empty.
-- `rg -n 'patientSafeText' supabase/functions/api-write/` must be empty.
-- `rg -n '\\.\\.\\.row|\\.\\.\\.data\\b' supabase/functions/api-write/**/*.ts` must be empty (no raw row spread).
-- `deno check --config supabase/functions/api-write/deno.json supabase/functions/api-write/index.ts` passes.
-- `deno test --allow-env --no-check supabase/functions/api-write/_tests/` passes.
+The Edge Function builds the payload from request metadata + diff keys; it never copies request body values into the payload. The DB denylist is the second line of defense.
 
-### 7. File plan
+## 4. Edge Function changes
 
-**Will create**
-- `db/stage1c/README.md` — install/verify steps mirroring Stage 1A README.
-- `db/stage1c/migrations/20260507000001_stage1c_writes.sql` — grants + write policies + `is_clinic_doctor` (+ optional `log_audit`).
-- `db/stage1c/tests/stage1c_writes.test.sql` — pgTAP write-RLS suite.
-- `supabase/functions/api-write/index.ts` — route table, doctor-role gate, dispatchers.
-- `supabase/functions/api-write/auth.ts` — copy of read auth (HS256 local + hosted fallback), no service role.
-- `supabase/functions/api-write/cors.ts`, `correlation.ts`, `errors.ts`, `validators.ts`, `projections.ts` (write-side DTOs), `deno.json`.
-- `supabase/functions/api-write/_tests/projections.test.ts`, `_tests/forbidden-fields.ts`.
-- `tests/api-write/live/{README.md,contract.test.ts,helpers.ts,deno.json}`.
-- `docs/backend/stage-1c-runbook.md` — local verify steps.
+`supabase/functions/api-write/`:
 
-**May edit**
-- `db/stage1a/README.md` — strike "Write policies for clinical roles" from §8 prerequisites and link Stage 1C runbook.
-- `scripts/scan-doctor-forbidden.mjs` — extend scan path to include `supabase/functions/api-write/`.
-- `.github/workflows/doctor-hygiene-scan.yml` — add api-write deno check + projections test job.
-- `tests/api-read/live/helpers.ts` — only if JWT-mint helpers are extracted into `tests/_shared/`; otherwise unchanged.
+- **New** `audit.ts` exporting `recordWrite(client, ctx, params)` that calls `client.rpc('log_clinical_write', { ... })` on the per-request user-JWT client. On RPC error, throws `HttpError("internal_error", ...)` so the response is 500 — unlogged clinical writes violate the audit guarantee. (Decision documented in the runbook; alternative log-and-continue mode is feature-flagged off.)
+- `index.ts`: after each successful insert/update, call `recordWrite` with the resolved `clinic_id`, action, entity, returned id, and computed safe payload. No second client. No service role.
+- `mapping.ts` / `validators.ts` / `projections.ts`: unchanged.
+- No new external imports; reuse existing `@supabase/supabase-js` client.
 
-**Will not touch**
-- `src/**`, `package.json`, `package-lock.json`, `bun.lockb`, Vite/Tailwind config.
-- Stage 1A migrations (`db/stage1a/migrations/*.sql`), Stage 1A seed, Stage 1A pgTAP tests.
-- `supabase/functions/api-read/**` source (only test helpers may be refactored shared if needed).
-- `supabase/config.toml` (api-write deploys with default `verify_jwt = false` like api-read; in-code JWT validation handles it).
+`supabase/functions/api-read/`: **no changes**.
 
-### 8. Rollback plan
+## 5. Test plan
 
-Stage 1C is fully additive.
+### 5.1 pgTAP — `db/stage1d/tests/stage1d_audit.test.sql` (+ install copy)
 
-To revert:
-1. Remove `supabase/migrations/20260507000001_stage1c_writes.sql` (and its install copy under `supabase/migrations/` if installed).
-2. `npx supabase db reset` — write policies & grants disappear; Stage 1A revokes restore deny-by-default.
-3. Delete `supabase/functions/api-write/` directory (function not deployed remotely until Stage 1D).
-4. Remove `db/stage1c/`, `tests/api-write/`, `docs/backend/stage-1c-runbook.md`.
-5. Revert `db/stage1a/README.md` and hygiene scan/workflow edits.
+- ✓ `log_clinical_write` exists with the expected signature and is `security definer`.
+- ✓ Anonymous (no `auth.uid()`) call → `42501`.
+- ✓ Patient role call → fails (not clinic doctor).
+- ✓ Doctor in clinic A, `_clinic_id` = clinic B → fails.
+- ✓ Doctor in clinic A, `_clinic_id` = clinic A → inserts one row visible to that clinic's `clinic_admin`, invisible to clinic B's `clinic_admin`, invisible to the doctor.
+- ✓ Disallowed `_action` / `_entity` → fails.
+- ✓ Payload with any denylist key → fails.
+- ✓ Oversized payload → fails.
+- ✓ Direct `INSERT INTO public.audit_logs` as a doctor still fails (RLS unchanged).
+- ✓ Doctor still cannot SELECT from `audit_logs` (RLS unchanged).
 
-No data migration to undo — Stage 1C does not transform existing rows.
+Expected aggregate after Stage 1D: `Files=3, Tests = 96 + ~12, PASS`.
 
-### 9. Stop conditions
+### 5.2 Deno unit tests
 
-Stop and report (do not patch through) if any of these occur during implementation:
-- pgTAP write tests show a non-doctor role can insert/update any clinical row → RLS bug; fix policy before proceeding.
-- Live contract test shows `clinic_id` from request body is honoured (cross-clinic write succeeds) → server is not forcing `clinic_id` from caller context; halt and fix.
-- Any `api-write` response includes `doctor_text`, `patient_safe_text`, raw DB column names, or fields outside the DTO allow-list.
-- Hygiene scan finds `service_role` / `SERVICE_ROLE` / raw `{ ...row }` spread under `supabase/functions/api-write/`.
-- A required policy needs to query the same table it is attached to (recursive RLS) — switch to a `SECURITY DEFINER` helper instead.
-- The `audit_logs` helper approach is rejected in review → drop audit insertion from Stage 1C and defer; do **not** grant raw INSERT on `audit_logs` to authenticated.
-- Any need arises to modify a Stage 1A migration in place, change `src/**`, change package files, or run `supabase db push`.
+`supabase/functions/api-write/_tests/audit.test.ts`: payload builder behavior (changed_fields extraction, denylist filter, parent_ids resolution, size cap) without DB.
+
+Existing api-write `projections.test.ts` (18) and api-read `projections.test.ts` (9) remain unchanged and must stay green.
+
+### 5.3 Live contracts (local only)
+
+`tests/api-write/live/contract.test.ts` adds:
+
+- After a successful create/update, a `clinic_admin` JWT can SELECT a matching `audit_logs` row (via direct PostgREST in `helpers.ts`, since api-read does not expose audit logs).
+- A failed write (e.g. validation 400) produces zero new audit rows.
+- A doctor JWT receives the successful write response but cannot SELECT from `audit_logs` (control case).
+
+Existing 22 api-write + 23 api-read contracts remain unchanged and must still pass.
+
+### 5.4 How audit insertion is tested without granting INSERT
+
+- pgTAP tests authenticate as a doctor via `set local role` + `set local request.jwt.claims` and call the RPC; the privileged INSERT happens inside `SECURITY DEFINER`. They then re-auth as `clinic_admin` to SELECT and assert the row is visible. This proves the function works without ever granting the doctor direct INSERT.
+- Live contract tests use the JWT-bound user-client to call api-write; no service-role key is used.
+
+## 6. Static / hygiene checks
+
+- `deno check` for both `api-read` and `api-write`.
+- `node scripts/scan-doctor-forbidden.mjs` — extend `scripts/forbidden-patterns.mjs` to flag any direct `from("audit_logs").insert(...)` in Edge Function code (must go via RPC).
+- New `scripts/check-canonical-install-identity.mjs`: byte-equality between `db/stage1a/migrations/*` ↔ `supabase/migrations/*`, same for stage1c and stage1d, and the same for `db/*/tests/*` ↔ `supabase/tests/*`.
+- New `scripts/check-no-deno-locks.mjs`: fails if any `deno.lock` exists in the working tree.
+
+## 7. File plan
+
+Created (Slice 1D-A):
+
+- `db/stage1d/README.md`
+- `db/stage1d/migrations/20260508000001_stage1d_audit.sql`
+- `db/stage1d/tests/stage1d_audit.test.sql`
+- `supabase/migrations/20260508000001_stage1d_audit.sql` — byte-identical install copy
+- `supabase/tests/stage1d_audit.test.sql` — byte-identical install copy
+- `supabase/functions/api-write/audit.ts`
+- `supabase/functions/api-write/_tests/audit.test.ts`
+- `docs/backend/stage-1d-runbook.md`
+
+Created (Slice 1D-B):
+
+- `scripts/check-canonical-install-identity.mjs`
+- `scripts/check-no-deno-locks.mjs`
+- `.github/workflows/backend-guardrails.yml`
+
+Modified (additive only):
+
+- `supabase/functions/api-write/index.ts` — add `recordWrite` calls per route.
+- `scripts/forbidden-patterns.mjs` — add `audit_logs` direct-insert pattern.
+- `tests/api-write/live/contract.test.ts` and `tests/api-write/live/helpers.ts` — add audit visibility cases.
+- `.husky/pre-push` — optional, additive invocation of the two new scripts.
+
+Untouched:
+
+- All Stage 1A and Stage 1C migrations and tests (must remain byte-identical).
+- All `src/**` frontend code.
+- `package.json`, lockfiles, vite/tsconfig, `supabase/functions/api-read/**`.
+
+## 8. Rollback plan
+
+- Slice 1D-A: revert the commit. Optional cleanup migration `drop function if exists public.log_clinical_write(uuid,text,text,uuid,jsonb);` since the original migration is `create or replace` + new tests only. `audit_logs` schema is unchanged; no data migration required. Existing audit rows can be retained or `delete`d by a `system_admin` if desired.
+- Slice 1D-B: delete the workflow file and the two helper scripts; the optional husky lines are gated by script presence.
+- Degraded mode: if RPC failures appear in production, flip the documented `AUDIT_FAIL_OPEN` flag in `audit.ts` to log-and-continue temporarily, while investigating. The runbook documents this as an explicit, time-boxed exception.
+
+## 9. Stop conditions
+
+Halt and request guidance if any of the following occur:
+
+- Stage 1A or Stage 1C pgTAP regress from `Files=2, Tests=96, PASS`.
+- api-read live contracts drop below 23/23.
+- api-write live contracts drop below 22/22.
+- api-read projection tests drop below 9/9; api-write below 18/18.
+- Doctor hygiene scan reports any new violation.
+- Canonical/install byte-identity check fails for any Stage 1A/1C file.
+- Any change is required in `supabase/functions/api-read/**`.
+- Any change is required to a Stage 1A or Stage 1C migration body.
+- The audit RPC cannot be implemented without granting direct INSERT on `audit_logs` or without service role.
+- A required event (e.g. report finalize) cannot be logged without including clinical free text.
+- Any generated `deno.lock` is staged or appears in `git status` after the run.
+
+## 10. Recommended implementation slicing
+
+**Slice 1D-A — Audit logging (DB + Edge Function):**
+
+1. Add the canonical migration + install copy.
+2. Add the canonical pgTAP test + install copy.
+3. `npx supabase db reset` then `npx supabase test db` → expect `Files=3, PASS`.
+4. Add `audit.ts` and wire `recordWrite` calls in `api-write/index.ts`.
+5. Add the Deno `audit.test.ts`; run `deno check` + unit tests.
+6. Run hygiene scan, both projection suites, both live contract suites locally.
+7. Commit: `Stage 1D-A: clinical write audit logging`.
+
+**Slice 1D-B — CI guardrails:**
+
+1. Add `scripts/check-canonical-install-identity.mjs` + `scripts/check-no-deno-locks.mjs`; verify locally.
+2. Add `.github/workflows/backend-guardrails.yml`.
+3. Optionally extend `.husky/pre-push`.
+4. Commit: `Stage 1D-B: CI backend guardrails`.
+
+Each slice is independently revertible and ships only after its own verification gate passes.
+
+---
 
 Plan complete; ready for implementation prompt.
