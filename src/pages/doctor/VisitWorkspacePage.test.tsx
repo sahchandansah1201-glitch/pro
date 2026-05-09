@@ -325,3 +325,59 @@ describe("VisitWorkspacePage · production hygiene", () => {
     }
   });
 });
+
+// Stage 1I-A · Authenticated API session smoke.
+//
+// Confirms that when useApiSession exposes a real JWT + base URL, the
+// VisitImagingTab API panel leaves demo mode and hits the Stage 1E
+// api-read endpoint with a Bearer header — without touching backend code.
+describe("VisitWorkspacePage · Stage 1I-A · authenticated API session smoke", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    apiSessionMock.current = {
+      apiToken: "doctor-jwt",
+      apiBaseUrl: "https://abc.supabase.co",
+    };
+    fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    apiSessionMock.current = { apiToken: null, apiBaseUrl: null };
+    vi.unstubAllGlobals();
+  });
+
+  it("propagates JWT/baseUrl to the API panel and calls api-read with Bearer header", async () => {
+    renderAt("/patients/p-001/visits/v-001?tab=imaging");
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(
+      "https://abc.supabase.co/functions/v1/api-read/doctor/visits/v-001/assets",
+    );
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer doctor-jwt");
+    expect((init as RequestInit).method).toBe("GET");
+  });
+
+  it("API panel does not show the demo not-configured notice when authenticated", async () => {
+    renderAt("/patients/p-001/visits/v-001?tab=imaging");
+
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+    expect(
+      within(region).queryByText(/API клинических ассетов не сконфигурирован/i),
+    ).toBeNull();
+  });
+});
