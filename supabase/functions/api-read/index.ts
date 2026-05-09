@@ -398,7 +398,7 @@ Deno.serve(async (req) => {
         throw new HttpError("forbidden", "Doctor role required");
       }
     }
-    const body = await matched.route.handler(ctx, matched.params);
+    const body = await matched.route.handler(ctx, matched.params, url);
     return okResponse(body, correlationId);
   } catch (err) {
     if (err instanceof HttpError) {
