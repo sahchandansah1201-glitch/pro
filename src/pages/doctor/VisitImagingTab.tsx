@@ -493,6 +493,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const [errorContext, setErrorContext] = useState<ErrorContext | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Initial load + manual reload trigger.
@@ -550,6 +551,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       }
       setBusy(true);
       busyRef.current = true;
+      setUploading(true);
       setError(null);
       setErrorContext(null);
       setStatus(`Загружаем: ${file.name}`);
@@ -572,6 +574,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       }
       setBusy(false);
       busyRef.current = false;
+      setUploading(false);
     },
     [apiToken, apiBaseUrl, visitId],
   );
@@ -740,6 +743,14 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           <span aria-hidden>·</span>
           <span>JPEG, PNG, WebP или HEIC</span>
         </div>
+        {uploading && (
+          <span
+            className="text-[12px] text-muted-foreground"
+            data-testid="upload-busy-indicator"
+          >
+            Идёт загрузка…
+          </span>
+        )}
       </div>
 
       {!configured && (
