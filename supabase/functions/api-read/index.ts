@@ -18,9 +18,10 @@ import { corsHeaders } from "./cors.ts";
 import { getCorrelationId } from "./correlation.ts";
 import { authenticate, CallerContext } from "./auth.ts";
 import { errorResponse, HttpError, okResponse } from "./errors.ts";
-import { assertUuid } from "./validators.ts";
+import { assertExpiresIn, assertUuid } from "./validators.ts";
 import {
   toDoctorAssetDTO,
+  toDoctorAssetDownloadDTO,
   toDoctorPatientDetailDTO,
   toDoctorPatientListDTO,
   toDoctorReportVersionDTO,
@@ -34,6 +35,7 @@ import {
 type Handler = (
   ctx: CallerContext,
   params: Record<string, string>,
+  url: URL,
 ) => Promise<unknown>;
 
 interface Route {
@@ -215,7 +217,7 @@ const handleDoctorReportVersions: Handler = async (ctx, params) => {
   return { data, nextCursor: null };
 };
 
-// Stage 1E-B: doctor asset metadata read (binary URL issuance is Stage 1E-C).
+// Stage 1E-B: doctor asset metadata read (binary URL issuance is Stage 1E-D).
 const handleDoctorVisitAssets: Handler = async (ctx, params) => {
   const visitId = assertUuid(params.visitId, "visitId");
   const res = await ctx.client
@@ -230,6 +232,71 @@ const handleDoctorVisitAssets: Handler = async (ctx, params) => {
     toDoctorAssetDTO(r as Parameters<typeof toDoctorAssetDTO>[0])
   );
   return { data, nextCursor: null };
+};
+
+// Stage 1E-D: doctor/private_doctor signed download URL issuance.
+// Bucket `clinical-assets` stays private. The URL is short-lived. The raw
+// storage object path is NEVER returned in the response or logged.
+const handleDoctorAssetDownloadUrl: Handler = async (ctx, params, url) => {
+  const assetId = assertUuid(params.assetId, "assetId");
+  const expiresIn = assertExpiresIn(url.searchParams.get("expiresIn"));
+
+  const res = await ctx.client
+    .from("assets")
+    .select("id, clinic_id, visit_id, storage_object_path")
+    .eq("id", assetId)
+    .maybeSingle();
+  if (res.error) throw new HttpError("internal_error", res.error.message);
+  if (!res.data) throw new HttpError("not_found", "Asset not visible");
+
+  const row = res.data as {
+    id: string;
+    clinic_id: string;
+    visit_id: string;
+    storage_object_path: string;
+  };
+  // Defensive: never destructure the raw path into anything that could be
+  // logged. It stays in this local variable only.
+  const objectPath = row.storage_object_path;
+
+  const signed = await ctx.client.storage
+    .from("clinical-assets")
+    .createSignedUrl(objectPath, expiresIn);
+  if (signed.error || !signed.data?.signedUrl) {
+    const sErr = (signed.error ?? {}) as {
+      message?: string;
+      statusCode?: string | number;
+    };
+    const sc = String(sErr.statusCode ?? "");
+    const msg = sErr.message ?? "";
+    // RLS denial / not-allowed → 403. Missing object → 404. Other → 500.
+    // We do NOT include the raw object path in details.
+    if (sc === "403" || /not authorized|permission|denied/i.test(msg)) {
+      throw new HttpError("forbidden", "Storage signed URL denied", {
+        bucket: "clinical-assets",
+      });
+    }
+    if (sc === "404" || /not.?found/i.test(msg)) {
+      throw new HttpError("not_found", "Storage object not found", {
+        bucket: "clinical-assets",
+      });
+    }
+    throw new HttpError("internal_error", "Storage signed URL failed", {
+      bucket: "clinical-assets",
+    });
+  }
+
+  const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+  return {
+    data: toDoctorAssetDownloadDTO({
+      assetId: row.id,
+      visitId: row.visit_id,
+      clinicId: row.clinic_id,
+      downloadUrl: signed.data.signedUrl,
+      expiresIn,
+      expiresAt,
+    }),
+  };
 };
 
 // ── Route table ─────────────────────────────────────────────────────────────
@@ -257,6 +324,11 @@ const routes: Route[] = [
     "/doctor/visits/:visitId/assets",
     ["visitId"],
     handleDoctorVisitAssets,
+  ),
+  route(
+    "/doctor/assets/:assetId/download-url",
+    ["assetId"],
+    handleDoctorAssetDownloadUrl,
   ),
 ];
 
@@ -326,7 +398,7 @@ Deno.serve(async (req) => {
         throw new HttpError("forbidden", "Doctor role required");
       }
     }
-    const body = await matched.route.handler(ctx, matched.params);
+    const body = await matched.route.handler(ctx, matched.params, url);
     return okResponse(body, correlationId);
   } catch (err) {
     if (err instanceof HttpError) {

@@ -318,3 +318,166 @@ Deno.test("doctor GET assets with invalid uuid → 422", async () => {
   assertEquals(res.status, 422);
   assertErrorEnvelope(res.body, "validation_error");
 });
+
+// ── Stage 1E-D: signed download URL ───────────────────────────────────────
+//
+// Bound chosen behavior: out-of-bounds `expiresIn` is REJECTED with 422
+// (NOT silently clamped). See docs/backend/stage-1e-runbook.md.
+//
+// The seeded assets in db/stage1a/seed.sql have storage paths that do NOT
+// exist as real Storage objects (metadata-only seed). To exercise the happy
+// path we first upload a real file via api-write, then ask api-read for a
+// signed URL on the resulting assetId. This keeps the test self-contained
+// and avoids touching seed.sql.
+async function uploadSeededAsset(
+  jwt: string,
+  visitId: string,
+): Promise<string> {
+  const baseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
+  if (!baseUrl) throw new Error("SUPABASE_URL must be set");
+  const apiWriteBase = Deno.env.get("API_WRITE_BASE_URL") ??
+    `${baseUrl}/functions/v1/api-write`;
+  const form = new FormData();
+  // 1×1 PNG, valid image/png payload.
+  const png = Uint8Array.from([
+    0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,
+    0x49,0x48,0x44,0x52,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,
+    0x08,0x06,0x00,0x00,0x00,0x1f,0x15,0xc4,0x89,0x00,0x00,0x00,
+    0x0d,0x49,0x44,0x41,0x54,0x78,0x9c,0x63,0x00,0x01,0x00,0x00,
+    0x05,0x00,0x01,0x0d,0x0a,0x2d,0xb4,0x00,0x00,0x00,0x00,0x49,
+    0x45,0x4e,0x44,0xae,0x42,0x60,0x82,
+  ]);
+  form.set("file", new File([png], "px.png", { type: "image/png" }));
+  form.set("kind", "overview");
+  form.set("source", "phone");
+  form.set("capturedAt", new Date().toISOString());
+  form.set("qualityScore", "0.9");
+  const res = await fetch(
+    `${apiWriteBase}/doctor/visits/${visitId}/assets/upload`,
+    {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}` },
+      body: form,
+    },
+  );
+  const text = await res.text();
+  if (res.status !== 201) {
+    throw new Error(
+      `upload precondition failed: ${res.status} ${text}`,
+    );
+  }
+  const body = JSON.parse(text) as { data: { id: string } };
+  return body.data.id;
+}
+
+Deno.test("doctor GET /doctor/assets/:id/download-url → 200 + DTO, no path/exif leak", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const visitId = "70000000-0000-0000-0000-000000000005";
+  const assetId = await uploadSeededAsset(jwt, visitId);
+  const res = await callApi(`/doctor/assets/${assetId}/download-url`, { jwt });
+  if (res.status !== 200) {
+    throw new Error(`expected 200, got ${res.status}: ${JSON.stringify(res.body)}`);
+  }
+  const body = res.body as { data: Record<string, unknown> };
+  const dto = body.data;
+  assertEquals(Object.keys(dto).sort(), [
+    "assetId",
+    "clinicId",
+    "downloadUrl",
+    "expiresAt",
+    "expiresIn",
+    "visitId",
+  ]);
+  assertEquals(dto.assetId, assetId);
+  assertEquals(dto.visitId, visitId);
+  assertEquals(dto.expiresIn, 300);
+  if (typeof dto.downloadUrl !== "string" || dto.downloadUrl.length < 8) {
+    throw new Error("downloadUrl must be a non-empty string");
+  }
+  if (typeof dto.expiresAt !== "string" || Number.isNaN(Date.parse(dto.expiresAt as string))) {
+    throw new Error("expiresAt must be ISO timestamp");
+  }
+  // Raw storage path / EXIF MUST NEVER appear anywhere in the response.
+  const raw = JSON.stringify(body);
+  if (raw.includes("storage_object_path") || raw.includes("storageObjectPath")) {
+    throw new Error("storage path leaked in signed-URL response");
+  }
+  if (raw.includes('"exif"')) {
+    throw new Error("exif leaked in signed-URL response");
+  }
+  assertNoForbiddenKeys(body, FORBIDDEN_DOCTOR_KEYS, "/doctor/assets/:id/download-url");
+});
+
+Deno.test("doctor download-url honours custom expiresIn within bounds", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const visitId = "70000000-0000-0000-0000-000000000005";
+  const assetId = await uploadSeededAsset(jwt, visitId);
+  const res = await callApi(
+    `/doctor/assets/${assetId}/download-url?expiresIn=120`,
+    { jwt },
+  );
+  assertEquals(res.status, 200);
+  const body = res.body as { data: { expiresIn: number } };
+  assertEquals(body.data.expiresIn, 120);
+});
+
+Deno.test("private doctor cross-clinic asset → 404 (RLS-hidden)", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.privateDoctor);
+  // Seeded north-clinic asset; private doctor is in a different clinic.
+  const assetId = "90000000-0000-0000-0000-000000000010";
+  const res = await callApi(`/doctor/assets/${assetId}/download-url`, { jwt });
+  assertEquals(res.status, 404);
+  assertErrorEnvelope(res.body, "not_found");
+});
+
+Deno.test("patient GET /doctor/assets/:id/download-url → 403 forbidden", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.patient);
+  const res = await callApi(
+    `/doctor/assets/90000000-0000-0000-0000-000000000010/download-url`,
+    { jwt },
+  );
+  assertEquals(res.status, 403);
+  assertErrorEnvelope(res.body, "forbidden");
+});
+
+Deno.test("doctor download-url with invalid uuid → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const res = await callApi("/doctor/assets/not-a-uuid/download-url", { jwt });
+  assertEquals(res.status, 422);
+  const env = assertErrorEnvelope(res.body, "validation_error");
+  assertEquals(env.error.details.field, "assetId");
+});
+
+Deno.test("doctor download-url with expiresIn=12.5 (non-integer) → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const assetId = "90000000-0000-0000-0000-000000000010";
+  const res = await callApi(
+    `/doctor/assets/${assetId}/download-url?expiresIn=12.5`,
+    { jwt },
+  );
+  assertEquals(res.status, 422);
+  const env = assertErrorEnvelope(res.body, "validation_error");
+  assertEquals(env.error.details.field, "expiresIn");
+});
+
+Deno.test("doctor download-url with expiresIn below 60 → 422 (rejected, not clamped)", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const assetId = "90000000-0000-0000-0000-000000000010";
+  const res = await callApi(
+    `/doctor/assets/${assetId}/download-url?expiresIn=10`,
+    { jwt },
+  );
+  assertEquals(res.status, 422);
+  assertErrorEnvelope(res.body, "validation_error");
+});
+
+Deno.test("doctor download-url with expiresIn above 900 → 422 (rejected, not clamped)", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const assetId = "90000000-0000-0000-0000-000000000010";
+  const res = await callApi(
+    `/doctor/assets/${assetId}/download-url?expiresIn=1000`,
+    { jwt },
+  );
+  assertEquals(res.status, 422);
+  assertErrorEnvelope(res.body, "validation_error");
+});
