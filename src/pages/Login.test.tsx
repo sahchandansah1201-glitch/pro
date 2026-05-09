@@ -48,9 +48,17 @@ function makeUser(meta: Partial<Pick<User, "app_metadata" | "user_metadata">>): 
   } as unknown as User;
 }
 
-function renderPage(value: AuthContextValue = authValue()) {
+function renderPage(
+  value: AuthContextValue = authValue(),
+  opts: { from?: string } = {},
+) {
+  const initialEntries = [
+    opts.from !== undefined
+      ? { pathname: "/login", state: { from: opts.from } }
+      : { pathname: "/login" },
+  ];
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <AuthContext.Provider value={value}>
         <RoleProvider>
           <LoginPage />
