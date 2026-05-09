@@ -541,3 +541,200 @@ Deno.test("failed validation does not write an audit row", async () => {
   const rows = await fetchAuditLogsByCorrelationId(adminJwt, cid);
   assertEquals(rows.length, 0);
 });
+
+// ── 9) Stage 1E-B · Asset metadata routes ──────────────────────────────────
+// Storage upload/download URL issuance is intentionally deferred to Stage 1E-C.
+
+async function newPatientVisit(jwt: string) {
+  const cp = await callApi("POST", "/doctor/patients", {
+    jwt,
+    body: {
+      code: uniqueCode("AS"),
+      fullName: "Asset Тестовый",
+      birthDate: "1985-04-21",
+      sex: "male",
+      phototype: "III",
+    },
+  });
+  assertEquals(cp.status, 201);
+  const patientId = ((cp.body as { data: Record<string, unknown> }).data).id as string;
+  const cv = await callApi("POST", `/doctor/patients/${patientId}/visits`, {
+    jwt,
+    body: { startedAt: new Date().toISOString() },
+  });
+  assertEquals(cv.status, 201);
+  const visit = (cv.body as { data: Record<string, unknown> }).data;
+  return { patientId, visitId: visit.id as string, clinicId: visit.clinicId as string };
+}
+
+Deno.test("doctor POST /doctor/visits/:visitId/assets → 201 + DTO + audit", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId, clinicId } = await newPatientVisit(jwt);
+  const cid = crypto.randomUUID();
+  const path = `clinic/${clinicId}/visit/${visitId}/${crypto.randomUUID()}.jpg`;
+  const res = await callApi("POST", `/doctor/visits/${visitId}/assets`, {
+    jwt,
+    correlationId: cid,
+    body: {
+      kind: "overview",
+      source: "phone",
+      storageObjectPath: path,
+      capturedAt: new Date().toISOString(),
+      qualityScore: 0.9,
+      qualityIssues: [],
+      exif: { width: 4032, height: 3024 },
+    },
+  });
+  assertEquals(res.status, 201);
+  const dto = (res.body as { data: Record<string, unknown> }).data;
+  assertEquals(dto.visitId, visitId);
+  assertEquals(dto.clinicId, clinicId);
+  assertEquals(dto.kind, "overview");
+  assertEquals(dto.source, "phone");
+  assertEquals(dto.storageObjectPath, path);
+  if (!isUuid(dto.id)) throw new Error("asset.id must be uuid");
+  assertNoForbiddenWriteKeys(res.body, "POST /doctor/assets");
+
+  // Audit visibility for clinic_admin only.
+  const adminJwt = await getJwtFor(DEMO_USERS.clinicAdmin);
+  const rows = await fetchAuditLogsByCorrelationId(adminJwt, cid);
+  if (rows.length !== 1) throw new Error(`expected 1 audit row, got ${rows.length}`);
+  assertEquals(rows[0].entity, "asset");
+  assertEquals(rows[0].action, "create");
+});
+
+Deno.test("doctor POST asset rejects storageObjectPath not bound to visit → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId } = await newPatientVisit(jwt);
+  const res = await callApi("POST", `/doctor/visits/${visitId}/assets`, {
+    jwt,
+    body: {
+      kind: "overview",
+      source: "phone",
+      storageObjectPath: "wrong/path/object.jpg",
+      capturedAt: new Date().toISOString(),
+      qualityScore: 0.5,
+    },
+  });
+  assertEquals(res.status, 422);
+  assertErrorEnvelope(res.body, "validation_error");
+});
+
+Deno.test("doctor POST asset rejects unknown body key → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId, clinicId } = await newPatientVisit(jwt);
+  const res = await callApi("POST", `/doctor/visits/${visitId}/assets`, {
+    jwt,
+    body: {
+      kind: "overview",
+      source: "phone",
+      storageObjectPath: `clinic/${clinicId}/visit/${visitId}/x.jpg`,
+      capturedAt: new Date().toISOString(),
+      qualityScore: 0.5,
+      unexpectedKey: 1,
+    },
+  });
+  assertEquals(res.status, 422);
+  assertErrorEnvelope(res.body, "validation_error");
+});
+
+Deno.test("doctor POST asset rejects server-controlled clinicId → 422", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId, clinicId } = await newPatientVisit(jwt);
+  const res = await callApi("POST", `/doctor/visits/${visitId}/assets`, {
+    jwt,
+    body: {
+      kind: "overview",
+      source: "phone",
+      storageObjectPath: `clinic/${clinicId}/visit/${visitId}/x.jpg`,
+      capturedAt: new Date().toISOString(),
+      qualityScore: 0.5,
+      clinicId: FIXTURES.clinicMain,
+    },
+  });
+  assertEquals(res.status, 422);
+  assertErrorEnvelope(res.body, "validation_error");
+});
+
+Deno.test("doctor POST asset on unknown visit → 404", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const fakeVisit = crypto.randomUUID();
+  const res = await callApi("POST", `/doctor/visits/${fakeVisit}/assets`, {
+    jwt,
+    body: {
+      kind: "overview",
+      source: "phone",
+      storageObjectPath: `clinic/${FIXTURES.clinicMain}/visit/${fakeVisit}/x.jpg`,
+      capturedAt: new Date().toISOString(),
+      qualityScore: 0.5,
+    },
+  });
+  assertEquals(res.status, 404);
+  assertErrorEnvelope(res.body, "not_found");
+});
+
+Deno.test("non-doctor (assistant) POST asset → 403", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.assistant);
+  const fake = crypto.randomUUID();
+  const res = await callApi("POST", `/doctor/visits/${fake}/assets`, {
+    jwt,
+    body: {
+      kind: "overview",
+      source: "phone",
+      storageObjectPath: `x/visit/${fake}/x.jpg`,
+      capturedAt: new Date().toISOString(),
+      qualityScore: 0.5,
+    },
+  });
+  assertEquals(res.status, 403);
+  assertErrorEnvelope(res.body, "forbidden");
+});
+
+Deno.test("doctor PATCH /doctor/assets/:id updates mutable fields, blocks immutable", async () => {
+  const jwt = await getJwtFor(DEMO_USERS.doctor);
+  const { visitId, clinicId } = await newPatientVisit(jwt);
+  const path = `clinic/${clinicId}/visit/${visitId}/${crypto.randomUUID()}.jpg`;
+  const create = await callApi("POST", `/doctor/visits/${visitId}/assets`, {
+    jwt,
+    body: {
+      kind: "dermoscopy",
+      source: "device_bridge",
+      storageObjectPath: path,
+      capturedAt: new Date().toISOString(),
+      qualityScore: 0.7,
+    },
+  });
+  assertEquals(create.status, 201);
+  const assetId = ((create.body as { data: Record<string, unknown> }).data).id as string;
+
+  // Update mutable: qualityScore + qualityIssues + exif.
+  const upd = await callApi("PATCH", `/doctor/assets/${assetId}`, {
+    jwt,
+    body: { qualityScore: 0.95, qualityIssues: ["focus"], exif: { iso: 200 } },
+  });
+  assertEquals(upd.status, 200);
+  const updated = (upd.body as { data: Record<string, unknown> }).data;
+  assertEquals(updated.qualityScore, 0.95);
+  assertEquals(updated.qualityIssues, ["focus"]);
+
+  // Immutable: try to change kind → 422 unknown_key (not in PATCH allow-list).
+  const bad = await callApi("PATCH", `/doctor/assets/${assetId}`, {
+    jwt,
+    body: { kind: "macro" },
+  });
+  assertEquals(bad.status, 422);
+  assertErrorEnvelope(bad.body, "validation_error");
+});
+
+Deno.test("doctor cannot PATCH cross-clinic asset (RLS-hidden) → 404", async () => {
+  // Seed asset in clinicNorth (visit 70...0005) — visible to demo doctor.
+  // Use privateDoctor (not in clinicNorth) — should not see it.
+  const privJwt = await getJwtFor(DEMO_USERS.privateDoctor);
+  const seededAsset = "90000000-0000-0000-0000-000000000010";
+  const res = await callApi("PATCH", `/doctor/assets/${seededAsset}`, {
+    jwt: privJwt,
+    body: { qualityScore: 0.1 },
+  });
+  assertEquals(res.status, 404);
+  assertErrorEnvelope(res.body, "not_found");
+});
