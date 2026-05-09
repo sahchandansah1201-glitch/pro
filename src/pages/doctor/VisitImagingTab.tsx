@@ -707,7 +707,66 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           ))}
         </ul>
       )}
+
+      <AssetPreviewDialog
+        preview={preview}
+        onClose={handleClosePreview}
+        onOpenInNewTab={handleOpenInNewTab}
+      />
     </section>
+  );
+}
+
+interface AssetPreviewDialogProps {
+  preview: { asset: SafeAssetDTO; downloadUrl: string } | null;
+  onClose: () => void;
+  onOpenInNewTab: () => void;
+}
+
+function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDialogProps) {
+  const open = preview !== null;
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Просмотр снимка</DialogTitle>
+          <DialogDescription>
+            {preview
+              ? `${KIND_LABEL[preview.asset.kind]} · ${SOURCE_LABEL[preview.asset.source]} · ${formatDateTime(preview.asset.capturedAt)} · качество ${Math.round((preview.asset.qualityScore || 0) * 100)}%`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+        {preview && (
+          <div className="flex flex-col gap-3">
+            <div className="overflow-hidden rounded-md border border-border bg-surface-sunken">
+              <img
+                src={preview.downloadUrl}
+                alt={`Снимок ${preview.asset.id}`}
+                className="block max-h-[60vh] w-full object-contain"
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-9 gap-1.5 text-[12px]"
+                onClick={onOpenInNewTab}
+              >
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden /> Открыть в новой вкладке
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-9 text-[12px]"
+                onClick={onClose}
+              >
+                Закрыть
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
