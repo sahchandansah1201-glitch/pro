@@ -591,7 +591,11 @@ Deno.test("doctor POST /doctor/visits/:visitId/assets → 201 + DTO + audit", as
   assertEquals(dto.clinicId, clinicId);
   assertEquals(dto.kind, "overview");
   assertEquals(dto.source, "phone");
-  assertEquals(dto.storageObjectPath, path);
+  // Stage 1E-B safety: response DTO must NOT expose raw storage path or EXIF,
+  // even though the request body accepts them.
+  if ("storageObjectPath" in dto) throw new Error("storageObjectPath must not leak");
+  if ("storage_object_path" in dto) throw new Error("storage_object_path must not leak");
+  if ("exif" in dto) throw new Error("exif must not leak");
   if (!isUuid(dto.id)) throw new Error("asset.id must be uuid");
   assertNoForbiddenWriteKeys(res.body, "POST /doctor/assets");
 
@@ -716,6 +720,9 @@ Deno.test("doctor PATCH /doctor/assets/:id updates mutable fields, blocks immuta
   const updated = (upd.body as { data: Record<string, unknown> }).data;
   assertEquals(updated.qualityScore, 0.95);
   assertEquals(updated.qualityIssues, ["focus"]);
+  // PATCH may accept exif on input, but response must still strip it.
+  if ("exif" in updated) throw new Error("exif must not leak in PATCH response");
+  if ("storageObjectPath" in updated) throw new Error("storageObjectPath must not leak in PATCH response");
 
   // Immutable: try to change kind → 422 unknown_key (not in PATCH allow-list).
   const bad = await callApi("PATCH", `/doctor/assets/${assetId}`, {

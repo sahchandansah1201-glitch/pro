@@ -211,6 +211,12 @@ export function toReportVersionDTO(row: Record<string, unknown>): ReportVersionD
 // ── Asset (Stage 1E-B) ─────────────────────────────────────────────────────
 // `kind` and `source` enums mirror the Stage 1A DB enums image_kind and
 // image_source. Storage upload/download URL issuance is deferred to Stage 1E-C.
+//
+// Response DTO INTENTIONALLY omits `storageObjectPath` and `exif`:
+//   * raw storage paths must not leak through the JSON API surface;
+//     binary access will be brokered via signed URLs in Stage 1E-C.
+//   * EXIF blobs may carry GPS/device PII and are server-side only.
+// Both fields remain accepted on POST/PATCH request bodies.
 export interface AssetDTO {
   id: string;
   clinicId: string;
@@ -218,16 +224,14 @@ export interface AssetDTO {
   lesionId: string | null;
   kind: "overview" | "dermoscopy" | "macro" | "body_map";
   source: "phone" | "file" | "camera" | "device_bridge" | "local_transfer";
-  storageObjectPath: string;
   capturedAt: string;
   deviceId: string | null;
   qualityScore: number;
   qualityIssues: string[];
-  exif: unknown;
   createdAt: string;
 }
 export const ASSET_COLS =
-  "id, clinic_id, visit_id, lesion_id, kind, source, storage_object_path, captured_at, device_id, quality_score, quality_issues, exif, created_at";
+  "id, clinic_id, visit_id, lesion_id, kind, source, captured_at, device_id, quality_score, quality_issues, created_at";
 
 export function toAssetDTO(row: Record<string, unknown>): AssetDTO {
   return {
@@ -237,14 +241,12 @@ export function toAssetDTO(row: Record<string, unknown>): AssetDTO {
     lesionId: (row.lesion_id as string | null) ?? null,
     kind: row.kind as AssetDTO["kind"],
     source: row.source as AssetDTO["source"],
-    storageObjectPath: String(row.storage_object_path),
     capturedAt: String(row.captured_at),
     deviceId: (row.device_id as string | null) ?? null,
     qualityScore: Number(row.quality_score),
     qualityIssues: Array.isArray(row.quality_issues)
       ? Array.from(row.quality_issues as string[])
       : [],
-    exif: row.exif ?? {},
     createdAt: String(row.created_at),
   };
 }
