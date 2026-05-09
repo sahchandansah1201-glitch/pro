@@ -8,6 +8,7 @@
 //   GET /doctor/patients
 //   GET /doctor/patients/:patientId
 //   GET /doctor/reports/:reportId/versions
+//   GET /doctor/visits/:visitId/assets
 //
 // All reads use the per-request Supabase client built from the caller JWT,
 // so Stage 1A RLS is the enforced security boundary. The projection layer
@@ -19,6 +20,7 @@ import { authenticate, CallerContext } from "./auth.ts";
 import { errorResponse, HttpError, okResponse } from "./errors.ts";
 import { assertUuid } from "./validators.ts";
 import {
+  toDoctorAssetDTO,
   toDoctorPatientDetailDTO,
   toDoctorPatientListDTO,
   toDoctorReportVersionDTO,
