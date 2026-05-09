@@ -833,5 +833,50 @@ describe("VisitImagingTab · API panel · preview dialog loading state", () => {
       within(dialog).getByText(/Не удалось отобразить изображение/),
     ).toBeInTheDocument();
   });
+
+  it("reopening the preview resets prior image error/loading state", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+
+    // First open: trigger an image error.
+    let dialog = await openDialog();
+    fireEvent.error(
+      within(dialog).getByRole("img", { name: /Клинический снимок Дерматоскопия/i }),
+    );
+    await within(dialog).findByText(/Не удалось отобразить изображение/);
+
+    // Close the dialog.
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    // Reopen: prior error gone, loading state visible again.
+    dialog = await openDialog();
+    expect(
+      within(dialog).queryByText(/Не удалось отобразить изображение/),
+    ).not.toBeInTheDocument();
+    expect(await within(dialog).findByTestId("preview-loading")).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("img", { name: /Клинический снимок Дерматоскопия/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("dialog visible text never contains the signed URL while loading", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+    await within(dialog).findByTestId("preview-loading");
+    const text = dialog.textContent ?? "";
+    expect(text).not.toContain(SIGNED_URL);
+    expect(text).not.toContain("signed.example");
+    expect(text).not.toMatch(/storageObjectPath/);
+    expect(text).not.toMatch(/storage_object_path/);
+    expect(text).not.toMatch(/\bexif\b/i);
+  });
 });
 
