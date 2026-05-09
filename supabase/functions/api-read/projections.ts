@@ -249,3 +249,34 @@ export function toDoctorAssetDTO(row: {
     createdAt: row.created_at,
   };
 }
+
+// ── Doctor asset signed download URL (Stage 1E-D) ──────────────────────────
+// Response DTO INTENTIONALLY omits `storageObjectPath` and `exif`. Only the
+// signed URL string and metadata identifiers are returned. Brokered access:
+// the bucket stays private and the URL is short-lived.
+export interface DoctorAssetDownloadDTO {
+  assetId: string;
+  visitId: string;
+  clinicId: string;
+  downloadUrl: string;
+  expiresIn: number;
+  expiresAt: string;
+}
+
+export function toDoctorAssetDownloadDTO(input: {
+  assetId: string;
+  visitId: string;
+  clinicId: string;
+  downloadUrl: string;
+  expiresIn: number;
+  expiresAt: string;
+}): DoctorAssetDownloadDTO {
+  return {
+    assetId: input.assetId,
+    visitId: input.visitId,
+    clinicId: input.clinicId,
+    downloadUrl: input.downloadUrl,
+    expiresIn: input.expiresIn,
+    expiresAt: input.expiresAt,
+  };
+}
