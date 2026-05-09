@@ -713,9 +713,33 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           aria-hidden
           tabIndex={-1}
         />
-        <span className="text-[12px] text-muted-foreground">
-          JPEG, PNG, WebP или HEIC
-        </span>
+        <div
+          role="button"
+          tabIndex={configured && !busy ? 0 : -1}
+          aria-label="Перетащите снимок сюда для загрузки"
+          aria-disabled={!configured || busy}
+          onClick={handleUploadClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleUploadClick();
+            }
+          }}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          data-active={dragActive ? "true" : "false"}
+          className={`flex flex-1 min-w-[180px] flex-wrap items-center gap-x-2 gap-y-0 rounded-md border border-dashed px-2 py-1.5 text-[12px] transition-colors ${
+            dragActive
+              ? "border-primary bg-primary/5 text-foreground"
+              : "border-border text-muted-foreground hover:border-muted-foreground/50"
+          } ${!configured || busy ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+        >
+          <span>Перетащите снимок сюда</span>
+          <span aria-hidden>·</span>
+          <span>JPEG, PNG, WebP или HEIC</span>
+        </div>
       </div>
 
       {!configured && (
