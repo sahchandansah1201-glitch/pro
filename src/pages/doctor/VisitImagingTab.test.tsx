@@ -1654,14 +1654,12 @@ describe("VisitImagingTab · API panel · live status + focus return", () => {
     );
 
     await waitFor(() => {
-      const statuses = within(region).getAllByRole("status");
-      const texts = statuses.map((n) => n.textContent ?? "");
-      expect(texts.some((t) => /Загружаем: lesion\.png/.test(t))).toBe(true);
-      expect(texts.some((t) => /Идёт загрузка…/.test(t))).toBe(true);
-      // All status nodes are polite live regions.
-      for (const n of statuses) {
-        expect(n.getAttribute("aria-live")).toBe("polite");
-      }
+      const status = within(region).getByRole("status");
+      expect(status).toHaveTextContent(/Загружаем: lesion\.png/);
+      expect(status.getAttribute("aria-live")).toBe("polite");
+      const busy = within(region).getByTestId("upload-busy-indicator");
+      expect(busy).toHaveTextContent(/Идёт загрузка…/);
+      expect(busy.getAttribute("aria-live")).toBe("polite");
     });
 
     resolveUpload!(
