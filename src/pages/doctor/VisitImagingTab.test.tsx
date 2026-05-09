@@ -730,3 +730,104 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
     expect(text).not.toMatch(/clinic\/[a-z0-9-]+\/visit/i);
   });
 });
+
+describe("VisitImagingTab · API panel · preview dialog loading state", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+  const SIGNED_URL = "https://signed.example/asset-1?sig=secret-token";
+
+  function makeOkFetch() {
+    return vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              assetId: "a-1",
+              clinicId: "c-1",
+              visitId: visit.id,
+              downloadUrl: SIGNED_URL,
+              expiresIn: 300,
+              expiresAt: "2026-05-09T10:05:00Z",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+  }
+
+  async function openDialog() {
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+    return await screen.findByRole("dialog");
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows loading indicator while the signed image is loading", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+
+    const loader = await within(dialog).findByTestId("preview-loading");
+    expect(loader).toBeInTheDocument();
+    expect(loader).toHaveAttribute("role", "status");
+    expect(within(dialog).getByText(/Загрузка изображения…/)).toBeInTheDocument();
+  });
+
+  it("hides the loading indicator after the image loads", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+    const img = within(dialog).getByRole("img", {
+      name: /Клинический снимок Дерматоскопия/i,
+    });
+    fireEvent.load(img);
+
+    await waitFor(() => {
+      expect(within(dialog).queryByTestId("preview-loading")).not.toBeInTheDocument();
+    });
+  });
+
+  it("hides the loading indicator and shows fallback on image error", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+    const img = within(dialog).getByRole("img", {
+      name: /Клинический снимок Дерматоскопия/i,
+    });
+    fireEvent.error(img);
+
+    await waitFor(() => {
+      expect(within(dialog).queryByTestId("preview-loading")).not.toBeInTheDocument();
+    });
+    expect(
+      within(dialog).getByText(/Не удалось отобразить изображение/),
+    ).toBeInTheDocument();
+  });
+});
+
