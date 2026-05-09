@@ -523,10 +523,17 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       const file = e.target.files?.[0] ?? null;
       e.target.value = "";
       if (!file) return;
+      const type = (file.type || "").toLowerCase();
+      if (!type.startsWith("image/") || !ACCEPTED_IMAGE_MIME.includes(type)) {
+        setError(null);
+        setErrorContext(null);
+        setStatus("Выберите файл изображения: JPEG, PNG, WebP или HEIC.");
+        return;
+      }
       setBusy(true);
       setError(null);
       setErrorContext(null);
-      setStatus("Отправка снимка…");
+      setStatus(`Загружаем: ${file.name}`);
       const res = await uploadVisitAsset({
         token: apiToken,
         baseUrl: apiBaseUrl,
