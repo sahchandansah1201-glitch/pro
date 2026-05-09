@@ -61,11 +61,14 @@ export const API_WRITE_FORBIDDEN_TOKENS = [
   j("...body"),
   j("patient", "Safe", "Text"),
   "console.log",
+  // Stage 1D: audit_logs must only be written via the log_clinical_write RPC.
+  j('from("audit_', 'logs")'),
+  j("from('audit_", "logs')"),
 ];
 
 export const API_WRITE_SCAN_DIR = "supabase/functions/api-write";
 
-/** Stage 1C byte-identity pairs: canonical vs install copy must match. */
+/** Stage 1C + 1D byte-identity pairs: canonical vs install copy must match. */
 export const STAGE1C_BYTE_IDENTITY_PAIRS = [
   [
     "db/stage1c/migrations/20260507000001_stage1c_writes.sql",
@@ -74,6 +77,14 @@ export const STAGE1C_BYTE_IDENTITY_PAIRS = [
   [
     "db/stage1c/tests/stage1c_writes.test.sql",
     "supabase/tests/stage1c_writes.test.sql",
+  ],
+  [
+    "db/stage1d/migrations/20260508000001_stage1d_audit.sql",
+    "supabase/migrations/20260508000001_stage1d_audit.sql",
+  ],
+  [
+    "db/stage1d/tests/stage1d_audit.test.sql",
+    "supabase/tests/stage1d_audit.test.sql",
   ],
 ];
 
