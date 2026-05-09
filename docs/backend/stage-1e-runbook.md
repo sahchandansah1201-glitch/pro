@@ -6,8 +6,37 @@ Stage 1E is delivered in slices:
   bucket policies. No Edge Function or frontend changes.
 - **1E-B** (committed): asset metadata API routes (api-write + a single
   api-read route). No binary upload/download URL issuance, no frontend.
-- **1E-C** (this slice): doctor/private_doctor asset upload via multipart.
-  No frontend, no delete endpoint, no signed download URLs (deferred).
+- **1E-C** (committed): doctor/private_doctor asset upload via multipart.
+  No frontend, no delete endpoint.
+- **1E-D** (this slice): doctor/private_doctor signed download URL endpoint.
+  No frontend, no delete endpoint, no public bucket changes.
+
+## Stage 1E-D — signed download URL
+
+Adds one route to api-read:
+
+- `GET /doctor/assets/:assetId/download-url?expiresIn=<seconds>`
+  - Auth: same doctor / private_doctor gate as other `/doctor/*` api-read
+    routes. Caller-JWT Supabase client only — no service role.
+  - Lookup: validates `assetId` as UUID; selects `id, clinic_id, visit_id,
+    storage_object_path` from `public.assets` through Stage 1A RLS. An
+    RLS-hidden / unknown asset returns `404 not_found`.
+  - Signed URL: brokered via
+    `ctx.client.storage.from("clinical-assets").createSignedUrl(path, expiresIn)`.
+    The bucket stays private. Default expiry is **300 s**. Allowed window is
+    **60 .. 900 s**, inclusive. Out-of-bounds values are **rejected** with
+    `422 validation_error` (chosen behavior — NOT silently clamped — so
+    callers learn about misuse). Non-integer `expiresIn` → `422`.
+  - Response DTO:
+    `{ data: { assetId, visitId, clinicId, downloadUrl, expiresIn, expiresAt } }`.
+    Intentionally never returns `storageObjectPath`,
+    `storage_object_path`, or `exif` (Stage 1E-B safety contract). The raw
+    storage path is never logged or echoed in error details.
+  - Error mapping: invalid auth → `401`; non-doctor → `403`; invalid UUID or
+    invalid `expiresIn` → `422`; unknown / RLS-hidden asset → `404`; storage
+    signed-URL denial (RLS) → `403`; missing storage object → `404`;
+    unexpected storage error → `500`.
+
 
 ## Stage 1E-C — asset upload (multipart)
 
