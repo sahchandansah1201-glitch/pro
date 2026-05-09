@@ -638,9 +638,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         </p>
       )}
 
-      {error && (
+      {error && errorContext && (
         <p className="px-3 pb-2 text-[12px] text-warning" role="alert">
-          {assetsErrorMessage(error)}
+          {assetsErrorMessage(error, errorContext)}
         </p>
       )}
 
