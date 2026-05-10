@@ -124,6 +124,19 @@ const EXPECTED = [
       "## 9. Sync changelog",
     ],
   },
+  {
+    file: "stage-3j-github-lovable-working-mode.md",
+    headings: [
+      "# Stage 3J — GitHub-first working mode for Lovable sync",
+      "## 1. Purpose",
+      "## 2. Responsibilities",
+      "## 3. Standard Codex flow",
+      "## 4. Lovable confirmation prompt shape",
+      "## 5. Token reduction rules",
+      "## 6. Failure handling",
+      "## 7. Acceptance criteria",
+    ],
+  },
 ];
 
 const EXTRA_REQUIRED_REFS = [
