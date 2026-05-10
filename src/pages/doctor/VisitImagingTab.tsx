@@ -634,6 +634,28 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   // Stage 2E-E: remember the opener so we can return focus on close.
   const previewOpenerRef = useRef<HTMLElement | null>(null);
 
+  // Stage 2E-G: focus return after list retry.
+  const regionRef = useRef<HTMLElement | null>(null);
+  const retryButtonRef = useRef<HTMLButtonElement | null>(null);
+  const firstOpenButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [pendingRetryFocus, setPendingRetryFocus] = useState(false);
+
+  useEffect(() => {
+    if (!pendingRetryFocus || busy) return;
+    let target: HTMLElement | null = null;
+    if (error && errorContext === "list") {
+      target = retryButtonRef.current;
+    } else if (assets && assets.length > 0) {
+      target = firstOpenButtonRef.current;
+    } else {
+      target = regionRef.current;
+    }
+    setPendingRetryFocus(false);
+    if (target && typeof target.focus === "function" && target.isConnected) {
+      target.focus();
+    }
+  }, [pendingRetryFocus, busy, error, errorContext, assets]);
+
   const handleOpen = useCallback(
     async (asset: SafeAssetDTO, opener?: HTMLElement | null) => {
       previewOpenerRef.current =
