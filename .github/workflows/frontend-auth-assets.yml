@@ -66,4 +66,15 @@ jobs:
         run: npm ci
       - name: Auth/assets preflight
         run: npm run preflight:auth-assets
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## frontend-auth-assets"
+            echo ""
+            echo "- Command: \`npm run preflight:auth-assets\`"
+            echo "- Coverage: auth/assets unit suites, doctor hygiene scan, Vite build, deno.lock guard"
+            echo "- Environment: no Supabase env vars, no Deno, no Playwright"
+            echo "- Result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
