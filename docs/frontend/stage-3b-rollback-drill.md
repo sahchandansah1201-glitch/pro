@@ -74,3 +74,4 @@
 - `package-lock.json` preserved.
 - Release decision documented.
 - After rollback, rerun the smoke checklist in docs/frontend/stage-3c-production-smoke.md.
+- If a rollback is triggered by a live incident, use docs/frontend/stage-3d-incident-response.md first.
