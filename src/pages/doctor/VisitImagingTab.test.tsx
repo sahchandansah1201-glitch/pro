@@ -870,6 +870,11 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
     expect(
       within(dialog).queryByText(/Не удалось отобразить изображение/),
     ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: /Открыть в новой вкладке/i }),
+      ).toHaveFocus();
+    });
     expect(dialog.textContent ?? "").not.toContain(REFRESHED_URL);
   });
 
@@ -929,6 +934,13 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
     expect(
       within(dialog).getByRole("button", { name: /Открыть в новой вкладке/i }),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", {
+          name: /Получить новую ссылку для снимка a-1/i,
+        }),
+      ).toHaveFocus();
+    });
   });
 
   it("dialog visible text never contains the signed URL or forbidden tokens", async () => {

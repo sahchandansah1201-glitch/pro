@@ -1318,6 +1318,9 @@ function AssetPreviewDialog({
   const open = preview !== null;
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const refreshButtonRef = useRef<HTMLButtonElement | null>(null);
+  const openInNewTabButtonRef = useRef<HTMLButtonElement | null>(null);
+  const wasRefreshingRef = useRef(false);
 
   // Reset image-load state whenever the previewed asset changes (or closes).
   useEffect(() => {
@@ -1326,6 +1329,19 @@ function AssetPreviewDialog({
   }, [preview?.asset.id, preview?.downloadUrl]);
 
   const isLoading = preview !== null && ((!imageLoaded && !imageError) || refreshing);
+
+  useEffect(() => {
+    if (wasRefreshingRef.current && !refreshing) {
+      const target =
+        refreshError && imageError
+          ? refreshButtonRef.current
+          : openInNewTabButtonRef.current;
+      queueMicrotask(() => {
+        if (target?.isConnected) target.focus();
+      });
+    }
+    wasRefreshingRef.current = refreshing;
+  }, [refreshing, refreshError, imageError]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -1388,6 +1404,7 @@ function AssetPreviewDialog({
             <div className="flex flex-wrap items-center justify-end gap-2">
               {imageError && (
                 <Button
+                  ref={refreshButtonRef}
                   size="sm"
                   variant="secondary"
                   className="h-9 gap-1.5 text-[12px]"
@@ -1404,6 +1421,7 @@ function AssetPreviewDialog({
                 </Button>
               )}
               <Button
+                ref={openInNewTabButtonRef}
                 size="sm"
                 variant="secondary"
                 className="h-9 gap-1.5 text-[12px]"
