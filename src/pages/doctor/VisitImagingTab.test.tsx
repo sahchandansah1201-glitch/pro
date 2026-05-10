@@ -1361,6 +1361,11 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       }),
     ).not.toBeInTheDocument();
     expect(within(region).getByText(/Все выбранные снимки загружены: 2\./)).toBeInTheDocument();
+    expect(
+      within(region).getByRole("button", {
+        name: /Очистить завершённую очередь загрузки снимков/i,
+      }),
+    ).toBeInTheDocument();
     await userEvent.click(
       within(region).getByRole("button", {
         name: /Показать статусы загрузки снимков/i,
@@ -1376,6 +1381,52 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       within(list).getByRole("listitem", { name: /second\.webp: Загружен/i }),
     ).toBeInTheDocument();
     expect(fileInput.value).toBe("");
+  });
+
+  it("clears a completed upload queue without clearing the upload status message", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      fileInput,
+      new File(["a"], "single.png", { type: "image/png" }),
+    );
+
+    await waitFor(() => {
+      expect(within(region).getByText(/Все выбранные снимки загружены: 1\./)).toBeInTheDocument();
+    });
+
+    await userEvent.click(
+      within(region).getByRole("button", {
+        name: /Очистить завершённую очередь загрузки снимков/i,
+      }),
+    );
+
+    expect(
+      within(region).queryByText(/Все выбранные снимки загружены: 1\./),
+    ).not.toBeInTheDocument();
+    expect(
+      within(region).queryByRole("list", { name: /Статусы загрузки снимков/i }),
+    ).not.toBeInTheDocument();
+    expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
+    expect(within(region).getByTestId("upload-result-announcement")).toHaveTextContent(
+      /Очередь загрузки очищена\./,
+    );
   });
 
   it("multiple upload exposes progress and can be cancelled", async () => {
@@ -1495,6 +1546,22 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     ).toBeInTheDocument();
 
     await userEvent.click(
+      within(region).getByRole("button", {
+        name: /Скрыть успешно загруженные снимки/i,
+      }),
+    );
+
+    expect(
+      within(list).queryByRole("listitem", { name: /first\.png: Загружен/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(list).getByRole("listitem", { name: /second\.png: Ошибка/i }),
+    ).toBeInTheDocument();
+    expect(within(region).getByTestId("upload-result-announcement")).toHaveTextContent(
+      /Скрыты успешно загруженные снимки: 1\. Остались проблемные файлы: 1\./,
+    );
+
+    await userEvent.click(
       within(region).getByRole("button", { name: /Повторить снимки с ошибкой/i }),
     );
 
@@ -1505,7 +1572,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     expect(
       within(region).queryByRole("list", { name: /Статусы загрузки снимков/i }),
     ).not.toBeInTheDocument();
-    expect(within(region).getByText(/Все выбранные снимки загружены: 2\./)).toBeInTheDocument();
+    expect(within(region).getByText(/Все выбранные снимки загружены: 1\./)).toBeInTheDocument();
     expect(within(region).getByTestId("upload-result-announcement")).toHaveTextContent(
       /Снимок загружен\./,
     );
@@ -1518,11 +1585,11 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       name: /Статусы загрузки снимков/i,
     });
     expect(
-      within(expandedList).getByRole("listitem", { name: /first\.png: Загружен/i }),
-    ).toBeInTheDocument();
-    expect(
       within(expandedList).getByRole("listitem", { name: /second\.png: Загружен/i }),
     ).toBeInTheDocument();
+    expect(
+      within(expandedList).queryByRole("listitem", { name: /first\.png: Загружен/i }),
+    ).not.toBeInTheDocument();
     expect(
       within(region).queryByRole("button", { name: /Повторить снимки с ошибкой/i }),
     ).not.toBeInTheDocument();
