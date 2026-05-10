@@ -42,6 +42,12 @@ const isWindows = process.platform === "win32";
 const npxCmd = isWindows ? "npx.cmd" : "npx";
 const args = ["playwright", "test", "e2e/auth-assets-smoke.pw.ts"];
 
+if (process.env.SMOKE_AUTH_ASSETS_DRY_RUN === "1") {
+  console.log("[smoke-auth-assets] DRY RUN: would run Playwright smoke.");
+  console.log(`[smoke-auth-assets] command: ${npxCmd} ${args.join(" ")}`);
+  process.exit(0);
+}
+
 console.log(`[smoke-auth-assets] $ ${npxCmd} ${args.join(" ")}`);
 const result = spawnSync(npxCmd, args, { stdio: "inherit", shell: false });
 
