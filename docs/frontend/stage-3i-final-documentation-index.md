@@ -51,3 +51,13 @@ All four must complete cleanly.
   readiness chain for unrelated feature work.
 - Only documentation corrections or link fixes should touch Stage 3
   docs after handoff.
+
+## 6. GitHub to Lovable sync pilot
+
+- Codex-authored changes should land in GitHub first, then sync into
+  Lovable from the connected repository.
+- For default Lovable sync, merge the reviewed branch into `main`.
+- If Lovable branch switching is enabled, verify the branch directly
+  before merging.
+- Lovable should confirm synced files only; it should not rewrite,
+  regenerate, or expand the synced change.
