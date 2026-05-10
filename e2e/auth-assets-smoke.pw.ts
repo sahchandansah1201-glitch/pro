@@ -113,6 +113,19 @@ test.describe("Stage 2A · real-auth doctor assets smoke", () => {
       if (opened) {
         // Visible dialog text must not contain forbidden tokens.
         const dialog = page.getByRole("dialog");
+        await expect(
+          dialog.getByRole("button", { name: /Открыть в новой вкладке/i }),
+        ).toBeVisible();
+
+        // Radix Dialog is modal; keyboard focus should stay inside the preview.
+        for (let i = 0; i < 4; i += 1) {
+          await page.keyboard.press("Tab");
+          expect(
+            await dialog.evaluate((el) => el.contains(document.activeElement)),
+            "Preview dialog must trap keyboard focus.",
+          ).toBeTruthy();
+        }
+
         const text = (await dialog.innerText()).toLowerCase();
         for (const tok of FORBIDDEN_TOKENS) {
           expect(
@@ -125,6 +138,21 @@ test.describe("Stage 2A · real-auth doctor assets smoke", () => {
           /https?:\/\//.test(text),
           "Preview dialog must not expose a raw URL in visible text.",
         ).toBeFalsy();
+        expect(
+          text.includes("sig="),
+          "Preview dialog must not expose URL signatures.",
+        ).toBeFalsy();
+        expect(
+          text.includes("access_token"),
+          "Preview dialog must not expose access tokens.",
+        ).toBeFalsy();
+
+        const imageFallback = dialog.getByText(/Не удалось отобразить изображение/i);
+        if (await imageFallback.isVisible().catch(() => false)) {
+          await expect(
+            dialog.getByRole("button", { name: /^Получить новую ссылку для снимка / }),
+          ).toBeVisible();
+        }
       } else {
         await expect(safeDownloadError.first()).toBeVisible({ timeout: 5_000 });
       }
