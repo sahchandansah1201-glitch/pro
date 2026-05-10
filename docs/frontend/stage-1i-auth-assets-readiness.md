@@ -657,7 +657,7 @@ release blockers unless explicitly stated.
      uncommitted in the working tree.
    - Preserve it as-is; do not revert or regenerate it.
 
-8. Smoke runner exits 1 with missing env vars
+8. Smoke runner missing env exits 1
    - Expected behavior of `scripts/smoke-auth-assets.mjs`.
    - Output lists only the missing env var names, never values.
    - To verify wiring without real credentials, use the dry run
@@ -676,7 +676,7 @@ release blockers unless explicitly stated.
    - Never paste secrets, tokens, or signed URLs into logs, docs,
      or issue threads.
 
-10. `npm run preflight:auth-assets` fails
+10. Preflight fails
     - The first failing section in the output is the one to
       inspect; later sections did not run.
     - Re-run only that section's underlying command while
