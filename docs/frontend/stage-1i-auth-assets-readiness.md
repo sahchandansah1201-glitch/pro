@@ -696,3 +696,45 @@ release blockers unless explicitly stated.
       success.
     - Do not skip `check-no-deno-locks`; it is part of the
       deterministic guard.
+
+## 13. Final readiness snapshot
+
+1. Current local gate
+   - `npm run preflight:auth-assets`
+   - Expected ending: `[preflight-auth-assets] OK`
+
+2. Included checks
+   - auth/session unit suites
+   - doctor assets API adapter tests
+   - VisitWorkspacePage tests
+   - VisitImagingTab tests
+   - VisitImagingTab hygiene tests
+   - doctor forbidden scan
+   - smoke runner log-safety tests
+   - Vite build
+   - no-deno-lock guard
+
+3. Current targeted count
+   - `VisitImagingTab.test.tsx`: 69 tests
+   - `VisitWorkspacePage.test.tsx`: 25 tests
+   - `VisitImagingTab.hygiene.test.ts`: 6 tests
+   - total targeted doctor assets surface: 100 tests
+
+4. Repository invariants
+   - `package-lock.json` preserved.
+   - no `deno.lock` files.
+   - no Playwright artifacts committed.
+   - real-auth smoke is opt-in/local only.
+
+5. Non-blocking warnings
+   - React Router v7 future-flag warnings.
+   - Browserslist caniuse-lite warning.
+   - Vite chunk size warning.
+
+6. Done definition
+   - preflight green.
+   - no-deno-lock guard green.
+   - smoke runner log-safety green.
+   - workflows green on target ref.
+   - no secrets in logs/docs.
+
