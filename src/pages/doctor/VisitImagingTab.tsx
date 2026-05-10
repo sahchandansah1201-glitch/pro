@@ -583,6 +583,8 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   );
   const allUploadItemsUploaded =
     uploadItems.length > 0 && uploadedUploadCount === uploadItems.length;
+  const canClearUploadedUploadItems =
+    uploadedUploadCount > 0 && uploadItems.length > uploadedUploadCount;
 
   // Initial load + manual reload trigger.
   useEffect(() => {
@@ -795,6 +797,26 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       retryItems,
     );
   }, [processFiles]);
+
+  const handleClearUploadItems = useCallback(() => {
+    setUploadItemsSync([]);
+    setUploadItemsExpanded(true);
+    setUploadResultAnnouncement("Очередь загрузки очищена.");
+  }, [setUploadItemsSync]);
+
+  const handleClearUploadedUploadItems = useCallback(() => {
+    const uploadedCount = uploadItemsRef.current.filter(
+      (item) => item.status === "uploaded",
+    ).length;
+    const nextItems = uploadItemsRef.current.filter(
+      (item) => item.status !== "uploaded",
+    );
+    setUploadItemsSync(nextItems);
+    setUploadItemsExpanded(true);
+    setUploadResultAnnouncement(
+      `Скрыты успешно загруженные снимки: ${uploadedCount}. Остались проблемные файлы: ${nextItems.length}.`,
+    );
+  }, [setUploadItemsSync]);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1117,6 +1139,15 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
               >
                 Показать статусы
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[12px]"
+                onClick={handleClearUploadItems}
+                aria-label="Очистить завершённую очередь загрузки снимков"
+              >
+                Очистить
+              </Button>
             </div>
           ) : (
             <ul
@@ -1146,6 +1177,17 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
               className="mt-2 h-8 px-2 text-[12px]"
               onClick={() => setUploadItemsExpanded(false)}
               aria-label="Скрыть загруженные статусы"
+            >
+              Скрыть загруженные
+            </Button>
+          )}
+          {canClearUploadedUploadItems && !uploading && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-2 h-8 px-2 text-[12px]"
+              onClick={handleClearUploadedUploadItems}
+              aria-label="Скрыть успешно загруженные снимки"
             >
               Скрыть загруженные
             </Button>
