@@ -494,6 +494,33 @@ interface ApiAssetsPanelProps {
 }
 
 type ErrorContext = "list" | "download" | "upload";
+type UploadItemStatus =
+  | "queued"
+  | "uploading"
+  | "uploaded"
+  | "failed"
+  | "cancelled"
+  | "skipped";
+
+interface UploadQueueItem {
+  id: string;
+  file: File;
+  name: string;
+  status: UploadItemStatus;
+}
+
+const UPLOAD_ITEM_STATUS_LABEL: Record<UploadItemStatus, string> = {
+  queued: "Ожидает",
+  uploading: "Загружается",
+  uploaded: "Загружен",
+  failed: "Ошибка",
+  cancelled: "Отменён",
+  skipped: "Не загружен",
+};
+
+function isRetryableUploadStatus(status: UploadItemStatus) {
+  return status === "failed" || status === "skipped" || status === "cancelled";
+}
 
 function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) {
   const configured = Boolean(apiToken && apiBaseUrl);
@@ -510,9 +537,42 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     current: number;
     total: number;
   } | null>(null);
+  const [uploadItems, setUploadItems] = useState<UploadQueueItem[]>([]);
   const [openingAssetId, setOpeningAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
+  const uploadItemsRef = useRef<UploadQueueItem[]>([]);
+  const uploadBatchSeqRef = useRef(0);
+
+  const setUploadItemsSync = useCallback(
+    (
+      next:
+        | UploadQueueItem[]
+        | ((prev: UploadQueueItem[]) => UploadQueueItem[]),
+    ) => {
+      setUploadItems((prev) => {
+        const value = typeof next === "function" ? next(prev) : next;
+        uploadItemsRef.current = value;
+        return value;
+      });
+    },
+    [],
+  );
+
+  const updateUploadItemStatus = useCallback(
+    (id: string, status: UploadItemStatus) => {
+      setUploadItemsSync((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status } : item)),
+      );
+    },
+    [setUploadItemsSync],
+  );
+
+  const retryableUploadCount = useMemo(
+    () =>
+      uploadItems.filter((item) => isRetryableUploadStatus(item.status)).length,
+    [uploadItems],
+  );
 
   // Initial load + manual reload trigger.
   useEffect(() => {
@@ -555,12 +615,13 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   }, [configured]);
 
   const processFiles = useCallback(
-    async (files: File[]) => {
+    async (files: File[], existingItems?: UploadQueueItem[]) => {
       if (files.length === 0) return;
       // Guard against duplicate uploads while one is pending. The button
       // is disabled while busy, but drag/drop has no built-in disable.
       if (busyRef.current) return;
       if (files.some((file) => !isAcceptedImageFile(file))) {
+        setUploadItemsSync([]);
         setError(null);
         setErrorContext(null);
         setStatus("Выберите файл изображения: JPEG, PNG, WebP или HEIC.");
@@ -568,12 +629,35 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       }
       const tooLarge = oversizedImageFile(files);
       if (tooLarge) {
+        setUploadItemsSync([]);
         setError(null);
         setErrorContext(null);
         setStatus(
           `Файл слишком большой: ${tooLarge.name}. Максимум ${MAX_UPLOAD_IMAGE_LABEL}.`,
         );
         return;
+      }
+      const items =
+        existingItems ??
+        files.map((file, idx) => {
+          const batch = uploadBatchSeqRef.current;
+          return {
+            id: `${batch}-${idx}-${file.name}-${file.size}-${file.lastModified}`,
+            file,
+            name: file.name,
+            status: "queued" as UploadItemStatus,
+          };
+        });
+      uploadBatchSeqRef.current += 1;
+      if (existingItems) {
+        const retryIds = new Set(existingItems.map((item) => item.id));
+        setUploadItemsSync((prev) =>
+          prev.map((item) =>
+            retryIds.has(item.id) ? { ...item, status: "queued" } : item,
+          ),
+        );
+      } else {
+        setUploadItemsSync(items);
       }
       const controller = new AbortController();
       uploadAbortRef.current = controller;
@@ -587,6 +671,8 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       let shouldReload = false;
       try {
         for (const [idx, file] of files.entries()) {
+          const item = items[idx];
+          updateUploadItemStatus(item.id, "uploading");
           setUploadProgress({ current: idx + 1, total: files.length });
           setStatus(
             files.length === 1
@@ -603,6 +689,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
             signal: controller.signal,
           });
           if (controller.signal.aborted) {
+            const cancelledIds = new Set(items.slice(idx).map((x) => x.id));
+            setUploadItemsSync((prev) =>
+              prev.map((x) =>
+                cancelledIds.has(x.id) ? { ...x, status: "cancelled" } : x,
+              ),
+            );
             setStatus(
               uploadedCount > 0
                 ? `Загрузка отменена. Загружено снимков: ${uploadedCount}.`
@@ -613,6 +705,13 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           }
           if (!res.ok) {
             // Do not clear `assets` — keep already-rendered rows visible.
+            updateUploadItemStatus(item.id, "failed");
+            const skippedIds = new Set(items.slice(idx + 1).map((x) => x.id));
+            setUploadItemsSync((prev) =>
+              prev.map((x) =>
+                skippedIds.has(x.id) ? { ...x, status: "skipped" } : x,
+              ),
+            );
             setError(res.error);
             setErrorContext("upload");
             setStatus(
@@ -623,6 +722,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
             return;
           }
           uploadedCount += 1;
+          updateUploadItemStatus(item.id, "uploaded");
         }
         if (uploadedCount > 0) {
           setStatus(
@@ -641,12 +741,28 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         if (shouldReload) setReloadTick((n) => n + 1);
       }
     },
-    [apiToken, apiBaseUrl, visitId],
+    [
+      apiToken,
+      apiBaseUrl,
+      visitId,
+      setUploadItemsSync,
+      updateUploadItemStatus,
+    ],
   );
 
   const handleCancelUpload = useCallback(() => {
     uploadAbortRef.current?.abort();
   }, []);
+
+  const handleRetryFailedUploads = useCallback(() => {
+    const retryItems = uploadItemsRef.current.filter((item) =>
+      isRetryableUploadStatus(item.status),
+    );
+    void processFiles(
+      retryItems.map((item) => item.file),
+      retryItems,
+    );
+  }, [processFiles]);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -936,6 +1052,41 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
               onClick={handleRetry}
               disabled={busy}
               aria-label="Повторить загрузку ассетов"
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить
+            </Button>
+          )}
+        </div>
+      )}
+
+      {uploadItems.length > 0 && (
+        <div className="px-3 pb-2">
+          <ul
+            aria-label="Статусы загрузки снимков"
+            aria-live="polite"
+            className="space-y-1 text-[12px]"
+          >
+            {uploadItems.map((item) => {
+              const label = UPLOAD_ITEM_STATUS_LABEL[item.status];
+              return (
+                <li
+                  key={item.id}
+                  aria-label={`${item.name}: ${label}`}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-muted/40 px-2 py-1 text-muted-foreground"
+                >
+                  <span className="truncate">{item.name}</span>
+                  <span className="font-medium text-foreground">{label}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {retryableUploadCount > 0 && !uploading && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-2 h-8 gap-1.5 text-[12px]"
+              onClick={handleRetryFailedUploads}
+              aria-label="Повторить незагруженные снимки"
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить
             </Button>

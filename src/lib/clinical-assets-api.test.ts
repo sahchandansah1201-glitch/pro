@@ -196,6 +196,40 @@ describe("clinical-assets-api · network calls", () => {
     expect((init as RequestInit).body).toBeInstanceOf(FormData);
   });
 
+  it("uploadVisitAsset passes AbortSignal to fetch", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: "a1",
+          clinicId: "c1",
+          visitId: "v1",
+          lesionId: null,
+          kind: "overview",
+          source: "file",
+          capturedAt: "2026-05-09T10:00:00Z",
+          deviceId: null,
+          qualityScore: 0.9,
+          qualityIssues: [],
+          createdAt: "2026-05-09T10:00:01Z",
+        }),
+        { status: 201, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const controller = new AbortController();
+    await uploadVisitAsset({
+      token: TOKEN,
+      baseUrl: BASE,
+      visitId: "v1",
+      file: new File(["x"], "x.jpg", { type: "image/jpeg" }),
+      kind: "overview",
+      source: "file",
+      signal: controller.signal,
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init as RequestInit).signal).toBe(controller.signal);
+  });
+
   it("getAssetDownloadUrl includes expiresIn query and bearer", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
