@@ -494,3 +494,26 @@ intentionally does not provide `E2E_DOCTOR_*` credentials; the
 `auth-assets-smoke-skip` workflow only verifies that the spec
 remains runnable/skippable in a credential-free environment. Real
 credentials stay local and outside CI.
+
+### 10.4 Smoke runner dry run
+
+To validate env presence and command wiring without launching
+Playwright:
+
+```bash
+SMOKE_AUTH_ASSETS_DRY_RUN=1 npm run smoke:auth-assets
+# or:
+npm run smoke:auth-assets:dry-run
+```
+
+With all required env vars present, the dry run prints
+`[smoke-auth-assets] DRY RUN: would run Playwright smoke.` plus the
+exact command (`npx playwright test e2e/auth-assets-smoke.pw.ts`)
+and exits 0 without spawning Playwright. With required env vars
+missing, the dry run still exits 1 and lists the missing names,
+identical to the non-dry-run path.
+
+The runner never prints environment variable values: not
+`E2E_DOCTOR_PASSWORD`, not access tokens, not signed URLs. The
+example invocation in error output uses a placeholder
+(`E2E_DOCTOR_PASSWORD='***'`) only.
