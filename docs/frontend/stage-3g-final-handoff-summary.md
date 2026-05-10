@@ -58,3 +58,5 @@ git status --short
 
 - Further work on upload UX, preview UX, auth routing, CI, backend, smoke behavior, or deployment automation must be opened as a new stage.
 - Do not mix new feature work into the auth/assets readiness handoff slice.
+
+Release reviewer FAQ lives in [docs/frontend/stage-3h-release-reviewer-faq.md](./stage-3h-release-reviewer-faq.md).
