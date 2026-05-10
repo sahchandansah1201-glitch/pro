@@ -73,3 +73,4 @@
 - No `deno.lock` files.
 - `package-lock.json` preserved.
 - Release decision documented.
+- After rollback, rerun the smoke checklist in docs/frontend/stage-3c-production-smoke.md.
