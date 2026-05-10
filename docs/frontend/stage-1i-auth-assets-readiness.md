@@ -578,7 +578,12 @@ Expected:
   without launching Playwright).
 - `node scripts/check-no-deno-locks.mjs` exits 0 and prints no
   `deno.lock` paths.
-- `git status --short` is empty.
+- `git status --short` shows no unexpected modifications. The
+  already-known preserved `M package-lock.json` is acceptable, and new
+  docs changes are acceptable until committed. No `deno.lock`,
+  generated artifacts, test reports, Playwright reports, or unrelated
+  source/config changes should appear. `package-lock.json` must not be
+  deleted, manually regenerated, or reverted.
 
 ### 11.2 Opt-in smoke verification
 
