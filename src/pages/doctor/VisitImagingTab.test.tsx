@@ -797,6 +797,22 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
     ).toBeInTheDocument();
   });
 
+  it("keeps keyboard focus trapped inside the preview dialog", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+
+    for (let i = 0; i < 6; i += 1) {
+      await userEvent.tab();
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    }
+
+    await userEvent.tab({ shift: true });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+  });
+
   it("image onError shows the fallback message and keeps 'Открыть в новой вкладке'", async () => {
     vi.stubGlobal("fetch", makeOkFetch());
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
@@ -875,6 +891,11 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
         within(dialog).getByRole("button", { name: /Открыть в новой вкладке/i }),
       ).toHaveFocus();
     });
+    const announcement = within(dialog).getByTestId("preview-refresh-announcement");
+    expect(announcement).toHaveTextContent("Ссылка обновлена.");
+    expect(announcement.getAttribute("aria-live")).toBe("polite");
+    expect(announcement).not.toHaveTextContent(/https?:\/\//i);
+    expect(announcement).not.toHaveTextContent(/sig=|token/i);
     expect(dialog.textContent ?? "").not.toContain(REFRESHED_URL);
   });
 
@@ -941,6 +962,11 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
         }),
       ).toHaveFocus();
     });
+    const announcement = within(dialog).getByTestId("preview-refresh-announcement");
+    expect(announcement).toHaveTextContent("Не удалось обновить ссылку.");
+    expect(announcement.getAttribute("aria-live")).toBe("polite");
+    expect(announcement).not.toHaveTextContent(/https?:\/\//i);
+    expect(announcement).not.toHaveTextContent(/sig=|token/i);
   });
 
   it("dialog visible text never contains the signed URL or forbidden tokens", async () => {

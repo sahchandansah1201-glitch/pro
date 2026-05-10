@@ -1328,30 +1328,42 @@ function AssetPreviewDialog({
   const refreshButtonRef = useRef<HTMLButtonElement | null>(null);
   const openInNewTabButtonRef = useRef<HTMLButtonElement | null>(null);
   const wasRefreshingRef = useRef(false);
+  const [refreshAnnouncement, setRefreshAnnouncement] = useState<string | null>(null);
 
   // Reset image-load state whenever the previewed asset changes (or closes).
   useEffect(() => {
     setImageError(false);
     setImageLoaded(false);
+    setRefreshAnnouncement(null);
   }, [preview?.asset.id, preview?.downloadUrl]);
 
   const isLoading = preview !== null && ((!imageLoaded && !imageError) || refreshing);
 
   useEffect(() => {
+    if (!preview) {
+      wasRefreshingRef.current = refreshing;
+      setRefreshAnnouncement(null);
+      return;
+    }
+    if (refreshing) {
+      setRefreshAnnouncement("Обновляем ссылку.");
+    }
     if (wasRefreshingRef.current && !refreshing) {
+      const failed = Boolean(refreshError && imageError);
+      setRefreshAnnouncement(
+        failed ? "Не удалось обновить ссылку." : "Ссылка обновлена.",
+      );
       const target =
-        refreshError && imageError
-          ? refreshButtonRef.current
-          : openInNewTabButtonRef.current;
+        failed ? refreshButtonRef.current : openInNewTabButtonRef.current;
       queueMicrotask(() => {
         if (target?.isConnected) target.focus();
       });
     }
     wasRefreshingRef.current = refreshing;
-  }, [refreshing, refreshError, imageError]);
+  }, [preview, refreshing, refreshError, imageError]);
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog modal open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Просмотр снимка</DialogTitle>
@@ -1370,6 +1382,16 @@ function AssetPreviewDialog({
                 aria-live="assertive"
               >
                 {assetsErrorMessage(refreshError, "download")}
+              </p>
+            )}
+            {refreshAnnouncement && (
+              <p
+                className="sr-only"
+                role="status"
+                aria-live="polite"
+                data-testid="preview-refresh-announcement"
+              >
+                {refreshAnnouncement}
               </p>
             )}
             <AssetPreviewImageFrame
@@ -1519,6 +1541,9 @@ function AssetPreviewActions({
 
 function scrubLeaks(s: string): string {
   return s
+    .replace(/https?:\/\/[^\s"'<>]+/gi, "")
+    .replace(/\b(?:access_token|refresh_token|token|sig|signature)=\S+/gi, "")
+    .replace(/\beyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b/g, "")
     .replace(/storageObjectPath/gi, "")
     .replace(/storage_object_path/gi, "")
     .replace(/\bexif\w*/gi, "")
