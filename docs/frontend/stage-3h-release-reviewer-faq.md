@@ -76,3 +76,5 @@ git status --short
 
 For live incidents follow Stage 3D. For rollback follow Stage 3B. Record
 the final decision per Stage 3E.
+
+Final documentation index lives in [docs/frontend/stage-3i-final-documentation-index.md](./stage-3i-final-documentation-index.md).
