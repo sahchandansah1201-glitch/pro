@@ -494,6 +494,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const [reloadTick, setReloadTick] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [openingAssetId, setOpeningAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Initial load + manual reload trigger.
@@ -670,9 +671,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
 
   const handleOpen = useCallback(
     async (asset: SafeAssetDTO, opener?: HTMLElement | null) => {
+      if (busyRef.current) return;
       previewOpenerRef.current =
         opener ?? (typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null);
       setBusy(true);
+      busyRef.current = true;
+      setOpeningAssetId(asset.id);
       setError(null);
       setErrorContext(null);
       setStatus("Подготовка ссылки…");
@@ -682,6 +686,8 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         assetId: asset.id,
       });
       setBusy(false);
+      busyRef.current = false;
+      setOpeningAssetId(null);
       if (res.ok && res.value) {
         setStatus(null);
         setPreview({ asset, downloadUrl: res.value.downloadUrl });
@@ -850,33 +856,46 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
 
       {configured && assets && assets.length > 0 && (
         <ul className="divide-y divide-border">
-          {assets.map((a, idx) => (
-            <li
-              key={a.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-            >
-              <div className="min-w-0 text-[12px]">
-                <div className="truncate font-medium text-foreground">
-                  {KIND_LABEL[a.kind]} · {SOURCE_LABEL[a.source]}
-                </div>
-                <div className="truncate text-muted-foreground">
-                  Снято: {formatDateTime(a.capturedAt)} · качество{" "}
-                  {Math.round((a.qualityScore || 0) * 100)}%
-                </div>
-              </div>
-              <Button
-                ref={idx === 0 ? firstOpenButtonRef : undefined}
-                size="sm"
-                variant="secondary"
-                className="h-10 gap-1.5 text-[12px] sm:h-8"
-                onClick={() => handleOpen(a)}
-                disabled={busy}
-                aria-label={`Открыть снимок ${a.id}`}
+          {assets.map((a, idx) => {
+            const openingThisAsset = openingAssetId === a.id;
+            return (
+              <li
+                key={a.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
               >
-                <ExternalLink className="h-3.5 w-3.5" /> Открыть
-              </Button>
-            </li>
-          ))}
+                <div className="min-w-0 text-[12px]">
+                  <div className="truncate font-medium text-foreground">
+                    {KIND_LABEL[a.kind]} · {SOURCE_LABEL[a.source]}
+                  </div>
+                  <div className="truncate text-muted-foreground">
+                    Снято: {formatDateTime(a.capturedAt)} · качество{" "}
+                    {Math.round((a.qualityScore || 0) * 100)}%
+                  </div>
+                </div>
+                <Button
+                  ref={idx === 0 ? firstOpenButtonRef : undefined}
+                  size="sm"
+                  variant="secondary"
+                  className="h-10 gap-1.5 text-[12px] sm:h-8"
+                  onClick={(e) => handleOpen(a, e.currentTarget)}
+                  disabled={busy}
+                  aria-busy={openingThisAsset || undefined}
+                  aria-label={
+                    openingThisAsset
+                      ? `Готовим ссылку для снимка ${a.id}`
+                      : `Открыть снимок ${a.id}`
+                  }
+                >
+                  {openingThisAsset ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {openingThisAsset ? "Готовим…" : "Открыть"}
+                </Button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
