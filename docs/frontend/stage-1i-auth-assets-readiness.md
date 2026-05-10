@@ -540,3 +540,80 @@ assert that:
   the runner exits 0, prints the `DRY RUN` banner and the command
   `npx playwright test e2e/auth-assets-smoke.pw.ts`, and does not
   print the email or password values.
+
+## 11. Final local release runbook
+
+This section is the canonical local checklist before tagging or
+promoting the auth/assets readiness slice. It mirrors what CI runs
+and is intentionally short.
+
+### 11.1 Deterministic preflight
+
+Run the full preflight, the deno-lock guard, and confirm a clean
+working tree:
+
+```bash
+npm run preflight:auth-assets
+node scripts/check-no-deno-locks.mjs
+git status --short
+```
+
+Expected:
+
+- `npm run preflight:auth-assets` ends with
+  `[preflight-auth-assets] OK` and includes the `smoke runner
+  log-safety` step (which runs `npm run test:smoke-auth-assets`
+  without launching Playwright).
+- `node scripts/check-no-deno-locks.mjs` exits 0 and prints no
+  `deno.lock` paths.
+- `git status --short` is empty.
+
+### 11.2 Opt-in smoke verification
+
+The real-auth Playwright smoke stays local and opt-in. Before a
+release, verify the runner's guardrails without needing real
+credentials:
+
+```bash
+node scripts/smoke-auth-assets.mjs
+npm run smoke:auth-assets:dry-run
+```
+
+Expected:
+
+- The first command exits 1 and lists missing
+  `E2E_DOCTOR_EMAIL`, `E2E_DOCTOR_PASSWORD`, `E2E_VISIT_ROUTE`,
+  without spawning Playwright and without leaking env values.
+- The dry run exits 0, prints
+  `[smoke-auth-assets] DRY RUN: would run Playwright smoke.` and
+  the command `npx playwright test e2e/auth-assets-smoke.pw.ts`,
+  and never prints password or email values.
+
+Running the real smoke (`npm run smoke:auth-assets` with
+`E2E_DOCTOR_EMAIL`, `E2E_DOCTOR_PASSWORD`, `E2E_VISIT_ROUTE` set)
+remains a manual, local-only step and is not required for release.
+
+### 11.3 Repository invariants
+
+- `package-lock.json` is preserved and must not be reverted or
+  regenerated as part of this slice.
+- No `deno.lock` files exist anywhere in the repo; the
+  `no-deno-locks` workflow and `scripts/check-no-deno-locks.mjs`
+  enforce this.
+- The `auth-assets-smoke-skip` workflow remains separate and
+  credential-free; it only verifies that the smoke spec is
+  runnable and skippable without secrets.
+
+### 11.4 CI alignment
+
+CI and local use the same entry point:
+
+- `.github/workflows/frontend-auth-assets.yml` runs
+  `npm run preflight:auth-assets`, the same command used locally.
+- Both `frontend-auth-assets` and `auth-assets-smoke-skip`
+  workflows write a short summary to `GITHUB_STEP_SUMMARY` so the
+  release reviewer can confirm status without reading full logs.
+
+When all three subsections (11.1, 11.2, 11.3) pass locally and
+both workflows are green on the target ref, the auth/assets
+readiness slice is ready for release.
