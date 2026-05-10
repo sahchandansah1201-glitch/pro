@@ -69,3 +69,5 @@ documentation stage.
 
 Notes that contain secrets or sensitive screenshots are kept outside the
 repository.
+
+Final handoff summary lives in [docs/frontend/stage-3g-final-handoff-summary.md](./stage-3g-final-handoff-summary.md).
