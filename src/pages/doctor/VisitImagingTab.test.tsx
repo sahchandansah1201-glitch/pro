@@ -259,6 +259,59 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
 
     await screen.findByRole("dialog");
   });
+
+  it("download failure clears row pending state and returns focus to the opener", async () => {
+    let resolveDownload: ((res: Response) => void) | null = null;
+    const pendingDownload = new Promise<Response>((resolve) => {
+      resolveDownload = resolve;
+    });
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) return pendingDownload;
+      return Promise.resolve(
+        new Response(JSON.stringify([sampleAsset]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    });
+
+    renderTab({
+      apiToken: "doctor-jwt",
+      apiBaseUrl: "https://abc.supabase.co",
+    });
+
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+
+    const pendingBtn = await within(region).findByRole("button", {
+      name: /Готовим ссылку для снимка a-1/i,
+    });
+    expect(pendingBtn).toBeDisabled();
+    expect(pendingBtn).toHaveAttribute("aria-busy", "true");
+
+    resolveDownload!(
+      new Response(JSON.stringify({ message: "missing" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(/Снимок не найден\./);
+    });
+    const restoredBtn = within(region).getByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    expect(restoredBtn).not.toBeDisabled();
+    expect(restoredBtn).not.toHaveAttribute("aria-busy");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(openSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(restoredBtn).toHaveFocus());
+  });
 });
 
 // Stage 1I-B · Error UX for list / download / upload.

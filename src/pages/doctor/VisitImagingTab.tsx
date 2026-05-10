@@ -647,6 +647,17 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   // Stage 2E-E: remember the opener so we can return focus on close.
   const previewOpenerRef = useRef<HTMLElement | null>(null);
 
+  const restorePreviewOpenerFocus = useCallback(() => {
+    const opener = previewOpenerRef.current;
+    previewOpenerRef.current = null;
+    if (opener && typeof opener.focus === "function" && opener.isConnected) {
+      // Defer to allow Radix or the alert render pass to settle first.
+      queueMicrotask(() => {
+        if (opener.isConnected) opener.focus();
+      });
+    }
+  }, []);
+
   // Stage 2E-G: focus return after list retry.
   const regionRef = useRef<HTMLElement | null>(null);
   const retryButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -695,22 +706,16 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         setError(res.error);
         setErrorContext("download");
         setStatus(null);
+        restorePreviewOpenerFocus();
       }
     },
-    [apiToken, apiBaseUrl],
+    [apiToken, apiBaseUrl, restorePreviewOpenerFocus],
   );
 
   const handleClosePreview = useCallback(() => {
     setPreview(null);
-    const opener = previewOpenerRef.current;
-    previewOpenerRef.current = null;
-    if (opener && typeof opener.focus === "function" && opener.isConnected) {
-      // Defer to allow Radix to release focus trap before we restore.
-      queueMicrotask(() => {
-        if (opener.isConnected) opener.focus();
-      });
-    }
-  }, []);
+    restorePreviewOpenerFocus();
+  }, [restorePreviewOpenerFocus]);
 
   const handleOpenInNewTab = useCallback(() => {
     if (preview) {
