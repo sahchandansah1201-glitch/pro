@@ -21,6 +21,7 @@ const steps = [
   ["VisitImagingTab",          npmCmd, ["test", "--", "--run", "src/pages/doctor/VisitImagingTab.test.tsx"]],
   ["VisitImagingTab hygiene",  npmCmd, ["test", "--", "--run", "src/pages/doctor/VisitImagingTab.hygiene.test.ts"]],
   ["Doctor forbidden scan",    process.execPath, ["scripts/scan-doctor-forbidden.mjs"]],
+  ["smoke runner log-safety",  npmCmd, ["run", "test:smoke-auth-assets"]],
   ["Build",                    npmCmd, ["run", "build"]],
   ["No deno.lock files",       process.execPath, ["scripts/check-no-deno-locks.mjs"]],
 ];
