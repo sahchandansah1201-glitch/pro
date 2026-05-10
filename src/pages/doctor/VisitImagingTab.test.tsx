@@ -207,6 +207,58 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
     expect(img.src).toBe("https://signed.example/asset-1?sig=xyz");
     expect(openSpy).not.toHaveBeenCalled();
   });
+
+  it("shows a row-level preparing indicator while the signed URL is pending", async () => {
+    let resolveDownload: ((res: Response) => void) | null = null;
+    const pendingDownload = new Promise<Response>((resolve) => {
+      resolveDownload = resolve;
+    });
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) return pendingDownload;
+      return Promise.resolve(
+        new Response(JSON.stringify([sampleAsset]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    });
+
+    renderTab({
+      apiToken: "doctor-jwt",
+      apiBaseUrl: "https://abc.supabase.co",
+    });
+
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await userEvent.click(openBtn);
+
+    const pendingBtn = await within(region).findByRole("button", {
+      name: /Готовим ссылку для снимка a-1/i,
+    });
+    expect(pendingBtn).toBeDisabled();
+    expect(pendingBtn).toHaveAttribute("aria-busy", "true");
+    expect(pendingBtn).toHaveTextContent(/Готовим/);
+    expect(within(region).getByRole("status")).toHaveTextContent(/Подготовка ссылки/);
+
+    resolveDownload!(
+      new Response(
+        JSON.stringify({
+          assetId: "a-1",
+          clinicId: "c-1",
+          visitId: visit.id,
+          downloadUrl: "https://signed.example/asset-1?sig=xyz",
+          expiresIn: 300,
+          expiresAt: "2026-05-09T10:05:00Z",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    await screen.findByRole("dialog");
+  });
 });
 
 // Stage 1I-B · Error UX for list / download / upload.
@@ -2187,4 +2239,3 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     await waitFor(() => expect(region).toHaveFocus());
   });
 });
-
