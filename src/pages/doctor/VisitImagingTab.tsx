@@ -709,7 +709,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   }, [preview]);
 
   return (
-    <section className="surface-card" aria-label="API ассеты визита">
+    <section className="surface-card" aria-label="API ассеты визита" tabIndex={-1} ref={regionRef}>
       <div className="section-bar">
         <h2 className="h-section">API ассеты</h2>
         <span className="h-section-hint">
