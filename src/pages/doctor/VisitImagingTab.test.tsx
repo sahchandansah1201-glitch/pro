@@ -2007,3 +2007,184 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
   });
 });
 
+// Stage 2E-H · Retry focus safety regressions.
+describe("VisitImagingTab · API panel · retry focus safety", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("Enter on retry button triggers a new list request and focuses the first asset on success", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+          );
+        }
+        return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+      }),
+    );
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    retry.focus();
+    expect(retry).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(calls).toBe(2));
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await waitFor(() => expect(openBtn).toHaveFocus());
+  });
+
+  it("Enter-key retry returning empty list focuses the API assets region", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls += 1;
+        if (calls === 1) return Promise.reject(new Error("boom"));
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }),
+    );
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    retry.focus();
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(calls).toBe(2));
+    await waitFor(() => expect(region).toHaveFocus());
+  });
+
+  it("Enter-key retry that fails again keeps focus on the retry button", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls += 1;
+        return Promise.resolve(
+          new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+        );
+      }),
+    );
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    retry.focus();
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(calls).toBe(2));
+    await waitFor(() => {
+      expect(
+        within(region).getByRole("button", { name: "Повторить загрузку ассетов" }),
+      ).toHaveFocus();
+    });
+  });
+
+  it("does not crash if the panel unmounts before retry resolves", async () => {
+    let resolveList: ((v: Response) => void) | null = null;
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+          );
+        }
+        return new Promise<Response>((res) => {
+          resolveList = res;
+        });
+      }),
+    );
+
+    const { unmount } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    await userEvent.click(retry);
+
+    // Unmount while the retry request is still pending — focus restoration
+    // must not throw against a detached node.
+    expect(() => unmount()).not.toThrow();
+
+    await act(async () => {
+      resolveList!(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+      await Promise.resolve();
+    });
+  });
+
+  it("does not focus the empty-state region while the retry request is still pending", async () => {
+    let resolveList: ((v: Response) => void) | null = null;
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+          );
+        }
+        return new Promise<Response>((res) => {
+          resolveList = res;
+        });
+      }),
+    );
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    await userEvent.click(retry);
+
+    // Request is still pending here — region must NOT have grabbed focus.
+    await waitFor(() => expect(calls).toBe(2));
+    expect(region).not.toHaveFocus();
+
+    await act(async () => {
+      resolveList!(new Response(JSON.stringify([]), { status: 200 }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(within(region).getByText(/В API ещё нет ассетов/i)).toBeInTheDocument();
+    });
+    await waitFor(() => expect(region).toHaveFocus());
+  });
+});
+
