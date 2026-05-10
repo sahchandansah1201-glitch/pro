@@ -441,10 +441,13 @@ npm run preflight:auth-assets
 
 This runs `scripts/preflight-auth-assets.mjs`, which sequentially
 executes every unit suite, the doctor forbidden-patterns scan, the
-Vite build, and the `deno.lock` guard, stopping at the first failure
-and ending with `[preflight-auth-assets] OK` on success. It requires
-no network access, no Supabase env vars, no Deno, and no Playwright.
-The Playwright real-auth smoke (`auth-assets-smoke-skip`) remains an
+smoke runner log-safety tests (`npm run test:smoke-auth-assets`,
+which verify missing-env and dry-run redaction behavior without
+launching Playwright), the Vite build, and the `deno.lock` guard,
+stopping at the first failure and ending with
+`[preflight-auth-assets] OK` on success. It requires no network
+access, no Supabase env vars, no Deno, and no Playwright. The
+Playwright real-auth smoke (`auth-assets-smoke-skip`) remains an
 opt-in, separate workflow.
 
 ### 10.2 CI step summaries
