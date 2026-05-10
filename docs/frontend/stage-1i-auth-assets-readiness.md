@@ -319,3 +319,76 @@ the convention used by other `e2e/*.pw.ts` tests.
   without credentials (syntax/skip guard only). The real smoke still
   requires manual `E2E_DOCTOR_*` env vars and a running Vite dev
   server as described in §6.
+
+## 9. Stage 2E assets UI release checklist
+
+### 9.1 Upload UX
+
+- Accepted formats helper text: `JPEG, PNG, WebP или HEIC`.
+- Accepted MIME types: `image/jpeg`, `image/jpg`, `image/png`,
+  `image/webp`, `image/heic`, `image/heif`.
+- Invalid file message: `Выберите файл изображения: JPEG, PNG, WebP или HEIC.`
+- Pending upload status: `Загружаем: <filename>`.
+- Busy indicator copy: `Идёт загрузка…`.
+- No fake upload percentage / progress bar is rendered.
+
+### 9.2 Drag & drop
+
+- Drop target visible copy: `Перетащите снимок сюда`.
+- Drop path reuses the same client-side validation and upload
+  pipeline as the file input.
+- Only the first dropped file is uploaded; additional files are
+  ignored.
+- Drops are ignored while an upload is already in flight (no
+  duplicate POST).
+
+### 9.3 Accessibility
+
+- Dropzone `aria-label` is exactly `Перетащите снимок сюда для загрузки`.
+- Dropzone is keyboard-activatable: Enter and Space open the file
+  picker.
+- Status messages render in a polite live region
+  (`role="status"`, `aria-live="polite"`).
+- Error messages render as assertive alerts
+  (`role="alert"`, `aria-live="assertive"`).
+- Closing the asset preview dialog returns focus to the opener
+  (`Открыть снимок …`) button.
+- Retry focus behavior after `Повторить загрузку ассетов`:
+  - success with rows → focus first `Открыть снимок …` button;
+  - success with empty list → focus the API assets region
+    (`tabIndex={-1}` container);
+  - failure → focus the re-rendered retry button.
+
+### 9.4 Safety & hygiene
+
+- No delete control is rendered in the doctor assets UI.
+- No signed download URL is shown in visible text.
+- No raw storage path / `storageObjectPath` / `storage_object_path` /
+  `exif` is shown in visible text or alert bodies.
+- `src/pages/doctor/**` does not call browser storage / device APIs
+  directly (`fetch`, `localStorage`, `sessionStorage`,
+  `mediaDevices`, `Date.now`, `new Date`); the doctor hygiene scan
+  enforces this.
+
+### 9.5 Verification commands
+
+Run from the repo root:
+
+```bash
+npm test -- --run src/pages/doctor/VisitImagingTab.test.tsx
+npm test -- --run src/pages/doctor/VisitWorkspacePage.test.tsx
+npm test -- --run src/pages/doctor/VisitImagingTab.hygiene.test.ts
+node scripts/scan-doctor-forbidden.mjs
+npm run build
+node scripts/check-no-deno-locks.mjs
+git status --short
+```
+
+Expected at the close of Stage 2E-H:
+
+- 69 + 25 + 6 = 100 targeted tests green.
+- No React `act(...)` warnings in the imaging suite.
+- Doctor forbidden-patterns scan is clean.
+- Vite build is green.
+- No `deno.lock` files anywhere in the repo.
+- `package-lock.json` is preserved (not regenerated or removed).
