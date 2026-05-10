@@ -95,6 +95,7 @@ export interface UploadVisitAssetArgs extends BaseArgs {
   lesionId?: string | null;
   capturedAt?: string;
   deviceId?: string | null;
+  signal?: AbortSignal;
 }
 
 export interface GetAssetDownloadUrlArgs extends BaseArgs {
@@ -242,6 +243,7 @@ export async function uploadVisitAsset(
     method: "POST",
     headers: { Authorization: `Bearer ${args.token as string}` },
     body: form,
+    signal: args.signal,
   });
   if (!r.ok) return fail(r.error as AssetsApiError);
   const obj = (r.value && typeof r.value === "object" ? (r.value as Record<string, unknown>) : {});
@@ -266,4 +268,3 @@ export async function getAssetDownloadUrl(
   const obj = (r.value && typeof r.value === "object" ? (r.value as Record<string, unknown>) : {});
   return ok(toSignedDownloadDTO(obj));
 }
-
