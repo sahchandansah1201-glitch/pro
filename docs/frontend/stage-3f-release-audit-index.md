@@ -30,8 +30,12 @@ git status --short
 ```
 
 All four must complete cleanly. `git status --short` must show no
-unexpected modifications (notably no regenerated `package-lock.json` and
-no new `deno.lock` files).
+unexpected modifications. The already-known preserved `M package-lock.json`
+is acceptable; new docs changes are acceptable until committed. No
+`deno.lock`, generated artifacts, test reports, Playwright reports, or
+unrelated source/config changes should appear. `package-lock.json` must
+not be deleted, manually regenerated, or reverted as part of this
+documentation stage.
 
 ## 4. Release invariants
 
