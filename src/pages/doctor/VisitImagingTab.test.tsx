@@ -820,6 +820,117 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
     openSpy.mockRestore();
   });
 
+  it("image error can refresh the signed URL without closing the preview dialog", async () => {
+    const REFRESHED_URL = "https://signed.example/asset-1?sig=refreshed-token";
+    let downloadCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        downloadCalls += 1;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              assetId: "a-1",
+              clinicId: "c-1",
+              visitId: visit.id,
+              downloadUrl: downloadCalls === 1 ? SIGNED_URL : REFRESHED_URL,
+              expiresIn: 300,
+              expiresAt: "2026-05-09T10:05:00Z",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+    const img = within(dialog).getByRole("img", {
+      name: /Клинический снимок Дерматоскопия/i,
+    });
+    fireEvent.error(img);
+    await within(dialog).findByText(/Не удалось отобразить изображение/);
+
+    await userEvent.click(
+      within(dialog).getByRole("button", {
+        name: /Получить новую ссылку для снимка a-1/i,
+      }),
+    );
+
+    await waitFor(() => expect(downloadCalls).toBe(2));
+    await waitFor(() => {
+      const refreshedImg = within(dialog).getByRole("img", {
+        name: /Клинический снимок Дерматоскопия/i,
+      }) as HTMLImageElement;
+      expect(refreshedImg.src).toBe(REFRESHED_URL);
+    });
+    expect(
+      within(dialog).queryByText(/Не удалось отобразить изображение/),
+    ).not.toBeInTheDocument();
+    expect(dialog.textContent ?? "").not.toContain(REFRESHED_URL);
+  });
+
+  it("failed signed URL refresh stays in the preview dialog and shows an inline alert", async () => {
+    let downloadCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.includes("/download-url")) {
+        downloadCalls += 1;
+        if (downloadCalls === 2) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ message: "missing" }), { status: 404 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              assetId: "a-1",
+              clinicId: "c-1",
+              visitId: visit.id,
+              downloadUrl: SIGNED_URL,
+              expiresIn: 300,
+              expiresAt: "2026-05-09T10:05:00Z",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+    fireEvent.error(
+      within(dialog).getByRole("img", { name: /Клинический снимок Дерматоскопия/i }),
+    );
+    await within(dialog).findByText(/Не удалось отобразить изображение/);
+
+    await userEvent.click(
+      within(dialog).getByRole("button", {
+        name: /Получить новую ссылку для снимка a-1/i,
+      }),
+    );
+
+    await waitFor(() => expect(downloadCalls).toBe(2));
+    expect(
+      within(dialog)
+        .getAllByRole("alert")
+        .some((alert) => /Снимок не найден\./.test(alert.textContent ?? "")),
+    ).toBe(true);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Не удалось отобразить изображение/),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: /Открыть в новой вкладке/i }),
+    ).toBeInTheDocument();
+  });
+
   it("dialog visible text never contains the signed URL or forbidden tokens", async () => {
     vi.stubGlobal("fetch", makeOkFetch());
     vi.spyOn(window, "open").mockImplementation(() => null);
