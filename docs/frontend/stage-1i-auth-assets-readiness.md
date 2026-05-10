@@ -417,3 +417,19 @@ broader auth/assets unit suites (`supabase-client`, `AuthContext`,
 `LoginForm`, `Login` page, `RoleGuard`, `RoleSwitcher`,
 `use-api-session`, `auth-role`, `clinical-assets-api`) so the CI
 green signal is a strict superset of the local Stage 2E checklist.
+
+### 10.1 Local preflight
+
+The full local equivalent of the `frontend-auth-assets` CI guard is:
+
+```bash
+npm run preflight:auth-assets
+```
+
+This runs `scripts/preflight-auth-assets.mjs`, which sequentially
+executes every unit suite, the doctor forbidden-patterns scan, the
+Vite build, and the `deno.lock` guard, stopping at the first failure
+and ending with `[preflight-auth-assets] OK` on success. It requires
+no network access, no Supabase env vars, no Deno, and no Playwright.
+The Playwright real-auth smoke (`auth-assets-smoke-skip`) remains an
+opt-in, separate workflow.
