@@ -752,3 +752,5 @@ Further changes to upload UX, preview UX, auth routing, CI, or smoke behavior sh
 - `package-lock.json` must remain preserved.
 - `deno.lock` files must not be committed.
 - Real-auth smoke remains optional/local; credential-free CI remains the default.
+
+Deployment steps live in docs/frontend/stage-3a-deployment-runbook.md.
