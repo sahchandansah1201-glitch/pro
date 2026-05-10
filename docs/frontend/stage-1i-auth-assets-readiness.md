@@ -392,3 +392,28 @@ Expected at the close of Stage 2E-H:
 - Vite build is green.
 - No `deno.lock` files anywhere in the repo.
 - `package-lock.json` is preserved (not regenerated or removed).
+
+## 10. CI alignment
+
+The `frontend-auth-assets` GitHub Actions workflow is the deterministic
+CI guard for the auth/assets unit and hygiene checks. On every PR or
+push touching the auth/assets surface (including this readiness doc),
+it runs the full unit-test set listed in §9.5, the doctor
+forbidden-patterns scan, the Vite build, and the `deno.lock` guard.
+
+The `auth-assets-smoke-skip` workflow installs Playwright Chromium and
+runs `npx playwright test e2e/auth-assets-smoke.pw.ts` without any
+`E2E_DOCTOR_*` credentials. It is an opt-in smoke guard: the smoke
+spec is expected to skip / no-op cleanly when real credentials are
+absent, which verifies that the spec remains syntactically runnable
+and skippable in a credential-free CI environment. No real Supabase
+env vars are provisioned in CI.
+
+The Stage 2E release checklist expects the local targeted run to
+report 69 + 25 + 6 = 100 targeted tests green
+(`VisitImagingTab.test.tsx` + `VisitWorkspacePage.test.tsx` +
+`VisitImagingTab.hygiene.test.ts`). CI additionally executes the
+broader auth/assets unit suites (`supabase-client`, `AuthContext`,
+`LoginForm`, `Login` page, `RoleGuard`, `RoleSwitcher`,
+`use-api-session`, `auth-role`, `clinical-assets-api`) so the CI
+green signal is a strict superset of the local Stage 2E checklist.
