@@ -846,7 +846,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
 
       {configured && assets && assets.length > 0 && (
         <ul className="divide-y divide-border">
-          {assets.map((a) => (
+          {assets.map((a, idx) => (
             <li
               key={a.id}
               className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
@@ -861,6 +861,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
                 </div>
               </div>
               <Button
+                ref={idx === 0 ? firstOpenButtonRef : undefined}
                 size="sm"
                 variant="secondary"
                 className="h-10 gap-1.5 text-[12px] sm:h-8"
