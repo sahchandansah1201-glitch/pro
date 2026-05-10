@@ -1115,6 +1115,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     expect(fileInput.getAttribute("accept")).toBe(
       "image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif",
     );
+    expect(fileInput.multiple).toBe(true);
   });
 
   it("after rejecting an invalid file, selecting a valid image still uploads normally", async () => {
@@ -1286,6 +1287,48 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       expect(within(region).getByRole("button", { name: /Загрузить снимок/i })).not.toBeDisabled();
     });
   });
+
+  it("selecting multiple valid images uploads them sequentially", async () => {
+    let postCalls = 0;
+    const uploadedNames: string[] = [];
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        postCalls += 1;
+        const fd = (init?.body as FormData) ?? null;
+        const f = fd?.get("file") as File | null;
+        if (f) uploadedNames.push(f.name);
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...sampleAsset, id: `a-${postCalls}` }), {
+            status: 201,
+          }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, [
+      new File(["a"], "first.png", { type: "image/png" }),
+      new File(["b"], "second.webp", { type: "image/webp" }),
+    ]);
+
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(
+        /Загружено снимков: 2\./,
+      );
+    });
+    expect(postCalls).toBe(2);
+    expect(uploadedNames).toEqual(["first.png", "second.webp"]);
+    expect(fileInput.value).toBe("");
+  });
 });
 
 // Stage 2E-C · Drag-and-drop upload.
@@ -1408,7 +1451,7 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     });
   });
 
-  it("dropping multiple valid images uploads only the first file", async () => {
+  it("dropping multiple valid images uploads every file sequentially", async () => {
     let postCalls = 0;
     const uploadedNames: string[] = [];
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -1440,10 +1483,12 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     });
 
     await waitFor(() => {
-      expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
+      expect(within(region).getByRole("status")).toHaveTextContent(
+        /Загружено снимков: 2\./,
+      );
     });
-    expect(postCalls).toBe(1);
-    expect(uploadedNames).toEqual(["first.png"]);
+    expect(postCalls).toBe(2);
+    expect(uploadedNames).toEqual(["first.png", "second.png"]);
   });
 
   it("dropping while upload is pending does not create a second POST", async () => {

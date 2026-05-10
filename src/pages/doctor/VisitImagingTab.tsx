@@ -50,6 +50,11 @@ const ACCEPTED_IMAGE_MIME = [
   "image/heif",
 ];
 
+function isAcceptedImageFile(file: File) {
+  const type = (file.type || "").toLowerCase();
+  return type.startsWith("image/") && ACCEPTED_IMAGE_MIME.includes(type);
+}
+
 const KIND_LABEL: Record<ClinicalImage["kind"], string> = {
   overview: "Обзор",
   dermoscopy: "Дерматоскопия",
@@ -537,14 +542,13 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     fileInputRef.current?.click();
   }, [configured]);
 
-  const processFile = useCallback(
-    async (file: File | null) => {
-      if (!file) return;
+  const processFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
       // Guard against duplicate uploads while one is pending. The button
       // is disabled while busy, but drag/drop has no built-in disable.
       if (busyRef.current) return;
-      const type = (file.type || "").toLowerCase();
-      if (!type.startsWith("image/") || !ACCEPTED_IMAGE_MIME.includes(type)) {
+      if (files.some((file) => !isAcceptedImageFile(file))) {
         setError(null);
         setErrorContext(null);
         setStatus("Выберите файл изображения: JPEG, PNG, WebP или HEIC.");
@@ -555,38 +559,58 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       setUploading(true);
       setError(null);
       setErrorContext(null);
-      setStatus(`Загружаем: ${file.name}`);
-      const res = await uploadVisitAsset({
-        token: apiToken,
-        baseUrl: apiBaseUrl,
-        visitId,
-        file,
-        kind: "overview",
-        source: "file",
-      });
-      if (res.ok) {
-        setStatus("Снимок загружен.");
-        setReloadTick((n) => n + 1);
-      } else {
-        // Do not clear `assets` — keep already-rendered rows visible.
-        setError(res.error);
-        setErrorContext("upload");
-        setStatus(null);
+      let uploadedCount = 0;
+      let shouldReload = false;
+      try {
+        for (const [idx, file] of files.entries()) {
+          setStatus(
+            files.length === 1
+              ? `Загружаем: ${file.name}`
+              : `Загружаем ${idx + 1} из ${files.length}: ${file.name}`,
+          );
+          const res = await uploadVisitAsset({
+            token: apiToken,
+            baseUrl: apiBaseUrl,
+            visitId,
+            file,
+            kind: "overview",
+            source: "file",
+          });
+          if (!res.ok) {
+            // Do not clear `assets` — keep already-rendered rows visible.
+            setError(res.error);
+            setErrorContext("upload");
+            setStatus(null);
+            shouldReload = uploadedCount > 0;
+            return;
+          }
+          uploadedCount += 1;
+        }
+        if (uploadedCount > 0) {
+          setStatus(
+            uploadedCount === 1
+              ? "Снимок загружен."
+              : `Загружено снимков: ${uploadedCount}.`,
+          );
+          shouldReload = true;
+        }
+      } finally {
+        setBusy(false);
+        busyRef.current = false;
+        setUploading(false);
+        if (shouldReload) setReloadTick((n) => n + 1);
       }
-      setBusy(false);
-      busyRef.current = false;
-      setUploading(false);
     },
     [apiToken, apiBaseUrl, visitId],
   );
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0] ?? null;
+      const files = Array.from(e.target.files ?? []);
       e.target.value = "";
-      await processFile(file);
+      await processFiles(files);
     },
-    [processFile],
+    [processFiles],
   );
 
   const handleDragOver = useCallback(
@@ -615,11 +639,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         return;
       }
       if (busyRef.current) return;
-      // Multiple files: only the first is used.
-      const file = e.dataTransfer?.files?.[0] ?? null;
-      await processFile(file);
+      await processFiles(Array.from(e.dataTransfer?.files ?? []));
     },
-    [configured, processFile],
+    [configured, processFiles],
   );
 
   const handleRefresh = useCallback(() => {
@@ -767,6 +789,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
           className="hidden"
           onChange={handleFileChange}
