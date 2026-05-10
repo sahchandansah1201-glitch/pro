@@ -446,3 +446,16 @@ and ending with `[preflight-auth-assets] OK` on success. It requires
 no network access, no Supabase env vars, no Deno, and no Playwright.
 The Playwright real-auth smoke (`auth-assets-smoke-skip`) remains an
 opt-in, separate workflow.
+
+### 10.2 CI step summaries
+
+Both workflows write a concise GitHub Actions step summary to
+`$GITHUB_STEP_SUMMARY`:
+
+- `frontend-auth-assets` writes a deterministic preflight summary
+  (command, coverage, environment, result).
+- `auth-assets-smoke-skip` writes an opt-in smoke-skip summary
+  (command, expected skip behavior without `E2E_DOCTOR_*`, result).
+
+The summaries are informational only and do not change test or
+build behavior.
