@@ -519,7 +519,7 @@ const UPLOAD_ITEM_STATUS_LABEL: Record<UploadItemStatus, string> = {
 };
 
 function isRetryableUploadStatus(status: UploadItemStatus) {
-  return status === "failed" || status === "skipped" || status === "cancelled";
+  return status === "failed" || status === "skipped";
 }
 
 function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) {
@@ -538,6 +538,10 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     total: number;
   } | null>(null);
   const [uploadItems, setUploadItems] = useState<UploadQueueItem[]>([]);
+  const [uploadItemsExpanded, setUploadItemsExpanded] = useState(true);
+  const [uploadResultAnnouncement, setUploadResultAnnouncement] = useState<
+    string | null
+  >(null);
   const [openingAssetId, setOpeningAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
@@ -573,6 +577,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       uploadItems.filter((item) => isRetryableUploadStatus(item.status)).length,
     [uploadItems],
   );
+  const uploadedUploadCount = useMemo(
+    () => uploadItems.filter((item) => item.status === "uploaded").length,
+    [uploadItems],
+  );
+  const allUploadItemsUploaded =
+    uploadItems.length > 0 && uploadedUploadCount === uploadItems.length;
 
   // Initial load + manual reload trigger.
   useEffect(() => {
@@ -622,6 +632,8 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       if (busyRef.current) return;
       if (files.some((file) => !isAcceptedImageFile(file))) {
         setUploadItemsSync([]);
+        setUploadItemsExpanded(true);
+        setUploadResultAnnouncement(null);
         setError(null);
         setErrorContext(null);
         setStatus("Выберите файл изображения: JPEG, PNG, WebP или HEIC.");
@@ -630,6 +642,8 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       const tooLarge = oversizedImageFile(files);
       if (tooLarge) {
         setUploadItemsSync([]);
+        setUploadItemsExpanded(true);
+        setUploadResultAnnouncement(null);
         setError(null);
         setErrorContext(null);
         setStatus(
@@ -659,6 +673,8 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       } else {
         setUploadItemsSync(items);
       }
+      setUploadItemsExpanded(true);
+      setUploadResultAnnouncement(null);
       const controller = new AbortController();
       uploadAbortRef.current = controller;
       setBusy(true);
@@ -700,6 +716,11 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
                 ? `Загрузка отменена. Загружено снимков: ${uploadedCount}.`
                 : "Загрузка отменена.",
             );
+            setUploadResultAnnouncement(
+              uploadedCount > 0
+                ? `Загрузка отменена. Загружено снимков: ${uploadedCount}.`
+                : "Загрузка отменена.",
+            );
             shouldReload = uploadedCount > 0;
             return;
           }
@@ -719,6 +740,11 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
                 ? `Загружено снимков: ${uploadedCount}. Ошибка на файле: ${file.name}`
                 : null,
             );
+            setUploadResultAnnouncement(
+              uploadedCount > 0
+                ? `Загружено снимков: ${uploadedCount}. Ошибка на файле: ${file.name}`
+                : `Ошибка загрузки файла: ${file.name}`,
+            );
             return;
           }
           uploadedCount += 1;
@@ -730,6 +756,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
               ? "Снимок загружен."
               : `Загружено снимков: ${uploadedCount}.`,
           );
+          setUploadResultAnnouncement(
+            uploadedCount === 1
+              ? "Снимок загружен."
+              : `Загружено снимков: ${uploadedCount}.`,
+          );
+          setUploadItemsExpanded(false);
           shouldReload = true;
         }
       } finally {
@@ -1034,6 +1066,16 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         </p>
       )}
 
+      {uploadResultAnnouncement && (
+        <p
+          className="sr-only"
+          aria-live="polite"
+          data-testid="upload-result-announcement"
+        >
+          {uploadResultAnnouncement}
+        </p>
+      )}
+
       {error && errorContext && (
         <div
           className="flex flex-wrap items-center gap-2 px-3 pb-2"
@@ -1061,32 +1103,60 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
 
       {uploadItems.length > 0 && (
         <div className="px-3 pb-2">
-          <ul
-            aria-label="Статусы загрузки снимков"
-            aria-live="polite"
-            className="space-y-1 text-[12px]"
-          >
-            {uploadItems.map((item) => {
-              const label = UPLOAD_ITEM_STATUS_LABEL[item.status];
-              return (
-                <li
-                  key={item.id}
-                  aria-label={`${item.name}: ${label}`}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-muted/40 px-2 py-1 text-muted-foreground"
-                >
-                  <span className="truncate">{item.name}</span>
-                  <span className="font-medium text-foreground">{label}</span>
-                </li>
-              );
-            })}
-          </ul>
+          {allUploadItemsUploaded && !uploadItemsExpanded ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-muted/40 px-2 py-1 text-[12px] text-muted-foreground">
+              <span>
+                Все выбранные снимки загружены: {uploadedUploadCount}.
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[12px]"
+                onClick={() => setUploadItemsExpanded(true)}
+                aria-label="Показать статусы загрузки снимков"
+              >
+                Показать статусы
+              </Button>
+            </div>
+          ) : (
+            <ul
+              aria-label="Статусы загрузки снимков"
+              aria-live="polite"
+              className="space-y-1 text-[12px]"
+            >
+              {uploadItems.map((item) => {
+                const label = UPLOAD_ITEM_STATUS_LABEL[item.status];
+                return (
+                  <li
+                    key={item.id}
+                    aria-label={`${item.name}: ${label}`}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-sm bg-muted/40 px-2 py-1 text-muted-foreground"
+                  >
+                    <span className="truncate">{item.name}</span>
+                    <span className="font-medium text-foreground">{label}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {allUploadItemsUploaded && uploadItemsExpanded && !uploading && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-2 h-8 px-2 text-[12px]"
+              onClick={() => setUploadItemsExpanded(false)}
+              aria-label="Скрыть загруженные статусы"
+            >
+              Скрыть загруженные
+            </Button>
+          )}
           {retryableUploadCount > 0 && !uploading && (
             <Button
               size="sm"
               variant="secondary"
               className="mt-2 h-8 gap-1.5 text-[12px]"
               onClick={handleRetryFailedUploads}
-              aria-label="Повторить незагруженные снимки"
+              aria-label="Повторить снимки с ошибкой"
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить
             </Button>
