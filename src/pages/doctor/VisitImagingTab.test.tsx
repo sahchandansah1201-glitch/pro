@@ -1352,6 +1352,15 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     });
     expect(postCalls).toBe(2);
     expect(uploadedNames).toEqual(["first.png", "second.webp"]);
+    const list = within(region).getByRole("list", {
+      name: /Статусы загрузки снимков/i,
+    });
+    expect(
+      within(list).getByRole("listitem", { name: /first\.png: Загружен/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(list).getByRole("listitem", { name: /second\.webp: Загружен/i }),
+    ).toBeInTheDocument();
     expect(fileInput.value).toBe("");
   });
 
@@ -1402,11 +1411,23 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     expect(
       within(region).queryByRole("progressbar", { name: /Прогресс загрузки снимков/i }),
     ).not.toBeInTheDocument();
+    const list = within(region).getByRole("list", {
+      name: /Статусы загрузки снимков/i,
+    });
+    expect(
+      within(list).getByRole("listitem", { name: /first\.png: Отменён/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(list).getByRole("listitem", { name: /second\.png: Отменён/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByRole("button", { name: /Повторить незагруженные снимки/i }),
+    ).toBeInTheDocument();
     expect(within(region).getByRole("button", { name: /Загрузить снимок/i })).not.toBeDisabled();
     expect(postCalls).toBe(1);
   });
 
-  it("multiple upload reports partial success when a later file fails", async () => {
+  it("multiple upload reports partial success and retries the failed file", async () => {
     let postCalls = 0;
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       if ((init?.method ?? "GET") === "POST") {
@@ -1446,6 +1467,33 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       /Загружено снимков: 1\. Ошибка на файле: second\.png/,
     );
     expect(postCalls).toBe(2);
+    const list = within(region).getByRole("list", {
+      name: /Статусы загрузки снимков/i,
+    });
+    expect(
+      within(list).getByRole("listitem", { name: /first\.png: Загружен/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(list).getByRole("listitem", { name: /second\.png: Ошибка/i }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      within(region).getByRole("button", { name: /Повторить незагруженные снимки/i }),
+    );
+
+    await waitFor(() => expect(postCalls).toBe(3));
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(/Снимок загружен\./);
+    });
+    expect(
+      within(list).getByRole("listitem", { name: /first\.png: Загружен/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(list).getByRole("listitem", { name: /second\.png: Загружен/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).queryByRole("button", { name: /Повторить незагруженные снимки/i }),
+    ).not.toBeInTheDocument();
   });
 });
 
