@@ -61,3 +61,10 @@ All four must complete cleanly.
   before merging.
 - Lovable should confirm synced files only; it should not rewrite,
   regenerate, or expand the synced change.
+
+## 7. Pilot result
+
+- PR #1 merged the pilot note into `main`.
+- Lovable confirmed the synced section exists in this document.
+- No sync conflicts were reported.
+- Use the same GitHub-first workflow for future Codex-authored changes.
