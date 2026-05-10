@@ -13,6 +13,8 @@ on:
       - "src/components/shell/RoleGuard.tsx"
       - "src/components/shell/RoleSwitcher.tsx"
       - "src/pages/Login.tsx"
+      - "src/pages/doctor/PatientsPage.tsx"
+      - "src/pages/doctor/PatientsPage.test.tsx"
       - "src/pages/doctor/VisitWorkspacePage.tsx"
       - "src/pages/doctor/VisitImagingTab.tsx"
       - "src/pages/doctor/VisitWorkspacePage.test.tsx"
@@ -38,6 +40,8 @@ on:
       - "src/components/shell/RoleGuard.tsx"
       - "src/components/shell/RoleSwitcher.tsx"
       - "src/pages/Login.tsx"
+      - "src/pages/doctor/PatientsPage.tsx"
+      - "src/pages/doctor/PatientsPage.test.tsx"
       - "src/pages/doctor/VisitWorkspacePage.tsx"
       - "src/pages/doctor/VisitImagingTab.tsx"
       - "src/pages/doctor/VisitWorkspacePage.test.tsx"
@@ -77,4 +81,3 @@ jobs:
             echo "- Environment: no Supabase env vars, no Deno, no Playwright"
             echo "- Result: \`${{ job.status }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
-

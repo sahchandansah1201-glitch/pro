@@ -17,6 +17,7 @@ const steps = [
   ["use-api-session",          npmCmd, ["test", "--", "--run", "src/lib/use-api-session.test.tsx"]],
   ["auth-role",                npmCmd, ["test", "--", "--run", "src/lib/auth-role.test.ts"]],
   ["clinical-assets-api",      npmCmd, ["test", "--", "--run", "src/lib/clinical-assets-api.test.ts"]],
+  ["PatientsPage",             npmCmd, ["test", "--", "--run", "src/pages/doctor/PatientsPage.test.tsx"]],
   ["VisitWorkspacePage",       npmCmd, ["test", "--", "--run", "src/pages/doctor/VisitWorkspacePage.test.tsx"]],
   ["VisitImagingTab",          npmCmd, ["test", "--", "--run", "src/pages/doctor/VisitImagingTab.test.tsx"]],
   ["VisitImagingTab hygiene",  npmCmd, ["test", "--", "--run", "src/pages/doctor/VisitImagingTab.hygiene.test.ts"]],
