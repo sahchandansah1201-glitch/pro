@@ -67,3 +67,5 @@ Record after release:
 - Incident / no-incident status.
 - Follow-up stage created if code or doc changes are needed.
 - Confirmation that no secrets were recorded in notes, screenshots, or links.
+
+Release audit index lives in docs/frontend/stage-3f-release-audit-index.md.
