@@ -66,3 +66,4 @@
 - If smoke fails due to frontend behavior, stop rollout and use Stage 3B rollback drill (docs/frontend/stage-3b-rollback-drill.md).
 - If backend/Edge Function outage returns safe frontend errors, assess backend separately.
 - Do not commit emergency `deno.lock` / `package-lock.json` churn.
+- If production smoke fails after release, use docs/frontend/stage-3d-incident-response.md.
