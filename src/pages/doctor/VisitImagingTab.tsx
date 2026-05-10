@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 import {
   Camera,
@@ -1365,83 +1372,147 @@ function AssetPreviewDialog({
                 {assetsErrorMessage(refreshError, "download")}
               </p>
             )}
-            <div
-              className="relative overflow-hidden rounded-md border border-border bg-surface-sunken"
-              aria-busy={isLoading}
-            >
-              {imageError ? (
-                <p
-                  className="px-3 py-6 text-center text-[13px] text-warning"
-                  role="alert"
-                >
-                  Не удалось отобразить изображение. Откройте его в новой вкладке.
-                </p>
-              ) : (
-                <>
-                  {isLoading && (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center gap-2 bg-surface-sunken/80 text-[12px] text-muted-foreground"
-                      role="status"
-                      aria-live="polite"
-                      data-testid="preview-loading"
-                    >
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                      <span>
-                        {refreshing ? "Обновляем ссылку…" : "Загружаем изображение…"}
-                      </span>
-                    </div>
-                  )}
-                  <img
-                    src={preview.downloadUrl}
-                    alt={`Клинический снимок ${KIND_LABEL[preview.asset.kind]}`}
-                    className="block max-h-[60vh] w-full object-contain"
-                    onLoad={() => setImageLoaded(true)}
-                    onError={() => setImageError(true)}
-                  />
-                </>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {imageError && (
-                <Button
-                  ref={refreshButtonRef}
-                  size="sm"
-                  variant="secondary"
-                  className="h-9 gap-1.5 text-[12px]"
-                  onClick={onRefresh}
-                  disabled={refreshing}
-                  aria-label={`Получить новую ссылку для снимка ${preview.asset.id}`}
-                >
-                  {refreshing ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                  ) : (
-                    <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                  )}
-                  {refreshing ? "Обновляем…" : "Получить новую ссылку"}
-                </Button>
-              )}
-              <Button
-                ref={openInNewTabButtonRef}
-                size="sm"
-                variant="secondary"
-                className="h-9 gap-1.5 text-[12px]"
-                onClick={onOpenInNewTab}
-              >
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden /> Открыть в новой вкладке
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-9 text-[12px]"
-                onClick={onClose}
-              >
-                Закрыть
-              </Button>
-            </div>
+            <AssetPreviewImageFrame
+              preview={preview}
+              imageError={imageError}
+              isLoading={isLoading}
+              refreshing={refreshing}
+              onImageLoad={() => setImageLoaded(true)}
+              onImageError={() => setImageError(true)}
+            />
+            <AssetPreviewActions
+              preview={preview}
+              imageError={imageError}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              onOpenInNewTab={onOpenInNewTab}
+              onClose={onClose}
+              refreshButtonRef={refreshButtonRef}
+              openInNewTabButtonRef={openInNewTabButtonRef}
+            />
           </div>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface AssetPreviewImageFrameProps {
+  preview: { asset: SafeAssetDTO; downloadUrl: string };
+  imageError: boolean;
+  isLoading: boolean;
+  refreshing: boolean;
+  onImageLoad: () => void;
+  onImageError: () => void;
+}
+
+function AssetPreviewImageFrame({
+  preview,
+  imageError,
+  isLoading,
+  refreshing,
+  onImageLoad,
+  onImageError,
+}: AssetPreviewImageFrameProps) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-md border border-border bg-surface-sunken"
+      aria-busy={isLoading}
+    >
+      {imageError ? (
+        <p
+          className="px-3 py-6 text-center text-[13px] text-warning"
+          role="alert"
+        >
+          Не удалось отобразить изображение. Откройте его в новой вкладке.
+        </p>
+      ) : (
+        <>
+          {isLoading && (
+            <div
+              className="absolute inset-0 flex items-center justify-center gap-2 bg-surface-sunken/80 text-[12px] text-muted-foreground"
+              role="status"
+              aria-live="polite"
+              data-testid="preview-loading"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              <span>
+                {refreshing ? "Обновляем ссылку…" : "Загружаем изображение…"}
+              </span>
+            </div>
+          )}
+          <img
+            src={preview.downloadUrl}
+            alt={`Клинический снимок ${KIND_LABEL[preview.asset.kind]}`}
+            className="block max-h-[60vh] w-full object-contain"
+            onLoad={onImageLoad}
+            onError={onImageError}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+interface AssetPreviewActionsProps {
+  preview: { asset: SafeAssetDTO; downloadUrl: string };
+  imageError: boolean;
+  refreshing: boolean;
+  onRefresh: () => void;
+  onOpenInNewTab: () => void;
+  onClose: () => void;
+  refreshButtonRef: Ref<HTMLButtonElement>;
+  openInNewTabButtonRef: Ref<HTMLButtonElement>;
+}
+
+function AssetPreviewActions({
+  preview,
+  imageError,
+  refreshing,
+  onRefresh,
+  onOpenInNewTab,
+  onClose,
+  refreshButtonRef,
+  openInNewTabButtonRef,
+}: AssetPreviewActionsProps) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {imageError && (
+        <Button
+          ref={refreshButtonRef}
+          size="sm"
+          variant="secondary"
+          className="h-9 gap-1.5 text-[12px]"
+          onClick={onRefresh}
+          disabled={refreshing}
+          aria-label={`Получить новую ссылку для снимка ${preview.asset.id}`}
+        >
+          {refreshing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+          )}
+          {refreshing ? "Обновляем…" : "Получить новую ссылку"}
+        </Button>
+      )}
+      <Button
+        ref={openInNewTabButtonRef}
+        size="sm"
+        variant="secondary"
+        className="h-9 gap-1.5 text-[12px]"
+        onClick={onOpenInNewTab}
+      >
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden /> Открыть в новой вкладке
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-9 text-[12px]"
+        onClick={onClose}
+      >
+        Закрыть
+      </Button>
+    </div>
   );
 }
 
