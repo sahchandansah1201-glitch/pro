@@ -738,3 +738,17 @@ release blockers unless explicitly stated.
    - workflows green on target ref.
    - no secrets in logs/docs.
 
+## 14. Release-ready freeze note
+
+Auth/assets readiness is considered release-ready when:
+
+- `npm run preflight:auth-assets` is green.
+- `node scripts/check-no-deno-locks.mjs` is green.
+- `frontend-auth-assets` workflow is green.
+- `auth-assets-smoke-skip` workflow is green/skipped as expected.
+
+Further changes to upload UX, preview UX, auth routing, CI, or smoke behavior should be opened as a new stage, not mixed into this readiness slice.
+
+- `package-lock.json` must remain preserved.
+- `deno.lock` files must not be committed.
+- Real-auth smoke remains optional/local; credential-free CI remains the default.
