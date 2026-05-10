@@ -617,3 +617,70 @@ CI and local use the same entry point:
 When all three subsections (11.1, 11.2, 11.3) pass locally and
 both workflows are green on the target ref, the auth/assets
 readiness slice is ready for release.
+
+## 12. Troubleshooting
+
+Operational notes for common signals seen while running the
+auth/assets preflight and smoke. None of these, on their own, are
+release blockers unless explicitly stated.
+
+1. `rg: command not found`
+   - Use the `grep -nE` fallback for any documented `rg` command.
+   - Missing `rg` is an environment gap, not a project failure.
+
+2. React Router future-flag warnings
+   - Non-blocking informational warnings.
+   - Do not fail the release for these.
+
+3. Browserslist `caniuse-lite` outdated warning
+   - Non-blocking.
+   - Do not update the browserslist DB as part of this slice
+     unless that update is explicitly scheduled.
+
+4. Vite chunk size warning
+   - Non-blocking.
+   - Bundle splitting / `manualChunks` is deferred and out of
+     scope for this slice.
+
+5. `test-results/` or `playwright-report/` appears in the worktree
+   - Generated locally by Playwright runs.
+   - Remove before commit; do not commit Playwright artifacts.
+
+6. A `deno.lock` file appears
+   - Must be removed before commit.
+   - Re-run `node scripts/check-no-deno-locks.mjs` to confirm a
+     clean state.
+   - Do not commit any `deno.lock` files in this slice.
+
+7. `package-lock.json` appears modified
+   - Expected if the Supabase dependency install is still
+     uncommitted in the working tree.
+   - Preserve it as-is; do not revert or regenerate it.
+
+8. Smoke runner exits 1 with missing env vars
+   - Expected behavior of `scripts/smoke-auth-assets.mjs`.
+   - Output lists only the missing env var names, never values.
+   - To verify wiring without real credentials, use the dry run
+     (`npm run smoke:auth-assets:dry-run`) with placeholder local
+     env vars.
+
+9. Real-auth smoke fails when run locally
+   - Check, in order:
+     - the dev server is running and reachable;
+     - `E2E_DOCTOR_EMAIL`, `E2E_DOCTOR_PASSWORD`, and
+       `E2E_VISIT_ROUTE` are set in the shell;
+     - `E2E_VISIT_ROUTE` points to a route a doctor account can
+       actually reach (typically a visit imaging tab);
+     - the Supabase `VITE_*` env vars are configured for the dev
+       server.
+   - Never paste secrets, tokens, or signed URLs into logs, docs,
+     or issue threads.
+
+10. `npm run preflight:auth-assets` fails
+    - The first failing section in the output is the one to
+      inspect; later sections did not run.
+    - Re-run only that section's underlying command while
+      iterating, then re-run the full preflight before declaring
+      success.
+    - Do not skip `check-no-deno-locks`; it is part of the
+      deterministic guard.
