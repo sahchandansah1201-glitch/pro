@@ -628,6 +628,14 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     setReloadTick((n) => n + 1);
   }, []);
 
+  const handleRetry = useCallback(() => {
+    setPendingRetryFocus(true);
+    setStatus(null);
+    setError(null);
+    setErrorContext(null);
+    setReloadTick((n) => n + 1);
+  }, []);
+
   const [preview, setPreview] = useState<
     { asset: SafeAssetDTO; downloadUrl: string } | null
   >(null);
