@@ -70,6 +70,7 @@ After the deploy is live, manually verify on the deployed environment:
 
 ## 6. Rollback notes
 
+- Rollback rehearsal details live in docs/frontend/stage-3b-rollback-drill.md.
 - If auth/assets behavior breaks after deploy, revert the deploy artifact / hosting release.
 - Do not "roll back" by deleting `package-lock.json`.
 - Do not commit `deno.lock` files during a rollback.
