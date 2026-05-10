@@ -459,3 +459,38 @@ Both workflows write a concise GitHub Actions step summary to
 
 The summaries are informational only and do not change test or
 build behavior.
+
+### 10.3 Local real-auth smoke
+
+Two complementary local commands:
+
+```bash
+# Deterministic, credential-free, mirrors CI guard:
+npm run preflight:auth-assets
+
+# Opt-in real-auth Playwright smoke (requires credentials):
+npm run smoke:auth-assets
+```
+
+Required environment variables for `npm run smoke:auth-assets`:
+
+- `E2E_DOCTOR_EMAIL`
+- `E2E_DOCTOR_PASSWORD`
+- `E2E_VISIT_ROUTE` (e.g. `/doctor/visits/<visit-id>`)
+
+Optional environment variables (passed through unchanged):
+
+- `E2E_EXPECT_ASSET_ROW=1`
+- `E2E_TRY_PREVIEW=1`
+- `PW_CHROMIUM_PATH`
+
+If any required variable is missing, `scripts/smoke-auth-assets.mjs`
+prints the missing names and an example invocation, then exits with
+code `1` without launching Playwright.
+
+The smoke is read-only: it does not upload, delete, or mutate
+assets, and it must not log access tokens or signed URLs. CI
+intentionally does not provide `E2E_DOCTOR_*` credentials; the
+`auth-assets-smoke-skip` workflow only verifies that the spec
+remains runnable/skippable in a credential-free environment. Real
+credentials stay local and outside CI.

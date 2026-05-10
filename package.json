@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "scan:doctor": "node scripts/scan-doctor-forbidden.mjs",
     "preflight:auth-assets": "node scripts/preflight-auth-assets.mjs",
+    "smoke:auth-assets": "node scripts/smoke-auth-assets.mjs",
     "db:start": "supabase start",
     "db:status": "supabase status",
     "db:reset": "supabase db reset",
