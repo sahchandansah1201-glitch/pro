@@ -15,6 +15,7 @@ import {
   CloudUpload,
   ExternalLink,
   Loader2,
+  XCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -49,10 +50,16 @@ const ACCEPTED_IMAGE_MIME = [
   "image/heic",
   "image/heif",
 ];
+const MAX_UPLOAD_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_UPLOAD_IMAGE_LABEL = "25 МБ";
 
 function isAcceptedImageFile(file: File) {
   const type = (file.type || "").toLowerCase();
   return type.startsWith("image/") && ACCEPTED_IMAGE_MIME.includes(type);
+}
+
+function oversizedImageFile(files: File[]) {
+  return files.find((file) => file.size > MAX_UPLOAD_IMAGE_BYTES) ?? null;
 }
 
 const KIND_LABEL: Record<ClinicalImage["kind"], string> = {
@@ -499,8 +506,13 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const [reloadTick, setReloadTick] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   const [openingAssetId, setOpeningAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
 
   // Initial load + manual reload trigger.
   useEffect(() => {
@@ -554,15 +566,28 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         setStatus("Выберите файл изображения: JPEG, PNG, WebP или HEIC.");
         return;
       }
+      const tooLarge = oversizedImageFile(files);
+      if (tooLarge) {
+        setError(null);
+        setErrorContext(null);
+        setStatus(
+          `Файл слишком большой: ${tooLarge.name}. Максимум ${MAX_UPLOAD_IMAGE_LABEL}.`,
+        );
+        return;
+      }
+      const controller = new AbortController();
+      uploadAbortRef.current = controller;
       setBusy(true);
       busyRef.current = true;
       setUploading(true);
+      setUploadProgress({ current: 0, total: files.length });
       setError(null);
       setErrorContext(null);
       let uploadedCount = 0;
       let shouldReload = false;
       try {
         for (const [idx, file] of files.entries()) {
+          setUploadProgress({ current: idx + 1, total: files.length });
           setStatus(
             files.length === 1
               ? `Загружаем: ${file.name}`
@@ -575,13 +600,26 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
             file,
             kind: "overview",
             source: "file",
+            signal: controller.signal,
           });
+          if (controller.signal.aborted) {
+            setStatus(
+              uploadedCount > 0
+                ? `Загрузка отменена. Загружено снимков: ${uploadedCount}.`
+                : "Загрузка отменена.",
+            );
+            shouldReload = uploadedCount > 0;
+            return;
+          }
           if (!res.ok) {
             // Do not clear `assets` — keep already-rendered rows visible.
             setError(res.error);
             setErrorContext("upload");
-            setStatus(null);
-            shouldReload = uploadedCount > 0;
+            setStatus(
+              uploadedCount > 0
+                ? `Загружено снимков: ${uploadedCount}. Ошибка на файле: ${file.name}`
+                : null,
+            );
             return;
           }
           uploadedCount += 1;
@@ -598,11 +636,17 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         setBusy(false);
         busyRef.current = false;
         setUploading(false);
+        setUploadProgress(null);
+        if (uploadAbortRef.current === controller) uploadAbortRef.current = null;
         if (shouldReload) setReloadTick((n) => n + 1);
       }
     },
     [apiToken, apiBaseUrl, visitId],
   );
+
+  const handleCancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+  }, []);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -821,7 +865,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         >
           <span>Перетащите снимок сюда</span>
           <span aria-hidden>·</span>
-          <span>JPEG, PNG, WebP или HEIC</span>
+          <span>JPEG, PNG, WebP или HEIC до {MAX_UPLOAD_IMAGE_LABEL}</span>
         </div>
         {uploading && (
           <span
@@ -831,6 +875,29 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           >
             Идёт загрузка…
           </span>
+        )}
+        {uploading && uploadProgress && uploadProgress.total > 1 && (
+          <span
+            role="progressbar"
+            aria-label="Прогресс загрузки снимков"
+            aria-valuemin={0}
+            aria-valuemax={uploadProgress.total}
+            aria-valuenow={uploadProgress.current}
+            className="text-[12px] text-muted-foreground"
+          >
+            Загрузка {uploadProgress.current} из {uploadProgress.total}
+          </span>
+        )}
+        {uploading && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5 text-[12px]"
+            onClick={handleCancelUpload}
+            aria-label="Отменить загрузку снимков"
+          >
+            <XCircle className="h-3.5 w-3.5" aria-hidden /> Отменить
+          </Button>
         )}
       </div>
 

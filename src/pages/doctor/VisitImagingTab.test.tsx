@@ -1118,6 +1118,31 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     expect(fileInput.multiple).toBe(true);
   });
 
+  it("rejects oversized image files client-side without calling the upload endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    fetchMock.mockClear();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const huge = new File(["x"], "huge.png", { type: "image/png" });
+    Object.defineProperty(huge, "size", { value: 26 * 1024 * 1024 });
+    await userEvent.upload(fileInput, huge);
+
+    expect(await within(region).findByRole("status")).toHaveTextContent(
+      /Файл слишком большой: huge\.png\. Максимум 25 МБ\./,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("after rejecting an invalid file, selecting a valid image still uploads normally", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       if ((init?.method ?? "GET") === "POST") {
@@ -1328,6 +1353,99 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
     expect(postCalls).toBe(2);
     expect(uploadedNames).toEqual(["first.png", "second.webp"]);
     expect(fileInput.value).toBe("");
+  });
+
+  it("multiple upload exposes progress and can be cancelled", async () => {
+    let postCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        postCalls += 1;
+        return new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal as AbortSignal | undefined;
+          signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, [
+      new File(["a"], "first.png", { type: "image/png" }),
+      new File(["b"], "second.png", { type: "image/png" }),
+    ]);
+
+    const progress = await within(region).findByRole("progressbar", {
+      name: /Прогресс загрузки снимков/i,
+    });
+    expect(progress).toHaveAttribute("aria-valuenow", "1");
+    expect(progress).toHaveAttribute("aria-valuemax", "2");
+    expect(progress).toHaveTextContent(/Загрузка 1 из 2/);
+
+    await userEvent.click(
+      within(region).getByRole("button", { name: /Отменить загрузку снимков/i }),
+    );
+
+    await waitFor(() => {
+      expect(within(region).getByRole("status")).toHaveTextContent(/Загрузка отменена\./);
+    });
+    expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      within(region).queryByRole("progressbar", { name: /Прогресс загрузки снимков/i }),
+    ).not.toBeInTheDocument();
+    expect(within(region).getByRole("button", { name: /Загрузить снимок/i })).not.toBeDisabled();
+    expect(postCalls).toBe(1);
+  });
+
+  it("multiple upload reports partial success when a later file fails", async () => {
+    let postCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        postCalls += 1;
+        if (postCalls === 2) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ message: "invalid" }), { status: 422 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...sampleAsset, id: "a-2" }), { status: 201 }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderTab({
+      apiToken: "t",
+      apiBaseUrl: "https://x.supabase.co",
+    });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(fileInput, [
+      new File(["a"], "first.png", { type: "image/png" }),
+      new File(["b"], "second.png", { type: "image/png" }),
+    ]);
+
+    await waitFor(() => {
+      expect(within(region).getByRole("alert")).toHaveTextContent(
+        /Проверьте файл и параметры снимка\./,
+      );
+    });
+    expect(within(region).getByRole("status")).toHaveTextContent(
+      /Загружено снимков: 1\. Ошибка на файле: second\.png/,
+    );
+    expect(postCalls).toBe(2);
   });
 });
 
