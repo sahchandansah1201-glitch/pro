@@ -397,26 +397,39 @@ Expected at the close of Stage 2E-H:
 
 The `frontend-auth-assets` GitHub Actions workflow is the deterministic
 CI guard for the auth/assets unit and hygiene checks. On every PR or
-push touching the auth/assets surface (including this readiness doc),
-it runs the full unit-test set listed in §9.5, the doctor
-forbidden-patterns scan, the Vite build, and the `deno.lock` guard.
+push touching the auth/assets surface (including this readiness doc
+and `scripts/preflight-auth-assets.mjs`), it delegates to a single
+step:
 
-The `auth-assets-smoke-skip` workflow installs Playwright Chromium and
-runs `npx playwright test e2e/auth-assets-smoke.pw.ts` without any
-`E2E_DOCTOR_*` credentials. It is an opt-in smoke guard: the smoke
-spec is expected to skip / no-op cleanly when real credentials are
-absent, which verifies that the spec remains syntactically runnable
-and skippable in a credential-free CI environment. No real Supabase
-env vars are provisioned in CI.
+```yaml
+- name: Auth/assets preflight
+  run: npm run preflight:auth-assets
+```
+
+Local and CI deterministic auth/assets checks therefore share the
+same command — `npm run preflight:auth-assets` — which runs the full
+unit-test set listed in §9.5, the doctor forbidden-patterns scan,
+the Vite build, and the `deno.lock` guard.
+
+The `auth-assets-smoke-skip` workflow remains a separate, opt-in
+guard. It installs Playwright Chromium and runs
+`npx playwright test e2e/auth-assets-smoke.pw.ts` without any
+`E2E_DOCTOR_*` credentials. The smoke spec is expected to skip /
+no-op cleanly when real credentials are absent, which verifies that
+the spec remains syntactically runnable and skippable in a
+credential-free CI environment. No real Supabase env vars are
+provisioned in CI, and Playwright is intentionally not added to
+`frontend-auth-assets`.
 
 The Stage 2E release checklist expects the local targeted run to
 report 69 + 25 + 6 = 100 targeted tests green
 (`VisitImagingTab.test.tsx` + `VisitWorkspacePage.test.tsx` +
-`VisitImagingTab.hygiene.test.ts`). CI additionally executes the
-broader auth/assets unit suites (`supabase-client`, `AuthContext`,
-`LoginForm`, `Login` page, `RoleGuard`, `RoleSwitcher`,
-`use-api-session`, `auth-role`, `clinical-assets-api`) so the CI
-green signal is a strict superset of the local Stage 2E checklist.
+`VisitImagingTab.hygiene.test.ts`). The shared preflight command
+additionally executes the broader auth/assets unit suites
+(`supabase-client`, `AuthContext`, `LoginForm`, `Login` page,
+`RoleGuard`, `RoleSwitcher`, `use-api-session`, `auth-role`,
+`clinical-assets-api`) so the green signal is a strict superset of
+the local Stage 2E checklist.
 
 ### 10.1 Local preflight
 
