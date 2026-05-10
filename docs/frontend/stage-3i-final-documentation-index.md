@@ -68,3 +68,20 @@ All four must complete cleanly.
 - Lovable confirmed the synced section exists in this document.
 - No sync conflicts were reported.
 - Use the same GitHub-first workflow for future Codex-authored changes.
+
+## 8. Documentation section checklist
+
+- [x] Stage document map is present.
+- [x] Verification commands are present.
+- [x] Release-readiness status is present.
+- [x] Maintenance rule is present.
+- [x] GitHub to Lovable sync workflow is present.
+- [x] Pilot result is present.
+
+## 9. Sync changelog
+
+- PR #1: established the GitHub to Lovable sync pilot note.
+- PR #2: recorded the successful pilot result after Lovable confirmed
+  the synced section and no sync conflicts.
+- Future Codex-authored changes should use the same GitHub-first
+  handoff and a short Lovable confirmation prompt.
