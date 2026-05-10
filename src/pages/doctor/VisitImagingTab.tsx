@@ -628,11 +628,45 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     setReloadTick((n) => n + 1);
   }, []);
 
+  const handleRetry = useCallback(() => {
+    setPendingRetryFocus(true);
+    setStatus(null);
+    setError(null);
+    setErrorContext(null);
+    // Synchronously mark busy so the focus effect waits for the retry
+    // round-trip to complete before deciding where to land focus.
+    setBusy(true);
+    busyRef.current = true;
+    setReloadTick((n) => n + 1);
+  }, []);
+
   const [preview, setPreview] = useState<
     { asset: SafeAssetDTO; downloadUrl: string } | null
   >(null);
   // Stage 2E-E: remember the opener so we can return focus on close.
   const previewOpenerRef = useRef<HTMLElement | null>(null);
+
+  // Stage 2E-G: focus return after list retry.
+  const regionRef = useRef<HTMLElement | null>(null);
+  const retryButtonRef = useRef<HTMLButtonElement | null>(null);
+  const firstOpenButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [pendingRetryFocus, setPendingRetryFocus] = useState(false);
+
+  useEffect(() => {
+    if (!pendingRetryFocus || busy) return;
+    let target: HTMLElement | null = null;
+    if (error && errorContext === "list") {
+      target = retryButtonRef.current;
+    } else if (assets && assets.length > 0) {
+      target = firstOpenButtonRef.current;
+    } else {
+      target = regionRef.current;
+    }
+    setPendingRetryFocus(false);
+    if (target && typeof target.focus === "function" && target.isConnected) {
+      target.focus();
+    }
+  }, [pendingRetryFocus, busy, error, errorContext, assets]);
 
   const handleOpen = useCallback(
     async (asset: SafeAssetDTO, opener?: HTMLElement | null) => {
@@ -679,7 +713,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   }, [preview]);
 
   return (
-    <section className="surface-card" aria-label="API ассеты визита">
+    <section className="surface-card" aria-label="API ассеты визита" tabIndex={-1} ref={regionRef}>
       <div className="section-bar">
         <h2 className="h-section">API ассеты</h2>
         <span className="h-section-hint">
@@ -794,10 +828,11 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           </p>
           {errorContext === "list" && (
             <Button
+              ref={retryButtonRef}
               size="sm"
               variant="secondary"
               className="h-8 gap-1.5 text-[12px]"
-              onClick={handleRefresh}
+              onClick={handleRetry}
               disabled={busy}
               aria-label="Повторить загрузку ассетов"
             >
@@ -815,7 +850,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
 
       {configured && assets && assets.length > 0 && (
         <ul className="divide-y divide-border">
-          {assets.map((a) => (
+          {assets.map((a, idx) => (
             <li
               key={a.id}
               className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
@@ -830,6 +865,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
                 </div>
               </div>
               <Button
+                ref={idx === 0 ? firstOpenButtonRef : undefined}
                 size="sm"
                 variant="secondary"
                 className="h-10 gap-1.5 text-[12px] sm:h-8"

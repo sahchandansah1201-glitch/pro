@@ -1880,3 +1880,130 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     expect(nextAlert).toHaveTextContent(/Недостаточно прав для просмотра ассетов\./);
   });
 });
+
+// Stage 2E-G · Focus behavior after list retry.
+describe("VisitImagingTab · API panel · retry focus return", () => {
+  const sampleAsset = {
+    id: "a-1",
+    clinicId: "c-1",
+    visitId: visit.id,
+    lesionId: null,
+    kind: "dermoscopy",
+    source: "device_bridge",
+    capturedAt: "2026-05-09T10:00:00Z",
+    deviceId: null,
+    qualityScore: 0.92,
+    qualityIssues: [],
+    createdAt: "2026-05-09T10:00:01Z",
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("retry success with one asset moves focus to the first 'Открыть снимок …' button", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+          );
+        }
+        return Promise.resolve(new Response(JSON.stringify([sampleAsset]), { status: 200 }));
+      }),
+    );
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    await userEvent.click(retry);
+
+    const openBtn = await within(region).findByRole("button", {
+      name: /Открыть снимок a-1/i,
+    });
+    await waitFor(() => expect(openBtn).toHaveFocus());
+  });
+
+  it("retry success with empty list moves focus to the API assets region", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls += 1;
+        if (calls === 1) return Promise.reject(new Error("boom"));
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }),
+    );
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    await userEvent.click(retry);
+
+    await waitFor(() => {
+      expect(within(region).getByText(/В API ещё нет ассетов/i)).toBeInTheDocument();
+    });
+    await waitFor(() => expect(region).toHaveFocus());
+  });
+
+  it("retry failure keeps focus on 'Повторить загрузку ассетов'", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+        ),
+      ),
+    );
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    await userEvent.click(retry);
+
+    await waitFor(() => {
+      const next = within(region).getByRole("button", {
+        name: "Повторить загрузку ассетов",
+      });
+      expect(next).toHaveFocus();
+    });
+  });
+
+  it("retry button shows visible 'Повторить' text and exact aria-label", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ message: "forbidden" }), { status: 403 }),
+        ),
+      ),
+    );
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const retry = await within(region).findByRole("button", {
+      name: "Повторить загрузку ассетов",
+    });
+    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку ассетов");
+    expect(retry).toHaveTextContent(/Повторить/);
+  });
+
+  it("API assets region is programmatically focusable but not in normal tab order", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))),
+    );
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    expect(region.getAttribute("tabindex")).toBe("-1");
+  });
+});
+
