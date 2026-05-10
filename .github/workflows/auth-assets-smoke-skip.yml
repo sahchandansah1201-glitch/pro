@@ -34,3 +34,14 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run opt-in smoke (expected to skip without env vars)
         run: npx playwright test e2e/auth-assets-smoke.pw.ts
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## auth-assets-smoke-skip"
+            echo ""
+            echo "- Command: \`npx playwright test e2e/auth-assets-smoke.pw.ts\`"
+            echo "- Expected without \`E2E_DOCTOR_*\`: spec is skipped / no-op cleanly"
+            echo "- Real-auth smoke remains opt-in with credentials provided outside CI"
+            echo "- Result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
