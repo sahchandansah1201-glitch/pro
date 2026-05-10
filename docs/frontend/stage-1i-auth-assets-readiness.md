@@ -753,4 +753,4 @@ Further changes to upload UX, preview UX, auth routing, CI, or smoke behavior sh
 - `deno.lock` files must not be committed.
 - Real-auth smoke remains optional/local; credential-free CI remains the default.
 
-Deployment steps live in docs/frontend/stage-3a-deployment-runbook.md.
+Deployment steps live in docs/frontend/stage-3a-deployment-runbook.md. Rollback drill: docs/frontend/stage-3b-rollback-drill.md. Production smoke: docs/frontend/stage-3c-production-smoke.md. Incident response: docs/frontend/stage-3d-incident-response.md. Final go/no-go release decision record: docs/frontend/stage-3e-release-decision-record.md.
