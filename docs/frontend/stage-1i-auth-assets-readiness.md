@@ -517,3 +517,23 @@ The runner never prints environment variable values: not
 `E2E_DOCTOR_PASSWORD`, not access tokens, not signed URLs. The
 example invocation in error output uses a placeholder
 (`E2E_DOCTOR_PASSWORD='***'`) only.
+
+### 10.5 Smoke runner log-safety tests
+
+A small Node-only test suite verifies the runner's exit codes and
+log safety:
+
+```bash
+npm run test:smoke-auth-assets
+```
+
+It uses only Node built-ins (`node:test`, `node:assert/strict`,
+`node:child_process`) and never launches Playwright. The tests
+assert that:
+
+- with required env vars missing, the runner exits 1 and lists
+  `E2E_DOCTOR_EMAIL`, `E2E_DOCTOR_PASSWORD`, `E2E_VISIT_ROUTE`;
+- with `SMOKE_AUTH_ASSETS_DRY_RUN=1` and required env vars present,
+  the runner exits 0, prints the `DRY RUN` banner and the command
+  `npx playwright test e2e/auth-assets-smoke.pw.ts`, and does not
+  print the email or password values.
