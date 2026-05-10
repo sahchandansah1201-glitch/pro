@@ -7,6 +7,18 @@ for the backend half.
 
 ---
 
+## Quick index
+
+- Stage 2E assets UI release checklist — Section 9
+- CI alignment and summaries — Section 10
+- Final local release runbook — Section 11
+- Troubleshooting — Section 12
+- Local deterministic guard — `npm run preflight:auth-assets`
+- Optional real-auth smoke — `npm run smoke:auth-assets`
+- Smoke runner log-safety test — `npm run test:smoke-auth-assets`
+
+---
+
 ## 1. What is now covered
 
 Backend (Stage 1E):
