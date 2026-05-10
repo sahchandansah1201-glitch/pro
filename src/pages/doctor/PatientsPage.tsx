@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Search, UserPlus } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -60,6 +61,7 @@ export default function PatientsPage() {
   const [phototype, setPhototype] = useState<"any" | Phototype>("any");
   const [consent, setConsent] = useState<ConsentFilter>("any");
   const [lesionsFilter, setLesionsFilter] = useState<LesionsFilter>("any");
+  const [createNotice, setCreateNotice] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,7 +81,36 @@ export default function PatientsPage() {
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
-      <PageHeader title="Пациенты" subtitle={`Всего в базе: ${PATIENTS.length}`} />
+      <PageHeader
+        title="Пациенты"
+        subtitle={`Всего в базе: ${PATIENTS.length}`}
+        actions={
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-9 gap-1.5 text-[12px]"
+            onClick={() => {
+              setCreateNotice(
+                "Создание пациента пока недоступно в демо-режиме. Реальные данные пациентов не вводите.",
+              );
+            }}
+          >
+            <UserPlus className="h-3.5 w-3.5" aria-hidden />
+            Новый пациент
+          </Button>
+        }
+      />
+
+      {createNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-b border-border bg-warning/10 px-6 py-2 text-[12px] text-warning"
+        >
+          {createNotice}
+        </div>
+      )}
 
       {/* Тулбар фильтров */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2.5">
