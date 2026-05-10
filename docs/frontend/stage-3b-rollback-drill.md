@@ -75,3 +75,4 @@
 - Release decision documented.
 - After rollback, rerun the smoke checklist in docs/frontend/stage-3c-production-smoke.md.
 - If a rollback is triggered by a live incident, use docs/frontend/stage-3d-incident-response.md first.
+- Release decision that confirms rollback readiness is recorded in docs/frontend/stage-3e-release-decision-record.md.
