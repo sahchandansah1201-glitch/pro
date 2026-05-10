@@ -633,6 +633,10 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     setStatus(null);
     setError(null);
     setErrorContext(null);
+    // Synchronously mark busy so the focus effect waits for the retry
+    // round-trip to complete before deciding where to land focus.
+    setBusy(true);
+    busyRef.current = true;
     setReloadTick((n) => n + 1);
   }, []);
 
