@@ -25,11 +25,14 @@ Run these on the target ref:
 ```bash
 npm run preflight:auth-assets
 npm run test:smoke-auth-assets
+node scripts/check-stage3-docs.mjs
 node scripts/check-no-deno-locks.mjs
 git status --short
 ```
 
-All four must complete cleanly.
+All listed commands must complete cleanly.
+The focused Stage 3 docs guard is standalone and does not require
+`npm ci` or a lock-file change.
 
 ## 4. Release-readiness status
 
@@ -73,6 +76,7 @@ All four must complete cleanly.
 
 - [x] Stage document map is present.
 - [x] Verification commands are present.
+- [x] Stage 3 heading and local-link guard is present.
 - [x] Release-readiness status is present.
 - [x] Maintenance rule is present.
 - [x] GitHub to Lovable sync workflow is present.
@@ -83,5 +87,6 @@ All four must complete cleanly.
 - PR #1: established the GitHub to Lovable sync pilot note.
 - PR #2: recorded the successful pilot result after Lovable confirmed
   the synced section and no sync conflicts.
+- PR #3: added this documentation checklist and sync changelog.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
