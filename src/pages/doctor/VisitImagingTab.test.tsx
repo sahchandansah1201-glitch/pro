@@ -660,7 +660,11 @@ describe("VisitImagingTab · API panel · preview dialog", () => {
       await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
     );
     const dialog = await screen.findByRole("dialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: /Закрыть/i }));
+    const visibleClose = within(dialog)
+      .getAllByRole("button", { name: /^Закрыть$/ })
+      .find((button) => button.textContent?.trim() === "Закрыть");
+    expect(visibleClose).toBeDefined();
+    await userEvent.click(visibleClose!);
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -778,6 +782,20 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
       name: /Клинический снимок Дерматоскопия/i,
     });
     expect(img).toBeInTheDocument();
+  });
+
+  it("dialog icon close button has a Russian accessible name", async () => {
+    vi.stubGlobal("fetch", makeOkFetch());
+    vi.spyOn(window, "open").mockImplementation(() => null);
+
+    renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
+    const dialog = await openDialog();
+
+    const closeButtons = within(dialog).getAllByRole("button", {
+      name: /^Закрыть$/,
+    });
+    expect(closeButtons.length).toBeGreaterThanOrEqual(2);
+    expect(within(dialog).queryByRole("button", { name: /^Close$/ })).toBeNull();
   });
 
   it("Escape closes the dialog and the asset row remains", async () => {
