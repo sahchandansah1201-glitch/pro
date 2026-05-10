@@ -73,6 +73,7 @@ After the deploy is live, manually verify on the deployed environment:
 - Rollback rehearsal details live in docs/frontend/stage-3b-rollback-drill.md.
 - Post-deploy smoke details live in docs/frontend/stage-3c-production-smoke.md.
 - Production incident response lives in docs/frontend/stage-3d-incident-response.md.
+- Final go/no-go release decision record lives in docs/frontend/stage-3e-release-decision-record.md.
 - If auth/assets behavior breaks after deploy, revert the deploy artifact / hosting release.
 - Do not "roll back" by deleting `package-lock.json`.
 - Do not commit `deno.lock` files during a rollback.

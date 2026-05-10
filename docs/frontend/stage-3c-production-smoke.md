@@ -67,3 +67,4 @@
 - If backend/Edge Function outage returns safe frontend errors, assess backend separately.
 - Do not commit emergency `deno.lock` / `package-lock.json` churn.
 - If production smoke fails after release, use docs/frontend/stage-3d-incident-response.md.
+- Smoke result (pass / fail / deferred) is recorded in docs/frontend/stage-3e-release-decision-record.md.
