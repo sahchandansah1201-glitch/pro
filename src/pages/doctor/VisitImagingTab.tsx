@@ -824,10 +824,11 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
           </p>
           {errorContext === "list" && (
             <Button
+              ref={retryButtonRef}
               size="sm"
               variant="secondary"
               className="h-8 gap-1.5 text-[12px]"
-              onClick={handleRefresh}
+              onClick={handleRetry}
               disabled={busy}
               aria-label="Повторить загрузку ассетов"
             >
