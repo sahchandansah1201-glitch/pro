@@ -82,3 +82,4 @@
 - Follow-up stage created if code/doc changes are needed.
 - No emergency `deno.lock` or `package-lock.json` churn committed.
 - Sensitive artifacts/screenshots handled outside repo.
+- Release decision and incident-readiness evidence are recorded in docs/frontend/stage-3e-release-decision-record.md.
