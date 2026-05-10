@@ -880,6 +880,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const [preview, setPreview] = useState<
     { asset: SafeAssetDTO; downloadUrl: string } | null
   >(null);
+  const [previewRefreshing, setPreviewRefreshing] = useState(false);
+  const [previewRefreshError, setPreviewRefreshError] =
+    useState<AssetsApiError | null>(null);
   // Stage 2E-E: remember the opener so we can return focus on close.
   const previewOpenerRef = useRef<HTMLElement | null>(null);
 
@@ -926,6 +929,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       setOpeningAssetId(asset.id);
       setError(null);
       setErrorContext(null);
+      setPreviewRefreshError(null);
       setStatus("Подготовка ссылки…");
       const res = await getAssetDownloadUrl({
         token: apiToken,
@@ -937,6 +941,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       setOpeningAssetId(null);
       if (res.ok && res.value) {
         setStatus(null);
+        setPreviewRefreshError(null);
         setPreview({ asset, downloadUrl: res.value.downloadUrl });
       } else if (!res.ok) {
         setError(res.error);
@@ -950,8 +955,32 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
 
   const handleClosePreview = useCallback(() => {
     setPreview(null);
+    setPreviewRefreshError(null);
     restorePreviewOpenerFocus();
   }, [restorePreviewOpenerFocus]);
+
+  const handleRefreshPreview = useCallback(async () => {
+    if (!preview || busyRef.current) return;
+    setPreviewRefreshing(true);
+    setPreviewRefreshError(null);
+    setBusy(true);
+    busyRef.current = true;
+    setStatus("Подготовка ссылки…");
+    const res = await getAssetDownloadUrl({
+      token: apiToken,
+      baseUrl: apiBaseUrl,
+      assetId: preview.asset.id,
+    });
+    setBusy(false);
+    busyRef.current = false;
+    setPreviewRefreshing(false);
+    setStatus(null);
+    if (res.ok && res.value) {
+      setPreview({ asset: preview.asset, downloadUrl: res.value.downloadUrl });
+    } else if (!res.ok) {
+      setPreviewRefreshError(res.error);
+    }
+  }, [apiToken, apiBaseUrl, preview]);
 
   const handleOpenInNewTab = useCallback(() => {
     if (preview) {
@@ -1261,6 +1290,9 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         preview={preview}
         onClose={handleClosePreview}
         onOpenInNewTab={handleOpenInNewTab}
+        onRefresh={handleRefreshPreview}
+        refreshing={previewRefreshing}
+        refreshError={previewRefreshError}
       />
     </section>
   );
@@ -1270,9 +1302,19 @@ interface AssetPreviewDialogProps {
   preview: { asset: SafeAssetDTO; downloadUrl: string } | null;
   onClose: () => void;
   onOpenInNewTab: () => void;
+  onRefresh: () => void;
+  refreshing: boolean;
+  refreshError: AssetsApiError | null;
 }
 
-function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDialogProps) {
+function AssetPreviewDialog({
+  preview,
+  onClose,
+  onOpenInNewTab,
+  onRefresh,
+  refreshing,
+  refreshError,
+}: AssetPreviewDialogProps) {
   const open = preview !== null;
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -1281,9 +1323,9 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
   useEffect(() => {
     setImageError(false);
     setImageLoaded(false);
-  }, [preview?.asset.id]);
+  }, [preview?.asset.id, preview?.downloadUrl]);
 
-  const isLoading = preview !== null && !imageLoaded && !imageError;
+  const isLoading = preview !== null && ((!imageLoaded && !imageError) || refreshing);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -1298,6 +1340,15 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
         </DialogHeader>
         {preview && (
           <div className="flex flex-col gap-3">
+            {refreshError && (
+              <p
+                className="rounded-sm bg-warning/10 px-3 py-2 text-[12px] text-warning"
+                role="alert"
+                aria-live="assertive"
+              >
+                {assetsErrorMessage(refreshError, "download")}
+              </p>
+            )}
             <div
               className="relative overflow-hidden rounded-md border border-border bg-surface-sunken"
               aria-busy={isLoading}
@@ -1319,7 +1370,9 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
                       data-testid="preview-loading"
                     >
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                      <span>Загружаем изображение…</span>
+                      <span>
+                        {refreshing ? "Обновляем ссылку…" : "Загружаем изображение…"}
+                      </span>
                     </div>
                   )}
                   <img
@@ -1333,6 +1386,23 @@ function AssetPreviewDialog({ preview, onClose, onOpenInNewTab }: AssetPreviewDi
               )}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
+              {imageError && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-9 gap-1.5 text-[12px]"
+                  onClick={onRefresh}
+                  disabled={refreshing}
+                  aria-label={`Получить новую ссылку для снимка ${preview.asset.id}`}
+                >
+                  {refreshing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {refreshing ? "Обновляем…" : "Получить новую ссылку"}
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="secondary"
