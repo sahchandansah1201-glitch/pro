@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 45
     env:
       FULL_E2E_ARTIFACT_NAME: e2e-nightly-full-report-${{ github.run_id }}
+      FULL_E2E_REPORT_PATH: test-results/e2e-nightly-full-artifact-summary.md
       FULL_E2E_RETRIES: "1"
       FULL_E2E_UPLOAD_ARTIFACTS: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_artifacts || 'failure' }}
     steps:
@@ -56,6 +57,23 @@ jobs:
         run: |
           set -euo pipefail
           npx playwright test --reporter=list,html --retries="$FULL_E2E_RETRIES" --trace=retain-on-failure
+      - name: Write nightly artifacts report
+        if: always()
+        env:
+          E2E_ARTIFACT_KIND: e2e-nightly-full
+          E2E_ARTIFACT_COMMAND: npx playwright test --reporter=list,html --retries=1 --trace=retain-on-failure
+          E2E_ARTIFACT_SCHEDULE: "23 2 * * *"
+          E2E_ARTIFACT_RETRIES: ${{ env.FULL_E2E_RETRIES }}
+          E2E_ARTIFACT_POLICY: ${{ env.FULL_E2E_UPLOAD_ARTIFACTS }}
+          E2E_ARTIFACT_RESULT: ${{ job.status }}
+          E2E_ARTIFACT_NAME: ${{ env.FULL_E2E_ARTIFACT_NAME }}
+          E2E_ARTIFACT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          E2E_ARTIFACT_EXPECTED_PATHS: |
+            playwright-report/
+            test-results/
+            test-results/e2e-nightly-full-vite.log
+            test-results/e2e-nightly-full-artifact-summary.md
+        run: node scripts/write-e2e-artifact-summary.mjs "$FULL_E2E_REPORT_PATH"
       - name: Upload full e2e report and failure artifacts
         if: always() && (env.FULL_E2E_UPLOAD_ARTIFACTS == 'always' || (env.FULL_E2E_UPLOAD_ARTIFACTS == 'failure' && failure()))
         uses: actions/upload-artifact@v4
@@ -88,4 +106,8 @@ jobs:
               echo "- Artifact: not uploaded for this successful run"
             fi
             echo "- Result: \`${{ job.status }}\`"
+            if [ -f "$FULL_E2E_REPORT_PATH" ]; then
+              echo ""
+              cat "$FULL_E2E_REPORT_PATH"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
