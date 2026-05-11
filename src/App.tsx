@@ -34,6 +34,7 @@ import AdminClinicsPage from "./pages/admin/AdminClinicsPage";
 import SysUsersPage from "./pages/sys/SysUsersPage";
 import SysDevicesPage from "./pages/sys/SysDevicesPage";
 import SysAuditPage from "./pages/sys/SysAuditPage";
+import SysAccessEventsPage from "./pages/sys/SysAccessEventsPage";
 import SysApiKeysPage from "./pages/sys/SysApiKeysPage";
 import MeHomePage from "./pages/patient/MeHomePage";
 import MeReportPage from "./pages/patient/MeReportPage";
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="/sys/users" element={<G><SysUsersPage /></G>} />
               <Route path="/sys/devices" element={<G><SysDevicesPage /></G>} />
               <Route path="/sys/audit" element={<G><SysAuditPage /></G>} />
+              <Route path="/sys/access-events" element={<G><SysAccessEventsPage /></G>} />
               <Route path="/sys/api-keys" element={<G><SysApiKeysPage /></G>} />
 
               {/* Patient portal */}
