@@ -347,6 +347,38 @@ interface QueryLogEntry {
   result: string;
 }
 
+type ExportFormat = "CSV" | "XLSX";
+
+interface ExportProgressState {
+  format: ExportFormat;
+  percent: number;
+  label: string;
+  active: boolean;
+}
+
+interface ExportLogEntry {
+  id: string;
+  at: string;
+  format: ExportFormat;
+  rowCount: number;
+  filterLabel: string;
+  query: string;
+}
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function waitForUi(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
 export default function SysAccessEventsPage() {
   const { role } = useRole();
   const configured = isSupabaseConfigured();
@@ -370,6 +402,8 @@ export default function SysAccessEventsPage() {
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<AccessEventRow | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
+  const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
   const [queryLog, setQueryLog] = useState<QueryLogEntry[]>([]);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -389,6 +423,26 @@ export default function SysAccessEventsPage() {
       ].slice(0, 5),
     );
   }, []);
+
+  const appendExportLog = useCallback(
+    (format: ExportFormat, rowCount: number, filterLabelValue: string, queryValue: string) => {
+      const at = new Date().toISOString();
+      setExportLog((current) =>
+        [
+          {
+            id: `${at}-${format}-${Math.random().toString(36).slice(2)}`,
+            at,
+            format,
+            rowCount,
+            filterLabel: filterLabelValue,
+            query: queryValue.trim() ? "есть" : "—",
+          },
+          ...current,
+        ].slice(0, 5),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     if (cooldownUntil <= now) return;
@@ -579,6 +633,8 @@ export default function SysAccessEventsPage() {
         ? `Будет экспортировано ${exportRows.length} из ${filteredRows.length} событий. Лимит: ${ACCESS_EVENTS_EXPORT_LIMIT}.`
         : `Будет экспортировано ${exportRows.length} событий.`;
 
+  const exportBusy = exportProgress?.active === true;
+
   const pagination = useListPagination(filteredRows, {
     pageSize,
     deps: [
@@ -642,6 +698,39 @@ export default function SysAccessEventsPage() {
     appendQueryLog("Фильтры событий", "сброшены");
   }, [appendQueryLog]);
 
+  const handleDatePreset = useCallback(
+    (preset: "today" | "last30" | "demoMarch" | "clear") => {
+      const today = new Date();
+      if (preset === "today") {
+        const value = isoDate(today);
+        setDateFrom(value);
+        setDateTo(value);
+        setExportStatus("Пресет даты применён: сегодня.");
+        appendQueryLog("Пресет даты", "сегодня");
+        return;
+      }
+      if (preset === "last30") {
+        setDateFrom(isoDate(addDays(today, -29)));
+        setDateTo(isoDate(today));
+        setExportStatus("Пресет даты применён: последние 30 дней.");
+        appendQueryLog("Пресет даты", "последние 30 дней");
+        return;
+      }
+      if (preset === "demoMarch") {
+        setDateFrom("2026-03-01");
+        setDateTo("2026-03-31");
+        setExportStatus("Пресет даты применён: март 2026.");
+        appendQueryLog("Пресет даты", "март 2026");
+        return;
+      }
+      setDateFrom("");
+      setDateTo("");
+      setExportStatus("Фильтр даты сброшен.");
+      appendQueryLog("Пресет даты", "сброшен");
+    },
+    [appendQueryLog],
+  );
+
   useEffect(() => {
     if (!autoRefresh || role !== "system_admin") return;
     const timer = window.setInterval(() => {
@@ -650,39 +739,83 @@ export default function SysAccessEventsPage() {
     return () => window.clearInterval(timer);
   }, [autoRefresh, requestRefresh, role]);
 
-  const handleExportCsv = useCallback(() => {
+  const handleExportCsv = useCallback(async () => {
     if (exportRows.length === 0) return;
+    const limitNotice =
+      filteredRows.length > exportRows.length
+        ? `${exportRows.length} из ${filteredRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
+        : `${exportRows.length} строк`;
+    setExportProgress({
+      format: "CSV",
+      percent: 20,
+      label: "Готовим CSV экспорт.",
+      active: true,
+    });
+    await waitForUi();
+    const csv = buildAccessEventsCsv(exportRows, {
+      filterLabel: currentFilterLabel,
+      query,
+    });
+    setExportProgress({
+      format: "CSV",
+      percent: 70,
+      label: "Формируем CSV файл.",
+      active: true,
+    });
+    await waitForUi();
     downloadText(
       accessEventsCsvFilename(filter, query),
-      buildAccessEventsCsv(exportRows, {
-        filterLabel: currentFilterLabel,
-        query,
-      }),
+      csv,
     );
+    setExportProgress({
+      format: "CSV",
+      percent: 100,
+      label: "CSV экспорт готов.",
+      active: false,
+    });
+    setExportStatus(`CSV экспортирован: ${limitNotice}. ${currentFilterLabel}`);
+    appendExportLog("CSV", exportRows.length, currentFilterLabel, query);
+    appendQueryLog("Экспорт CSV", `экспортировано ${limitNotice}`);
+  }, [appendExportLog, appendQueryLog, currentFilterLabel, exportRows, filter, filteredRows.length, query]);
+
+  const handleExportXlsx = useCallback(async () => {
+    if (exportRows.length === 0) return;
     const limitNotice =
       filteredRows.length > exportRows.length
         ? `${exportRows.length} из ${filteredRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
         : `${exportRows.length} строк`;
-    setExportStatus(`CSV экспортирован: ${limitNotice}. ${currentFilterLabel}`);
-    appendQueryLog("Экспорт CSV", `экспортировано ${limitNotice}`);
-  }, [appendQueryLog, currentFilterLabel, exportRows, filter, filteredRows.length, query]);
-
-  const handleExportXlsx = useCallback(() => {
-    if (exportRows.length === 0) return;
+    setExportProgress({
+      format: "XLSX",
+      percent: 20,
+      label: "Готовим XLSX экспорт.",
+      active: true,
+    });
+    await waitForUi();
+    const blob = buildAccessEventsXlsxBlob(exportRows, {
+      filterLabel: currentFilterLabel,
+      query,
+    });
+    setExportProgress({
+      format: "XLSX",
+      percent: 70,
+      label: "Формируем XLSX файл.",
+      active: true,
+    });
+    await waitForUi();
     downloadBlob(
       accessEventsXlsxFilename(filter, query),
-      buildAccessEventsXlsxBlob(exportRows, {
-        filterLabel: currentFilterLabel,
-        query,
-      }),
+      blob,
     );
-    const limitNotice =
-      filteredRows.length > exportRows.length
-        ? `${exportRows.length} из ${filteredRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
-        : `${exportRows.length} строк`;
+    setExportProgress({
+      format: "XLSX",
+      percent: 100,
+      label: "XLSX экспорт готов.",
+      active: false,
+    });
     setExportStatus(`XLSX экспортирован: ${limitNotice}. ${currentFilterLabel}`);
+    appendExportLog("XLSX", exportRows.length, currentFilterLabel, query);
     appendQueryLog("Экспорт XLSX", `экспортировано ${limitNotice}`);
-  }, [appendQueryLog, currentFilterLabel, exportRows, filter, filteredRows.length, query]);
+  }, [appendExportLog, appendQueryLog, currentFilterLabel, exportRows, filter, filteredRows.length, query]);
 
   if (role !== "system_admin") {
     return (
@@ -802,7 +935,8 @@ export default function SysAccessEventsPage() {
                   variant="outline"
                   className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
                   onClick={handleExportCsv}
-                  disabled={filteredRows.length === 0}
+                  disabled={filteredRows.length === 0 || exportBusy}
+                  aria-busy={exportProgress?.format === "CSV" && exportBusy ? true : undefined}
                   aria-label="Экспортировать события доступа в CSV"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
@@ -814,7 +948,8 @@ export default function SysAccessEventsPage() {
                   variant="outline"
                   className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
                   onClick={handleExportXlsx}
-                  disabled={filteredRows.length === 0}
+                  disabled={filteredRows.length === 0 || exportBusy}
+                  aria-busy={exportProgress?.format === "XLSX" && exportBusy ? true : undefined}
                   aria-label="Экспортировать события доступа в XLSX"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
@@ -951,6 +1086,54 @@ export default function SysAccessEventsPage() {
               </select>
             </label>
           </div>
+          <div
+            role="group"
+            aria-label="Пресеты даты событий доступа"
+            className="mt-2 flex flex-wrap items-center gap-2 text-[12px]"
+          >
+            <span className="text-[11px] text-muted-foreground">Пресеты даты</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 text-[12px]"
+              onClick={() => handleDatePreset("today")}
+              aria-label="Показать события за сегодня"
+            >
+              Сегодня
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 text-[12px]"
+              onClick={() => handleDatePreset("last30")}
+              aria-label="Показать события за последние 30 дней"
+            >
+              30 дней
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 text-[12px]"
+              onClick={() => handleDatePreset("demoMarch")}
+              aria-label="Показать события за март 2026"
+            >
+              Март 2026
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 text-[12px]"
+              onClick={() => handleDatePreset("clear")}
+              aria-label="Сбросить фильтр даты событий"
+              disabled={!dateFrom && !dateTo}
+            >
+              Сбросить даты
+            </Button>
+          </div>
           <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="text-[11px] text-muted-foreground">
               Активный срез: {currentFilterLabel}
@@ -1019,6 +1202,32 @@ export default function SysAccessEventsPage() {
           </div>
         </div>
 
+        {exportProgress ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span>{exportProgress.label}</span>
+              <span className="font-mono text-[11px]">{exportProgress.percent}%</span>
+            </div>
+            <div
+              role="progressbar"
+              aria-label={`Прогресс экспорта ${exportProgress.format}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={exportProgress.percent}
+              className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+                style={{ width: `${exportProgress.percent}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
+
         {exportStatus ? (
           <div
             role="status"
@@ -1056,6 +1265,33 @@ export default function SysAccessEventsPage() {
               ))
             ) : (
               <li>Запросов пока нет.</li>
+            )}
+          </ul>
+        </Card>
+
+        <Card
+          role="region"
+          aria-label="Журнал экспортов событий доступа"
+          className="space-y-2 p-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[13px] font-semibold">Журнал экспортов</h2>
+            <span className="text-[11px] text-muted-foreground">последние 5 файлов</span>
+          </div>
+          <ul className="space-y-1 text-[12px] text-muted-foreground">
+            {exportLog.length > 0 ? (
+              exportLog.map((entry) => (
+                <li key={entry.id} className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    {entry.format}: {entry.rowCount} строк. Срез: {entry.filterLabel}. Поиск: {entry.query}.
+                  </span>
+                  <time className="font-mono text-[11px]" dateTime={entry.at}>
+                    {formatDateTime(entry.at)}
+                  </time>
+                </li>
+              ))
+            ) : (
+              <li>Экспортов пока нет.</li>
             )}
           </ul>
         </Card>

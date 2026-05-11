@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import { RoleProvider } from "@/context/RoleContext";
@@ -161,6 +161,23 @@ describe("SysAccessEventsPage", () => {
     );
   });
 
+  it("applies date presets and can clear the date filter", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Показать события за март 2026" }));
+
+    expect(screen.getByLabelText("Дата события с")).toHaveValue("2026-03-01");
+    expect(screen.getByLabelText("Дата события по")).toHaveValue("2026-03-31");
+    expect(screen.getByText("Пресет даты применён: март 2026.")).toBeInTheDocument();
+    expect(screen.getByText("Найдено: 11")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Сбросить фильтр даты событий" }));
+
+    expect(screen.getByLabelText("Дата события с")).toHaveValue("");
+    expect(screen.getByLabelText("Дата события по")).toHaveValue("");
+    expect(screen.getByText("Фильтр даты сброшен.")).toBeInTheDocument();
+  });
+
   it("supports first, previous, next, and last pagination controls", () => {
     renderPage();
 
@@ -300,9 +317,16 @@ describe("SysAccessEventsPage", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
 
-    expect(click).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events");
     expect(screen.getByText(/CSV экспортирован:/)).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
+      "aria-valuenow",
+      "100",
+    );
+    expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
+      /CSV: 12 строк/i,
+    );
 
     expect(createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob);
   });
@@ -323,13 +347,44 @@ describe("SysAccessEventsPage", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в XLSX" }));
 
-    expect(click).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events-xlsx");
     expect(screen.getByText(/XLSX экспортирован:/)).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Прогресс экспорта XLSX" })).toHaveAttribute(
+      "aria-valuenow",
+      "100",
+    );
+    expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
+      /XLSX: 12 строк/i,
+    );
     const blob = createObjectURL.mock.calls[0][0] as Blob;
     expect(blob.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     expect(blob.size).toBeGreaterThan(0);
     expect(accessEventsXlsxFilename("all", "")).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.xlsx$/);
+  });
+
+  it("logs exports without echoing raw search text", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:access-events"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    renderPage();
+    fireEvent.change(screen.getByLabelText("Поиск событий доступа"), {
+      target: { value: "report.share" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    const exportLog = screen.getByRole("region", { name: "Журнал экспортов событий доступа" });
+    expect(exportLog).toHaveTextContent(/CSV: /i);
+    expect(exportLog).toHaveTextContent(/Поиск: есть/i);
+    expect(exportLog).not.toHaveTextContent("report.share");
   });
 
   it("CSV helper quotes values safely and omits sensitive fields by contract", () => {
