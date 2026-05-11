@@ -30,12 +30,20 @@ on:
           - "skip"
           - "off"
 
+permissions:
+  contents: read
+  actions: read
+  issues: write
+  pull-requests: write
+
 jobs:
   e2e-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       AUTH_SMOKE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.auth_smoke || 'skip' }}
+      SMOKE_ARTIFACT_NAME: e2e-smoke-report-${{ github.run_id }}
+      SMOKE_RETRIES: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,20 +72,21 @@ jobs:
       - name: Run fast e2e smoke
         run: |
           set -euo pipefail
+          smoke_args=(--reporter=list,html --retries="$SMOKE_RETRIES" --trace=retain-on-failure)
           if [ "$AUTH_SMOKE_MODE" = "off" ]; then
-            npm run e2e:smoke:no-auth -- --reporter=list,html
+            npm run e2e:smoke:no-auth -- "${smoke_args[@]}"
           else
-            npm run e2e:smoke -- --reporter=list,html
+            npm run e2e:smoke -- "${smoke_args[@]}"
           fi
-      - name: Upload smoke report
+      - name: Upload smoke report and failure artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-smoke-report-${{ github.run_id }}
+          name: ${{ env.SMOKE_ARTIFACT_NAME }}
           path: |
             playwright-report/
             test-results/
-          if-no-files-found: ignore
+          if-no-files-found: warn
           retention-days: 7
       - name: Stop Vite
         if: always()
@@ -85,6 +94,51 @@ jobs:
           if [ -f /tmp/e2e-smoke-vite.pid ]; then
             kill "$(cat /tmp/e2e-smoke-vite.pid)" || true
           fi
+      - name: Post PR smoke summary
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        env:
+          SMOKE_JOB_STATUS: ${{ job.status }}
+          SMOKE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const marker = "<!-- e2e-smoke-summary -->";
+            const body = [
+              marker,
+              "## e2e-smoke summary",
+              `- Result: \`${process.env.SMOKE_JOB_STATUS}\``,
+              `- Mode: \`${process.env.AUTH_SMOKE_MODE}\``,
+              `- Retries: \`${process.env.SMOKE_RETRIES}\``,
+              `- Artifact: \`${process.env.SMOKE_ARTIFACT_NAME}\``,
+              `- Run: ${process.env.SMOKE_RUN_URL}`,
+            ].join("\n");
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const previous = comments.find(
+              (comment) => comment.user?.type === "Bot" && comment.body?.includes(marker),
+            );
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: previous.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
       - name: Job summary
         if: always()
         run: |
@@ -94,7 +148,8 @@ jobs:
             echo "- Command mode: \`$AUTH_SMOKE_MODE\`"
             echo "- Default mode \`skip\` includes \`auth-assets-smoke\` without credentials; its skip is expected."
             echo "- Mode \`off\` runs only demo/local smoke specs."
+            echo "- Retries: \`$SMOKE_RETRIES\`"
             echo "- Visual-regression screenshot specs are excluded."
-            echo "- Artifact: \`e2e-smoke-report-${{ github.run_id }}\`"
+            echo "- Artifact: \`$SMOKE_ARTIFACT_NAME\`"
             echo "- Result: \`${{ job.status }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

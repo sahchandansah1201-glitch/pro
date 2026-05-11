@@ -93,5 +93,9 @@
 - The workflow starts local Vite on `127.0.0.1:8080` and uploads
   `playwright-report/`, `test-results/`, and the Vite log as an
   `e2e-smoke-report-*` artifact.
+- CI runs the fast smoke with one retry and retains Playwright traces on
+  failures so flaky failures still leave diagnosable artifacts.
+- Pull requests receive a sticky `e2e-smoke summary` comment with result,
+  mode, retry count, artifact name, and run URL.
 - Use the artifact when diagnosing smoke failures. Do not add production
   credentials or signed URLs to the workflow logs.

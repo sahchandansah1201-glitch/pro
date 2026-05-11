@@ -53,6 +53,8 @@ test.describe("Patients demo flow", () => {
       name: "Удалить пациента из локального списка?",
     });
     await expect(deleteDialog).toBeVisible();
+    await expect(deleteDialog.getByRole("button", { name: "Отмена" })).toBeVisible();
+    await expect(deleteDialog.getByRole("button", { name: "Удалить локально" })).toBeVisible();
     await expect(deleteDialog).toContainText("скрыт только на этой странице в демо-режиме");
     await deleteDialog.getByRole("button", { name: "Удалить локально" }).click();
 
@@ -106,6 +108,7 @@ test.describe("Patients demo flow", () => {
     await deleteDialog.getByRole("button", { name: "Отмена" }).focus();
     await page.keyboard.press("Enter");
     await expect(deleteDialog).not.toBeVisible();
+    await expect(deleteButton).toBeVisible();
     await expect(page.getByText("Всего в базе: 8")).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Иванова Наталья Олеговна", exact: true }),
@@ -138,5 +141,10 @@ test.describe("Patients demo flow", () => {
     await expect(
       page.getByRole("note", { name: "Ограничения демо-режима пациентов" }),
     ).toBeVisible();
+
+    await page.getByRole("button", { name: "Новый пациент" }).click();
+    await expect(
+      page.getByRole("status", { name: "Статус действий с пациентами" }),
+    ).toContainText("действие заблокировано");
   });
 });
