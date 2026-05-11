@@ -48,6 +48,7 @@ const EXPECTED = [
       "## 7. Fast e2e smoke vs full e2e",
       "## 8. CI fast smoke workflow",
       "## 9. Nightly full e2e",
+      "## 10. Nightly artifacts report",
     ],
   },
   {
@@ -154,6 +155,19 @@ const EXPECTED = [
       "## 8. UX review: patient create-delete triage",
     ],
   },
+  {
+    file: "stage-3l-nightly-artifacts-report.md",
+    headings: [
+      "# Stage 3L — Nightly artifacts report for auth/assets readiness",
+      "## 1. Purpose",
+      "## 2. Source workflow",
+      "## 3. Artifact policy",
+      "## 4. Expected artifact bundle",
+      "## 5. Report fields",
+      "## 6. Failure investigation",
+      "## 7. Retention and privacy",
+    ],
+  },
 ];
 
 const EXTRA_REQUIRED_REFS = [
@@ -168,6 +182,7 @@ const EXTRA_REQUIRED_REFS = [
   "stage-3i-final-documentation-index.md",
   "stage-3j-github-lovable-working-mode.md",
   "stage-3k-lovable-suggestions-backlog.md",
+  "stage-3l-nightly-artifacts-report.md",
 ];
 
 const NIGHTLY_FULL_WORKFLOW = ".github/workflows/e2e-nightly-full.yml";
@@ -244,8 +259,10 @@ checkPlainDocRefs("stage-1i-auth-assets-readiness.md", readiness);
 
 const stage3c = readDoc("stage-3c-production-smoke.md");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 9. Nightly full e2e");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 10. Nightly artifacts report");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "Artifact bundle includes `playwright-report/` and `test-results/`");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e-nightly-full-vite.log`");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "./stage-3l-nightly-artifacts-report.md");
 
 const nightlyWorkflowPath = join(ROOT, NIGHTLY_FULL_WORKFLOW);
 const nightlyWorkflow = existsSync(nightlyWorkflowPath)
@@ -259,6 +276,24 @@ requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "test-results/");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "test-results/e2e-nightly-full-vite.log");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "FULL_E2E_UPLOAD_ARTIFACTS");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "upload_artifacts");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "cron: \"23 2 * * *\"");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "FULL_E2E_ARTIFACT_NAME: e2e-nightly-full-report-${{ github.run_id }}");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "npx playwright test --reporter=list,html --retries=\"$FULL_E2E_RETRIES\" --trace=retain-on-failure");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "actions/upload-artifact@v4");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "if-no-files-found: warn");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "retention-days: 7");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "env.FULL_E2E_UPLOAD_ARTIFACTS == 'always'");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "env.FULL_E2E_UPLOAD_ARTIFACTS == 'failure' && failure()");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "$GITHUB_STEP_SUMMARY");
+
+const nightlyReport = readDoc("stage-3l-nightly-artifacts-report.md");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Artifact name pattern: `e2e-nightly-full-report-<run_id>`");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Retention: 7 days");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "playwright-report/");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/e2e-nightly-full-vite.log");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Nightly full e2e report");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Do not paste credentials, signed URLs, storage paths, access tokens");
 
 if (errors.length > 0) {
   console.error("[check-stage3-docs] Stage 3 documentation check failed:");

@@ -19,6 +19,7 @@ runtime code, tests, scripts, CI, or backend configuration.
 - Stage 3H — Release reviewer FAQ: [docs/frontend/stage-3h-release-reviewer-faq.md](./stage-3h-release-reviewer-faq.md)
 - Stage 3J — GitHub-first working mode: [docs/frontend/stage-3j-github-lovable-working-mode.md](./stage-3j-github-lovable-working-mode.md)
 - Stage 3K — Lovable suggestions backlog: [docs/frontend/stage-3k-lovable-suggestions-backlog.md](./stage-3k-lovable-suggestions-backlog.md)
+- Stage 3L — Nightly artifacts report: [docs/frontend/stage-3l-nightly-artifacts-report.md](./stage-3l-nightly-artifacts-report.md)
 
 ## 3. Verification map
 
@@ -38,7 +39,7 @@ The focused Stage 3 docs guard is standalone and does not require
 
 ## 4. Release-readiness status
 
-- The documentation chain is indexed through Stage 3K.
+- The documentation chain is indexed through Stage 3L.
 - Lovable follow-up suggestions are tracked in Stage 3K before they
   become implementation scope.
 - No runtime changes are included in Stage 3I.
@@ -87,6 +88,7 @@ The focused Stage 3 docs guard is standalone and does not require
 - [x] Pilot result is present.
 - [x] GitHub-first working mode is linked.
 - [x] Lovable suggestions backlog is linked.
+- [x] Nightly artifacts report is linked.
 
 ## 9. Sync changelog
 
@@ -116,5 +118,7 @@ The focused Stage 3 docs guard is standalone and does not require
   hardened patient action live-region announcements.
 - PR #32: linked the patient create CTA to the demo gate note and
   added keyboard accessibility coverage for demo patient actions.
+- PR #51: added the nightly artifacts report and hardened Stage 3 docs
+  checks for the nightly full e2e artifact bundle.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

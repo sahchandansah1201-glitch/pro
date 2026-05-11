@@ -116,3 +116,14 @@
   the Vite log `test-results/e2e-nightly-full-vite.log`.
 - Use nightly full e2e to catch cross-surface regressions without making every
   PR pay the full visual-regression cost.
+
+## 10. Nightly artifacts report
+
+- Report template: [docs/frontend/stage-3l-nightly-artifacts-report.md](./stage-3l-nightly-artifacts-report.md).
+- Complete the report only when a nightly full e2e run fails, is manually run
+  with `upload_artifacts=always`, or needs release-review evidence.
+- The report records run URL, commit SHA, result, artifact policy, artifact
+  availability, retained bundle paths, visual-regression status, auth smoke
+  skip/pass state, and follow-up owner.
+- Never paste credentials, signed URLs, storage paths, access tokens, or raw
+  patient identifiers into the report. Link the GitHub Actions run instead.
