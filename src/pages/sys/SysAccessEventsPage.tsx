@@ -546,7 +546,7 @@ export default function SysAccessEventsPage() {
   const [exportStatusKind, setExportStatusKind] = useState<ExportStatusKind>("info");
   const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
   const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
-  const [exportLogFilter, setExportLogFilter] = useState<ExportLogFilter>("all");
+  const [exportLogFilter, setExportLogFilter] = useState<ExportLogFilter>(readExportLogFilter);
   const [exportScope, setExportScope] = useState<ExportScope>(storedExportSettings.exportScope);
   const [customRangeFrom, setCustomRangeFrom] = useState(storedExportSettings.customRangeFrom);
   const [customRangeTo, setCustomRangeTo] = useState(storedExportSettings.customRangeTo);
