@@ -53,8 +53,10 @@ usage, and clear product boundaries.
 | LV-014 | UX review for patient create/delete triage | Done | Added in PR #27 to document why real create/delete controls should stay out of the current demo UI until backend persistence owns the workflow. |
 | LV-015 | Gate real patient create/delete | Done | Current Stage 3K decision gates real create/delete behind a future backend/persistence stage; no runtime backend-looking controls are added in the demo UI. |
 | LV-016 | Demo-only patient create/delete flow | Done | Existing UI keeps create non-mutating and delete local/reversible, matching the current demo-only patient workflow. |
-| LV-017 | Triage UX checklist UI | Deferred | A visible UI for triage management is a separate internal workflow tool; current need is covered by the Stage 3K markdown checklist. |
-| LV-018 | Log demo action statuses | Done | Current PatientsPage demo/local actions use polite status messages and the patient change log for edit/delete/undo outcomes. |
+| LV-017 | Triage UX checklist UI | Deferred | Repeated by Lovable after PR #28; a visible UI for triage management is a separate internal workflow tool, and current need is covered by the Stage 3K markdown checklist. |
+| LV-018 | Log demo action statuses | Done | Repeated by Lovable after PR #28; current PatientsPage demo/local actions use polite status messages and the patient change log for edit/delete/undo outcomes. |
+| LV-019 | Surface patient action gate feedback to users | Done | Added in PR #29 as a persistent PatientsPage demo-only note and a clearer blocked-create status message. |
+| LV-020 | Demo patient flow e2e tests | Deferred | Existing PatientsPage unit/preflight coverage verifies the current demo flow; add Playwright coverage only when the project defines a stable e2e policy for patient demo journeys. |
 
 ## 5. Per-cycle update rule
 

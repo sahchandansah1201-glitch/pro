@@ -25,6 +25,17 @@ describe("PatientsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("surfaces the demo-only patient action gate", () => {
+    renderPage();
+
+    const note = screen.getByRole("note", {
+      name: "Ограничения демо-режима пациентов",
+    });
+    expect(note).toHaveTextContent("Демо-ограничение");
+    expect(note).toHaveTextContent("Кнопка «Новый пациент» не создаёт запись");
+    expect(note).toHaveTextContent("«Удалить локально» скрывает строку только в текущем демо-сеансе");
+  });
+
   it("clicking new patient explains that manual creation is not available in demo mode", async () => {
     renderPage();
 
@@ -34,6 +45,7 @@ describe("PatientsPage", () => {
     expect(status).toHaveTextContent(
       /Создание пациента пока недоступно в демо-режиме/i,
     );
+    expect(status).toHaveTextContent(/действие заблокировано/i);
     expect(status).toHaveTextContent(/Реальные данные пациентов не вводите/i);
     expect(status.getAttribute("aria-live")).toBe("polite");
   });
