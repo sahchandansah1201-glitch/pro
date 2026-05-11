@@ -16,6 +16,7 @@ for the backend half.
 - Local deterministic guard — `npm run preflight:auth-assets`
 - Optional real-auth smoke — `npm run smoke:auth-assets`
 - Smoke runner log-safety test — `npm run test:smoke-auth-assets`
+- E2E artifact summary log-safety test — `npm run test:e2e-artifacts`
 
 ---
 
@@ -455,8 +456,10 @@ This runs `scripts/preflight-auth-assets.mjs`, which sequentially
 executes every unit suite, the doctor forbidden-patterns scan, the
 smoke runner log-safety tests (`npm run test:smoke-auth-assets`,
 which verify missing-env and dry-run redaction behavior without
-launching Playwright), the Vite build, and the `deno.lock` guard,
-stopping at the first failure and ending with
+launching Playwright), the e2e artifact summary log-safety tests
+(`npm run test:e2e-artifacts`, which verify the generated artifact
+summary without launching Playwright), the Vite build, and the
+`deno.lock` guard, stopping at the first failure and ending with
 `[preflight-auth-assets] OK` on success. It requires no network
 access, no Supabase env vars, no Deno, and no Playwright. The
 Playwright real-auth smoke (`auth-assets-smoke-skip`) remains an
@@ -574,7 +577,8 @@ Expected:
 
 - `npm run preflight:auth-assets` ends with
   `[preflight-auth-assets] OK` and includes the `smoke runner
-  log-safety` step (which runs `npm run test:smoke-auth-assets`
+  log-safety` and `e2e artifact summary log-safety` steps (which run
+  `npm run test:smoke-auth-assets` and `npm run test:e2e-artifacts`
   without launching Playwright).
 - `node scripts/check-no-deno-locks.mjs` exits 0 and prints no
   `deno.lock` paths.

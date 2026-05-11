@@ -16,6 +16,7 @@
     "smoke:auth-assets": "node scripts/smoke-auth-assets.mjs",
     "smoke:auth-assets:dry-run": "SMOKE_AUTH_ASSETS_DRY_RUN=1 node scripts/smoke-auth-assets.mjs",
     "test:smoke-auth-assets": "node --test scripts/smoke-auth-assets.test.mjs",
+    "test:e2e-artifacts": "node --test scripts/write-e2e-artifact-summary.test.mjs",
     "e2e:smoke": "playwright test e2e/operator-status-badge-smoke.pw.ts e2e/patients-demo-flow.pw.ts e2e/sys-access-events.pw.ts e2e/auth-assets-smoke.pw.ts",
     "e2e:smoke:no-auth": "playwright test e2e/operator-status-badge-smoke.pw.ts e2e/patients-demo-flow.pw.ts e2e/sys-access-events.pw.ts",
     "db:start": "supabase start",

@@ -186,6 +186,10 @@ const EXTRA_REQUIRED_REFS = [
 ];
 
 const NIGHTLY_FULL_WORKFLOW = ".github/workflows/e2e-nightly-full.yml";
+const PACKAGE_JSON = "package.json";
+const PREFLIGHT_SCRIPT = "scripts/preflight-auth-assets.mjs";
+const ARTIFACT_SUMMARY_SCRIPT = "scripts/write-e2e-artifact-summary.mjs";
+const ARTIFACT_SUMMARY_TEST = "scripts/write-e2e-artifact-summary.test.mjs";
 
 const errors = [];
 
@@ -262,6 +266,7 @@ requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 9. Nightly ful
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 10. Nightly artifacts report");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "Artifact bundle includes `playwright-report/` and `test-results/`");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e-nightly-full-vite.log`");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e-nightly-full-artifact-summary.md`");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "./stage-3l-nightly-artifacts-report.md");
 
 const nightlyWorkflowPath = join(ROOT, NIGHTLY_FULL_WORKFLOW);
@@ -274,26 +279,48 @@ if (!nightlyWorkflow) {
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "playwright-report/");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "test-results/");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "test-results/e2e-nightly-full-vite.log");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "FULL_E2E_REPORT_PATH: test-results/e2e-nightly-full-artifact-summary.md");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "FULL_E2E_UPLOAD_ARTIFACTS");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "upload_artifacts");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "cron: \"23 2 * * *\"");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "FULL_E2E_ARTIFACT_NAME: e2e-nightly-full-report-${{ github.run_id }}");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "npx playwright test --reporter=list,html --retries=\"$FULL_E2E_RETRIES\" --trace=retain-on-failure");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "Write nightly artifacts report");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "node scripts/write-e2e-artifact-summary.mjs \"$FULL_E2E_REPORT_PATH\"");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "actions/upload-artifact@v4");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "if-no-files-found: warn");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "retention-days: 7");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "env.FULL_E2E_UPLOAD_ARTIFACTS == 'always'");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "env.FULL_E2E_UPLOAD_ARTIFACTS == 'failure' && failure()");
 requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "$GITHUB_STEP_SUMMARY");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "cat \"$FULL_E2E_REPORT_PATH\"");
 
 const nightlyReport = readDoc("stage-3l-nightly-artifacts-report.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Artifact name pattern: `e2e-nightly-full-report-<run_id>`");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Retention: 7 days");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Generated summary path: `test-results/e2e-nightly-full-artifact-summary.md`");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Summary writer: `node scripts/write-e2e-artifact-summary.mjs`");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "playwright-report/");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/e2e-nightly-full-vite.log");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/e2e-nightly-full-artifact-summary.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Nightly full e2e report");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Do not paste credentials, signed URLs, storage paths, access tokens");
+
+const packageJson = existsSync(join(ROOT, PACKAGE_JSON))
+  ? readFileSync(join(ROOT, PACKAGE_JSON), "utf8")
+  : "";
+requireText(PACKAGE_JSON, packageJson, "\"test:e2e-artifacts\": \"node --test scripts/write-e2e-artifact-summary.test.mjs\"");
+
+const preflightScript = existsSync(join(ROOT, PREFLIGHT_SCRIPT))
+  ? readFileSync(join(ROOT, PREFLIGHT_SCRIPT), "utf8")
+  : "";
+requireText(PREFLIGHT_SCRIPT, preflightScript, "e2e artifact summary log-safety");
+requireText(PREFLIGHT_SCRIPT, preflightScript, "test:e2e-artifacts");
+
+for (const path of [ARTIFACT_SUMMARY_SCRIPT, ARTIFACT_SUMMARY_TEST]) {
+  if (!existsSync(join(ROOT, path))) errors.push(`Missing required script: ${path}`);
+}
 
 if (errors.length > 0) {
   console.error("[check-stage3-docs] Stage 3 documentation check failed:");

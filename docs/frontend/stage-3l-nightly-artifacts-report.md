@@ -22,6 +22,8 @@ or when a release reviewer asks for full-e2e evidence.
 - Retention: 7 days.
 - Successful scheduled runs with default policy should not upload artifacts.
 - Failed runs, or manual `always` runs, should upload artifacts.
+- Generated summary path: `test-results/e2e-nightly-full-artifact-summary.md`.
+- Summary writer: `node scripts/write-e2e-artifact-summary.mjs`.
 
 ## 4. Expected artifact bundle
 
@@ -30,9 +32,11 @@ The uploaded artifact, when policy allows upload, must include:
 - `playwright-report/`
 - `test-results/`
 - `test-results/e2e-nightly-full-vite.log`
+- `test-results/e2e-nightly-full-artifact-summary.md`
 
 The job summary must state the command, schedule, retry count, artifact policy,
-artifact link or not-uploaded status, and final result.
+artifact link or not-uploaded status, final result, and the generated artifact
+summary content.
 
 ## 5. Report fields
 
@@ -51,6 +55,7 @@ Nightly full e2e report
   - playwright-report/
   - test-results/
   - test-results/e2e-nightly-full-vite.log
+  - test-results/e2e-nightly-full-artifact-summary.md
 - Visual-regression status:
 - Auth smoke status:
 - Failure summary:
@@ -65,6 +70,8 @@ Nightly full e2e report
 - Check `test-results/` first for failed Playwright traces and screenshots.
 - Check `playwright-report/` for grouped failures and retry behavior.
 - Check `test-results/e2e-nightly-full-vite.log` for app startup failures.
+- Check `test-results/e2e-nightly-full-artifact-summary.md` for the sanitized
+  run metadata used in the GitHub job summary.
 - If auth smoke skipped because credentials were absent, treat that as expected
   for credential-free CI unless the run was explicitly meant to use real auth.
 

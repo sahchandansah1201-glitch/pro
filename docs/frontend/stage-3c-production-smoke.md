@@ -125,5 +125,8 @@
 - The report records run URL, commit SHA, result, artifact policy, artifact
   availability, retained bundle paths, visual-regression status, auth smoke
   skip/pass state, and follow-up owner.
+- The workflow also writes a sanitized generated summary to
+  `test-results/e2e-nightly-full-artifact-summary.md`; when artifacts are
+  uploaded, that file is part of the artifact bundle.
 - Never paste credentials, signed URLs, storage paths, access tokens, or raw
   patient identifiers into the report. Link the GitHub Actions run instead.
