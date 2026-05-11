@@ -41,8 +41,8 @@ usage, and clear product boundaries.
 | LV-002 | Local patient edit flow | Done | Implemented local-only edit dialog and validation in PR #19. |
 | LV-003 | Patient preview, local delete, extended search, change log | Done | Implemented demo-safe patient actions and audit UI in PR #20. |
 | LV-004 | Patient sorting, pagination, undo delete, change-log export | Done | Implemented in PR #21 without clipboard, file, storage, or API usage. |
-| LV-005 | Real patient creation and backend persistence | Deferred | Repeated by Lovable after PR #22, PR #23, PR #24, PR #25, and PR #26; still requires a dedicated backend/persistence stage with role permissions, audit, consent rules, and real data handling. |
-| LV-006 | Real patient deletion | Deferred | Repeated by Lovable after PR #22, PR #23, PR #24, PR #25, and PR #26; still requires backend ownership, irreversible-action policy, audit trail, and recovery/retention rules. |
+| LV-005 | Real patient creation and backend persistence | Deferred | Repeated by Lovable after PR #22, PR #23, PR #24, PR #25, PR #26, and PR #27; still requires a dedicated backend/persistence stage with role permissions, audit, consent rules, and real data handling. |
+| LV-006 | Real patient deletion | Deferred | Repeated by Lovable after PR #22, PR #23, PR #24, PR #25, PR #26, and PR #27; still requires backend ownership, irreversible-action policy, audit trail, and recovery/retention rules. |
 | LV-007 | Bulk patient operations | Deferred | Needs a separate workflow design; avoid mixing with table convenience work. |
 | LV-008 | Triage checklist template for future Lovable suggestions | Done | Added in PR #23 and confirmed after sync so each suggestion is classified before it becomes implementation scope. |
 | LV-009 | Tests for real patient creation/deletion | Deferred | Repeated by Lovable after PR #24, PR #25, and PR #26; depends on LV-005/LV-006 real backend flows, so current demo/local tests remain valid until a backend persistence stage owns these cases. |
@@ -51,6 +51,10 @@ usage, and clear product boundaries.
 | LV-012 | Verify current demo/local create-delete UI | Done | Current scope is covered by PatientsPage tests for non-mutating create affordance and local delete/undo flows from PR #18, PR #20, and PR #21. |
 | LV-013 | Error and status logging for real create/delete | Deferred | Repeated by Lovable after PR #26; requires backend error contracts and audit/status policy for real persistence; current demo/local status and change log remain sufficient for the non-persistent scope. |
 | LV-014 | UX review for patient create/delete triage | Done | Added in PR #27 to document why real create/delete controls should stay out of the current demo UI until backend persistence owns the workflow. |
+| LV-015 | Gate real patient create/delete | Done | Current Stage 3K decision gates real create/delete behind a future backend/persistence stage; no runtime backend-looking controls are added in the demo UI. |
+| LV-016 | Demo-only patient create/delete flow | Done | Existing UI keeps create non-mutating and delete local/reversible, matching the current demo-only patient workflow. |
+| LV-017 | Triage UX checklist UI | Deferred | A visible UI for triage management is a separate internal workflow tool; current need is covered by the Stage 3K markdown checklist. |
+| LV-018 | Log demo action statuses | Done | Current PatientsPage demo/local actions use polite status messages and the patient change log for edit/delete/undo outcomes. |
 
 ## 5. Per-cycle update rule
 
