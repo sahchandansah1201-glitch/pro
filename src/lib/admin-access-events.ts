@@ -41,6 +41,13 @@ export interface AccessEventsCsvMeta {
   columns?: AccessEventExportColumnKey[];
 }
 
+export interface AccessEventsFilenameOptions {
+  scope?: string;
+  rowCount?: number;
+  columnCount?: number;
+  repeated?: boolean;
+}
+
 type CellValue = string | null;
 
 export function limitAccessEventExportRows<T>(
@@ -110,17 +117,32 @@ export function buildAccessEventsCsv(
     .join("\n");
 }
 
-export function accessEventsCsvFilename(filterKey: string, query: string): string {
-  const date = new Date().toISOString().slice(0, 10);
-  const filter = filterKey.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "all";
-  const q = query.trim().replace(/[^a-z0-9а-яА-Я_-]+/g, "-").replace(/^-+|-+$/g, "");
-  return q
-    ? `access-events-${date}-${filter}-${q.slice(0, 24)}.csv`
-    : `access-events-${date}-${filter}.csv`;
+function filenamePart(value: string): string {
+  return value.replace(/[^a-z0-9а-яА-Я_-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-export function accessEventsXlsxFilename(filterKey: string, query: string): string {
-  return accessEventsCsvFilename(filterKey, query).replace(/\.csv$/, ".xlsx");
+export function accessEventsCsvFilename(
+  filterKey: string,
+  query: string,
+  options: AccessEventsFilenameOptions = {},
+): string {
+  const date = new Date().toISOString().slice(0, 10);
+  const parts = ["access-events", date, filenamePart(filterKey) || "all"];
+  const scope = options.scope ? filenamePart(options.scope) : "";
+  if (scope) parts.push(scope.slice(0, 32));
+  if (typeof options.rowCount === "number") parts.push(`${Math.max(0, options.rowCount)}-rows`);
+  if (typeof options.columnCount === "number") parts.push(`${Math.max(0, options.columnCount)}-cols`);
+  if (query.trim()) parts.push("query");
+  if (options.repeated) parts.push("repeat");
+  return `${parts.join("-")}.csv`;
+}
+
+export function accessEventsXlsxFilename(
+  filterKey: string,
+  query: string,
+  options: AccessEventsFilenameOptions = {},
+): string {
+  return accessEventsCsvFilename(filterKey, query, options).replace(/\.csv$/, ".xlsx");
 }
 
 function xmlEscape(value: CellValue): string {

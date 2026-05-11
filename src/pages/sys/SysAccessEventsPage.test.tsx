@@ -7,6 +7,7 @@ import { ROLE_STORAGE_KEY } from "@/context/role-context";
 import {
   ACCESS_EVENT_EXPORT_COLUMNS,
   ACCESS_EVENTS_EXPORT_LIMIT,
+  accessEventsCsvFilename,
   accessEventsXlsxFilename,
   buildAccessEventsCsv,
   buildAccessEventsXlsxBlob,
@@ -265,6 +266,31 @@ describe("SysAccessEventsPage", () => {
     expect(nonOptionTextCount("visit.open")).toBe(0);
   });
 
+  it("persists export settings across remounts", () => {
+    const first = renderPage();
+
+    fireEvent.change(screen.getByLabelText("Диапазон экспорта событий"), {
+      target: { value: "custom_range" },
+    });
+    fireEvent.change(screen.getByLabelText("Начало пользовательского диапазона экспорта"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByLabelText("Конец пользовательского диапазона экспорта"), {
+      target: { value: "4" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать основные колонки экспорта" }));
+    first.unmount();
+
+    renderPage();
+
+    expect(screen.getByLabelText("Диапазон экспорта событий")).toHaveValue("custom_range");
+    expect(screen.getByLabelText("Начало пользовательского диапазона экспорта")).toHaveValue(2);
+    expect(screen.getByLabelText("Конец пользовательского диапазона экспорта")).toHaveValue(4);
+    expect(screen.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toHaveTextContent(
+      /Будет экспортировано 3 событий.*Колонки: 6/i,
+    );
+  });
+
   it("shows a safe export preview that reflects filters and export limits", () => {
     renderPage();
 
@@ -371,6 +397,9 @@ describe("SysAccessEventsPage", () => {
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events");
     expect(screen.getByText(/CSV экспорт готов:/)).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
+      /Файл: access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols\.csv/i,
+    );
     expect(screen.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
       "aria-valuenow",
       "100",
@@ -411,7 +440,35 @@ describe("SysAccessEventsPage", () => {
     const blob = createObjectURL.mock.calls[0][0] as Blob;
     expect(blob.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     expect(blob.size).toBeGreaterThan(0);
-    expect(accessEventsXlsxFilename("all", "")).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.xlsx$/);
+    expect(accessEventsXlsxFilename("all", "", { scope: "all-pages", rowCount: 12, columnCount: 11 })).toMatch(
+      /^access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols\.xlsx$/,
+    );
+  });
+
+  it("repeats an export from the export log", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:access-events-repeat"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Повторить экспорт CSV/i }));
+
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
+      /Повторный CSV экспорт готов: 12 строк/i,
+    );
+    expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
+      /access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols-repeat\.csv/i,
+    );
   });
 
   it("logs exports without echoing raw search text", async () => {
@@ -436,6 +493,27 @@ describe("SysAccessEventsPage", () => {
     expect(exportLog).toHaveTextContent(/CSV: /i);
     expect(exportLog).toHaveTextContent(/Поиск: есть/i);
     expect(exportLog).not.toHaveTextContent("report.share");
+  });
+
+  it("builds informative export filenames without raw query text", () => {
+    const csvName = accessEventsCsvFilename("clinical", "report.share", {
+      scope: "current-page",
+      rowCount: 5,
+      columnCount: 6,
+    });
+    const repeatedName = accessEventsCsvFilename("clinical", "report.share", {
+      scope: "range-2-4",
+      rowCount: 3,
+      columnCount: 6,
+      repeated: true,
+    });
+
+    expect(csvName).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-clinical-current-page-5-rows-6-cols-query\.csv$/);
+    expect(repeatedName).toMatch(
+      /^access-events-\d{4}-\d{2}-\d{2}-clinical-range-2-4-3-rows-6-cols-query-repeat\.csv$/,
+    );
+    expect(csvName).not.toContain("report");
+    expect(csvName).not.toContain("share");
   });
 
   it("CSV helper quotes values safely and omits sensitive fields by contract", () => {

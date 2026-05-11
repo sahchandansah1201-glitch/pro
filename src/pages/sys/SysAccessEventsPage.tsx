@@ -57,6 +57,7 @@ const REFRESH_COOLDOWN_MS = 10_000;
 const AUTO_REFRESH_INTERVAL_MS = 60_000;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 const FILTER_STATE_STORAGE_KEY = "derma-pro:sys-access-events:filters";
+const EXPORT_SETTINGS_STORAGE_KEY = "derma-pro:sys-access-events:export-settings";
 
 interface AccessEventRow {
   id: string;
@@ -100,6 +101,13 @@ interface AccessEventsFilterState {
   pageSize: number;
 }
 
+interface AccessEventsExportSettings {
+  exportScope: ExportScope;
+  customRangeFrom: string;
+  customRangeTo: string;
+  selectedExportColumns: AccessEventExportColumnKey[];
+}
+
 const DEFAULT_FILTER_STATE: AccessEventsFilterState = {
   query: "",
   filter: "all",
@@ -114,6 +122,13 @@ const DEFAULT_FILTER_STATE: AccessEventsFilterState = {
   pageSize: 10,
 };
 
+const DEFAULT_EXPORT_SETTINGS: AccessEventsExportSettings = {
+  exportScope: "all_pages",
+  customRangeFrom: "1",
+  customRangeTo: "",
+  selectedExportColumns: [...DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS],
+};
+
 function isFilterKey(value: unknown): value is FilterKey {
   return typeof value === "string" && FILTERS.some((f) => f.key === value);
 }
@@ -122,12 +137,26 @@ function isSourceFilter(value: unknown): value is SourceFilter {
   return typeof value === "string" && SOURCE_FILTERS.some((f) => f.key === value);
 }
 
+function isExportScope(value: unknown): value is ExportScope {
+  return value === "all_pages" || value === "current_page" || value === "custom_range";
+}
+
+function isExportColumnKey(value: unknown): value is AccessEventExportColumnKey {
+  return typeof value === "string" && ACCESS_EVENT_EXPORT_COLUMNS.some((column) => column.key === value);
+}
+
 function isPageSize(value: unknown): value is (typeof PAGE_SIZE_OPTIONS)[number] {
   return typeof value === "number" && PAGE_SIZE_OPTIONS.includes(value as (typeof PAGE_SIZE_OPTIONS)[number]);
 }
 
 function storedString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function storedExportColumns(value: unknown): AccessEventExportColumnKey[] {
+  if (!Array.isArray(value)) return [...DEFAULT_EXPORT_SETTINGS.selectedExportColumns];
+  const columns = value.filter(isExportColumnKey);
+  return columns.length > 0 ? columns : [...DEFAULT_EXPORT_SETTINGS.selectedExportColumns];
 }
 
 function readFilterState(): AccessEventsFilterState {
@@ -160,6 +189,32 @@ function writeFilterState(state: AccessEventsFilterState): void {
     window.localStorage.setItem(FILTER_STATE_STORAGE_KEY, JSON.stringify(state));
   } catch {
     // Ignore storage failures; filtering must keep working in private or restricted contexts.
+  }
+}
+
+function readExportSettings(): AccessEventsExportSettings {
+  if (typeof window === "undefined") return DEFAULT_EXPORT_SETTINGS;
+  try {
+    const raw = window.localStorage.getItem(EXPORT_SETTINGS_STORAGE_KEY);
+    if (!raw) return DEFAULT_EXPORT_SETTINGS;
+    const parsed = JSON.parse(raw) as Partial<AccessEventsExportSettings>;
+    return {
+      exportScope: isExportScope(parsed.exportScope) ? parsed.exportScope : DEFAULT_EXPORT_SETTINGS.exportScope,
+      customRangeFrom: storedString(parsed.customRangeFrom, DEFAULT_EXPORT_SETTINGS.customRangeFrom),
+      customRangeTo: storedString(parsed.customRangeTo, DEFAULT_EXPORT_SETTINGS.customRangeTo),
+      selectedExportColumns: storedExportColumns(parsed.selectedExportColumns),
+    };
+  } catch {
+    return DEFAULT_EXPORT_SETTINGS;
+  }
+}
+
+function writeExportSettings(state: AccessEventsExportSettings): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(EXPORT_SETTINGS_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Export settings are a convenience only; the page must remain usable without storage.
   }
 }
 
@@ -369,6 +424,9 @@ interface ExportLogEntry {
   scopeLabel: string;
   columnCount: number;
   query: string;
+  filename: string;
+  rows: AccessEventRow[];
+  columns: AccessEventExportColumnKey[];
 }
 
 function isoDate(date: Date): string {
@@ -390,10 +448,15 @@ function parsePositiveInt(value: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function repeatFilename(filename: string): string {
+  return filename.replace(/(\.csv|\.xlsx)$/i, "-repeat$1");
+}
+
 export default function SysAccessEventsPage() {
   const { role } = useRole();
   const configured = isSupabaseConfigured();
   const [storedFilters] = useState(readFilterState);
+  const [storedExportSettings] = useState(readExportSettings);
   const [rows, setRows] = useState<AccessEventRow[]>(() => buildDemoRows());
   const [source, setSource] = useState<AccessEventSource>("demo");
   const [loading, setLoading] = useState(false);
@@ -415,11 +478,11 @@ export default function SysAccessEventsPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
   const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
-  const [exportScope, setExportScope] = useState<ExportScope>("all_pages");
-  const [customRangeFrom, setCustomRangeFrom] = useState("1");
-  const [customRangeTo, setCustomRangeTo] = useState("");
+  const [exportScope, setExportScope] = useState<ExportScope>(storedExportSettings.exportScope);
+  const [customRangeFrom, setCustomRangeFrom] = useState(storedExportSettings.customRangeFrom);
+  const [customRangeTo, setCustomRangeTo] = useState(storedExportSettings.customRangeTo);
   const [selectedExportColumns, setSelectedExportColumns] = useState<AccessEventExportColumnKey[]>(
-    DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS,
+    storedExportSettings.selectedExportColumns,
   );
   const [queryLog, setQueryLog] = useState<QueryLogEntry[]>([]);
   const [cooldownUntil, setCooldownUntil] = useState(0);
@@ -449,6 +512,9 @@ export default function SysAccessEventsPage() {
       scopeLabelValue: string,
       columnCount: number,
       queryValue: string,
+      filename: string,
+      rowsValue: AccessEventRow[],
+      columnsValue: AccessEventExportColumnKey[],
     ) => {
       const at = new Date().toISOString();
       setExportLog((current) =>
@@ -462,6 +528,9 @@ export default function SysAccessEventsPage() {
             scopeLabel: scopeLabelValue,
             columnCount,
             query: queryValue.trim() ? "есть" : "—",
+            filename,
+            rows: rowsValue,
+            columns: columnsValue,
           },
           ...current,
         ].slice(0, 5),
@@ -503,6 +572,15 @@ export default function SysAccessEventsPage() {
     dateTo,
     pageSize,
   ]);
+
+  useEffect(() => {
+    writeExportSettings({
+      exportScope,
+      customRangeFrom,
+      customRangeTo,
+      selectedExportColumns,
+    });
+  }, [customRangeFrom, customRangeTo, exportScope, selectedExportColumns]);
 
   useEffect(() => {
     if (!configured || role !== "system_admin") {
@@ -682,6 +760,13 @@ export default function SysAccessEventsPage() {
         ? `строки ${customRange.from}–${customRange.to}`
         : "все страницы";
 
+  const exportScopeFilenamePart =
+    exportScope === "current_page"
+      ? "current-page"
+      : exportScope === "custom_range"
+        ? `range-${customRange.from}-${customRange.to}`
+        : "all-pages";
+
   const scopedExportRows = useMemo(() => {
     if (exportScope === "current_page") return pagination.visible;
     if (exportScope === "custom_range") return filteredRows.slice(customRange.from - 1, customRange.to);
@@ -706,6 +791,7 @@ export default function SysAccessEventsPage() {
           : `Будет экспортировано ${exportRows.length} событий.`;
 
   const exportBusy = exportProgress?.active === true;
+  const exportQueryMeta = query.trim() ? "поиск применён" : "";
 
   const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const refreshDisabled = loading || cooldownSeconds > 0;
@@ -809,115 +895,168 @@ export default function SysAccessEventsPage() {
     return () => window.clearInterval(timer);
   }, [autoRefresh, requestRefresh, role]);
 
+  const runExport = useCallback(
+    async ({
+      format,
+      rows: rowsToExport,
+      columns,
+      filterLabelValue,
+      scopeLabelValue,
+      filename,
+      queryValue,
+      repeated,
+    }: {
+      format: ExportFormat;
+      rows: AccessEventRow[];
+      columns: AccessEventExportColumnKey[];
+      filterLabelValue: string;
+      scopeLabelValue: string;
+      filename: string;
+      queryValue: string;
+      repeated?: boolean;
+    }) => {
+      if (rowsToExport.length === 0 || columns.length === 0) return;
+      const rowCount = rowsToExport.length;
+      const columnCount = columns.length;
+      setExportProgress({
+        format,
+        percent: 20,
+        label: repeated ? `Готовим повторный ${format} экспорт.` : `Готовим ${format} экспорт.`,
+        active: true,
+      });
+      await waitForUi();
+      if (format === "CSV") {
+        const csv = buildAccessEventsCsv(rowsToExport, {
+          filterLabel: filterLabelValue,
+          query: queryValue,
+          scopeLabel: scopeLabelValue,
+          columns,
+        });
+        setExportProgress({
+          format,
+          percent: 70,
+          label: "Формируем CSV файл.",
+          active: true,
+        });
+        await waitForUi();
+        downloadText(filename, csv);
+      } else {
+        const blob = buildAccessEventsXlsxBlob(rowsToExport, {
+          filterLabel: filterLabelValue,
+          query: queryValue,
+          scopeLabel: scopeLabelValue,
+          columns,
+        });
+        setExportProgress({
+          format,
+          percent: 70,
+          label: "Формируем XLSX файл.",
+          active: true,
+        });
+        await waitForUi();
+        downloadBlob(filename, blob);
+      }
+      setExportProgress({
+        format,
+        percent: 100,
+        label: repeated ? `Повторный ${format} экспорт готов.` : `${format} экспорт готов.`,
+        active: false,
+      });
+      setExportStatus(
+        `${repeated ? "Повторный " : ""}${format} экспорт готов: ${rowCount} строк. Диапазон: ${scopeLabelValue}. Колонки: ${columnCount}. Файл: ${filename}.`,
+      );
+      appendExportLog(
+        format,
+        rowCount,
+        filterLabelValue,
+        scopeLabelValue,
+        columnCount,
+        queryValue,
+        filename,
+        rowsToExport,
+        columns,
+      );
+      appendQueryLog(
+        repeated ? `Повторный экспорт ${format}` : `Экспорт ${format}`,
+        `экспортировано ${rowCount} строк; диапазон: ${scopeLabelValue}`,
+      );
+    },
+    [appendExportLog, appendQueryLog],
+  );
+
   const handleExportCsv = useCallback(async () => {
     if (exportDisabled) return;
-    const limitNotice =
-      scopedExportRows.length > exportRows.length
-        ? `${exportRows.length} из ${scopedExportRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
-        : `${exportRows.length} строк`;
-    setExportProgress({
+    await runExport({
       format: "CSV",
-      percent: 20,
-      label: "Готовим CSV экспорт.",
-      active: true,
-    });
-    await waitForUi();
-    const csv = buildAccessEventsCsv(exportRows, {
-      filterLabel: currentFilterLabel,
-      query,
-      scopeLabel: exportScopeLabel,
+      rows: exportRows,
       columns: selectedExportColumns,
+      filterLabelValue: currentFilterLabel,
+      scopeLabelValue: exportScopeLabel,
+      filename: accessEventsCsvFilename(filter, query, {
+        scope: exportScopeFilenamePart,
+        rowCount: exportRows.length,
+        columnCount: selectedExportColumnCount,
+      }),
+      queryValue: exportQueryMeta,
     });
-    setExportProgress({
-      format: "CSV",
-      percent: 70,
-      label: "Формируем CSV файл.",
-      active: true,
-    });
-    await waitForUi();
-    downloadText(
-      accessEventsCsvFilename(filter, query),
-      csv,
-    );
-    setExportProgress({
-      format: "CSV",
-      percent: 100,
-      label: "CSV экспорт готов.",
-      active: false,
-    });
-    setExportStatus(
-      `CSV экспорт готов: ${limitNotice}. Диапазон: ${exportScopeLabel}. Колонки: ${selectedExportColumnCount}.`,
-    );
-    appendExportLog("CSV", exportRows.length, currentFilterLabel, exportScopeLabel, selectedExportColumnCount, query);
-    appendQueryLog("Экспорт CSV", `экспортировано ${limitNotice}; диапазон: ${exportScopeLabel}`);
   }, [
-    appendExportLog,
-    appendQueryLog,
     currentFilterLabel,
     exportDisabled,
     exportRows,
+    exportQueryMeta,
+    exportScopeFilenamePart,
     exportScopeLabel,
     filter,
     query,
-    scopedExportRows.length,
+    runExport,
     selectedExportColumnCount,
     selectedExportColumns,
   ]);
 
   const handleExportXlsx = useCallback(async () => {
     if (exportDisabled) return;
-    const limitNotice =
-      scopedExportRows.length > exportRows.length
-        ? `${exportRows.length} из ${scopedExportRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
-        : `${exportRows.length} строк`;
-    setExportProgress({
+    await runExport({
       format: "XLSX",
-      percent: 20,
-      label: "Готовим XLSX экспорт.",
-      active: true,
-    });
-    await waitForUi();
-    const blob = buildAccessEventsXlsxBlob(exportRows, {
-      filterLabel: currentFilterLabel,
-      query,
-      scopeLabel: exportScopeLabel,
+      rows: exportRows,
       columns: selectedExportColumns,
+      filterLabelValue: currentFilterLabel,
+      scopeLabelValue: exportScopeLabel,
+      filename: accessEventsXlsxFilename(filter, query, {
+        scope: exportScopeFilenamePart,
+        rowCount: exportRows.length,
+        columnCount: selectedExportColumnCount,
+      }),
+      queryValue: exportQueryMeta,
     });
-    setExportProgress({
-      format: "XLSX",
-      percent: 70,
-      label: "Формируем XLSX файл.",
-      active: true,
-    });
-    await waitForUi();
-    downloadBlob(
-      accessEventsXlsxFilename(filter, query),
-      blob,
-    );
-    setExportProgress({
-      format: "XLSX",
-      percent: 100,
-      label: "XLSX экспорт готов.",
-      active: false,
-    });
-    setExportStatus(
-      `XLSX экспорт готов: ${limitNotice}. Диапазон: ${exportScopeLabel}. Колонки: ${selectedExportColumnCount}.`,
-    );
-    appendExportLog("XLSX", exportRows.length, currentFilterLabel, exportScopeLabel, selectedExportColumnCount, query);
-    appendQueryLog("Экспорт XLSX", `экспортировано ${limitNotice}; диапазон: ${exportScopeLabel}`);
   }, [
-    appendExportLog,
-    appendQueryLog,
     currentFilterLabel,
     exportDisabled,
     exportRows,
+    exportQueryMeta,
+    exportScopeFilenamePart,
     exportScopeLabel,
     filter,
     query,
-    scopedExportRows.length,
+    runExport,
     selectedExportColumnCount,
     selectedExportColumns,
   ]);
+
+  const handleRepeatExport = useCallback(
+    async (entry: ExportLogEntry) => {
+      await runExport({
+        format: entry.format,
+        rows: entry.rows,
+        columns: entry.columns,
+        filterLabelValue: entry.filterLabel,
+        scopeLabelValue: entry.scopeLabel,
+        filename: repeatFilename(entry.filename),
+        queryValue: entry.query === "есть" ? "поиск применён" : "",
+        repeated: true,
+      });
+    },
+    [runExport],
+  );
 
   if (role !== "system_admin") {
     return (
@@ -1413,6 +1552,7 @@ export default function SysAccessEventsPage() {
             role="status"
             aria-live="polite"
             aria-atomic="true"
+            aria-label="Статус прогресса экспорта событий доступа"
             className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
           >
             <div className="flex items-center justify-between gap-3">
@@ -1440,6 +1580,7 @@ export default function SysAccessEventsPage() {
             role="status"
             aria-live="polite"
             aria-atomic="true"
+            aria-label="Статус экспорта событий доступа"
             className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
           >
             {exportStatus}
@@ -1489,14 +1630,28 @@ export default function SysAccessEventsPage() {
           <ul className="space-y-1 text-[12px] text-muted-foreground">
             {exportLog.length > 0 ? (
               exportLog.map((entry) => (
-                <li key={entry.id} className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
-                  <span>
-                    {entry.format}: {entry.rowCount} строк. Диапазон: {entry.scopeLabel}. Колонки:{" "}
-                    {entry.columnCount}. Срез: {entry.filterLabel}. Поиск: {entry.query}.
-                  </span>
-                  <time className="font-mono text-[11px]" dateTime={entry.at}>
-                    {formatDateTime(entry.at)}
-                  </time>
+                <li key={entry.id} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-0.5">
+                    <div>
+                      {entry.format}: {entry.rowCount} строк. Диапазон: {entry.scopeLabel}. Колонки:{" "}
+                      {entry.columnCount}. Срез: {entry.filterLabel}. Поиск: {entry.query}.
+                    </div>
+                    <div className="truncate font-mono text-[11px]">Файл: {entry.filename}</div>
+                    <time className="block font-mono text-[11px]" dateTime={entry.at}>
+                      {formatDateTime(entry.at)}
+                    </time>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 shrink-0 text-[12px]"
+                    onClick={() => handleRepeatExport(entry)}
+                    disabled={exportBusy}
+                    aria-label={`Повторить экспорт ${entry.format} ${entry.filename}`}
+                  >
+                    Повторить
+                  </Button>
                 </li>
               ))
             ) : (
