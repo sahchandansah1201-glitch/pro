@@ -231,6 +231,29 @@ function writeExportSettings(state: AccessEventsExportSettings): void {
   }
 }
 
+function isExportLogFilter(value: unknown): value is ExportLogFilter {
+  return typeof value === "string" && EXPORT_LOG_FILTERS.some((f) => f.key === value);
+}
+
+function readExportLogFilter(): ExportLogFilter {
+  if (typeof window === "undefined") return "all";
+  try {
+    const raw = window.localStorage.getItem(EXPORT_LOG_FILTER_STORAGE_KEY);
+    return isExportLogFilter(raw) ? raw : "all";
+  } catch {
+    return "all";
+  }
+}
+
+function writeExportLogFilter(value: ExportLogFilter): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(EXPORT_LOG_FILTER_STORAGE_KEY, value);
+  } catch {
+    // Filter persistence is best-effort; never block the UI.
+  }
+}
+
 const ENTITY_BUCKET: Record<string, FilterKey> = {
   visit: "clinical",
   image: "clinical",
