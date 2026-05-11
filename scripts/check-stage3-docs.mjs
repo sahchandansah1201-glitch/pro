@@ -148,6 +148,7 @@ const EXPECTED = [
       "## 5. Per-cycle update rule",
       "## 6. Lovable confirm prompt note",
       "## 7. Triage checklist template",
+      "## 8. UX review: patient create-delete triage",
     ],
   },
 ];

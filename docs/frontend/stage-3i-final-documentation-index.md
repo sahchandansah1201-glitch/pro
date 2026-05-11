@@ -103,5 +103,7 @@ The focused Stage 3 docs guard is standalone and does not require
   persistence-stage work.
 - PR #26: recorded patient form, create/delete verification, and
   real-flow status logging triage.
+- PR #27: added UX-review rationale for keeping real patient
+  create/delete out of the current demo UI.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
