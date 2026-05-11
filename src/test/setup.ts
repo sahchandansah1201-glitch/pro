@@ -14,6 +14,22 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+Object.defineProperty(window, "ResizeObserver", {
+  writable: true,
+  value: ResizeObserverMock,
+});
+
+Object.defineProperty(globalThis, "ResizeObserver", {
+  writable: true,
+  value: ResizeObserverMock,
+});
+
 // Отключаем имитацию загрузки секций /admin/analytics в тестах,
 // чтобы существующие тесты сразу видели реальный контент / empty-states.
 (window as unknown as { __ANALYTICS_LOADING_MS__?: number }).__ANALYTICS_LOADING_MS__ = 0;
