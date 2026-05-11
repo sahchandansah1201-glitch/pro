@@ -1,0 +1,91 @@
+name: e2e-nightly-full
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+    inputs:
+      upload_artifacts:
+        description: "Artifact upload policy"
+        required: true
+        default: "failure"
+        type: choice
+        options:
+          - "failure"
+          - "always"
+          - "never"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  e2e-nightly-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FULL_E2E_ARTIFACT_NAME: e2e-nightly-full-report-${{ github.run_id }}
+      FULL_E2E_RETRIES: "1"
+      FULL_E2E_UPLOAD_ARTIFACTS: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_artifacts || 'failure' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start Vite
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          npm run dev -- --host 127.0.0.1 --port 8080 > test-results/e2e-nightly-full-vite.log 2>&1 &
+          echo "$!" > /tmp/e2e-nightly-full-vite.pid
+          for _ in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080 >/dev/null; then
+              echo "Vite is ready on http://127.0.0.1:8080"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat test-results/e2e-nightly-full-vite.log
+          exit 1
+      - name: Run full e2e suite
+        run: |
+          set -euo pipefail
+          npx playwright test --reporter=list,html --retries="$FULL_E2E_RETRIES" --trace=retain-on-failure
+      - name: Upload full e2e report and failure artifacts
+        if: always() && (env.FULL_E2E_UPLOAD_ARTIFACTS == 'always' || (env.FULL_E2E_UPLOAD_ARTIFACTS == 'failure' && failure()))
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FULL_E2E_ARTIFACT_NAME }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Stop Vite
+        if: always()
+        run: |
+          if [ -f /tmp/e2e-nightly-full-vite.pid ]; then
+            kill "$(cat /tmp/e2e-nightly-full-vite.pid)" || true
+          fi
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## e2e-nightly-full"
+            echo ""
+            echo "- Command: \`npx playwright test --reporter=list,html --retries=$FULL_E2E_RETRIES --trace=retain-on-failure\`"
+            echo "- Schedule: \`23 2 * * *\`"
+            echo "- Retries: \`$FULL_E2E_RETRIES\`"
+            echo "- Artifact policy: \`$FULL_E2E_UPLOAD_ARTIFACTS\`"
+            if [ "$FULL_E2E_UPLOAD_ARTIFACTS" = "always" ] || { [ "$FULL_E2E_UPLOAD_ARTIFACTS" = "failure" ] && [ "${{ job.status }}" != "success" ]; }; then
+              echo "- Artifact: [$FULL_E2E_ARTIFACT_NAME](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)"
+            else
+              echo "- Artifact: not uploaded for this successful run"
+            fi
+            echo "- Result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -47,6 +47,7 @@ const EXPECTED = [
       "## 6. Fail criteria and next step",
       "## 7. Fast e2e smoke vs full e2e",
       "## 8. CI fast smoke workflow",
+      "## 9. Nightly full e2e",
     ],
   },
   {
