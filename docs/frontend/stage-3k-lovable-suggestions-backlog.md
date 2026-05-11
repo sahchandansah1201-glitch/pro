@@ -41,11 +41,12 @@ usage, and clear product boundaries.
 | LV-002 | Local patient edit flow | Done | Implemented local-only edit dialog and validation in PR #19. |
 | LV-003 | Patient preview, local delete, extended search, change log | Done | Implemented demo-safe patient actions and audit UI in PR #20. |
 | LV-004 | Patient sorting, pagination, undo delete, change-log export | Done | Implemented in PR #21 without clipboard, file, storage, or API usage. |
-| LV-005 | Real patient creation and backend persistence | Deferred | Repeated by Lovable after PR #22 and PR #23; still requires a dedicated backend/persistence stage with role permissions, audit, consent rules, and real data handling. |
-| LV-006 | Real patient deletion | Deferred | Repeated by Lovable after PR #22 and PR #23; still requires backend ownership, irreversible-action policy, audit trail, and recovery/retention rules. |
+| LV-005 | Real patient creation and backend persistence | Deferred | Repeated by Lovable after PR #22, PR #23, and PR #24; still requires a dedicated backend/persistence stage with role permissions, audit, consent rules, and real data handling. |
+| LV-006 | Real patient deletion | Deferred | Repeated by Lovable after PR #22, PR #23, and PR #24; still requires backend ownership, irreversible-action policy, audit trail, and recovery/retention rules. |
 | LV-007 | Bulk patient operations | Deferred | Needs a separate workflow design; avoid mixing with table convenience work. |
 | LV-008 | Triage checklist template for future Lovable suggestions | Done | Added in PR #23 and confirmed after sync so each suggestion is classified before it becomes implementation scope. |
-| LV-009 | Tests for real patient creation/deletion | Deferred | Depends on LV-005/LV-006 real backend flows; current demo/local tests remain valid until a backend persistence stage owns these cases. |
+| LV-009 | Tests for real patient creation/deletion | Deferred | Repeated by Lovable after PR #24; depends on LV-005/LV-006 real backend flows, so current demo/local tests remain valid until a backend persistence stage owns these cases. |
+| LV-010 | Wire PatientsPage create/delete UI to backend | Deferred | Requires backend API contracts, role permissions, audit trail, error mapping, and real-data safeguards before doctor UI can call persistence. |
 
 ## 5. Per-cycle update rule
 
