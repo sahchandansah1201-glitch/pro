@@ -103,7 +103,8 @@ test.describe("Patients demo flow", () => {
       name: "Удалить пациента из локального списка?",
     });
     await expect(deleteDialog).toBeVisible();
-    await page.keyboard.press("Escape");
+    await deleteDialog.getByRole("button", { name: "Отмена" }).focus();
+    await page.keyboard.press("Enter");
     await expect(deleteDialog).not.toBeVisible();
     await expect(page.getByText("Всего в базе: 8")).toBeVisible();
     await expect(
