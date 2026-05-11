@@ -60,6 +60,7 @@ const AUTO_REFRESH_INTERVAL_MS = 60_000;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 const FILTER_STATE_STORAGE_KEY = "derma-pro:sys-access-events:filters";
 const EXPORT_SETTINGS_STORAGE_KEY = "derma-pro:sys-access-events:export-settings";
+const EXPORT_LOG_FILTER_STORAGE_KEY = "derma-pro:sys-access-events:export-log-filter";
 
 interface AccessEventRow {
   id: string;
