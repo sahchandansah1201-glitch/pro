@@ -123,7 +123,9 @@ test.describe("/sys/access-events", () => {
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Экспортировать события доступа в CSV" }).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.csv$/);
+    expect(download.suggestedFilename()).toMatch(
+      /^access-events-\d{4}-\d{2}-\d{2}-all-all-pages-1-rows-11-cols\.csv$/,
+    );
     await expect(page.getByText(/CSV экспорт готов:/)).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
       "aria-valuenow",
@@ -132,11 +134,24 @@ test.describe("/sys/access-events", () => {
     await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
       /CSV: 1 строк/,
     );
+    await expect(page.getByRole("status", { name: "Статус экспорта событий доступа" })).toContainText(
+      /Файл: access-events-\d{4}-\d{2}-\d{2}-all-all-pages-1-rows-11-cols\.csv/,
+    );
+
+    const repeatDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: /^Повторить экспорт CSV/i }).click();
+    const repeatDownload = await repeatDownloadPromise;
+    expect(repeatDownload.suggestedFilename()).toMatch(
+      /^access-events-\d{4}-\d{2}-\d{2}-all-all-pages-1-rows-11-cols-repeat\.csv$/,
+    );
+    await expect(page.getByText(/Повторный CSV экспорт готов:/)).toBeVisible();
 
     const xlsxDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Экспортировать события доступа в XLSX" }).click();
     const xlsxDownload = await xlsxDownloadPromise;
-    expect(xlsxDownload.suggestedFilename()).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.xlsx$/);
+    expect(xlsxDownload.suggestedFilename()).toMatch(
+      /^access-events-\d{4}-\d{2}-\d{2}-all-all-pages-1-rows-11-cols\.xlsx$/,
+    );
     await expect(page.getByText(/XLSX экспорт готов:/)).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Прогресс экспорта XLSX" })).toHaveAttribute(
       "aria-valuenow",
