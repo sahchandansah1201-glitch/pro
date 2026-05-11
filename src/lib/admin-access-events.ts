@@ -16,9 +16,29 @@ export interface AccessEventExportRow {
   source: AccessEventSource;
 }
 
+export const ACCESS_EVENT_EXPORT_COLUMNS = [
+  { key: "event_id", label: "ID события", header: "event_id" },
+  { key: "created_at", label: "Когда", header: "created_at" },
+  { key: "clinic", label: "Клиника", header: "clinic" },
+  { key: "actor", label: "Актор", header: "actor" },
+  { key: "action", label: "Действие", header: "action" },
+  { key: "entity", label: "Сущность", header: "entity" },
+  { key: "entity_id", label: "ID сущности", header: "entity_id" },
+  { key: "patient_code", label: "Код пациента", header: "patient_code" },
+  { key: "visit_id", label: "Визит", header: "visit_id" },
+  { key: "lesion", label: "Очаг", header: "lesion" },
+  { key: "source", label: "Источник", header: "source" },
+] as const;
+
+export type AccessEventExportColumnKey = (typeof ACCESS_EVENT_EXPORT_COLUMNS)[number]["key"];
+
+export const DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS = ACCESS_EVENT_EXPORT_COLUMNS.map((column) => column.key);
+
 export interface AccessEventsCsvMeta {
   filterLabel?: string;
   query?: string;
+  scopeLabel?: string;
+  columns?: AccessEventExportColumnKey[];
 }
 
 type CellValue = string | null;
@@ -30,40 +50,50 @@ export function limitAccessEventExportRows<T>(
   return rows.slice(0, Math.max(0, limit));
 }
 
-function exportMatrix(
-  rows: AccessEventExportRow[],
-  meta: AccessEventsCsvMeta,
-): CellValue[][] {
+function normalizeColumns(columns: AccessEventExportColumnKey[] | undefined): typeof ACCESS_EVENT_EXPORT_COLUMNS {
+  if (!columns || columns.length === 0) return ACCESS_EVENT_EXPORT_COLUMNS;
+  const allowed = new Set(columns);
+  const selected = ACCESS_EVENT_EXPORT_COLUMNS.filter((column) => allowed.has(column.key));
+  return selected.length > 0 ? selected : ACCESS_EVENT_EXPORT_COLUMNS;
+}
+
+function valueForColumn(row: AccessEventExportRow, key: AccessEventExportColumnKey): CellValue {
+  switch (key) {
+    case "event_id":
+      return row.id ?? null;
+    case "created_at":
+      return row.createdAt;
+    case "clinic":
+      return row.clinicName;
+    case "actor":
+      return row.actorLabel;
+    case "action":
+      return row.action;
+    case "entity":
+      return row.entity;
+    case "entity_id":
+      return row.entityId;
+    case "patient_code":
+      return row.patientCode;
+    case "visit_id":
+      return row.visitId;
+    case "lesion":
+      return row.lesionLabel;
+    case "source":
+      return row.source;
+  }
+}
+
+function exportMatrix(rows: AccessEventExportRow[], meta: AccessEventsCsvMeta): CellValue[][] {
+  const columns = normalizeColumns(meta.columns);
   return [
     ["# filter", meta.filterLabel ?? "all"],
     ["# query", meta.query?.trim() || "—"],
+    ["# scope", meta.scopeLabel ?? "all"],
+    ["# columns", String(columns.length)],
     ["# row_count", String(rows.length)],
-    [
-      "event_id",
-      "created_at",
-      "clinic",
-      "actor",
-      "action",
-      "entity",
-      "entity_id",
-      "patient_code",
-      "visit_id",
-      "lesion",
-      "source",
-    ],
-    ...rows.map((row) => [
-      row.id ?? null,
-      row.createdAt,
-      row.clinicName,
-      row.actorLabel,
-      row.action,
-      row.entity,
-      row.entityId,
-      row.patientCode,
-      row.visitId,
-      row.lesionLabel,
-      row.source,
-    ]),
+    columns.map((column) => column.header),
+    ...rows.map((row) => columns.map((column) => valueForColumn(row, column.key))),
   ];
 }
 

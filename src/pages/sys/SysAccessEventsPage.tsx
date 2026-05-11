@@ -17,12 +17,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { useRole } from "@/context/role-context";
 import {
+  ACCESS_EVENT_EXPORT_COLUMNS,
   ACCESS_EVENTS_EXPORT_LIMIT,
+  DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS,
   accessEventsCsvFilename,
   accessEventsXlsxFilename,
   buildAccessEventsCsv,
   buildAccessEventsXlsxBlob,
   limitAccessEventExportRows,
+  type AccessEventExportColumnKey,
   type AccessEventSource,
 } from "@/lib/admin-access-events";
 import { formatDateTime } from "@/lib/format";
@@ -47,6 +50,7 @@ type AccessEventsViewRow = Tables<"access_events_admin">;
 
 type FilterKey = "all" | "clinical" | "admin" | "integrations" | "devices";
 type SourceFilter = "all" | AccessEventSource;
+type ExportScope = "all_pages" | "current_page" | "custom_range";
 
 const ACCESS_EVENTS_LIMIT = ACCESS_EVENTS_EXPORT_LIMIT;
 const REFRESH_COOLDOWN_MS = 10_000;
@@ -362,6 +366,8 @@ interface ExportLogEntry {
   format: ExportFormat;
   rowCount: number;
   filterLabel: string;
+  scopeLabel: string;
+  columnCount: number;
   query: string;
 }
 
@@ -377,6 +383,11 @@ function addDays(date: Date, days: number): Date {
 
 function waitForUi(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+function parsePositiveInt(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export default function SysAccessEventsPage() {
@@ -404,6 +415,12 @@ export default function SysAccessEventsPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
   const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
+  const [exportScope, setExportScope] = useState<ExportScope>("all_pages");
+  const [customRangeFrom, setCustomRangeFrom] = useState("1");
+  const [customRangeTo, setCustomRangeTo] = useState("");
+  const [selectedExportColumns, setSelectedExportColumns] = useState<AccessEventExportColumnKey[]>(
+    DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS,
+  );
   const [queryLog, setQueryLog] = useState<QueryLogEntry[]>([]);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -425,7 +442,14 @@ export default function SysAccessEventsPage() {
   }, []);
 
   const appendExportLog = useCallback(
-    (format: ExportFormat, rowCount: number, filterLabelValue: string, queryValue: string) => {
+    (
+      format: ExportFormat,
+      rowCount: number,
+      filterLabelValue: string,
+      scopeLabelValue: string,
+      columnCount: number,
+      queryValue: string,
+    ) => {
       const at = new Date().toISOString();
       setExportLog((current) =>
         [
@@ -435,6 +459,8 @@ export default function SysAccessEventsPage() {
             format,
             rowCount,
             filterLabel: filterLabelValue,
+            scopeLabel: scopeLabelValue,
+            columnCount,
             query: queryValue.trim() ? "есть" : "—",
           },
           ...current,
@@ -608,11 +634,6 @@ export default function SysAccessEventsPage() {
     query,
   ]);
 
-  const exportRows = useMemo(
-    () => limitAccessEventExportRows(filteredRows, ACCESS_EVENTS_EXPORT_LIMIT),
-    [filteredRows],
-  );
-
   const hasActiveFilters =
     query !== DEFAULT_FILTER_STATE.query ||
     filter !== DEFAULT_FILTER_STATE.filter ||
@@ -625,15 +646,6 @@ export default function SysAccessEventsPage() {
     dateFrom !== DEFAULT_FILTER_STATE.dateFrom ||
     dateTo !== DEFAULT_FILTER_STATE.dateTo ||
     pageSize !== DEFAULT_FILTER_STATE.pageSize;
-
-  const exportPreviewText =
-    filteredRows.length === 0
-      ? `Нет событий для экспорта.`
-      : filteredRows.length > exportRows.length
-        ? `Будет экспортировано ${exportRows.length} из ${filteredRows.length} событий. Лимит: ${ACCESS_EVENTS_EXPORT_LIMIT}.`
-        : `Будет экспортировано ${exportRows.length} событий.`;
-
-  const exportBusy = exportProgress?.active === true;
 
   const pagination = useListPagination(filteredRows, {
     pageSize,
@@ -652,6 +664,48 @@ export default function SysAccessEventsPage() {
       pageSize,
     ],
   });
+
+  const customRange = useMemo(() => {
+    const fallbackTo = filteredRows.length || 1;
+    const from = Math.min(parsePositiveInt(customRangeFrom, 1), fallbackTo);
+    const to = Math.min(parsePositiveInt(customRangeTo, fallbackTo), fallbackTo);
+    return {
+      from: Math.min(from, to),
+      to: Math.max(from, to),
+    };
+  }, [customRangeFrom, customRangeTo, filteredRows.length]);
+
+  const exportScopeLabel =
+    exportScope === "current_page"
+      ? "текущая страница"
+      : exportScope === "custom_range"
+        ? `строки ${customRange.from}–${customRange.to}`
+        : "все страницы";
+
+  const scopedExportRows = useMemo(() => {
+    if (exportScope === "current_page") return pagination.visible;
+    if (exportScope === "custom_range") return filteredRows.slice(customRange.from - 1, customRange.to);
+    return filteredRows;
+  }, [customRange.from, customRange.to, exportScope, filteredRows, pagination.visible]);
+
+  const exportRows = useMemo(
+    () => limitAccessEventExportRows(scopedExportRows, ACCESS_EVENTS_EXPORT_LIMIT),
+    [scopedExportRows],
+  );
+
+  const selectedExportColumnCount = selectedExportColumns.length;
+  const exportDisabled = filteredRows.length === 0 || exportRows.length === 0 || selectedExportColumnCount === 0;
+
+  const exportPreviewText =
+    selectedExportColumnCount === 0
+      ? "Выберите хотя бы одну колонку для экспорта."
+      : filteredRows.length === 0
+        ? "Нет событий для экспорта."
+        : scopedExportRows.length > exportRows.length
+          ? `Будет экспортировано ${exportRows.length} из ${scopedExportRows.length} событий. Лимит: ${ACCESS_EVENTS_EXPORT_LIMIT}.`
+          : `Будет экспортировано ${exportRows.length} событий.`;
+
+  const exportBusy = exportProgress?.active === true;
 
   const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const refreshDisabled = loading || cooldownSeconds > 0;
@@ -731,6 +785,22 @@ export default function SysAccessEventsPage() {
     [appendQueryLog],
   );
 
+  const handleToggleExportColumn = useCallback((column: AccessEventExportColumnKey) => {
+    setSelectedExportColumns((current) =>
+      current.includes(column) ? current.filter((key) => key !== column) : [...current, column],
+    );
+  }, []);
+
+  const handleSelectCoreColumns = useCallback(() => {
+    setSelectedExportColumns(["event_id", "created_at", "actor", "action", "entity", "patient_code"]);
+    setExportStatus("Выбраны основные колонки экспорта.");
+  }, []);
+
+  const handleSelectAllColumns = useCallback(() => {
+    setSelectedExportColumns(DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS);
+    setExportStatus("Выбраны все колонки экспорта.");
+  }, []);
+
   useEffect(() => {
     if (!autoRefresh || role !== "system_admin") return;
     const timer = window.setInterval(() => {
@@ -740,10 +810,10 @@ export default function SysAccessEventsPage() {
   }, [autoRefresh, requestRefresh, role]);
 
   const handleExportCsv = useCallback(async () => {
-    if (exportRows.length === 0) return;
+    if (exportDisabled) return;
     const limitNotice =
-      filteredRows.length > exportRows.length
-        ? `${exportRows.length} из ${filteredRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
+      scopedExportRows.length > exportRows.length
+        ? `${exportRows.length} из ${scopedExportRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
         : `${exportRows.length} строк`;
     setExportProgress({
       format: "CSV",
@@ -755,6 +825,8 @@ export default function SysAccessEventsPage() {
     const csv = buildAccessEventsCsv(exportRows, {
       filterLabel: currentFilterLabel,
       query,
+      scopeLabel: exportScopeLabel,
+      columns: selectedExportColumns,
     });
     setExportProgress({
       format: "CSV",
@@ -773,16 +845,30 @@ export default function SysAccessEventsPage() {
       label: "CSV экспорт готов.",
       active: false,
     });
-    setExportStatus(`CSV экспортирован: ${limitNotice}. ${currentFilterLabel}`);
-    appendExportLog("CSV", exportRows.length, currentFilterLabel, query);
-    appendQueryLog("Экспорт CSV", `экспортировано ${limitNotice}`);
-  }, [appendExportLog, appendQueryLog, currentFilterLabel, exportRows, filter, filteredRows.length, query]);
+    setExportStatus(
+      `CSV экспорт готов: ${limitNotice}. Диапазон: ${exportScopeLabel}. Колонки: ${selectedExportColumnCount}.`,
+    );
+    appendExportLog("CSV", exportRows.length, currentFilterLabel, exportScopeLabel, selectedExportColumnCount, query);
+    appendQueryLog("Экспорт CSV", `экспортировано ${limitNotice}; диапазон: ${exportScopeLabel}`);
+  }, [
+    appendExportLog,
+    appendQueryLog,
+    currentFilterLabel,
+    exportDisabled,
+    exportRows,
+    exportScopeLabel,
+    filter,
+    query,
+    scopedExportRows.length,
+    selectedExportColumnCount,
+    selectedExportColumns,
+  ]);
 
   const handleExportXlsx = useCallback(async () => {
-    if (exportRows.length === 0) return;
+    if (exportDisabled) return;
     const limitNotice =
-      filteredRows.length > exportRows.length
-        ? `${exportRows.length} из ${filteredRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
+      scopedExportRows.length > exportRows.length
+        ? `${exportRows.length} из ${scopedExportRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
         : `${exportRows.length} строк`;
     setExportProgress({
       format: "XLSX",
@@ -794,6 +880,8 @@ export default function SysAccessEventsPage() {
     const blob = buildAccessEventsXlsxBlob(exportRows, {
       filterLabel: currentFilterLabel,
       query,
+      scopeLabel: exportScopeLabel,
+      columns: selectedExportColumns,
     });
     setExportProgress({
       format: "XLSX",
@@ -812,10 +900,24 @@ export default function SysAccessEventsPage() {
       label: "XLSX экспорт готов.",
       active: false,
     });
-    setExportStatus(`XLSX экспортирован: ${limitNotice}. ${currentFilterLabel}`);
-    appendExportLog("XLSX", exportRows.length, currentFilterLabel, query);
-    appendQueryLog("Экспорт XLSX", `экспортировано ${limitNotice}`);
-  }, [appendExportLog, appendQueryLog, currentFilterLabel, exportRows, filter, filteredRows.length, query]);
+    setExportStatus(
+      `XLSX экспорт готов: ${limitNotice}. Диапазон: ${exportScopeLabel}. Колонки: ${selectedExportColumnCount}.`,
+    );
+    appendExportLog("XLSX", exportRows.length, currentFilterLabel, exportScopeLabel, selectedExportColumnCount, query);
+    appendQueryLog("Экспорт XLSX", `экспортировано ${limitNotice}; диапазон: ${exportScopeLabel}`);
+  }, [
+    appendExportLog,
+    appendQueryLog,
+    currentFilterLabel,
+    exportDisabled,
+    exportRows,
+    exportScopeLabel,
+    filter,
+    query,
+    scopedExportRows.length,
+    selectedExportColumnCount,
+    selectedExportColumns,
+  ]);
 
   if (role !== "system_admin") {
     return (
@@ -935,7 +1037,7 @@ export default function SysAccessEventsPage() {
                   variant="outline"
                   className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
                   onClick={handleExportCsv}
-                  disabled={filteredRows.length === 0 || exportBusy}
+                  disabled={exportDisabled || exportBusy}
                   aria-busy={exportProgress?.format === "CSV" && exportBusy ? true : undefined}
                   aria-label="Экспортировать события доступа в CSV"
                 >
@@ -948,7 +1050,7 @@ export default function SysAccessEventsPage() {
                   variant="outline"
                   className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
                   onClick={handleExportXlsx}
-                  disabled={filteredRows.length === 0 || exportBusy}
+                  disabled={exportDisabled || exportBusy}
                   aria-busy={exportProgress?.format === "XLSX" && exportBusy ? true : undefined}
                   aria-label="Экспортировать события доступа в XLSX"
                 >
@@ -1191,6 +1293,109 @@ export default function SysAccessEventsPage() {
           </div>
         </Card>
 
+        <Card className="space-y-3 p-3">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-[13px] font-semibold">Параметры экспорта</h2>
+            <span className="text-[11px] text-muted-foreground">
+              Диапазон: {exportScopeLabel}; колонок: {selectedExportColumnCount}
+            </span>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[minmax(240px,320px)_1fr]">
+            <div className="space-y-2">
+              <label className="grid gap-1 text-[11px] text-muted-foreground">
+                Что экспортировать
+                <select
+                  value={exportScope}
+                  onChange={(e) => setExportScope(e.target.value as ExportScope)}
+                  className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                  aria-label="Диапазон экспорта событий"
+                >
+                  <option value="all_pages">Все страницы</option>
+                  <option value="current_page">Текущая страница</option>
+                  <option value="custom_range">Пользовательский диапазон</option>
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="grid gap-1 text-[11px] text-muted-foreground">
+                  Строка с
+                  <Input
+                    type="number"
+                    min={1}
+                    max={Math.max(filteredRows.length, 1)}
+                    value={customRangeFrom}
+                    onChange={(e) => setCustomRangeFrom(e.target.value)}
+                    disabled={exportScope !== "custom_range"}
+                    aria-label="Начало пользовательского диапазона экспорта"
+                    className="h-11 text-[12px] sm:h-9"
+                  />
+                </label>
+                <label className="grid gap-1 text-[11px] text-muted-foreground">
+                  Строка по
+                  <Input
+                    type="number"
+                    min={1}
+                    max={Math.max(filteredRows.length, 1)}
+                    value={customRangeTo}
+                    onChange={(e) => setCustomRangeTo(e.target.value)}
+                    disabled={exportScope !== "custom_range"}
+                    placeholder={String(Math.max(filteredRows.length, 1))}
+                    aria-label="Конец пользовательского диапазона экспорта"
+                    className="h-11 text-[12px] sm:h-9"
+                  />
+                </label>
+              </div>
+            </div>
+            <div
+              role="group"
+              aria-label="Колонки экспорта событий"
+              className="space-y-2 rounded-md border border-border bg-background p-2"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-medium text-muted-foreground">Колонки</span>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={handleSelectCoreColumns}
+                    aria-label="Выбрать основные колонки экспорта"
+                  >
+                    Основные
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={handleSelectAllColumns}
+                    aria-label="Выбрать все колонки экспорта"
+                  >
+                    Все
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                {ACCESS_EVENT_EXPORT_COLUMNS.map((column) => (
+                  <label
+                    key={column.key}
+                    className="flex min-h-[32px] items-center gap-2 rounded-md px-1 text-[12px] text-muted-foreground"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedExportColumns.includes(column.key)}
+                      onChange={() => handleToggleExportColumn(column.key)}
+                      aria-label={`Колонка экспорта: ${column.label}`}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    {column.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <div
           role="region"
           aria-label="Предпросмотр экспорта событий доступа"
@@ -1198,7 +1403,8 @@ export default function SysAccessEventsPage() {
         >
           <div className="font-medium text-foreground">Предпросмотр экспорта</div>
           <div>
-            {exportPreviewText} Форматы: CSV и XLSX. Срез: {currentFilterLabel}.
+            {exportPreviewText} Форматы: CSV и XLSX. Диапазон: {exportScopeLabel}. Колонки:{" "}
+            {selectedExportColumnCount}. Срез: {currentFilterLabel}.
           </div>
         </div>
 
@@ -1206,6 +1412,7 @@ export default function SysAccessEventsPage() {
           <div
             role="status"
             aria-live="polite"
+            aria-atomic="true"
             className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
           >
             <div className="flex items-center justify-between gap-3">
@@ -1232,6 +1439,7 @@ export default function SysAccessEventsPage() {
           <div
             role="status"
             aria-live="polite"
+            aria-atomic="true"
             className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
           >
             {exportStatus}
@@ -1283,7 +1491,8 @@ export default function SysAccessEventsPage() {
               exportLog.map((entry) => (
                 <li key={entry.id} className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
                   <span>
-                    {entry.format}: {entry.rowCount} строк. Срез: {entry.filterLabel}. Поиск: {entry.query}.
+                    {entry.format}: {entry.rowCount} строк. Диапазон: {entry.scopeLabel}. Колонки:{" "}
+                    {entry.columnCount}. Срез: {entry.filterLabel}. Поиск: {entry.query}.
                   </span>
                   <time className="font-mono text-[11px]" dateTime={entry.at}>
                     {formatDateTime(entry.at)}
