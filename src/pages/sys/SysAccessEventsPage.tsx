@@ -52,6 +52,7 @@ const ACCESS_EVENTS_LIMIT = ACCESS_EVENTS_EXPORT_LIMIT;
 const REFRESH_COOLDOWN_MS = 10_000;
 const AUTO_REFRESH_INTERVAL_MS = 60_000;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+const FILTER_STATE_STORAGE_KEY = "derma-pro:sys-access-events:filters";
 
 interface AccessEventRow {
   id: string;
@@ -80,6 +81,83 @@ const SOURCE_FILTERS: { key: SourceFilter; label: string }[] = [
   { key: "api", label: "API" },
   { key: "demo", label: "Demo" },
 ];
+
+interface AccessEventsFilterState {
+  query: string;
+  filter: FilterKey;
+  sourceFilter: SourceFilter;
+  entityFilter: string;
+  clinicFilter: string;
+  actorFilter: string;
+  actionFilter: string;
+  patientCodeFilter: string;
+  dateFrom: string;
+  dateTo: string;
+  pageSize: number;
+}
+
+const DEFAULT_FILTER_STATE: AccessEventsFilterState = {
+  query: "",
+  filter: "all",
+  sourceFilter: "all",
+  entityFilter: "all",
+  clinicFilter: "all",
+  actorFilter: "all",
+  actionFilter: "all",
+  patientCodeFilter: "",
+  dateFrom: "",
+  dateTo: "",
+  pageSize: 10,
+};
+
+function isFilterKey(value: unknown): value is FilterKey {
+  return typeof value === "string" && FILTERS.some((f) => f.key === value);
+}
+
+function isSourceFilter(value: unknown): value is SourceFilter {
+  return typeof value === "string" && SOURCE_FILTERS.some((f) => f.key === value);
+}
+
+function isPageSize(value: unknown): value is (typeof PAGE_SIZE_OPTIONS)[number] {
+  return typeof value === "number" && PAGE_SIZE_OPTIONS.includes(value as (typeof PAGE_SIZE_OPTIONS)[number]);
+}
+
+function storedString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function readFilterState(): AccessEventsFilterState {
+  if (typeof window === "undefined") return DEFAULT_FILTER_STATE;
+  try {
+    const raw = window.localStorage.getItem(FILTER_STATE_STORAGE_KEY);
+    if (!raw) return DEFAULT_FILTER_STATE;
+    const parsed = JSON.parse(raw) as Partial<AccessEventsFilterState>;
+    return {
+      query: storedString(parsed.query),
+      filter: isFilterKey(parsed.filter) ? parsed.filter : "all",
+      sourceFilter: isSourceFilter(parsed.sourceFilter) ? parsed.sourceFilter : "all",
+      entityFilter: storedString(parsed.entityFilter, "all"),
+      clinicFilter: storedString(parsed.clinicFilter, "all"),
+      actorFilter: storedString(parsed.actorFilter, "all"),
+      actionFilter: storedString(parsed.actionFilter, "all"),
+      patientCodeFilter: storedString(parsed.patientCodeFilter),
+      dateFrom: storedString(parsed.dateFrom),
+      dateTo: storedString(parsed.dateTo),
+      pageSize: isPageSize(parsed.pageSize) ? parsed.pageSize : DEFAULT_FILTER_STATE.pageSize,
+    };
+  } catch {
+    return DEFAULT_FILTER_STATE;
+  }
+}
+
+function writeFilterState(state: AccessEventsFilterState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(FILTER_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage failures; filtering must keep working in private or restricted contexts.
+  }
+}
 
 const ENTITY_BUCKET: Record<string, FilterKey> = {
   visit: "clinical",
@@ -272,21 +350,22 @@ interface QueryLogEntry {
 export default function SysAccessEventsPage() {
   const { role } = useRole();
   const configured = isSupabaseConfigured();
+  const [storedFilters] = useState(readFilterState);
   const [rows, setRows] = useState<AccessEventRow[]>(() => buildDemoRows());
   const [source, setSource] = useState<AccessEventSource>("demo");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<FilterKey>("all");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
-  const [entityFilter, setEntityFilter] = useState("all");
-  const [clinicFilter, setClinicFilter] = useState("all");
-  const [actorFilter, setActorFilter] = useState("all");
-  const [actionFilter, setActionFilter] = useState("all");
-  const [patientCodeFilter, setPatientCodeFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [query, setQuery] = useState(storedFilters.query);
+  const [filter, setFilter] = useState<FilterKey>(storedFilters.filter);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(storedFilters.sourceFilter);
+  const [entityFilter, setEntityFilter] = useState(storedFilters.entityFilter);
+  const [clinicFilter, setClinicFilter] = useState(storedFilters.clinicFilter);
+  const [actorFilter, setActorFilter] = useState(storedFilters.actorFilter);
+  const [actionFilter, setActionFilter] = useState(storedFilters.actionFilter);
+  const [patientCodeFilter, setPatientCodeFilter] = useState(storedFilters.patientCodeFilter);
+  const [dateFrom, setDateFrom] = useState(storedFilters.dateFrom);
+  const [dateTo, setDateTo] = useState(storedFilters.dateTo);
+  const [pageSize, setPageSize] = useState<number>(storedFilters.pageSize);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<AccessEventRow | null>(null);
@@ -316,6 +395,34 @@ export default function SysAccessEventsPage() {
     const timer = window.setTimeout(() => setNow(Date.now()), Math.min(cooldownUntil - now, 1000));
     return () => window.clearTimeout(timer);
   }, [cooldownUntil, now]);
+
+  useEffect(() => {
+    writeFilterState({
+      query,
+      filter,
+      sourceFilter,
+      entityFilter,
+      clinicFilter,
+      actorFilter,
+      actionFilter,
+      patientCodeFilter,
+      dateFrom,
+      dateTo,
+      pageSize,
+    });
+  }, [
+    query,
+    filter,
+    sourceFilter,
+    entityFilter,
+    clinicFilter,
+    actorFilter,
+    actionFilter,
+    patientCodeFilter,
+    dateFrom,
+    dateTo,
+    pageSize,
+  ]);
 
   useEffect(() => {
     if (!configured || role !== "system_admin") {
@@ -452,6 +559,26 @@ export default function SysAccessEventsPage() {
     [filteredRows],
   );
 
+  const hasActiveFilters =
+    query !== DEFAULT_FILTER_STATE.query ||
+    filter !== DEFAULT_FILTER_STATE.filter ||
+    sourceFilter !== DEFAULT_FILTER_STATE.sourceFilter ||
+    entityFilter !== DEFAULT_FILTER_STATE.entityFilter ||
+    clinicFilter !== DEFAULT_FILTER_STATE.clinicFilter ||
+    actorFilter !== DEFAULT_FILTER_STATE.actorFilter ||
+    actionFilter !== DEFAULT_FILTER_STATE.actionFilter ||
+    patientCodeFilter !== DEFAULT_FILTER_STATE.patientCodeFilter ||
+    dateFrom !== DEFAULT_FILTER_STATE.dateFrom ||
+    dateTo !== DEFAULT_FILTER_STATE.dateTo ||
+    pageSize !== DEFAULT_FILTER_STATE.pageSize;
+
+  const exportPreviewText =
+    filteredRows.length === 0
+      ? `Нет событий для экспорта.`
+      : filteredRows.length > exportRows.length
+        ? `Будет экспортировано ${exportRows.length} из ${filteredRows.length} событий. Лимит: ${ACCESS_EVENTS_EXPORT_LIMIT}.`
+        : `Будет экспортировано ${exportRows.length} событий.`;
+
   const pagination = useListPagination(filteredRows, {
     pageSize,
     deps: [
@@ -478,16 +605,42 @@ export default function SysAccessEventsPage() {
     setNow(current);
     if (cooldownUntil > current) {
       appendQueryLog(action, "заблокировано rate limit");
-      return;
+      return false;
     }
     setCooldownUntil(current + REFRESH_COOLDOWN_MS);
     appendQueryLog(action, `запрошено, лимит ${ACCESS_EVENTS_LIMIT}`);
     setReloadTick((n) => n + 1);
+    return true;
   }, [appendQueryLog, cooldownUntil]);
 
   const handleRefresh = useCallback(() => {
     requestRefresh();
   }, [requestRefresh]);
+
+  const handleManualRefresh = useCallback(() => {
+    const requested = requestRefresh("Ручное обновление событий");
+    setExportStatus(
+      requested
+        ? "Ручное обновление запрошено."
+        : `Ручное обновление доступно через ${cooldownSeconds} секунд.`,
+    );
+  }, [cooldownSeconds, requestRefresh]);
+
+  const handleResetFilters = useCallback(() => {
+    setQuery(DEFAULT_FILTER_STATE.query);
+    setFilter(DEFAULT_FILTER_STATE.filter);
+    setSourceFilter(DEFAULT_FILTER_STATE.sourceFilter);
+    setEntityFilter(DEFAULT_FILTER_STATE.entityFilter);
+    setClinicFilter(DEFAULT_FILTER_STATE.clinicFilter);
+    setActorFilter(DEFAULT_FILTER_STATE.actorFilter);
+    setActionFilter(DEFAULT_FILTER_STATE.actionFilter);
+    setPatientCodeFilter(DEFAULT_FILTER_STATE.patientCodeFilter);
+    setDateFrom(DEFAULT_FILTER_STATE.dateFrom);
+    setDateTo(DEFAULT_FILTER_STATE.dateTo);
+    setPageSize(DEFAULT_FILTER_STATE.pageSize);
+    setExportStatus("Фильтры сброшены.");
+    appendQueryLog("Фильтры событий", "сброшены");
+  }, [appendQueryLog]);
 
   useEffect(() => {
     if (!autoRefresh || role !== "system_admin") return;
@@ -826,26 +979,45 @@ export default function SysAccessEventsPage() {
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
+                className="h-8 gap-1 text-[12px]"
+                onClick={handleManualRefresh}
+                disabled={refreshDisabled}
+                aria-busy={loading || undefined}
+                aria-label={
+                  cooldownSeconds > 0
+                    ? `Ручное обновление доступно через ${cooldownSeconds} секунд`
+                    : "Обновить события доступа вручную"
+                }
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} aria-hidden />
+                Вручную
+              </Button>
+              <Button
+                type="button"
+                size="sm"
                 variant="ghost"
                 className="h-8 text-[12px]"
-                onClick={() => {
-                  setFilter("all");
-                  setSourceFilter("all");
-                  setEntityFilter("all");
-                  setClinicFilter("all");
-                  setActorFilter("all");
-                  setActionFilter("all");
-                  setPatientCodeFilter("");
-                  setDateFrom("");
-                  setDateTo("");
-                  setQuery("");
-                }}
+                onClick={handleResetFilters}
+                disabled={!hasActiveFilters}
+                aria-label="Сбросить фильтры событий доступа"
               >
                 Сбросить фильтры
               </Button>
             </div>
           </div>
         </Card>
+
+        <div
+          role="region"
+          aria-label="Предпросмотр экспорта событий доступа"
+          className="grid gap-1 rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground sm:grid-cols-[160px_1fr]"
+        >
+          <div className="font-medium text-foreground">Предпросмотр экспорта</div>
+          <div>
+            {exportPreviewText} Форматы: CSV и XLSX. Срез: {currentFilterLabel}.
+          </div>
+        </div>
 
         {exportStatus ? (
           <div
