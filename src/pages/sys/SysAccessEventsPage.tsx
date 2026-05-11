@@ -1829,7 +1829,7 @@ export default function SysAccessEventsPage() {
                 </li>
               ))
             ) : (
-              <li>Запросов пока нет.</li>
+              <li role="status" aria-live="polite">Запросов пока нет.</li>
             )}
           </ul>
         </Card>
