@@ -1203,6 +1203,7 @@ export default function SysAccessEventsPage() {
         if (exportLogFilter === "repeated") return entry.repeated;
         return entry.status === exportLogFilter;
       }),
+    [exportLog, exportLogFilter],
   );
 
   const handleClearExportLog = useCallback(() => {
