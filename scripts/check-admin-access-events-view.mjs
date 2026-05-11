@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 const MIGRATION = "supabase/migrations/20260511153000_admin_access_events_view.sql";
 const HARDENING = "supabase/migrations/20260511165000_harden_access_events_admin_permissions.sql";
+const LIMITS = "supabase/migrations/20260511172000_access_events_admin_query_limits.sql";
 const TYPES = "src/integrations/supabase/types.ts";
 
 function read(path) {
@@ -23,6 +24,7 @@ function assertContains(text, needle, label) {
 
 const migration = read(MIGRATION);
 const hardening = read(HARDENING);
+const limits = read(LIMITS);
 const types = read(TYPES);
 
 for (const [needle, label] of [
@@ -50,6 +52,18 @@ for (const [needle, label] of [
   ["grant select on table public.access_events_admin to authenticated", "authenticated select grant"],
 ]) {
   assertContains(hardening, needle, label);
+}
+
+for (const [needle, label] of [
+  ["create table if not exists public.access_events_admin_requests", "query log table"],
+  ["create or replace function public.list_access_events_admin", "capped access-events RPC"],
+  ["_safe_limit int := least(greatest(coalesce(_limit, 50), 1), 200)", "server-side limit cap"],
+  ["r.requested_at > now() - interval '1 minute'", "rate-limit window"],
+  ["if _recent_count >= 30 then", "rate-limit threshold"],
+  ["raise exception 'rate_limit_exceeded'", "rate-limit exception"],
+  ["grant execute on function public.list_access_events_admin(int, int) to authenticated", "RPC execute grant"],
+]) {
+  assertContains(limits, needle, label);
 }
 
 for (const [needle, label] of [

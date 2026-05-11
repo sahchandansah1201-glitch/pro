@@ -8,11 +8,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
  */
 export function useListPagination<T>(
   items: T[],
-  opts: { mobilePageSize?: number; desktopPageSize?: number; deps?: unknown[] } = {},
+  opts: { pageSize?: number; mobilePageSize?: number; desktopPageSize?: number; deps?: unknown[] } = {},
 ) {
-  const { mobilePageSize = 5, desktopPageSize = 10, deps = [] } = opts;
+  const { pageSize: fixedPageSize, mobilePageSize = 5, desktopPageSize = 10, deps = [] } = opts;
   const isMobile = useIsMobile();
-  const pageSize = isMobile ? mobilePageSize : desktopPageSize;
+  const pageSize = fixedPageSize ?? (isMobile ? mobilePageSize : desktopPageSize);
 
   const [page, setPage] = useState(1);
 

@@ -20,7 +20,7 @@ test.describe("/sys/access-events", () => {
     await page.goto("/sys/access-events", { waitUntil: "networkidle" });
 
     await expect(page.getByRole("heading", { name: "События доступа" })).toBeVisible();
-    await expect(page.getByText(/public\.access_events_admin/)).toBeVisible();
+    await expect(page.getByText(/RPC list_access_events_admin/)).toBeVisible();
     await expect(page.getByText("report.share").first()).toBeVisible();
 
     const bodyText = await page.locator("body").innerText();
@@ -32,6 +32,12 @@ test.describe("/sys/access-events", () => {
     await page.getByLabel("Тип сущности").selectOption("device");
     await expect(page.getByText("device.register").first()).toBeVisible();
     await expect(page.getByText("report.share")).toHaveCount(0);
+
+    await page.getByLabel("Размер страницы событий").selectOption("5");
+    await expect(page.getByText("1–1 из 1 событий")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Журнал запросов событий доступа" })).toContainText(
+      /Демо-журнал: локальные события загружены/,
+    );
 
     await page.getByRole("button", { name: /Подробнее о событии al-009/i }).first().click();
     await expect(page.getByRole("heading", { name: "Детали события" })).toBeVisible();
@@ -48,6 +54,12 @@ test.describe("/sys/access-events", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.csv$/);
     await expect(page.getByText(/CSV экспортирован:/)).toBeVisible();
+
+    const xlsxDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Экспортировать события доступа в XLSX" }).click();
+    const xlsxDownload = await xlsxDownloadPromise;
+    expect(xlsxDownload.suggestedFilename()).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.xlsx$/);
+    await expect(page.getByText(/XLSX экспортирован:/)).toBeVisible();
   });
 
   test("clinic_admin cannot view access events", async ({ page }) => {

@@ -18,7 +18,9 @@ import { Input } from "@/components/ui/input";
 import { useRole } from "@/context/role-context";
 import {
   accessEventsCsvFilename,
+  accessEventsXlsxFilename,
   buildAccessEventsCsv,
+  buildAccessEventsXlsxBlob,
   type AccessEventSource,
 } from "@/lib/admin-access-events";
 import { formatDateTime } from "@/lib/format";
@@ -43,6 +45,10 @@ type AccessEventsViewRow = Tables<"access_events_admin">;
 
 type FilterKey = "all" | "clinical" | "admin" | "integrations" | "devices";
 type SourceFilter = "all" | AccessEventSource;
+
+const ACCESS_EVENTS_LIMIT = 200;
+const REFRESH_COOLDOWN_MS = 10_000;
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 
 interface AccessEventRow {
   id: string;
@@ -230,8 +236,7 @@ function filterLabel(
   return parts.join(" · ");
 }
 
-function downloadText(filename: string, text: string) {
-  const blob = new Blob(["\ufeff", text], { type: "text/csv;charset=utf-8" });
+function downloadBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -240,6 +245,17 @@ function downloadText(filename: string, text: string) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function downloadText(filename: string, text: string) {
+  downloadBlob(filename, new Blob(["\ufeff", text], { type: "text/csv;charset=utf-8" }));
+}
+
+interface QueryLogEntry {
+  id: string;
+  at: string;
+  action: string;
+  result: string;
 }
 
 export default function SysAccessEventsPage() {
@@ -255,9 +271,34 @@ export default function SysAccessEventsPage() {
   const [entityFilter, setEntityFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [pageSize, setPageSize] = useState<number>(10);
   const [selectedRow, setSelectedRow] = useState<AccessEventRow | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [queryLog, setQueryLog] = useState<QueryLogEntry[]>([]);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const [reloadTick, setReloadTick] = useState(0);
+
+  const appendQueryLog = useCallback((action: string, result: string) => {
+    const at = new Date().toISOString();
+    setQueryLog((current) =>
+      [
+        {
+          id: `${at}-${Math.random().toString(36).slice(2)}`,
+          at,
+          action,
+          result,
+        },
+        ...current,
+      ].slice(0, 5),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (cooldownUntil <= now) return;
+    const timer = window.setTimeout(() => setNow(Date.now()), Math.min(cooldownUntil - now, 1000));
+    return () => window.clearTimeout(timer);
+  }, [cooldownUntil, now]);
 
   useEffect(() => {
     if (!configured || role !== "system_admin") {
@@ -265,6 +306,7 @@ export default function SysAccessEventsPage() {
       setSource("demo");
       setError(null);
       setLoading(false);
+      appendQueryLog("Демо-журнал", "локальные события загружены");
       return;
     }
 
@@ -275,26 +317,33 @@ export default function SysAccessEventsPage() {
     setLoading(true);
     setError(null);
     client
-      .from("access_events_admin")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200)
+      .rpc("list_access_events_admin", {
+        _limit: ACCESS_EVENTS_LIMIT,
+        _offset: 0,
+      })
       .then(({ data, error: apiError }) => {
         if (cancelled) return;
         if (apiError) {
           setRows([]);
           setSource("api");
           setError("Не удалось загрузить события доступа. Проверьте роль system_admin и RLS.");
+          appendQueryLog("RPC list_access_events_admin", "ошибка загрузки");
           return;
         }
-        setRows((data ?? []).map(fromViewRow));
+        const safeRows = ((data ?? []) as AccessEventsViewRow[]).map(fromViewRow);
+        setRows(safeRows);
         setSource("api");
+        appendQueryLog(
+          "RPC list_access_events_admin",
+          `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`,
+        );
       })
       .catch(() => {
         if (cancelled) return;
         setRows([]);
         setSource("api");
         setError("Сбой сети при загрузке событий доступа.");
+        appendQueryLog("RPC list_access_events_admin", "сбой сети");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -303,7 +352,7 @@ export default function SysAccessEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [configured, reloadTick, role]);
+  }, [appendQueryLog, configured, reloadTick, role]);
 
   const entityOptions = useMemo(
     () => Array.from(new Set(rows.map((row) => row.entity))).sort((a, b) => a.localeCompare(b)),
@@ -330,12 +379,26 @@ export default function SysAccessEventsPage() {
   }, [rows, filter, sourceFilter, entityFilter, dateFrom, dateTo, query]);
 
   const pagination = useListPagination(filteredRows, {
-    mobilePageSize: 5,
-    desktopPageSize: 10,
-    deps: [filter, sourceFilter, entityFilter, dateFrom, dateTo, query, rows],
+    pageSize,
+    deps: [filter, sourceFilter, entityFilter, dateFrom, dateTo, query, rows, pageSize],
   });
 
-  const handleExport = useCallback(() => {
+  const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+  const refreshDisabled = loading || cooldownSeconds > 0;
+
+  const handleRefresh = useCallback(() => {
+    const current = Date.now();
+    setNow(current);
+    if (cooldownUntil > current) {
+      appendQueryLog("Обновление событий", "заблокировано rate limit");
+      return;
+    }
+    setCooldownUntil(current + REFRESH_COOLDOWN_MS);
+    appendQueryLog("Обновление событий", `запрошено, лимит ${ACCESS_EVENTS_LIMIT}`);
+    setReloadTick((n) => n + 1);
+  }, [appendQueryLog, cooldownUntil]);
+
+  const handleExportCsv = useCallback(() => {
     if (filteredRows.length === 0) return;
     downloadText(
       accessEventsCsvFilename(filter, query),
@@ -345,7 +408,21 @@ export default function SysAccessEventsPage() {
       }),
     );
     setExportStatus(`CSV экспортирован: ${filteredRows.length} строк. ${currentFilterLabel}`);
-  }, [currentFilterLabel, filter, filteredRows, query]);
+    appendQueryLog("Экспорт CSV", `экспортировано ${filteredRows.length} строк`);
+  }, [appendQueryLog, currentFilterLabel, filter, filteredRows, query]);
+
+  const handleExportXlsx = useCallback(() => {
+    if (filteredRows.length === 0) return;
+    downloadBlob(
+      accessEventsXlsxFilename(filter, query),
+      buildAccessEventsXlsxBlob(filteredRows, {
+        filterLabel: currentFilterLabel,
+        query,
+      }),
+    );
+    setExportStatus(`XLSX экспортирован: ${filteredRows.length} строк. ${currentFilterLabel}`);
+    appendQueryLog("Экспорт XLSX", `экспортировано ${filteredRows.length} строк`);
+  }, [appendQueryLog, currentFilterLabel, filter, filteredRows, query]);
 
   if (role !== "system_admin") {
     return (
@@ -380,12 +457,17 @@ export default function SysAccessEventsPage() {
             size="sm"
             variant="outline"
             className="gap-1"
-            onClick={() => setReloadTick((n) => n + 1)}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={refreshDisabled}
             aria-busy={loading || undefined}
+            aria-label={
+              cooldownSeconds > 0
+                ? `Обновление доступно через ${cooldownSeconds} секунд`
+                : "Обновить события доступа"
+            }
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Обновить
+            {cooldownSeconds > 0 ? `Через ${cooldownSeconds} с` : "Обновить"}
           </Button>
         }
       />
@@ -404,8 +486,8 @@ export default function SysAccessEventsPage() {
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
             {source === "api"
-              ? "Данные читаются из public.access_events_admin. Доступ ограничен system_admin."
-              : "Демо-режим. В production этот экран читает public.access_events_admin через RLS."}
+              ? `Данные читаются через RPC list_access_events_admin. Лимит: ${ACCESS_EVENTS_LIMIT} событий, обновление не чаще одного раза в 10 секунд.`
+              : `Демо-режим. В production этот экран читает RPC list_access_events_admin через RLS. Лимит: ${ACCESS_EVENTS_LIMIT} событий.`}
           </span>
         </div>
 
@@ -453,21 +535,35 @@ export default function SysAccessEventsPage() {
                   className="h-11 pl-7 text-[12px] sm:h-9"
                 />
               </label>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
-                onClick={handleExport}
-                disabled={filteredRows.length === 0}
-                aria-label="Экспортировать события доступа в CSV"
-              >
-                <Download className="h-3.5 w-3.5" aria-hidden />
-                CSV
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
+                  onClick={handleExportCsv}
+                  disabled={filteredRows.length === 0}
+                  aria-label="Экспортировать события доступа в CSV"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden />
+                  CSV
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] gap-1 text-[12px] sm:min-h-[32px]"
+                  onClick={handleExportXlsx}
+                  disabled={filteredRows.length === 0}
+                  aria-label="Экспортировать события доступа в XLSX"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden />
+                  XLSX
+                </Button>
+              </div>
             </div>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <label className="grid gap-1 text-[11px] text-muted-foreground">
               Источник событий
               <select
@@ -521,6 +617,21 @@ export default function SysAccessEventsPage() {
                 className="h-11 text-[12px] sm:h-9"
               />
             </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Размер страницы
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Размер страницы событий"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size} событий
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
             <div className="text-[11px] text-muted-foreground">
@@ -558,6 +669,33 @@ export default function SysAccessEventsPage() {
         <div className="text-[12px] text-muted-foreground" aria-live="polite">
           Найдено: {filteredRows.length}
         </div>
+
+        <Card
+          role="region"
+          aria-label="Журнал запросов событий доступа"
+          className="space-y-2 p-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[13px] font-semibold">Журнал запросов</h2>
+            <span className="text-[11px] text-muted-foreground">последние 5 событий</span>
+          </div>
+          <ul className="space-y-1 text-[12px] text-muted-foreground">
+            {queryLog.length > 0 ? (
+              queryLog.map((entry) => (
+                <li key={entry.id} className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    {entry.action}: {entry.result}
+                  </span>
+                  <time className="font-mono text-[11px]" dateTime={entry.at}>
+                    {formatDateTime(entry.at)}
+                  </time>
+                </li>
+              ))
+            ) : (
+              <li>Запросов пока нет.</li>
+            )}
+          </ul>
+        </Card>
 
         <Card className="hidden p-0 md:block">
           <table className="w-full text-[12px]">
