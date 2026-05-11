@@ -58,6 +58,18 @@ test.describe("/sys/access-events", () => {
       /Будет экспортировано 12 событий/,
     );
 
+    await page.getByRole("button", { name: "Показать события за март 2026" }).click();
+    await expect(page.getByLabel("Дата события с")).toHaveValue("2026-03-01");
+    await expect(page.getByLabel("Дата события по")).toHaveValue("2026-03-31");
+    await expect(page.getByText("Пресет даты применён: март 2026.")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Будет экспортировано 11 событий/,
+    );
+    await page.getByRole("button", { name: "Сбросить фильтр даты событий" }).click();
+    await expect(page.getByLabel("Дата события с")).toHaveValue("");
+    await expect(page.getByLabel("Дата события по")).toHaveValue("");
+    await expect(page.getByText("Фильтр даты сброшен.")).toBeVisible();
+
     await page.getByRole("button", { name: "Обновить события доступа вручную" }).click();
     await expect(page.getByText("Ручное обновление запрошено.")).toBeVisible();
 
@@ -91,12 +103,26 @@ test.describe("/sys/access-events", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.csv$/);
     await expect(page.getByText(/CSV экспортирован:/)).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
+      "aria-valuenow",
+      "100",
+    );
+    await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
+      /CSV: 1 строк/,
+    );
 
     const xlsxDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Экспортировать события доступа в XLSX" }).click();
     const xlsxDownload = await xlsxDownloadPromise;
     expect(xlsxDownload.suggestedFilename()).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.xlsx$/);
     await expect(page.getByText(/XLSX экспортирован:/)).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Прогресс экспорта XLSX" })).toHaveAttribute(
+      "aria-valuenow",
+      "100",
+    );
+    await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
+      /XLSX: 1 строк/,
+    );
   });
 
   test("clinic_admin cannot view access events", async ({ page }) => {
