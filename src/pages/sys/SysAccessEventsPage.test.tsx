@@ -396,16 +396,15 @@ describe("SysAccessEventsPage", () => {
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events");
-    expect(screen.getByText(/CSV экспорт готов:/)).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
-      /Файл: access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols\.csv/i,
+      /CSV экспорт готов: .*Файл: access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols\.csv/i,
     );
     expect(screen.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
       "aria-valuenow",
       "100",
     );
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /CSV: 12 строк\. Диапазон: все страницы\. Колонки: 11/i,
+      /CSV: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
     );
 
     expect(createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob);
@@ -429,13 +428,15 @@ describe("SysAccessEventsPage", () => {
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events-xlsx");
-    expect(screen.getByText(/XLSX экспорт готов:/)).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
+      /XLSX экспорт готов:/i,
+    );
     expect(screen.getByRole("progressbar", { name: "Прогресс экспорта XLSX" })).toHaveAttribute(
       "aria-valuenow",
       "100",
     );
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /XLSX: 12 строк\. Диапазон: все страницы\. Колонки: 11/i,
+      /XLSX: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
     );
     const blob = createObjectURL.mock.calls[0][0] as Blob;
     expect(blob.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -468,6 +469,101 @@ describe("SysAccessEventsPage", () => {
     );
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
       /access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols-repeat\.csv/i,
+    );
+  });
+
+  it("filters export log entries by format and repeated exports", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:access-events-filtered"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в XLSX" }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: /^Повторить экспорт XLSX/i }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
+
+    const exportLog = screen.getByRole("region", { name: "Журнал экспортов событий доступа" });
+    fireEvent.change(screen.getByLabelText("Фильтр журнала экспортов"), {
+      target: { value: "csv" },
+    });
+    expect(exportLog).toHaveTextContent(/CSV: 12 строк/i);
+    expect(exportLog).not.toHaveTextContent(/XLSX: 12 строк/i);
+
+    fireEvent.change(screen.getByLabelText("Фильтр журнала экспортов"), {
+      target: { value: "repeated" },
+    });
+    expect(exportLog).toHaveTextContent(/Повторный XLSX экспорт готов/i);
+    expect(exportLog).not.toHaveTextContent(/CSV: 12 строк/i);
+  });
+
+  it("cancels an in-progress CSV export without creating a file", async () => {
+    const createObjectURL = vi.fn(() => "blob:should-not-create");
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отменить CSV экспорт событий доступа" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
+        /CSV экспорт отменён\. Файл не сформирован\./i,
+      ),
+    );
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
+      /Результат: Отменён/i,
+    );
+  });
+
+  it("announces export errors assertively and records them in the export log", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => {
+        throw new Error("download blocked");
+      }),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
+        /Не удалось выполнить CSV экспорт\. Файл не сформирован\./i,
+      ),
+    );
+    expect(click).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
+      /Результат: Ошибка/i,
+    );
+
+    fireEvent.change(screen.getByLabelText("Фильтр журнала экспортов"), {
+      target: { value: "error" },
+    });
+    expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
+      /Не удалось выполнить CSV экспорт/i,
     );
   });
 

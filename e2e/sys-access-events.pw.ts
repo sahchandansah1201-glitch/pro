@@ -126,7 +126,9 @@ test.describe("/sys/access-events", () => {
     expect(download.suggestedFilename()).toMatch(
       /^access-events-\d{4}-\d{2}-\d{2}-all-all-pages-1-rows-11-cols\.csv$/,
     );
-    await expect(page.getByText(/CSV экспорт готов:/)).toBeVisible();
+    await expect(page.getByRole("status", { name: "Статус экспорта событий доступа" })).toContainText(
+      /CSV экспорт готов:/,
+    );
     await expect(page.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
       "aria-valuenow",
       "100",
@@ -144,7 +146,9 @@ test.describe("/sys/access-events", () => {
     expect(repeatDownload.suggestedFilename()).toMatch(
       /^access-events-\d{4}-\d{2}-\d{2}-all-all-pages-1-rows-11-cols-repeat\.csv$/,
     );
-    await expect(page.getByText(/Повторный CSV экспорт готов:/)).toBeVisible();
+    await expect(page.getByRole("status", { name: "Статус экспорта событий доступа" })).toContainText(
+      /Повторный CSV экспорт готов:/,
+    );
 
     const xlsxDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Экспортировать события доступа в XLSX" }).click();
@@ -152,13 +156,26 @@ test.describe("/sys/access-events", () => {
     expect(xlsxDownload.suggestedFilename()).toMatch(
       /^access-events-\d{4}-\d{2}-\d{2}-all-all-pages-1-rows-11-cols\.xlsx$/,
     );
-    await expect(page.getByText(/XLSX экспорт готов:/)).toBeVisible();
+    await expect(page.getByRole("status", { name: "Статус экспорта событий доступа" })).toContainText(
+      /XLSX экспорт готов:/,
+    );
     await expect(page.getByRole("progressbar", { name: "Прогресс экспорта XLSX" })).toHaveAttribute(
       "aria-valuenow",
       "100",
     );
     await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
       /XLSX: 1 строк/,
+    );
+    await page.getByLabel("Фильтр журнала экспортов").selectOption("xlsx");
+    await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
+      /XLSX: 1 строк/,
+    );
+    await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).not.toContainText(
+      /CSV: 1 строк/,
+    );
+    await page.getByLabel("Фильтр журнала экспортов").selectOption("repeated");
+    await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
+      /Повторный CSV экспорт готов/,
     );
   });
 

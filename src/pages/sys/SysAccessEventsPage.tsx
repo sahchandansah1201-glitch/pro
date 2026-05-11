@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Eye, RefreshCw, Search, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import { ListPagination } from "@/components/admin/ListPagination";
@@ -51,6 +51,8 @@ type AccessEventsViewRow = Tables<"access_events_admin">;
 type FilterKey = "all" | "clinical" | "admin" | "integrations" | "devices";
 type SourceFilter = "all" | AccessEventSource;
 type ExportScope = "all_pages" | "current_page" | "custom_range";
+type ExportLogFilter = "all" | "csv" | "xlsx" | "success" | "cancelled" | "error" | "repeated";
+type ExportStatusKind = "info" | "error";
 
 const ACCESS_EVENTS_LIMIT = ACCESS_EVENTS_EXPORT_LIMIT;
 const REFRESH_COOLDOWN_MS = 10_000;
@@ -85,6 +87,16 @@ const SOURCE_FILTERS: { key: SourceFilter; label: string }[] = [
   { key: "all", label: "Все источники" },
   { key: "api", label: "API" },
   { key: "demo", label: "Demo" },
+];
+
+const EXPORT_LOG_FILTERS: { key: ExportLogFilter; label: string }[] = [
+  { key: "all", label: "Все экспорты" },
+  { key: "csv", label: "CSV" },
+  { key: "xlsx", label: "XLSX" },
+  { key: "success", label: "Готовые" },
+  { key: "cancelled", label: "Отменённые" },
+  { key: "error", label: "С ошибкой" },
+  { key: "repeated", label: "Повторные" },
 ];
 
 interface AccessEventsFilterState {
@@ -407,6 +419,7 @@ interface QueryLogEntry {
 }
 
 type ExportFormat = "CSV" | "XLSX";
+type ExportLogStatus = "success" | "cancelled" | "error";
 
 interface ExportProgressState {
   format: ExportFormat;
@@ -419,6 +432,7 @@ interface ExportLogEntry {
   id: string;
   at: string;
   format: ExportFormat;
+  status: ExportLogStatus;
   rowCount: number;
   filterLabel: string;
   scopeLabel: string;
@@ -427,6 +441,28 @@ interface ExportLogEntry {
   filename: string;
   rows: AccessEventRow[];
   columns: AccessEventExportColumnKey[];
+  repeated: boolean;
+  message: string;
+}
+
+interface ExportLogDraft {
+  format: ExportFormat;
+  status: ExportLogStatus;
+  rowCount: number;
+  filterLabel: string;
+  scopeLabel: string;
+  columnCount: number;
+  query: string;
+  filename: string;
+  rows: AccessEventRow[];
+  columns: AccessEventExportColumnKey[];
+  repeated?: boolean;
+  message: string;
+}
+
+interface ExportRunContext extends ExportLogDraft {
+  runId: string;
+  cancelled: boolean;
 }
 
 function isoDate(date: Date): string {
@@ -452,9 +488,16 @@ function repeatFilename(filename: string): string {
   return filename.replace(/(\.csv|\.xlsx)$/i, "-repeat$1");
 }
 
+function exportStatusLabel(status: ExportLogStatus): string {
+  if (status === "cancelled") return "Отменён";
+  if (status === "error") return "Ошибка";
+  return "Готов";
+}
+
 export default function SysAccessEventsPage() {
   const { role } = useRole();
   const configured = isSupabaseConfigured();
+  const exportRunRef = useRef<ExportRunContext | null>(null);
   const [storedFilters] = useState(readFilterState);
   const [storedExportSettings] = useState(readExportSettings);
   const [rows, setRows] = useState<AccessEventRow[]>(() => buildDemoRows());
@@ -476,8 +519,10 @@ export default function SysAccessEventsPage() {
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<AccessEventRow | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [exportStatusKind, setExportStatusKind] = useState<ExportStatusKind>("info");
   const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
   const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
+  const [exportLogFilter, setExportLogFilter] = useState<ExportLogFilter>("all");
   const [exportScope, setExportScope] = useState<ExportScope>(storedExportSettings.exportScope);
   const [customRangeFrom, setCustomRangeFrom] = useState(storedExportSettings.customRangeFrom);
   const [customRangeTo, setCustomRangeTo] = useState(storedExportSettings.customRangeTo);
@@ -488,6 +533,11 @@ export default function SysAccessEventsPage() {
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [reloadTick, setReloadTick] = useState(0);
+
+  const announceExportStatus = useCallback((message: string, kind: ExportStatusKind = "info") => {
+    setExportStatusKind(kind);
+    setExportStatus(message);
+  }, []);
 
   const appendQueryLog = useCallback((action: string, result: string) => {
     const at = new Date().toISOString();
@@ -505,32 +555,25 @@ export default function SysAccessEventsPage() {
   }, []);
 
   const appendExportLog = useCallback(
-    (
-      format: ExportFormat,
-      rowCount: number,
-      filterLabelValue: string,
-      scopeLabelValue: string,
-      columnCount: number,
-      queryValue: string,
-      filename: string,
-      rowsValue: AccessEventRow[],
-      columnsValue: AccessEventExportColumnKey[],
-    ) => {
+    (entry: ExportLogDraft) => {
       const at = new Date().toISOString();
       setExportLog((current) =>
         [
           {
-            id: `${at}-${format}-${Math.random().toString(36).slice(2)}`,
+            id: `${at}-${entry.format}-${entry.status}-${Math.random().toString(36).slice(2)}`,
             at,
-            format,
-            rowCount,
-            filterLabel: filterLabelValue,
-            scopeLabel: scopeLabelValue,
-            columnCount,
-            query: queryValue.trim() ? "есть" : "—",
-            filename,
-            rows: rowsValue,
-            columns: columnsValue,
+            format: entry.format,
+            status: entry.status,
+            rowCount: entry.rowCount,
+            filterLabel: entry.filterLabel,
+            scopeLabel: entry.scopeLabel,
+            columnCount: entry.columnCount,
+            query: entry.query.trim() ? "есть" : "—",
+            filename: entry.filename,
+            rows: entry.rows,
+            columns: entry.columns,
+            repeated: entry.repeated === true,
+            message: entry.message,
           },
           ...current,
         ].slice(0, 5),
@@ -815,12 +858,12 @@ export default function SysAccessEventsPage() {
 
   const handleManualRefresh = useCallback(() => {
     const requested = requestRefresh("Ручное обновление событий");
-    setExportStatus(
+    announceExportStatus(
       requested
         ? "Ручное обновление запрошено."
         : `Ручное обновление доступно через ${cooldownSeconds} секунд.`,
     );
-  }, [cooldownSeconds, requestRefresh]);
+  }, [announceExportStatus, cooldownSeconds, requestRefresh]);
 
   const handleResetFilters = useCallback(() => {
     setQuery(DEFAULT_FILTER_STATE.query);
@@ -834,9 +877,9 @@ export default function SysAccessEventsPage() {
     setDateFrom(DEFAULT_FILTER_STATE.dateFrom);
     setDateTo(DEFAULT_FILTER_STATE.dateTo);
     setPageSize(DEFAULT_FILTER_STATE.pageSize);
-    setExportStatus("Фильтры сброшены.");
+    announceExportStatus("Фильтры сброшены.");
     appendQueryLog("Фильтры событий", "сброшены");
-  }, [appendQueryLog]);
+  }, [announceExportStatus, appendQueryLog]);
 
   const handleDatePreset = useCallback(
     (preset: "today" | "last30" | "demoMarch" | "clear") => {
@@ -845,30 +888,30 @@ export default function SysAccessEventsPage() {
         const value = isoDate(today);
         setDateFrom(value);
         setDateTo(value);
-        setExportStatus("Пресет даты применён: сегодня.");
+        announceExportStatus("Пресет даты применён: сегодня.");
         appendQueryLog("Пресет даты", "сегодня");
         return;
       }
       if (preset === "last30") {
         setDateFrom(isoDate(addDays(today, -29)));
         setDateTo(isoDate(today));
-        setExportStatus("Пресет даты применён: последние 30 дней.");
+        announceExportStatus("Пресет даты применён: последние 30 дней.");
         appendQueryLog("Пресет даты", "последние 30 дней");
         return;
       }
       if (preset === "demoMarch") {
         setDateFrom("2026-03-01");
         setDateTo("2026-03-31");
-        setExportStatus("Пресет даты применён: март 2026.");
+        announceExportStatus("Пресет даты применён: март 2026.");
         appendQueryLog("Пресет даты", "март 2026");
         return;
       }
       setDateFrom("");
       setDateTo("");
-      setExportStatus("Фильтр даты сброшен.");
+      announceExportStatus("Фильтр даты сброшен.");
       appendQueryLog("Пресет даты", "сброшен");
     },
-    [appendQueryLog],
+    [announceExportStatus, appendQueryLog],
   );
 
   const handleToggleExportColumn = useCallback((column: AccessEventExportColumnKey) => {
@@ -879,13 +922,13 @@ export default function SysAccessEventsPage() {
 
   const handleSelectCoreColumns = useCallback(() => {
     setSelectedExportColumns(["event_id", "created_at", "actor", "action", "entity", "patient_code"]);
-    setExportStatus("Выбраны основные колонки экспорта.");
-  }, []);
+    announceExportStatus("Выбраны основные колонки экспорта.");
+  }, [announceExportStatus]);
 
   const handleSelectAllColumns = useCallback(() => {
     setSelectedExportColumns(DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS);
-    setExportStatus("Выбраны все колонки экспорта.");
-  }, []);
+    announceExportStatus("Выбраны все колонки экспорта.");
+  }, [announceExportStatus]);
 
   useEffect(() => {
     if (!autoRefresh || role !== "system_admin") return;
@@ -918,71 +961,136 @@ export default function SysAccessEventsPage() {
       if (rowsToExport.length === 0 || columns.length === 0) return;
       const rowCount = rowsToExport.length;
       const columnCount = columns.length;
+      const runId = `${Date.now()}-${format}-${Math.random().toString(36).slice(2)}`;
+      const runContext: ExportRunContext = {
+        runId,
+        cancelled: false,
+        format,
+        status: "success",
+        rowCount,
+        filterLabel: filterLabelValue,
+        scopeLabel: scopeLabelValue,
+        columnCount,
+        query: queryValue,
+        filename,
+        rows: rowsToExport,
+        columns,
+        repeated,
+        message: repeated ? `Повторный ${format} экспорт готов.` : `${format} экспорт готов.`,
+      };
+      exportRunRef.current = runContext;
+      const isCancelled = () => exportRunRef.current?.runId === runId && exportRunRef.current.cancelled;
+
       setExportProgress({
         format,
         percent: 20,
         label: repeated ? `Готовим повторный ${format} экспорт.` : `Готовим ${format} экспорт.`,
         active: true,
       });
-      await waitForUi();
-      if (format === "CSV") {
-        const csv = buildAccessEventsCsv(rowsToExport, {
-          filterLabel: filterLabelValue,
-          query: queryValue,
-          scopeLabel: scopeLabelValue,
-          columns,
-        });
+
+      try {
+        await waitForUi();
+        if (isCancelled()) return;
+
+        if (format === "CSV") {
+          const csv = buildAccessEventsCsv(rowsToExport, {
+            filterLabel: filterLabelValue,
+            query: queryValue,
+            scopeLabel: scopeLabelValue,
+            columns,
+          });
+          setExportProgress({
+            format,
+            percent: 70,
+            label: "Формируем CSV файл.",
+            active: true,
+          });
+          await waitForUi();
+          if (isCancelled()) return;
+          downloadText(filename, csv);
+        } else {
+          const blob = buildAccessEventsXlsxBlob(rowsToExport, {
+            filterLabel: filterLabelValue,
+            query: queryValue,
+            scopeLabel: scopeLabelValue,
+            columns,
+          });
+          setExportProgress({
+            format,
+            percent: 70,
+            label: "Формируем XLSX файл.",
+            active: true,
+          });
+          await waitForUi();
+          if (isCancelled()) return;
+          downloadBlob(filename, blob);
+        }
         setExportProgress({
           format,
-          percent: 70,
-          label: "Формируем CSV файл.",
-          active: true,
+          percent: 100,
+          label: repeated ? `Повторный ${format} экспорт готов.` : `${format} экспорт готов.`,
+          active: false,
         });
-        await waitForUi();
-        downloadText(filename, csv);
-      } else {
-        const blob = buildAccessEventsXlsxBlob(rowsToExport, {
-          filterLabel: filterLabelValue,
-          query: queryValue,
-          scopeLabel: scopeLabelValue,
-          columns,
+        const successMessage = `${repeated ? "Повторный " : ""}${format} экспорт готов: ${rowCount} строк. Диапазон: ${scopeLabelValue}. Колонки: ${columnCount}. Файл: ${filename}.`;
+        announceExportStatus(successMessage);
+        appendExportLog({
+          ...runContext,
+          status: "success",
+          message: successMessage,
         });
+        appendQueryLog(
+          repeated ? `Повторный экспорт ${format}` : `Экспорт ${format}`,
+          `экспортировано ${rowCount} строк; диапазон: ${scopeLabelValue}`,
+        );
+      } catch {
         setExportProgress({
           format,
-          percent: 70,
-          label: "Формируем XLSX файл.",
-          active: true,
+          percent: 100,
+          label: `${format} экспорт завершился ошибкой.`,
+          active: false,
         });
-        await waitForUi();
-        downloadBlob(filename, blob);
+        const errorMessage = `Не удалось выполнить ${format} экспорт. Файл не сформирован.`;
+        announceExportStatus(errorMessage, "error");
+        appendExportLog({
+          ...runContext,
+          status: "error",
+          message: errorMessage,
+        });
+        appendQueryLog(
+          repeated ? `Повторный экспорт ${format}` : `Экспорт ${format}`,
+          `ошибка формирования файла; диапазон: ${scopeLabelValue}`,
+        );
+      } finally {
+        if (exportRunRef.current?.runId === runId) {
+          exportRunRef.current = null;
+        }
       }
-      setExportProgress({
-        format,
-        percent: 100,
-        label: repeated ? `Повторный ${format} экспорт готов.` : `${format} экспорт готов.`,
-        active: false,
-      });
-      setExportStatus(
-        `${repeated ? "Повторный " : ""}${format} экспорт готов: ${rowCount} строк. Диапазон: ${scopeLabelValue}. Колонки: ${columnCount}. Файл: ${filename}.`,
-      );
-      appendExportLog(
-        format,
-        rowCount,
-        filterLabelValue,
-        scopeLabelValue,
-        columnCount,
-        queryValue,
-        filename,
-        rowsToExport,
-        columns,
-      );
-      appendQueryLog(
-        repeated ? `Повторный экспорт ${format}` : `Экспорт ${format}`,
-        `экспортировано ${rowCount} строк; диапазон: ${scopeLabelValue}`,
-      );
     },
-    [appendExportLog, appendQueryLog],
+    [announceExportStatus, appendExportLog, appendQueryLog],
   );
+
+  const handleCancelExport = useCallback(() => {
+    const current = exportRunRef.current;
+    if (!current || current.cancelled) return;
+    current.cancelled = true;
+    setExportProgress({
+      format: current.format,
+      percent: 100,
+      label: `${current.format} экспорт отменён.`,
+      active: false,
+    });
+    const message = `${current.format} экспорт отменён. Файл не сформирован.`;
+    announceExportStatus(message);
+    appendExportLog({
+      ...current,
+      status: "cancelled",
+      message,
+    });
+    appendQueryLog(
+      current.repeated ? `Повторный экспорт ${current.format}` : `Экспорт ${current.format}`,
+      `отменён пользователем; диапазон: ${current.scopeLabel}`,
+    );
+  }, [announceExportStatus, appendExportLog, appendQueryLog]);
 
   const handleExportCsv = useCallback(async () => {
     if (exportDisabled) return;
@@ -1056,6 +1164,18 @@ export default function SysAccessEventsPage() {
       });
     },
     [runExport],
+  );
+
+  const filteredExportLog = useMemo(
+    () =>
+      exportLog.filter((entry) => {
+        if (exportLogFilter === "all") return true;
+        if (exportLogFilter === "csv") return entry.format === "CSV";
+        if (exportLogFilter === "xlsx") return entry.format === "XLSX";
+        if (exportLogFilter === "repeated") return entry.repeated;
+        return entry.status === exportLogFilter;
+      }),
+    [exportLog, exportLogFilter],
   );
 
   if (role !== "system_admin") {
@@ -1386,7 +1506,7 @@ export default function SysAccessEventsPage() {
                   checked={autoRefresh}
                   onChange={(e) => {
                     setAutoRefresh(e.target.checked);
-                    setExportStatus(
+                    announceExportStatus(
                       e.target.checked
                         ? "Автообновление включено: каждые 60 секунд."
                         : "Автообновление выключено.",
@@ -1557,7 +1677,21 @@ export default function SysAccessEventsPage() {
           >
             <div className="flex items-center justify-between gap-3">
               <span>{exportProgress.label}</span>
-              <span className="font-mono text-[11px]">{exportProgress.percent}%</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[11px]">{exportProgress.percent}%</span>
+                {exportProgress.active ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={handleCancelExport}
+                    aria-label={`Отменить ${exportProgress.format} экспорт событий доступа`}
+                  >
+                    Отменить
+                  </Button>
+                ) : null}
+              </div>
             </div>
             <div
               role="progressbar"
@@ -1577,11 +1711,15 @@ export default function SysAccessEventsPage() {
 
         {exportStatus ? (
           <div
-            role="status"
-            aria-live="polite"
+            role={exportStatusKind === "error" ? "alert" : "status"}
+            aria-live={exportStatusKind === "error" ? "assertive" : "polite"}
             aria-atomic="true"
             aria-label="Статус экспорта событий доступа"
-            className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+            className={`rounded-md border px-3 py-2 text-[12px] ${
+              exportStatusKind === "error"
+                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                : "border-border bg-surface text-muted-foreground"
+            }`}
           >
             {exportStatus}
           </div>
@@ -1623,20 +1761,41 @@ export default function SysAccessEventsPage() {
           aria-label="Журнал экспортов событий доступа"
           className="space-y-2 p-3"
         >
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-[13px] font-semibold">Журнал экспортов</h2>
-            <span className="text-[11px] text-muted-foreground">последние 5 файлов</span>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-[13px] font-semibold">Журнал экспортов</h2>
+              <span className="text-[11px] text-muted-foreground">
+                показано {filteredExportLog.length} из {exportLog.length}; последние 5 файлов
+              </span>
+            </div>
+            <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-48">
+              Фильтр журнала
+              <select
+                value={exportLogFilter}
+                onChange={(e) => setExportLogFilter(e.target.value as ExportLogFilter)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Фильтр журнала экспортов"
+              >
+                {EXPORT_LOG_FILTERS.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <ul className="space-y-1 text-[12px] text-muted-foreground">
-            {exportLog.length > 0 ? (
-              exportLog.map((entry) => (
+            {filteredExportLog.length > 0 ? (
+              filteredExportLog.map((entry) => (
                 <li key={entry.id} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-0.5">
                     <div>
-                      {entry.format}: {entry.rowCount} строк. Диапазон: {entry.scopeLabel}. Колонки:{" "}
-                      {entry.columnCount}. Срез: {entry.filterLabel}. Поиск: {entry.query}.
+                      {entry.format}: {entry.rowCount} строк. Результат: {exportStatusLabel(entry.status)}.
+                      Диапазон: {entry.scopeLabel}. Колонки: {entry.columnCount}. Срез:{" "}
+                      {entry.filterLabel}. Поиск: {entry.query}.
                     </div>
                     <div className="truncate font-mono text-[11px]">Файл: {entry.filename}</div>
+                    <div className="text-[11px]">{entry.message}</div>
                     <time className="block font-mono text-[11px]" dateTime={entry.at}>
                       {formatDateTime(entry.at)}
                     </time>
@@ -1655,7 +1814,7 @@ export default function SysAccessEventsPage() {
                 </li>
               ))
             ) : (
-              <li>Экспортов пока нет.</li>
+              <li>{exportLog.length > 0 ? "По выбранному фильтру экспортов нет." : "Экспортов пока нет."}</li>
             )}
           </ul>
         </Card>
