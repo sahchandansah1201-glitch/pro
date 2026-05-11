@@ -1,13 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw, Search, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Download, Eye, RefreshCw, Search, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import { ListPagination } from "@/components/admin/ListPagination";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { useRole } from "@/context/role-context";
-import { buildAccessEventsCsv, type AccessEventSource } from "@/lib/admin-access-events";
+import {
+  accessEventsCsvFilename,
+  buildAccessEventsCsv,
+  type AccessEventSource,
+} from "@/lib/admin-access-events";
 import { formatDateTime } from "@/lib/format";
 import {
   getAuditLogs,
@@ -29,6 +42,7 @@ import type { Tables } from "@/integrations/supabase/types";
 type AccessEventsViewRow = Tables<"access_events_admin">;
 
 type FilterKey = "all" | "clinical" | "admin" | "integrations" | "devices";
+type SourceFilter = "all" | AccessEventSource;
 
 interface AccessEventRow {
   id: string;
@@ -50,6 +64,12 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "admin", label: "Администрирование" },
   { key: "integrations", label: "Интеграции" },
   { key: "devices", label: "Устройства" },
+];
+
+const SOURCE_FILTERS: { key: SourceFilter; label: string }[] = [
+  { key: "all", label: "Все источники" },
+  { key: "api", label: "API" },
+  { key: "demo", label: "Demo" },
 ];
 
 const ENTITY_BUCKET: Record<string, FilterKey> = {
@@ -187,6 +207,29 @@ function contextLabel(row: AccessEventRow): string {
   return parts.length > 0 ? parts.join(" · ") : "—";
 }
 
+function rowDate(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+function filterLabel(
+  filter: FilterKey,
+  sourceFilter: SourceFilter,
+  entityFilter: string,
+  dateFrom: string,
+  dateTo: string,
+): string {
+  const parts = [
+    FILTERS.find((f) => f.key === filter)?.label ?? "Все",
+    SOURCE_FILTERS.find((f) => f.key === sourceFilter)?.label ?? "Все источники",
+  ];
+  if (entityFilter !== "all") parts.push(`сущность: ${entityFilter}`);
+  if (dateFrom) parts.push(`с ${dateFrom}`);
+  if (dateTo) parts.push(`по ${dateTo}`);
+  return parts.join(" · ");
+}
+
 function downloadText(filename: string, text: string) {
   const blob = new Blob(["\ufeff", text], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -208,6 +251,11 @@ export default function SysAccessEventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [entityFilter, setEntityFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [selectedRow, setSelectedRow] = useState<AccessEventRow | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -257,29 +305,47 @@ export default function SysAccessEventsPage() {
     };
   }, [configured, reloadTick, role]);
 
+  const entityOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.entity))).sort((a, b) => a.localeCompare(b)),
+    [rows],
+  );
+
+  const currentFilterLabel = filterLabel(filter, sourceFilter, entityFilter, dateFrom, dateTo);
+
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((row) => {
       if (filter !== "all" && ENTITY_BUCKET[row.entity] !== filter) return false;
+      if (sourceFilter !== "all" && row.source !== sourceFilter) return false;
+      if (entityFilter !== "all" && row.entity !== entityFilter) return false;
+      const date = rowDate(row.createdAt);
+      if (dateFrom && date && date < dateFrom) return false;
+      if (dateTo && date && date > dateTo) return false;
       if (q) {
         const hay = `${row.action} ${row.entity} ${row.entityId ?? ""} ${row.patientCode ?? ""} ${row.clinicName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [rows, filter, query]);
+  }, [rows, filter, sourceFilter, entityFilter, dateFrom, dateTo, query]);
 
   const pagination = useListPagination(filteredRows, {
     mobilePageSize: 5,
     desktopPageSize: 10,
-    deps: [filter, query, rows],
+    deps: [filter, sourceFilter, entityFilter, dateFrom, dateTo, query, rows],
   });
 
   const handleExport = useCallback(() => {
     if (filteredRows.length === 0) return;
-    downloadText("access-events.csv", buildAccessEventsCsv(filteredRows));
-    setExportStatus(`CSV экспортирован: ${filteredRows.length} строк.`);
-  }, [filteredRows]);
+    downloadText(
+      accessEventsCsvFilename(filter, query),
+      buildAccessEventsCsv(filteredRows, {
+        filterLabel: currentFilterLabel,
+        query,
+      }),
+    );
+    setExportStatus(`CSV экспортирован: ${filteredRows.length} строк. ${currentFilterLabel}`);
+  }, [currentFilterLabel, filter, filteredRows, query]);
 
   if (role !== "system_admin") {
     return (
@@ -401,6 +467,82 @@ export default function SysAccessEventsPage() {
               </Button>
             </div>
           </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Источник событий
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Источник событий"
+              >
+                {SOURCE_FILTERS.map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Тип сущности
+              <select
+                value={entityFilter}
+                onChange={(e) => setEntityFilter(e.target.value)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Тип сущности"
+              >
+                <option value="all">Все сущности</option>
+                {entityOptions.map((entity) => (
+                  <option key={entity} value={entity}>
+                    {entity}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Дата с
+              <Input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="Дата события с"
+                className="h-11 text-[12px] sm:h-9"
+              />
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Дата по
+              <Input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                aria-label="Дата события по"
+                className="h-11 text-[12px] sm:h-9"
+              />
+            </label>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="text-[11px] text-muted-foreground">
+              Активный срез: {currentFilterLabel}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 text-[12px]"
+              onClick={() => {
+                setFilter("all");
+                setSourceFilter("all");
+                setEntityFilter("all");
+                setDateFrom("");
+                setDateTo("");
+                setQuery("");
+              }}
+            >
+              Сбросить фильтры
+            </Button>
+          </div>
         </Card>
 
         {exportStatus ? (
@@ -428,6 +570,7 @@ export default function SysAccessEventsPage() {
                 <th className="px-3 py-2">Сущность</th>
                 <th className="px-3 py-2">Пациент</th>
                 <th className="px-3 py-2">Контекст</th>
+                <th className="px-3 py-2 text-right">Детали</th>
               </tr>
             </thead>
             <tbody>
@@ -448,6 +591,19 @@ export default function SysAccessEventsPage() {
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {contextLabel(row)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1 text-[12px]"
+                      onClick={() => setSelectedRow(row)}
+                      aria-label={`Подробнее о событии ${row.id}`}
+                    >
+                      <Eye className="h-3.5 w-3.5" aria-hidden />
+                      Подробнее
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -479,6 +635,16 @@ export default function SysAccessEventsPage() {
                 <dt className="text-muted-foreground">Контекст</dt>
                 <dd className="text-right">{contextLabel(row)}</dd>
               </dl>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 min-h-[44px] w-full gap-1 text-[12px]"
+                onClick={() => setSelectedRow(row)}
+                aria-label={`Подробнее о событии ${row.id}`}
+              >
+                <Eye className="h-3.5 w-3.5" aria-hidden />
+                Подробнее
+              </Button>
             </Card>
           ))}
         </div>
@@ -494,6 +660,53 @@ export default function SysAccessEventsPage() {
           itemNoun="событий"
         />
       </div>
+
+      <Drawer open={selectedRow !== null} onOpenChange={(open) => !open && setSelectedRow(null)}>
+        <DrawerContent role="dialog" aria-modal="true" aria-describedby={undefined}>
+          <DrawerHeader>
+            <DrawerTitle>Детали события</DrawerTitle>
+            <DrawerDescription id="access-event-details-description">
+              Безопасный контекст из admin access-events view. Email, ФИО пациента, токены и storage-пути не выводятся.
+            </DrawerDescription>
+          </DrawerHeader>
+          {selectedRow ? (
+            <div className="max-h-[65vh] overflow-auto px-4 pb-2">
+              <dl className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-[13px]">
+                <dt className="text-muted-foreground">Event ID</dt>
+                <dd className="font-mono text-[12px]">{selectedRow.id}</dd>
+                <dt className="text-muted-foreground">Когда</dt>
+                <dd>{formatDateTime(selectedRow.createdAt)}</dd>
+                <dt className="text-muted-foreground">Клиника</dt>
+                <dd>{selectedRow.clinicName}</dd>
+                <dt className="text-muted-foreground">Актор</dt>
+                <dd>{selectedRow.actorLabel}</dd>
+                <dt className="text-muted-foreground">Действие</dt>
+                <dd className="font-mono text-[12px]">{selectedRow.action}</dd>
+                <dt className="text-muted-foreground">Сущность</dt>
+                <dd>
+                  {selectedRow.entity}
+                  <span className="ml-1 font-mono text-[12px] text-muted-foreground">
+                    {selectedRow.entityId ?? "—"}
+                  </span>
+                </dd>
+                <dt className="text-muted-foreground">Пациент</dt>
+                <dd className="font-mono text-[12px]">{selectedRow.patientCode ?? "—"}</dd>
+                <dt className="text-muted-foreground">Контекст</dt>
+                <dd>{contextLabel(selectedRow)}</dd>
+                <dt className="text-muted-foreground">Источник</dt>
+                <dd>{selectedRow.source === "api" ? "API" : "Demo"}</dd>
+              </dl>
+            </div>
+          ) : null}
+          <DrawerFooter>
+            <DrawerClose asChild>
+              <Button type="button" variant="outline">
+                Закрыть
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
