@@ -124,6 +124,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { title: "Пользователи", url: "/sys/users", icon: ShieldCheck },
         { title: "Устройства", url: "/sys/devices", icon: Cpu },
         { title: "Аудит", url: "/sys/audit", icon: Activity },
+        { title: "События доступа", url: "/sys/access-events", icon: ClipboardList },
         { title: "API-ключи", url: "/sys/api-keys", icon: KeyRound },
       ],
     },
