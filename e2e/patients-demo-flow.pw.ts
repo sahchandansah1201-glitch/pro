@@ -33,7 +33,11 @@ test.describe("Patients demo flow", () => {
       "«Удалить локально» скрывает строку только в текущем демо-сеансе",
     );
 
-    await page.getByRole("button", { name: "Новый пациент" }).click();
+    const newPatientButton = page.getByRole("button", { name: "Новый пациент" });
+    const demoGateId = await demoGate.getAttribute("id");
+    expect(demoGateId).toBe("patients-demo-gate-note");
+    await expect(newPatientButton).toHaveAttribute("aria-describedby", demoGateId ?? "");
+    await newPatientButton.click();
 
     const createStatus = page.getByRole("status", {
       name: "Статус действий с пациентами",
@@ -79,6 +83,36 @@ test.describe("Patients demo flow", () => {
       page.getByRole("link", { name: "Иванова Наталья Олеговна", exact: true }),
     ).toBeVisible();
     await expect(demoGate).toBeVisible();
+  });
+
+  test("keyboard users can trigger the gate and dismiss local delete safely", async ({ page }) => {
+    await page.goto("/patients", { waitUntil: "networkidle" });
+
+    await page.getByRole("button", { name: "Новый пациент" }).focus();
+    await page.keyboard.press("Enter");
+
+    const createStatus = page.getByRole("status", {
+      name: "Статус действий с пациентами",
+    });
+    await expect(createStatus).toContainText("действие заблокировано");
+    await expect(page.getByText("Всего в базе: 8")).toBeVisible();
+
+    const deleteButton = page
+      .getByRole("button", { name: "Удалить пациента Иванова Наталья Олеговна" })
+      .first();
+    await deleteButton.focus();
+    await page.keyboard.press("Enter");
+
+    const deleteDialog = page.getByRole("alertdialog", {
+      name: "Удалить пациента из локального списка?",
+    });
+    await expect(deleteDialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(deleteDialog).not.toBeVisible();
+    await expect(page.getByText("Всего в базе: 8")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Иванова Наталья Олеговна", exact: true }),
+    ).toBeVisible();
   });
 
   test("reload resets local demo changes and keeps the gate available", async ({ page }) => {

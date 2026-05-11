@@ -34,6 +34,10 @@ describe("PatientsPage", () => {
     expect(note).toHaveTextContent("Демо-ограничение");
     expect(note).toHaveTextContent("Кнопка «Новый пациент» не создаёт запись");
     expect(note).toHaveTextContent("«Удалить локально» скрывает строку только в текущем демо-сеансе");
+    expect(screen.getByRole("button", { name: /Новый пациент/i })).toHaveAttribute(
+      "aria-describedby",
+      note.id,
+    );
   });
 
   it("clicking new patient explains that manual creation is not available in demo mode", async () => {

@@ -114,5 +114,7 @@ The focused Stage 3 docs guard is standalone and does not require
   and status announcements.
 - PR #31: added reload coverage for local patient demo changes and
   hardened patient action live-region announcements.
+- PR #32: linked the patient create CTA to the demo gate note and
+  added keyboard accessibility coverage for demo patient actions.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
