@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E: на мобильной ширине кнопки сортировки клиник
  * («По приоритету», «По конверсии») должны иметь tap target ≥ 44px по высоте.
@@ -11,13 +13,7 @@ test.describe("/admin/analytics — clinic sort buttons mobile tap target", () =
   test.use({ viewport: { width: 375, height: 812 } });
 
   test("min-height ≥ 44px на мобильной ширине", async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem("derma-pro:demo-role", "clinic_admin");
-      } catch {
-        // ignore
-      }
-    });
+    await setDemoRole(page, "clinic_admin");
     await page.goto("/admin/analytics", { waitUntil: "networkidle" });
 
     const tablist = page.locator('[role="tablist"][aria-label="Сортировка клиник"]');

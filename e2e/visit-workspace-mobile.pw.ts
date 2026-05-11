@@ -1,5 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E (mobile 390): Visit Workspace для p-004 / v-005 / l-008
  * проходит весь клинический поток без горизонтального скролла:
@@ -53,13 +55,7 @@ async function expectNoHorizontalOverflow(page: Page, label: string) {
 test.describe("Visit Workspace mobile@390 — без горизонтального скролла", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(VIEWPORT);
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem("derma-pro:demo-role", "doctor");
-      } catch {
-        /* ignore */
-      }
-    });
+    await setDemoRole(page, "doctor");
   });
 
   test("Report → переключение по всем вкладкам и обратно", async ({ page }) => {

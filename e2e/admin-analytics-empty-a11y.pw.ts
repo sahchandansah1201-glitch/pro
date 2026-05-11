@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E: переключение периода в /admin/analytics и проверка a11y-контракта
  * пустых состояний в реальном браузере.
@@ -17,16 +19,6 @@ import { test, expect } from "@playwright/test";
 
 const PERIOD_TABLIST = '[role="tablist"][aria-label="Период"]';
 
-async function setClinicAdminRole(page: import("@playwright/test").Page) {
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem("derma-pro:demo-role", "clinic_admin");
-    } catch {
-      // ignore
-    }
-  });
-}
-
 async function waitLoaded(page: import("@playwright/test").Page) {
   // Дождаться окончания skeleton-загрузки секций.
   await page.waitForFunction(
@@ -38,7 +30,7 @@ async function waitLoaded(page: import("@playwright/test").Page) {
 
 test.describe("/admin/analytics — empty states a11y across period switches", () => {
   test("переключение периода обновляет таблист и empty-state'ы соблюдают role/aria-live", async ({ page }) => {
-    await setClinicAdminRole(page);
+    await setDemoRole(page, "clinic_admin");
     await page.goto("/admin/analytics", { waitUntil: "networkidle" });
 
     // Таблист периода присутствует.

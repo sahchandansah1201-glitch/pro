@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * Визуальная регрессия для /admin/analytics.
  *
@@ -21,6 +23,9 @@ const SIZES = [
   { name: "desktop-1440", width: 1440, height: 900 },
 ] as const;
 
+const hasLinuxBaselines = process.platform === "linux";
+const forceVisualBaselines = process.env.E2E_FORCE_VISUAL_BASELINES === "1";
+
 // В sandbox playwright headless shell не поднимается из-за нехватки системных
 // библиотек, зато доступен системный chromium. На CI/локально без переменной
 // PW_CHROMIUM_PATH будет использоваться обычный bundled Playwright Chromium.
@@ -29,20 +34,17 @@ if (process.env.PW_CHROMIUM_PATH) {
 }
 
 test.describe("/admin/analytics — visual regression (pixel diff)", () => {
-  test.skip(process.platform !== "linux", "Admin analytics visual baselines are Linux-only.");
+  test.skip(
+    !hasLinuxBaselines && !forceVisualBaselines,
+    "Admin analytics visual baselines are Linux-only. Set E2E_FORCE_VISUAL_BASELINES=1 with --update-snapshots to refresh them locally.",
+  );
 
   for (const size of SIZES) {
     test(`${size.name} (${size.width}x${size.height})`, async ({ page }) => {
       await page.setViewportSize({ width: size.width, height: size.height });
 
       // Авто-вход в админ-панель: демо-роль clinic_admin до загрузки приложения.
-      await page.addInitScript(() => {
-        try {
-          localStorage.setItem("derma-pro:demo-role", "clinic_admin");
-        } catch {
-          /* ignore */
-        }
-      });
+      await setDemoRole(page, "clinic_admin");
 
       await page.goto("/admin/analytics", { waitUntil: "networkidle" });
 

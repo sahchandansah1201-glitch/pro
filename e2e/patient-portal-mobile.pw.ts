@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E: страницы пациентского портала на мобильной ширине без
  * горизонтального скролла. Авто-вход — demo-role в localStorage.
@@ -26,13 +28,7 @@ test.describe("Patient portal — нет горизонтального скро
     for (const route of ROUTES) {
       test(`${route} @ ${size.name}`, async ({ page }) => {
         await page.setViewportSize({ width: size.width, height: size.height });
-        await page.addInitScript(() => {
-          try {
-            localStorage.setItem("derma-pro:demo-role", "patient");
-          } catch {
-            /* ignore */
-          }
-        });
+        await setDemoRole(page, "patient");
         await page.goto(route, { waitUntil: "networkidle" });
 
         expect(page.url(), `${route}: не должен редиректить на /login`).not.toMatch(

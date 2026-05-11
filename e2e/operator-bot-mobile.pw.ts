@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { type DemoRole, setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E: операторский Dialog + Bot Sim/Mini App без горизонтального
  * скролла на мобильных ширинах. Авто-вход — demo-role в localStorage.
@@ -9,7 +11,7 @@ if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
 }
 
-const ROUTES: { path: string; role: string }[] = [
+const ROUTES: { path: string; role: DemoRole }[] = [
   { path: "/operator/dialogs/bd-001", role: "operator" },
   { path: "/bot-sim", role: "patient" },
   { path: "/bot-sim/miniapp/booking", role: "patient" },
@@ -25,13 +27,7 @@ test.describe("Operator+Bot pages — нет горизонтального ск
     for (const r of ROUTES) {
       test(`${r.path} @ ${size.name}`, async ({ page }) => {
         await page.setViewportSize({ width: size.width, height: size.height });
-        await page.addInitScript((role) => {
-          try {
-            localStorage.setItem("derma-pro:demo-role", role);
-          } catch {
-            /* ignore */
-          }
-        }, r.role);
+        await setDemoRole(page, r.role);
         await page.goto(r.path, { waitUntil: "networkidle" });
 
         expect(page.url(), `${r.path}: не должен редиректить на /login`).not.toMatch(

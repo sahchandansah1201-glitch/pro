@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E: responsive screenshots для /admin/analytics.
  *
@@ -24,13 +26,7 @@ test.describe("/admin/analytics — responsive screenshots & tap target", () => 
       await page.setViewportSize({ width: size.width, height: size.height });
       // Авто-вход в админ-панель: выставляем демо-роль clinic_admin
       // в localStorage до загрузки приложения, чтобы RoleGuard пропустил /admin/*.
-      await page.addInitScript(() => {
-        try {
-          localStorage.setItem("derma-pro:demo-role", "clinic_admin");
-        } catch {
-          /* ignore */
-        }
-      });
+      await setDemoRole(page, "clinic_admin");
       await page.goto("/admin/analytics", { waitUntil: "networkidle" });
 
       const tablist = page.locator(
