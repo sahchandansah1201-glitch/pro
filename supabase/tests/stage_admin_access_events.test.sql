@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap;
 
-select plan(11);
+select plan(14);
 
 create or replace function _act_as(_uid uuid) returns void
 language plpgsql as $$
@@ -57,6 +57,16 @@ select ok(
   'anon cannot select access_events_admin'
 );
 
+select ok(
+  to_regclass('public.access_events_admin_requests') is not null,
+  'admin access-events request log exists'
+);
+
+select ok(
+  to_regprocedure('public.list_access_events_admin(integer, integer)') is not null,
+  'capped access-events RPC exists'
+);
+
 select _act_as('a0000000-0000-0000-0000-00000000c001'); -- clinic_admin
 select is(
   (select count(*)::int from public.access_events_admin),
@@ -70,6 +80,11 @@ select is(
   (select count(*)::int from public.access_events_admin),
   (select count(*)::int from public.audit_logs),
   'system_admin can read all access events'
+);
+select is(
+  (select count(*)::int from public.list_access_events_admin(1, 0)),
+  least(1, (select count(*)::int from public.audit_logs)),
+  'system_admin RPC applies requested limit'
 );
 select _reset_role();
 
