@@ -1,5 +1,7 @@
 export type AccessEventSource = "api" | "demo";
 
+export const ACCESS_EVENTS_EXPORT_LIMIT = 200;
+
 export interface AccessEventExportRow {
   id?: string;
   createdAt: string;
@@ -20,6 +22,13 @@ export interface AccessEventsCsvMeta {
 }
 
 type CellValue = string | null;
+
+export function limitAccessEventExportRows<T>(
+  rows: T[],
+  limit = ACCESS_EVENTS_EXPORT_LIMIT,
+): T[] {
+  return rows.slice(0, Math.max(0, limit));
+}
 
 function exportMatrix(
   rows: AccessEventExportRow[],

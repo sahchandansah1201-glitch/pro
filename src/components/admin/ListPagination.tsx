@@ -45,17 +45,28 @@ export function ListPagination({
             variant="outline"
             size="sm"
             disabled={!canPrev}
+            aria-label="Первая страница"
+            onClick={() => onPageChange(1)}
+            className="min-h-[44px] px-2 sm:min-h-[32px]"
+          >
+            «
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canPrev}
             aria-label="Предыдущая страница"
             onClick={() => onPageChange(page - 1)}
-            className="min-h-[44px] sm:min-h-[32px]"
+            className="min-h-[44px] px-2 sm:min-h-[32px]"
           >
             ←
           </Button>
           <span
-            className="min-w-[64px] text-center text-[12px] tabular-nums text-muted-foreground"
+            className="min-w-[92px] text-center text-[12px] tabular-nums text-muted-foreground"
             aria-current="page"
           >
-            {page} / {pageCount}
+            Страница {page} из {pageCount}
           </span>
           <Button
             type="button"
@@ -64,9 +75,20 @@ export function ListPagination({
             disabled={!canNext}
             aria-label="Следующая страница"
             onClick={() => onPageChange(page + 1)}
-            className="min-h-[44px] sm:min-h-[32px]"
+            className="min-h-[44px] px-2 sm:min-h-[32px]"
           >
             →
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canNext}
+            aria-label="Последняя страница"
+            onClick={() => onPageChange(pageCount)}
+            className="min-h-[44px] px-2 sm:min-h-[32px]"
+          >
+            »
           </Button>
         </div>
       )}
