@@ -18,6 +18,7 @@ runtime code, tests, scripts, CI, or backend configuration.
 - Stage 3G — Final handoff summary: [docs/frontend/stage-3g-final-handoff-summary.md](./stage-3g-final-handoff-summary.md)
 - Stage 3H — Release reviewer FAQ: [docs/frontend/stage-3h-release-reviewer-faq.md](./stage-3h-release-reviewer-faq.md)
 - Stage 3J — GitHub-first working mode: [docs/frontend/stage-3j-github-lovable-working-mode.md](./stage-3j-github-lovable-working-mode.md)
+- Stage 3K — Lovable suggestions backlog: [docs/frontend/stage-3k-lovable-suggestions-backlog.md](./stage-3k-lovable-suggestions-backlog.md)
 
 ## 3. Verification map
 
@@ -37,7 +38,9 @@ The focused Stage 3 docs guard is standalone and does not require
 
 ## 4. Release-readiness status
 
-- The documentation chain is indexed through Stage 3J.
+- The documentation chain is indexed through Stage 3K.
+- Lovable follow-up suggestions are tracked in Stage 3K before they
+  become implementation scope.
 - No runtime changes are included in Stage 3I.
 - The already-known preserved `M package-lock.json` is expected in
   `git status --short` and must not be deleted, manually regenerated, or
@@ -83,6 +86,7 @@ The focused Stage 3 docs guard is standalone and does not require
 - [x] GitHub to Lovable sync workflow is present.
 - [x] Pilot result is present.
 - [x] GitHub-first working mode is linked.
+- [x] Lovable suggestions backlog is linked.
 
 ## 9. Sync changelog
 
@@ -91,5 +95,6 @@ The focused Stage 3 docs guard is standalone and does not require
   the synced section and no sync conflicts.
 - PR #3: added this documentation checklist and sync changelog.
 - PR #4: added the standalone Stage 3 docs guard.
+- PR #22: added the Lovable suggestions backlog and triage rule.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

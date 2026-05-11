@@ -78,6 +78,9 @@ Do not rewrite or regenerate files. Report sync conflicts only.
   the source of truth.
 - If Lovable confirms exact synced facts, stop; do not ask it to
   re-evaluate the same change.
+- If Lovable returns extra product suggestions, triage them in
+  [Stage 3K — Lovable suggestions backlog](./stage-3k-lovable-suggestions-backlog.md)
+  instead of immediately expanding the current PR.
 
 ## 6. Failure handling
 
@@ -107,3 +110,5 @@ The working mode is active when:
 - `deno.lock` guards remain green.
 - Sync conflicts are reported as blockers, not silently resolved by
   Lovable rewrites.
+- Lovable's extra suggestions are tracked as backlog items before they
+  become implementation scope.
