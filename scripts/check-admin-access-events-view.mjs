@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 
 const MIGRATION = "supabase/migrations/20260511153000_admin_access_events_view.sql";
+const HARDENING = "supabase/migrations/20260511165000_harden_access_events_admin_permissions.sql";
 const TYPES = "src/integrations/supabase/types.ts";
 
 function read(path) {
@@ -21,6 +22,7 @@ function assertContains(text, needle, label) {
 }
 
 const migration = read(MIGRATION);
+const hardening = read(HARDENING);
 const types = read(TYPES);
 
 for (const [needle, label] of [
@@ -37,6 +39,17 @@ for (const [needle, label] of [
   ["grant select on table public.access_events_admin to authenticated", "authenticated grant"],
 ]) {
   assertContains(migration, needle, label);
+}
+
+for (const [needle, label] of [
+  ["alter view public.access_events_admin set (security_invoker = true)", "hardened security invoker"],
+  ["alter view public.access_events_admin set (security_barrier = true)", "security barrier setting"],
+  ["revoke all on table public.access_events_admin from public", "hardened public revoke"],
+  ["revoke all on table public.access_events_admin from anon", "anon revoke"],
+  ["revoke all on table public.access_events_admin from authenticated", "authenticated revoke before grant"],
+  ["grant select on table public.access_events_admin to authenticated", "authenticated select grant"],
+]) {
+  assertContains(hardening, needle, label);
 }
 
 for (const [needle, label] of [
