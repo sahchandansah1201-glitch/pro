@@ -1,17 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
-}
-
-async function setDemoRole(page: import("@playwright/test").Page, role: string) {
-  await page.addInitScript((r) => {
-    try {
-      localStorage.setItem("derma-pro:demo-role", r);
-    } catch {
-      // ignore
-    }
-  }, role);
 }
 
 test.describe("/sys/access-events", () => {

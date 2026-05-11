@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E: на 390px все интерактивные элементы (кнопки, ссылки, поля ввода,
  * tab-кнопки) на core admin-страницах имеют высоту ≥ 44px.
@@ -20,13 +22,7 @@ test.describe("Admin core pages — tap target ≥ 44px @ 390x844", () => {
   for (const route of ROUTES) {
     test(`${route}`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.addInitScript(() => {
-        try {
-          localStorage.setItem("derma-pro:demo-role", "clinic_admin");
-        } catch {
-          /* ignore */
-        }
-      });
+      await setDemoRole(page, "clinic_admin");
       await page.goto(route, { waitUntil: "networkidle" });
 
       const offenders = await page.evaluate((MIN: number) => {

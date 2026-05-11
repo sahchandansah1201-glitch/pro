@@ -1,18 +1,14 @@
 import { expect, test } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
 }
 
 test.describe("Patients demo flow", () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem("derma-pro:demo-role", "doctor");
-      } catch {
-        /* ignore */
-      }
-    });
+    await setDemoRole(page, "doctor");
   });
 
   test("demo gate is announced and patient create/delete stays local", async ({ page }) => {

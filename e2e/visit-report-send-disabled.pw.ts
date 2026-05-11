@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E: на вкладке «Отчёт» кнопка «Отправить пациенту (демо)» не реагирует на
  * клик — DOM не меняется, статус/история отправки не появляются — даже после
@@ -14,13 +16,7 @@ const ROUTE = "/patients/p-004/visits/v-005?tab=report&lesion=l-008";
 
 test.describe("VisitReportTab · Отправить пациенту (демо) inert", () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem("derma-pro:demo-role", "doctor");
-      } catch {
-        /* ignore */
-      }
-    });
+    await setDemoRole(page, "doctor");
   });
 
   test("клик не меняет DOM и не создаёт статус/историю отправки", async ({ page }) => {

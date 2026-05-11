@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E: проверяем, что core admin-страницы открываются без редиректа
  * на /login и не имеют горизонтального скролла на ключевых ширинах.
@@ -25,13 +27,7 @@ test.describe("Admin core pages — нет горизонтального скр
     for (const route of ROUTES) {
       test(`${route} @ ${size.name}`, async ({ page }) => {
         await page.setViewportSize({ width: size.width, height: size.height });
-        await page.addInitScript(() => {
-          try {
-            localStorage.setItem("derma-pro:demo-role", "clinic_admin");
-          } catch {
-            /* ignore */
-          }
-        });
+        await setDemoRole(page, "clinic_admin");
         await page.goto(route, { waitUntil: "networkidle" });
 
         // Не ушли на /login.

@@ -1,5 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * Визуальная регрессия бейджа статуса защищённой ссылки на /operator.
  *
@@ -20,13 +22,7 @@ async function setZoom(page: Page, zoom: 1 | 2) {
 }
 
 async function gotoOperator(page: Page) {
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem("derma-pro:demo-role", "operator");
-    } catch {
-      // ignore
-    }
-  });
+  await setDemoRole(page, "operator");
   await page.goto("/operator", { waitUntil: "networkidle" });
   // Ждём, пока хотя бы один бейдж статуса появится в DOM.
   await page.waitForSelector('[role="status"][aria-label*="Статус защищённой ссылки"]');

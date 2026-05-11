@@ -1,5 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E-регрессия: при узкой ширине карточки на /operator бейдж статуса
  * защищённой ссылки переносится как ЕДИНЫЙ блок (без разрывов между
@@ -21,13 +23,7 @@ const BADGE_SELECTOR =
   '[role="status"][aria-label*="Статус защищённой ссылки"]';
 
 async function gotoOperator(page: Page) {
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem("derma-pro:demo-role", "operator");
-    } catch {
-      // ignore
-    }
-  });
+  await setDemoRole(page, "operator");
   await page.goto("/operator", { waitUntil: "networkidle" });
   await page.waitForSelector(BADGE_SELECTOR);
 }

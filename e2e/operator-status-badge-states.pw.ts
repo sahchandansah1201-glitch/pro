@@ -1,5 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 
+import { setDemoRole } from "./helpers/demo-role";
+
 /**
  * E2E-регрессия атомарного переноса бейджа статуса защищённой ссылки
  * на /operator — отдельно для состояний «активна» и «истекла».
@@ -19,13 +21,7 @@ const BADGE_SELECTOR =
   '[role="status"][aria-label*="Статус защищённой ссылки"]';
 
 async function gotoOperator(page: Page) {
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem("derma-pro:demo-role", "operator");
-    } catch {
-      // ignore
-    }
-  });
+  await setDemoRole(page, "operator");
   await page.goto("/operator", { waitUntil: "networkidle" });
   await page.waitForSelector(BADGE_SELECTOR);
 }
