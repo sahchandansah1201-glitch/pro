@@ -56,7 +56,8 @@ usage, and clear product boundaries.
 | LV-017 | Triage UX checklist UI | Deferred | Repeated by Lovable after PR #28; a visible UI for triage management is a separate internal workflow tool, and current need is covered by the Stage 3K markdown checklist. |
 | LV-018 | Log demo action statuses | Done | Repeated by Lovable after PR #28; current PatientsPage demo/local actions use polite status messages and the patient change log for edit/delete/undo outcomes. |
 | LV-019 | Surface patient action gate feedback to users | Done | Added in PR #29 as a persistent PatientsPage demo-only note and a clearer blocked-create status message. |
-| LV-020 | Demo patient flow e2e tests | Deferred | Existing PatientsPage unit/preflight coverage verifies the current demo flow; add Playwright coverage only when the project defines a stable e2e policy for patient demo journeys. |
+| LV-020 | Demo patient flow e2e tests | Done | Added a focused Playwright demo-patient flow in PR #30 covering the non-mutating create gate, local delete, undo, and unchanged gate note. |
+| LV-021 | Patient gate accessibility check | Done | Added e2e coverage for the `role="note"` demo gate and polite create/delete status announcements in PR #30. |
 
 ## 5. Per-cycle update rule
 
