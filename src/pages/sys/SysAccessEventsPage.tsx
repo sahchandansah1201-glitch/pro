@@ -60,6 +60,7 @@ const AUTO_REFRESH_INTERVAL_MS = 60_000;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 const FILTER_STATE_STORAGE_KEY = "derma-pro:sys-access-events:filters";
 const EXPORT_SETTINGS_STORAGE_KEY = "derma-pro:sys-access-events:export-settings";
+const EXPORT_LOG_FILTER_STORAGE_KEY = "derma-pro:sys-access-events:export-log-filter";
 
 interface AccessEventRow {
   id: string;
@@ -227,6 +228,29 @@ function writeExportSettings(state: AccessEventsExportSettings): void {
     window.localStorage.setItem(EXPORT_SETTINGS_STORAGE_KEY, JSON.stringify(state));
   } catch {
     // Export settings are a convenience only; the page must remain usable without storage.
+  }
+}
+
+function isExportLogFilter(value: unknown): value is ExportLogFilter {
+  return typeof value === "string" && EXPORT_LOG_FILTERS.some((f) => f.key === value);
+}
+
+function readExportLogFilter(): ExportLogFilter {
+  if (typeof window === "undefined") return "all";
+  try {
+    const raw = window.localStorage.getItem(EXPORT_LOG_FILTER_STORAGE_KEY);
+    return isExportLogFilter(raw) ? raw : "all";
+  } catch {
+    return "all";
+  }
+}
+
+function writeExportLogFilter(value: ExportLogFilter): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(EXPORT_LOG_FILTER_STORAGE_KEY, value);
+  } catch {
+    // Filter persistence is best-effort; never block the UI.
   }
 }
 
@@ -522,7 +546,7 @@ export default function SysAccessEventsPage() {
   const [exportStatusKind, setExportStatusKind] = useState<ExportStatusKind>("info");
   const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
   const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
-  const [exportLogFilter, setExportLogFilter] = useState<ExportLogFilter>("all");
+  const [exportLogFilter, setExportLogFilter] = useState<ExportLogFilter>(readExportLogFilter);
   const [exportScope, setExportScope] = useState<ExportScope>(storedExportSettings.exportScope);
   const [customRangeFrom, setCustomRangeFrom] = useState(storedExportSettings.customRangeFrom);
   const [customRangeTo, setCustomRangeTo] = useState(storedExportSettings.customRangeTo);
@@ -624,6 +648,10 @@ export default function SysAccessEventsPage() {
       selectedExportColumns,
     });
   }, [customRangeFrom, customRangeTo, exportScope, selectedExportColumns]);
+
+  useEffect(() => {
+    writeExportLogFilter(exportLogFilter);
+  }, [exportLogFilter]);
 
   useEffect(() => {
     if (!configured || role !== "system_admin") {
@@ -1177,6 +1205,56 @@ export default function SysAccessEventsPage() {
       }),
     [exportLog, exportLogFilter],
   );
+
+  const handleClearExportLog = useCallback(() => {
+    if (exportLog.length === 0) return;
+    setExportLog([]);
+    announceExportStatus("Журнал экспортов очищен.");
+    appendQueryLog("Журнал экспортов", "очищен");
+  }, [announceExportStatus, appendQueryLog, exportLog.length]);
+
+  const handleExportExportLog = useCallback(() => {
+    if (filteredExportLog.length === 0) return;
+    const header = [
+      "at",
+      "format",
+      "status",
+      "rows",
+      "columns",
+      "scope",
+      "filter",
+      "query",
+      "repeated",
+      "filename",
+    ];
+    const escape = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+    const lines = [header.map(escape).join(",")];
+    for (const entry of filteredExportLog) {
+      lines.push(
+        [
+          entry.at,
+          entry.format,
+          exportStatusLabel(entry.status),
+          String(entry.rowCount),
+          String(entry.columnCount),
+          entry.scopeLabel,
+          entry.filterLabel,
+          entry.query,
+          entry.repeated ? "да" : "нет",
+          entry.filename,
+        ]
+          .map(escape)
+          .join(","),
+      );
+    }
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `access-events-export-log-${date}-${exportLogFilter}-${filteredExportLog.length}-rows.csv`;
+    downloadText(filename, lines.join("\n"));
+    announceExportStatus(
+      `Журнал экспортов выгружен: ${filteredExportLog.length} записей. Файл: ${filename}`,
+    );
+    appendQueryLog("Журнал экспортов", `выгружен ${filteredExportLog.length}`);
+  }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
 
   if (role !== "system_admin") {
     return (
@@ -1751,7 +1829,7 @@ export default function SysAccessEventsPage() {
                 </li>
               ))
             ) : (
-              <li>Запросов пока нет.</li>
+              <li role="status" aria-live="polite">Запросов пока нет.</li>
             )}
           </ul>
         </Card>
@@ -1768,21 +1846,47 @@ export default function SysAccessEventsPage() {
                 показано {filteredExportLog.length} из {exportLog.length}; последние 5 файлов
               </span>
             </div>
-            <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-48">
-              Фильтр журнала
-              <select
-                value={exportLogFilter}
-                onChange={(e) => setExportLogFilter(e.target.value as ExportLogFilter)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Фильтр журнала экспортов"
-              >
-                {EXPORT_LOG_FILTERS.map((item) => (
-                  <option key={item.key} value={item.key}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-48">
+                Фильтр журнала
+                <select
+                  value={exportLogFilter}
+                  onChange={(e) => setExportLogFilter(e.target.value as ExportLogFilter)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Фильтр журнала экспортов"
+                >
+                  {EXPORT_LOG_FILTERS.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-[12px]"
+                  onClick={handleExportExportLog}
+                  disabled={filteredExportLog.length === 0}
+                  aria-label="Экспортировать журнал экспортов в CSV"
+                >
+                  Экспорт журнала
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-[12px]"
+                  onClick={handleClearExportLog}
+                  disabled={exportLog.length === 0}
+                  aria-label="Очистить журнал экспортов"
+                >
+                  Очистить
+                </Button>
+              </div>
+            </div>
           </div>
           <ul className="space-y-1 text-[12px] text-muted-foreground">
             {filteredExportLog.length > 0 ? (
@@ -1814,7 +1918,9 @@ export default function SysAccessEventsPage() {
                 </li>
               ))
             ) : (
-              <li>{exportLog.length > 0 ? "По выбранному фильтру экспортов нет." : "Экспортов пока нет."}</li>
+              <li role="status" aria-live="polite">
+                {exportLog.length > 0 ? "По выбранному фильтру экспортов нет." : "Экспортов пока нет."}
+              </li>
             )}
           </ul>
         </Card>
