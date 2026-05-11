@@ -29,6 +29,9 @@ test.describe("/sys/access-events", () => {
     expect(bodyText).not.toContain("Иванова Наталья");
     expect(bodyText).not.toContain("access_token");
     expect(bodyText).not.toContain("storage_object_path");
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Будет экспортировано 12 событий/,
+    );
 
     await page.getByLabel("Размер страницы событий").selectOption("5");
     await expect(page.getByText("1–5 из 12 событий")).toBeVisible();
@@ -44,15 +47,31 @@ test.describe("/sys/access-events", () => {
     await expect(table.getByText("report.generate").first()).toBeVisible();
     await expect(table.getByText("report.share")).toHaveCount(0);
 
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.getByLabel("Действие события")).toHaveValue("report.generate");
+    await expect(page.getByLabel("Код пациента события")).toHaveValue("DP-2026-0001");
+    await expect(page.getByLabel("Размер страницы событий")).toHaveValue("5");
+
+    await page.getByRole("button", { name: "Сбросить фильтры событий доступа" }).click();
+    await expect(page.getByText("Фильтры сброшены.")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Будет экспортировано 12 событий/,
+    );
+
+    await page.getByRole("button", { name: "Обновить события доступа вручную" }).click();
+    await expect(page.getByText("Ручное обновление запрошено.")).toBeVisible();
+
     await page.getByLabel("Автообновление событий доступа").check();
     await expect(page.getByText(/Автообновление включено: каждые 60 секунд/i)).toBeVisible();
-    await page.getByRole("button", { name: "Сбросить фильтры" }).click();
 
     await page.getByLabel("Тип сущности").selectOption("device");
     await expect(table.getByText("device.register").first()).toBeVisible();
     await expect(table.getByText("report.share")).toHaveCount(0);
 
     await expect(page.getByText("1–1 из 1 событий")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Будет экспортировано 1 событий/,
+    );
     await expect(page.getByRole("region", { name: "Журнал запросов событий доступа" })).toContainText(
       /Демо-журнал: локальные события загружены/,
     );

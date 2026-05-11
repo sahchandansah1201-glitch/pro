@@ -123,8 +123,8 @@ describe("SysAccessEventsPage", () => {
     expect(nonOptionTextCount("report.generate")).toBeGreaterThan(0);
     expect(nonOptionTextCount("report.share")).toBe(0);
     expect(nonOptionTextCount("visit.open")).toBe(0);
-    expect(screen.getByText(/клиника: Дерма-Про · Центр/)).toBeInTheDocument();
-    expect(screen.getByText(/код пациента: DP-2026-0001/)).toBeInTheDocument();
+    expect(screen.getAllByText(/клиника: Дерма-Про · Центр/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/код пациента: DP-2026-0001/).length).toBeGreaterThan(0);
   });
 
   it("lets system admin change access-events page size", () => {
@@ -135,6 +135,30 @@ describe("SysAccessEventsPage", () => {
       target: { value: "5" },
     });
     expect(screen.getByText("1–5 из 12 событий")).toBeInTheDocument();
+  });
+
+  it("resets filters, query, and page size to defaults", () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Поиск событий доступа"), {
+      target: { value: "report.share" },
+    });
+    fireEvent.change(screen.getByLabelText("Клиника события"), {
+      target: { value: "Дерма-Про · Центр" },
+    });
+    fireEvent.change(screen.getByLabelText("Размер страницы событий"), {
+      target: { value: "5" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Сбросить фильтры событий доступа" }));
+
+    expect(screen.getByLabelText("Поиск событий доступа")).toHaveValue("");
+    expect(screen.getByLabelText("Клиника события")).toHaveValue("all");
+    expect(screen.getByLabelText("Размер страницы событий")).toHaveValue("10");
+    expect(screen.getByText("Фильтры сброшены.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Журнал запросов событий доступа" })).toHaveTextContent(
+      /Фильтры событий: сброшены/i,
+    );
   });
 
   it("supports first, previous, next, and last pagination controls", () => {
@@ -165,9 +189,20 @@ describe("SysAccessEventsPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Обновить события доступа" }));
-    expect(screen.getByRole("button", { name: /Обновление доступно через/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Обновление доступно через/i })).toBeDisabled();
     expect(screen.getByRole("region", { name: "Журнал запросов событий доступа" })).toHaveTextContent(
       /Обновление событий: запрошено, лимит 200/i,
+    );
+  });
+
+  it("manual refresh button logs a safe refresh request", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Обновить события доступа вручную" }));
+
+    expect(screen.getByText("Ручное обновление запрошено.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Журнал запросов событий доступа" })).toHaveTextContent(
+      /Ручное обновление событий: запрошено, лимит 200/i,
     );
   });
 
@@ -187,6 +222,49 @@ describe("SysAccessEventsPage", () => {
       /Автообновление событий: запрошено, лимит 200/i,
     );
     unmount();
+  });
+
+  it("persists safe filter state across remounts", () => {
+    const first = renderPage();
+
+    fireEvent.change(screen.getByLabelText("Действие события"), {
+      target: { value: "report.generate" },
+    });
+    fireEvent.change(screen.getByLabelText("Код пациента события"), {
+      target: { value: "DP-2026-0001" },
+    });
+    fireEvent.change(screen.getByLabelText("Размер страницы событий"), {
+      target: { value: "5" },
+    });
+    first.unmount();
+
+    renderPage();
+
+    expect(screen.getByLabelText("Действие события")).toHaveValue("report.generate");
+    expect(screen.getByLabelText("Код пациента события")).toHaveValue("DP-2026-0001");
+    expect(screen.getByLabelText("Размер страницы событий")).toHaveValue("5");
+    expect(nonOptionTextCount("report.generate")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("visit.open")).toBe(0);
+  });
+
+  it("shows a safe export preview that reflects filters and export limits", () => {
+    renderPage();
+
+    const preview = screen.getByRole("region", { name: "Предпросмотр экспорта событий доступа" });
+    expect(preview).toHaveTextContent(/Будет экспортировано 12 событий/i);
+    expect(preview).toHaveTextContent(/Форматы: CSV и XLSX/i);
+    expect(preview).not.toHaveTextContent(/email|access_token|storage_object_path/i);
+
+    fireEvent.change(screen.getByLabelText("Тип сущности"), {
+      target: { value: "device" },
+    });
+    expect(preview).toHaveTextContent(/Будет экспортировано 1 событий/i);
+
+    fireEvent.change(screen.getByLabelText("Источник событий"), {
+      target: { value: "api" },
+    });
+    expect(preview).toHaveTextContent(/Нет событий для экспорта/i);
+    expect(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" })).toBeDisabled();
   });
 
   it("opens a safe row details drawer without sensitive fields", () => {
