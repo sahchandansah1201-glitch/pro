@@ -73,6 +73,30 @@ describe("PatientsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("opens quick patient preview without entering edit mode", async () => {
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Просмотреть пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Просмотр пациента",
+    });
+    expect(within(dialog).getByText("DP-2026-0001")).toBeInTheDocument();
+    expect(within(dialog).getByText("Иванова Наталья Олеговна")).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Открыть карточку" })).toHaveAttribute(
+      "href",
+      "/patients/p-001",
+    );
+    expect(
+      within(dialog).queryByRole("button", { name: "Сохранить изменения" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("saves patient edits locally and updates the row without changing total count", async () => {
     renderPage();
     const table = screen.getByRole("table");
@@ -100,6 +124,31 @@ describe("PatientsPage", () => {
     );
   });
 
+  it("records edit actions in the patient change log", async () => {
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Редактировать пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Редактировать пациента",
+    });
+    const nameInput = within(dialog).getByLabelText("ФИО");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Иванова Наталья Журнал");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Сохранить изменения" }),
+    );
+
+    const log = screen.getByRole("region", { name: "Журнал изменений пациентов" });
+    expect(log).toHaveTextContent("DP-2026-0001");
+    expect(log).toHaveTextContent("Иванова Наталья Журнал");
+    expect(log).toHaveTextContent("Обновлены данные пациента локально.");
+  });
+
   it("requires a non-empty patient name before saving", async () => {
     renderPage();
     const table = screen.getByRole("table");
@@ -123,6 +172,30 @@ describe("PatientsPage", () => {
     expect(screen.getByRole("dialog", { name: "Редактировать пациента" })).toBeInTheDocument();
   });
 
+  it("rejects a future birth date before saving", async () => {
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Редактировать пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Редактировать пациента",
+    });
+    const birthDateInput = within(dialog).getByLabelText("Дата рождения");
+    await userEvent.clear(birthDateInput);
+    await userEvent.type(birthDateInput, "2099-01-01");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Сохранить изменения" }),
+    );
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Дата рождения не может быть в будущем.",
+    );
+  });
+
   it("editing a patient does not mutate mock patient data", async () => {
     const before = PATIENTS.find((p) => p.id === "p-001")?.fullName;
     renderPage();
@@ -144,5 +217,46 @@ describe("PatientsPage", () => {
     );
 
     expect(PATIENTS.find((p) => p.id === "p-001")?.fullName).toBe(before);
+  });
+
+  it("extended search filters by age range", async () => {
+    renderPage();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Расширенный поиск пациентов" }),
+    );
+    await userEvent.type(screen.getByLabelText("Возраст пациента от"), "70");
+    await userEvent.type(screen.getByLabelText("Возраст пациента до"), "72");
+
+    expect(screen.getAllByText("Беляева Елена Сергеевна").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Иванова Наталья Олеговна")).not.toBeInTheDocument();
+    expect(screen.getByText(/Найдено:/).textContent).toContain("1");
+  });
+
+  it("deletes a patient from the local list only and records it in the change log", async () => {
+    const before = PATIENTS.length;
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Удалить пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+    const alert = await screen.findByRole("alertdialog", {
+      name: "Удалить пациента из локального списка?",
+    });
+    await userEvent.click(
+      within(alert).getByRole("button", { name: "Удалить локально" }),
+    );
+
+    expect(within(table).queryByRole("link", { name: "Иванова Наталья Олеговна" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Всего в базе: 7/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Пациент Иванова Наталья Олеговна удалён из локального списка/i,
+    );
+    const log = screen.getByRole("region", { name: "Журнал изменений пациентов" });
+    expect(log).toHaveTextContent("Удалён из локального списка.");
+    expect(PATIENTS.length).toBe(before);
   });
 });

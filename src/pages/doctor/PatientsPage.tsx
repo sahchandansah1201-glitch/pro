@@ -1,10 +1,31 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Pencil, Search, UserPlus } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  History,
+  Pencil,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogClose,
@@ -27,6 +48,7 @@ import { calcAge, formatDate, sexShort } from "@/lib/format";
 import type { Patient, Phototype, Sex } from "@/lib/domain";
 
 const PHOTOTYPES: Phototype[] = ["I", "II", "III", "IV", "V", "VI"];
+const PATIENT_EDIT_DEMO_TODAY = "2026-05-11";
 
 type ConsentFilter = "any" | "yes" | "no";
 type LesionsFilter = "any" | "with_active" | "without_active";
@@ -47,6 +69,21 @@ interface PatientEditDraft {
   sex: Sex;
   phototype: Phototype;
   imagingConsent: boolean;
+}
+
+interface AdvancedSearchState {
+  code: string;
+  name: string;
+  ageFrom: string;
+  ageTo: string;
+}
+
+interface ChangeLogEntry {
+  id: string;
+  action: "edit" | "delete";
+  patientCode: string;
+  patientName: string;
+  message: string;
 }
 
 function buildRow(patient: Patient): Row {
@@ -85,23 +122,61 @@ function patientToDraft(patient: Patient): PatientEditDraft {
   };
 }
 
+function validatePatientDraft(draft: PatientEditDraft): string | null {
+  const fullName = draft.fullName.trim();
+  if (!fullName) return "Укажите ФИО пациента.";
+  if (fullName.split(/\s+/).length < 2) return "Укажите фамилию и имя пациента.";
+  if (!draft.birthDate) return "Укажите дату рождения пациента.";
+  if (draft.birthDate < "1900-01-01") return "Дата рождения выглядит слишком ранней.";
+  if (draft.birthDate > PATIENT_EDIT_DEMO_TODAY) return "Дата рождения не может быть в будущем.";
+  return null;
+}
+
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>(() => PATIENTS);
   const [query, setQuery] = useState("");
+  const [advancedSearch, setAdvancedSearch] = useState<AdvancedSearchState>({
+    code: "",
+    name: "",
+    ageFrom: "",
+    ageTo: "",
+  });
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [phototype, setPhototype] = useState<"any" | Phototype>("any");
   const [consent, setConsent] = useState<ConsentFilter>("any");
   const [lesionsFilter, setLesionsFilter] = useState<LesionsFilter>("any");
-  const [createNotice, setCreateNotice] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [previewPatient, setPreviewPatient] = useState<Patient | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<Patient | null>(null);
   const [editDraft, setEditDraft] = useState<PatientEditDraft | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const code = advancedSearch.code.trim().toLowerCase();
+    const name = advancedSearch.name.trim().toLowerCase();
+    const ageFrom = Number.parseInt(advancedSearch.ageFrom, 10);
+    const ageTo = Number.parseInt(advancedSearch.ageTo, 10);
     return patients.map(buildRow).filter(({ patient, hasActive }) => {
       if (q) {
-        const hay = `${patient.fullName} ${patient.code}`.toLowerCase();
+        const consentText = patient.consents.imaging ? "согласие есть" : "согласия нет";
+        const sexText = patient.sex === "female" ? "женский ж" : "мужской м";
+        const hay = [
+          patient.fullName,
+          patient.code,
+          patient.phototype,
+          sexText,
+          consentText,
+          patient.riskFactors.join(" "),
+        ].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
+      if (code && !patient.code.toLowerCase().includes(code)) return false;
+      if (name && !patient.fullName.toLowerCase().includes(name)) return false;
+      const age = calcAge(patient.birthDate);
+      if (!Number.isNaN(ageFrom) && age < ageFrom) return false;
+      if (!Number.isNaN(ageTo) && age > ageTo) return false;
       if (phototype !== "any" && patient.phototype !== phototype) return false;
       if (consent === "yes" && !patient.consents.imaging) return false;
       if (consent === "no" && patient.consents.imaging) return false;
@@ -109,21 +184,27 @@ export default function PatientsPage() {
       if (lesionsFilter === "without_active" && hasActive) return false;
       return true;
     });
-  }, [patients, query, phototype, consent, lesionsFilter]);
+  }, [advancedSearch, patients, query, phototype, consent, lesionsFilter]);
+  const previewRow = useMemo(
+    () => (previewPatient ? buildRow(previewPatient) : null),
+    [previewPatient],
+  );
 
   function handleEditOpen(patient: Patient) {
-    setCreateNotice(null);
+    setStatusMessage(null);
     setEditError(null);
     setEditDraft(patientToDraft(patient));
   }
 
   function handleEditSave() {
     if (!editDraft) return;
-    const fullName = editDraft.fullName.trim();
-    if (!fullName) {
-      setEditError("Укажите ФИО пациента.");
+    const validationError = validatePatientDraft(editDraft);
+    if (validationError) {
+      setEditError(validationError);
       return;
     }
+    const fullName = editDraft.fullName.trim();
+    const previous = patients.find((patient) => patient.id === editDraft.id);
 
     setPatients((current) =>
       current.map((patient) =>
@@ -142,9 +223,46 @@ export default function PatientsPage() {
           : patient,
       ),
     );
-    setCreateNotice(`Изменения по пациенту ${fullName} сохранены локально в демо-режиме.`);
+    setStatusMessage(`Изменения по пациенту ${fullName} сохранены локально в демо-режиме.`);
+    setChangeLog((current) => [
+      {
+        id: `edit-${editDraft.id}-${current.length + 1}`,
+        action: "edit",
+        patientCode: previous?.code ?? editDraft.id,
+        patientName: fullName,
+        message: "Обновлены данные пациента локально.",
+      },
+      ...current,
+    ]);
     setEditDraft(null);
     setEditError(null);
+  }
+
+  function handleDeleteConfirm() {
+    if (!deleteCandidate) return;
+    const patient = deleteCandidate;
+    setPatients((current) => current.filter((p) => p.id !== patient.id));
+    setPreviewPatient((current) => (current?.id === patient.id ? null : current));
+    setEditDraft((current) => (current?.id === patient.id ? null : current));
+    setStatusMessage(`Пациент ${patient.fullName} удалён из локального списка в демо-режиме.`);
+    setChangeLog((current) => [
+      {
+        id: `delete-${patient.id}-${current.length + 1}`,
+        action: "delete",
+        patientCode: patient.code,
+        patientName: patient.fullName,
+        message: "Удалён из локального списка.",
+      },
+      ...current,
+    ]);
+    setDeleteCandidate(null);
+  }
+
+  function updateAdvancedSearch<K extends keyof AdvancedSearchState>(
+    key: K,
+    value: AdvancedSearchState[K],
+  ) {
+    setAdvancedSearch((current) => ({ ...current, [key]: value }));
   }
 
   return (
@@ -159,7 +277,7 @@ export default function PatientsPage() {
             variant="secondary"
             className="h-9 gap-1.5 text-[12px]"
             onClick={() => {
-              setCreateNotice(
+              setStatusMessage(
                 "Создание пациента пока недоступно в демо-режиме. Реальные данные пациентов не вводите.",
               );
             }}
@@ -170,62 +288,143 @@ export default function PatientsPage() {
         }
       />
 
-      {createNotice && (
+      {statusMessage && (
         <div
           role="status"
           aria-live="polite"
           className="border-b border-border bg-warning/10 px-6 py-2 text-[12px] text-warning"
         >
-          {createNotice}
+          {statusMessage}
         </div>
       )}
 
       {/* Тулбар фильтров */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-6 py-2.5">
-        <div className="relative min-w-0 flex-1 sm:max-w-sm">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по ФИО или коду пациента"
-            className="h-8 pl-7 text-[13px]"
-            aria-label="Поиск пациента"
+      <div className="border-b border-border bg-surface px-6 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по ФИО, коду, полу, фототипу"
+              className="h-8 pl-7 text-[13px]"
+              aria-label="Поиск пациента"
+            />
+          </div>
+
+          <FilterSelect
+            label="Фототип"
+            value={phototype}
+            onChange={(v) => setPhototype(v as typeof phototype)}
+            options={[{ value: "any", label: "Любой фототип" }, ...PHOTOTYPES.map((p) => ({ value: p, label: `Фототип ${p}` }))]}
           />
+
+          <FilterSelect
+            label="Согласие на съёмку"
+            value={consent}
+            onChange={(v) => setConsent(v as ConsentFilter)}
+            options={[
+              { value: "any", label: "Любое согласие" },
+              { value: "yes", label: "Согласие есть" },
+              { value: "no", label: "Согласия нет" },
+            ]}
+          />
+
+          <FilterSelect
+            label="Образования"
+            value={lesionsFilter}
+            onChange={(v) => setLesionsFilter(v as LesionsFilter)}
+            options={[
+              { value: "any", label: "Все пациенты" },
+              { value: "with_active", label: "С активными/наблюдением" },
+              { value: "without_active", label: "Без активных" },
+            ]}
+          />
+
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-[12px]"
+                aria-label="Расширенный поиск пациентов"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                Расширенный поиск
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform ${advancedOpen ? "rotate-180" : ""}`}
+                  aria-hidden
+                />
+              </Button>
+            </CollapsibleTrigger>
+          </Collapsible>
+
+          <span className="ml-auto text-meta">
+            Найдено: <span className="text-foreground tabular-nums">{rows.length}</span>
+          </span>
         </div>
 
-        <FilterSelect
-          label="Фототип"
-          value={phototype}
-          onChange={(v) => setPhototype(v as typeof phototype)}
-          options={[{ value: "any", label: "Любой фототип" }, ...PHOTOTYPES.map((p) => ({ value: p, label: `Фототип ${p}` }))]}
-        />
-
-        <FilterSelect
-          label="Согласие на съёмку"
-          value={consent}
-          onChange={(v) => setConsent(v as ConsentFilter)}
-          options={[
-            { value: "any", label: "Любое согласие" },
-            { value: "yes", label: "Согласие есть" },
-            { value: "no", label: "Согласия нет" },
-          ]}
-        />
-
-        <FilterSelect
-          label="Образования"
-          value={lesionsFilter}
-          onChange={(v) => setLesionsFilter(v as LesionsFilter)}
-          options={[
-            { value: "any", label: "Все пациенты" },
-            { value: "with_active", label: "С активными/наблюдением" },
-            { value: "without_active", label: "Без активных" },
-          ]}
-        />
-
-        <span className="ml-auto text-meta">
-          Найдено: <span className="text-foreground tabular-nums">{rows.length}</span>
-        </span>
+        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+          <CollapsibleContent>
+            <div
+              className="mt-2 grid gap-2 rounded-md border border-border bg-surface-muted p-3 sm:grid-cols-4"
+              aria-label="Поля расширенного поиска"
+            >
+              <Input
+                value={advancedSearch.code}
+                onChange={(e) => updateAdvancedSearch("code", e.target.value)}
+                placeholder="Код пациента"
+                className="h-8 text-[13px]"
+                aria-label="Расширенный поиск по коду пациента"
+              />
+              <Input
+                value={advancedSearch.name}
+                onChange={(e) => updateAdvancedSearch("name", e.target.value)}
+                placeholder="ФИО"
+                className="h-8 text-[13px]"
+                aria-label="Расширенный поиск по ФИО"
+              />
+              <Input
+                value={advancedSearch.ageFrom}
+                onChange={(e) => updateAdvancedSearch("ageFrom", e.target.value)}
+                placeholder="Возраст от"
+                inputMode="numeric"
+                className="h-8 text-[13px]"
+                aria-label="Возраст пациента от"
+              />
+              <Input
+                value={advancedSearch.ageTo}
+                onChange={(e) => updateAdvancedSearch("ageTo", e.target.value)}
+                placeholder="Возраст до"
+                inputMode="numeric"
+                className="h-8 text-[13px]"
+                aria-label="Возраст пациента до"
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
+
+      {changeLog.length > 0 && (
+        <section
+          aria-label="Журнал изменений пациентов"
+          className="border-b border-border bg-surface px-6 py-2"
+        >
+          <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
+            <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            Журнал изменений
+          </div>
+          <ul className="mt-1 space-y-1 text-[12px] text-muted-foreground">
+            {changeLog.slice(0, 3).map((entry) => (
+              <li key={entry.id}>
+                <span className="font-mono text-[11px]">{entry.patientCode}</span>{" "}
+                <span className="text-foreground">{entry.patientName}</span>: {entry.message}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="flex-1 overflow-auto px-6 py-6">
         {rows.length === 0 ? (
@@ -250,7 +449,7 @@ export default function PatientsPage() {
                       <th className="w-[100px]">Образ.</th>
                       <th className="w-[120px]">Посл. визит</th>
                       <th className="w-[120px]">След. визит</th>
-                      <th className="w-[80px]" aria-label="Действия" />
+                      <th className="w-[120px]" aria-label="Действия" />
                     </tr>
                   </thead>
                   <tbody>
@@ -279,6 +478,16 @@ export default function PatientsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              aria-label={`Просмотреть пациента ${r.patient.fullName}`}
+                              onClick={() => setPreviewPatient(r.patient)}
+                            >
+                              <Eye className="h-4 w-4" aria-hidden />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
                               aria-label={`Редактировать пациента ${r.patient.fullName}`}
                               onClick={() => handleEditOpen(r.patient)}
                             >
@@ -291,6 +500,16 @@ export default function PatientsPage() {
                             >
                               <ChevronRight className="h-4 w-4" aria-hidden />
                             </Link>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              aria-label={`Удалить пациента ${r.patient.fullName}`}
+                              onClick={() => setDeleteCandidate(r.patient)}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -323,16 +542,38 @@ export default function PatientsPage() {
                           <span className="tabular-nums">След. {formatDate(r.nextVisit)}</span>
                         </div>
                       </Link>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                        aria-label={`Редактировать пациента ${r.patient.fullName}`}
-                        onClick={() => handleEditOpen(r.patient)}
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden />
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          aria-label={`Просмотреть пациента ${r.patient.fullName}`}
+                          onClick={() => setPreviewPatient(r.patient)}
+                        >
+                          <Eye className="h-4 w-4" aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          aria-label={`Редактировать пациента ${r.patient.fullName}`}
+                          onClick={() => handleEditOpen(r.patient)}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          aria-label={`Удалить пациента ${r.patient.fullName}`}
+                          onClick={() => setDeleteCandidate(r.patient)}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </li>
@@ -341,6 +582,78 @@ export default function PatientsPage() {
           </>
         )}
       </div>
+
+      <Dialog
+        open={!!previewRow}
+        onOpenChange={(open) => {
+          if (!open) setPreviewPatient(null);
+        }}
+      >
+        {previewRow && (
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Просмотр пациента</DialogTitle>
+              <DialogDescription>
+                Быстрый просмотр карточки без изменения данных.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-3 text-[13px] sm:grid-cols-2">
+              <PreviewField label="Код" value={previewRow.patient.code} mono />
+              <PreviewField label="ФИО" value={previewRow.patient.fullName} />
+              <PreviewField label="Возраст" value={`${previewRow.age} лет`} />
+              <PreviewField label="Пол" value={sexShort(previewRow.patient.sex)} />
+              <PreviewField label="Фототип" value={previewRow.patient.phototype} />
+              <PreviewField
+                label="Согласие на съёмку"
+                value={previewRow.patient.consents.imaging ? "Есть" : "Нет"}
+              />
+              <PreviewField label="Образования" value={String(previewRow.lesionCount)} />
+              <PreviewField label="Последний визит" value={formatDate(previewRow.lastVisit)} />
+              <PreviewField label="Следующий визит" value={formatDate(previewRow.nextVisit)} />
+            </div>
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Закрыть
+                </Button>
+              </DialogClose>
+              <Button asChild>
+                <Link to={`/patients/${previewRow.patient.id}`}>Открыть карточку</Link>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      <AlertDialog
+        open={!!deleteCandidate}
+        onOpenChange={(open) => {
+          if (!open) setDeleteCandidate(null);
+        }}
+      >
+        {deleteCandidate && (
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Удалить пациента из локального списка?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Пациент {deleteCandidate.fullName} будет скрыт только на этой странице в демо-режиме.
+                Реальные данные и mock-data не изменяются.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Отмена</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={handleDeleteConfirm}
+              >
+                Удалить локально
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        )}
+      </AlertDialog>
 
       <Dialog
         open={!!editDraft}
@@ -480,6 +793,25 @@ export default function PatientsPage() {
           </DialogContent>
         )}
       </Dialog>
+    </div>
+  );
+}
+
+function PreviewField({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-surface-muted p-3">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className={`mt-1 text-foreground ${mono ? "font-mono text-[12px]" : ""}`}>{value}</div>
     </div>
   );
 }
