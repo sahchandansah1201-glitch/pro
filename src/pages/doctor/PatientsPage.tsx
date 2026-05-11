@@ -52,6 +52,10 @@ import type { Patient, Phototype, Sex } from "@/lib/domain";
 
 const PHOTOTYPES: Phototype[] = ["I", "II", "III", "IV", "V", "VI"];
 const PATIENT_EDIT_DEMO_TODAY = "2026-05-11";
+const PATIENT_DEMO_GATE_MESSAGE =
+  "Кнопка «Новый пациент» не создаёт запись, а «Удалить локально» скрывает строку только в текущем демо-сеансе.";
+const PATIENT_DEMO_CREATE_BLOCKED_MESSAGE =
+  "Создание пациента пока недоступно в демо-режиме: действие заблокировано до этапа сохранения на сервере. Реальные данные пациентов не вводите.";
 
 type ConsentFilter = "any" | "yes" | "no";
 type LesionsFilter = "any" | "with_active" | "without_active";
@@ -357,9 +361,7 @@ export default function PatientsPage() {
             variant="secondary"
             className="h-9 gap-1.5 text-[12px]"
             onClick={() => {
-              setStatusMessage(
-                "Создание пациента пока недоступно в демо-режиме. Реальные данные пациентов не вводите.",
-              );
+              setStatusMessage(PATIENT_DEMO_CREATE_BLOCKED_MESSAGE);
               setLastDeleted(null);
             }}
           >
@@ -368,6 +370,15 @@ export default function PatientsPage() {
           </Button>
         }
       />
+
+      <section
+        role="note"
+        aria-label="Ограничения демо-режима пациентов"
+        className="border-b border-border bg-surface px-6 py-2 text-[12px] text-muted-foreground"
+      >
+        <span className="font-medium text-foreground">Демо-ограничение: </span>
+        {PATIENT_DEMO_GATE_MESSAGE}
+      </section>
 
       {statusMessage && (
         <div

@@ -107,5 +107,7 @@ The focused Stage 3 docs guard is standalone and does not require
   create/delete out of the current demo UI.
 - PR #28: recorded demo-only patient action guard/status suggestions
   in the Lovable backlog.
+- PR #29: surfaced patient action gate feedback in the demo UI and
+  recorded demo e2e triage.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
