@@ -1846,21 +1846,47 @@ export default function SysAccessEventsPage() {
                 показано {filteredExportLog.length} из {exportLog.length}; последние 5 файлов
               </span>
             </div>
-            <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-48">
-              Фильтр журнала
-              <select
-                value={exportLogFilter}
-                onChange={(e) => setExportLogFilter(e.target.value as ExportLogFilter)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Фильтр журнала экспортов"
-              >
-                {EXPORT_LOG_FILTERS.map((item) => (
-                  <option key={item.key} value={item.key}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-48">
+                Фильтр журнала
+                <select
+                  value={exportLogFilter}
+                  onChange={(e) => setExportLogFilter(e.target.value as ExportLogFilter)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Фильтр журнала экспортов"
+                >
+                  {EXPORT_LOG_FILTERS.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-[12px]"
+                  onClick={handleExportExportLog}
+                  disabled={filteredExportLog.length === 0}
+                  aria-label="Экспортировать журнал экспортов в CSV"
+                >
+                  Экспорт журнала
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-[12px]"
+                  onClick={handleClearExportLog}
+                  disabled={exportLog.length === 0}
+                  aria-label="Очистить журнал экспортов"
+                >
+                  Очистить
+                </Button>
+              </div>
+            </div>
           </div>
           <ul className="space-y-1 text-[12px] text-muted-foreground">
             {filteredExportLog.length > 0 ? (
