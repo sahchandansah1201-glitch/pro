@@ -112,5 +112,7 @@
   baselines and credential-free auth smoke skip behavior.
 - Artifact policy matches fast smoke: default `failure`, manual `always`,
   or manual `never`.
+- Artifact bundle includes `playwright-report/` and `test-results/`, including
+  the Vite log `test-results/e2e-nightly-full-vite.log`.
 - Use nightly full e2e to catch cross-surface regressions without making every
   PR pay the full visual-regression cost.
