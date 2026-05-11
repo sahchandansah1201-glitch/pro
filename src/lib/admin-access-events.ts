@@ -1,4 +1,5 @@
 export type AccessEventSource = "api" | "demo";
+export type XlsxCellValue = string | null;
 
 export const ACCESS_EVENTS_EXPORT_LIMIT = 200;
 
@@ -48,8 +49,6 @@ export interface AccessEventsFilenameOptions {
   repeated?: boolean;
 }
 
-type CellValue = string | null;
-
 export function limitAccessEventExportRows<T>(
   rows: T[],
   limit = ACCESS_EVENTS_EXPORT_LIMIT,
@@ -64,7 +63,7 @@ function normalizeColumns(columns: AccessEventExportColumnKey[] | undefined): ty
   return selected.length > 0 ? selected : ACCESS_EVENT_EXPORT_COLUMNS;
 }
 
-function valueForColumn(row: AccessEventExportRow, key: AccessEventExportColumnKey): CellValue {
+function valueForColumn(row: AccessEventExportRow, key: AccessEventExportColumnKey): XlsxCellValue {
   switch (key) {
     case "event_id":
       return row.id ?? null;
@@ -91,7 +90,7 @@ function valueForColumn(row: AccessEventExportRow, key: AccessEventExportColumnK
   }
 }
 
-function exportMatrix(rows: AccessEventExportRow[], meta: AccessEventsCsvMeta): CellValue[][] {
+function exportMatrix(rows: AccessEventExportRow[], meta: AccessEventsCsvMeta): XlsxCellValue[][] {
   const columns = normalizeColumns(meta.columns);
   return [
     ["# filter", meta.filterLabel ?? "all"],
@@ -145,7 +144,7 @@ export function accessEventsXlsxFilename(
   return accessEventsCsvFilename(filterKey, query, options).replace(/\.csv$/, ".xlsx");
 }
 
-function xmlEscape(value: CellValue): string {
+function xmlEscape(value: XlsxCellValue): string {
   return (value ?? "—")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -164,7 +163,7 @@ function columnName(index: number): string {
   return name;
 }
 
-function worksheetXml(matrix: CellValue[][]): string {
+function worksheetXml(matrix: XlsxCellValue[][]): string {
   const rows = matrix
     .map((row, rowIndex) => {
       const r = rowIndex + 1;
@@ -276,11 +275,11 @@ function zip(files: { name: string; text: string }[]): Uint8Array {
   return new Uint8Array(out);
 }
 
-export function buildAccessEventsXlsxBytes(
-  rows: AccessEventExportRow[],
-  meta: AccessEventsCsvMeta = {},
-): Uint8Array {
-  const matrix = exportMatrix(rows, meta);
+function safeSheetName(name: string): string {
+  return xmlEscape((name.trim() || "Sheet1").slice(0, 31));
+}
+
+export function buildTableXlsxBytes(matrix: XlsxCellValue[][], sheetName = "Sheet1"): Uint8Array {
   return zip([
     {
       name: "[Content_Types].xml",
@@ -304,7 +303,7 @@ export function buildAccessEventsXlsxBytes(
       text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheets>
-    <sheet name="Access events" sheetId="1" r:id="rId1"/>
+    <sheet name="${safeSheetName(sheetName)}" sheetId="1" r:id="rId1"/>
   </sheets>
 </workbook>`,
     },
@@ -322,12 +321,23 @@ export function buildAccessEventsXlsxBytes(
   ]);
 }
 
+export function buildTableXlsxBlob(matrix: XlsxCellValue[][], sheetName = "Sheet1"): Blob {
+  const archive = buildTableXlsxBytes(matrix, sheetName);
+  return new Blob([archive], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+}
+
+export function buildAccessEventsXlsxBytes(
+  rows: AccessEventExportRow[],
+  meta: AccessEventsCsvMeta = {},
+): Uint8Array {
+  return buildTableXlsxBytes(exportMatrix(rows, meta), "Access events");
+}
+
 export function buildAccessEventsXlsxBlob(
   rows: AccessEventExportRow[],
   meta: AccessEventsCsvMeta = {},
 ): Blob {
-  const archive = buildAccessEventsXlsxBytes(rows, meta);
-  return new Blob([archive], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+  return buildTableXlsxBlob(exportMatrix(rows, meta), "Access events");
 }
