@@ -17,10 +17,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { useRole } from "@/context/role-context";
 import {
+  ACCESS_EVENTS_EXPORT_LIMIT,
   accessEventsCsvFilename,
   accessEventsXlsxFilename,
   buildAccessEventsCsv,
   buildAccessEventsXlsxBlob,
+  limitAccessEventExportRows,
   type AccessEventSource,
 } from "@/lib/admin-access-events";
 import { formatDateTime } from "@/lib/format";
@@ -46,8 +48,9 @@ type AccessEventsViewRow = Tables<"access_events_admin">;
 type FilterKey = "all" | "clinical" | "admin" | "integrations" | "devices";
 type SourceFilter = "all" | AccessEventSource;
 
-const ACCESS_EVENTS_LIMIT = 200;
+const ACCESS_EVENTS_LIMIT = ACCESS_EVENTS_EXPORT_LIMIT;
 const REFRESH_COOLDOWN_MS = 10_000;
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 
 interface AccessEventRow {
@@ -223,6 +226,10 @@ function filterLabel(
   filter: FilterKey,
   sourceFilter: SourceFilter,
   entityFilter: string,
+  clinicFilter: string,
+  actorFilter: string,
+  actionFilter: string,
+  patientCodeFilter: string,
   dateFrom: string,
   dateTo: string,
 ): string {
@@ -231,6 +238,10 @@ function filterLabel(
     SOURCE_FILTERS.find((f) => f.key === sourceFilter)?.label ?? "Все источники",
   ];
   if (entityFilter !== "all") parts.push(`сущность: ${entityFilter}`);
+  if (clinicFilter !== "all") parts.push(`клиника: ${clinicFilter}`);
+  if (actorFilter !== "all") parts.push(`актор: ${actorFilter}`);
+  if (actionFilter !== "all") parts.push(`действие: ${actionFilter}`);
+  if (patientCodeFilter.trim()) parts.push(`код пациента: ${patientCodeFilter.trim()}`);
   if (dateFrom) parts.push(`с ${dateFrom}`);
   if (dateTo) parts.push(`по ${dateTo}`);
   return parts.join(" · ");
@@ -269,9 +280,15 @@ export default function SysAccessEventsPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [entityFilter, setEntityFilter] = useState("all");
+  const [clinicFilter, setClinicFilter] = useState("all");
+  const [actorFilter, setActorFilter] = useState("all");
+  const [actionFilter, setActionFilter] = useState("all");
+  const [patientCodeFilter, setPatientCodeFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<AccessEventRow | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [queryLog, setQueryLog] = useState<QueryLogEntry[]>([]);
@@ -306,6 +323,7 @@ export default function SysAccessEventsPage() {
       setSource("demo");
       setError(null);
       setLoading(false);
+      setLastRefreshAt(new Date().toISOString());
       appendQueryLog("Демо-журнал", "локальные события загружены");
       return;
     }
@@ -327,12 +345,14 @@ export default function SysAccessEventsPage() {
           setRows([]);
           setSource("api");
           setError("Не удалось загрузить события доступа. Проверьте роль system_admin и RLS.");
+          setLastRefreshAt(new Date().toISOString());
           appendQueryLog("RPC list_access_events_admin", "ошибка загрузки");
           return;
         }
         const safeRows = ((data ?? []) as AccessEventsViewRow[]).map(fromViewRow);
         setRows(safeRows);
         setSource("api");
+        setLastRefreshAt(new Date().toISOString());
         appendQueryLog(
           "RPC list_access_events_admin",
           `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`,
@@ -343,6 +363,7 @@ export default function SysAccessEventsPage() {
         setRows([]);
         setSource("api");
         setError("Сбой сети при загрузке событий доступа.");
+        setLastRefreshAt(new Date().toISOString());
         appendQueryLog("RPC list_access_events_admin", "сбой сети");
       })
       .finally(() => {
@@ -359,14 +380,50 @@ export default function SysAccessEventsPage() {
     [rows],
   );
 
-  const currentFilterLabel = filterLabel(filter, sourceFilter, entityFilter, dateFrom, dateTo);
+  const clinicOptions = useMemo(
+    () =>
+      Array.from(new Set(rows.map((row) => row.clinicName).filter((value) => value !== "—"))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [rows],
+  );
+
+  const actorOptions = useMemo(
+    () =>
+      Array.from(new Set(rows.map((row) => row.actorLabel).filter((value) => value !== "—"))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [rows],
+  );
+
+  const actionOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.action))).sort((a, b) => a.localeCompare(b)),
+    [rows],
+  );
+
+  const currentFilterLabel = filterLabel(
+    filter,
+    sourceFilter,
+    entityFilter,
+    clinicFilter,
+    actorFilter,
+    actionFilter,
+    patientCodeFilter,
+    dateFrom,
+    dateTo,
+  );
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const patientCode = patientCodeFilter.trim().toLowerCase();
     return rows.filter((row) => {
       if (filter !== "all" && ENTITY_BUCKET[row.entity] !== filter) return false;
       if (sourceFilter !== "all" && row.source !== sourceFilter) return false;
       if (entityFilter !== "all" && row.entity !== entityFilter) return false;
+      if (clinicFilter !== "all" && row.clinicName !== clinicFilter) return false;
+      if (actorFilter !== "all" && row.actorLabel !== actorFilter) return false;
+      if (actionFilter !== "all" && row.action !== actionFilter) return false;
+      if (patientCode && !(row.patientCode ?? "").toLowerCase().includes(patientCode)) return false;
       const date = rowDate(row.createdAt);
       if (dateFrom && date && date < dateFrom) return false;
       if (dateTo && date && date > dateTo) return false;
@@ -376,53 +433,103 @@ export default function SysAccessEventsPage() {
       }
       return true;
     });
-  }, [rows, filter, sourceFilter, entityFilter, dateFrom, dateTo, query]);
+  }, [
+    rows,
+    filter,
+    sourceFilter,
+    entityFilter,
+    clinicFilter,
+    actorFilter,
+    actionFilter,
+    patientCodeFilter,
+    dateFrom,
+    dateTo,
+    query,
+  ]);
+
+  const exportRows = useMemo(
+    () => limitAccessEventExportRows(filteredRows, ACCESS_EVENTS_EXPORT_LIMIT),
+    [filteredRows],
+  );
 
   const pagination = useListPagination(filteredRows, {
     pageSize,
-    deps: [filter, sourceFilter, entityFilter, dateFrom, dateTo, query, rows, pageSize],
+    deps: [
+      filter,
+      sourceFilter,
+      entityFilter,
+      clinicFilter,
+      actorFilter,
+      actionFilter,
+      patientCodeFilter,
+      dateFrom,
+      dateTo,
+      query,
+      rows,
+      pageSize,
+    ],
   });
 
   const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const refreshDisabled = loading || cooldownSeconds > 0;
 
-  const handleRefresh = useCallback(() => {
+  const requestRefresh = useCallback((action = "Обновление событий") => {
     const current = Date.now();
     setNow(current);
     if (cooldownUntil > current) {
-      appendQueryLog("Обновление событий", "заблокировано rate limit");
+      appendQueryLog(action, "заблокировано rate limit");
       return;
     }
     setCooldownUntil(current + REFRESH_COOLDOWN_MS);
-    appendQueryLog("Обновление событий", `запрошено, лимит ${ACCESS_EVENTS_LIMIT}`);
+    appendQueryLog(action, `запрошено, лимит ${ACCESS_EVENTS_LIMIT}`);
     setReloadTick((n) => n + 1);
   }, [appendQueryLog, cooldownUntil]);
 
+  const handleRefresh = useCallback(() => {
+    requestRefresh();
+  }, [requestRefresh]);
+
+  useEffect(() => {
+    if (!autoRefresh || role !== "system_admin") return;
+    const timer = window.setInterval(() => {
+      requestRefresh("Автообновление событий");
+    }, AUTO_REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, requestRefresh, role]);
+
   const handleExportCsv = useCallback(() => {
-    if (filteredRows.length === 0) return;
+    if (exportRows.length === 0) return;
     downloadText(
       accessEventsCsvFilename(filter, query),
-      buildAccessEventsCsv(filteredRows, {
+      buildAccessEventsCsv(exportRows, {
         filterLabel: currentFilterLabel,
         query,
       }),
     );
-    setExportStatus(`CSV экспортирован: ${filteredRows.length} строк. ${currentFilterLabel}`);
-    appendQueryLog("Экспорт CSV", `экспортировано ${filteredRows.length} строк`);
-  }, [appendQueryLog, currentFilterLabel, filter, filteredRows, query]);
+    const limitNotice =
+      filteredRows.length > exportRows.length
+        ? `${exportRows.length} из ${filteredRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
+        : `${exportRows.length} строк`;
+    setExportStatus(`CSV экспортирован: ${limitNotice}. ${currentFilterLabel}`);
+    appendQueryLog("Экспорт CSV", `экспортировано ${limitNotice}`);
+  }, [appendQueryLog, currentFilterLabel, exportRows, filter, filteredRows.length, query]);
 
   const handleExportXlsx = useCallback(() => {
-    if (filteredRows.length === 0) return;
+    if (exportRows.length === 0) return;
     downloadBlob(
       accessEventsXlsxFilename(filter, query),
-      buildAccessEventsXlsxBlob(filteredRows, {
+      buildAccessEventsXlsxBlob(exportRows, {
         filterLabel: currentFilterLabel,
         query,
       }),
     );
-    setExportStatus(`XLSX экспортирован: ${filteredRows.length} строк. ${currentFilterLabel}`);
-    appendQueryLog("Экспорт XLSX", `экспортировано ${filteredRows.length} строк`);
-  }, [appendQueryLog, currentFilterLabel, filter, filteredRows, query]);
+    const limitNotice =
+      filteredRows.length > exportRows.length
+        ? `${exportRows.length} из ${filteredRows.length} строк (лимит ${ACCESS_EVENTS_EXPORT_LIMIT})`
+        : `${exportRows.length} строк`;
+    setExportStatus(`XLSX экспортирован: ${limitNotice}. ${currentFilterLabel}`);
+    appendQueryLog("Экспорт XLSX", `экспортировано ${limitNotice}`);
+  }, [appendQueryLog, currentFilterLabel, exportRows, filter, filteredRows.length, query]);
 
   if (role !== "system_admin") {
     return (
@@ -563,7 +670,7 @@ export default function SysAccessEventsPage() {
               </div>
             </div>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             <label className="grid gap-1 text-[11px] text-muted-foreground">
               Источник событий
               <select
@@ -594,6 +701,64 @@ export default function SysAccessEventsPage() {
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Клиника
+              <select
+                value={clinicFilter}
+                onChange={(e) => setClinicFilter(e.target.value)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Клиника события"
+              >
+                <option value="all">Все клиники</option>
+                {clinicOptions.map((clinic) => (
+                  <option key={clinic} value={clinic}>
+                    {clinic}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Актор
+              <select
+                value={actorFilter}
+                onChange={(e) => setActorFilter(e.target.value)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Актор события"
+              >
+                <option value="all">Все акторы</option>
+                {actorOptions.map((actor) => (
+                  <option key={actor} value={actor}>
+                    {actor}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Действие
+              <select
+                value={actionFilter}
+                onChange={(e) => setActionFilter(e.target.value)}
+                className="h-11 rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
+                aria-label="Действие события"
+              >
+                <option value="all">Все действия</option>
+                {actionOptions.map((action) => (
+                  <option key={action} value={action}>
+                    {action}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              Код пациента
+              <Input
+                value={patientCodeFilter}
+                onChange={(e) => setPatientCodeFilter(e.target.value)}
+                placeholder="DP-2026-0001"
+                aria-label="Код пациента события"
+                className="h-11 text-[12px] sm:h-9"
+              />
             </label>
             <label className="grid gap-1 text-[11px] text-muted-foreground">
               Дата с
@@ -633,26 +798,52 @@ export default function SysAccessEventsPage() {
               </select>
             </label>
           </div>
-          <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="text-[11px] text-muted-foreground">
               Активный срез: {currentFilterLabel}
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-8 text-[12px]"
-              onClick={() => {
-                setFilter("all");
-                setSourceFilter("all");
-                setEntityFilter("all");
-                setDateFrom("");
-                setDateTo("");
-                setQuery("");
-              }}
-            >
-              Сбросить фильтры
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <label className="flex min-h-[36px] items-center gap-2 text-[12px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => {
+                    setAutoRefresh(e.target.checked);
+                    setExportStatus(
+                      e.target.checked
+                        ? "Автообновление включено: каждые 60 секунд."
+                        : "Автообновление выключено.",
+                    );
+                  }}
+                  aria-label="Автообновление событий доступа"
+                  className="h-4 w-4 rounded border-input"
+                />
+                Автообновление
+              </label>
+              <span className="text-[11px] text-muted-foreground">
+                Последнее: {lastRefreshAt ? formatDateTime(lastRefreshAt) : "—"}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 text-[12px]"
+                onClick={() => {
+                  setFilter("all");
+                  setSourceFilter("all");
+                  setEntityFilter("all");
+                  setClinicFilter("all");
+                  setActorFilter("all");
+                  setActionFilter("all");
+                  setPatientCodeFilter("");
+                  setDateFrom("");
+                  setDateTo("");
+                  setQuery("");
+                }}
+              >
+                Сбросить фильтры
+              </Button>
+            </div>
           </div>
         </Card>
 

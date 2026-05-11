@@ -21,7 +21,8 @@ test.describe("/sys/access-events", () => {
 
     await expect(page.getByRole("heading", { name: "События доступа" })).toBeVisible();
     await expect(page.getByText(/RPC list_access_events_admin/)).toBeVisible();
-    await expect(page.getByText("report.share").first()).toBeVisible();
+    const table = page.locator("tbody");
+    await expect(table.getByText("report.share").first()).toBeVisible();
 
     const bodyText = await page.locator("body").innerText();
     expect(bodyText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
@@ -29,11 +30,28 @@ test.describe("/sys/access-events", () => {
     expect(bodyText).not.toContain("access_token");
     expect(bodyText).not.toContain("storage_object_path");
 
-    await page.getByLabel("Тип сущности").selectOption("device");
-    await expect(page.getByText("device.register").first()).toBeVisible();
-    await expect(page.getByText("report.share")).toHaveCount(0);
-
     await page.getByLabel("Размер страницы событий").selectOption("5");
+    await expect(page.getByText("1–5 из 12 событий")).toBeVisible();
+    await page.getByRole("button", { name: "Последняя страница" }).click();
+    await expect(page.getByText("11–12 из 12 событий")).toBeVisible();
+    await page.getByRole("button", { name: "Первая страница" }).click();
+    await expect(page.getByText("1–5 из 12 событий")).toBeVisible();
+
+    await page.getByLabel("Клиника события").selectOption("Дерма-Про · Центр");
+    await page.getByLabel("Актор события").selectOption("Врач · u-doc-001");
+    await page.getByLabel("Действие события").selectOption("report.generate");
+    await page.getByLabel("Код пациента события").fill("DP-2026-0001");
+    await expect(table.getByText("report.generate").first()).toBeVisible();
+    await expect(table.getByText("report.share")).toHaveCount(0);
+
+    await page.getByLabel("Автообновление событий доступа").check();
+    await expect(page.getByText(/Автообновление включено: каждые 60 секунд/i)).toBeVisible();
+    await page.getByRole("button", { name: "Сбросить фильтры" }).click();
+
+    await page.getByLabel("Тип сущности").selectOption("device");
+    await expect(table.getByText("device.register").first()).toBeVisible();
+    await expect(table.getByText("report.share")).toHaveCount(0);
+
     await expect(page.getByText("1–1 из 1 событий")).toBeVisible();
     await expect(page.getByRole("region", { name: "Журнал запросов событий доступа" })).toContainText(
       /Демо-журнал: локальные события загружены/,

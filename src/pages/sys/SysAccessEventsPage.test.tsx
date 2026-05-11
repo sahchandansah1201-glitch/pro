@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import { RoleProvider } from "@/context/RoleContext";
 import { ROLE_STORAGE_KEY } from "@/context/role-context";
 import {
+  ACCESS_EVENTS_EXPORT_LIMIT,
   accessEventsXlsxFilename,
   buildAccessEventsCsv,
   buildAccessEventsXlsxBlob,
   buildAccessEventsXlsxBytes,
+  limitAccessEventExportRows,
 } from "@/lib/admin-access-events";
 import SysAccessEventsPage from "./SysAccessEventsPage";
 
@@ -23,12 +25,17 @@ function renderPage(role = "system_admin") {
   );
 }
 
+function nonOptionTextCount(text: string): number {
+  return screen.queryAllByText(text).filter((node) => node.tagName !== "OPTION").length;
+}
+
 describe("SysAccessEventsPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -61,15 +68,15 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Поиск событий доступа"), {
       target: { value: "report.share" },
     });
-    expect(screen.getAllByText("report.share").length).toBeGreaterThan(0);
-    expect(screen.queryByText("visit.open")).not.toBeInTheDocument();
+    expect(nonOptionTextCount("report.share")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("visit.open")).toBe(0);
 
     fireEvent.change(screen.getByLabelText("Поиск событий доступа"), {
       target: { value: "" },
     });
     fireEvent.click(screen.getByRole("tab", { name: "Устройства" }));
-    expect(screen.getAllByText("device.register").length).toBeGreaterThan(0);
-    expect(screen.queryByText("report.share")).not.toBeInTheDocument();
+    expect(nonOptionTextCount("device.register")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("report.share")).toBe(0);
   });
 
   it("filters rows by source, entity, and event date", () => {
@@ -78,14 +85,14 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Тип сущности"), {
       target: { value: "device" },
     });
-    expect(screen.getAllByText("device.register").length).toBeGreaterThan(0);
-    expect(screen.queryByText("report.share")).not.toBeInTheDocument();
+    expect(nonOptionTextCount("device.register")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("report.share")).toBe(0);
 
     fireEvent.change(screen.getByLabelText("Дата события с"), {
       target: { value: "2026-03-01" },
     });
     expect(screen.getByText("Найдено: 0")).toBeInTheDocument();
-    expect(screen.queryByText("device.register")).not.toBeInTheDocument();
+    expect(nonOptionTextCount("device.register")).toBe(0);
 
     fireEvent.change(screen.getByLabelText("Дата события с"), {
       target: { value: "" },
@@ -94,7 +101,30 @@ describe("SysAccessEventsPage", () => {
       target: { value: "api" },
     });
     expect(screen.getByText("Найдено: 0")).toBeInTheDocument();
-    expect(screen.queryByText("device.register")).not.toBeInTheDocument();
+    expect(nonOptionTextCount("device.register")).toBe(0);
+  });
+
+  it("filters rows by clinic, actor, action, and patient code", () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Клиника события"), {
+      target: { value: "Дерма-Про · Центр" },
+    });
+    fireEvent.change(screen.getByLabelText("Актор события"), {
+      target: { value: "Врач · u-doc-001" },
+    });
+    fireEvent.change(screen.getByLabelText("Действие события"), {
+      target: { value: "report.generate" },
+    });
+    fireEvent.change(screen.getByLabelText("Код пациента события"), {
+      target: { value: "DP-2026-0001" },
+    });
+
+    expect(nonOptionTextCount("report.generate")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("report.share")).toBe(0);
+    expect(nonOptionTextCount("visit.open")).toBe(0);
+    expect(screen.getByText(/клиника: Дерма-Про · Центр/)).toBeInTheDocument();
+    expect(screen.getByText(/код пациента: DP-2026-0001/)).toBeInTheDocument();
   });
 
   it("lets system admin change access-events page size", () => {
@@ -104,6 +134,25 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Размер страницы событий"), {
       target: { value: "5" },
     });
+    expect(screen.getByText("1–5 из 12 событий")).toBeInTheDocument();
+  });
+
+  it("supports first, previous, next, and last pagination controls", () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Размер страницы событий"), {
+      target: { value: "5" },
+    });
+    expect(screen.getByText("Страница 1 из 3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Последняя страница" }));
+    expect(screen.getByText("11–12 из 12 событий")).toBeInTheDocument();
+    expect(screen.getByText("Страница 3 из 3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Предыдущая страница" }));
+    expect(screen.getByText("6–10 из 12 событий")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Первая страница" }));
     expect(screen.getByText("1–5 из 12 событий")).toBeInTheDocument();
   });
 
@@ -120,6 +169,24 @@ describe("SysAccessEventsPage", () => {
     expect(screen.getByRole("region", { name: "Журнал запросов событий доступа" })).toHaveTextContent(
       /Обновление событий: запрошено, лимит 200/i,
     );
+  });
+
+  it("auto-refresh can be enabled and requests a safe refresh on interval", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-11T12:00:00Z"));
+    const { unmount } = renderPage();
+
+    fireEvent.click(screen.getByLabelText("Автообновление событий доступа"));
+    expect(screen.getByText(/Автообновление включено: каждые 60 секунд/i)).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+
+    expect(screen.getByRole("region", { name: "Журнал запросов событий доступа" })).toHaveTextContent(
+      /Автообновление событий: запрошено, лимит 200/i,
+    );
+    unmount();
   });
 
   it("opens a safe row details drawer without sensitive fields", () => {
@@ -215,6 +282,30 @@ describe("SysAccessEventsPage", () => {
     expect(csv).not.toContain("actor_email");
     expect(csv).not.toContain("patient_full_name");
     expect(csv).not.toContain("access_token");
+  });
+
+  it("caps export rows at the admin access-events export limit", () => {
+    const rows = Array.from({ length: ACCESS_EVENTS_EXPORT_LIMIT + 5 }, (_, index) => ({
+      id: `al-${index}`,
+      createdAt: "2026-05-11T12:00:00Z",
+      clinicName: "Клиника",
+      actorLabel: "Сисадмин",
+      action: "event.export",
+      entity: "audit",
+      entityId: `a-${index}`,
+      patientCode: null,
+      visitId: null,
+      lesionLabel: null,
+      source: "demo" as const,
+    }));
+
+    const capped = limitAccessEventExportRows(rows);
+    const csv = buildAccessEventsCsv(capped, { filterLabel: "Все", query: "" });
+
+    expect(capped).toHaveLength(ACCESS_EVENTS_EXPORT_LIMIT);
+    expect(csv).toContain(`"# row_count","${ACCESS_EVENTS_EXPORT_LIMIT}"`);
+    expect(csv).toContain('"al-199"');
+    expect(csv).not.toContain('"al-200"');
   });
 
   it("XLSX helper creates an Office Open XML zip without sensitive field names", async () => {
