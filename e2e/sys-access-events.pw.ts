@@ -35,6 +35,28 @@ test.describe("/sys/access-events", () => {
 
     await page.getByLabel("Размер страницы событий").selectOption("5");
     await expect(page.getByText("1–5 из 12 событий")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Будет экспортировано 12 событий/,
+    );
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Диапазон: все страницы/,
+    );
+    await page.getByLabel("Диапазон экспорта событий").selectOption("current_page");
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Будет экспортировано 5 событий/,
+    );
+    await page.getByLabel("Диапазон экспорта событий").selectOption("custom_range");
+    await page.getByLabel("Начало пользовательского диапазона экспорта").fill("2");
+    await page.getByLabel("Конец пользовательского диапазона экспорта").fill("4");
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Будет экспортировано 3 событий/,
+    );
+    await page.getByLabel("Диапазон экспорта событий").selectOption("all_pages");
+    await page.getByRole("button", { name: "Выбрать основные колонки экспорта" }).click();
+    await expect(page.getByRole("region", { name: "Предпросмотр экспорта событий доступа" })).toContainText(
+      /Колонки: 6/,
+    );
+    await page.getByRole("button", { name: "Выбрать все колонки экспорта" }).click();
     await page.getByRole("button", { name: "Последняя страница" }).click();
     await expect(page.getByText("11–12 из 12 событий")).toBeVisible();
     await page.getByRole("button", { name: "Первая страница" }).click();
@@ -102,7 +124,7 @@ test.describe("/sys/access-events", () => {
     await page.getByRole("button", { name: "Экспортировать события доступа в CSV" }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.csv$/);
-    await expect(page.getByText(/CSV экспортирован:/)).toBeVisible();
+    await expect(page.getByText(/CSV экспорт готов:/)).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
       "aria-valuenow",
       "100",
@@ -115,7 +137,7 @@ test.describe("/sys/access-events", () => {
     await page.getByRole("button", { name: "Экспортировать события доступа в XLSX" }).click();
     const xlsxDownload = await xlsxDownloadPromise;
     expect(xlsxDownload.suggestedFilename()).toMatch(/^access-events-\d{4}-\d{2}-\d{2}-all\.xlsx$/);
-    await expect(page.getByText(/XLSX экспортирован:/)).toBeVisible();
+    await expect(page.getByText(/XLSX экспорт готов:/)).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Прогресс экспорта XLSX" })).toHaveAttribute(
       "aria-valuenow",
       "100",

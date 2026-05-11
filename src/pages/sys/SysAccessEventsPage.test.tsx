@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { RoleProvider } from "@/context/RoleContext";
 import { ROLE_STORAGE_KEY } from "@/context/role-context";
 import {
+  ACCESS_EVENT_EXPORT_COLUMNS,
   ACCESS_EVENTS_EXPORT_LIMIT,
   accessEventsXlsxFilename,
   buildAccessEventsCsv,
@@ -284,6 +285,56 @@ describe("SysAccessEventsPage", () => {
     expect(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" })).toBeDisabled();
   });
 
+  it("exports all pages by default and supports current-page plus custom row ranges", () => {
+    renderPage();
+
+    const preview = screen.getByRole("region", { name: "Предпросмотр экспорта событий доступа" });
+    fireEvent.change(screen.getByLabelText("Размер страницы событий"), {
+      target: { value: "5" },
+    });
+    expect(preview).toHaveTextContent(/Будет экспортировано 12 событий/i);
+    expect(preview).toHaveTextContent(/Диапазон: все страницы/i);
+
+    fireEvent.change(screen.getByLabelText("Диапазон экспорта событий"), {
+      target: { value: "current_page" },
+    });
+    expect(preview).toHaveTextContent(/Будет экспортировано 5 событий/i);
+    expect(preview).toHaveTextContent(/Диапазон: текущая страница/i);
+
+    fireEvent.change(screen.getByLabelText("Диапазон экспорта событий"), {
+      target: { value: "custom_range" },
+    });
+    fireEvent.change(screen.getByLabelText("Начало пользовательского диапазона экспорта"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(screen.getByLabelText("Конец пользовательского диапазона экспорта"), {
+      target: { value: "4" },
+    });
+    expect(preview).toHaveTextContent(/Будет экспортировано 3 событий/i);
+    expect(preview).toHaveTextContent(/Диапазон: строки 2–4/i);
+  });
+
+  it("lets system admin choose export columns and blocks empty column export", () => {
+    renderPage();
+
+    const preview = screen.getByRole("region", { name: "Предпросмотр экспорта событий доступа" });
+    expect(preview).toHaveTextContent(`Колонки: ${ACCESS_EVENT_EXPORT_COLUMNS.length}`);
+
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать основные колонки экспорта" }));
+    expect(preview).toHaveTextContent(/Колонки: 6/i);
+
+    for (const column of ACCESS_EVENT_EXPORT_COLUMNS) {
+      const checkbox = screen.getByLabelText(`Колонка экспорта: ${column.label}`);
+      if ((checkbox as HTMLInputElement).checked) fireEvent.click(checkbox);
+    }
+
+    expect(preview).toHaveTextContent(/Выберите хотя бы одну колонку для экспорта/i);
+    expect(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать все колонки экспорта" }));
+    expect(preview).toHaveTextContent(`Колонки: ${ACCESS_EVENT_EXPORT_COLUMNS.length}`);
+  });
+
   it("opens a safe row details drawer without sensitive fields", () => {
     const { container } = renderPage();
 
@@ -319,13 +370,13 @@ describe("SysAccessEventsPage", () => {
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events");
-    expect(screen.getByText(/CSV экспортирован:/)).toBeInTheDocument();
+    expect(screen.getByText(/CSV экспорт готов:/)).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
       "aria-valuenow",
       "100",
     );
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /CSV: 12 строк/i,
+      /CSV: 12 строк\. Диапазон: все страницы\. Колонки: 11/i,
     );
 
     expect(createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob);
@@ -349,13 +400,13 @@ describe("SysAccessEventsPage", () => {
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events-xlsx");
-    expect(screen.getByText(/XLSX экспортирован:/)).toBeInTheDocument();
+    expect(screen.getByText(/XLSX экспорт готов:/)).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Прогресс экспорта XLSX" })).toHaveAttribute(
       "aria-valuenow",
       "100",
     );
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /XLSX: 12 строк/i,
+      /XLSX: 12 строк\. Диапазон: все страницы\. Колонки: 11/i,
     );
     const blob = createObjectURL.mock.calls[0][0] as Blob;
     expect(blob.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -408,6 +459,8 @@ describe("SysAccessEventsPage", () => {
     );
     expect(csv).toContain('"# filter","Клиника · Demo"');
     expect(csv).toContain('"# query","report ""share"""');
+    expect(csv).toContain('"# scope","all"');
+    expect(csv).toContain('"# columns","11"');
     expect(csv).toContain('"# row_count","1"');
     expect(csv).toContain('"event_id","created_at","clinic","actor","action","entity"');
     expect(csv).toContain('"al-test"');
@@ -415,6 +468,39 @@ describe("SysAccessEventsPage", () => {
     expect(csv).not.toContain("actor_email");
     expect(csv).not.toContain("patient_full_name");
     expect(csv).not.toContain("access_token");
+  });
+
+  it("CSV helper exports only selected safe columns", () => {
+    const csv = buildAccessEventsCsv(
+      [
+        {
+          id: "al-test",
+          createdAt: "2026-05-11T12:00:00Z",
+          clinicName: "Клиника",
+          actorLabel: "Сисадмин",
+          action: "event.export",
+          entity: "audit",
+          entityId: "a-1",
+          patientCode: "DP-2026-0001",
+          visitId: null,
+          lesionLabel: null,
+          source: "demo",
+        },
+      ],
+      {
+        filterLabel: "Все",
+        query: "",
+        scopeLabel: "строки 1–1",
+        columns: ["event_id", "action", "patient_code"],
+      },
+    );
+
+    expect(csv).toContain('"# scope","строки 1–1"');
+    expect(csv).toContain('"# columns","3"');
+    expect(csv).toContain('"event_id","action","patient_code"');
+    expect(csv).toContain('"al-test","event.export","DP-2026-0001"');
+    expect(csv).not.toContain('"actor"');
+    expect(csv).not.toContain('"clinic"');
   });
 
   it("caps export rows at the admin access-events export limit", () => {
