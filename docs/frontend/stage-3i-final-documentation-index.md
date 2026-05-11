@@ -101,5 +101,7 @@ The focused Stage 3 docs guard is standalone and does not require
   as deferred backend-stage work.
 - PR #25: recorded backend wiring for patient create/delete as deferred
   persistence-stage work.
+- PR #26: recorded patient form, create/delete verification, and
+  real-flow status logging triage.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
