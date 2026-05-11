@@ -147,6 +147,7 @@ const EXPECTED = [
       "## 4. Current backlog",
       "## 5. Per-cycle update rule",
       "## 6. Lovable confirm prompt note",
+      "## 7. Triage checklist template",
     ],
   },
 ];
