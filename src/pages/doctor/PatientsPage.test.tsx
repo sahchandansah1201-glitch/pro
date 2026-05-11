@@ -233,6 +233,39 @@ describe("PatientsPage", () => {
     expect(screen.getByText(/Найдено:/).textContent).toContain("1");
   });
 
+  it("sorts patients by age descending", async () => {
+    renderPage();
+
+    await userEvent.click(
+      screen.getByRole("combobox", { name: "Сортировка пациентов" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Возраст по убыванию" }),
+    );
+
+    const table = screen.getByRole("table");
+    const firstDataRow = within(table).getAllByRole("row")[1];
+    expect(firstDataRow).toHaveTextContent("Беляева Елена Сергеевна");
+    expect(firstDataRow).toHaveTextContent("71");
+  });
+
+  it("paginates the patient list", async () => {
+    renderPage();
+
+    expect(screen.getByRole("navigation", { name: "Пагинация пациентов" })).toHaveTextContent(
+      "Страница 1 из 2",
+    );
+    expect(screen.queryByText("Кузнецов Павел Андреевич")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Вперёд" }));
+
+    expect(screen.getByRole("navigation", { name: "Пагинация пациентов" })).toHaveTextContent(
+      "Страница 2 из 2",
+    );
+    expect(screen.getAllByText("Кузнецов Павел Андреевич").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Иванова Наталья Олеговна")).not.toBeInTheDocument();
+  });
+
   it("deletes a patient from the local list only and records it in the change log", async () => {
     const before = PATIENTS.length;
     renderPage();
@@ -258,5 +291,64 @@ describe("PatientsPage", () => {
     const log = screen.getByRole("region", { name: "Журнал изменений пациентов" });
     expect(log).toHaveTextContent("Удалён из локального списка.");
     expect(PATIENTS.length).toBe(before);
+  });
+
+  it("undoes the last local deletion", async () => {
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Удалить пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+    const alert = await screen.findByRole("alertdialog", {
+      name: "Удалить пациента из локального списка?",
+    });
+    await userEvent.click(
+      within(alert).getByRole("button", { name: "Удалить локально" }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Отменить удаление" }));
+
+    expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
+    expect(screen.getAllByText("Иванова Наталья Олеговна").length).toBeGreaterThan(0);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Удаление пациента Иванова Наталья Олеговна отменено.",
+    );
+    expect(screen.getByRole("region", { name: "Журнал изменений пациентов" })).toHaveTextContent(
+      "Удаление отменено.",
+    );
+  });
+
+  it("exports the patient change log as selectable text", async () => {
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Редактировать пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Редактировать пациента",
+    });
+    const nameInput = within(dialog).getByLabelText("ФИО");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Иванова Наталья Экспорт");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Сохранить изменения" }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Экспорт журнала" }));
+
+    const exportDialog = await screen.findByRole("dialog", {
+      name: "Экспорт журнала изменений",
+    });
+    expect(
+      within(exportDialog).getByLabelText("Текст экспорта журнала изменений"),
+    ).toHaveValue(
+      "1. DP-2026-0001 Иванова Наталья Экспорт: Обновлены данные пациента локально.",
+    );
   });
 });
