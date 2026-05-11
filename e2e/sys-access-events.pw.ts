@@ -177,6 +177,25 @@ test.describe("/sys/access-events", () => {
     await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
       /Повторный CSV экспорт готов/,
     );
+
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.getByLabel("Фильтр журнала экспортов")).toHaveValue("repeated");
+
+    const logDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Экспортировать журнал экспортов в CSV" }).click();
+    const logDownload = await logDownloadPromise;
+    expect(logDownload.suggestedFilename()).toMatch(
+      /^access-events-export-log-\d{4}-\d{2}-\d{2}-repeated-\d+-rows\.csv$/,
+    );
+
+    await page.getByRole("button", { name: "Очистить журнал экспортов" }).click();
+    await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
+      /По выбранному фильтру экспортов нет\.|Экспортов пока нет\./,
+    );
+    const emptyStatus = page
+      .getByRole("region", { name: "Журнал экспортов событий доступа" })
+      .getByRole("status");
+    await expect(emptyStatus).toBeVisible();
   });
 
   test("clinic_admin cannot view access events", async ({ page }) => {
