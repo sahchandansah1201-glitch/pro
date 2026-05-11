@@ -180,6 +180,15 @@ test.describe("/sys/access-events", () => {
 
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.getByLabel("Фильтр журнала экспортов")).toHaveValue("repeated");
+    await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
+      /Повторный CSV экспорт готов/,
+    );
+
+    await page.getByLabel("Поиск по журналу экспортов").fill("csv");
+    await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
+      /CSV: 1 строк/,
+    );
+    await page.getByLabel("Поиск по журналу экспортов").fill("");
 
     const logDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Экспортировать журнал экспортов в CSV" }).click();
@@ -187,8 +196,25 @@ test.describe("/sys/access-events", () => {
     expect(logDownload.suggestedFilename()).toMatch(
       /^access-events-export-log-\d{4}-\d{2}-\d{2}-repeated-\d+-rows\.csv$/,
     );
+    await expect(page.getByRole("status", { name: "Статус экспорта событий доступа" })).toContainText(
+      /Журнал экспортов выгружен в CSV/,
+    );
+
+    const logXlsxDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Экспортировать журнал экспортов в XLSX" }).click();
+    const logXlsxDownload = await logXlsxDownloadPromise;
+    expect(logXlsxDownload.suggestedFilename()).toMatch(
+      /^access-events-export-log-\d{4}-\d{2}-\d{2}-repeated-\d+-rows\.xlsx$/,
+    );
+    await expect(page.getByRole("status", { name: "Статус экспорта событий доступа" })).toContainText(
+      /Журнал экспортов выгружен в XLSX/,
+    );
 
     await page.getByRole("button", { name: "Очистить журнал экспортов" }).click();
+    await expect(page.getByRole("status", { name: "Статус экспорта событий доступа" })).toContainText(
+      /Подтвердите очистку журнала экспортов/,
+    );
+    await page.getByRole("button", { name: "Подтвердить очистку журнала экспортов" }).click();
     await expect(page.getByRole("region", { name: "Журнал экспортов событий доступа" })).toContainText(
       /По выбранному фильтру экспортов нет\.|Экспортов пока нет\./,
     );

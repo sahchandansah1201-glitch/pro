@@ -24,9 +24,11 @@ import {
   accessEventsXlsxFilename,
   buildAccessEventsCsv,
   buildAccessEventsXlsxBlob,
+  buildTableXlsxBlob,
   limitAccessEventExportRows,
   type AccessEventExportColumnKey,
   type AccessEventSource,
+  type XlsxCellValue,
 } from "@/lib/admin-access-events";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -61,6 +63,8 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 const FILTER_STATE_STORAGE_KEY = "derma-pro:sys-access-events:filters";
 const EXPORT_SETTINGS_STORAGE_KEY = "derma-pro:sys-access-events:export-settings";
 const EXPORT_LOG_FILTER_STORAGE_KEY = "derma-pro:sys-access-events:export-log-filter";
+const EXPORT_LOG_STORAGE_KEY = "derma-pro:sys-access-events:export-log";
+const EXPORT_LOG_PAGE_SIZE = 3;
 
 interface AccessEventRow {
   id: string;
@@ -518,6 +522,115 @@ function exportStatusLabel(status: ExportLogStatus): string {
   return "Готов";
 }
 
+function isExportFormat(value: unknown): value is ExportFormat {
+  return value === "CSV" || value === "XLSX";
+}
+
+function isExportLogStatus(value: unknown): value is ExportLogStatus {
+  return value === "success" || value === "cancelled" || value === "error";
+}
+
+function safeAccessEventRow(value: unknown): AccessEventRow | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Partial<AccessEventRow>;
+  if (typeof row.createdAt !== "string" || typeof row.clinicName !== "string") return null;
+  if (typeof row.actorLabel !== "string" || typeof row.action !== "string") return null;
+  if (typeof row.entity !== "string" || (row.source !== "api" && row.source !== "demo")) return null;
+  return {
+    id: storedString(row.id),
+    createdAt: row.createdAt,
+    clinicName: row.clinicName,
+    actorLabel: row.actorLabel,
+    action: row.action,
+    entity: row.entity,
+    entityId: typeof row.entityId === "string" ? row.entityId : null,
+    patientCode: typeof row.patientCode === "string" ? row.patientCode : null,
+    visitId: typeof row.visitId === "string" ? row.visitId : null,
+    lesionLabel: typeof row.lesionLabel === "string" ? row.lesionLabel : null,
+    source: row.source,
+  };
+}
+
+function safeExportLogEntry(value: unknown): ExportLogEntry | null {
+  if (!value || typeof value !== "object") return null;
+  const entry = value as Partial<ExportLogEntry>;
+  if (!isExportFormat(entry.format) || !isExportLogStatus(entry.status)) return null;
+  if (!Array.isArray(entry.rows)) return null;
+  const rows = entry.rows.map(safeAccessEventRow).filter((row): row is AccessEventRow => row !== null);
+  const columns = storedExportColumns(entry.columns);
+  return {
+    id: storedString(entry.id, `${storedString(entry.at)}-${entry.format}`),
+    at: storedString(entry.at, new Date().toISOString()),
+    format: entry.format,
+    status: entry.status,
+    rowCount: typeof entry.rowCount === "number" ? Math.max(0, entry.rowCount) : rows.length,
+    filterLabel: storedString(entry.filterLabel, "Все"),
+    scopeLabel: storedString(entry.scopeLabel, "все страницы"),
+    columnCount: typeof entry.columnCount === "number" ? Math.max(0, entry.columnCount) : columns.length,
+    query: storedString(entry.query, "—"),
+    filename: storedString(entry.filename),
+    rows,
+    columns,
+    repeated: entry.repeated === true,
+    message: storedString(entry.message),
+  };
+}
+
+function readExportLog(): ExportLogEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(EXPORT_LOG_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(safeExportLogEntry).filter((entry): entry is ExportLogEntry => entry !== null).slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
+function writeExportLog(entries: ExportLogEntry[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(EXPORT_LOG_STORAGE_KEY, JSON.stringify(entries.slice(0, 5)));
+  } catch {
+    // Export history is useful but non-critical; ignore storage failures.
+  }
+}
+
+function exportLogMatrix(entries: ExportLogEntry[]): XlsxCellValue[][] {
+  return [
+    ["at", "format", "status", "rows", "columns", "scope", "filter", "query", "repeated", "filename"],
+    ...entries.map((entry) => [
+      entry.at,
+      entry.format,
+      exportStatusLabel(entry.status),
+      String(entry.rowCount),
+      String(entry.columnCount),
+      entry.scopeLabel,
+      entry.filterLabel,
+      entry.query,
+      entry.repeated ? "да" : "нет",
+      entry.filename,
+    ]),
+  ];
+}
+
+function csvLogCell(value: XlsxCellValue): string {
+  return `"${(value ?? "—").replaceAll('"', '""')}"`;
+}
+
+function exportLogCsv(entries: ExportLogEntry[]): string {
+  return exportLogMatrix(entries)
+    .map((row) => row.map(csvLogCell).join(","))
+    .join("\n");
+}
+
+function exportLogFilename(format: "csv" | "xlsx", filter: ExportLogFilter, count: number): string {
+  const date = new Date().toISOString().slice(0, 10);
+  return `access-events-export-log-${date}-${filter}-${count}-rows.${format}`;
+}
+
 export default function SysAccessEventsPage() {
   const { role } = useRole();
   const configured = isSupabaseConfigured();
@@ -545,8 +658,10 @@ export default function SysAccessEventsPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exportStatusKind, setExportStatusKind] = useState<ExportStatusKind>("info");
   const [exportProgress, setExportProgress] = useState<ExportProgressState | null>(null);
-  const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
+  const [exportLog, setExportLog] = useState<ExportLogEntry[]>(readExportLog);
   const [exportLogFilter, setExportLogFilter] = useState<ExportLogFilter>(readExportLogFilter);
+  const [exportLogQuery, setExportLogQuery] = useState("");
+  const [clearExportLogRequested, setClearExportLogRequested] = useState(false);
   const [exportScope, setExportScope] = useState<ExportScope>(storedExportSettings.exportScope);
   const [customRangeFrom, setCustomRangeFrom] = useState(storedExportSettings.customRangeFrom);
   const [customRangeTo, setCustomRangeTo] = useState(storedExportSettings.customRangeTo);
@@ -652,6 +767,10 @@ export default function SysAccessEventsPage() {
   useEffect(() => {
     writeExportLogFilter(exportLogFilter);
   }, [exportLogFilter]);
+
+  useEffect(() => {
+    writeExportLog(exportLog);
+  }, [exportLog]);
 
   useEffect(() => {
     if (!configured || role !== "system_admin") {
@@ -1194,66 +1313,78 @@ export default function SysAccessEventsPage() {
     [runExport],
   );
 
-  const filteredExportLog = useMemo(
-    () =>
-      exportLog.filter((entry) => {
+  const filteredExportLog = useMemo(() => {
+    const q = exportLogQuery.trim().toLowerCase();
+    return exportLog
+      .filter((entry) => {
         if (exportLogFilter === "all") return true;
         if (exportLogFilter === "csv") return entry.format === "CSV";
         if (exportLogFilter === "xlsx") return entry.format === "XLSX";
         if (exportLogFilter === "repeated") return entry.repeated;
         return entry.status === exportLogFilter;
-      }),
-    [exportLog, exportLogFilter],
-  );
-
-  const handleClearExportLog = useCallback(() => {
-    if (exportLog.length === 0) return;
-    setExportLog([]);
-    announceExportStatus("Журнал экспортов очищен.");
-    appendQueryLog("Журнал экспортов", "очищен");
-  }, [announceExportStatus, appendQueryLog, exportLog.length]);
-
-  const handleExportExportLog = useCallback(() => {
-    if (filteredExportLog.length === 0) return;
-    const header = [
-      "at",
-      "format",
-      "status",
-      "rows",
-      "columns",
-      "scope",
-      "filter",
-      "query",
-      "repeated",
-      "filename",
-    ];
-    const escape = (value: string): string => `"${value.replace(/"/g, '""')}"`;
-    const lines = [header.map(escape).join(",")];
-    for (const entry of filteredExportLog) {
-      lines.push(
-        [
-          entry.at,
+      })
+      .filter((entry) => {
+        if (!q) return true;
+        const haystack = [
           entry.format,
           exportStatusLabel(entry.status),
-          String(entry.rowCount),
-          String(entry.columnCount),
           entry.scopeLabel,
           entry.filterLabel,
           entry.query,
-          entry.repeated ? "да" : "нет",
           entry.filename,
+          entry.message,
         ]
-          .map(escape)
-          .join(","),
-      );
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(q);
+      });
+  }, [exportLog, exportLogFilter, exportLogQuery]);
+
+  const exportLogPagination = useListPagination(filteredExportLog, {
+    pageSize: EXPORT_LOG_PAGE_SIZE,
+    deps: [exportLog, exportLogFilter, exportLogQuery],
+  });
+
+  useEffect(() => {
+    setClearExportLogRequested(false);
+  }, [exportLogFilter, exportLogQuery]);
+
+  const handleCancelClearExportLog = useCallback(() => {
+    setClearExportLogRequested(false);
+    announceExportStatus("Очистка журнала экспортов отменена.");
+  }, [announceExportStatus]);
+
+  const handleClearExportLog = useCallback(() => {
+    if (exportLog.length === 0) return;
+    if (!clearExportLogRequested) {
+      setClearExportLogRequested(true);
+      announceExportStatus("Подтвердите очистку журнала экспортов.");
+      return;
     }
-    const date = new Date().toISOString().slice(0, 10);
-    const filename = `access-events-export-log-${date}-${exportLogFilter}-${filteredExportLog.length}-rows.csv`;
-    downloadText(filename, lines.join("\n"));
+    setExportLog([]);
+    setClearExportLogRequested(false);
+    announceExportStatus("Журнал экспортов очищен.");
+    appendQueryLog("Журнал экспортов", "очищен");
+  }, [announceExportStatus, appendQueryLog, clearExportLogRequested, exportLog.length]);
+
+  const handleExportExportLogCsv = useCallback(() => {
+    if (filteredExportLog.length === 0) return;
+    const filename = exportLogFilename("csv", exportLogFilter, filteredExportLog.length);
+    downloadText(filename, exportLogCsv(filteredExportLog));
     announceExportStatus(
-      `Журнал экспортов выгружен: ${filteredExportLog.length} записей. Файл: ${filename}`,
+      `Журнал экспортов выгружен в CSV: ${filteredExportLog.length} записей. Файл: ${filename}`,
     );
-    appendQueryLog("Журнал экспортов", `выгружен ${filteredExportLog.length}`);
+    appendQueryLog("Журнал экспортов", `выгружен CSV ${filteredExportLog.length}`);
+  }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
+
+  const handleExportExportLogXlsx = useCallback(() => {
+    if (filteredExportLog.length === 0) return;
+    const filename = exportLogFilename("xlsx", exportLogFilter, filteredExportLog.length);
+    downloadBlob(filename, buildTableXlsxBlob(exportLogMatrix(filteredExportLog), "Export log"));
+    announceExportStatus(
+      `Журнал экспортов выгружен в XLSX: ${filteredExportLog.length} записей. Файл: ${filename}`,
+    );
+    appendQueryLog("Журнал экспортов", `выгружен XLSX ${filteredExportLog.length}`);
   }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
 
   if (role !== "system_admin") {
@@ -1843,10 +1974,20 @@ export default function SysAccessEventsPage() {
             <div>
               <h2 className="text-[13px] font-semibold">Журнал экспортов</h2>
               <span className="text-[11px] text-muted-foreground">
-                показано {filteredExportLog.length} из {exportLog.length}; последние 5 файлов
+                показано {exportLogPagination.rangeLabel}; всего в журнале {exportLog.length}; последние 5 файлов
               </span>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-56">
+                Поиск в журнале
+                <Input
+                  value={exportLogQuery}
+                  onChange={(e) => setExportLogQuery(e.target.value)}
+                  placeholder="файл, статус, формат"
+                  className="h-9 text-[12px]"
+                  aria-label="Поиск по журналу экспортов"
+                />
+              </label>
               <label className="grid gap-1 text-[11px] text-muted-foreground sm:w-48">
                 Фильтр журнала
                 <select
@@ -1862,17 +2003,28 @@ export default function SysAccessEventsPage() {
                   ))}
                 </select>
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   className="h-9 text-[12px]"
-                  onClick={handleExportExportLog}
+                  onClick={handleExportExportLogCsv}
                   disabled={filteredExportLog.length === 0}
                   aria-label="Экспортировать журнал экспортов в CSV"
                 >
-                  Экспорт журнала
+                  CSV журнала
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-[12px]"
+                  onClick={handleExportExportLogXlsx}
+                  disabled={filteredExportLog.length === 0}
+                  aria-label="Экспортировать журнал экспортов в XLSX"
+                >
+                  XLSX журнала
                 </Button>
                 <Button
                   type="button"
@@ -1881,16 +2033,30 @@ export default function SysAccessEventsPage() {
                   className="h-9 text-[12px]"
                   onClick={handleClearExportLog}
                   disabled={exportLog.length === 0}
-                  aria-label="Очистить журнал экспортов"
+                  aria-label={
+                    clearExportLogRequested ? "Подтвердить очистку журнала экспортов" : "Очистить журнал экспортов"
+                  }
                 >
-                  Очистить
+                  {clearExportLogRequested ? "Подтвердить" : "Очистить"}
                 </Button>
+                {clearExportLogRequested ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 text-[12px]"
+                    onClick={handleCancelClearExportLog}
+                    aria-label="Отменить очистку журнала экспортов"
+                  >
+                    Не очищать
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
           <ul className="space-y-1 text-[12px] text-muted-foreground">
             {filteredExportLog.length > 0 ? (
-              filteredExportLog.map((entry) => (
+              exportLogPagination.visible.map((entry) => (
                 <li key={entry.id} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-0.5">
                     <div>
@@ -1923,6 +2089,16 @@ export default function SysAccessEventsPage() {
               </li>
             )}
           </ul>
+          <ListPagination
+            page={exportLogPagination.page}
+            pageCount={exportLogPagination.pageCount}
+            total={exportLogPagination.total}
+            rangeLabel={exportLogPagination.rangeLabel}
+            canPrev={exportLogPagination.canPrev}
+            canNext={exportLogPagination.canNext}
+            onPageChange={exportLogPagination.setPage}
+            itemNoun="экспортов"
+          />
         </Card>
 
         <Card className="hidden p-0 md:block">
