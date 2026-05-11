@@ -99,5 +99,7 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #23: added the Lovable suggestions triage checklist template.
 - PR #24: recorded repeated real patient creation/deletion suggestions
   as deferred backend-stage work.
+- PR #25: recorded backend wiring for patient create/delete as deferred
+  persistence-stage work.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
