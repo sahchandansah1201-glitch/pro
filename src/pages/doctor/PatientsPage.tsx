@@ -56,6 +56,7 @@ const PATIENT_DEMO_GATE_MESSAGE =
   "Кнопка «Новый пациент» не создаёт запись, а «Удалить локально» скрывает строку только в текущем демо-сеансе.";
 const PATIENT_DEMO_CREATE_BLOCKED_MESSAGE =
   "Создание пациента пока недоступно в демо-режиме: действие заблокировано до этапа сохранения на сервере. Реальные данные пациентов не вводите.";
+const PATIENT_DEMO_GATE_ID = "patients-demo-gate-note";
 
 type ConsentFilter = "any" | "yes" | "no";
 type LesionsFilter = "any" | "with_active" | "without_active";
@@ -360,6 +361,7 @@ export default function PatientsPage() {
             size="sm"
             variant="secondary"
             className="h-9 gap-1.5 text-[12px]"
+            aria-describedby={PATIENT_DEMO_GATE_ID}
             onClick={() => {
               setStatusMessage(PATIENT_DEMO_CREATE_BLOCKED_MESSAGE);
               setLastDeleted(null);
@@ -372,6 +374,7 @@ export default function PatientsPage() {
       />
 
       <section
+        id={PATIENT_DEMO_GATE_ID}
         role="note"
         aria-label="Ограничения демо-режима пациентов"
         className="border-b border-border bg-surface px-6 py-2 text-[12px] text-muted-foreground"
