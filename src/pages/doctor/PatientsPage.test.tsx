@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
+import { PATIENTS } from "@/lib/mock-data";
+
 import PatientsPage from "./PatientsPage";
 
 function renderPage() {
@@ -45,5 +47,102 @@ describe("PatientsPage", () => {
 
     expect(within(table).getAllByRole("row").length).toBe(rowsBefore);
     expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
+  });
+
+  it("opens an edit dialog for an existing patient with current values", async () => {
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Редактировать пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Редактировать пациента",
+    });
+    expect(within(dialog).getByLabelText("ФИО")).toHaveValue(
+      "Иванова Наталья Олеговна",
+    );
+    expect(within(dialog).getByLabelText("Дата рождения")).toHaveValue(
+      "1984-03-12",
+    );
+    expect(
+      within(dialog).getByText(/Изменения сохраняются только локально/i),
+    ).toBeInTheDocument();
+  });
+
+  it("saves patient edits locally and updates the row without changing total count", async () => {
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Редактировать пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Редактировать пациента",
+    });
+    const nameInput = within(dialog).getByLabelText("ФИО");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Иванова Наталья Тестовая");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Сохранить изменения" }),
+    );
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Иванова Наталья Тестовая").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Изменения по пациенту Иванова Наталья Тестовая сохранены локально/i,
+    );
+  });
+
+  it("requires a non-empty patient name before saving", async () => {
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Редактировать пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Редактировать пациента",
+    });
+    await userEvent.clear(within(dialog).getByLabelText("ФИО"));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Сохранить изменения" }),
+    );
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Укажите ФИО пациента.",
+    );
+    expect(screen.getByRole("dialog", { name: "Редактировать пациента" })).toBeInTheDocument();
+  });
+
+  it("editing a patient does not mutate mock patient data", async () => {
+    const before = PATIENTS.find((p) => p.id === "p-001")?.fullName;
+    renderPage();
+    const table = screen.getByRole("table");
+
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Редактировать пациента Иванова Наталья Олеговна/i,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Редактировать пациента",
+    });
+    const nameInput = within(dialog).getByLabelText("ФИО");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Иванова Наталья Локальная");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Сохранить изменения" }),
+    );
+
+    expect(PATIENTS.find((p) => p.id === "p-001")?.fullName).toBe(before);
   });
 });

@@ -1,10 +1,21 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Search, UserPlus } from "lucide-react";
+import { ChevronRight, Pencil, Search, UserPlus } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   APPOINTMENTS,
@@ -13,7 +24,7 @@ import {
   VISITS,
 } from "@/lib/mock-data";
 import { calcAge, formatDate, sexShort } from "@/lib/format";
-import type { Patient, Phototype } from "@/lib/domain";
+import type { Patient, Phototype, Sex } from "@/lib/domain";
 
 const PHOTOTYPES: Phototype[] = ["I", "II", "III", "IV", "V", "VI"];
 
@@ -27,6 +38,15 @@ interface Row {
   hasActive: boolean;
   lastVisit: string | null;
   nextVisit: string | null;
+}
+
+interface PatientEditDraft {
+  id: string;
+  fullName: string;
+  birthDate: string;
+  sex: Sex;
+  phototype: Phototype;
+  imagingConsent: boolean;
 }
 
 function buildRow(patient: Patient): Row {
@@ -54,18 +74,30 @@ function buildRow(patient: Patient): Row {
   };
 }
 
-const ALL_ROWS: Row[] = PATIENTS.map(buildRow);
+function patientToDraft(patient: Patient): PatientEditDraft {
+  return {
+    id: patient.id,
+    fullName: patient.fullName,
+    birthDate: patient.birthDate,
+    sex: patient.sex,
+    phototype: patient.phototype,
+    imagingConsent: patient.consents.imaging,
+  };
+}
 
 export default function PatientsPage() {
+  const [patients, setPatients] = useState<Patient[]>(() => PATIENTS);
   const [query, setQuery] = useState("");
   const [phototype, setPhototype] = useState<"any" | Phototype>("any");
   const [consent, setConsent] = useState<ConsentFilter>("any");
   const [lesionsFilter, setLesionsFilter] = useState<LesionsFilter>("any");
   const [createNotice, setCreateNotice] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<PatientEditDraft | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ALL_ROWS.filter(({ patient, hasActive }) => {
+    return patients.map(buildRow).filter(({ patient, hasActive }) => {
       if (q) {
         const hay = `${patient.fullName} ${patient.code}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -77,13 +109,49 @@ export default function PatientsPage() {
       if (lesionsFilter === "without_active" && hasActive) return false;
       return true;
     });
-  }, [query, phototype, consent, lesionsFilter]);
+  }, [patients, query, phototype, consent, lesionsFilter]);
+
+  function handleEditOpen(patient: Patient) {
+    setCreateNotice(null);
+    setEditError(null);
+    setEditDraft(patientToDraft(patient));
+  }
+
+  function handleEditSave() {
+    if (!editDraft) return;
+    const fullName = editDraft.fullName.trim();
+    if (!fullName) {
+      setEditError("Укажите ФИО пациента.");
+      return;
+    }
+
+    setPatients((current) =>
+      current.map((patient) =>
+        patient.id === editDraft.id
+          ? {
+              ...patient,
+              fullName,
+              birthDate: editDraft.birthDate,
+              sex: editDraft.sex,
+              phototype: editDraft.phototype,
+              consents: {
+                ...patient.consents,
+                imaging: editDraft.imagingConsent,
+              },
+            }
+          : patient,
+      ),
+    );
+    setCreateNotice(`Изменения по пациенту ${fullName} сохранены локально в демо-режиме.`);
+    setEditDraft(null);
+    setEditError(null);
+  }
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title="Пациенты"
-        subtitle={`Всего в базе: ${PATIENTS.length}`}
+        subtitle={`Всего в базе: ${patients.length}`}
         actions={
           <Button
             type="button"
@@ -182,7 +250,7 @@ export default function PatientsPage() {
                       <th className="w-[100px]">Образ.</th>
                       <th className="w-[120px]">Посл. визит</th>
                       <th className="w-[120px]">След. визит</th>
-                      <th className="w-[40px]" aria-label="Действие" />
+                      <th className="w-[80px]" aria-label="Действия" />
                     </tr>
                   </thead>
                   <tbody>
@@ -205,13 +273,25 @@ export default function PatientsPage() {
                         <td className="text-[12px] text-muted-foreground tabular-nums">{formatDate(r.lastVisit)}</td>
                         <td className="text-[12px] text-muted-foreground tabular-nums">{formatDate(r.nextVisit)}</td>
                         <td>
-                          <Link
-                            to={`/patients/${r.patient.id}`}
-                            aria-label={`Открыть карточку ${r.patient.fullName}`}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
-                          >
-                            <ChevronRight className="h-4 w-4" aria-hidden />
-                          </Link>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              aria-label={`Редактировать пациента ${r.patient.fullName}`}
+                              onClick={() => handleEditOpen(r.patient)}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
+                            </Button>
+                            <Link
+                              to={`/patients/${r.patient.id}`}
+                              aria-label={`Открыть карточку ${r.patient.fullName}`}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+                            >
+                              <ChevronRight className="h-4 w-4" aria-hidden />
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -224,29 +304,182 @@ export default function PatientsPage() {
             <ul className="space-y-2 md:hidden">
               {rows.map((r) => (
                 <li key={r.patient.id}>
-                  <Link
-                    to={`/patients/${r.patient.id}`}
-                    className="surface-card block p-3 active:bg-surface-muted"
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-row font-medium">{r.patient.fullName}</span>
-                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{r.patient.code}</span>
+                  <div className="surface-card p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <Link
+                        to={`/patients/${r.patient.id}`}
+                        className="min-w-0 flex-1 active:bg-surface-muted"
+                      >
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="truncate text-row font-medium">{r.patient.fullName}</span>
+                          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{r.patient.code}</span>
+                        </div>
+                        <div className="mt-0.5 text-meta">
+                          {sexShort(r.patient.sex)} · {r.age} лет · фототип {r.patient.phototype} · образований {r.lesionCount}
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <ConsentChip ok={r.patient.consents.imaging} />
+                          <span className="tabular-nums">Посл. {formatDate(r.lastVisit)}</span>
+                          <span className="tabular-nums">След. {formatDate(r.nextVisit)}</span>
+                        </div>
+                      </Link>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                        aria-label={`Редактировать пациента ${r.patient.fullName}`}
+                        onClick={() => handleEditOpen(r.patient)}
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden />
+                      </Button>
                     </div>
-                    <div className="mt-0.5 text-meta">
-                      {sexShort(r.patient.sex)} · {r.age} лет · фототип {r.patient.phototype} · образований {r.lesionCount}
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      <ConsentChip ok={r.patient.consents.imaging} />
-                      <span className="tabular-nums">Посл. {formatDate(r.lastVisit)}</span>
-                      <span className="tabular-nums">След. {formatDate(r.nextVisit)}</span>
-                    </div>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>
           </>
         )}
       </div>
+
+      <Dialog
+        open={!!editDraft}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditDraft(null);
+            setEditError(null);
+          }
+        }}
+      >
+        {editDraft && (
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Редактировать пациента</DialogTitle>
+              <DialogDescription>
+                Изменения сохраняются только локально в демо-режиме.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleEditSave();
+              }}
+            >
+              <div className="grid gap-2">
+                <Label htmlFor="patient-edit-full-name">ФИО</Label>
+                <Input
+                  id="patient-edit-full-name"
+                  value={editDraft.fullName}
+                  onChange={(e) => {
+                    setEditError(null);
+                    setEditDraft((draft) =>
+                      draft ? { ...draft, fullName: e.target.value } : draft,
+                    );
+                  }}
+                  className="h-9 text-[13px]"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="patient-edit-birth-date">Дата рождения</Label>
+                  <Input
+                    id="patient-edit-birth-date"
+                    type="date"
+                    value={editDraft.birthDate}
+                    onChange={(e) =>
+                      setEditDraft((draft) =>
+                        draft ? { ...draft, birthDate: e.target.value } : draft,
+                      )
+                    }
+                    className="h-9 text-[13px]"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Пол</Label>
+                  <Select
+                    value={editDraft.sex}
+                    onValueChange={(value) =>
+                      setEditDraft((draft) =>
+                        draft ? { ...draft, sex: value as Sex } : draft,
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-[13px]" aria-label="Пол пациента">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="female">Женский</SelectItem>
+                      <SelectItem value="male">Мужской</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Фототип</Label>
+                  <Select
+                    value={editDraft.phototype}
+                    onValueChange={(value) =>
+                      setEditDraft((draft) =>
+                        draft ? { ...draft, phototype: value as Phototype } : draft,
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-[13px]" aria-label="Фототип пациента">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PHOTOTYPES.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-md border border-border bg-surface-muted p-3">
+                <Checkbox
+                  id="patient-edit-imaging-consent"
+                  checked={editDraft.imagingConsent}
+                  onCheckedChange={(checked) =>
+                    setEditDraft((draft) =>
+                      draft ? { ...draft, imagingConsent: checked === true } : draft,
+                    )
+                  }
+                />
+                <div className="grid gap-1">
+                  <Label htmlFor="patient-edit-imaging-consent" className="text-[13px]">
+                    Согласие на медицинскую съёмку
+                  </Label>
+                  <p className="text-[12px] text-muted-foreground">
+                    В демо-режиме меняется только отображение на текущей странице.
+                  </p>
+                </div>
+              </div>
+
+              {editError && (
+                <div role="alert" className="text-[12px] text-destructive">
+                  {editError}
+                </div>
+              )}
+
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Отмена
+                  </Button>
+                </DialogClose>
+                <Button type="submit">Сохранить изменения</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }
