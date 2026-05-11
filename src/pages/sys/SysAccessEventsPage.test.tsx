@@ -591,6 +591,45 @@ describe("SysAccessEventsPage", () => {
     expect(exportLog).not.toHaveTextContent("report.share");
   });
 
+  it("persists, exports and clears the export log", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:export-log"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    const view = renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText("Фильтр журнала экспортов"), {
+      target: { value: "csv" },
+    });
+    expect(window.localStorage.getItem("derma-pro:sys-access-events:export-log-filter")).toBe("csv");
+
+    view.unmount();
+    renderPage();
+    expect(screen.getByLabelText("Фильтр журнала экспортов")).toHaveValue("csv");
+
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "Экспортировать журнал экспортов в CSV" }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
+      /Журнал экспортов выгружен/i,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Очистить журнал экспортов" }));
+    const exportLog = screen.getByRole("region", { name: "Журнал экспортов событий доступа" });
+    expect(exportLog).toHaveTextContent(/Экспортов пока нет\.|По выбранному фильтру экспортов нет\./);
+    expect(exportLog.querySelector('[role="status"]')).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Очистить журнал экспортов" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Экспортировать журнал экспортов в CSV" })).toBeDisabled();
+  });
+
   it("builds informative export filenames without raw query text", () => {
     const csvName = accessEventsCsvFilename("clinical", "report.share", {
       scope: "current-page",
