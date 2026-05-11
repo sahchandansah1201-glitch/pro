@@ -68,3 +68,16 @@
 - Do not commit emergency `deno.lock` / `package-lock.json` churn.
 - If production smoke fails after release, use docs/frontend/stage-3d-incident-response.md.
 - Smoke result (pass / fail / deferred) is recorded in docs/frontend/stage-3e-release-decision-record.md.
+
+## 7. Fast e2e smoke vs full e2e
+
+- Fast smoke: `npm run e2e:smoke` runs the stable subset
+  (`operator-status-badge-smoke`, `patients-demo-flow`, `sys-access-events`,
+  `auth-assets-smoke`). Use for pre-merge sanity, post-deploy check, and
+  release decision (Stage 3E). Excludes visual-regression screenshot specs.
+- Full e2e: `npx playwright test` runs every `e2e/*.pw.ts` including
+  visual-regression baselines (Linux-only, see
+  `e2e/admin-analytics-visual-regression.pw.ts`). Use before tagging a
+  release or when touching shared UI primitives.
+- `auth-assets-smoke` skips itself when credential env vars are missing;
+  a pure skip is a pass for the fast smoke.
