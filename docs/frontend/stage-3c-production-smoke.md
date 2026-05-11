@@ -81,3 +81,17 @@
   release or when touching shared UI primitives.
 - `auth-assets-smoke` skips itself when credential env vars are missing;
   a pure skip is a pass for the fast smoke.
+
+## 8. CI fast smoke workflow
+
+- GitHub Actions workflow: `.github/workflows/e2e-smoke.yml`.
+- Default mode: `auth_smoke=skip`. The workflow runs `npm run e2e:smoke`,
+  includes `auth-assets-smoke`, and provides no `E2E_DOCTOR_*` secrets; the
+  credential-gated auth spec should skip cleanly.
+- Manual mode: `auth_smoke=off`. The workflow runs
+  `npm run e2e:smoke:no-auth`, excluding the credential-gated auth spec.
+- The workflow starts local Vite on `127.0.0.1:8080` and uploads
+  `playwright-report/`, `test-results/`, and the Vite log as an
+  `e2e-smoke-report-*` artifact.
+- Use the artifact when diagnosing smoke failures. Do not add production
+  credentials or signed URLs to the workflow logs.

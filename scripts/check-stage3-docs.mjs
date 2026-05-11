@@ -45,6 +45,8 @@ const EXPECTED = [
       "## 4. Optional real-auth smoke command",
       "## 5. Pass criteria",
       "## 6. Fail criteria and next step",
+      "## 7. Fast e2e smoke vs full e2e",
+      "## 8. CI fast smoke workflow",
     ],
   },
   {

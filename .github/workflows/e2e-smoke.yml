@@ -1,0 +1,100 @@
+name: e2e-smoke
+
+on:
+  pull_request:
+    paths:
+      - "e2e/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.ts"
+      - "docs/frontend/stage-3c-production-smoke.md"
+      - ".github/workflows/e2e-smoke.yml"
+  push:
+    paths:
+      - "e2e/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.ts"
+      - "docs/frontend/stage-3c-production-smoke.md"
+      - ".github/workflows/e2e-smoke.yml"
+  workflow_dispatch:
+    inputs:
+      auth_smoke:
+        description: "Auth-assets smoke behavior"
+        required: true
+        default: "skip"
+        type: choice
+        options:
+          - "skip"
+          - "off"
+
+jobs:
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AUTH_SMOKE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.auth_smoke || 'skip' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start Vite
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          npm run dev -- --host 127.0.0.1 --port 8080 > test-results/e2e-smoke-vite.log 2>&1 &
+          echo "$!" > /tmp/e2e-smoke-vite.pid
+          for _ in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080 >/dev/null; then
+              echo "Vite is ready on http://127.0.0.1:8080"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat test-results/e2e-smoke-vite.log
+          exit 1
+      - name: Run fast e2e smoke
+        run: |
+          set -euo pipefail
+          if [ "$AUTH_SMOKE_MODE" = "off" ]; then
+            npm run e2e:smoke:no-auth -- --reporter=list,html
+          else
+            npm run e2e:smoke -- --reporter=list,html
+          fi
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-report-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Stop Vite
+        if: always()
+        run: |
+          if [ -f /tmp/e2e-smoke-vite.pid ]; then
+            kill "$(cat /tmp/e2e-smoke-vite.pid)" || true
+          fi
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## e2e-smoke"
+            echo ""
+            echo "- Command mode: \`$AUTH_SMOKE_MODE\`"
+            echo "- Default mode \`skip\` includes \`auth-assets-smoke\` without credentials; its skip is expected."
+            echo "- Mode \`off\` runs only demo/local smoke specs."
+            echo "- Visual-regression screenshot specs are excluded."
+            echo "- Artifact: \`e2e-smoke-report-${{ github.run_id }}\`"
+            echo "- Result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
