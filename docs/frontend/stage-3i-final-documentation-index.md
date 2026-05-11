@@ -96,5 +96,6 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #3: added this documentation checklist and sync changelog.
 - PR #4: added the standalone Stage 3 docs guard.
 - PR #22: added the Lovable suggestions backlog and triage rule.
+- PR #23: added the Lovable suggestions triage checklist template.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

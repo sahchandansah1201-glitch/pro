@@ -41,9 +41,10 @@ usage, and clear product boundaries.
 | LV-002 | Local patient edit flow | Done | Implemented local-only edit dialog and validation in PR #19. |
 | LV-003 | Patient preview, local delete, extended search, change log | Done | Implemented demo-safe patient actions and audit UI in PR #20. |
 | LV-004 | Patient sorting, pagination, undo delete, change-log export | Done | Implemented in PR #21 without clipboard, file, storage, or API usage. |
-| LV-005 | Real patient creation and backend persistence | Deferred | Requires a dedicated backend/persistence stage with role permissions, audit, consent rules, and real data handling. |
-| LV-006 | Real patient deletion | Deferred | Requires backend ownership, irreversible-action policy, audit trail, and recovery/retention rules. |
+| LV-005 | Real patient creation and backend persistence | Deferred | Repeated by Lovable after PR #22; still requires a dedicated backend/persistence stage with role permissions, audit, consent rules, and real data handling. |
+| LV-006 | Real patient deletion | Deferred | Repeated by Lovable after PR #22; still requires backend ownership, irreversible-action policy, audit trail, and recovery/retention rules. |
 | LV-007 | Bulk patient operations | Deferred | Needs a separate workflow design; avoid mixing with table convenience work. |
+| LV-008 | Triage checklist template for future Lovable suggestions | Done | Added in PR #23 so each suggestion is classified before it becomes implementation scope. |
 
 ## 5. Per-cycle update rule
 
@@ -71,4 +72,35 @@ Confirm only:
 4. Real patient creation/deletion is Deferred, not implemented.
 
 Do not rewrite or regenerate files. Report sync conflicts only.
+```
+
+## 7. Triage checklist template
+
+Use this checklist when Lovable returns extra implementation ideas after
+a sync confirmation:
+
+```text
+Lovable suggestions received:
+- <suggestion 1>
+- <suggestion 2>
+
+Triage:
+- Accepted:
+  - <small, safe item to implement in the next Codex PR>
+- Deferred:
+  - <item blocked by backend persistence, permissions, audit, design, or release timing>
+- Rejected:
+  - <item that conflicts with constraints or duplicates existing behavior>
+- Done:
+  - <item already implemented and confirmed>
+
+Implementation scope for next PR:
+- <one accepted item or one tightly related group>
+
+Guardrails:
+- no real patient data mutation unless owned by a backend stage;
+- no clipboard/file-system APIs;
+- no `localStorage` or `sessionStorage`;
+- no direct doctor UI `fetch` calls;
+- no secrets, signed URLs, storage paths, or service-role keys.
 ```
