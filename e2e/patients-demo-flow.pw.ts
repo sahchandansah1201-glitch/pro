@@ -44,10 +44,11 @@ test.describe("Patients demo flow", () => {
     await expect(createStatus).toContainText("Реальные данные пациентов не вводите");
     await expect(page.getByText("Всего в базе: 8")).toBeVisible();
 
-    await page
+    const deleteButton = page
       .getByRole("button", { name: "Удалить пациента Иванова Наталья Олеговна" })
-      .first()
-      .click();
+      .first();
+
+    await deleteButton.click();
 
     const deleteDialog = page.getByRole("alertdialog", {
       name: "Удалить пациента из локального списка?",
@@ -56,6 +57,16 @@ test.describe("Patients demo flow", () => {
     await expect(deleteDialog.getByRole("button", { name: "Отмена" })).toBeVisible();
     await expect(deleteDialog.getByRole("button", { name: "Удалить локально" })).toBeVisible();
     await expect(deleteDialog).toContainText("скрыт только на этой странице в демо-режиме");
+
+    await deleteDialog.getByRole("button", { name: "Отмена" }).click();
+    await expect(deleteDialog).not.toBeVisible();
+    await expect(page.getByText("Всего в базе: 8")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Иванова Наталья Олеговна", exact: true }),
+    ).toBeVisible();
+
+    await deleteButton.click();
+    await expect(deleteDialog).toBeVisible();
     await deleteDialog.getByRole("button", { name: "Удалить локально" }).click();
 
     const deleteStatus = page.getByRole("status", {

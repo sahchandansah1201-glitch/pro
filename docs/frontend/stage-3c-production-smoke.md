@@ -90,12 +90,27 @@
   credential-gated auth spec should skip cleanly.
 - Manual mode: `auth_smoke=off`. The workflow runs
   `npm run e2e:smoke:no-auth`, excluding the credential-gated auth spec.
-- The workflow starts local Vite on `127.0.0.1:8080` and uploads
-  `playwright-report/`, `test-results/`, and the Vite log as an
-  `e2e-smoke-report-*` artifact.
+- The workflow starts local Vite on `127.0.0.1:8080`.
+- Artifact upload policy is conditional:
+  - default `failure`: upload `playwright-report/`, `test-results/`, and
+    Vite logs only when the smoke fails;
+  - manual `always`: upload on every run;
+  - manual `never`: do not upload artifacts.
 - CI runs the fast smoke with one retry and retains Playwright traces on
   failures so flaky failures still leave diagnosable artifacts.
 - Pull requests receive a sticky `e2e-smoke summary` comment with result,
-  mode, retry count, artifact name, and run URL.
+  mode, retry count, artifact policy, artifact link when uploaded, and run URL.
 - Use the artifact when diagnosing smoke failures. Do not add production
   credentials or signed URLs to the workflow logs.
+
+## 9. Nightly full e2e
+
+- GitHub Actions workflow: `.github/workflows/e2e-nightly-full.yml`.
+- Schedule: `23 2 * * *`.
+- Command: `npx playwright test --reporter=list,html --retries=1 --trace=retain-on-failure`.
+- Scope: the full `e2e/*.pw.ts` suite, including Linux visual-regression
+  baselines and credential-free auth smoke skip behavior.
+- Artifact policy matches fast smoke: default `failure`, manual `always`,
+  or manual `never`.
+- Use nightly full e2e to catch cross-surface regressions without making every
+  PR pay the full visual-regression cost.

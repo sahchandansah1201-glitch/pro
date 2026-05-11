@@ -29,6 +29,15 @@ on:
         options:
           - "skip"
           - "off"
+      upload_artifacts:
+        description: "Artifact upload policy"
+        required: true
+        default: "failure"
+        type: choice
+        options:
+          - "failure"
+          - "always"
+          - "never"
 
 permissions:
   contents: read
@@ -44,6 +53,7 @@ jobs:
       AUTH_SMOKE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.auth_smoke || 'skip' }}
       SMOKE_ARTIFACT_NAME: e2e-smoke-report-${{ github.run_id }}
       SMOKE_RETRIES: "1"
+      SMOKE_UPLOAD_ARTIFACTS: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_artifacts || 'failure' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -79,7 +89,7 @@ jobs:
             npm run e2e:smoke -- "${smoke_args[@]}"
           fi
       - name: Upload smoke report and failure artifacts
-        if: always()
+        if: always() && (env.SMOKE_UPLOAD_ARTIFACTS == 'always' || (env.SMOKE_UPLOAD_ARTIFACTS == 'failure' && failure()))
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.SMOKE_ARTIFACT_NAME }}
@@ -101,16 +111,25 @@ jobs:
         env:
           SMOKE_JOB_STATUS: ${{ job.status }}
           SMOKE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SMOKE_ARTIFACT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts
         with:
           script: |
             const marker = "<!-- e2e-smoke-summary -->";
+            const uploadMode = process.env.SMOKE_UPLOAD_ARTIFACTS;
+            const result = process.env.SMOKE_JOB_STATUS;
+            const artifactWasUploaded =
+              uploadMode === "always" || (uploadMode === "failure" && result !== "success");
+            const artifactLine = artifactWasUploaded
+              ? `[${process.env.SMOKE_ARTIFACT_NAME}](${process.env.SMOKE_ARTIFACT_URL})`
+              : `not uploaded (policy: \`${uploadMode}\`, result: \`${result}\`)`;
             const body = [
               marker,
               "## e2e-smoke summary",
-              `- Result: \`${process.env.SMOKE_JOB_STATUS}\``,
+              `- Result: \`${result}\``,
               `- Mode: \`${process.env.AUTH_SMOKE_MODE}\``,
               `- Retries: \`${process.env.SMOKE_RETRIES}\``,
-              `- Artifact: \`${process.env.SMOKE_ARTIFACT_NAME}\``,
+              `- Artifact policy: \`${uploadMode}\``,
+              `- Artifact: ${artifactLine}`,
               `- Run: ${process.env.SMOKE_RUN_URL}`,
             ].join("\n");
             const { owner, repo } = context.repo;
@@ -150,6 +169,11 @@ jobs:
             echo "- Mode \`off\` runs only demo/local smoke specs."
             echo "- Retries: \`$SMOKE_RETRIES\`"
             echo "- Visual-regression screenshot specs are excluded."
-            echo "- Artifact: \`$SMOKE_ARTIFACT_NAME\`"
+            echo "- Artifact policy: \`$SMOKE_UPLOAD_ARTIFACTS\`"
+            if [ "$SMOKE_UPLOAD_ARTIFACTS" = "always" ] || { [ "$SMOKE_UPLOAD_ARTIFACTS" = "failure" ] && [ "${{ job.status }}" != "success" ]; }; then
+              echo "- Artifact: [$SMOKE_ARTIFACT_NAME](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)"
+            else
+              echo "- Artifact: not uploaded for this successful run"
+            fi
             echo "- Result: \`${{ job.status }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
