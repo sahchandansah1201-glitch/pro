@@ -170,6 +170,8 @@ const EXTRA_REQUIRED_REFS = [
   "stage-3k-lovable-suggestions-backlog.md",
 ];
 
+const NIGHTLY_FULL_WORKFLOW = ".github/workflows/e2e-nightly-full.yml";
+
 const errors = [];
 
 function relPath(file) {
@@ -217,6 +219,12 @@ function checkPlainDocRefs(file, content) {
   }
 }
 
+function requireText(label, content, expected) {
+  if (!content.includes(expected)) {
+    errors.push(`${label} missing required text: ${expected}`);
+  }
+}
+
 for (const doc of EXPECTED) {
   const content = readDoc(doc.file);
   if (!content) continue;
@@ -233,6 +241,24 @@ for (const ref of EXTRA_REQUIRED_REFS) {
 }
 checkMarkdownLinks("stage-1i-auth-assets-readiness.md", readiness);
 checkPlainDocRefs("stage-1i-auth-assets-readiness.md", readiness);
+
+const stage3c = readDoc("stage-3c-production-smoke.md");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 9. Nightly full e2e");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "Artifact bundle includes `playwright-report/` and `test-results/`");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e-nightly-full-vite.log`");
+
+const nightlyWorkflowPath = join(ROOT, NIGHTLY_FULL_WORKFLOW);
+const nightlyWorkflow = existsSync(nightlyWorkflowPath)
+  ? readFileSync(nightlyWorkflowPath, "utf8")
+  : "";
+if (!nightlyWorkflow) {
+  errors.push(`Missing required workflow: ${NIGHTLY_FULL_WORKFLOW}`);
+}
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "playwright-report/");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "test-results/");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "test-results/e2e-nightly-full-vite.log");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "FULL_E2E_UPLOAD_ARTIFACTS");
+requireText(NIGHTLY_FULL_WORKFLOW, nightlyWorkflow, "upload_artifacts");
 
 if (errors.length > 0) {
   console.error("[check-stage3-docs] Stage 3 documentation check failed:");
