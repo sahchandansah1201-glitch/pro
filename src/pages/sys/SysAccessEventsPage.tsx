@@ -650,6 +650,10 @@ export default function SysAccessEventsPage() {
   }, [customRangeFrom, customRangeTo, exportScope, selectedExportColumns]);
 
   useEffect(() => {
+    writeExportLogFilter(exportLogFilter);
+  }, [exportLogFilter]);
+
+  useEffect(() => {
     if (!configured || role !== "system_admin") {
       setRows(buildDemoRows());
       setSource("demo");
