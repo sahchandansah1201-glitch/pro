@@ -35,9 +35,11 @@ test.describe("Patients demo flow", () => {
 
     await page.getByRole("button", { name: "Новый пациент" }).click();
 
-    const createStatus = page
-      .getByRole("status")
-      .filter({ hasText: "Создание пациента пока недоступно" });
+    const createStatus = page.getByRole("status", {
+      name: "Статус действий с пациентами",
+    });
+    await expect(createStatus).toHaveAttribute("aria-live", "polite");
+    await expect(createStatus).toHaveAttribute("aria-atomic", "true");
     await expect(createStatus).toContainText("действие заблокировано");
     await expect(createStatus).toContainText("Реальные данные пациентов не вводите");
     await expect(page.getByText("Всего в базе: 8")).toBeVisible();
@@ -54,9 +56,9 @@ test.describe("Patients demo flow", () => {
     await expect(deleteDialog).toContainText("скрыт только на этой странице в демо-режиме");
     await deleteDialog.getByRole("button", { name: "Удалить локально" }).click();
 
-    const deleteStatus = page
-      .getByRole("status")
-      .filter({ hasText: "удалён из локального списка" });
+    const deleteStatus = page.getByRole("status", {
+      name: "Статус действий с пациентами",
+    });
     await expect(deleteStatus).toContainText(
       "Пациент Иванова Наталья Олеговна удалён из локального списка",
     );
@@ -77,5 +79,33 @@ test.describe("Patients demo flow", () => {
       page.getByRole("link", { name: "Иванова Наталья Олеговна", exact: true }),
     ).toBeVisible();
     await expect(demoGate).toBeVisible();
+  });
+
+  test("reload resets local demo changes and keeps the gate available", async ({ page }) => {
+    await page.goto("/patients", { waitUntil: "networkidle" });
+
+    await page
+      .getByRole("button", { name: "Удалить пациента Иванова Наталья Олеговна" })
+      .first()
+      .click();
+    await page
+      .getByRole("alertdialog", { name: "Удалить пациента из локального списка?" })
+      .getByRole("button", { name: "Удалить локально" })
+      .click();
+
+    await expect(page.getByText("Всего в базе: 7")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Иванова Наталья Олеговна", exact: true }),
+    ).toHaveCount(0);
+
+    await page.reload({ waitUntil: "networkidle" });
+
+    await expect(page.getByText("Всего в базе: 8")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Иванова Наталья Олеговна", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("note", { name: "Ограничения демо-режима пациентов" }),
+    ).toBeVisible();
   });
 });

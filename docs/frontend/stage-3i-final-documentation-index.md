@@ -112,5 +112,7 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #30: added Playwright coverage for the patient demo flow and
   confirmed the patient action gate is exposed through accessible roles
   and status announcements.
+- PR #31: added reload coverage for local patient demo changes and
+  hardened patient action live-region announcements.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

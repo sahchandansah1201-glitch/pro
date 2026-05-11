@@ -48,6 +48,8 @@ describe("PatientsPage", () => {
     expect(status).toHaveTextContent(/действие заблокировано/i);
     expect(status).toHaveTextContent(/Реальные данные пациентов не вводите/i);
     expect(status.getAttribute("aria-live")).toBe("polite");
+    expect(status.getAttribute("aria-atomic")).toBe("true");
+    expect(status.getAttribute("aria-label")).toBe("Статус действий с пациентами");
   });
 
   it("new-patient CTA does not add a local patient row", async () => {

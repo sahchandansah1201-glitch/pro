@@ -384,6 +384,8 @@ export default function PatientsPage() {
         <div
           role="status"
           aria-live="polite"
+          aria-atomic="true"
+          aria-label="Статус действий с пациентами"
           className="flex flex-wrap items-center gap-2 border-b border-border bg-warning/10 px-6 py-2 text-[12px] text-warning"
         >
           <span>{statusMessage}</span>
