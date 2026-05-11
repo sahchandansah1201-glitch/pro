@@ -1918,7 +1918,9 @@ export default function SysAccessEventsPage() {
                 </li>
               ))
             ) : (
-              <li>{exportLog.length > 0 ? "По выбранному фильтру экспортов нет." : "Экспортов пока нет."}</li>
+              <li role="status" aria-live="polite">
+                {exportLog.length > 0 ? "По выбранному фильтру экспортов нет." : "Экспортов пока нет."}
+              </li>
             )}
           </ul>
         </Card>
