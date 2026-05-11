@@ -137,6 +137,18 @@ const EXPECTED = [
       "## 7. Acceptance criteria",
     ],
   },
+  {
+    file: "stage-3k-lovable-suggestions-backlog.md",
+    headings: [
+      "# Stage 3K — Lovable suggestions backlog",
+      "## 1. Purpose",
+      "## 2. Triage states",
+      "## 3. Decision rules",
+      "## 4. Current backlog",
+      "## 5. Per-cycle update rule",
+      "## 6. Lovable confirm prompt note",
+    ],
+  },
 ];
 
 const EXTRA_REQUIRED_REFS = [
@@ -149,6 +161,8 @@ const EXTRA_REQUIRED_REFS = [
   "stage-3g-final-handoff-summary.md",
   "stage-3h-release-reviewer-faq.md",
   "stage-3i-final-documentation-index.md",
+  "stage-3j-github-lovable-working-mode.md",
+  "stage-3k-lovable-suggestions-backlog.md",
 ];
 
 const errors = [];
