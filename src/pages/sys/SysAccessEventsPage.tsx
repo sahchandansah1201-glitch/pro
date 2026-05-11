@@ -1203,8 +1203,57 @@ export default function SysAccessEventsPage() {
         if (exportLogFilter === "repeated") return entry.repeated;
         return entry.status === exportLogFilter;
       }),
-    [exportLog, exportLogFilter],
   );
+
+  const handleClearExportLog = useCallback(() => {
+    if (exportLog.length === 0) return;
+    setExportLog([]);
+    announceExportStatus("Журнал экспортов очищен.");
+    appendQueryLog("Журнал экспортов", "очищен");
+  }, [announceExportStatus, appendQueryLog, exportLog.length]);
+
+  const handleExportExportLog = useCallback(() => {
+    if (filteredExportLog.length === 0) return;
+    const header = [
+      "at",
+      "format",
+      "status",
+      "rows",
+      "columns",
+      "scope",
+      "filter",
+      "query",
+      "repeated",
+      "filename",
+    ];
+    const escape = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+    const lines = [header.map(escape).join(",")];
+    for (const entry of filteredExportLog) {
+      lines.push(
+        [
+          entry.at,
+          entry.format,
+          exportStatusLabel(entry.status),
+          String(entry.rowCount),
+          String(entry.columnCount),
+          entry.scopeLabel,
+          entry.filterLabel,
+          entry.query,
+          entry.repeated ? "да" : "нет",
+          entry.filename,
+        ]
+          .map(escape)
+          .join(","),
+      );
+    }
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `access-events-export-log-${date}-${exportLogFilter}-${filteredExportLog.length}-rows.csv`;
+    downloadText(filename, lines.join("\n"));
+    announceExportStatus(
+      `Журнал экспортов выгружен: ${filteredExportLog.length} записей. Файл: ${filename}`,
+    );
+    appendQueryLog("Журнал экспортов", `выгружен ${filteredExportLog.length}`);
+  }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
 
   if (role !== "system_admin") {
     return (
