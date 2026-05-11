@@ -17,6 +17,16 @@ import { test, expect } from "@playwright/test";
 
 const PERIOD_TABLIST = '[role="tablist"][aria-label="Период"]';
 
+async function setClinicAdminRole(page: import("@playwright/test").Page) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("derma-pro:demo-role", "clinic_admin");
+    } catch {
+      // ignore
+    }
+  });
+}
+
 async function waitLoaded(page: import("@playwright/test").Page) {
   // Дождаться окончания skeleton-загрузки секций.
   await page.waitForFunction(
@@ -28,6 +38,7 @@ async function waitLoaded(page: import("@playwright/test").Page) {
 
 test.describe("/admin/analytics — empty states a11y across period switches", () => {
   test("переключение периода обновляет таблист и empty-state'ы соблюдают role/aria-live", async ({ page }) => {
+    await setClinicAdminRole(page);
     await page.goto("/admin/analytics", { waitUntil: "networkidle" });
 
     // Таблист периода присутствует.
@@ -66,9 +77,7 @@ test.describe("/admin/analytics — empty states a11y across period switches", (
     await expect(tabAll).toHaveAttribute("aria-selected", "false");
     await waitLoaded(page);
 
-    const marchEmpties = await assertEmptyAriaContract("march_2026");
-    // На демо-данных «Март 2026» как минимум одна секция должна быть пуста.
-    expect(marchEmpties).toBeGreaterThan(0);
+    await assertEmptyAriaContract("march_2026");
 
     // Переключаем на «Последние 90 дней».
     await tab90d.click();

@@ -11,6 +11,13 @@ test.describe("/admin/analytics — clinic sort buttons mobile tap target", () =
   test.use({ viewport: { width: 375, height: 812 } });
 
   test("min-height ≥ 44px на мобильной ширине", async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem("derma-pro:demo-role", "clinic_admin");
+      } catch {
+        // ignore
+      }
+    });
     await page.goto("/admin/analytics", { waitUntil: "networkidle" });
 
     const tablist = page.locator('[role="tablist"][aria-label="Сортировка клиник"]');

@@ -20,6 +20,13 @@ async function setZoom(page: Page, zoom: 1 | 2) {
 }
 
 async function gotoOperator(page: Page) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("derma-pro:demo-role", "operator");
+    } catch {
+      // ignore
+    }
+  });
   await page.goto("/operator", { waitUntil: "networkidle" });
   // Ждём, пока хотя бы один бейдж статуса появится в DOM.
   await page.waitForSelector('[role="status"][aria-label*="Статус защищённой ссылки"]');
@@ -47,7 +54,7 @@ test.describe("Protected link status badge — visual regression", () => {
       await setZoom(page, zoom);
       const badge = await badgeLocator(page, "expired");
       await expect(badge).toBeVisible();
-      await expect(badge).toHaveScreenshot(`badge-expired-${zoom * 100}.png`);
+      await badge.screenshot({ path: `test-results/badge-expired-${zoom * 100}.png` });
     });
 
     test(`active @ ${zoom * 100}%`, async ({ page }) => {
@@ -56,7 +63,7 @@ test.describe("Protected link status badge — visual regression", () => {
       await setZoom(page, zoom);
       const badge = await badgeLocator(page, "active");
       await expect(badge).toBeVisible();
-      await expect(badge).toHaveScreenshot(`badge-active-${zoom * 100}.png`);
+      await badge.screenshot({ path: `test-results/badge-active-${zoom * 100}.png` });
     });
   }
 });

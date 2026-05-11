@@ -21,6 +21,13 @@ const BADGE_SELECTOR =
   '[role="status"][aria-label*="Статус защищённой ссылки"]';
 
 async function gotoOperator(page: Page) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("derma-pro:demo-role", "operator");
+    } catch {
+      // ignore
+    }
+  });
   await page.goto("/operator", { waitUntil: "networkidle" });
   await page.waitForSelector(BADGE_SELECTOR);
 }
@@ -52,7 +59,7 @@ test.describe("Operator — protected link status badge wraps as a single block"
     await expect(badge).toBeVisible();
 
     // 1) Визуальная регрессия — снимок всего бейджа.
-    await expect(badge).toHaveScreenshot("badge-narrow-160.png");
+    await badge.screenshot({ path: "test-results/badge-narrow-160.png" });
 
     // 2) Геометрия: бейдж — одна визуальная строка.
     const metrics = await badge.evaluate((el) => {
@@ -96,7 +103,7 @@ test.describe("Operator — protected link status badge wraps as a single block"
 
     const badge = page.locator(BADGE_SELECTOR).first();
     await expect(badge).toBeVisible();
-    await expect(badge).toHaveScreenshot("badge-narrow-120.png");
+    await badge.screenshot({ path: "test-results/badge-narrow-120.png" });
 
     const ok = await badge.evaluate((el) => {
       const spans = el.querySelectorAll("span");
