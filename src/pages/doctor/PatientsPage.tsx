@@ -3,9 +3,11 @@ import { Link } from "react-router-dom";
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   Eye,
   History,
   Pencil,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -38,6 +40,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   APPOINTMENTS,
   LESIONS,
@@ -52,6 +55,9 @@ const PATIENT_EDIT_DEMO_TODAY = "2026-05-11";
 
 type ConsentFilter = "any" | "yes" | "no";
 type LesionsFilter = "any" | "with_active" | "without_active";
+type SortMode = "name_asc" | "name_desc" | "age_asc" | "age_desc" | "last_visit_desc";
+
+const PAGE_SIZE_OPTIONS = [4, 8] as const;
 
 interface Row {
   patient: Patient;
@@ -80,10 +86,14 @@ interface AdvancedSearchState {
 
 interface ChangeLogEntry {
   id: string;
-  action: "edit" | "delete";
+  action: "edit" | "delete" | "restore";
   patientCode: string;
   patientName: string;
   message: string;
+}
+
+interface DeletedPatientSnapshot {
+  patient: Patient;
 }
 
 function buildRow(patient: Patient): Row {
@@ -132,6 +142,37 @@ function validatePatientDraft(draft: PatientEditDraft): string | null {
   return null;
 }
 
+function compareNullableIsoDesc(a: string | null, b: string | null): number {
+  if (a && b) return b.localeCompare(a);
+  if (a) return -1;
+  if (b) return 1;
+  return 0;
+}
+
+function sortRows(rows: Row[], mode: SortMode): Row[] {
+  return [...rows].sort((a, b) => {
+    switch (mode) {
+      case "name_asc":
+        return a.patient.fullName.localeCompare(b.patient.fullName, "ru");
+      case "name_desc":
+        return b.patient.fullName.localeCompare(a.patient.fullName, "ru");
+      case "age_asc":
+        return a.age - b.age || a.patient.fullName.localeCompare(b.patient.fullName, "ru");
+      case "age_desc":
+        return b.age - a.age || a.patient.fullName.localeCompare(b.patient.fullName, "ru");
+      case "last_visit_desc":
+        return compareNullableIsoDesc(a.lastVisit, b.lastVisit) || a.patient.fullName.localeCompare(b.patient.fullName, "ru");
+    }
+  });
+}
+
+function formatChangeLogExport(entries: ChangeLogEntry[]): string {
+  if (entries.length === 0) return "Журнал изменений пуст.";
+  return entries
+    .map((entry, index) => `${index + 1}. ${entry.patientCode} ${entry.patientName}: ${entry.message}`)
+    .join("\n");
+}
+
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>(() => PATIENTS);
   const [query, setQuery] = useState("");
@@ -145,14 +186,19 @@ export default function PatientsPage() {
   const [phototype, setPhototype] = useState<"any" | Phototype>("any");
   const [consent, setConsent] = useState<ConsentFilter>("any");
   const [lesionsFilter, setLesionsFilter] = useState<LesionsFilter>("any");
+  const [sortMode, setSortMode] = useState<SortMode>("name_asc");
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(4);
+  const [page, setPage] = useState(1);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [previewPatient, setPreviewPatient] = useState<Patient | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Patient | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<DeletedPatientSnapshot | null>(null);
   const [editDraft, setEditDraft] = useState<PatientEditDraft | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
+  const [exportOpen, setExportOpen] = useState(false);
 
-  const rows = useMemo(() => {
+  const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     const code = advancedSearch.code.trim().toLowerCase();
     const name = advancedSearch.name.trim().toLowerCase();
@@ -185,6 +231,14 @@ export default function PatientsPage() {
       return true;
     });
   }, [advancedSearch, patients, query, phototype, consent, lesionsFilter]);
+  const rows = useMemo(() => sortRows(filteredRows, sortMode), [filteredRows, sortMode]);
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = useMemo(
+    () => rows.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [currentPage, pageSize, rows],
+  );
+  const changeLogExport = useMemo(() => formatChangeLogExport(changeLog), [changeLog]);
   const previewRow = useMemo(
     () => (previewPatient ? buildRow(previewPatient) : null),
     [previewPatient],
@@ -244,6 +298,7 @@ export default function PatientsPage() {
     setPatients((current) => current.filter((p) => p.id !== patient.id));
     setPreviewPatient((current) => (current?.id === patient.id ? null : current));
     setEditDraft((current) => (current?.id === patient.id ? null : current));
+    setLastDeleted({ patient });
     setStatusMessage(`Пациент ${patient.fullName} удалён из локального списка в демо-режиме.`);
     setChangeLog((current) => [
       {
@@ -258,10 +313,35 @@ export default function PatientsPage() {
     setDeleteCandidate(null);
   }
 
+  function handleUndoDelete() {
+    if (!lastDeleted) return;
+    const restored = lastDeleted.patient;
+    setPatients((current) => {
+      if (current.some((patient) => patient.id === restored.id)) return current;
+      const order = new Map(PATIENTS.map((patient, index) => [patient.id, index]));
+      return [...current, restored].sort(
+        (a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+      );
+    });
+    setStatusMessage(`Удаление пациента ${restored.fullName} отменено.`);
+    setChangeLog((current) => [
+      {
+        id: `restore-${restored.id}-${current.length + 1}`,
+        action: "restore",
+        patientCode: restored.code,
+        patientName: restored.fullName,
+        message: "Удаление отменено.",
+      },
+      ...current,
+    ]);
+    setLastDeleted(null);
+  }
+
   function updateAdvancedSearch<K extends keyof AdvancedSearchState>(
     key: K,
     value: AdvancedSearchState[K],
   ) {
+    setPage(1);
     setAdvancedSearch((current) => ({ ...current, [key]: value }));
   }
 
@@ -280,6 +360,7 @@ export default function PatientsPage() {
               setStatusMessage(
                 "Создание пациента пока недоступно в демо-режиме. Реальные данные пациентов не вводите.",
               );
+              setLastDeleted(null);
             }}
           >
             <UserPlus className="h-3.5 w-3.5" aria-hidden />
@@ -292,9 +373,21 @@ export default function PatientsPage() {
         <div
           role="status"
           aria-live="polite"
-          className="border-b border-border bg-warning/10 px-6 py-2 text-[12px] text-warning"
+          className="flex flex-wrap items-center gap-2 border-b border-border bg-warning/10 px-6 py-2 text-[12px] text-warning"
         >
-          {statusMessage}
+          <span>{statusMessage}</span>
+          {lastDeleted && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 border-warning/40 bg-surface text-[12px] text-warning hover:bg-warning/10"
+              onClick={handleUndoDelete}
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+              Отменить удаление
+            </Button>
+          )}
         </div>
       )}
 
@@ -305,7 +398,10 @@ export default function PatientsPage() {
             <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setPage(1);
+                setQuery(e.target.value);
+              }}
               placeholder="Поиск по ФИО, коду, полу, фототипу"
               className="h-8 pl-7 text-[13px]"
               aria-label="Поиск пациента"
@@ -315,14 +411,20 @@ export default function PatientsPage() {
           <FilterSelect
             label="Фототип"
             value={phototype}
-            onChange={(v) => setPhototype(v as typeof phototype)}
+            onChange={(v) => {
+              setPage(1);
+              setPhototype(v as typeof phototype);
+            }}
             options={[{ value: "any", label: "Любой фототип" }, ...PHOTOTYPES.map((p) => ({ value: p, label: `Фототип ${p}` }))]}
           />
 
           <FilterSelect
             label="Согласие на съёмку"
             value={consent}
-            onChange={(v) => setConsent(v as ConsentFilter)}
+            onChange={(v) => {
+              setPage(1);
+              setConsent(v as ConsentFilter);
+            }}
             options={[
               { value: "any", label: "Любое согласие" },
               { value: "yes", label: "Согласие есть" },
@@ -333,12 +435,44 @@ export default function PatientsPage() {
           <FilterSelect
             label="Образования"
             value={lesionsFilter}
-            onChange={(v) => setLesionsFilter(v as LesionsFilter)}
+            onChange={(v) => {
+              setPage(1);
+              setLesionsFilter(v as LesionsFilter);
+            }}
             options={[
               { value: "any", label: "Все пациенты" },
               { value: "with_active", label: "С активными/наблюдением" },
               { value: "without_active", label: "Без активных" },
             ]}
+          />
+
+          <FilterSelect
+            label="Сортировка пациентов"
+            value={sortMode}
+            onChange={(v) => {
+              setPage(1);
+              setSortMode(v as SortMode);
+            }}
+            options={[
+              { value: "name_asc", label: "ФИО А-Я" },
+              { value: "name_desc", label: "ФИО Я-А" },
+              { value: "age_asc", label: "Возраст по возрастанию" },
+              { value: "age_desc", label: "Возраст по убыванию" },
+              { value: "last_visit_desc", label: "Сначала недавний визит" },
+            ]}
+          />
+
+          <FilterSelect
+            label="Строк на странице"
+            value={String(pageSize)}
+            onChange={(v) => {
+              setPage(1);
+              setPageSize(Number(v) as (typeof PAGE_SIZE_OPTIONS)[number]);
+            }}
+            options={PAGE_SIZE_OPTIONS.map((value) => ({
+              value: String(value),
+              label: `${value} строки`,
+            }))}
           />
 
           <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
@@ -411,9 +545,21 @@ export default function PatientsPage() {
           aria-label="Журнал изменений пациентов"
           className="border-b border-border bg-surface px-6 py-2"
         >
-          <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
-            <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            Журнал изменений
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
+              <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              Журнал изменений
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="ml-auto h-7 gap-1.5 text-[12px]"
+              onClick={() => setExportOpen(true)}
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              Экспорт журнала
+            </Button>
           </div>
           <ul className="mt-1 space-y-1 text-[12px] text-muted-foreground">
             {changeLog.slice(0, 3).map((entry) => (
@@ -453,7 +599,7 @@ export default function PatientsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => (
+                    {pagedRows.map((r) => (
                       <tr key={r.patient.id}>
                         <td className="font-mono text-[12px] text-muted-foreground">{r.patient.code}</td>
                         <td>
@@ -521,7 +667,7 @@ export default function PatientsPage() {
 
             {/* Mobile стек */}
             <ul className="space-y-2 md:hidden">
-              {rows.map((r) => (
+              {pagedRows.map((r) => (
                 <li key={r.patient.id}>
                   <div className="surface-card p-3">
                     <div className="flex items-start justify-between gap-2">
@@ -581,7 +727,62 @@ export default function PatientsPage() {
             </ul>
           </>
         )}
+        {rows.length > 0 && (
+          <nav
+            className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted-foreground"
+            aria-label="Пагинация пациентов"
+          >
+            <span>
+              Страница <span className="text-foreground tabular-nums">{currentPage}</span> из{" "}
+              <span className="text-foreground tabular-nums">{totalPages}</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-[12px]"
+                onClick={() => setPage((n) => Math.max(1, n - 1))}
+                disabled={currentPage === 1}
+              >
+                Назад
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-[12px]"
+                onClick={() => setPage((n) => Math.min(totalPages, n + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Вперёд
+              </Button>
+            </div>
+          </nav>
+        )}
       </div>
+
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Экспорт журнала изменений</DialogTitle>
+            <DialogDescription>
+              Текст подготовлен для ручного копирования без доступа к буферу обмена или файловой системе.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            readOnly
+            value={changeLogExport}
+            aria-label="Текст экспорта журнала изменений"
+            className="min-h-48 font-mono text-[12px]"
+          />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button">Закрыть</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!previewRow}
