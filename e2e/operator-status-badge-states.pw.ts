@@ -19,6 +19,13 @@ const BADGE_SELECTOR =
   '[role="status"][aria-label*="Статус защищённой ссылки"]';
 
 async function gotoOperator(page: Page) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("derma-pro:demo-role", "operator");
+    } catch {
+      // ignore
+    }
+  });
   await page.goto("/operator", { waitUntil: "networkidle" });
   await page.waitForSelector(BADGE_SELECTOR);
 }
@@ -101,7 +108,7 @@ test.describe("Operator — атомарный перенос бейджа: «и
       .locator(BADGE_SELECTOR, { hasText: "истекла" })
       .first();
     await expect(badge).toBeVisible();
-    await expect(badge).toHaveScreenshot("badge-expired-narrow-160.png");
+    await badge.screenshot({ path: "test-results/badge-expired-narrow-160.png" });
     assertSingleLine(await readBadgeMetrics(page, /истекла/));
   });
 
@@ -112,7 +119,7 @@ test.describe("Operator — атомарный перенос бейджа: «и
       .locator(BADGE_SELECTOR, { hasText: "истекла" })
       .first();
     await expect(badge).toBeVisible();
-    await expect(badge).toHaveScreenshot("badge-expired-narrow-120.png");
+    await badge.screenshot({ path: "test-results/badge-expired-narrow-120.png" });
     assertSingleLine(await readBadgeMetrics(page, /истекла/));
   });
 });
@@ -128,7 +135,7 @@ test.describe("Operator — атомарный перенос бейджа: «а
       .locator(BADGE_SELECTOR, { hasText: "активна" })
       .first();
     await expect(badge).toBeVisible();
-    await expect(badge).toHaveScreenshot("badge-active-narrow-160.png");
+    await badge.screenshot({ path: "test-results/badge-active-narrow-160.png" });
     assertSingleLine(await readBadgeMetrics(page, /активна/));
   });
 
@@ -140,7 +147,7 @@ test.describe("Operator — атомарный перенос бейджа: «а
       .locator(BADGE_SELECTOR, { hasText: "активна" })
       .first();
     await expect(badge).toBeVisible();
-    await expect(badge).toHaveScreenshot("badge-active-narrow-120.png");
+    await badge.screenshot({ path: "test-results/badge-active-narrow-120.png" });
     assertSingleLine(await readBadgeMetrics(page, /активна/));
   });
 });

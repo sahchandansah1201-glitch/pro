@@ -29,6 +29,8 @@ if (process.env.PW_CHROMIUM_PATH) {
 }
 
 test.describe("/admin/analytics — visual regression (pixel diff)", () => {
+  test.skip(process.platform !== "linux", "Admin analytics visual baselines are Linux-only.");
+
   for (const size of SIZES) {
     test(`${size.name} (${size.width}x${size.height})`, async ({ page }) => {
       await page.setViewportSize({ width: size.width, height: size.height });
