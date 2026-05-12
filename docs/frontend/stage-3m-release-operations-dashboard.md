@@ -30,9 +30,10 @@ backend configuration, or workflow scheduling.
   - `frontend-auth-assets`
   - `e2e-smoke`
   - `backend-guardrails`
-- A safe `https://github.com/<repo>/actions/runs/<run_number>` link for
-  each workflow when a run number is available. The dashboard never
-  prints the raw `run_id` or any run query parameters.
+- A safe `https://github.com/<repo>/actions/runs/<run_id>` link for
+  each workflow when the GitHub Actions API returns a run id. The
+  dashboard never prints run query parameters, tokens, or artifact
+  download URLs.
 - Deno lock guard status from `node scripts/check-no-deno-locks.mjs`.
 - E2E artifact summary presence at
   `test-results/e2e-nightly-full-artifact-summary.md` with size and
@@ -57,7 +58,10 @@ backend configuration, or workflow scheduling.
 
 ```bash
 npm run release:status            # online, hits GitHub Actions API
+npm run release:status:json       # JSON output for tooling
 node scripts/release-status.mjs --offline  # offline, used in tests
+node scripts/release-status.mjs --output test-results/release-status.md
+node scripts/release-status.mjs --json --output test-results/release-status.json
 ```
 
 The dashboard is meant to be pasted into release notes, incident notes,
@@ -65,7 +69,37 @@ or PR comments after a quick visual review. Reviewers should still
 follow Stage 3C, Stage 3D, Stage 3E, Stage 3F, and Stage 3L for the
 authoritative checks.
 
-## 6. Test coverage
+## 6. File output and JSON mode
+
+- `--output <path>` writes the sanitized report to disk and creates
+  parent directories when needed.
+- `--json` or `--format json` writes a structured sanitized payload
+  with the same data as the markdown report.
+- Markdown is the default format and is intended for PR comments,
+  incident notes, and GitHub step summaries.
+- JSON is intended for automation and must remain sanitized before it is
+  written to disk.
+- The CLI prints only a short sanitized `wrote <path>` message when an
+  output file is used.
+
+## 7. CI automation
+
+Workflow: `.github/workflows/release-status.yml`.
+
+The workflow runs on relevant PRs, pushes, and manual dispatch. It:
+
+- runs `npm run test:release-status`;
+- runs `node scripts/check-stage3-docs.mjs`;
+- writes `test-results/release-status.md`;
+- writes `test-results/release-status.json`;
+- appends the markdown dashboard to `$GITHUB_STEP_SUMMARY`;
+- uploads both reports as `release-status-<run_id>` for seven days.
+
+The workflow passes `GITHUB_TOKEN` only to the GitHub Actions API
+request. The token is never printed in markdown, JSON, or logs by
+`scripts/release-status.mjs`.
+
+## 8. Test coverage
 
 `npm test -- scripts/release-status.test.mjs` covers:
 
@@ -78,8 +112,33 @@ authoritative checks.
 - Rejecting unsafe repo, branch, workflow, and run-number values and
   falling back to defaults.
 - Running the CLI in `--offline` mode without leaking secrets.
+- Building sanitized JSON output.
+- Writing markdown and JSON reports to files.
 
-## 7. Maintenance rule
+## 9. Local preflight
+
+Use this local preflight before merging changes to the release dashboard:
+
+```bash
+npm run preflight:e2e-artifacts
+npm run test:release-status
+node scripts/check-stage3-docs.mjs
+node scripts/check-no-deno-locks.mjs
+node scripts/release-status.mjs --offline --output test-results/release-status.md
+node scripts/release-status.mjs --offline --json --output test-results/release-status.json
+```
+
+Expected:
+
+- all tests pass;
+- the focused e2e artifact preflight includes the release status
+  privacy/output-mode tests and ends with `[preflight-e2e-artifacts] OK`;
+- `check-stage3-docs` reports all Stage 3 docs verified;
+- no `deno.lock` files exist;
+- both output files are created and contain no tokens, cookies, signed
+  URLs, emails, patient names, storage paths, or raw env values.
+
+## 10. Maintenance rule
 
 - Future workflows added to the tracked list must use safe names matching
   `[A-Za-z0-9._-]+`.

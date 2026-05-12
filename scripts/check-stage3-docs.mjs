@@ -178,8 +178,11 @@ const EXPECTED = [
       "## 3. What the dashboard reports",
       "## 4. Privacy rules",
       "## 5. Local usage",
-      "## 6. Test coverage",
-      "## 7. Maintenance rule",
+      "## 6. File output and JSON mode",
+      "## 7. CI automation",
+      "## 8. Test coverage",
+      "## 9. Local preflight",
+      "## 10. Maintenance rule",
     ],
   },
 ];
@@ -201,6 +204,7 @@ const EXTRA_REQUIRED_REFS = [
 ];
 
 const NIGHTLY_FULL_WORKFLOW = ".github/workflows/e2e-nightly-full.yml";
+const RELEASE_STATUS_WORKFLOW = ".github/workflows/release-status.yml";
 const PACKAGE_JSON = "package.json";
 const PREFLIGHT_SCRIPT = "scripts/preflight-auth-assets.mjs";
 const E2E_ARTIFACT_PREFLIGHT_SCRIPT = "scripts/preflight-e2e-artifacts.mjs";
@@ -339,6 +343,9 @@ requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "tes
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/e2e-nightly-full-artifact-summary.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Nightly full e2e report");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Do not paste credentials, signed URLs, storage paths, access tokens");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/release-status.md");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/release-status.json");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "release-status-<run_id>");
 
 const packageJson = existsSync(join(ROOT, PACKAGE_JSON))
   ? readFileSync(join(ROOT, PACKAGE_JSON), "utf8")
@@ -348,14 +355,20 @@ requireText(PACKAGE_JSON, packageJson, "\"preflight:e2e-artifacts\": \"node scri
 requireText(PACKAGE_JSON, packageJson, "\"view:e2e-artifacts\": \"node scripts/view-e2e-artifact-summary.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "scripts/view-e2e-artifact-summary.test.mjs");
 requireText(PACKAGE_JSON, packageJson, "\"release:status\": \"node scripts/release-status.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"release:status:json\": \"node scripts/release-status.mjs --json\"");
+requireText(PACKAGE_JSON, packageJson, "\"release:status:offline\": \"node scripts/release-status.mjs --offline\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test scripts/release-status.test.mjs\"");
 
 const releaseStatusScript = existsSync(join(ROOT, RELEASE_STATUS_SCRIPT))
   ? readFileSync(join(ROOT, RELEASE_STATUS_SCRIPT), "utf8")
   : "";
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "buildReleaseStatusReport");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "buildReleaseStatusJson");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "Release operations dashboard");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "redact");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "--output");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "--json");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "GITHUB_TOKEN");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "no-deno-locks");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "auth-assets-smoke-skip");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "frontend-auth-assets");
@@ -363,10 +376,29 @@ requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "e2e-smoke");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "backend-guardrails");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "e2e-nightly-full-artifact-summary.md");
 
+const releaseStatusWorkflow = existsSync(join(ROOT, RELEASE_STATUS_WORKFLOW))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_WORKFLOW), "utf8")
+  : "";
+if (!releaseStatusWorkflow) {
+  errors.push(`Missing required workflow: ${RELEASE_STATUS_WORKFLOW}`);
+}
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run test:release-status");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "node scripts/check-stage3-docs.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status -- --output test-results/release-status.md");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:json -- --output test-results/release-status.json");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "$GITHUB_STEP_SUMMARY");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "actions/upload-artifact@v4");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "release-status-${{ github.run_id }}");
+
 const stage3m = readDoc("stage-3m-release-operations-dashboard.md");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/release-status.mjs");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run release:status");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "--offline");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "--output <path>");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run release:status:json");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run preflight:e2e-artifacts");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, ".github/workflows/release-status.yml");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "test-results/release-status.json");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "tokens, cookies, signed URLs, emails");
 checkMarkdownLinks("stage-3m-release-operations-dashboard.md", stage3m);
 
@@ -376,6 +408,8 @@ requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "npm run r
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "./stage-3m-release-operations-dashboard.md");
 
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run release:status");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "test-results/release-status.md");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "test-results/release-status.json");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "stage-3m-release-operations-dashboard.md");
 
 const preflightScript = existsSync(join(ROOT, PREFLIGHT_SCRIPT))
@@ -390,6 +424,7 @@ const e2eArtifactPreflightScript = existsSync(join(ROOT, E2E_ARTIFACT_PREFLIGHT_
   : "";
 requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "preflight-e2e-artifacts");
 requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "test:e2e-artifacts");
+requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "test:release-status");
 requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "scripts/check-stage3-docs.mjs");
 requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "scripts/check-no-deno-locks.mjs");
 requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "[preflight-e2e-artifacts] Results");

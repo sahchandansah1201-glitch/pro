@@ -8,6 +8,7 @@ const npmCmd = isWindows ? "npm.cmd" : "npm";
 
 const steps = [
   ["e2e artifact summary log-safety", npmCmd, ["run", "test:e2e-artifacts"]],
+  ["release status privacy/output modes", npmCmd, ["run", "test:release-status"]],
   ["Stage 3 docs guard", process.execPath, ["scripts/check-stage3-docs.mjs"]],
   ["No deno.lock files", process.execPath, ["scripts/check-no-deno-locks.mjs"]],
 ];
