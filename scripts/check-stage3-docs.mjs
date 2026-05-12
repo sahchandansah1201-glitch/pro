@@ -191,6 +191,8 @@ const PREFLIGHT_SCRIPT = "scripts/preflight-auth-assets.mjs";
 const E2E_ARTIFACT_PREFLIGHT_SCRIPT = "scripts/preflight-e2e-artifacts.mjs";
 const ARTIFACT_SUMMARY_SCRIPT = "scripts/write-e2e-artifact-summary.mjs";
 const ARTIFACT_SUMMARY_TEST = "scripts/write-e2e-artifact-summary.test.mjs";
+const ARTIFACT_VIEWER_SCRIPT = "scripts/view-e2e-artifact-summary.mjs";
+const ARTIFACT_VIEWER_TEST = "scripts/view-e2e-artifact-summary.test.mjs";
 
 const errors = [];
 
@@ -262,6 +264,7 @@ for (const ref of EXTRA_REQUIRED_REFS) {
 checkMarkdownLinks("stage-1i-auth-assets-readiness.md", readiness);
 checkPlainDocRefs("stage-1i-auth-assets-readiness.md", readiness);
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run preflight:e2e-artifacts");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run view:e2e-artifacts");
 
 const stage3c = readDoc("stage-3c-production-smoke.md");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 9. Nightly full e2e");
@@ -269,6 +272,7 @@ requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 10. Nightly ar
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "Artifact bundle includes `playwright-report/` and `test-results/`");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e-nightly-full-vite.log`");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e-nightly-full-artifact-summary.md`");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "npm run view:e2e-artifacts");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "./stage-3l-nightly-artifacts-report.md");
 
 const nightlyWorkflowPath = join(ROOT, NIGHTLY_FULL_WORKFLOW);
@@ -307,6 +311,7 @@ requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Art
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Retention: 7 days");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Generated summary path: `test-results/e2e-nightly-full-artifact-summary.md`");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Summary writer: `node scripts/write-e2e-artifact-summary.mjs`");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Summary viewer: `npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md`");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Report entry: `playwright-report/index.html`");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Artifact size check");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "`npm run preflight:e2e-artifacts`");
@@ -321,14 +326,17 @@ requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Do 
 const packageJson = existsSync(join(ROOT, PACKAGE_JSON))
   ? readFileSync(join(ROOT, PACKAGE_JSON), "utf8")
   : "";
-requireText(PACKAGE_JSON, packageJson, "\"test:e2e-artifacts\": \"node --test scripts/write-e2e-artifact-summary.test.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"test:e2e-artifacts\": \"node --test scripts/write-e2e-artifact-summary.test.mjs scripts/view-e2e-artifact-summary.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"preflight:e2e-artifacts\": \"node scripts/preflight-e2e-artifacts.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"view:e2e-artifacts\": \"node scripts/view-e2e-artifact-summary.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "scripts/view-e2e-artifact-summary.test.mjs");
 
 const preflightScript = existsSync(join(ROOT, PREFLIGHT_SCRIPT))
   ? readFileSync(join(ROOT, PREFLIGHT_SCRIPT), "utf8")
   : "";
 requireText(PREFLIGHT_SCRIPT, preflightScript, "e2e artifact summary log-safety");
 requireText(PREFLIGHT_SCRIPT, preflightScript, "test:e2e-artifacts");
+requireText(PREFLIGHT_SCRIPT, preflightScript, "[preflight-auth-assets] Results");
 
 const e2eArtifactPreflightScript = existsSync(join(ROOT, E2E_ARTIFACT_PREFLIGHT_SCRIPT))
   ? readFileSync(join(ROOT, E2E_ARTIFACT_PREFLIGHT_SCRIPT), "utf8")
@@ -337,6 +345,7 @@ requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "prefligh
 requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "test:e2e-artifacts");
 requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "scripts/check-stage3-docs.mjs");
 requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "scripts/check-no-deno-locks.mjs");
+requireText(E2E_ARTIFACT_PREFLIGHT_SCRIPT, e2eArtifactPreflightScript, "[preflight-e2e-artifacts] Results");
 
 const artifactSummaryScript = existsSync(join(ROOT, ARTIFACT_SUMMARY_SCRIPT))
   ? readFileSync(join(ROOT, ARTIFACT_SUMMARY_SCRIPT), "utf8")
@@ -346,8 +355,26 @@ requireText(ARTIFACT_SUMMARY_SCRIPT, artifactSummaryScript, "Report entry");
 requireText(ARTIFACT_SUMMARY_SCRIPT, artifactSummaryScript, "Authorization:");
 requireText(ARTIFACT_SUMMARY_SCRIPT, artifactSummaryScript, "refresh_token=");
 requireText(ARTIFACT_SUMMARY_SCRIPT, artifactSummaryScript, "storage_object_path");
+requireText(ARTIFACT_SUMMARY_SCRIPT, artifactSummaryScript, "Cookie:");
+requireText(ARTIFACT_SUMMARY_SCRIPT, artifactSummaryScript, "patient_full_name");
+requireText(ARTIFACT_SUMMARY_SCRIPT, artifactSummaryScript, "sb_publishable");
+requireText(ARTIFACT_SUMMARY_SCRIPT, artifactSummaryScript, "redacted-jwt");
 
-for (const path of [ARTIFACT_SUMMARY_SCRIPT, ARTIFACT_SUMMARY_TEST, E2E_ARTIFACT_PREFLIGHT_SCRIPT]) {
+const artifactViewerScript = existsSync(join(ROOT, ARTIFACT_VIEWER_SCRIPT))
+  ? readFileSync(join(ROOT, ARTIFACT_VIEWER_SCRIPT), "utf8")
+  : "";
+requireText(ARTIFACT_VIEWER_SCRIPT, artifactViewerScript, "E2E artifact report view");
+requireText(ARTIFACT_VIEWER_SCRIPT, artifactViewerScript, "Missing artifact paths");
+requireText(ARTIFACT_VIEWER_SCRIPT, artifactViewerScript, "view-e2e-artifact-summary");
+requireText(ARTIFACT_VIEWER_SCRIPT, artifactViewerScript, "redact");
+
+for (const path of [
+  ARTIFACT_SUMMARY_SCRIPT,
+  ARTIFACT_SUMMARY_TEST,
+  E2E_ARTIFACT_PREFLIGHT_SCRIPT,
+  ARTIFACT_VIEWER_SCRIPT,
+  ARTIFACT_VIEWER_TEST,
+]) {
   if (!existsSync(join(ROOT, path))) errors.push(`Missing required script: ${path}`);
 }
 

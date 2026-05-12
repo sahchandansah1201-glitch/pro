@@ -18,6 +18,7 @@ for the backend half.
 - Smoke runner log-safety test — `npm run test:smoke-auth-assets`
 - E2E artifact summary log-safety test — `npm run test:e2e-artifacts`
 - Focused e2e artifact preflight — `npm run preflight:e2e-artifacts`
+- E2E artifact summary viewer — `npm run view:e2e-artifacts -- <summary.md>`
 
 ---
 
@@ -461,10 +462,11 @@ launching Playwright), the e2e artifact summary log-safety tests
 (`npm run test:e2e-artifacts`, which verify the generated artifact
 summary without launching Playwright), the Vite build, and the
 `deno.lock` guard, stopping at the first failure and ending with
-`[preflight-auth-assets] OK` on success. It requires no network
-access, no Supabase env vars, no Deno, and no Playwright. The
-Playwright real-auth smoke (`auth-assets-smoke-skip`) remains an
-opt-in, separate workflow.
+`[preflight-auth-assets] OK` on success. It also prints a final
+`[preflight-auth-assets] Results` block with each step status and
+duration. It requires no network access, no Supabase env vars, no
+Deno, and no Playwright. The Playwright real-auth smoke
+(`auth-assets-smoke-skip`) remains an opt-in, separate workflow.
 
 For focused nightly-artifact iterations, use:
 
@@ -474,7 +476,20 @@ npm run preflight:e2e-artifacts
 
 This narrower local preflight runs the e2e artifact summary tests,
 the Stage 3 documentation guard, and the `deno.lock` guard without
-running the full auth/assets unit suite.
+running the full auth/assets unit suite. It prints a final
+`[preflight-e2e-artifacts] Results` block with each step status and
+duration before the final `[preflight-e2e-artifacts] OK` line.
+
+To inspect a generated nightly summary locally without opening the
+full Playwright HTML report:
+
+```bash
+npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
+```
+
+The viewer re-sanitizes the summary, shows the report entry, upload
+expectation, missing artifact count, and artifact size rows, and fails
+clearly if the summary file is absent.
 
 ### 10.2 CI step summaries
 
@@ -590,9 +605,10 @@ Expected:
   `[preflight-auth-assets] OK` and includes the `smoke runner
   log-safety` and `e2e artifact summary log-safety` steps (which run
   `npm run test:smoke-auth-assets` and `npm run test:e2e-artifacts`
-  without launching Playwright).
+  without launching Playwright), plus a final results block.
 - `npm run preflight:e2e-artifacts` ends with
-  `[preflight-e2e-artifacts] OK` for focused artifact-summary changes.
+  `[preflight-e2e-artifacts] OK` for focused artifact-summary changes
+  and prints a results block for each local step.
 - `node scripts/check-no-deno-locks.mjs` exits 0 and prints no
   `deno.lock` paths.
 - `git status --short` shows no unexpected modifications. The
