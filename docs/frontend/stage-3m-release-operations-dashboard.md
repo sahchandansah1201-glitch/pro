@@ -137,6 +137,9 @@ Workflow: `.github/workflows/release-status.yml`.
 The workflow runs on relevant PRs, pushes, and manual dispatch. It:
 
 - runs `npm run preflight:release-status`;
+- the focused preflight now includes `src/lib/release-status-ui.test.ts` and
+  `src/pages/sys/SysReleaseStatusPage.test.tsx` so browser-viewer helpers and
+  UI wiring are exercised before generated artifacts are written;
 - writes `test-results/release-status.md`;
 - appends `test-results/release-history.jsonl`;
 - writes `test-results/release-status.json`;
@@ -238,6 +241,9 @@ The viewer also exposes the UI-side release operator guardrails:
 - Long imported histories are paginated in the browser (`history-pagination`)
   through `paginateReleaseHistoryRecords`, so reviewers can scan filtered
   records without losing the parse summary.
+- The history preview now supports `advanced-history-filters`: status,
+  deno-lock result, artifact presence, workflow conclusion, and free-text
+  search are combined by `filterReleaseHistoryRecordsAdvanced`.
 - The selected comparison baseline has a compact `baseline-preview` with SHA,
   generated date, deno-lock status, artifact presence, and the first workflow
   conclusions before the comparison table.
@@ -249,6 +255,17 @@ The viewer also exposes the UI-side release operator guardrails:
   `buildReleaseImportAuditReport`. The report includes an
   `audit-report-summary` with status counts, totals, selected baseline, and
   active history filters.
+- Import audit entries support `audit-log-filters` by status, privacy count,
+  and sanitized message/date query through `filterReleaseImportAuditEntries`.
+- Operators can download a sanitized `audit-csv-export` via
+  `buildReleaseImportAuditCsv` and `releaseHistoryAuditCsvFilename`; the CSV
+  keeps summary rows and safe audit columns only.
+- Import, delete, export, and audit download actions expose
+  `operation-busy-states` through disabled controls, button copy, and
+  `aria-busy` status/region attributes.
+- E2E coverage includes `edge-e2e-validation` for no-result filters,
+  advanced history filters, audit-log filters, CSV audit download, and
+  sanitized downloaded audit content.
 - Import privacy status is announced separately from the general page status,
   so screen-reader users can distinguish "parse succeeded" from "privacy gate
   passed" or "privacy gate blocked".
@@ -267,8 +284,10 @@ The viewer also exposes the UI-side release operator guardrails:
   `src/pages/sys/SysReleaseStatusPage.test.tsx`, and
   `e2e/sys-release-status.pw.ts` together.
 - RBAC, export, release comparison, history-import, history-preview,
-  history-pagination, history-filters, jsonl-validation, dry-run-import,
-  import-audit, audit-report-summary, audit-report-download, baseline-preview,
+  history-pagination, history-filters, advanced-history-filters,
+  audit-log-filters, audit-csv-export, operation-busy-states,
+  edge-e2e-validation, jsonl-validation, dry-run-import, import-audit,
+  audit-report-summary, audit-report-download, baseline-preview,
   baseline-delete, baseline-selector, and privacy-preview changes must also keep
   `scripts/check-stage3-docs.mjs` aligned with the UI helper names and e2e
   assertions.

@@ -420,6 +420,8 @@ const releaseStatusPreflightScript = existsSync(join(ROOT, RELEASE_STATUS_PREFLI
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "preflight-release-status");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-privacy");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/lib/release-status-ui.test.ts");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/pages/sys/SysReleaseStatusPage.test.tsx");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release-status.html");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release-history.jsonl");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-release-status-privacy.mjs");
@@ -471,6 +473,11 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "impor
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "baseline-selector");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-pagination");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-filters");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "advanced-history-filters");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "audit-log-filters");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "audit-csv-export");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "operation-busy-states");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "edge-e2e-validation");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "jsonl-validation");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "dry-run-import");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "audit-report-summary");
@@ -553,10 +560,14 @@ requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "summarizeReleaseHistoryP
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "RELEASE_STATUS_DEMO_HISTORY_JSONL");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "ReleaseHistoryParseIssue");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "filterReleaseHistoryRecords");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "filterReleaseHistoryRecordsAdvanced");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "filterReleaseImportAuditEntries");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "paginateReleaseHistoryRecords");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "ReleaseHistoryPage");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseImportAuditReport");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseImportAuditCsv");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryAuditFilename");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryAuditCsvFilename");
 
 const releaseStatusUiPage = existsSync(join(ROOT, RELEASE_STATUS_UI_PAGE))
   ? readFileSync(join(ROOT, RELEASE_STATUS_UI_PAGE), "utf8")
@@ -571,13 +582,24 @@ requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Аудит импор�
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Privacy статус импорта release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Dry-run импорт");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фильтр статуса истории");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фильтр deno-lock истории");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фильтр artifact истории");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фильтр workflow результата истории");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Поиск по release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сводка фильтров release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сбросить фильтры release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Пагинация release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предыдущая страница истории");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Следующая страница истории");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Ошибки формата release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Удалить импортированные baseline");
-requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Скачать отчет аудита импортов release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Скачать JSON отчет аудита импортов release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Скачать CSV отчет аудита импортов release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фильтр статуса аудита импортов");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фильтр приватности аудита импортов");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Поиск по аудиту импортов");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сводка фильтров аудита импортов");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сбросить фильтры аудита импортов");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предпросмотр выбранного baseline");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать единый пакет release status");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать release status");
@@ -596,11 +618,17 @@ requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Предпросмотр
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Аудит импортов release history");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Dry-run импорт");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Фильтр статуса истории");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Фильтр deno-lock истории");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Фильтр artifact истории");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Фильтр workflow результата истории");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Сводка фильтров release history");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Пагинация release history");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Следующая страница истории");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Ошибки формата release history");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Удалить импортированные baseline");
-requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Скачать отчет аудита импортов release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Скачать JSON отчет аудита импортов release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Скачать CSV отчет аудита импортов release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Сводка фильтров аудита импортов");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Предпросмотр выбранного baseline");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "\"summary\"");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать единый пакет release status");

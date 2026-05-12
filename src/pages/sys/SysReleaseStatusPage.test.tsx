@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 import SysReleaseStatusPage from "./SysReleaseStatusPage";
 
@@ -41,16 +47,22 @@ describe("SysReleaseStatusPage", () => {
   it("renders a safe visual release-status preview", () => {
     const { container } = render(<SysReleaseStatusPage />);
 
-    expect(screen.getByRole("heading", { name: "Релиз-статус" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Предпросмотр release status" })).toHaveTextContent(
-      /Main workflows: 6 из 6 success/,
-    );
+    expect(
+      screen.getByRole("heading", { name: "Релиз-статус" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Предпросмотр release status" }),
+    ).toHaveTextContent(/Main workflows: 6 из 6 success/);
     expect(screen.getAllByText("Готово").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Доступ к разделу открыт только роли system_admin/)).toBeInTheDocument();
-    expect(screen.getByText("npm run preflight:release-status")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Сравнение релизов" })).toHaveTextContent(
-      /Статус улучшился/,
-    );
+    expect(
+      screen.getByText(/Доступ к разделу открыт только роли system_admin/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("npm run preflight:release-status"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Сравнение релизов" }),
+    ).toHaveTextContent(/Статус улучшился/);
     expect(container.innerHTML).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
     expect(container.innerHTML).not.toContain("storage_object_path");
     expect(container.innerHTML).not.toContain("access_token=");
@@ -60,32 +72,45 @@ describe("SysReleaseStatusPage", () => {
   it("switches preview format and reports privacy scan status", () => {
     render(<SysReleaseStatusPage />);
 
-    fireEvent.change(screen.getByLabelText("Формат предпросмотра релиз-статуса"), {
-      target: { value: "json" },
-    });
+    fireEvent.change(
+      screen.getByLabelText("Формат предпросмотра релиз-статуса"),
+      {
+        target: { value: "json" },
+      },
+    );
     expect(
-      (screen.getByLabelText("Предпросмотр файла release status") as HTMLTextAreaElement).value,
+      (
+        screen.getByLabelText(
+          "Предпросмотр файла release status",
+        ) as HTMLTextAreaElement
+      ).value,
     ).toMatch(/"overallStatus": "ok"/);
 
-    fireEvent.click(screen.getByRole("button", { name: "Проверить предпросмотр" }));
-    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
-      /Проверка приватности пройдена для JSON/,
+    fireEvent.click(
+      screen.getByRole("button", { name: "Проверить предпросмотр" }),
     );
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/Проверка приватности пройдена для JSON/);
     expect(screen.getByText(/Проверено строк:/)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Показать категории приватности"));
-    expect(screen.getByRole("list", { name: "Категории проверки приватности" })).toHaveTextContent(
-      /service role env/,
-    );
+    expect(
+      screen.getByRole("list", { name: "Категории проверки приватности" }),
+    ).toHaveTextContent(/service role env/);
   });
 
-  it("imports safe release history baselines and blocks unsafe history input", () => {
+  it("imports safe release history baselines and blocks unsafe history input", async () => {
     render(<SysReleaseStatusPage />);
 
-    const historyInput = screen.getByLabelText("Вставить release-history JSONL");
-    expect(screen.getByText("Предпросмотр истории")).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Предпросмотр записей release history" })).toHaveTextContent(
-      /c3d2d18/,
+    const historyInput = screen.getByLabelText(
+      "Вставить release-history JSONL",
     );
+    expect(screen.getByText("Предпросмотр истории")).toBeInTheDocument();
+    expect(
+      screen.getByRole("list", {
+        name: "Предпросмотр записей release history",
+      }),
+    ).toHaveTextContent(/c3d2d18/);
 
     fireEvent.change(historyInput, {
       target: {
@@ -93,18 +118,26 @@ describe("SysReleaseStatusPage", () => {
           '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}\n',
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Импортировать history JSONL" }),
+    );
 
-    expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
-      /Импортировано 1 baseline-записей/,
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус импорта release history" }),
+      ).toHaveTextContent(/Импортировано 1 baseline-записей/),
     );
-    expect(screen.getByRole("status", { name: "Privacy статус импорта release history" })).toHaveTextContent(
-      /Privacy-проверка импорта пройдена/,
-    );
+    expect(
+      screen.getByRole("status", {
+        name: "Privacy статус импорта release history",
+      }),
+    ).toHaveTextContent(/Privacy-проверка импорта пройдена/);
     fireEvent.change(screen.getByLabelText("Выбрать baseline release status"), {
       target: { value: "imported-aaaaaaaaaaa-0" },
     });
-    expect(screen.getByRole("region", { name: "Сравнение релизов" })).toHaveTextContent("aaaaaaaaaaa");
+    expect(
+      screen.getByRole("region", { name: "Сравнение релизов" }),
+    ).toHaveTextContent("aaaaaaaaaaa");
     expect(screen.getByText("Импортированный history")).toBeInTheDocument();
 
     fireEvent.change(historyInput, {
@@ -113,26 +146,38 @@ describe("SysReleaseStatusPage", () => {
           'actor_email=doctor@example.com\n{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"bbbbbbb","overallStatus":"ok","dirtyCount":0,"denoLockOk":true,"artifactPresent":true,"workflows":[{"name":"e2e-smoke","conclusion":"success"}]}\n',
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
-    expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
-      /Импорт заблокирован/,
+    fireEvent.click(
+      screen.getByRole("button", { name: "Импортировать history JSONL" }),
     );
-    expect(screen.getByRole("status", { name: "Privacy статус импорта release history" })).toHaveTextContent(
-      /Privacy-проверка импорта: блокер/,
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус импорта release history" }),
+      ).toHaveTextContent(/Импорт заблокирован/),
     );
-    const importAudit = screen.getByRole("region", { name: "Аудит импортов release history" });
+    expect(
+      screen.getByRole("status", {
+        name: "Privacy статус импорта release history",
+      }),
+    ).toHaveTextContent(/Privacy-проверка импорта: блокер/);
+    const importAudit = screen.getByRole("region", {
+      name: "Аудит импортов release history",
+    });
     expect(importAudit).toHaveTextContent(/Импорт обработан/);
     expect(importAudit).toHaveTextContent(/Импорт заблокирован/);
-    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
-      /History JSONL не импортирован/,
-    );
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/History JSONL не импортирован/);
   });
 
-  it("supports dry-run import, history filters, delete import, audit download, and JSONL validation", () => {
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+  it("supports dry-run import, history filters, delete import, audit download, and JSONL validation", async () => {
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
     render(<SysReleaseStatusPage />);
 
-    const historyInput = screen.getByLabelText("Вставить release-history JSONL");
+    const historyInput = screen.getByLabelText(
+      "Вставить release-history JSONL",
+    );
     fireEvent.change(historyInput, {
       target: {
         value: [
@@ -144,96 +189,256 @@ describe("SysReleaseStatusPage", () => {
         ].join("\n"),
       },
     });
-    fireEvent.change(screen.getByLabelText("Фильтр статуса истории"), { target: { value: "fail" } });
-    fireEvent.change(screen.getByLabelText("Поиск по release history"), { target: { value: "e2e-smoke" } });
-    expect(screen.getByRole("list", { name: "Предпросмотр записей release history" })).toHaveTextContent(
-      "aaaaaaaaaaa",
+    fireEvent.change(screen.getByLabelText("Фильтр статуса истории"), {
+      target: { value: "fail" },
+    });
+    fireEvent.change(screen.getByLabelText("Фильтр deno-lock истории"), {
+      target: { value: "blocked" },
+    });
+    fireEvent.change(screen.getByLabelText("Фильтр artifact истории"), {
+      target: { value: "missing" },
+    });
+    fireEvent.change(
+      screen.getByLabelText("Фильтр workflow результата истории"),
+      { target: { value: "failure" } },
     );
-    expect(screen.getByRole("region", { name: "Пагинация release history" })).toHaveTextContent("1-3 из 5");
-    fireEvent.click(screen.getByRole("button", { name: "Следующая страница истории" }));
-    const historyPreviewList = screen.getByRole("list", { name: "Предпросмотр записей release history" });
+    fireEvent.change(screen.getByLabelText("Поиск по release history"), {
+      target: { value: "e2e-smoke" },
+    });
+    expect(
+      screen.getByRole("list", {
+        name: "Предпросмотр записей release history",
+      }),
+    ).toHaveTextContent("aaaaaaaaaaa");
+    expect(
+      screen.getByRole("status", { name: "Сводка фильтров release history" }),
+    ).toHaveTextContent("5 из 5");
+    expect(
+      screen.getByRole("region", { name: "Пагинация release history" }),
+    ).toHaveTextContent("1-3 из 5");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Следующая страница истории" }),
+    );
+    const historyPreviewList = screen.getByRole("list", {
+      name: "Предпросмотр записей release history",
+    });
     expect(historyPreviewList).toHaveTextContent("ddddddddddd");
     expect(historyPreviewList).toHaveTextContent("eeeeeeeeeee");
-    expect(screen.getByRole("region", { name: "Пагинация release history" })).toHaveTextContent("4-5 из 5");
-    fireEvent.click(screen.getByRole("button", { name: "Предыдущая страница истории" }));
+    expect(
+      screen.getByRole("region", { name: "Пагинация release history" }),
+    ).toHaveTextContent("4-5 из 5");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Предыдущая страница истории" }),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Dry-run импорт" }));
-    expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
-      /Dry-run импорт выполнен/,
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус импорта release history" }),
+      ).toHaveTextContent(/Dry-run импорт выполнен/),
     );
     expect(screen.getByText("Демо-baseline")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Удалить импортированные baseline" })).toBeDisabled();
-    expect(screen.getByRole("region", { name: "Аудит импортов release history" })).toHaveTextContent(
-      /Dry-run импорт/,
-    );
+    expect(
+      screen.getByRole("button", { name: "Удалить импортированные baseline" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("region", { name: "Аудит импортов release history" }),
+    ).toHaveTextContent(/Dry-run импорт/);
 
-    fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
-    expect(screen.getByRole("button", { name: "Удалить импортированные baseline" })).not.toBeDisabled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Импортировать history JSONL" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Удалить импортированные baseline",
+        }),
+      ).not.toBeDisabled(),
+    );
     fireEvent.change(screen.getByLabelText("Выбрать baseline release status"), {
       target: { value: "imported-aaaaaaaaaaa-0" },
     });
-    expect(screen.getByRole("region", { name: "Сравнение релизов" })).toHaveTextContent("aaaaaaaaaaa");
-    const baselinePreview = screen.getByRole("region", { name: "Предпросмотр выбранного baseline" });
+    expect(
+      screen.getByRole("region", { name: "Сравнение релизов" }),
+    ).toHaveTextContent("aaaaaaaaaaa");
+    const baselinePreview = screen.getByRole("region", {
+      name: "Предпросмотр выбранного baseline",
+    });
     expect(baselinePreview).toHaveTextContent("aaaaaaaaaaa");
     expect(baselinePreview).toHaveTextContent("Блокер");
-    expect(within(baselinePreview).getByRole("list", { name: "Workflow выбранного baseline" })).toHaveTextContent(
-      "e2e-smoke",
-    );
+    expect(
+      within(baselinePreview).getByRole("list", {
+        name: "Workflow выбранного baseline",
+      }),
+    ).toHaveTextContent("e2e-smoke");
 
-    fireEvent.click(screen.getByRole("button", { name: "Удалить импортированные baseline" }));
-    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
-      /Импортированные baseline удалены/,
+    fireEvent.click(
+      screen.getByRole("button", { name: "Удалить импортированные baseline" }),
     );
-    expect(screen.getByRole("region", { name: "Аудит импортов release history" })).toHaveTextContent(
-      /Импорт удалён/,
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+      ).toHaveTextContent(/Импортированные baseline удалены/),
     );
+    expect(
+      screen.getByRole("region", { name: "Аудит импортов release history" }),
+    ).toHaveTextContent(/Импорт удалён/);
 
-    fireEvent.click(screen.getByRole("button", { name: "Скачать отчет аудита импортов release history" }));
-    expect(click).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
-      /Отчет аудита импортов скачан/,
+    fireEvent.change(screen.getByLabelText("Фильтр статуса аудита импортов"), {
+      target: { value: "deleted" },
+    });
+    expect(
+      screen.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
+    ).toHaveTextContent("1 из 3");
+    fireEvent.change(screen.getByLabelText("Поиск по аудиту импортов"), {
+      target: { value: "очищено" },
+    });
+    expect(
+      screen.getByRole("region", { name: "Аудит импортов release history" }),
+    ).toHaveTextContent(/Импорт удалён/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Скачать JSON отчет аудита импортов release history",
+      }),
     );
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/JSON отчет аудита импортов скачан/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Скачать CSV отчет аудита импортов release history",
+      }),
+    );
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/CSV отчет аудита импортов скачан/);
+    fireEvent.change(
+      screen.getByLabelText("Фильтр приватности аудита импортов"),
+      { target: { value: "with_privacy" } },
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
+    ).toHaveTextContent("0 из 5");
+    expect(
+      screen.getByText("По выбранным фильтрам аудита записей нет."),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сбросить фильтры аудита импортов" }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
+    ).toHaveTextContent("5 из 5");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сбросить фильтры release history" }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка фильтров release history" }),
+    ).toHaveTextContent("5 из 5");
 
     fireEvent.change(historyInput, { target: { value: "{bad json}\n" } });
-    expect(screen.getByRole("list", { name: "Ошибки формата release history" })).toHaveTextContent(
-      /строка 1: invalid JSON/,
+    expect(
+      screen.getByRole("list", { name: "Ошибки формата release history" }),
+    ).toHaveTextContent(/строка 1: invalid JSON/);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Импортировать history JSONL" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
-    expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
-      /Импорт не содержит валидных baseline-записей/,
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус импорта release history" }),
+      ).toHaveTextContent(/Импорт не содержит валидных baseline-записей/),
     );
   });
 
-  it("exports bundle, markdown, json, html, and history files and logs them", () => {
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+  it("exports bundle, markdown, json, html, and history files and logs them", async () => {
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
     render(<SysReleaseStatusPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать единый пакет release status" }));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать release status в Markdown" }));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать release status в JSON" }));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать release status в HTML" }));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать release status в History JSONL" }));
-
-    expect(click).toHaveBeenCalledTimes(8);
-    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
-      /History JSONL экспорт готов: release-history-\d{4}-\d{2}-\d{2}\.jsonl/,
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать единый пакет release status",
+      }),
     );
-    const log = screen.getByRole("region", { name: "Журнал экспортов релиз-статуса" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+      ).toHaveTextContent(/Пакетный экспорт готов/),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать release status в Markdown",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+      ).toHaveTextContent(/Markdown экспорт готов/),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать release status в JSON",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+      ).toHaveTextContent(/JSON экспорт готов/),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать release status в HTML",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+      ).toHaveTextContent(/HTML экспорт готов/),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать release status в History JSONL",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+      ).toHaveTextContent(
+        /History JSONL экспорт готов: release-history-\d{4}-\d{2}-\d{2}\.jsonl/,
+      ),
+    );
+    expect(click).toHaveBeenCalledTimes(8);
+    const log = screen.getByRole("region", {
+      name: "Журнал экспортов релиз-статуса",
+    });
     expect(within(log).getByText("Единый пакет")).toBeInTheDocument();
     expect(within(log).getByText("Файлов: 4")).toBeInTheDocument();
-    expect(within(log).getByText(/release-status-\d{4}-\d{2}-\d{2}\.md/)).toBeInTheDocument();
-    expect(within(log).getByText(/release-status-\d{4}-\d{2}-\d{2}\.json/)).toBeInTheDocument();
-    expect(within(log).getByText(/release-status-\d{4}-\d{2}-\d{2}\.html/)).toBeInTheDocument();
-    expect(within(log).getByText(/release-history-\d{4}-\d{2}-\d{2}\.jsonl/)).toBeInTheDocument();
+    expect(
+      within(log).getByText(/release-status-\d{4}-\d{2}-\d{2}\.md/),
+    ).toBeInTheDocument();
+    expect(
+      within(log).getByText(/release-status-\d{4}-\d{2}-\d{2}\.json/),
+    ).toBeInTheDocument();
+    expect(
+      within(log).getByText(/release-status-\d{4}-\d{2}-\d{2}\.html/),
+    ).toBeInTheDocument();
+    expect(
+      within(log).getByText(/release-history-\d{4}-\d{2}-\d{2}\.jsonl/),
+    ).toBeInTheDocument();
   });
 
   it("prepares the local preflight command without running shell commands", () => {
     render(<SysReleaseStatusPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Подготовить локальный запуск" }));
-
-    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
-      /npm run preflight:release-status/,
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подготовить локальный запуск" }),
     );
+
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/npm run preflight:release-status/);
   });
 });

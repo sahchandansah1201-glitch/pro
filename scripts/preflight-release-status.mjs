@@ -15,26 +15,66 @@ const HISTORY_REPORT = `${OUTPUT_DIR}/release-history.jsonl`;
 
 const steps = [
   ["release status tests", npmCmd, ["run", "test:release-status"]],
-  ["release status privacy detector tests", npmCmd, ["run", "test:release-status-privacy"]],
+  [
+    "release status privacy detector tests",
+    npmCmd,
+    ["run", "test:release-status-privacy"],
+  ],
+  [
+    "release status UI tests",
+    npmCmd,
+    [
+      "test",
+      "--",
+      "--run",
+      "src/lib/release-status-ui.test.ts",
+      "src/pages/sys/SysReleaseStatusPage.test.tsx",
+    ],
+  ],
   [
     "write markdown report and history",
     process.execPath,
-    ["scripts/release-status.mjs", "--offline", "--output", MARKDOWN_REPORT, "--history", HISTORY_REPORT],
+    [
+      "scripts/release-status.mjs",
+      "--offline",
+      "--output",
+      MARKDOWN_REPORT,
+      "--history",
+      HISTORY_REPORT,
+    ],
   ],
   [
     "write JSON report",
     process.execPath,
-    ["scripts/release-status.mjs", "--offline", "--json", "--output", JSON_REPORT],
+    [
+      "scripts/release-status.mjs",
+      "--offline",
+      "--json",
+      "--output",
+      JSON_REPORT,
+    ],
   ],
   [
     "write HTML visual report",
     process.execPath,
-    ["scripts/release-status.mjs", "--offline", "--html", "--output", HTML_REPORT],
+    [
+      "scripts/release-status.mjs",
+      "--offline",
+      "--html",
+      "--output",
+      HTML_REPORT,
+    ],
   ],
   [
     "privacy scan generated release-status artifacts",
     process.execPath,
-    ["scripts/check-release-status-privacy.mjs", MARKDOWN_REPORT, JSON_REPORT, HTML_REPORT, HISTORY_REPORT],
+    [
+      "scripts/check-release-status-privacy.mjs",
+      MARKDOWN_REPORT,
+      JSON_REPORT,
+      HTML_REPORT,
+      HISTORY_REPORT,
+    ],
   ],
   ["Stage 3 docs guard", process.execPath, ["scripts/check-stage3-docs.mjs"]],
   ["No deno.lock files", process.execPath, ["scripts/check-no-deno-locks.mjs"]],
@@ -54,7 +94,9 @@ function printResults() {
     return;
   }
   for (const result of results) {
-    console.log(`${result.ok ? "✓" : "✗"} ${result.label} (${formatMs(result.durationMs)})`);
+    console.log(
+      `${result.ok ? "✓" : "✗"} ${result.label} (${formatMs(result.durationMs)})`,
+    );
   }
 }
 
@@ -86,7 +128,9 @@ for (const [label, cmd, args] of steps) {
   if (result.signal) {
     results.push({ label, ok: false, durationMs });
     printResults();
-    console.error(`[preflight-release-status] FAILED: ${label} (signal ${result.signal})`);
+    console.error(
+      `[preflight-release-status] FAILED: ${label} (signal ${result.signal})`,
+    );
     process.exit(1);
   }
   results.push({ label, ok: true, durationMs });

@@ -106,11 +106,11 @@ The focused Stage 3 docs guard is standalone and does not require
 - [x] Nightly artifacts report is linked.
 - [x] Release operations dashboard is linked.
 - [x] Release operations dashboard file output, JSON output, and CI workflow
-  are documented.
+      are documented.
 - [x] Release operations dashboard HTML output, release-history JSONL,
-  privacy detector, and focused local preflight are documented.
+      privacy detector, and focused local preflight are documented.
 - [x] System admin release-status UI viewer and e2e smoke coverage are
-  documented.
+      documented.
 
 ## 9. Sync changelog
 
@@ -178,5 +178,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #62: added release-history pagination, selected-baseline preview,
   expanded e2e validation of audit report JSON, and audit-report summary
   metadata on `/sys/release-status`.
+- PR #63: added advanced release-history filters, import-audit filters,
+  sanitized CSV audit export, operation busy states, and edge e2e validation
+  for `/sys/release-status`.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
