@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   ClipboardCheck,
@@ -29,6 +29,8 @@ import {
   buildReleaseImportAuditCsv,
   buildFilteredReleaseHistoryCsv,
   buildFilteredReleaseHistoryJsonl,
+  buildFilteredReleaseHistoryXlsxBytes,
+  buildReleaseHistoryFilterPreset,
   buildReleaseStatusExportBundle,
   buildReleaseStatusExportFile,
   buildReleaseBaselineOptions,
@@ -36,6 +38,8 @@ import {
   filterReleaseHistoryRecordsAdvanced,
   filterReleaseImportAuditEntries,
   paginateReleaseHistoryRecords,
+  DEFAULT_RELEASE_HISTORY_FILTER_PRESETS,
+  RELEASE_HISTORY_FILTER_PRESET_LIMIT,
   RELEASE_STATUS_ALLOWED_ROLES,
   RELEASE_STATUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_DEMO_HISTORY_JSONL,
@@ -49,9 +53,12 @@ import {
   releaseStatusLevelLabel,
   releaseHistoryFilteredCsvFilename,
   releaseHistoryFilteredJsonlFilename,
+  releaseHistoryFilteredXlsxFilename,
   summarizeReleaseHistoryPreview,
   summarizeReleaseHistoryIssues,
   summarizeReleasePrivacy,
+  normalizeReleaseHistoryFilterPreset,
+  type ReleaseHistoryFilterPreset,
   type ReleaseHistoryRecord,
   type ReleaseHistoryArtifactFilter,
   type ReleaseHistoryDenoFilter,
@@ -65,6 +72,8 @@ import {
 
 const FORMATS: ReleaseStatusFormat[] = ["markdown", "json", "html", "history"];
 const HISTORY_PREVIEW_PAGE_SIZE = 3;
+const HISTORY_FILTER_PRESETS_STORAGE_KEY =
+  "derma-pro:sys-release-status:history-filter-presets";
 const AUDIT_STATUS_OPTIONS = [
   "all",
   "safe",
@@ -104,16 +113,43 @@ type ReleaseStatusOperation =
   | "history_delete"
   | "history_filtered_jsonl"
   | "history_filtered_csv"
+  | "history_filtered_xlsx"
   | "audit_json"
   | "audit_csv"
   | null;
 
-function downloadText(
-  filename: string,
-  content: string,
-  type = "text/plain;charset=utf-8",
+function readSavedHistoryFilterPresets(): ReleaseHistoryFilterPreset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(HISTORY_FILTER_PRESETS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => normalizeReleaseHistoryFilterPreset(item))
+      .filter((item): item is ReleaseHistoryFilterPreset => item != null)
+      .filter((item) => item.source === "saved")
+      .slice(0, RELEASE_HISTORY_FILTER_PRESET_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedHistoryFilterPresets(
+  presets: ReleaseHistoryFilterPreset[],
 ): void {
-  const blob = new Blob([content], { type });
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      HISTORY_FILTER_PRESETS_STORAGE_KEY,
+      JSON.stringify(presets.filter((preset) => preset.source === "saved")),
+    );
+  } catch {
+    // Presets are a convenience only; never block the release-status page.
+  }
+}
+
+function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -122,6 +158,15 @@ function downloadText(
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function downloadText(
+  filename: string,
+  content: string,
+  type = "text/plain;charset=utf-8",
+): void {
+  const blob = new Blob([content], { type });
+  downloadBlob(filename, blob);
 }
 
 function formatTime(value: string): string {
@@ -157,6 +202,8 @@ function releaseStatusOperationLabel(
     return "Готовим JSONL-экспорт отфильтрованной history.";
   if (operation === "history_filtered_csv")
     return "Готовим CSV-экспорт отфильтрованной history.";
+  if (operation === "history_filtered_xlsx")
+    return "Готовим XLSX-экспорт отфильтрованной history.";
   if (operation === "audit_json") return "Готовим JSON-отчет аудита.";
   if (operation === "audit_csv") return "Готовим CSV-отчет аудита.";
   return "Операции не выполняются.";
@@ -165,6 +212,7 @@ function releaseStatusOperationLabel(
 export default function SysReleaseStatusPage() {
   const snapshot = RELEASE_STATUS_DEMO_SNAPSHOT;
   const previousSnapshot = RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT;
+  const historyInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [format, setFormat] = useState<ReleaseStatusFormat>("markdown");
   const [status, setStatus] = useState(
     "Предпросмотр готов. Секреты не отображаются.",
@@ -194,6 +242,12 @@ export default function SysReleaseStatusPage() {
   const [historyWorkflowFilter, setHistoryWorkflowFilter] =
     useState<ReleaseHistoryWorkflowFilter>("all");
   const [historyQuery, setHistoryQuery] = useState("");
+  const [savedHistoryPresets, setSavedHistoryPresets] = useState(
+    readSavedHistoryFilterPresets,
+  );
+  const [selectedHistoryPresetId, setSelectedHistoryPresetId] =
+    useState("builtin-all");
+  const [historyPresetName, setHistoryPresetName] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
   const [auditStatusFilter, setAuditStatusFilter] = useState("all");
   const [auditPrivacyFilter, setAuditPrivacyFilter] =
@@ -237,6 +291,32 @@ export default function SysReleaseStatusPage() {
       historyWorkflowFilter,
     ],
   );
+  const allHistoryPresets = useMemo(
+    () => [...DEFAULT_RELEASE_HISTORY_FILTER_PRESETS, ...savedHistoryPresets],
+    [savedHistoryPresets],
+  );
+  const selectedHistoryPreset = useMemo(
+    () =>
+      allHistoryPresets.find((preset) => preset.id === selectedHistoryPresetId),
+    [allHistoryPresets, selectedHistoryPresetId],
+  );
+  const historyIssueHints = useMemo(() => {
+    const hints: string[] = [];
+    if (historyIssueSummary.invalidJsonCount > 0) {
+      hints.push("Проверьте синтаксис JSON в отмеченных строках.");
+    }
+    if (historyIssueSummary.invalidSchemaCount > 0) {
+      hints.push(
+        "Оставьте только release-history строки с repo, branch, currentSha, status и workflows.",
+      );
+    }
+    if (historyIssueSummary.privacyBlockedCount > 0) {
+      hints.push(
+        "Удалите email, токены, signed URL, storage paths и реальные данные перед импортом.",
+      );
+    }
+    return hints;
+  }, [historyIssueSummary]);
   const filteredHistoryRecords = useMemo(
     () =>
       filterReleaseHistoryRecordsAdvanced(
@@ -295,8 +375,13 @@ export default function SysReleaseStatusPage() {
     operation === "history_import" ||
     operation === "history_delete" ||
     operation === "history_filtered_jsonl" ||
-    operation === "history_filtered_csv";
+    operation === "history_filtered_csv" ||
+    operation === "history_filtered_xlsx";
   const auditBusy = operation === "audit_json" || operation === "audit_csv";
+
+  useEffect(() => {
+    writeSavedHistoryFilterPresets(savedHistoryPresets);
+  }, [savedHistoryPresets]);
 
   const runOperation = async (
     nextOperation: Exclude<ReleaseStatusOperation, null>,
@@ -320,12 +405,80 @@ export default function SysReleaseStatusPage() {
     setHistoryWorkflowFilter("all");
     setHistoryQuery("");
     setHistoryPage(1);
+    setSelectedHistoryPresetId("builtin-all");
   };
 
   const resetAuditFilters = () => {
     setAuditStatusFilter("all");
     setAuditPrivacyFilter("all");
     setAuditQuery("");
+  };
+
+  const markHistoryFiltersCustom = () => {
+    setSelectedHistoryPresetId("custom");
+  };
+
+  const applyHistoryPreset = (preset: ReleaseHistoryFilterPreset) => {
+    setHistoryStatusFilter(preset.filters.status);
+    setHistoryDenoFilter(preset.filters.deno);
+    setHistoryArtifactFilter(preset.filters.artifact);
+    setHistoryWorkflowFilter(preset.filters.workflow);
+    setHistoryQuery(preset.filters.query);
+    setHistoryPage(1);
+    setSelectedHistoryPresetId(preset.id);
+    setStatus(`Пресет фильтров применён: ${preset.name}.`);
+  };
+
+  const handleHistoryPresetChange = (presetId: string) => {
+    if (presetId === "custom") {
+      setSelectedHistoryPresetId("custom");
+      return;
+    }
+    const preset = allHistoryPresets.find((item) => item.id === presetId);
+    if (preset) applyHistoryPreset(preset);
+  };
+
+  const handleSaveHistoryPreset = () => {
+    const preset = buildReleaseHistoryFilterPreset(
+      historyPresetName,
+      activeHistoryFilters,
+    );
+    if (!preset) {
+      setStatus(
+        "Пресет не сохранён: задайте безопасное название без секретов и приватных данных.",
+      );
+      return;
+    }
+    setSavedHistoryPresets((items) => [
+      preset,
+      ...items
+        .filter(
+          (item) =>
+            item.id !== preset.id &&
+            item.name.toLowerCase() !== preset.name.toLowerCase(),
+        )
+        .slice(0, RELEASE_HISTORY_FILTER_PRESET_LIMIT - 1),
+    ]);
+    setSelectedHistoryPresetId(preset.id);
+    setHistoryPresetName("");
+    setStatus(`Пресет фильтров сохранён: ${preset.name}.`);
+  };
+
+  const handleDeleteHistoryPreset = () => {
+    const preset = savedHistoryPresets.find(
+      (item) => item.id === selectedHistoryPresetId,
+    );
+    if (!preset) return;
+    setSavedHistoryPresets((items) =>
+      items.filter((item) => item.id !== preset.id),
+    );
+    setSelectedHistoryPresetId("custom");
+    setStatus(`Сохранённый пресет удалён: ${preset.name}.`);
+  };
+
+  const handleFocusFirstHistoryError = () => {
+    historyInputRef.current?.focus();
+    setStatus(historyIssueSummary.message);
   };
 
   const handleExport = (targetFormat: ReleaseStatusFormat) => {
@@ -559,21 +712,29 @@ export default function SysReleaseStatusPage() {
     );
   };
 
-  const handleExportFilteredHistory = (targetFormat: "jsonl" | "csv") => {
+  const handleExportFilteredHistory = (
+    targetFormat: "jsonl" | "csv" | "xlsx",
+  ) => {
     if (filteredHistoryRecords.length === 0) return;
     void runOperation(
-      targetFormat === "csv" ? "history_filtered_csv" : "history_filtered_jsonl",
+      targetFormat === "xlsx"
+        ? "history_filtered_xlsx"
+        : targetFormat === "csv"
+          ? "history_filtered_csv"
+          : "history_filtered_jsonl",
       () => {
         const context = {
           totalCount: historyDraft.records.length,
           filteredCount: filteredHistoryRecords.length,
           filters: activeHistoryFilters,
         };
-        const content =
+        const textContent =
           targetFormat === "csv"
             ? buildFilteredReleaseHistoryCsv(filteredHistoryRecords, context)
-            : buildFilteredReleaseHistoryJsonl(filteredHistoryRecords);
-        const exportPrivacy = summarizeReleasePrivacy(content);
+            : targetFormat === "jsonl"
+              ? buildFilteredReleaseHistoryJsonl(filteredHistoryRecords)
+              : buildFilteredReleaseHistoryCsv(filteredHistoryRecords, context);
+        const exportPrivacy = summarizeReleasePrivacy(textContent);
         if (exportPrivacy.findingCount > 0) {
           setStatus(
             "Экспорт отфильтрованной history заблокирован: privacy detector нашёл чувствительные значения.",
@@ -581,16 +742,31 @@ export default function SysReleaseStatusPage() {
           return;
         }
         const filename =
-          targetFormat === "csv"
-            ? releaseHistoryFilteredCsvFilename()
-            : releaseHistoryFilteredJsonlFilename();
-        downloadText(
-          filename,
-          content,
-          targetFormat === "csv"
-            ? "text/csv;charset=utf-8"
-            : "application/x-ndjson;charset=utf-8",
-        );
+          targetFormat === "xlsx"
+            ? releaseHistoryFilteredXlsxFilename()
+            : targetFormat === "csv"
+              ? releaseHistoryFilteredCsvFilename()
+              : releaseHistoryFilteredJsonlFilename();
+        if (targetFormat === "xlsx") {
+          const bytes = buildFilteredReleaseHistoryXlsxBytes(
+            filteredHistoryRecords,
+            context,
+          );
+          downloadBlob(
+            filename,
+            new Blob([bytes], {
+              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }),
+          );
+        } else {
+          downloadText(
+            filename,
+            textContent,
+            targetFormat === "csv"
+              ? "text/csv;charset=utf-8"
+              : "application/x-ndjson;charset=utf-8",
+          );
+        }
         recordImportAudit({
           at: new Date().toISOString(),
           status: "downloaded",
@@ -619,6 +795,7 @@ export default function SysReleaseStatusPage() {
     setHistoryWorkflowFilter("all");
     setHistoryQuery("");
     setHistoryPage(1);
+    setSelectedHistoryPresetId("builtin-all");
     resetAuditFilters();
     setHistoryParseNote("History JSONL сброшен к демо-baseline.");
     setImportPrivacyNote("Privacy-проверка импорта ожидает запуска.");
@@ -886,6 +1063,7 @@ export default function SysReleaseStatusPage() {
               </div>
             </div>
             <Textarea
+              ref={historyInputRef}
               value={historyInput}
               onChange={(event) => {
                 setHistoryInput(event.target.value);
@@ -893,7 +1071,7 @@ export default function SysReleaseStatusPage() {
               }}
               aria-label="Вставить release-history JSONL"
               aria-invalid={historyIssueSummary.totalIssues > 0}
-              aria-describedby="release-history-import-error-summary release-history-filter-summary release-history-import-status release-history-import-privacy-status"
+              aria-describedby="release-history-import-error-summary release-history-import-error-hints release-history-filter-summary release-history-import-status release-history-import-privacy-status"
               disabled={historyBusy}
               className="mt-3 min-h-[150px] resize-y font-mono text-[11px] leading-relaxed"
             />
@@ -994,6 +1172,114 @@ export default function SysReleaseStatusPage() {
               >
                 {historyIssueSummary.message}
               </div>
+              {historyIssueHints.length > 0 && (
+                <div className="mt-2 rounded-md border border-border bg-background p-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <ul
+                      id="release-history-import-error-hints"
+                      className="space-y-1 text-[11px] text-muted-foreground"
+                      aria-label="Подсказки исправления release history"
+                    >
+                      {historyIssueHints.map((hint) => (
+                        <li key={hint}>{hint}</li>
+                      ))}
+                    </ul>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-fit shrink-0 text-[11px]"
+                      onClick={handleFocusFirstHistoryError}
+                      aria-label="Фокус на JSONL с ошибкой"
+                    >
+                      К JSONL
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <div className="mt-3 rounded-md border border-border bg-background p-3">
+                <div className="grid gap-2 lg:grid-cols-[minmax(180px,0.8fr)_minmax(180px,1fr)_auto_auto] lg:items-end">
+                  <label className="text-[11px] text-muted-foreground">
+                    Пресет
+                    <select
+                      aria-label="Пресет фильтров release history"
+                      value={selectedHistoryPresetId}
+                      onChange={(event) =>
+                        handleHistoryPresetChange(event.target.value)
+                      }
+                      className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="custom">Ручные фильтры</option>
+                      <optgroup label="Встроенные">
+                        {DEFAULT_RELEASE_HISTORY_FILTER_PRESETS.map(
+                          (preset) => (
+                            <option key={preset.id} value={preset.id}>
+                              {preset.name}
+                            </option>
+                          ),
+                        )}
+                      </optgroup>
+                      {savedHistoryPresets.length > 0 && (
+                        <optgroup label="Сохранённые">
+                          {savedHistoryPresets.map((preset) => (
+                            <option key={preset.id} value={preset.id}>
+                              {preset.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </label>
+                  <label className="text-[11px] text-muted-foreground">
+                    Название пресета
+                    <Input
+                      aria-label="Название пресета release history"
+                      value={historyPresetName}
+                      onChange={(event) =>
+                        setHistoryPresetName(event.target.value)
+                      }
+                      placeholder="Например: Блокеры недели"
+                      className="mt-1 h-9 text-[12px]"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-[12px]"
+                    onClick={handleSaveHistoryPreset}
+                    disabled={isBusy}
+                    aria-label="Сохранить текущие фильтры release history как пресет"
+                  >
+                    Сохранить
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-[12px]"
+                    onClick={handleDeleteHistoryPreset}
+                    disabled={
+                      isBusy ||
+                      !savedHistoryPresets.some(
+                        (preset) => preset.id === selectedHistoryPresetId,
+                      )
+                    }
+                    aria-label="Удалить сохранённый пресет release history"
+                  >
+                    Удалить
+                  </Button>
+                </div>
+                <div
+                  role="status"
+                  aria-label="Сводка пресетов release history"
+                  className="mt-2 text-[11px] text-muted-foreground"
+                >
+                  Выбран: {selectedHistoryPreset?.name ?? "Ручные фильтры"}.
+                  Сохранено: {savedHistoryPresets.length}/
+                  {RELEASE_HISTORY_FILTER_PRESET_LIMIT}.
+                </div>
+              </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                 <label className="text-[11px] text-muted-foreground">
                   Статус
@@ -1001,6 +1287,7 @@ export default function SysReleaseStatusPage() {
                     aria-label="Фильтр статуса истории"
                     value={historyStatusFilter}
                     onChange={(event) => {
+                      markHistoryFiltersCustom();
                       setHistoryStatusFilter(
                         event.target.value as ReleaseHistoryStatusFilter,
                       );
@@ -1020,6 +1307,7 @@ export default function SysReleaseStatusPage() {
                     aria-label="Фильтр deno-lock истории"
                     value={historyDenoFilter}
                     onChange={(event) => {
+                      markHistoryFiltersCustom();
                       setHistoryDenoFilter(
                         event.target.value as ReleaseHistoryDenoFilter,
                       );
@@ -1038,6 +1326,7 @@ export default function SysReleaseStatusPage() {
                     aria-label="Фильтр artifact истории"
                     value={historyArtifactFilter}
                     onChange={(event) => {
+                      markHistoryFiltersCustom();
                       setHistoryArtifactFilter(
                         event.target.value as ReleaseHistoryArtifactFilter,
                       );
@@ -1056,6 +1345,7 @@ export default function SysReleaseStatusPage() {
                     aria-label="Фильтр workflow результата истории"
                     value={historyWorkflowFilter}
                     onChange={(event) => {
+                      markHistoryFiltersCustom();
                       setHistoryWorkflowFilter(
                         event.target.value as ReleaseHistoryWorkflowFilter,
                       );
@@ -1077,6 +1367,7 @@ export default function SysReleaseStatusPage() {
                     aria-label="Поиск по release history"
                     value={historyQuery}
                     onChange={(event) => {
+                      markHistoryFiltersCustom();
                       setHistoryQuery(event.target.value);
                       setHistoryPage(1);
                     }}
@@ -1122,6 +1413,20 @@ export default function SysReleaseStatusPage() {
                     {operation === "history_filtered_csv"
                       ? "Готовим CSV…"
                       : "CSV"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-fit text-[11px]"
+                    onClick={() => handleExportFilteredHistory("xlsx")}
+                    disabled={filteredHistoryRecords.length === 0 || isBusy}
+                    aria-label="Экспортировать отфильтрованную release history в XLSX"
+                  >
+                    <Download className="mr-1 h-3 w-3" aria-hidden />
+                    {operation === "history_filtered_xlsx"
+                      ? "Готовим XLSX…"
+                      : "XLSX"}
                   </Button>
                   <Button
                     type="button"

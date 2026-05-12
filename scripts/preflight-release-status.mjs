@@ -32,6 +32,11 @@ const steps = [
     ],
   ],
   [
+    "release status sync checker",
+    npmCmd,
+    ["run", "check:release-status-sync"],
+  ],
+  [
     "write markdown report and history",
     process.execPath,
     [

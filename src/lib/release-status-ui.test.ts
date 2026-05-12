@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildFilteredReleaseHistoryXlsxBytes,
+  buildReleaseHistoryFilterPreset,
   buildReleaseImportAuditReport,
   buildReleaseImportAuditCsv,
   buildFilteredReleaseHistoryCsv,
@@ -16,6 +18,8 @@ import {
   filterReleaseHistoryRecords,
   filterReleaseHistoryRecordsAdvanced,
   filterReleaseImportAuditEntries,
+  DEFAULT_RELEASE_HISTORY_FILTER_PRESETS,
+  normalizeReleaseHistoryFilterPreset,
   paginateReleaseHistoryRecords,
   parseReleaseHistoryJsonl,
   RELEASE_STATUS_DEMO_SNAPSHOT,
@@ -24,6 +28,7 @@ import {
   RELEASE_STATUS_PRIVACY_CATEGORIES,
   releaseHistoryFilteredCsvFilename,
   releaseHistoryFilteredJsonlFilename,
+  releaseHistoryFilteredXlsxFilename,
   releaseSnapshotFromHistoryRecord,
   releaseStatusFilename,
   releaseStatusLevel,
@@ -258,7 +263,7 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     const result = parseReleaseHistoryJsonl(`${safeFail}\n{bad json}\n`);
     const issueSummary = summarizeReleaseHistoryIssues(result);
     const jsonl = buildFilteredReleaseHistoryJsonl(result.records);
-    const csv = buildFilteredReleaseHistoryCsv(result.records, {
+    const context = {
       totalCount: 2,
       filteredCount: 1,
       filters: {
@@ -268,7 +273,11 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         workflow: "failure",
         query: "doctor@example.com",
       },
+    } as const;
+    const csv = buildFilteredReleaseHistoryCsv(result.records, {
+      ...context,
     });
+    const xlsx = buildFilteredReleaseHistoryXlsxBytes(result.records, context);
 
     expect(issueSummary).toEqual(
       expect.objectContaining({
@@ -293,6 +302,61 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     );
     expect(releaseHistoryFilteredCsvFilename()).toMatch(
       /^release-history-filtered-\d{4}-\d{2}-\d{2}\.csv$/,
+    );
+    expect(releaseHistoryFilteredXlsxFilename()).toMatch(
+      /^release-history-filtered-\d{4}-\d{2}-\d{2}\.xlsx$/,
+    );
+    expect(Array.from(xlsx.slice(0, 2))).toEqual([80, 75]);
+    expect(xlsx.length).toBeGreaterThan(100);
+  });
+
+  it("normalizes saved release-history filter presets safely", () => {
+    expect(
+      DEFAULT_RELEASE_HISTORY_FILTER_PRESETS.map((preset) => preset.id),
+    ).toEqual(
+      expect.arrayContaining(["builtin-blockers", "builtin-e2e-failures"]),
+    );
+
+    const preset = buildReleaseHistoryFilterPreset(
+      "Блокеры недели",
+      {
+        status: "fail",
+        deno: "blocked",
+        artifact: "missing",
+        workflow: "failure",
+        query: "e2e",
+      },
+      "2026-05-12T10:00:00Z",
+    );
+
+    expect(preset).toEqual(
+      expect.objectContaining({
+        source: "saved",
+        name: "Блокеры недели",
+        filters: expect.objectContaining({ query: "e2e" }),
+      }),
+    );
+    expect(preset?.id).toMatch(/^saved-\d+-/);
+    expect(
+      buildReleaseHistoryFilterPreset("doctor@example.com", preset!.filters),
+    ).toBeNull();
+    expect(
+      normalizeReleaseHistoryFilterPreset({
+        id: "saved-1-safe",
+        name: "Safe",
+        source: "saved",
+        filters: {
+          status: "all",
+          deno: "all",
+          artifact: "all",
+          workflow: "all",
+          query: "doctor@example.com",
+        },
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        filters: expect.objectContaining({ query: "" }),
+      }),
     );
   });
 

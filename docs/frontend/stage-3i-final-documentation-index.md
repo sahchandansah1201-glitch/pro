@@ -34,6 +34,7 @@ npm run preflight:e2e-artifacts
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
 npm run test:release-status-privacy
+npm run check:release-status-sync
 npm run preflight:release-status
 npm test -- --run src/lib/release-status-ui.test.ts src/pages/sys/SysReleaseStatusPage.test.tsx
 npx playwright test e2e/sys-release-status.pw.ts
@@ -111,6 +112,8 @@ The focused Stage 3 docs guard is standalone and does not require
       privacy detector, and focused local preflight are documented.
 - [x] System admin release-status UI viewer and e2e smoke coverage are
       documented.
+- [x] Release history filter presets, filtered XLSX export, import-error
+      actions, and release-status sync checker are documented.
 
 ## 9. Sync changelog
 
@@ -184,5 +187,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #64: added filtered release-history JSONL/CSV export, import error
   summaries, history export a11y states, and expanded e2e coverage for
   `/sys/release-status`.
+- PR #65: added saved release-history filter presets, filtered XLSX export,
+  import-error remediation actions, and the release-status sync checker across
+  UI, tests, workflow, preflight, and Stage 3 docs.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

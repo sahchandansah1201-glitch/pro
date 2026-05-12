@@ -219,6 +219,7 @@ const RELEASE_STATUS_SCRIPT = "scripts/release-status.mjs";
 const RELEASE_STATUS_TEST = "scripts/release-status.test.mjs";
 const RELEASE_STATUS_PRIVACY_SCRIPT = "scripts/check-release-status-privacy.mjs";
 const RELEASE_STATUS_PRIVACY_TEST = "scripts/check-release-status-privacy.test.mjs";
+const RELEASE_STATUS_SYNC_SCRIPT = "scripts/check-release-status-sync.mjs";
 const RELEASE_STATUS_PREFLIGHT_SCRIPT = "scripts/preflight-release-status.mjs";
 const RELEASE_STATUS_UI_LIB = "src/lib/release-status-ui.ts";
 const RELEASE_STATUS_UI_LIB_TEST = "src/lib/release-status-ui.test.ts";
@@ -379,6 +380,7 @@ requireText(PACKAGE_JSON, packageJson, "\"release:status:offline\": \"node scrip
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test scripts/release-status.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status-privacy\": \"node --test scripts/check-release-status-privacy.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-privacy\": \"node scripts/check-release-status-privacy.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"check:release-status-sync\": \"node scripts/check-release-status-sync.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "e2e/sys-release-status.pw.ts");
 
 const releaseStatusScript = existsSync(join(ROOT, RELEASE_STATUS_SCRIPT))
@@ -422,6 +424,8 @@ requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-privacy");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/lib/release-status-ui.test.ts");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/pages/sys/SysReleaseStatusPage.test.tsx");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release status sync checker");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "check:release-status-sync");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release-status.html");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release-history.jsonl");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-release-status-privacy.mjs");
@@ -435,6 +439,7 @@ if (!releaseStatusWorkflow) {
   errors.push(`Missing required workflow: ${RELEASE_STATUS_WORKFLOW}`);
 }
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run preflight:release-status");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run check:release-status-sync");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status -- --output test-results/release-status.md --history test-results/release-history.jsonl");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:json -- --output test-results/release-status.json");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:html -- --output test-results/release-status.html");
@@ -444,6 +449,10 @@ requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "actions/upload-arti
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "release-status-${{ github.run_id }}");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "test-results/release-status.html");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "test-results/release-history.jsonl");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/check-release-status-sync.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/release-status-ui.ts");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/pages/sys/SysReleaseStatusPage.tsx");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "e2e/sys-release-status.pw.ts");
 
 const stage3m = readDoc("stage-3m-release-operations-dashboard.md");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/release-status.mjs");
@@ -487,9 +496,18 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "audit
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "audit-report-download");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "baseline-preview");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "baseline-delete");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-filter-presets");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "filtered-history-xlsx");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "import-error-actions");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "release-status-sync-checker");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run check:release-status-sync");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseImportAuditReport");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildFilteredReleaseHistoryJsonl");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildFilteredReleaseHistoryCsv");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildFilteredReleaseHistoryXlsxBytes");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseHistoryFilterPreset");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "normalizeReleaseHistoryFilterPreset");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "releaseHistoryFilteredXlsxFilename");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "summarizeReleaseHistoryIssues");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "filterReleaseHistoryRecords");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "paginateReleaseHistoryRecords");
@@ -576,8 +594,12 @@ requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryAuditFilen
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryAuditCsvFilename");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildFilteredReleaseHistoryJsonl");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildFilteredReleaseHistoryCsv");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildFilteredReleaseHistoryXlsxBytes");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseHistoryFilterPreset");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "normalizeReleaseHistoryFilterPreset");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryFilteredJsonlFilename");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryFilteredCsvFilename");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryFilteredXlsxFilename");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "summarizeReleaseHistoryIssues");
 
 const releaseStatusUiPage = existsSync(join(ROOT, RELEASE_STATUS_UI_PAGE))
@@ -602,6 +624,13 @@ requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сбросить фи�
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сводка ошибок импорта release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать отфильтрованную release history в JSONL");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать отфильтрованную release history в CSV");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать отфильтрованную release history в XLSX");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Пресет фильтров release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сводка пресетов release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сохранить текущие фильтры release history как пресет");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Удалить сохранённый пресет release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Подсказки исправления release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фокус на JSONL с ошибкой");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Пагинация release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предыдущая страница истории");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Следующая страница истории");
@@ -639,6 +668,9 @@ requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Сводка фильт�
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Сводка ошибок импорта release history");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать отфильтрованную release history в JSONL");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать отфильтрованную release history в CSV");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать отфильтрованную release history в XLSX");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Пресет фильтров release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Фокус на JSONL с ошибкой");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "release-history-filtered");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Пагинация release history");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Следующая страница истории");
@@ -671,6 +703,7 @@ for (const path of [
   RELEASE_STATUS_TEST,
   RELEASE_STATUS_PRIVACY_SCRIPT,
   RELEASE_STATUS_PRIVACY_TEST,
+  RELEASE_STATUS_SYNC_SCRIPT,
   RELEASE_STATUS_PREFLIGHT_SCRIPT,
   RELEASE_STATUS_UI_LIB,
   RELEASE_STATUS_UI_LIB_TEST,

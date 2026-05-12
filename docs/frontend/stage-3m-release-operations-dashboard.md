@@ -14,6 +14,7 @@ backend configuration, or workflow scheduling.
 - Dashboard tests: `scripts/release-status.test.mjs`.
 - Privacy detector: `scripts/check-release-status-privacy.mjs`.
 - Privacy detector tests: `scripts/check-release-status-privacy.test.mjs`.
+- Release-status sync checker: `scripts/check-release-status-sync.mjs`.
 - Focused preflight: `scripts/preflight-release-status.mjs`.
 - npm scripts:
   - `npm run release:status`
@@ -23,6 +24,7 @@ backend configuration, or workflow scheduling.
   - `npm run test:release-status`
   - `npm run test:release-status-privacy`
   - `npm run check:release-status-privacy`
+  - `npm run check:release-status-sync`
   - `npm run preflight:release-status`
 
 The CLI does not mutate git state or source files. It writes only the explicit
@@ -244,6 +246,11 @@ The viewer also exposes the UI-side release operator guardrails:
 - The history preview now supports `advanced-history-filters`: status,
   deno-lock result, artifact presence, workflow conclusion, and free-text
   search are combined by `filterReleaseHistoryRecordsAdvanced`.
+- The history preview supports `history-filter-presets`: built-in presets and
+  up to eight saved browser-local presets. Preset names and filters are
+  normalized by `buildReleaseHistoryFilterPreset` and
+  `normalizeReleaseHistoryFilterPreset`, so unsafe names or query values are
+  rejected/redacted before storage.
 - The selected comparison baseline has a compact `baseline-preview` with SHA,
   generated date, deno-lock status, artifact presence, and the first workflow
   conclusions before the comparison table.
@@ -265,9 +272,17 @@ The viewer also exposes the UI-side release operator guardrails:
   `buildFilteredReleaseHistoryJsonl`, CSV is built by
   `buildFilteredReleaseHistoryCsv`, and both outputs pass the same browser
   privacy scan before download.
+- Operators can export the same sanitized matrix through
+  `filtered-history-xlsx`: XLSX bytes are built by
+  `buildFilteredReleaseHistoryXlsxBytes`, the filename comes from
+  `releaseHistoryFilteredXlsxFilename`, and the privacy scan runs before the
+  binary file is created.
 - JSONL validation now has a visible `import-error-summary` from
   `summarizeReleaseHistoryIssues`, so invalid JSON, schema rejects, and
   privacy-blocked lines are announced as counts and affected line numbers.
+- `import-error-actions` add a remediation list and a `Фокус на JSONL с
+  ошибкой` control so keyboard users can jump back to the failing JSONL field
+  after reading the summary.
 - The history import textarea and filtered export controls carry
   `history-export-a11y` states: `aria-invalid`, `aria-describedby`, disabled
   no-result exports, and live status updates for JSONL/CSV export completion.
@@ -280,6 +295,9 @@ The viewer also exposes the UI-side release operator guardrails:
 - Import privacy status is announced separately from the general page status,
   so screen-reader users can distinguish "parse succeeded" from "privacy gate
   passed" or "privacy gate blocked".
+- The `release-status-sync-checker` (`npm run check:release-status-sync`)
+  keeps the release-status page, helper library, unit/e2e tests, workflow,
+  preflight, and Stage 3 docs aligned before generated reports are written.
 
 ## 13. Maintenance rule
 
@@ -300,8 +318,10 @@ The viewer also exposes the UI-side release operator guardrails:
   edge-e2e-validation, filtered-history-export, import-error-summary,
   history-export-a11y, jsonl-validation, dry-run-import, import-audit,
   audit-report-summary, audit-report-download, baseline-preview,
-  baseline-delete, baseline-selector, and privacy-preview changes must also
-  keep `scripts/check-stage3-docs.mjs` aligned with the UI helper names and
-  e2e assertions.
+  baseline-delete, baseline-selector, privacy-preview,
+  history-filter-presets, filtered-history-xlsx, import-error-actions, and
+  release-status-sync-checker changes must also keep
+  `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
+  aligned with the UI helper names and e2e assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
   operations docs.

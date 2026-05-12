@@ -30,6 +30,7 @@ function historyLine(
 
 describe("SysReleaseStatusPage", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
       value: vi.fn(() => "blob:release-status"),
@@ -218,6 +219,16 @@ describe("SysReleaseStatusPage", () => {
       screen.getByRole("status", { name: "Статус релиз-дашборда" }),
     ).toHaveTextContent(/CSV экспорт отфильтрованной history готов/);
 
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в XLSX",
+      }),
+    );
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/XLSX экспорт отфильтрованной history готов/);
+
     fireEvent.change(screen.getByLabelText("Поиск по release history"), {
       target: { value: "not-present" },
     });
@@ -231,6 +242,11 @@ describe("SysReleaseStatusPage", () => {
         name: "Экспортировать отфильтрованную release history в CSV",
       }),
     ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в XLSX",
+      }),
+    ).toBeDisabled();
 
     fireEvent.change(historyInput, { target: { value: "{bad json}\n" } });
     expect(historyInput).toHaveAttribute("aria-invalid", "true");
@@ -242,6 +258,75 @@ describe("SysReleaseStatusPage", () => {
     expect(
       screen.getByRole("list", { name: "Ошибки формата release history" }),
     ).toHaveTextContent(/строка 1: invalid JSON/);
+    expect(
+      screen.getByRole("list", {
+        name: "Подсказки исправления release history",
+      }),
+    ).toHaveTextContent(/Проверьте синтаксис JSON/);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Фокус на JSONL с ошибкой" }),
+    );
+    expect(historyInput).toHaveFocus();
+  });
+
+  it("applies, saves, persists, and deletes release-history filter presets", () => {
+    const view = render(<SysReleaseStatusPage />);
+
+    fireEvent.change(
+      screen.getByLabelText("Пресет фильтров release history"),
+      {
+        target: { value: "builtin-e2e-failures" },
+      },
+    );
+    expect(
+      screen.getByLabelText("Фильтр workflow результата истории"),
+    ).toHaveValue("failure");
+    expect(screen.getByLabelText("Поиск по release history")).toHaveValue(
+      "e2e",
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toHaveTextContent(/Выбран: E2E failures/);
+
+    fireEvent.change(screen.getByLabelText("Название пресета release history"), {
+      target: { value: "Мой E2E фильтр" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Сохранить текущие фильтры release history как пресет",
+      }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toHaveTextContent(/Сохранено: 1\/8/);
+    expect(
+      window.localStorage.getItem(
+        "derma-pro:sys-release-status:history-filter-presets",
+      ),
+    ).toContain("Мой E2E фильтр");
+
+    view.unmount();
+    render(<SysReleaseStatusPage />);
+    const savedOption = screen.getByRole("option", {
+      name: "Мой E2E фильтр",
+    }) as HTMLOptionElement;
+    fireEvent.change(
+      screen.getByLabelText("Пресет фильтров release history"),
+      {
+        target: { value: savedOption.value },
+      },
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toHaveTextContent(/Мой E2E фильтр/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Удалить сохранённый пресет release history",
+      }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toHaveTextContent(/Сохранено: 0\/8/);
   });
 
   it("supports dry-run import, history filters, delete import, audit download, and JSONL validation", async () => {

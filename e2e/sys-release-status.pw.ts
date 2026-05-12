@@ -83,6 +83,50 @@ test.describe("/sys/release-status", () => {
         }),
       ].join("\n"),
     );
+    await page
+      .getByLabel("Пресет фильтров release history")
+      .selectOption("builtin-e2e-failures");
+    await expect(
+      page.getByLabel("Фильтр workflow результата истории"),
+    ).toHaveValue("failure");
+    await expect(page.getByLabel("Поиск по release history")).toHaveValue(
+      "e2e",
+    );
+    await expect(
+      page.getByRole("status", { name: "Сводка фильтров release history" }),
+    ).toContainText("5 из 6");
+    await page.getByLabel("Название пресета release history").fill("E2E blockers");
+    await page
+      .getByRole("button", {
+        name: "Сохранить текущие фильтры release history как пресет",
+      })
+      .click();
+    await expect(
+      page.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toContainText("Сохранено: 1/8");
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(
+      page.getByRole("option", { name: "E2E blockers" }),
+    ).toBeAttached();
+    await page.getByLabel("Вставить release-history JSONL").fill(
+      [
+        historyLine("aaaaaaaaaaa", "10"),
+        historyLine("bbbbbbbbbbb", "09"),
+        historyLine("ccccccccccc", "08"),
+        historyLine("ddddddddddd", "07"),
+        historyLine("eeeeeeeeeee", "06"),
+        historyLine("fffffffffff", "05", {
+          overallStatus: "ok",
+          workflowConclusion: "success",
+          denoLockOk: true,
+          artifactPresent: true,
+          workflowName: "release-status",
+        }),
+      ].join("\n"),
+    );
+    await page
+      .getByLabel("Пресет фильтров release history")
+      .selectOption({ label: "E2E blockers" });
     await page.getByLabel("Фильтр статуса истории").selectOption("fail");
     await page.getByLabel("Фильтр deno-lock истории").selectOption("blocked");
     await page.getByLabel("Фильтр artifact истории").selectOption("missing");
@@ -132,6 +176,21 @@ test.describe("/sys/release-status", () => {
     expect(filteredCsvText).not.toContain("fffffffffff");
     expect(filteredCsvText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
 
+    const filteredXlsxDownloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в XLSX",
+      })
+      .click();
+    const filteredXlsxDownload = await filteredXlsxDownloadPromise;
+    expect(filteredXlsxDownload.suggestedFilename()).toMatch(
+      /^release-history-filtered-\d{4}-\d{2}-\d{2}\.xlsx$/,
+    );
+    const filteredXlsxPath = await filteredXlsxDownload.path();
+    expect(filteredXlsxPath).not.toBeNull();
+    const filteredXlsxBytes = await readFile(filteredXlsxPath!);
+    expect(Array.from(filteredXlsxBytes.subarray(0, 2))).toEqual([80, 75]);
+
     await expect(
       page.getByRole("region", { name: "Пагинация release history" }),
     ).toContainText("1-3 из 5");
@@ -159,6 +218,11 @@ test.describe("/sys/release-status", () => {
     await expect(
       page.getByRole("button", {
         name: "Экспортировать отфильтрованную release history в CSV",
+      }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в XLSX",
       }),
     ).toBeDisabled();
     await page
@@ -215,7 +279,7 @@ test.describe("/sys/release-status", () => {
       .selectOption("safe");
     await expect(
       page.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
-    ).toContainText("1 из 4");
+    ).toContainText("1 из 5");
     await page.getByLabel("Поиск по аудиту импортов").fill("privacy");
     await expect(
       page.getByRole("region", { name: "Аудит импортов release history" }),
@@ -258,7 +322,7 @@ test.describe("/sys/release-status", () => {
       .click();
     await expect(
       page.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
-    ).toContainText("6 из 6");
+    ).toContainText("7 из 7");
 
     await page
       .getByRole("button", { name: "Удалить импортированные baseline" })
@@ -351,6 +415,15 @@ test.describe("/sys/release-status", () => {
     await expect(
       page.getByRole("list", { name: "Ошибки формата release history" }),
     ).toContainText("строка 1: invalid JSON");
+    await expect(
+      page.getByRole("list", {
+        name: "Подсказки исправления release history",
+      }),
+    ).toContainText("Проверьте синтаксис JSON");
+    await page
+      .getByRole("button", { name: "Фокус на JSONL с ошибкой" })
+      .click();
+    await expect(page.getByLabel("Вставить release-history JSONL")).toBeFocused();
     await page
       .getByRole("button", { name: "Импортировать history JSONL" })
       .click();
