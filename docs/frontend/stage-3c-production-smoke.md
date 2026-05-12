@@ -131,5 +131,8 @@
 - The generated summary links the report entry
   `playwright-report/index.html` and includes an artifact size check for
   each expected path.
+- Local review can use
+  `npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md`
+  for a compact sanitized terminal view.
 - Never paste credentials, signed URLs, storage paths, access tokens, or raw
   patient identifiers into the report. Link the GitHub Actions run instead.

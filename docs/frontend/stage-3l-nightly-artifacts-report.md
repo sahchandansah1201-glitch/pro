@@ -24,6 +24,7 @@ or when a release reviewer asks for full-e2e evidence.
 - Failed runs, or manual `always` runs, should upload artifacts.
 - Generated summary path: `test-results/e2e-nightly-full-artifact-summary.md`.
 - Summary writer: `node scripts/write-e2e-artifact-summary.mjs`.
+- Summary viewer: `npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md`.
 - Report entry: `playwright-report/index.html`.
 - Focused local preflight: `npm run preflight:e2e-artifacts`.
 
@@ -42,7 +43,9 @@ artifact link or not-uploaded status, final result, and the generated artifact
 summary content. The generated summary must also include an `Artifact size check`
 section for the expected bundle paths so reviewers can see whether the report,
 test-results directory, Vite log, and summary file were present when the report
-was written.
+was written. The local summary viewer re-sanitizes this markdown and prints a
+compact CLI view with result, upload expectation, report entry, missing artifact
+count, and artifact size rows.
 
 ## 5. Report fields
 
@@ -81,6 +84,9 @@ Nightly full e2e report
 - Check `test-results/e2e-nightly-full-vite.log` for app startup failures.
 - Check `test-results/e2e-nightly-full-artifact-summary.md` for the sanitized
   run metadata used in the GitHub job summary.
+- Run `npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md`
+  to get a compact terminal view before sharing findings in a PR or incident
+  note.
 - If the artifact size check marks a path as `missing`, start from that path
   before investigating individual test failures.
 - If auth smoke skipped because credentials were absent, treat that as expected
@@ -90,9 +96,10 @@ Nightly full e2e report
 
 - Do not paste credentials, signed URLs, storage paths, access tokens, emails,
   full patient names, or service-role keys into this report. The generated
-  summary redacts bearer tokens, access/refresh/id/JWT query tokens, signature
-  values, Supabase keys, storage object paths, and doctor e-mail/password fields,
-  but reviewers must still avoid adding sensitive text manually.
+  summary and viewer redact bearer tokens, cookies, access/refresh/id/JWT query
+  tokens, JSON token fields, signature values, Supabase keys, storage object
+  paths, actor e-mails, patient full-name fields, and doctor e-mail/password
+  fields, but reviewers must still avoid adding sensitive text manually.
 - Do not extend artifact retention without an explicit incident or release
   review reason.
 - If an artifact contains sensitive data, delete it from GitHub Actions and

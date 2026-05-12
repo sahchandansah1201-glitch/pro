@@ -53,10 +53,12 @@ test("redacts known token-shaped values and ignores unrelated env secrets", () =
   const secret = "super-secret-password";
   const summary = buildE2eArtifactSummary({
     E2E_ARTIFACT_COMMAND:
-      "curl -H 'Authorization: Bearer bearer-token' https://x.test/download?sig=abc123&access_token=tok456&refresh_token=ref789&id_token=id999&jwt=jwt111&apikey=anon222&signed_url=https://signed.test",
+      "curl -H 'Authorization: Bearer bearer-token' -H 'x-api-key: api-key-secret' https://x.test/download?sig=abc123&access_token=tok456&refresh_token=ref789&id_token=id999&jwt=jwt111&apikey=anon222&signed_url=https://signed.test",
     E2E_ARTIFACT_RUN_URL: "https://github.com/example/repo/actions/runs/1?token=run-token",
     E2E_ARTIFACT_REPORT_PATH:
-      "storage_object_path:clinic/patient/file.png E2E_DOCTOR_EMAIL:doctor@example.com SUPABASE_ANON_KEY:anon-key VITE_SUPABASE_ANON_KEY:vite-key",
+      "storage_object_path:clinic/patient/file.png E2E_DOCTOR_EMAIL:doctor@example.com SUPABASE_ANON_KEY:anon-key VITE_SUPABASE_ANON_KEY:vite-key Cookie: session=abc Set-Cookie: auth=def patient_full_name:Иванова Наталья actor_email:actor@example.com",
+    E2E_ARTIFACT_SUMMARY_PATH:
+      '{"access_token":"json-token","signedUrl":"https://signed.test/file","storageObjectPath":"clinic/json/file.png","password":"json-pass"} sb_publishable_supersecret eyJaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.eyJbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.cccccccccccccccccc',
     NOT_USED_SECRET: secret,
   });
 
@@ -67,15 +69,29 @@ test("redacts known token-shaped values and ignores unrelated env secrets", () =
   assert.doesNotMatch(summary, /jwt111/);
   assert.doesNotMatch(summary, /anon222/);
   assert.doesNotMatch(summary, /bearer-token/);
+  assert.doesNotMatch(summary, /api-key-secret/);
   assert.doesNotMatch(summary, /doctor@example\.com/);
+  assert.doesNotMatch(summary, /actor@example\.com/);
   assert.doesNotMatch(summary, /clinic\/patient\/file\.png/);
+  assert.doesNotMatch(summary, /clinic\/json\/file\.png/);
   assert.doesNotMatch(summary, /anon-key/);
   assert.doesNotMatch(summary, /vite-key/);
+  assert.doesNotMatch(summary, /session=abc/);
+  assert.doesNotMatch(summary, /auth=def/);
+  assert.doesNotMatch(summary, /Иванова Наталья/);
+  assert.doesNotMatch(summary, /json-token/);
+  assert.doesNotMatch(summary, /json-pass/);
+  assert.doesNotMatch(summary, /sb_publishable_supersecret/);
+  assert.doesNotMatch(summary, /eyJaaaaaaaa/);
   assert.doesNotMatch(summary, /run-token/);
   assert.doesNotMatch(summary, new RegExp(secret));
   assert.match(summary, /sig=\[redacted\]/);
   assert.match(summary, /access_token=\[redacted\]/);
   assert.match(summary, /Authorization: Bearer \[redacted\]/);
+  assert.match(summary, /x-api-key: \[redacted\]/);
+  assert.match(summary, /"\s*access_token"\s*:\s*"\[redacted\]"/);
+  assert.match(summary, /\[redacted-supabase-key\]/);
+  assert.match(summary, /\[redacted-jwt\]/);
 });
 
 test("includes artifact size checks for configured paths", () => {

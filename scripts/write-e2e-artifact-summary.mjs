@@ -9,28 +9,45 @@ const DEFAULT_OUTPUT = "test-results/e2e-artifact-summary.md";
 const VALID_POLICIES = new Set(["failure", "always", "never"]);
 const MISSING_SIZE = "missing";
 
-function redact(value) {
+export function redact(value) {
   return String(value)
     .replace(/(Authorization:\s*Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, "$1[redacted]")
-    .replace(/(access_token=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(refresh_token=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(id_token=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(jwt=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(sig=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(signature=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(token=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(apikey=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(api_key=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(password=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(signed_url=)[^&\s)]+/gi, "$1[redacted]")
-    .replace(/(download_url=)[^&\s)]+/gi, "$1[redacted]")
+    .replace(/(Authorization\s*=\s*Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, "$1[redacted]")
+    .replace(/(x-api-key\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
+    .replace(/(access_token=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(access_token%3D)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(refresh_token=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(refresh_token%3D)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(id_token=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(jwt=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(sig=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(signature=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(token=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(apikey=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(api_key=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(apiKey\s*[:=]\s*)[^\s,;]+/g, "$1[redacted]")
+    .replace(/(password=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(signed_url=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(download_url=)[^&\s)'"`]+/gi, "$1[redacted]")
+    .replace(/(signedUrl\s*[:=]\s*)[^\s,;]+/g, "$1[redacted]")
+    .replace(/(downloadUrl\s*[:=]\s*)[^\s,;]+/g, "$1[redacted]")
     .replace(/(storage_object_path\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
     .replace(/(storageObjectPath\s*[:=]\s*)[^\s,;]+/g, "$1[redacted]")
+    .replace(/(patient_full_name\s*[:=]\s*)[^\n,;]+/gi, "$1[redacted]")
+    .replace(/(actor_email\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
+    .replace(/(Cookie:\s*)[^\n\r]+/gi, "$1[redacted]")
+    .replace(/(Set-Cookie:\s*)[^\n\r]+/gi, "$1[redacted]")
     .replace(/(SUPABASE_SERVICE_ROLE_KEY\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
     .replace(/(SUPABASE_ANON_KEY\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
     .replace(/(VITE_SUPABASE_ANON_KEY\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
     .replace(/(E2E_DOCTOR_PASSWORD\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
     .replace(/(E2E_DOCTOR_EMAIL\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
+    .replace(/\b(?:sb_publishable|sb_secret)_[A-Za-z0-9_-]+\b/g, "[redacted-supabase-key]")
+    .replace(
+      /("(?:access_token|refresh_token|id_token|jwt|token|apiKey|api_key|anonKey|serviceRoleKey|signedUrl|downloadUrl|storageObjectPath|storage_object_path|patient_full_name|actor_email|email|password)"\s*:\s*")[^"]*(")/gi,
+      "$1[redacted]$2",
+    )
+    .replace(/\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\b/g, "[redacted-jwt]")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]");
 }
 
