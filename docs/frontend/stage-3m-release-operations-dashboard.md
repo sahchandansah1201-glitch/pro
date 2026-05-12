@@ -235,12 +235,20 @@ The viewer also exposes the UI-side release operator guardrails:
 - The history preview includes JSONL format validation details, status/search
   filters (`filterReleaseHistoryRecords`), and a dry-run import mode that runs
   parse/privacy checks without changing the selected comparison baseline.
+- Long imported histories are paginated in the browser (`history-pagination`)
+  through `paginateReleaseHistoryRecords`, so reviewers can scan filtered
+  records without losing the parse summary.
+- The selected comparison baseline has a compact `baseline-preview` with SHA,
+  generated date, deno-lock status, artifact presence, and the first workflow
+  conclusions before the comparison table.
 - Each import attempt is appended to a local audit log with timestamp, result,
   accepted/skipped counts, privacy finding count, and a sanitized operator
   message. The audit log is browser-local and is cleared on reload.
 - Operators can delete imported baseline records from the current browser
   session and download a sanitized JSON audit report built by
-  `buildReleaseImportAuditReport`.
+  `buildReleaseImportAuditReport`. The report includes an
+  `audit-report-summary` with status counts, totals, selected baseline, and
+  active history filters.
 - Import privacy status is announced separately from the general page status,
   so screen-reader users can distinguish "parse succeeded" from "privacy gate
   passed" or "privacy gate blocked".
@@ -259,9 +267,9 @@ The viewer also exposes the UI-side release operator guardrails:
   `src/pages/sys/SysReleaseStatusPage.test.tsx`, and
   `e2e/sys-release-status.pw.ts` together.
 - RBAC, export, release comparison, history-import, history-preview,
-  history-filters, jsonl-validation, dry-run-import, import-audit,
-  audit-report-download, baseline-delete, baseline-selector, and privacy-preview
-  changes must also keep
+  history-pagination, history-filters, jsonl-validation, dry-run-import,
+  import-audit, audit-report-summary, audit-report-download, baseline-preview,
+  baseline-delete, baseline-selector, and privacy-preview changes must also keep
   `scripts/check-stage3-docs.mjs` aligned with the UI helper names and e2e
   assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
