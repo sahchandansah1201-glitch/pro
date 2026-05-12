@@ -3,24 +3,34 @@
 ## 1. Purpose
 
 This document defines a small, sanitized release operations dashboard that
-release reviewers and on-call owners can run locally to get a single
-snapshot of repository and CI health before approving a release or before
-investigating an incident. It does not change runtime code, tests,
+release reviewers and on-call owners can run locally or in CI to get a single
+snapshot of repository and CI health before approving a release or
+investigating an incident. It does not change runtime product behavior,
 backend configuration, or workflow scheduling.
 
-## 2. Source script
+## 2. Source scripts
 
-- Script: `scripts/release-status.mjs`.
-- Tests: `scripts/release-status.test.mjs`.
-- npm script: `npm run release:status`.
-- Offline mode: `node scripts/release-status.mjs --offline` skips the
-  GitHub Actions API call and is used by tests and offline reviewers.
-- The CLI is read-only: it never writes files, never mutates git state,
-  and never edits CI configuration.
+- Dashboard script: `scripts/release-status.mjs`.
+- Dashboard tests: `scripts/release-status.test.mjs`.
+- Privacy detector: `scripts/check-release-status-privacy.mjs`.
+- Privacy detector tests: `scripts/check-release-status-privacy.test.mjs`.
+- Focused preflight: `scripts/preflight-release-status.mjs`.
+- npm scripts:
+  - `npm run release:status`
+  - `npm run release:status:json`
+  - `npm run release:status:html`
+  - `npm run release:status:offline`
+  - `npm run test:release-status`
+  - `npm run test:release-status-privacy`
+  - `npm run check:release-status-privacy`
+  - `npm run preflight:release-status`
+
+The CLI does not mutate git state or source files. It writes only the explicit
+output/history artifacts requested by `--output` and `--history`.
 
 ## 3. What the dashboard reports
 
-- Repo and branch (validated against safe character sets).
+- Repo and branch, validated against safe character sets.
 - Current short SHA and a `https://github.com/<repo>/commit/<sha>` link.
 - Local working-tree state: clean or `N changed file(s)` plus up to five
   truncated path hints.
@@ -30,10 +40,9 @@ backend configuration, or workflow scheduling.
   - `frontend-auth-assets`
   - `e2e-smoke`
   - `backend-guardrails`
-- A safe `https://github.com/<repo>/actions/runs/<run_id>` link for
-  each workflow when the GitHub Actions API returns a run id. The
-  dashboard never prints run query parameters, tokens, or artifact
-  download URLs.
+- A safe `https://github.com/<repo>/actions/runs/<run_id>` link for each
+  workflow when the GitHub Actions API returns a run id. The dashboard never
+  prints run query parameters, tokens, or artifact download URLs.
 - Deno lock guard status from `node scripts/check-no-deno-locks.mjs`.
 - E2E artifact summary presence at
   `test-results/e2e-nightly-full-artifact-summary.md` with size and
@@ -42,107 +51,153 @@ backend configuration, or workflow scheduling.
 
 ## 4. Privacy rules
 
-- The script must not print tokens, cookies, signed URLs, emails,
-  patient names, storage paths, or raw env values.
+- The script must not print tokens, cookies, signed URLs, emails, patient
+  names, storage paths, or raw env values.
 - All free-text fields pass through the shared `redact` helper from
   `scripts/write-e2e-artifact-summary.mjs`.
-- Workflow names, run numbers, repo, and branch are validated against
-  strict character sets. Anything else falls back to a default or the
-  string `unknown`.
-- SHAs that do not match the hex pattern are rendered as `unknown`
-  instead of being printed verbatim.
-- The CLI does not open the e2e artifact summary contents — only its
+- Workflow names, run numbers, repo, and branch are validated against strict
+  character sets. Anything else falls back to a default or the string
+  `unknown`.
+- SHAs that do not match the hex pattern are rendered as `unknown` instead of
+  being printed verbatim.
+- The CLI does not open the e2e artifact summary contents; it reports only
   size and modification time.
+- `scripts/check-release-status-privacy.mjs` scans generated markdown, JSON,
+  HTML, and release-history JSONL files before they are uploaded by CI.
 
 ## 5. Local usage
 
 ```bash
-npm run release:status            # online, hits GitHub Actions API
-npm run release:status:json       # JSON output for tooling
-node scripts/release-status.mjs --offline  # offline, used in tests
-node scripts/release-status.mjs --output test-results/release-status.md
-node scripts/release-status.mjs --json --output test-results/release-status.json
+npm run release:status
+npm run release:status:json
+npm run release:status:html
+npm run release:status:offline
+node scripts/release-status.mjs --offline --output test-results/release-status.md
+node scripts/release-status.mjs --offline --json --output test-results/release-status.json
+node scripts/release-status.mjs --offline --html --output test-results/release-status.html
+node scripts/release-status.mjs --offline --output test-results/release-status.md --history test-results/release-history.jsonl
 ```
 
-The dashboard is meant to be pasted into release notes, incident notes,
-or PR comments after a quick visual review. Reviewers should still
-follow Stage 3C, Stage 3D, Stage 3E, Stage 3F, and Stage 3L for the
-authoritative checks.
+The dashboard is meant to be pasted into release notes, incident notes, or PR
+comments after a quick visual review. Reviewers should still follow Stage 3C,
+Stage 3D, Stage 3E, Stage 3F, and Stage 3L for authoritative checks.
 
-## 6. File output and JSON mode
+## 6. Output modes and release history
 
-- `--output <path>` writes the sanitized report to disk and creates
-  parent directories when needed.
-- `--json` or `--format json` writes a structured sanitized payload
-  with the same data as the markdown report.
-- Markdown is the default format and is intended for PR comments,
-  incident notes, and GitHub step summaries.
-- JSON is intended for automation and must remain sanitized before it is
-  written to disk.
-- The CLI prints only a short sanitized `wrote <path>` message when an
-  output file is used.
+- Markdown is the default format and is intended for PR comments, incident
+  notes, and GitHub step summaries.
+- `--json` or `--format json` writes a structured sanitized payload with the
+  same data as the markdown report.
+- `--html` or `--format html` writes a static visual report suitable for local
+  browser review or CI artifact download.
+- `--output <path>` writes the sanitized report to disk and creates parent
+  directories when needed.
+- `--history <path>` appends a compact sanitized JSONL release-history entry
+  with timestamp, repo, branch, short SHA, overall status, deno-lock status,
+  artifact presence, and workflow conclusions.
+- The CLI prints only short sanitized `wrote <path>` and `appended <path>`
+  messages when files are used.
 
-## 7. CI automation
+## 7. Visual report
+
+The HTML mode is the lightweight UI export for release status. It contains:
+
+- an overall status badge;
+- repo, branch, and current SHA;
+- working-tree state and changed path hints;
+- deno-lock guard status;
+- e2e artifact summary presence;
+- latest main workflow conclusions with safe GitHub Actions links.
+
+The visual report is static HTML with inline CSS only. It has no scripts, no
+external assets, no cookies, and no embedded artifact contents.
+
+## 8. Privacy detector
+
+Run the detector directly when reviewing generated release-status artifacts:
+
+```bash
+npm run check:release-status-privacy -- \
+  test-results/release-status.md \
+  test-results/release-status.json \
+  test-results/release-status.html \
+  test-results/release-history.jsonl
+```
+
+The detector flags likely bearer tokens, cookies, URL token parameters, JSON
+token fields, emails, `patient_full_name`, `actor_email`,
+`storage_object_path`, Supabase keys, service-role env values, and
+JWT-shaped values. Redacted placeholders such as `[redacted-cookie]` and
+`[redacted-url-param]` are allowed.
+
+## 9. CI automation
 
 Workflow: `.github/workflows/release-status.yml`.
 
 The workflow runs on relevant PRs, pushes, and manual dispatch. It:
 
-- runs `npm run test:release-status`;
-- runs `node scripts/check-stage3-docs.mjs`;
+- runs `npm run preflight:release-status`;
 - writes `test-results/release-status.md`;
+- appends `test-results/release-history.jsonl`;
 - writes `test-results/release-status.json`;
+- writes `test-results/release-status.html`;
+- runs `npm run check:release-status-privacy` on all generated files;
 - appends the markdown dashboard to `$GITHUB_STEP_SUMMARY`;
-- uploads both reports as `release-status-<run_id>` for seven days.
+- uploads all four reports as `release-status-<run_id>` for seven days.
 
-The workflow passes `GITHUB_TOKEN` only to the GitHub Actions API
-request. The token is never printed in markdown, JSON, or logs by
+The workflow passes `GITHUB_TOKEN` only to the GitHub Actions API request.
+The token is never printed in markdown, JSON, HTML, history, or logs by
 `scripts/release-status.mjs`.
 
-## 8. Test coverage
+## 10. Test coverage
 
-`npm test -- scripts/release-status.test.mjs` covers:
+`npm run test:release-status` covers:
 
-- Rendering the dashboard with sha, workflows, deno guard, artifact
-  presence, and overall status.
-- Marking overall `fail` when any workflow failed or the deno guard
-  failed.
-- Redacting tokens, cookies, emails, patient names, signed URLs,
-  storage paths, and Supabase keys.
-- Rejecting unsafe repo, branch, workflow, and run-number values and
-  falling back to defaults.
-- Running the CLI in `--offline` mode without leaking secrets.
-- Building sanitized JSON output.
-- Writing markdown and JSON reports to files.
+- rendering the dashboard with SHA, workflows, deno guard, artifact presence,
+  and overall status;
+- marking overall `fail` when any workflow failed or the deno guard failed;
+- redacting tokens, cookies, emails, patient names, signed URLs, storage paths,
+  and Supabase keys;
+- rejecting unsafe repo, branch, workflow, and run-number values;
+- running the CLI in `--offline` mode;
+- building sanitized JSON output;
+- building sanitized HTML visual output;
+- writing markdown/JSON/HTML reports to files;
+- appending sanitized release-history JSONL entries.
 
-## 9. Local preflight
+`npm run test:release-status-privacy` covers detector positives, redacted
+placeholders, generated markdown/JSON/HTML/history outputs, and CLI exit
+codes.
+
+## 11. Local preflight
 
 Use this local preflight before merging changes to the release dashboard:
 
 ```bash
-npm run preflight:e2e-artifacts
-npm run test:release-status
-node scripts/check-stage3-docs.mjs
-node scripts/check-no-deno-locks.mjs
-node scripts/release-status.mjs --offline --output test-results/release-status.md
-node scripts/release-status.mjs --offline --json --output test-results/release-status.json
+npm run preflight:release-status
 ```
 
-Expected:
+It sequentially runs the release-status tests, privacy detector tests,
+markdown/json/html/history generation, privacy scan, Stage 3 docs guard, and
+the deno-lock guard. The success sentinel is:
 
-- all tests pass;
-- the focused e2e artifact preflight includes the release status
-  privacy/output-mode tests and ends with `[preflight-e2e-artifacts] OK`;
-- `check-stage3-docs` reports all Stage 3 docs verified;
-- no `deno.lock` files exist;
-- both output files are created and contain no tokens, cookies, signed
-  URLs, emails, patient names, storage paths, or raw env values.
+```text
+[preflight-release-status] OK
+```
 
-## 10. Maintenance rule
+`npm run preflight:e2e-artifacts` remains the broader e2e artifact-reporting
+preflight. Use it when touching Stage 3L or the nightly full-e2e artifact
+summary flow.
+
+## 12. Maintenance rule
 
 - Future workflows added to the tracked list must use safe names matching
   `[A-Za-z0-9._-]+`.
-- Do not extend the dashboard to print run IDs, artifact contents, or
-  raw environment values.
-- Cross-link this stage from Stage 3I and Stage 3L when adding new
-  release operations docs.
+- Do not extend the dashboard to print run IDs, artifact contents, raw
+  environment values, credentials, signed URLs, storage paths, or patient
+  identifiers.
+- New release-status output files must be added to
+  `scripts/check-release-status-privacy.mjs`, `.github/workflows/release-status.yml`,
+  and `scripts/preflight-release-status.mjs`.
+- Cross-link this stage from Stage 3I and Stage 3L when adding new release
+  operations docs.

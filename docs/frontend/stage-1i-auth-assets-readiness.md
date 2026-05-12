@@ -23,6 +23,10 @@ for the backend half.
 - Release dashboard file/JSON output —
   `node scripts/release-status.mjs --output test-results/release-status.md`
   and `node scripts/release-status.mjs --json --output test-results/release-status.json`
+- Release dashboard visual/history/privacy guard —
+  `npm run preflight:release-status`,
+  `node scripts/release-status.mjs --html --output test-results/release-status.html`,
+  and `npm run check:release-status-privacy`
 
 ---
 

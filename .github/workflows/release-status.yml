@@ -6,6 +6,9 @@ on:
     paths:
       - "scripts/release-status.mjs"
       - "scripts/release-status.test.mjs"
+      - "scripts/check-release-status-privacy.mjs"
+      - "scripts/check-release-status-privacy.test.mjs"
+      - "scripts/preflight-release-status.mjs"
       - "scripts/check-stage3-docs.mjs"
       - "docs/frontend/stage-3m-release-operations-dashboard.md"
       - "docs/frontend/stage-3i-final-documentation-index.md"
@@ -18,6 +21,9 @@ on:
     paths:
       - "scripts/release-status.mjs"
       - "scripts/release-status.test.mjs"
+      - "scripts/check-release-status-privacy.mjs"
+      - "scripts/check-release-status-privacy.test.mjs"
+      - "scripts/preflight-release-status.mjs"
       - "scripts/check-stage3-docs.mjs"
       - "docs/frontend/stage-3m-release-operations-dashboard.md"
       - "docs/frontend/stage-3i-final-documentation-index.md"
@@ -45,11 +51,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Test release-status privacy and output modes
-        run: npm run test:release-status
-
-      - name: Check Stage 3 docs
-        run: node scripts/check-stage3-docs.mjs
+      - name: Release-status local preflight
+        run: npm run preflight:release-status
 
       - name: Write release status reports
         env:
@@ -57,8 +60,15 @@ jobs:
           RELEASE_STATUS_REPO: ${{ github.repository }}
         run: |
           mkdir -p test-results
-          npm run release:status -- --output test-results/release-status.md
+          rm -f test-results/release-history.jsonl
+          npm run release:status -- --output test-results/release-status.md --history test-results/release-history.jsonl
           npm run release:status:json -- --output test-results/release-status.json
+          npm run release:status:html -- --output test-results/release-status.html
+          npm run check:release-status-privacy -- \
+            test-results/release-status.md \
+            test-results/release-status.json \
+            test-results/release-status.html \
+            test-results/release-history.jsonl
 
       - name: Job summary
         if: always()
@@ -81,5 +91,7 @@ jobs:
           path: |
             test-results/release-status.md
             test-results/release-status.json
+            test-results/release-status.html
+            test-results/release-history.jsonl
           if-no-files-found: warn
           retention-days: 7

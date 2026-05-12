@@ -174,15 +174,17 @@ const EXPECTED = [
     headings: [
       "# Stage 3M — Release operations dashboard for auth/assets readiness",
       "## 1. Purpose",
-      "## 2. Source script",
+      "## 2. Source scripts",
       "## 3. What the dashboard reports",
       "## 4. Privacy rules",
       "## 5. Local usage",
-      "## 6. File output and JSON mode",
-      "## 7. CI automation",
-      "## 8. Test coverage",
-      "## 9. Local preflight",
-      "## 10. Maintenance rule",
+      "## 6. Output modes and release history",
+      "## 7. Visual report",
+      "## 8. Privacy detector",
+      "## 9. CI automation",
+      "## 10. Test coverage",
+      "## 11. Local preflight",
+      "## 12. Maintenance rule",
     ],
   },
 ];
@@ -214,6 +216,9 @@ const ARTIFACT_VIEWER_SCRIPT = "scripts/view-e2e-artifact-summary.mjs";
 const ARTIFACT_VIEWER_TEST = "scripts/view-e2e-artifact-summary.test.mjs";
 const RELEASE_STATUS_SCRIPT = "scripts/release-status.mjs";
 const RELEASE_STATUS_TEST = "scripts/release-status.test.mjs";
+const RELEASE_STATUS_PRIVACY_SCRIPT = "scripts/check-release-status-privacy.mjs";
+const RELEASE_STATUS_PRIVACY_TEST = "scripts/check-release-status-privacy.test.mjs";
+const RELEASE_STATUS_PREFLIGHT_SCRIPT = "scripts/preflight-release-status.mjs";
 
 const errors = [];
 
@@ -345,6 +350,9 @@ requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Nig
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "Do not paste credentials, signed URLs, storage paths, access tokens");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/release-status.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/release-status.json");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/release-status.html");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "test-results/release-history.jsonl");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "npm run check:release-status-privacy");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), nightlyReport, "release-status-<run_id>");
 
 const packageJson = existsSync(join(ROOT, PACKAGE_JSON))
@@ -352,22 +360,30 @@ const packageJson = existsSync(join(ROOT, PACKAGE_JSON))
   : "";
 requireText(PACKAGE_JSON, packageJson, "\"test:e2e-artifacts\": \"node --test scripts/write-e2e-artifact-summary.test.mjs scripts/view-e2e-artifact-summary.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"preflight:e2e-artifacts\": \"node scripts/preflight-e2e-artifacts.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"preflight:release-status\": \"node scripts/preflight-release-status.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"view:e2e-artifacts\": \"node scripts/view-e2e-artifact-summary.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "scripts/view-e2e-artifact-summary.test.mjs");
 requireText(PACKAGE_JSON, packageJson, "\"release:status\": \"node scripts/release-status.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"release:status:json\": \"node scripts/release-status.mjs --json\"");
+requireText(PACKAGE_JSON, packageJson, "\"release:status:html\": \"node scripts/release-status.mjs --html\"");
 requireText(PACKAGE_JSON, packageJson, "\"release:status:offline\": \"node scripts/release-status.mjs --offline\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test scripts/release-status.test.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"test:release-status-privacy\": \"node --test scripts/check-release-status-privacy.test.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"check:release-status-privacy\": \"node scripts/check-release-status-privacy.mjs\"");
 
 const releaseStatusScript = existsSync(join(ROOT, RELEASE_STATUS_SCRIPT))
   ? readFileSync(join(ROOT, RELEASE_STATUS_SCRIPT), "utf8")
   : "";
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "buildReleaseStatusReport");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "buildReleaseStatusJson");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "buildReleaseStatusHtml");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "buildReleaseHistoryEntry");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "Release operations dashboard");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "redact");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "--output");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "--json");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "--html");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "--history");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "GITHUB_TOKEN");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "no-deno-locks");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "auth-assets-smoke-skip");
@@ -376,19 +392,46 @@ requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "e2e-smoke");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "backend-guardrails");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "e2e-nightly-full-artifact-summary.md");
 
+const releaseStatusPrivacyScript = existsSync(join(ROOT, RELEASE_STATUS_PRIVACY_SCRIPT))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_PRIVACY_SCRIPT), "utf8")
+  : "";
+requireText(RELEASE_STATUS_PRIVACY_SCRIPT, releaseStatusPrivacyScript, "detectReleaseStatusPrivacyLeaks");
+requireText(RELEASE_STATUS_PRIVACY_SCRIPT, releaseStatusPrivacyScript, "Authorization");
+requireText(RELEASE_STATUS_PRIVACY_SCRIPT, releaseStatusPrivacyScript, "Cookie");
+requireText(RELEASE_STATUS_PRIVACY_SCRIPT, releaseStatusPrivacyScript, "access_token");
+requireText(RELEASE_STATUS_PRIVACY_SCRIPT, releaseStatusPrivacyScript, "patient_full_name");
+requireText(RELEASE_STATUS_PRIVACY_SCRIPT, releaseStatusPrivacyScript, "actor_email");
+requireText(RELEASE_STATUS_PRIVACY_SCRIPT, releaseStatusPrivacyScript, "storage_object_path");
+requireText(RELEASE_STATUS_PRIVACY_SCRIPT, releaseStatusPrivacyScript, "SUPABASE_SERVICE_ROLE_KEY");
+
+const releaseStatusPreflightScript = existsSync(join(ROOT, RELEASE_STATUS_PREFLIGHT_SCRIPT))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_PREFLIGHT_SCRIPT), "utf8")
+  : "";
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "preflight-release-status");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-privacy");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release-status.html");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release-history.jsonl");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-release-status-privacy.mjs");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-stage3-docs.mjs");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-no-deno-locks.mjs");
+
 const releaseStatusWorkflow = existsSync(join(ROOT, RELEASE_STATUS_WORKFLOW))
   ? readFileSync(join(ROOT, RELEASE_STATUS_WORKFLOW), "utf8")
   : "";
 if (!releaseStatusWorkflow) {
   errors.push(`Missing required workflow: ${RELEASE_STATUS_WORKFLOW}`);
 }
-requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run test:release-status");
-requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "node scripts/check-stage3-docs.mjs");
-requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status -- --output test-results/release-status.md");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run preflight:release-status");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status -- --output test-results/release-status.md --history test-results/release-history.jsonl");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:json -- --output test-results/release-status.json");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:html -- --output test-results/release-status.html");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run check:release-status-privacy");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "$GITHUB_STEP_SUMMARY");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "actions/upload-artifact@v4");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "release-status-${{ github.run_id }}");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "test-results/release-status.html");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "test-results/release-history.jsonl");
 
 const stage3m = readDoc("stage-3m-release-operations-dashboard.md");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/release-status.mjs");
@@ -396,9 +439,15 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm r
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "--offline");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "--output <path>");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run release:status:json");
-requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run preflight:e2e-artifacts");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run release:status:html");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "--history <path>");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/check-release-status-privacy.mjs");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run check:release-status-privacy");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run preflight:release-status");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, ".github/workflows/release-status.yml");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "test-results/release-status.json");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "test-results/release-status.html");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "test-results/release-history.jsonl");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "tokens, cookies, signed URLs, emails");
 checkMarkdownLinks("stage-3m-release-operations-dashboard.md", stage3m);
 
@@ -408,8 +457,11 @@ requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "npm run r
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "./stage-3m-release-operations-dashboard.md");
 
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run release:status");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run preflight:release-status");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run check:release-status-privacy");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "test-results/release-status.md");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "test-results/release-status.json");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "test-results/release-status.html");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "stage-3m-release-operations-dashboard.md");
 
 const preflightScript = existsSync(join(ROOT, PREFLIGHT_SCRIPT))
@@ -458,6 +510,9 @@ for (const path of [
   ARTIFACT_VIEWER_TEST,
   RELEASE_STATUS_SCRIPT,
   RELEASE_STATUS_TEST,
+  RELEASE_STATUS_PRIVACY_SCRIPT,
+  RELEASE_STATUS_PRIVACY_TEST,
+  RELEASE_STATUS_PREFLIGHT_SCRIPT,
 ]) {
   if (!existsSync(join(ROOT, path))) errors.push(`Missing required script: ${path}`);
 }

@@ -6,7 +6,7 @@
 // summary. Output is sanitized — no tokens, cookies, signed URLs, emails,
 // patient names, storage paths, or raw env values are printed.
 
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -144,6 +144,15 @@ function summarizeArtifact(artifact) {
   ];
 }
 
+function htmlEscape(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function buildReleaseStatusReport(input = {}) {
   const data = buildReleaseStatusJson(input);
 
@@ -199,6 +208,102 @@ export function buildReleaseStatusReport(input = {}) {
   return redact(lines.join("\n"));
 }
 
+export function buildReleaseStatusHtml(input = {}) {
+  const data = buildReleaseStatusJson(input);
+  const statusClass = data.overallStatus === "ok"
+    ? "ok"
+    : data.overallStatus === "fail"
+      ? "fail"
+      : "incomplete";
+  const changedPaths = data.workingTree.dirtyPaths.length > 0
+    ? data.workingTree.dirtyPaths
+        .map((p) => `<li><code>${htmlEscape(p)}</code></li>`)
+        .join("")
+    : "<li>None</li>";
+  const workflowRows = data.workflows.length > 0
+    ? data.workflows
+        .map((workflow) => `
+          <tr>
+            <td>${htmlEscape(workflow.glyph)}</td>
+            <td><code>${htmlEscape(workflow.name)}</code></td>
+            <td>${htmlEscape(workflow.conclusion)}</td>
+            <td>${workflow.runLink === "not available" ? "not available" : `<a href="${htmlEscape(workflow.runLink)}">${htmlEscape(workflow.runLink)}</a>`}</td>
+          </tr>`)
+        .join("")
+    : '<tr><td colspan="4">not available</td></tr>';
+
+  return redact(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Release operations dashboard</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f6f8fb; color: #17202c; }
+    main { max-width: 980px; margin: 0 auto; padding: 32px 20px 48px; }
+    h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: 0; }
+    h2 { margin: 0 0 14px; font-size: 18px; letter-spacing: 0; }
+    .muted { color: #5d6b7a; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 22px 0; }
+    .card { background: #fff; border: 1px solid #d8e0ea; border-radius: 8px; padding: 18px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04); }
+    .status { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px; font-weight: 700; font-size: 13px; }
+    .status.ok { background: #dcfce7; color: #166534; }
+    .status.incomplete { background: #fef3c7; color: #92400e; }
+    .status.fail { background: #fee2e2; color: #991b1b; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.94em; }
+    table { width: 100%; border-collapse: collapse; overflow-wrap: anywhere; }
+    th, td { border-top: 1px solid #e4eaf2; padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { color: #425466; font-size: 13px; }
+    a { color: #0f62fe; }
+    ul { margin: 8px 0 0 20px; padding: 0; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } main { padding: 22px 14px 36px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Release operations dashboard</h1>
+    <p class="muted">Sanitized local/CI release snapshot. No tokens, cookies, signed URLs, emails, patient names, storage paths, or raw env values are printed.</p>
+    <div class="grid">
+      <section class="card">
+        <h2>Overall</h2>
+        <p><span class="status ${statusClass}">${htmlEscape(data.overallStatus)}</span></p>
+        <p>Repo: <code>${htmlEscape(data.repo)}</code></p>
+        <p>Branch: <code>${htmlEscape(data.branch)}</code></p>
+        <p>Current SHA: <a href="${htmlEscape(data.currentSha.link)}"><code>${htmlEscape(data.currentSha.short)}</code></a></p>
+      </section>
+      <section class="card">
+        <h2>Working tree</h2>
+        <p>${data.workingTree.dirtyCount === 0 ? "clean" : `${htmlEscape(data.workingTree.dirtyCount)} changed file(s)`}</p>
+        <ul>${changedPaths}</ul>
+      </section>
+      <section class="card">
+        <h2>Deno lock guard</h2>
+        <p>${htmlEscape(data.denoLockGuard.glyph)} ${htmlEscape(data.denoLockGuard.note)}</p>
+      </section>
+      <section class="card">
+        <h2>E2E artifact summary</h2>
+        <p>Path: <code>${htmlEscape(data.artifact.path)}</code></p>
+        <p>Present: ${data.artifact.present ? "yes" : "no"}</p>
+        <p>Size: ${htmlEscape(data.artifact.sizeLabel)}</p>
+        <p>Modified: ${htmlEscape(data.artifact.mtime)}</p>
+      </section>
+    </div>
+    <section class="card">
+      <h2>Latest main workflow runs</h2>
+      <table>
+        <thead>
+          <tr><th></th><th>Workflow</th><th>Conclusion</th><th>Run</th></tr>
+        </thead>
+        <tbody>${workflowRows}</tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
+`);
+}
+
 export function buildReleaseStatusJson(input = {}) {
   const repo = safeRepo(input.repo);
   const branch = safeBranch(input.branch);
@@ -249,6 +354,24 @@ export function buildReleaseStatusJson(input = {}) {
     },
     overallStatus,
     privacy: "sanitized; tokens, cookies, signed URLs, emails, patient names, storage paths, and raw env values are not printed",
+  };
+}
+
+export function buildReleaseHistoryEntry(input = {}, recordedAt = new Date()) {
+  const data = buildReleaseStatusJson(input);
+  return {
+    recordedAt: recordedAt.toISOString(),
+    repo: data.repo,
+    branch: data.branch,
+    currentSha: data.currentSha.short,
+    overallStatus: data.overallStatus,
+    dirtyCount: data.workingTree.dirtyCount,
+    denoLockOk: data.denoLockGuard.ok,
+    artifactPresent: data.artifact.present,
+    workflows: data.workflows.map((workflow) => ({
+      name: workflow.name,
+      conclusion: workflow.conclusion,
+    })),
   };
 }
 
@@ -335,6 +458,7 @@ function parseCliArgs(argv) {
     offline: false,
     format: "markdown",
     output: null,
+    history: null,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -343,9 +467,11 @@ function parseCliArgs(argv) {
       options.offline = true;
     } else if (arg === "--json") {
       options.format = "json";
+    } else if (arg === "--html") {
+      options.format = "html";
     } else if (arg === "--format") {
       const next = argv[i + 1];
-      if (!next) throw new Error("--format requires markdown or json");
+      if (!next) throw new Error("--format requires markdown, json, or html");
       options.format = next;
       i += 1;
     } else if (arg.startsWith("--format=")) {
@@ -357,16 +483,26 @@ function parseCliArgs(argv) {
       i += 1;
     } else if (arg.startsWith("--output=")) {
       options.output = arg.slice("--output=".length);
+    } else if (arg === "--history") {
+      const next = argv[i + 1];
+      if (!next) throw new Error("--history requires a JSONL file path");
+      options.history = next;
+      i += 1;
+    } else if (arg.startsWith("--history=")) {
+      options.history = arg.slice("--history=".length);
     } else {
       throw new Error(`unknown argument: ${safeText(arg)}`);
     }
   }
 
-  if (!["markdown", "json"].includes(options.format)) {
-    throw new Error("--format must be markdown or json");
+  if (!["markdown", "json", "html"].includes(options.format)) {
+    throw new Error("--format must be markdown, json, or html");
   }
   if (options.output != null && String(options.output).trim() === "") {
     throw new Error("--output requires a file path");
+  }
+  if (options.history != null && String(options.history).trim() === "") {
+    throw new Error("--history requires a JSONL file path");
   }
 
   return options;
@@ -378,6 +514,14 @@ function writeOutput(path, content) {
     mkdirSync(parent, { recursive: true });
   }
   writeFileSync(path, content, "utf8");
+}
+
+function appendJsonLine(path, value) {
+  const parent = dirname(path);
+  if (parent && parent !== ".") {
+    mkdirSync(parent, { recursive: true });
+  }
+  appendFileSync(path, `${JSON.stringify(value)}\n`, "utf8");
 }
 
 async function main() {
@@ -402,15 +546,30 @@ async function main() {
     workflows,
     artifact,
   };
-  const report = options.format === "json"
-    ? `${JSON.stringify(buildReleaseStatusJson(input), null, 2)}\n`
-    : buildReleaseStatusReport(input);
+  let report;
+  if (options.format === "json") {
+    report = `${JSON.stringify(buildReleaseStatusJson(input), null, 2)}\n`;
+  } else if (options.format === "html") {
+    report = buildReleaseStatusHtml(input);
+  } else {
+    report = buildReleaseStatusReport(input);
+  }
+
+  if (options.history) {
+    appendJsonLine(options.history, buildReleaseHistoryEntry(input));
+  }
 
   if (options.output) {
     writeOutput(options.output, report);
     process.stdout.write(`[release-status] wrote ${safeText(options.output)}\n`);
+    if (options.history) {
+      process.stdout.write(`[release-status] appended ${safeText(options.history)}\n`);
+    }
   } else {
     process.stdout.write(report);
+    if (options.history) {
+      process.stdout.write(`\n[release-status] appended ${safeText(options.history)}\n`);
+    }
   }
 }
 

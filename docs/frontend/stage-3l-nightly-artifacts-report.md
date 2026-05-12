@@ -114,5 +114,12 @@ Nightly full e2e report
 - To attach release status to CI or an incident note, run
   `node scripts/release-status.mjs --output test-results/release-status.md`
   and `node scripts/release-status.mjs --json --output test-results/release-status.json`.
-  The `release-status` workflow uploads both files as a short-lived
-  `release-status-<run_id>` artifact.
+  For a visual report, run
+  `node scripts/release-status.mjs --html --output test-results/release-status.html`.
+  To append local release history, add
+  `--history test-results/release-history.jsonl`.
+- Before sharing generated release-status files, run
+  `npm run check:release-status-privacy -- test-results/release-status.md test-results/release-status.json test-results/release-status.html test-results/release-history.jsonl`.
+  The `release-status` workflow uploads markdown, JSON, HTML, and history
+  files as a short-lived `release-status-<run_id>` artifact only after this
+  privacy scan passes.
