@@ -31,6 +31,7 @@ import {
   buildReleaseBaselineOptions,
   compareReleaseStatusSnapshots,
   filterReleaseHistoryRecords,
+  paginateReleaseHistoryRecords,
   RELEASE_STATUS_ALLOWED_ROLES,
   RELEASE_STATUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_DEMO_HISTORY_JSONL,
@@ -51,6 +52,7 @@ import {
 } from "@/lib/release-status-ui";
 
 const FORMATS: ReleaseStatusFormat[] = ["markdown", "json", "html", "history"];
+const HISTORY_PREVIEW_PAGE_SIZE = 3;
 
 interface ExportLogEntry {
   at: string;
@@ -114,6 +116,7 @@ export default function SysReleaseStatusPage() {
   const [selectedBaselineId, setSelectedBaselineId] = useState("demo-previous");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<ReleaseHistoryStatusFilter>("all");
   const [historyQuery, setHistoryQuery] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
 
   const level = releaseStatusLevel(snapshot);
   const currentExport = useMemo(() => buildReleaseStatusExportFile(snapshot, format), [format, snapshot]);
@@ -122,9 +125,13 @@ export default function SysReleaseStatusPage() {
   const privacyFindings = privacySummary.findings;
   const historyDraft = useMemo(() => parseReleaseHistoryJsonl(historyInput), [historyInput]);
   const historyPreview = useMemo(() => summarizeReleaseHistoryPreview(historyDraft), [historyDraft]);
-  const filteredHistoryPreviewRecords = useMemo(
+  const filteredHistoryRecords = useMemo(
     () => filterReleaseHistoryRecords(historyDraft.records, historyStatusFilter, historyQuery),
     [historyDraft.records, historyQuery, historyStatusFilter],
+  );
+  const historyPageData = useMemo(
+    () => paginateReleaseHistoryRecords(filteredHistoryRecords, historyPage, HISTORY_PREVIEW_PAGE_SIZE),
+    [filteredHistoryRecords, historyPage],
   );
   const baselineOptions = useMemo(
     () => buildReleaseBaselineOptions(snapshot, previousSnapshot, importedRecords),
@@ -272,7 +279,13 @@ export default function SysReleaseStatusPage() {
 
   const handleDownloadImportAudit = () => {
     if (importAuditLog.length === 0) return;
-    const content = buildReleaseImportAuditReport(importAuditLog);
+    const content = buildReleaseImportAuditReport(importAuditLog, {
+      selectedBaselineSha: selectedBaseline.snapshot.shortSha,
+      selectedBaselineSource: selectedBaseline.source,
+      filteredHistoryCount: filteredHistoryRecords.length,
+      historyStatusFilter,
+      historyQuery,
+    });
     const reportPrivacy = summarizeReleasePrivacy(content);
     if (reportPrivacy.findingCount > 0) {
       setStatus("Отчет аудита импортов заблокирован: privacy detector нашёл чувствительные значения.");
@@ -297,6 +310,7 @@ export default function SysReleaseStatusPage() {
     setSelectedBaselineId("demo-previous");
     setHistoryStatusFilter("all");
     setHistoryQuery("");
+    setHistoryPage(1);
     setHistoryParseNote("History JSONL сброшен к демо-baseline.");
     setImportPrivacyNote("Privacy-проверка импорта ожидает запуска.");
     setStatus("History JSONL сброшен к безопасному демо-примеру.");
@@ -502,7 +516,10 @@ export default function SysReleaseStatusPage() {
             </div>
             <Textarea
               value={historyInput}
-              onChange={(event) => setHistoryInput(event.target.value)}
+              onChange={(event) => {
+                setHistoryInput(event.target.value);
+                setHistoryPage(1);
+              }}
               aria-label="Вставить release-history JSONL"
               className="mt-3 min-h-[150px] resize-y font-mono text-[11px] leading-relaxed"
             />
@@ -556,7 +573,10 @@ export default function SysReleaseStatusPage() {
                   <select
                     aria-label="Фильтр статуса истории"
                     value={historyStatusFilter}
-                    onChange={(event) => setHistoryStatusFilter(event.target.value as ReleaseHistoryStatusFilter)}
+                    onChange={(event) => {
+                      setHistoryStatusFilter(event.target.value as ReleaseHistoryStatusFilter);
+                      setHistoryPage(1);
+                    }}
                     className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="all">Все</option>
@@ -570,7 +590,10 @@ export default function SysReleaseStatusPage() {
                   <Input
                     aria-label="Поиск по release history"
                     value={historyQuery}
-                    onChange={(event) => setHistoryQuery(event.target.value)}
+                    onChange={(event) => {
+                      setHistoryQuery(event.target.value);
+                      setHistoryPage(1);
+                    }}
                     placeholder="SHA, workflow, branch"
                     className="mt-1 h-9 text-[12px]"
                   />
@@ -591,9 +614,9 @@ export default function SysReleaseStatusPage() {
                   ))}
                 </ul>
               )}
-              {filteredHistoryPreviewRecords.length > 0 ? (
+              {historyPageData.records.length > 0 ? (
                 <ul className="mt-2 divide-y divide-border rounded-md border border-border" aria-label="Предпросмотр записей release history">
-                  {filteredHistoryPreviewRecords.slice(0, 4).map((record) => (
+                  {historyPageData.records.map((record) => (
                     <li key={`${record.currentSha}-${record.recordedAt}`} className="grid gap-1 px-2 py-1.5 sm:grid-cols-[1fr_auto]">
                       <span className="font-mono">{record.currentSha}</span>
                       <span className="text-muted-foreground">{releaseStatusLevelLabel(record.overallStatus)}</span>
@@ -605,6 +628,42 @@ export default function SysReleaseStatusPage() {
                   По выбранным фильтрам history-записей нет.
                 </div>
               )}
+              <div
+                className="mt-2 flex flex-col gap-2 rounded-md border border-border bg-background p-2 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
+                role="region"
+                aria-label="Пагинация release history"
+              >
+                <span>
+                  {historyPageData.totalCount === 0
+                    ? "0 из 0"
+                    : `${historyPageData.start}-${historyPageData.end} из ${historyPageData.totalCount}`}{" "}
+                  · страница {historyPageData.page} из {historyPageData.pageCount}
+                </span>
+                <span className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => setHistoryPage((page) => Math.max(1, page - 1))}
+                    disabled={historyPageData.page <= 1}
+                    aria-label="Предыдущая страница истории"
+                  >
+                    Назад
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => setHistoryPage((page) => Math.min(historyPageData.pageCount, page + 1))}
+                    disabled={historyPageData.page >= historyPageData.pageCount}
+                    aria-label="Следующая страница истории"
+                  >
+                    Далее
+                  </Button>
+                </span>
+              </div>
             </div>
           </Card>
 
@@ -665,6 +724,41 @@ export default function SysReleaseStatusPage() {
               <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
               Удалить импорт
             </Button>
+
+            <div className="mt-4 rounded-md border border-border bg-muted/30 p-3 text-[12px]" role="region" aria-label="Предпросмотр выбранного baseline">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium">Предпросмотр baseline</div>
+                <Badge variant={comparison.previousLevel === "fail" ? "destructive" : comparison.previousLevel === "ok" ? "secondary" : "outline"}>
+                  {releaseStatusLevelLabel(comparison.previousLevel)}
+                </Badge>
+              </div>
+              <dl className="mt-2 grid gap-2">
+                <div className="grid grid-cols-[88px_1fr] gap-2">
+                  <dt className="text-muted-foreground">SHA</dt>
+                  <dd className="break-all font-mono">{selectedBaseline.snapshot.shortSha}</dd>
+                </div>
+                <div className="grid grid-cols-[88px_1fr] gap-2">
+                  <dt className="text-muted-foreground">Дата</dt>
+                  <dd>{selectedBaseline.snapshot.generatedAt.slice(0, 10)}</dd>
+                </div>
+                <div className="grid grid-cols-[88px_1fr] gap-2">
+                  <dt className="text-muted-foreground">Deno</dt>
+                  <dd>{selectedBaseline.snapshot.denoLockOk ? "OK" : "Блокер"}</dd>
+                </div>
+                <div className="grid grid-cols-[88px_1fr] gap-2">
+                  <dt className="text-muted-foreground">Артефакт</dt>
+                  <dd>{selectedBaseline.snapshot.artifactPresent ? "Есть" : "Нет"}</dd>
+                </div>
+              </dl>
+              <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-background" aria-label="Workflow выбранного baseline">
+                {selectedBaseline.snapshot.workflows.slice(0, 4).map((workflow) => (
+                  <li key={`${selectedBaseline.id}-${workflow.name}`} className="grid gap-1 px-2 py-1.5 sm:grid-cols-[1fr_auto]">
+                    <span className="truncate font-mono text-[11px]">{workflow.name}</span>
+                    <span className="text-[11px] text-muted-foreground">{workflow.conclusion}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             <div className="mt-4" role="region" aria-label="Аудит импортов release history">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

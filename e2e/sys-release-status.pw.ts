@@ -1,9 +1,24 @@
 import { test, expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 import { setDemoRole } from "./helpers/demo-role";
 
 if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
+}
+
+function historyLine(currentSha: string, hour: string): string {
+  return JSON.stringify({
+    recordedAt: `2026-05-11T${hour}:00:00Z`,
+    repo: "sahchandansah1201-glitch/pro",
+    branch: "main",
+    currentSha,
+    overallStatus: "fail",
+    dirtyCount: 2,
+    denoLockOk: false,
+    artifactPresent: false,
+    workflows: [{ name: "e2e-smoke", conclusion: "failure" }],
+  });
 }
 
 test.describe("/sys/release-status", () => {
@@ -25,13 +40,26 @@ test.describe("/sys/release-status", () => {
     await expect(page.getByRole("list", { name: "Предпросмотр записей release history" })).toContainText("c3d2d18");
 
     await page.getByLabel("Вставить release-history JSONL").fill(
-      '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}\n',
+      [
+        historyLine("aaaaaaaaaaa", "10"),
+        historyLine("bbbbbbbbbbb", "09"),
+        historyLine("ccccccccccc", "08"),
+        historyLine("ddddddddddd", "07"),
+        historyLine("eeeeeeeeeee", "06"),
+      ].join("\n"),
     );
     await page.getByLabel("Фильтр статуса истории").selectOption("fail");
-    await page.getByLabel("Поиск по release history").fill("aaaaaaaa");
+    await page.getByLabel("Поиск по release history").fill("e2e-smoke");
     await expect(page.getByRole("list", { name: "Предпросмотр записей release history" })).toContainText(
       "aaaaaaaaaaa",
     );
+    await expect(page.getByRole("region", { name: "Пагинация release history" })).toContainText("1-3 из 5");
+    await page.getByRole("button", { name: "Следующая страница истории" }).click();
+    await expect(page.getByRole("list", { name: "Предпросмотр записей release history" })).toContainText(
+      "ddddddddddd",
+    );
+    await expect(page.getByRole("region", { name: "Пагинация release history" })).toContainText("4-5 из 5");
+    await page.getByRole("button", { name: "Предыдущая страница истории" }).click();
     await page.getByRole("button", { name: "Dry-run импорт" }).click();
     await expect(page.getByRole("status", { name: "Статус импорта release history", exact: true })).toContainText(
       "Dry-run импорт выполнен",
@@ -40,13 +68,17 @@ test.describe("/sys/release-status", () => {
 
     await page.getByRole("button", { name: "Импортировать history JSONL" }).click();
     await expect(page.getByRole("status", { name: "Статус импорта release history", exact: true })).toContainText(
-      "Импортировано 1 baseline-записей",
+      "Импортировано 5 baseline-записей",
     );
     await expect(page.getByRole("status", { name: "Privacy статус импорта release history", exact: true })).toContainText(
       "Privacy-проверка импорта пройдена",
     );
     await page.getByLabel("Выбрать baseline release status").selectOption("imported-aaaaaaaaaaa-0");
     await expect(page.getByRole("region", { name: "Сравнение релизов" })).toContainText("aaaaaaaaaaa");
+    await expect(page.getByRole("region", { name: "Предпросмотр выбранного baseline" })).toContainText(
+      "aaaaaaaaaaa",
+    );
+    await expect(page.getByRole("list", { name: "Workflow выбранного baseline" })).toContainText("e2e-smoke");
     await expect(page.getByRole("region", { name: "Аудит импортов release history" })).toContainText(
       "Импорт обработан",
     );
@@ -55,6 +87,13 @@ test.describe("/sys/release-status", () => {
     await page.getByRole("button", { name: "Скачать отчет аудита импортов release history" }).click();
     const auditDownload = await auditDownloadPromise;
     expect(auditDownload.suggestedFilename()).toMatch(/^release-history-import-audit-\d{4}-\d{2}-\d{2}\.json$/);
+    const auditPath = await auditDownload.path();
+    expect(auditPath).not.toBeNull();
+    const auditText = await readFile(auditPath!, "utf8");
+    expect(auditText).toContain('"summary"');
+    expect(auditText).toContain('"selectedBaselineSha": "aaaaaaaaaaa"');
+    expect(auditText).toContain('"filteredHistoryCount": 5');
+    expect(auditText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
 
     await page.getByRole("button", { name: "Удалить импортированные baseline" }).click();
     await expect(page.getByRole("status", { name: "Статус релиз-дашборда" })).toContainText(

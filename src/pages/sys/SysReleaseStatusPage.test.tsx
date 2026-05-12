@@ -3,6 +3,25 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import SysReleaseStatusPage from "./SysReleaseStatusPage";
 
+function historyLine(
+  currentSha: string,
+  overallStatus: "ok" | "incomplete" | "fail",
+  workflowConclusion: "success" | "failure" | "in_progress" | "unknown",
+  hour: string,
+): string {
+  return JSON.stringify({
+    recordedAt: `2026-05-11T${hour}:00:00Z`,
+    repo: "sahchandansah1201-glitch/pro",
+    branch: "main",
+    currentSha,
+    overallStatus,
+    dirtyCount: overallStatus === "ok" ? 0 : 2,
+    denoLockOk: overallStatus !== "fail",
+    artifactPresent: overallStatus === "ok",
+    workflows: [{ name: "e2e-smoke", conclusion: workflowConclusion }],
+  });
+}
+
 describe("SysReleaseStatusPage", () => {
   beforeEach(() => {
     Object.defineProperty(URL, "createObjectURL", {
@@ -116,15 +135,27 @@ describe("SysReleaseStatusPage", () => {
     const historyInput = screen.getByLabelText("Вставить release-history JSONL");
     fireEvent.change(historyInput, {
       target: {
-        value:
-          '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}\n',
+        value: [
+          historyLine("aaaaaaaaaaa", "fail", "failure", "10"),
+          historyLine("bbbbbbbbbbb", "fail", "failure", "09"),
+          historyLine("ccccccccccc", "fail", "failure", "08"),
+          historyLine("ddddddddddd", "fail", "failure", "07"),
+          historyLine("eeeeeeeeeee", "fail", "failure", "06"),
+        ].join("\n"),
       },
     });
     fireEvent.change(screen.getByLabelText("Фильтр статуса истории"), { target: { value: "fail" } });
-    fireEvent.change(screen.getByLabelText("Поиск по release history"), { target: { value: "aaaaaaaa" } });
+    fireEvent.change(screen.getByLabelText("Поиск по release history"), { target: { value: "e2e-smoke" } });
     expect(screen.getByRole("list", { name: "Предпросмотр записей release history" })).toHaveTextContent(
       "aaaaaaaaaaa",
     );
+    expect(screen.getByRole("region", { name: "Пагинация release history" })).toHaveTextContent("1-3 из 5");
+    fireEvent.click(screen.getByRole("button", { name: "Следующая страница истории" }));
+    const historyPreviewList = screen.getByRole("list", { name: "Предпросмотр записей release history" });
+    expect(historyPreviewList).toHaveTextContent("ddddddddddd");
+    expect(historyPreviewList).toHaveTextContent("eeeeeeeeeee");
+    expect(screen.getByRole("region", { name: "Пагинация release history" })).toHaveTextContent("4-5 из 5");
+    fireEvent.click(screen.getByRole("button", { name: "Предыдущая страница истории" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Dry-run импорт" }));
     expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
@@ -142,6 +173,12 @@ describe("SysReleaseStatusPage", () => {
       target: { value: "imported-aaaaaaaaaaa-0" },
     });
     expect(screen.getByRole("region", { name: "Сравнение релизов" })).toHaveTextContent("aaaaaaaaaaa");
+    const baselinePreview = screen.getByRole("region", { name: "Предпросмотр выбранного baseline" });
+    expect(baselinePreview).toHaveTextContent("aaaaaaaaaaa");
+    expect(baselinePreview).toHaveTextContent("Блокер");
+    expect(within(baselinePreview).getByRole("list", { name: "Workflow выбранного baseline" })).toHaveTextContent(
+      "e2e-smoke",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Удалить импортированные baseline" }));
     expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(

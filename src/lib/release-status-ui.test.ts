@@ -11,6 +11,7 @@ import {
   compareReleaseStatusSnapshots,
   detectReleaseStatusUiPrivacyLeaks,
   filterReleaseHistoryRecords,
+  paginateReleaseHistoryRecords,
   parseReleaseHistoryJsonl,
   RELEASE_STATUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_DEMO_HISTORY_JSONL,
@@ -169,31 +170,69 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(filterReleaseHistoryRecords(result.records, "fail", "e2e")).toHaveLength(1);
     expect(filterReleaseHistoryRecords(result.records, "ok", "")).toHaveLength(0);
     expect(filterReleaseHistoryRecords(result.records, "all", "aaaaaaaa")).toHaveLength(1);
+
+    const page = paginateReleaseHistoryRecords(
+      [
+        ...result.records,
+        { ...result.records[0]!, currentSha: "ccccccccccc" },
+        { ...result.records[0]!, currentSha: "ddddddddddd" },
+      ],
+      2,
+      2,
+    );
+    expect(page).toEqual(
+      expect.objectContaining({
+        page: 2,
+        pageSize: 2,
+        pageCount: 2,
+        totalCount: 3,
+        start: 3,
+        end: 3,
+      }),
+    );
+    expect(page.records[0]?.currentSha).toBe("ddddddddddd");
   });
 
   it("builds a sanitized release history import audit report", () => {
-    const report = buildReleaseImportAuditReport([
+    const report = buildReleaseImportAuditReport(
+      [
+        {
+          at: "2026-05-12T10:00:00Z",
+          status: "dry_run",
+          acceptedCount: 1,
+          skippedCount: 0,
+          privacyFindingCount: 0,
+          message: "Dry-run импорт: 1 безопасная запись.",
+        },
+        {
+          at: "2026-05-12T11:00:00Z",
+          status: "blocked",
+          acceptedCount: 0,
+          skippedCount: 1,
+          privacyFindingCount: 1,
+          message: "actor_email=doctor@example.com",
+        },
+      ],
       {
-        at: "2026-05-12T10:00:00Z",
-        status: "dry_run",
-        acceptedCount: 1,
-        skippedCount: 0,
-        privacyFindingCount: 0,
-        message: "Dry-run импорт: 1 безопасная запись.",
+        selectedBaselineSha: "aaaaaaaaaaa",
+        selectedBaselineSource: "imported",
+        filteredHistoryCount: 3,
+        historyStatusFilter: "fail",
+        historyQuery: "doctor@example.com",
       },
-      {
-        at: "2026-05-12T11:00:00Z",
-        status: "blocked",
-        acceptedCount: 0,
-        skippedCount: 1,
-        privacyFindingCount: 1,
-        message: "actor_email=doctor@example.com",
-      },
-    ]);
+    );
 
     const parsed = JSON.parse(report);
     expect(parsed.title).toBe("Release history import audit");
     expect(parsed.rowCount).toBe(2);
+    expect(parsed.summary.statusCounts).toEqual({ dry_run: 1, blocked: 1 });
+    expect(parsed.summary.acceptedTotal).toBe(1);
+    expect(parsed.summary.skippedTotal).toBe(1);
+    expect(parsed.summary.selectedBaselineSha).toBe("aaaaaaaaaaa");
+    expect(parsed.summary.selectedBaselineSource).toBe("imported");
+    expect(parsed.summary.filters).toEqual(
+      expect.objectContaining({ status: "fail", query: expect.stringContaining("redacted text") }),
+    );
     expect(parsed.entries[0].status).toBe("dry_run");
     expect(report).not.toContain("doctor@example.com");
     expect(report).toContain("redacted message");

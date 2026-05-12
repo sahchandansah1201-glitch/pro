@@ -175,5 +175,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #61: added release-history import dry-run, preview filters, JSONL format
   validation issues, browser-session baseline deletion, and sanitized audit
   report download on `/sys/release-status`.
+- PR #62: added release-history pagination, selected-baseline preview,
+  expanded e2e validation of audit report JSON, and audit-report summary
+  metadata on `/sys/release-status`.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

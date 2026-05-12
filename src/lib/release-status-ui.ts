@@ -123,6 +123,24 @@ export interface ReleaseHistoryAuditReportEntry {
   message: string;
 }
 
+export interface ReleaseHistoryAuditReportContext {
+  selectedBaselineSha?: string;
+  selectedBaselineSource?: string;
+  filteredHistoryCount?: number;
+  historyStatusFilter?: ReleaseHistoryStatusFilter;
+  historyQuery?: string;
+}
+
+export interface ReleaseHistoryPage {
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  totalCount: number;
+  start: number;
+  end: number;
+  records: ReleaseHistoryRecord[];
+}
+
 const TOKEN_PARAM_NAMES = [
   "access_token",
   "refresh_token",
@@ -607,24 +625,58 @@ export function filterReleaseHistoryRecords(
   });
 }
 
+export function paginateReleaseHistoryRecords(
+  records: ReleaseHistoryRecord[],
+  page: number,
+  pageSize: number,
+): ReleaseHistoryPage {
+  const safePageSize = Math.max(1, Math.floor(pageSize || 1));
+  const pageCount = Math.max(1, Math.ceil(records.length / safePageSize));
+  const safePage = Math.min(Math.max(1, Math.floor(page || 1)), pageCount);
+  const start = records.length === 0 ? 0 : (safePage - 1) * safePageSize + 1;
+  const end = Math.min(records.length, safePage * safePageSize);
+  return {
+    page: safePage,
+    pageSize: safePageSize,
+    pageCount,
+    totalCount: records.length,
+    start,
+    end,
+    records: records.slice((safePage - 1) * safePageSize, safePage * safePageSize),
+  };
+}
+
 export function releaseHistoryAuditFilename(): string {
   return `release-history-import-audit-${today()}.json`;
 }
 
-export function buildReleaseImportAuditReport(entries: ReleaseHistoryAuditReportEntry[]): string {
+function sanitizeAuditText(value: string): string {
+  const compact = value.replace(/\s+/g, " ").slice(0, 240);
+  const privacy = summarizeReleasePrivacy(compact);
+  if (privacy.findingCount === 0) return compact;
+  return `redacted text; privacy categories: ${privacy.labels.join(", ")}`;
+}
+
+export function buildReleaseImportAuditReport(
+  entries: ReleaseHistoryAuditReportEntry[],
+  context: ReleaseHistoryAuditReportContext = {},
+): string {
   const safeEntries = entries.map((entry) => ({
     at: safeIsoDate(entry.at) ?? new Date(0).toISOString(),
     status: /^[a-z_]{1,24}$/i.test(entry.status) ? entry.status : "unknown",
     acceptedCount: Math.max(0, Math.floor(entry.acceptedCount || 0)),
     skippedCount: Math.max(0, Math.floor(entry.skippedCount || 0)),
     privacyFindingCount: Math.max(0, Math.floor(entry.privacyFindingCount || 0)),
-    message: (() => {
-      const compact = entry.message.replace(/\s+/g, " ").slice(0, 240);
-      const privacy = summarizeReleasePrivacy(compact);
-      if (privacy.findingCount === 0) return compact;
-      return `redacted message; privacy categories: ${privacy.labels.join(", ")}`;
-    })(),
+    message: sanitizeAuditText(entry.message).replace(/^redacted text;/, "redacted message;"),
   }));
+  const statusCounts = safeEntries.reduce<Record<string, number>>((acc, entry) => {
+    acc[entry.status] = (acc[entry.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const safeBaselineSha = safeShortSha(context.selectedBaselineSha) ?? "unknown";
+  const safeBaselineSource = /^[a-z_ -]{1,40}$/i.test(context.selectedBaselineSource ?? "")
+    ? context.selectedBaselineSource
+    : "unknown";
 
   return `${JSON.stringify(
     {
@@ -632,6 +684,20 @@ export function buildReleaseImportAuditReport(entries: ReleaseHistoryAuditReport
       generatedAt: new Date().toISOString(),
       rowCount: safeEntries.length,
       privacy: "sanitized; report stores counts and generated status messages only",
+      summary: {
+        totalAttempts: safeEntries.length,
+        statusCounts,
+        acceptedTotal: safeEntries.reduce((sum, entry) => sum + entry.acceptedCount, 0),
+        skippedTotal: safeEntries.reduce((sum, entry) => sum + entry.skippedCount, 0),
+        privacyFindingTotal: safeEntries.reduce((sum, entry) => sum + entry.privacyFindingCount, 0),
+        filteredHistoryCount: Math.max(0, Math.floor(context.filteredHistoryCount ?? 0)),
+        selectedBaselineSha: safeBaselineSha,
+        selectedBaselineSource: safeBaselineSource,
+        filters: {
+          status: context.historyStatusFilter ?? "all",
+          query: sanitizeAuditText(context.historyQuery ?? ""),
+        },
+      },
       entries: safeEntries,
     },
     null,
