@@ -104,3 +104,10 @@ Nightly full e2e report
   review reason.
 - If an artifact contains sensitive data, delete it from GitHub Actions and
   use Stage 3D incident response.
+
+## 8. Related dashboards
+
+- For a single-snapshot view of git state, the current SHA, latest main
+  GitHub Actions runs, the deno-lock guard status, and the e2e artifact
+  summary presence, run `npm run release:status`. See
+  [Stage 3M — Release operations dashboard](./stage-3m-release-operations-dashboard.md).

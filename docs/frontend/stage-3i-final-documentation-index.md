@@ -135,5 +135,9 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #54: added a sanitized CLI viewer for generated e2e artifact summaries,
   expanded redaction rules again, and made focused preflight print step
   results.
+- PR #55: added the Stage 3M release operations dashboard CLI
+  (`scripts/release-status.mjs`, `npm run release:status`) with sanitized
+  output, offline mode, and log-safety tests, plus cross-links from
+  Stage 3I and Stage 3L.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
