@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   Download,
   Eye,
+  FileUp,
   FileCode2,
   GitCompare,
   History,
@@ -11,6 +12,7 @@ import {
   MonitorCheck,
   PackageCheck,
   PlayCircle,
+  RotateCcw,
   ShieldCheck,
 } from "lucide-react";
 
@@ -22,15 +24,19 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   buildReleaseStatusExportBundle,
   buildReleaseStatusExportFile,
+  buildReleaseBaselineOptions,
   compareReleaseStatusSnapshots,
   RELEASE_STATUS_ALLOWED_ROLES,
   RELEASE_STATUS_DEMO_SNAPSHOT,
+  RELEASE_STATUS_DEMO_HISTORY_JSONL,
   RELEASE_STATUS_PREFLIGHT_COMMAND,
   RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_PRIVACY_CATEGORIES,
+  parseReleaseHistoryJsonl,
   releaseStatusFormatLabel,
   releaseStatusLevel,
   releaseStatusLevelLabel,
+  type ReleaseHistoryRecord,
   type ReleaseStatusFormat,
 } from "@/lib/release-status-ui";
 
@@ -71,15 +77,24 @@ export default function SysReleaseStatusPage() {
   const [status, setStatus] = useState("Предпросмотр готов. Секреты не отображаются.");
   const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
   const [showHistory, setShowHistory] = useState(true);
+  const [historyInput, setHistoryInput] = useState(RELEASE_STATUS_DEMO_HISTORY_JSONL);
+  const [importedRecords, setImportedRecords] = useState<ReleaseHistoryRecord[]>([]);
+  const [historyParseNote, setHistoryParseNote] = useState("History JSONL ещё не импортирован.");
+  const [selectedBaselineId, setSelectedBaselineId] = useState("demo-previous");
 
   const level = releaseStatusLevel(snapshot);
   const currentExport = useMemo(() => buildReleaseStatusExportFile(snapshot, format), [format, snapshot]);
   const output = currentExport.content;
   const privacySummary = currentExport.privacy;
   const privacyFindings = privacySummary.findings;
+  const baselineOptions = useMemo(
+    () => buildReleaseBaselineOptions(snapshot, previousSnapshot, importedRecords),
+    [importedRecords, previousSnapshot, snapshot],
+  );
+  const selectedBaseline = baselineOptions.find((item) => item.id === selectedBaselineId) ?? baselineOptions[0]!;
   const comparison = useMemo(
-    () => compareReleaseStatusSnapshots(previousSnapshot, snapshot),
-    [previousSnapshot, snapshot],
+    () => compareReleaseStatusSnapshots(selectedBaseline.snapshot, snapshot),
+    [selectedBaseline.snapshot, snapshot],
   );
   const successCount = snapshot.workflows.filter((workflow) => workflow.conclusion === "success").length;
 
@@ -123,6 +138,34 @@ export default function SysReleaseStatusPage() {
     } else {
       setStatus(`Проверка приватности нашла ${privacyFindings.length} совпадений.`);
     }
+  };
+
+  const handleImportHistory = () => {
+    const result = parseReleaseHistoryJsonl(historyInput);
+    if (result.privacy.findingCount > 0) {
+      setImportedRecords([]);
+      setSelectedBaselineId("demo-previous");
+      setHistoryParseNote(
+        `Импорт заблокирован: найдено приватных совпадений ${result.privacy.findingCount}.`,
+      );
+      setStatus("History JSONL не импортирован: сначала удалите чувствительные значения.");
+      return;
+    }
+    setImportedRecords(result.records);
+    const nextOptions = buildReleaseBaselineOptions(snapshot, previousSnapshot, result.records);
+    setSelectedBaselineId(nextOptions[0]?.id ?? "demo-previous");
+    setHistoryParseNote(
+      `Импортировано baseline-записей: ${result.records.length}. Пропущено строк: ${result.skippedCount}.`,
+    );
+    setStatus(`History JSONL импортирован: ${result.records.length} безопасных записей.`);
+  };
+
+  const handleResetHistoryInput = () => {
+    setHistoryInput(RELEASE_STATUS_DEMO_HISTORY_JSONL);
+    setImportedRecords([]);
+    setSelectedBaselineId("demo-previous");
+    setHistoryParseNote("History JSONL сброшен к демо-baseline.");
+    setStatus("History JSONL сброшен к безопасному демо-примеру.");
   };
 
   const handlePreparePreflight = async () => {
@@ -312,6 +355,74 @@ export default function SysReleaseStatusPage() {
           </Card>
         </section>
 
+        <section aria-label="Импорт release history" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <Card className="p-4">
+            <div className="flex items-start gap-2">
+              <FileUp className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
+              <div>
+                <h2 className="text-[16px] font-semibold tracking-tight">Импорт history JSONL</h2>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  Вставьте безопасный `release-history.jsonl`, чтобы сравнить текущий main с выбранным baseline.
+                </p>
+              </div>
+            </div>
+            <Textarea
+              value={historyInput}
+              onChange={(event) => setHistoryInput(event.target.value)}
+              aria-label="Вставить release-history JSONL"
+              className="mt-3 min-h-[150px] resize-y font-mono text-[11px] leading-relaxed"
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" size="sm" className="h-8 text-[12px]" onClick={handleImportHistory}>
+                <FileUp className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Импортировать history JSONL
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-8 text-[12px]" onClick={handleResetHistoryInput}>
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Сбросить пример
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <h2 className="text-[16px] font-semibold tracking-tight">Baseline status</h2>
+            <div
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              aria-label="Статус импорта release history"
+              className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-[12px] text-muted-foreground"
+            >
+              {historyParseNote}
+            </div>
+            <label className="mt-3 block text-[12px] text-muted-foreground">
+              Baseline для сравнения
+              <select
+                aria-label="Выбрать baseline release status"
+                value={selectedBaseline.id}
+                onChange={(event) => setSelectedBaselineId(event.target.value)}
+                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {baselineOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <dl className="mt-3 space-y-2 text-[12px]">
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <dt className="text-muted-foreground">Источник</dt>
+                <dd className="mt-1">{selectedBaseline.source === "imported" ? "Импортированный history" : "Демо-baseline"}</dd>
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <dt className="text-muted-foreground">Детали</dt>
+                <dd className="mt-1">{selectedBaseline.detail}</dd>
+              </div>
+            </dl>
+          </Card>
+        </section>
+
         <section aria-label="Сравнение релизов" className="grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
           <Card className="p-4">
             <div className="flex items-start gap-2">
@@ -326,7 +437,7 @@ export default function SysReleaseStatusPage() {
             <dl className="mt-4 grid gap-2 text-[12px] sm:grid-cols-2">
               <div className="rounded-md border border-border bg-muted/30 p-3">
                 <dt className="text-muted-foreground">Предыдущий</dt>
-                <dd className="mt-1 font-mono">{previousSnapshot.shortSha}</dd>
+                <dd className="mt-1 font-mono">{selectedBaseline.snapshot.shortSha}</dd>
                 <dd className="mt-1">{releaseStatusLevelLabel(comparison.previousLevel)}</dd>
               </div>
               <div className="rounded-md border border-border bg-muted/30 p-3">

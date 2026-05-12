@@ -57,6 +57,35 @@ export interface ReleaseComparisonSummary {
   workflowChanges: ReleaseWorkflowComparison[];
 }
 
+export interface ReleaseHistoryRecord {
+  recordedAt: string;
+  repo: string;
+  branch: string;
+  currentSha: string;
+  overallStatus: ReleaseStatusLevel;
+  dirtyCount: number;
+  denoLockOk: boolean;
+  artifactPresent: boolean;
+  workflows: Array<{
+    name: string;
+    conclusion: ReleaseWorkflowStatus["conclusion"];
+  }>;
+}
+
+export interface ReleaseHistoryParseResult {
+  records: ReleaseHistoryRecord[];
+  skippedCount: number;
+  privacy: ReleasePrivacySummary;
+}
+
+export interface ReleaseBaselineOption {
+  id: string;
+  label: string;
+  detail: string;
+  source: "demo" | "imported";
+  snapshot: ReleaseStatusSnapshot;
+}
+
 const TOKEN_PARAM_NAMES = [
   "access_token",
   "refresh_token",
@@ -338,6 +367,178 @@ export function buildReleaseHistoryJsonl(snapshot: ReleaseStatusSnapshot): strin
       conclusion: workflow.conclusion,
     })),
   })}\n`;
+}
+
+export const RELEASE_STATUS_DEMO_HISTORY_JSONL = `${buildReleaseHistoryJsonl(
+  RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
+)}${buildReleaseHistoryJsonl(RELEASE_STATUS_DEMO_SNAPSHOT)}`;
+
+function isReleaseStatusLevel(value: unknown): value is ReleaseStatusLevel {
+  return value === "ok" || value === "incomplete" || value === "fail";
+}
+
+function isWorkflowConclusion(value: unknown): value is ReleaseWorkflowStatus["conclusion"] {
+  return value === "success" || value === "failure" || value === "in_progress" || value === "unknown";
+}
+
+function safeShortSha(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^[a-f0-9]{7,40}$/i.test(trimmed)) return null;
+  return trimmed.slice(0, 13);
+}
+
+function safeRepo(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function safeBranch(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^[A-Za-z0-9._/-]{1,80}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function safeIsoDate(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return null;
+  return new Date(timestamp).toISOString();
+}
+
+function safeWorkflowName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^[A-Za-z0-9._-]{1,80}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function toHistoryRecord(raw: unknown): ReleaseHistoryRecord | null {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as Record<string, unknown>;
+  const recordedAt = safeIsoDate(item.recordedAt);
+  const repo = safeRepo(item.repo);
+  const branch = safeBranch(item.branch);
+  const currentSha = safeShortSha(item.currentSha);
+  const overallStatus = item.overallStatus;
+  if (!recordedAt || !repo || !branch || !currentSha || !isReleaseStatusLevel(overallStatus)) {
+    return null;
+  }
+
+  const workflows = Array.isArray(item.workflows)
+    ? item.workflows
+        .map((workflow) => {
+          if (!workflow || typeof workflow !== "object") return null;
+          const wf = workflow as Record<string, unknown>;
+          const name = safeWorkflowName(wf.name);
+          const conclusion = wf.conclusion;
+          if (!name || !isWorkflowConclusion(conclusion)) return null;
+          return { name, conclusion };
+        })
+        .filter((workflow): workflow is ReleaseHistoryRecord["workflows"][number] => workflow != null)
+    : [];
+
+  if (workflows.length === 0) return null;
+
+  const dirtyCount = typeof item.dirtyCount === "number" && Number.isFinite(item.dirtyCount)
+    ? Math.max(0, Math.floor(item.dirtyCount))
+    : 0;
+
+  return {
+    recordedAt,
+    repo,
+    branch,
+    currentSha,
+    overallStatus,
+    dirtyCount,
+    denoLockOk: item.denoLockOk === true,
+    artifactPresent: item.artifactPresent === true,
+    workflows,
+  };
+}
+
+export function parseReleaseHistoryJsonl(input: string, maxRecords = 12): ReleaseHistoryParseResult {
+  const privacy = summarizeReleasePrivacy(input);
+  if (privacy.findingCount > 0) {
+    return { records: [], skippedCount: input.split(/\r?\n/).filter(Boolean).length, privacy };
+  }
+
+  const records: ReleaseHistoryRecord[] = [];
+  let skippedCount = 0;
+  for (const line of input.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const record = toHistoryRecord(JSON.parse(trimmed));
+      if (record) {
+        records.push(record);
+      } else {
+        skippedCount += 1;
+      }
+    } catch {
+      skippedCount += 1;
+    }
+  }
+
+  records.sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt));
+  return {
+    records: records.slice(0, Math.max(1, maxRecords)),
+    skippedCount,
+    privacy,
+  };
+}
+
+export function releaseSnapshotFromHistoryRecord(record: ReleaseHistoryRecord): ReleaseStatusSnapshot {
+  return {
+    repo: record.repo,
+    branch: record.branch,
+    shortSha: record.currentSha,
+    shaUrl: `https://github.com/${record.repo}/commit/${record.currentSha}`,
+    workingTree: record.dirtyCount === 0 ? "clean" : "dirty",
+    changedCount: record.dirtyCount,
+    denoLockOk: record.denoLockOk,
+    artifactPresent: record.artifactPresent,
+    artifactPath: "history-import",
+    generatedAt: record.recordedAt,
+    workflows: record.workflows.map((workflow) => ({
+      name: workflow.name,
+      conclusion: workflow.conclusion,
+      runUrl: `https://github.com/${record.repo}/actions?query=workflow%3A${encodeURIComponent(workflow.name)}`,
+    })),
+  };
+}
+
+export function buildReleaseBaselineOptions(
+  current: ReleaseStatusSnapshot,
+  demoPrevious: ReleaseStatusSnapshot,
+  importedRecords: ReleaseHistoryRecord[],
+): ReleaseBaselineOption[] {
+  const imported = importedRecords
+    .filter((record) => record.currentSha !== current.shortSha)
+    .map((record, index) => {
+      const snapshot = releaseSnapshotFromHistoryRecord(record);
+      return {
+        id: `imported-${record.currentSha}-${index}`,
+        label: `Импорт: ${record.currentSha}`,
+        detail: `${record.branch}, ${record.recordedAt.slice(0, 10)}, ${releaseStatusLevelLabel(releaseStatusLevel(snapshot))}`,
+        source: "imported" as const,
+        snapshot,
+      };
+    });
+
+  return [
+    {
+      id: "demo-previous",
+      label: `Сохранённый baseline: ${demoPrevious.shortSha}`,
+      detail: `${demoPrevious.branch}, ${demoPrevious.generatedAt.slice(0, 10)}, ${releaseStatusLevelLabel(releaseStatusLevel(demoPrevious))}`,
+      source: "demo",
+      snapshot: demoPrevious,
+    },
+    ...imported,
+  ].slice(0, 8);
 }
 
 export function buildReleaseStatusOutput(

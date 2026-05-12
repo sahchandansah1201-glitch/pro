@@ -166,5 +166,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #58: hardened `/sys/release-status` with visible `system_admin` RBAC
   scope, e2e no-access coverage for `clinic_admin`, a unified export bundle,
   release-to-release comparison, and expanded privacy-preview details.
+- PR #59: extended `/sys/release-status` with local `release-history.jsonl`
+  import, privacy-gated baseline parsing, a selectable comparison baseline,
+  and e2e coverage for safe import plus blocked unsafe history content.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
