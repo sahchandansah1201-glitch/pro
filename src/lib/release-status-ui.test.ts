@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildReleaseImportAuditReport,
   buildReleaseStatusExportBundle,
   buildReleaseBaselineOptions,
   buildReleaseHistoryJsonl,
@@ -9,6 +10,7 @@ import {
   buildReleaseStatusMarkdown,
   compareReleaseStatusSnapshots,
   detectReleaseStatusUiPrivacyLeaks,
+  filterReleaseHistoryRecords,
   parseReleaseHistoryJsonl,
   RELEASE_STATUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_DEMO_HISTORY_JSONL,
@@ -144,5 +146,56 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(result.message).toMatch(/privacy detector/);
     expect(result.privacy.labels).toEqual(expect.arrayContaining(["email address"]));
     expect(preview.privacyFindingCount).toBeGreaterThan(0);
+    expect(result.issues[0]).toEqual(expect.objectContaining({ reason: "privacy_blocked" }));
+  });
+
+  it("reports JSONL validation issues and filters release history records", () => {
+    const validFail =
+      '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}';
+    const invalidSchema =
+      '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"bbbbbbb","overallStatus":"ok","dirtyCount":0,"denoLockOk":true,"artifactPresent":true,"workflows":[]}';
+    const result = parseReleaseHistoryJsonl(`${validFail}\n{bad json}\n${invalidSchema}`);
+
+    expect(result.status).toBe("partial");
+    expect(result.acceptedCount).toBe(1);
+    expect(result.skippedCount).toBe(2);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ line: 2, reason: "invalid_json", message: "invalid JSON" }),
+        expect.objectContaining({ line: 3, reason: "invalid_schema" }),
+      ]),
+    );
+
+    expect(filterReleaseHistoryRecords(result.records, "fail", "e2e")).toHaveLength(1);
+    expect(filterReleaseHistoryRecords(result.records, "ok", "")).toHaveLength(0);
+    expect(filterReleaseHistoryRecords(result.records, "all", "aaaaaaaa")).toHaveLength(1);
+  });
+
+  it("builds a sanitized release history import audit report", () => {
+    const report = buildReleaseImportAuditReport([
+      {
+        at: "2026-05-12T10:00:00Z",
+        status: "dry_run",
+        acceptedCount: 1,
+        skippedCount: 0,
+        privacyFindingCount: 0,
+        message: "Dry-run импорт: 1 безопасная запись.",
+      },
+      {
+        at: "2026-05-12T11:00:00Z",
+        status: "blocked",
+        acceptedCount: 0,
+        skippedCount: 1,
+        privacyFindingCount: 1,
+        message: "actor_email=doctor@example.com",
+      },
+    ]);
+
+    const parsed = JSON.parse(report);
+    expect(parsed.title).toBe("Release history import audit");
+    expect(parsed.rowCount).toBe(2);
+    expect(parsed.entries[0].status).toBe("dry_run");
+    expect(report).not.toContain("doctor@example.com");
+    expect(report).toContain("redacted message");
   });
 });

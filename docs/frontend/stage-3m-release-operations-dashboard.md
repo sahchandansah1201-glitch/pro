@@ -232,9 +232,15 @@ The viewer also exposes the UI-side release operator guardrails:
 - The import panel shows a history preview before import: total parsed lines,
   accepted baseline count, skipped line count, privacy finding count, latest
   SHA/status, and the first safe history records.
+- The history preview includes JSONL format validation details, status/search
+  filters (`filterReleaseHistoryRecords`), and a dry-run import mode that runs
+  parse/privacy checks without changing the selected comparison baseline.
 - Each import attempt is appended to a local audit log with timestamp, result,
   accepted/skipped counts, privacy finding count, and a sanitized operator
   message. The audit log is browser-local and is cleared on reload.
+- Operators can delete imported baseline records from the current browser
+  session and download a sanitized JSON audit report built by
+  `buildReleaseImportAuditReport`.
 - Import privacy status is announced separately from the general page status,
   so screen-reader users can distinguish "parse succeeded" from "privacy gate
   passed" or "privacy gate blocked".
@@ -253,7 +259,9 @@ The viewer also exposes the UI-side release operator guardrails:
   `src/pages/sys/SysReleaseStatusPage.test.tsx`, and
   `e2e/sys-release-status.pw.ts` together.
 - RBAC, export, release comparison, history-import, history-preview,
-  import-audit, baseline-selector, and privacy-preview changes must also keep
+  history-filters, jsonl-validation, dry-run-import, import-audit,
+  audit-report-download, baseline-delete, baseline-selector, and privacy-preview
+  changes must also keep
   `scripts/check-stage3-docs.mjs` aligned with the UI helper names and e2e
   assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
