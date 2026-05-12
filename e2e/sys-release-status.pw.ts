@@ -27,6 +27,17 @@ test.describe("/sys/release-status", () => {
     await page.getByLabel("Вставить release-history JSONL").fill(
       '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}\n',
     );
+    await page.getByLabel("Фильтр статуса истории").selectOption("fail");
+    await page.getByLabel("Поиск по release history").fill("aaaaaaaa");
+    await expect(page.getByRole("list", { name: "Предпросмотр записей release history" })).toContainText(
+      "aaaaaaaaaaa",
+    );
+    await page.getByRole("button", { name: "Dry-run импорт" }).click();
+    await expect(page.getByRole("status", { name: "Статус импорта release history", exact: true })).toContainText(
+      "Dry-run импорт выполнен",
+    );
+    await expect(page.getByRole("button", { name: "Удалить импортированные baseline" })).toBeDisabled();
+
     await page.getByRole("button", { name: "Импортировать history JSONL" }).click();
     await expect(page.getByRole("status", { name: "Статус импорта release history", exact: true })).toContainText(
       "Импортировано 1 baseline-записей",
@@ -38,6 +49,19 @@ test.describe("/sys/release-status", () => {
     await expect(page.getByRole("region", { name: "Сравнение релизов" })).toContainText("aaaaaaaaaaa");
     await expect(page.getByRole("region", { name: "Аудит импортов release history" })).toContainText(
       "Импорт обработан",
+    );
+
+    const auditDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Скачать отчет аудита импортов release history" }).click();
+    const auditDownload = await auditDownloadPromise;
+    expect(auditDownload.suggestedFilename()).toMatch(/^release-history-import-audit-\d{4}-\d{2}-\d{2}\.json$/);
+
+    await page.getByRole("button", { name: "Удалить импортированные baseline" }).click();
+    await expect(page.getByRole("status", { name: "Статус релиз-дашборда" })).toContainText(
+      "Импортированные baseline удалены",
+    );
+    await expect(page.getByRole("region", { name: "Аудит импортов release history" })).toContainText(
+      "Импорт удалён",
     );
 
     const bodyText = await page.locator("body").innerText();
@@ -86,6 +110,15 @@ test.describe("/sys/release-status", () => {
     await page.getByRole("button", { name: "Подготовить локальный запуск" }).click();
     await expect(page.getByRole("status", { name: "Статус релиз-дашборда" })).toContainText(
       /preflight/,
+    );
+
+    await page.getByLabel("Вставить release-history JSONL").fill("{bad json}\n");
+    await expect(page.getByRole("list", { name: "Ошибки формата release history" })).toContainText(
+      "строка 1: invalid JSON",
+    );
+    await page.getByRole("button", { name: "Импортировать history JSONL" }).click();
+    await expect(page.getByRole("status", { name: "Статус импорта release history", exact: true })).toContainText(
+      "Импорт не содержит валидных baseline-записей",
     );
 
     await page.getByLabel("Вставить release-history JSONL").fill(

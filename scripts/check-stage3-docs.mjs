@@ -469,6 +469,13 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "histo
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-preview");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "import-audit");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "baseline-selector");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-filters");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "jsonl-validation");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "dry-run-import");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "audit-report-download");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "baseline-delete");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseImportAuditReport");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "filterReleaseHistoryRecords");
 checkMarkdownLinks("stage-3m-release-operations-dashboard.md", stage3m);
 
 const stage3l = readDoc("stage-3l-nightly-artifacts-report.md");
@@ -540,6 +547,10 @@ requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseBaselineOpti
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseSnapshotFromHistoryRecord");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "summarizeReleaseHistoryPreview");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "RELEASE_STATUS_DEMO_HISTORY_JSONL");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "ReleaseHistoryParseIssue");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "filterReleaseHistoryRecords");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseImportAuditReport");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryAuditFilename");
 
 const releaseStatusUiPage = existsSync(join(ROOT, RELEASE_STATUS_UI_PAGE))
   ? readFileSync(join(ROOT, RELEASE_STATUS_UI_PAGE), "utf8")
@@ -552,6 +563,12 @@ requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Выбрать baselin
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предпросмотр истории");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Аудит импортов");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Privacy статус импорта release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Dry-run импорт");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фильтр статуса истории");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Поиск по release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Ошибки формата release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Удалить импортированные baseline");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Скачать отчет аудита импортов release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать единый пакет release status");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать release status");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Категории проверки приватности");
@@ -567,6 +584,11 @@ requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Импортироват
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Импорт заблокирован");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Предпросмотр истории");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Аудит импортов release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Dry-run импорт");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Фильтр статуса истории");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Ошибки формата release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Удалить импортированные baseline");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Скачать отчет аудита импортов release history");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать единый пакет release status");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать release status в HTML");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "storage_object_path");

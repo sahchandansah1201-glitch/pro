@@ -72,6 +72,14 @@ export interface ReleaseHistoryRecord {
   }>;
 }
 
+export type ReleaseHistoryParseIssueReason = "invalid_json" | "invalid_schema" | "privacy_blocked";
+
+export interface ReleaseHistoryParseIssue {
+  line: number;
+  reason: ReleaseHistoryParseIssueReason;
+  message: string;
+}
+
 export interface ReleaseHistoryParseResult {
   records: ReleaseHistoryRecord[];
   skippedCount: number;
@@ -81,6 +89,7 @@ export interface ReleaseHistoryParseResult {
   acceptedCount: number;
   message: string;
   previewRecords: ReleaseHistoryRecord[];
+  issues: ReleaseHistoryParseIssue[];
 }
 
 export interface ReleaseBaselineOption {
@@ -101,6 +110,17 @@ export interface ReleaseHistoryPreviewSummary {
   latestSha: string | null;
   latestStatus: ReleaseStatusLevel | null;
   workflowNames: string[];
+}
+
+export type ReleaseHistoryStatusFilter = "all" | ReleaseStatusLevel;
+
+export interface ReleaseHistoryAuditReportEntry {
+  at: string;
+  status: string;
+  acceptedCount: number;
+  skippedCount: number;
+  privacyFindingCount: number;
+  message: string;
 }
 
 const TOKEN_PARAM_NAMES = [
@@ -481,6 +501,11 @@ export function parseReleaseHistoryJsonl(input: string, maxRecords = 12): Releas
   const privacy = summarizeReleasePrivacy(input);
   const lineCount = input.split(/\r?\n/).filter((line) => line.trim().length > 0).length;
   if (privacy.findingCount > 0) {
+    const issues = privacy.findings.slice(0, 8).map((finding) => ({
+      line: finding.line,
+      reason: "privacy_blocked" as const,
+      message: `privacy: ${finding.label}`,
+    }));
     return {
       records: [],
       skippedCount: lineCount,
@@ -490,23 +515,36 @@ export function parseReleaseHistoryJsonl(input: string, maxRecords = 12): Releas
       acceptedCount: 0,
       message: `Импорт заблокирован: privacy detector нашёл ${privacy.findingCount} совпадений (${privacy.labels.join(", ")}).`,
       previewRecords: [],
+      issues,
     };
   }
 
   const records: ReleaseHistoryRecord[] = [];
+  const issues: ReleaseHistoryParseIssue[] = [];
   let skippedCount = 0;
-  for (const line of input.split(/\r?\n/)) {
+  for (const [index, line] of input.split(/\r?\n/).entries()) {
     const trimmed = line.trim();
     if (!trimmed) continue;
+    const lineNumber = index + 1;
     try {
       const record = toHistoryRecord(JSON.parse(trimmed));
       if (record) {
         records.push(record);
       } else {
         skippedCount += 1;
+        issues.push({
+          line: lineNumber,
+          reason: "invalid_schema",
+          message: "строка не соответствует release-history schema",
+        });
       }
     } catch {
       skippedCount += 1;
+      issues.push({
+        line: lineNumber,
+        reason: "invalid_json",
+        message: "invalid JSON",
+      });
     }
   }
 
@@ -528,6 +566,7 @@ export function parseReleaseHistoryJsonl(input: string, maxRecords = 12): Releas
           ? `Импортировано ${accepted.length} baseline-записей; пропущено строк: ${skippedCount}.`
           : `Импортировано ${accepted.length} baseline-записей; privacy-проверка пройдена.`,
     previewRecords: accepted.slice(0, 4),
+    issues,
   };
 }
 
@@ -543,6 +582,61 @@ export function summarizeReleaseHistoryPreview(result: ReleaseHistoryParseResult
     latestStatus: result.records[0]?.overallStatus ?? null,
     workflowNames: Array.from(new Set(result.records.flatMap((record) => record.workflows.map((workflow) => workflow.name)))).sort(),
   };
+}
+
+export function filterReleaseHistoryRecords(
+  records: ReleaseHistoryRecord[],
+  statusFilter: ReleaseHistoryStatusFilter,
+  query: string,
+): ReleaseHistoryRecord[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  return records.filter((record) => {
+    if (statusFilter !== "all" && record.overallStatus !== statusFilter) return false;
+    if (!normalizedQuery) return true;
+    const haystack = [
+      record.currentSha,
+      record.repo,
+      record.branch,
+      record.recordedAt,
+      releaseStatusLevelLabel(record.overallStatus),
+      ...record.workflows.flatMap((workflow) => [workflow.name, workflow.conclusion]),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(normalizedQuery);
+  });
+}
+
+export function releaseHistoryAuditFilename(): string {
+  return `release-history-import-audit-${today()}.json`;
+}
+
+export function buildReleaseImportAuditReport(entries: ReleaseHistoryAuditReportEntry[]): string {
+  const safeEntries = entries.map((entry) => ({
+    at: safeIsoDate(entry.at) ?? new Date(0).toISOString(),
+    status: /^[a-z_]{1,24}$/i.test(entry.status) ? entry.status : "unknown",
+    acceptedCount: Math.max(0, Math.floor(entry.acceptedCount || 0)),
+    skippedCount: Math.max(0, Math.floor(entry.skippedCount || 0)),
+    privacyFindingCount: Math.max(0, Math.floor(entry.privacyFindingCount || 0)),
+    message: (() => {
+      const compact = entry.message.replace(/\s+/g, " ").slice(0, 240);
+      const privacy = summarizeReleasePrivacy(compact);
+      if (privacy.findingCount === 0) return compact;
+      return `redacted message; privacy categories: ${privacy.labels.join(", ")}`;
+    })(),
+  }));
+
+  return `${JSON.stringify(
+    {
+      title: "Release history import audit",
+      generatedAt: new Date().toISOString(),
+      rowCount: safeEntries.length,
+      privacy: "sanitized; report stores counts and generated status messages only",
+      entries: safeEntries,
+    },
+    null,
+    2,
+  )}\n`;
 }
 
 export function releaseSnapshotFromHistoryRecord(record: ReleaseHistoryRecord): ReleaseStatusSnapshot {

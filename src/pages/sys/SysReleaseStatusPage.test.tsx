@@ -109,6 +109,64 @@ describe("SysReleaseStatusPage", () => {
     );
   });
 
+  it("supports dry-run import, history filters, delete import, audit download, and JSONL validation", () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    render(<SysReleaseStatusPage />);
+
+    const historyInput = screen.getByLabelText("Вставить release-history JSONL");
+    fireEvent.change(historyInput, {
+      target: {
+        value:
+          '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}\n',
+      },
+    });
+    fireEvent.change(screen.getByLabelText("Фильтр статуса истории"), { target: { value: "fail" } });
+    fireEvent.change(screen.getByLabelText("Поиск по release history"), { target: { value: "aaaaaaaa" } });
+    expect(screen.getByRole("list", { name: "Предпросмотр записей release history" })).toHaveTextContent(
+      "aaaaaaaaaaa",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Dry-run импорт" }));
+    expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
+      /Dry-run импорт выполнен/,
+    );
+    expect(screen.getByText("Демо-baseline")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Удалить импортированные baseline" })).toBeDisabled();
+    expect(screen.getByRole("region", { name: "Аудит импортов release history" })).toHaveTextContent(
+      /Dry-run импорт/,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
+    expect(screen.getByRole("button", { name: "Удалить импортированные baseline" })).not.toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Выбрать baseline release status"), {
+      target: { value: "imported-aaaaaaaaaaa-0" },
+    });
+    expect(screen.getByRole("region", { name: "Сравнение релизов" })).toHaveTextContent("aaaaaaaaaaa");
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить импортированные baseline" }));
+    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
+      /Импортированные baseline удалены/,
+    );
+    expect(screen.getByRole("region", { name: "Аудит импортов release history" })).toHaveTextContent(
+      /Импорт удалён/,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Скачать отчет аудита импортов release history" }));
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
+      /Отчет аудита импортов скачан/,
+    );
+
+    fireEvent.change(historyInput, { target: { value: "{bad json}\n" } });
+    expect(screen.getByRole("list", { name: "Ошибки формата release history" })).toHaveTextContent(
+      /строка 1: invalid JSON/,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
+    expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
+      /Импорт не содержит валидных baseline-записей/,
+    );
+  });
+
   it("exports bundle, markdown, json, html, and history files and logs them", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     render(<SysReleaseStatusPage />);
