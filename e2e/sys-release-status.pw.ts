@@ -96,6 +96,42 @@ test.describe("/sys/release-status", () => {
     await expect(
       page.getByRole("list", { name: "Предпросмотр записей release history" }),
     ).toContainText("aaaaaaaaaaa");
+    const filteredJsonlDownloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в JSONL",
+      })
+      .click();
+    const filteredJsonlDownload = await filteredJsonlDownloadPromise;
+    expect(filteredJsonlDownload.suggestedFilename()).toMatch(
+      /^release-history-filtered-\d{4}-\d{2}-\d{2}\.jsonl$/,
+    );
+    const filteredJsonlPath = await filteredJsonlDownload.path();
+    expect(filteredJsonlPath).not.toBeNull();
+    const filteredJsonlText = await readFile(filteredJsonlPath!, "utf8");
+    expect(filteredJsonlText).toContain('"currentSha":"aaaaaaaaaaa"');
+    expect(filteredJsonlText).not.toContain("fffffffffff");
+    expect(filteredJsonlText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+
+    const filteredCsvDownloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в CSV",
+      })
+      .click();
+    const filteredCsvDownload = await filteredCsvDownloadPromise;
+    expect(filteredCsvDownload.suggestedFilename()).toMatch(
+      /^release-history-filtered-\d{4}-\d{2}-\d{2}\.csv$/,
+    );
+    const filteredCsvPath = await filteredCsvDownload.path();
+    expect(filteredCsvPath).not.toBeNull();
+    const filteredCsvText = await readFile(filteredCsvPath!, "utf8");
+    expect(filteredCsvText).toContain('"summary","filteredCount","5"');
+    expect(filteredCsvText).toContain('"summary","totalCount","6"');
+    expect(filteredCsvText).toContain('"filter","workflow","failure"');
+    expect(filteredCsvText).not.toContain("fffffffffff");
+    expect(filteredCsvText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+
     await expect(
       page.getByRole("region", { name: "Пагинация release history" }),
     ).toContainText("1-3 из 5");
@@ -115,6 +151,16 @@ test.describe("/sys/release-status", () => {
     await expect(
       page.getByText("По выбранным фильтрам history-записей нет."),
     ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в JSONL",
+      }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в CSV",
+      }),
+    ).toBeDisabled();
     await page
       .getByRole("button", { name: "Сбросить фильтры release history" })
       .click();
@@ -169,7 +215,7 @@ test.describe("/sys/release-status", () => {
       .selectOption("safe");
     await expect(
       page.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
-    ).toContainText("1 из 2");
+    ).toContainText("1 из 4");
     await page.getByLabel("Поиск по аудиту импортов").fill("privacy");
     await expect(
       page.getByRole("region", { name: "Аудит импортов release history" }),
@@ -212,7 +258,7 @@ test.describe("/sys/release-status", () => {
       .click();
     await expect(
       page.getByRole("status", { name: "Сводка фильтров аудита импортов" }),
-    ).toContainText("4 из 4");
+    ).toContainText("6 из 6");
 
     await page
       .getByRole("button", { name: "Удалить импортированные baseline" })
@@ -293,6 +339,15 @@ test.describe("/sys/release-status", () => {
     await page
       .getByLabel("Вставить release-history JSONL")
       .fill("{bad json}\n");
+    await expect(page.getByLabel("Вставить release-history JSONL")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(
+      page.getByRole("status", {
+        name: "Сводка ошибок импорта release history",
+      }),
+    ).toContainText("Ошибок импорта: 1");
     await expect(
       page.getByRole("list", { name: "Ошибки формата release history" }),
     ).toContainText("строка 1: invalid JSON");

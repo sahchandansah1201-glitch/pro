@@ -172,6 +172,21 @@ export interface ReleaseHistoryPage {
   records: ReleaseHistoryRecord[];
 }
 
+export interface ReleaseHistoryIssueSummary {
+  totalIssues: number;
+  invalidJsonCount: number;
+  invalidSchemaCount: number;
+  privacyBlockedCount: number;
+  affectedLines: number[];
+  message: string;
+}
+
+export interface ReleaseHistoryExportContext {
+  totalCount?: number;
+  filteredCount?: number;
+  filters?: Partial<ReleaseHistoryFilterState>;
+}
+
 const TOKEN_PARAM_NAMES = [
   "access_token",
   "refresh_token",
@@ -687,6 +702,37 @@ export function summarizeReleaseHistoryPreview(
   };
 }
 
+export function summarizeReleaseHistoryIssues(
+  result: ReleaseHistoryParseResult,
+): ReleaseHistoryIssueSummary {
+  const invalidJsonCount = result.issues.filter(
+    (issue) => issue.reason === "invalid_json",
+  ).length;
+  const invalidSchemaCount = result.issues.filter(
+    (issue) => issue.reason === "invalid_schema",
+  ).length;
+  const privacyBlockedCount = result.issues.filter(
+    (issue) => issue.reason === "privacy_blocked",
+  ).length;
+  const affectedLines = Array.from(
+    new Set(result.issues.map((issue) => issue.line).filter((line) => line > 0)),
+  ).slice(0, 8);
+  const totalIssues =
+    invalidJsonCount + invalidSchemaCount + privacyBlockedCount;
+
+  return {
+    totalIssues,
+    invalidJsonCount,
+    invalidSchemaCount,
+    privacyBlockedCount,
+    affectedLines,
+    message:
+      totalIssues === 0
+        ? "Ошибок импорта не найдено."
+        : `Ошибок импорта: ${totalIssues}. JSON: ${invalidJsonCount}, schema: ${invalidSchemaCount}, privacy: ${privacyBlockedCount}. Строки: ${affectedLines.join(", ") || "нет"}.`,
+  };
+}
+
 export function filterReleaseHistoryRecords(
   records: ReleaseHistoryRecord[],
   statusFilter: ReleaseHistoryStatusFilter,
@@ -769,6 +815,14 @@ export function releaseHistoryAuditFilename(): string {
 
 export function releaseHistoryAuditCsvFilename(): string {
   return `release-history-import-audit-${today()}.csv`;
+}
+
+export function releaseHistoryFilteredJsonlFilename(): string {
+  return `release-history-filtered-${today()}.jsonl`;
+}
+
+export function releaseHistoryFilteredCsvFilename(): string {
+  return `release-history-filtered-${today()}.csv`;
 }
 
 function sanitizeAuditText(value: string): string {
@@ -863,6 +917,113 @@ export function buildReleaseImportAuditReport(
 
 function csvEscape(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
+}
+
+function safeHistoryExportRecord(
+  record: ReleaseHistoryRecord,
+): ReleaseHistoryRecord {
+  return {
+    recordedAt: safeIsoDate(record.recordedAt) ?? new Date(0).toISOString(),
+    repo: safeRepo(record.repo) ?? RELEASE_STATUS_DEMO_SNAPSHOT.repo,
+    branch: safeBranch(record.branch) ?? "main",
+    currentSha: safeShortSha(record.currentSha) ?? "0000000",
+    overallStatus: isReleaseStatusLevel(record.overallStatus)
+      ? record.overallStatus
+      : "incomplete",
+    dirtyCount: Math.max(0, Math.floor(record.dirtyCount || 0)),
+    denoLockOk: record.denoLockOk === true,
+    artifactPresent: record.artifactPresent === true,
+    workflows: record.workflows
+      .map((workflow) => {
+        const name = safeWorkflowName(workflow.name);
+        const conclusion = workflow.conclusion;
+        if (!name || !isWorkflowConclusion(conclusion)) return null;
+        return { name, conclusion };
+      })
+      .filter(
+        (workflow): workflow is ReleaseHistoryRecord["workflows"][number] =>
+          workflow != null,
+      ),
+  };
+}
+
+export function buildFilteredReleaseHistoryJsonl(
+  records: ReleaseHistoryRecord[],
+): string {
+  if (records.length === 0) return "";
+  return `${records
+    .map((record) => JSON.stringify(safeHistoryExportRecord(record)))
+    .join("\n")}\n`;
+}
+
+export function buildFilteredReleaseHistoryCsv(
+  records: ReleaseHistoryRecord[],
+  context: ReleaseHistoryExportContext = {},
+): string {
+  const safeRecords = records.map(safeHistoryExportRecord);
+  const filters = context.filters ?? {};
+  const lines = [
+    ["section", "key", "value"].map(csvEscape).join(","),
+    [
+      "summary",
+      "filteredCount",
+      String(context.filteredCount ?? safeRecords.length),
+    ]
+      .map(csvEscape)
+      .join(","),
+    ["summary", "totalCount", String(context.totalCount ?? safeRecords.length)]
+      .map(csvEscape)
+      .join(","),
+    ["filter", "status", String(filters.status ?? "all")]
+      .map(csvEscape)
+      .join(","),
+    ["filter", "deno", String(filters.deno ?? "all")].map(csvEscape).join(","),
+    ["filter", "artifact", String(filters.artifact ?? "all")]
+      .map(csvEscape)
+      .join(","),
+    ["filter", "workflow", String(filters.workflow ?? "all")]
+      .map(csvEscape)
+      .join(","),
+    ["filter", "query", sanitizeAuditText(String(filters.query ?? ""))]
+      .map(csvEscape)
+      .join(","),
+    "",
+    [
+      "recorded_at",
+      "repo",
+      "branch",
+      "current_sha",
+      "overall_status",
+      "dirty_count",
+      "deno_lock_ok",
+      "artifact_present",
+      "workflows",
+    ]
+      .map(csvEscape)
+      .join(","),
+  ];
+
+  for (const record of safeRecords) {
+    lines.push(
+      [
+        record.recordedAt,
+        record.repo,
+        record.branch,
+        record.currentSha,
+        record.overallStatus,
+        String(record.dirtyCount),
+        record.denoLockOk ? "yes" : "no",
+        record.artifactPresent ? "yes" : "no",
+        record.workflows
+          .map((workflow) => `${workflow.name}:${workflow.conclusion}`)
+          .join("; "),
+      ]
+        .map(csvEscape)
+        .join(","),
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
 }
 
 export function filterReleaseImportAuditEntries(

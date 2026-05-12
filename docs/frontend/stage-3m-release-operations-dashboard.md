@@ -260,6 +260,17 @@ The viewer also exposes the UI-side release operator guardrails:
 - Operators can download a sanitized `audit-csv-export` via
   `buildReleaseImportAuditCsv` and `releaseHistoryAuditCsvFilename`; the CSV
   keeps summary rows and safe audit columns only.
+- Operators can export the current filtered history set through
+  `filtered-history-export`: JSONL is built by
+  `buildFilteredReleaseHistoryJsonl`, CSV is built by
+  `buildFilteredReleaseHistoryCsv`, and both outputs pass the same browser
+  privacy scan before download.
+- JSONL validation now has a visible `import-error-summary` from
+  `summarizeReleaseHistoryIssues`, so invalid JSON, schema rejects, and
+  privacy-blocked lines are announced as counts and affected line numbers.
+- The history import textarea and filtered export controls carry
+  `history-export-a11y` states: `aria-invalid`, `aria-describedby`, disabled
+  no-result exports, and live status updates for JSONL/CSV export completion.
 - Import, delete, export, and audit download actions expose
   `operation-busy-states` through disabled controls, button copy, and
   `aria-busy` status/region attributes.
@@ -286,10 +297,11 @@ The viewer also exposes the UI-side release operator guardrails:
 - RBAC, export, release comparison, history-import, history-preview,
   history-pagination, history-filters, advanced-history-filters,
   audit-log-filters, audit-csv-export, operation-busy-states,
-  edge-e2e-validation, jsonl-validation, dry-run-import, import-audit,
+  edge-e2e-validation, filtered-history-export, import-error-summary,
+  history-export-a11y, jsonl-validation, dry-run-import, import-audit,
   audit-report-summary, audit-report-download, baseline-preview,
-  baseline-delete, baseline-selector, and privacy-preview changes must also keep
-  `scripts/check-stage3-docs.mjs` aligned with the UI helper names and e2e
-  assertions.
+  baseline-delete, baseline-selector, and privacy-preview changes must also
+  keep `scripts/check-stage3-docs.mjs` aligned with the UI helper names and
+  e2e assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
   operations docs.
