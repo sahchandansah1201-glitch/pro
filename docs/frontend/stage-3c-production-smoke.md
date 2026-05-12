@@ -128,5 +128,8 @@
 - The workflow also writes a sanitized generated summary to
   `test-results/e2e-nightly-full-artifact-summary.md`; when artifacts are
   uploaded, that file is part of the artifact bundle.
+- The generated summary links the report entry
+  `playwright-report/index.html` and includes an artifact size check for
+  each expected path.
 - Never paste credentials, signed URLs, storage paths, access tokens, or raw
   patient identifiers into the report. Link the GitHub Actions run instead.
