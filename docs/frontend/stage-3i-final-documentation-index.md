@@ -33,9 +33,14 @@ npm run test:e2e-artifacts
 npm run preflight:e2e-artifacts
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
+npm run test:release-status-privacy
+npm run preflight:release-status
 node scripts/release-status.mjs --offline
 node scripts/release-status.mjs --offline --output test-results/release-status.md
 node scripts/release-status.mjs --offline --json --output test-results/release-status.json
+node scripts/release-status.mjs --offline --html --output test-results/release-status.html
+node scripts/release-status.mjs --offline --output test-results/release-status.md --history test-results/release-history.jsonl
+node scripts/check-release-status-privacy.mjs test-results/release-status.md test-results/release-status.json test-results/release-status.html test-results/release-history.jsonl
 node scripts/check-stage3-docs.mjs
 node scripts/check-no-deno-locks.mjs
 git status --short
@@ -100,6 +105,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - [x] Release operations dashboard is linked.
 - [x] Release operations dashboard file output, JSON output, and CI workflow
   are documented.
+- [x] Release operations dashboard HTML output, release-history JSONL,
+  privacy detector, and focused local preflight are documented.
 
 ## 9. Sync changelog
 
@@ -146,5 +153,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #55: extended Stage 3M with markdown/JSON file output,
   `.github/workflows/release-status.yml`, GitHub step-summary reporting,
   uploaded release-status artifacts, and stricter privacy coverage.
+- PR #56: extended Stage 3M with HTML visual reports, release-history
+  JSONL, a focused privacy detector, `npm run preflight:release-status`,
+  and CI upload of markdown/JSON/HTML/history artifacts.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

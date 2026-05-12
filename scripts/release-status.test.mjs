@@ -6,7 +6,12 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { buildReleaseStatusJson, buildReleaseStatusReport } from "./release-status.mjs";
+import {
+  buildReleaseHistoryEntry,
+  buildReleaseStatusHtml,
+  buildReleaseStatusJson,
+  buildReleaseStatusReport,
+} from "./release-status.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(__dirname, "release-status.mjs");
@@ -141,6 +146,62 @@ test("builds sanitized json payload without leaking sensitive fields", () => {
   assert.match(text, /redacted/);
 });
 
+test("builds sanitized html visual report", () => {
+  const html = buildReleaseStatusHtml({
+    repo: "vlsmgr/dermato-pro",
+    branch: "main",
+    sha: "abcdef1234567890abcdef1234567890abcdef12",
+    git: {
+      dirtyCount: 1,
+      dirtyPaths: ["notes/<script>alert(1)</script>?access_token=secret"],
+    },
+    denoLockGuard: { ok: true, note: "ok Cookie: session=secret" },
+    workflows: [
+      { name: "e2e-smoke", conclusion: "success", runNumber: "77", repo: "vlsmgr/dermato-pro" },
+    ],
+    artifact: {
+      present: true,
+      path: "test-results/report.html?sig=secret",
+      sizeLabel: "2.0 KiB",
+      mtime: "2026-05-12T03:00:00.000Z",
+    },
+  });
+
+  assert.match(html, /<!doctype html>/i);
+  assert.match(html, /Release operations dashboard/);
+  assert.match(html, /class="status ok"/);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /access_token=secret/);
+  assert.doesNotMatch(html, /session=secret/);
+  assert.doesNotMatch(html, /sig=secret/);
+});
+
+test("builds compact release history entry", () => {
+  const entry = buildReleaseHistoryEntry({
+    repo: "vlsmgr/dermato-pro",
+    branch: "main",
+    sha: "abcdef1234567890abcdef1234567890abcdef12",
+    git: { dirtyCount: 0, dirtyPaths: [] },
+    denoLockGuard: { ok: true, note: "ok" },
+    workflows: [
+      { name: "no-deno-locks", conclusion: "success", runNumber: "42", repo: "vlsmgr/dermato-pro" },
+    ],
+    artifact: { present: false },
+  }, new Date("2026-05-12T12:00:00.000Z"));
+
+  assert.deepEqual(entry, {
+    recordedAt: "2026-05-12T12:00:00.000Z",
+    repo: "vlsmgr/dermato-pro",
+    branch: "main",
+    currentSha: "abcdef1",
+    overallStatus: "ok",
+    dirtyCount: 0,
+    denoLockOk: true,
+    artifactPresent: false,
+    workflows: [{ name: "no-deno-locks", conclusion: "success" }],
+  });
+});
+
 test("rejects unsafe repo, branch, workflow, and run-number values", () => {
   const out = buildReleaseStatusReport({
     repo: "../etc/passwd",
@@ -228,6 +289,39 @@ test("cli writes json output file when --json and --output are provided", () => 
     assert.equal(payload.artifact.present, false);
     assert.doesNotMatch(JSON.stringify(payload), /access_token=secret/);
     assert.match(JSON.stringify(payload), /redacted/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli writes html visual report and appends release history", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "release-status-html-"));
+  const output = path.join(dir, "release-status.html");
+  const history = path.join(dir, "release-history.jsonl");
+  try {
+    const result = spawnSync(process.execPath, [
+      SCRIPT,
+      "--offline",
+      "--html",
+      "--output",
+      output,
+      "--history",
+      history,
+    ], {
+      encoding: "utf8",
+      env: { ...process.env, RELEASE_STATUS_REPO: "vlsmgr/dermato-pro" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /\[release-status\] wrote/);
+    assert.match(result.stdout, /\[release-status\] appended/);
+    const html = readFileSync(output, "utf8");
+    assert.match(html, /<!doctype html>/i);
+    assert.match(html, /Release operations dashboard/);
+    const entries = readFileSync(history, "utf8").trim().split(/\r?\n/).map((line) => JSON.parse(line));
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].repo, "vlsmgr/dermato-pro");
+    assert.equal(entries[0].overallStatus, "incomplete");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
