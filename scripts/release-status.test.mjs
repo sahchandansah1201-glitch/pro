@@ -29,7 +29,7 @@ test("renders dashboard with sha, workflows, deno guard, artifact, and overall s
   });
 
   assert.match(out, /## Release operations dashboard/);
-  assert.match(out, /Current SHA: `abcdef1234567` — https:\/\/github\.com\/vlsmgr\/dermato-pro\/commit\/abcdef1234567/);
+  assert.match(out, /Current SHA: `abcdef1` — https:\/\/github\.com\/vlsmgr\/dermato-pro\/commit\/abcdef123456/);
   assert.match(out, /Working tree: 1 changed file/);
   assert.match(out, /`package-lock\.json`/);
   assert.match(out, /`no-deno-locks`: success — https:\/\/github\.com\/vlsmgr\/dermato-pro\/actions\/runs\/42/);
