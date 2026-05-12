@@ -63,6 +63,11 @@ describe("SysReleaseStatusPage", () => {
     render(<SysReleaseStatusPage />);
 
     const historyInput = screen.getByLabelText("Вставить release-history JSONL");
+    expect(screen.getByText("Предпросмотр истории")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Предпросмотр записей release history" })).toHaveTextContent(
+      /c3d2d18/,
+    );
+
     fireEvent.change(historyInput, {
       target: {
         value:
@@ -72,7 +77,10 @@ describe("SysReleaseStatusPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
 
     expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
-      /Импортировано baseline-записей: 1/,
+      /Импортировано 1 baseline-записей/,
+    );
+    expect(screen.getByRole("status", { name: "Privacy статус импорта release history" })).toHaveTextContent(
+      /Privacy-проверка импорта пройдена/,
     );
     fireEvent.change(screen.getByLabelText("Выбрать baseline release status"), {
       target: { value: "imported-aaaaaaaaaaa-0" },
@@ -90,6 +98,12 @@ describe("SysReleaseStatusPage", () => {
     expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
       /Импорт заблокирован/,
     );
+    expect(screen.getByRole("status", { name: "Privacy статус импорта release history" })).toHaveTextContent(
+      /Privacy-проверка импорта: блокер/,
+    );
+    const importAudit = screen.getByRole("region", { name: "Аудит импортов release history" });
+    expect(importAudit).toHaveTextContent(/Импорт обработан/);
+    expect(importAudit).toHaveTextContent(/Импорт заблокирован/);
     expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
       /History JSONL не импортирован/,
     );

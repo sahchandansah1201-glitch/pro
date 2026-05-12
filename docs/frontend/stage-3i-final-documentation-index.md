@@ -169,5 +169,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #59: extended `/sys/release-status` with local `release-history.jsonl`
   import, privacy-gated baseline parsing, a selectable comparison baseline,
   and e2e coverage for safe import plus blocked unsafe history content.
+- PR #60: added history preview, clearer import/privacy messages, local import
+  audit entries, and explicit e2e coverage for preview plus privacy-gated audit
+  status on `/sys/release-status`.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

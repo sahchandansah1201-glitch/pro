@@ -8,6 +8,7 @@ import {
   FileCode2,
   GitCompare,
   History,
+  ListChecks,
   Lock,
   MonitorCheck,
   PackageCheck,
@@ -36,7 +37,9 @@ import {
   releaseStatusFormatLabel,
   releaseStatusLevel,
   releaseStatusLevelLabel,
+  summarizeReleaseHistoryPreview,
   type ReleaseHistoryRecord,
+  type ReleaseHistoryParseResult,
   type ReleaseStatusFormat,
 } from "@/lib/release-status-ui";
 
@@ -47,6 +50,15 @@ interface ExportLogEntry {
   format: ReleaseStatusFormat | "bundle";
   filename: string;
   fileCount?: number;
+}
+
+interface ImportAuditEntry {
+  at: string;
+  status: ReleaseHistoryParseResult["status"];
+  acceptedCount: number;
+  skippedCount: number;
+  privacyFindingCount: number;
+  message: string;
 }
 
 function downloadText(filename: string, content: string, type = "text/plain;charset=utf-8"): void {
@@ -80,6 +92,8 @@ export default function SysReleaseStatusPage() {
   const [historyInput, setHistoryInput] = useState(RELEASE_STATUS_DEMO_HISTORY_JSONL);
   const [importedRecords, setImportedRecords] = useState<ReleaseHistoryRecord[]>([]);
   const [historyParseNote, setHistoryParseNote] = useState("History JSONL ещё не импортирован.");
+  const [importPrivacyNote, setImportPrivacyNote] = useState("Privacy-проверка импорта ожидает запуска.");
+  const [importAuditLog, setImportAuditLog] = useState<ImportAuditEntry[]>([]);
   const [selectedBaselineId, setSelectedBaselineId] = useState("demo-previous");
 
   const level = releaseStatusLevel(snapshot);
@@ -87,6 +101,8 @@ export default function SysReleaseStatusPage() {
   const output = currentExport.content;
   const privacySummary = currentExport.privacy;
   const privacyFindings = privacySummary.findings;
+  const historyDraft = useMemo(() => parseReleaseHistoryJsonl(historyInput), [historyInput]);
+  const historyPreview = useMemo(() => summarizeReleaseHistoryPreview(historyDraft), [historyDraft]);
   const baselineOptions = useMemo(
     () => buildReleaseBaselineOptions(snapshot, previousSnapshot, importedRecords),
     [importedRecords, previousSnapshot, snapshot],
@@ -141,23 +157,37 @@ export default function SysReleaseStatusPage() {
   };
 
   const handleImportHistory = () => {
-    const result = parseReleaseHistoryJsonl(historyInput);
+    const result = historyDraft;
+    const auditEntry: ImportAuditEntry = {
+      at: new Date().toISOString(),
+      status: result.status,
+      acceptedCount: result.acceptedCount,
+      skippedCount: result.skippedCount,
+      privacyFindingCount: result.privacy.findingCount,
+      message: result.message,
+    };
+    setImportAuditLog((items) => [auditEntry, ...items.slice(0, 5)]);
+
     if (result.privacy.findingCount > 0) {
       setImportedRecords([]);
       setSelectedBaselineId("demo-previous");
-      setHistoryParseNote(
-        `Импорт заблокирован: найдено приватных совпадений ${result.privacy.findingCount}.`,
+      setHistoryParseNote(result.message);
+      setImportPrivacyNote(
+        `Privacy-проверка импорта: блокер. Категории: ${result.privacy.labels.join(", ")}.`,
       );
-      setStatus("History JSONL не импортирован: сначала удалите чувствительные значения.");
+      setStatus("History JSONL не импортирован: privacy detector нашёл чувствительные значения.");
       return;
     }
     setImportedRecords(result.records);
     const nextOptions = buildReleaseBaselineOptions(snapshot, previousSnapshot, result.records);
     setSelectedBaselineId(nextOptions[0]?.id ?? "demo-previous");
-    setHistoryParseNote(
-      `Импортировано baseline-записей: ${result.records.length}. Пропущено строк: ${result.skippedCount}.`,
+    setHistoryParseNote(result.message);
+    setImportPrivacyNote(
+      result.acceptedCount === 0
+        ? "Privacy-проверка импорта пройдена, но валидных baseline-записей нет."
+        : "Privacy-проверка импорта пройдена: чувствительные совпадения не найдены.",
     );
-    setStatus(`History JSONL импортирован: ${result.records.length} безопасных записей.`);
+    setStatus(`History JSONL обработан: ${result.acceptedCount} безопасных записей.`);
   };
 
   const handleResetHistoryInput = () => {
@@ -165,6 +195,7 @@ export default function SysReleaseStatusPage() {
     setImportedRecords([]);
     setSelectedBaselineId("demo-previous");
     setHistoryParseNote("History JSONL сброшен к демо-baseline.");
+    setImportPrivacyNote("Privacy-проверка импорта ожидает запуска.");
     setStatus("History JSONL сброшен к безопасному демо-примеру.");
   };
 
@@ -382,6 +413,53 @@ export default function SysReleaseStatusPage() {
                 Сбросить пример
               </Button>
             </div>
+
+            <div className="mt-4 rounded-md border border-border bg-muted/30 p-3 text-[12px]">
+              <div className="flex items-center gap-1.5 font-medium">
+                <ListChecks className="h-3.5 w-3.5 text-primary" aria-hidden />
+                Предпросмотр истории
+              </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-4">
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Строк</div>
+                  <div className="font-mono">{historyPreview.totalLines}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Принято</div>
+                  <div className="font-mono">{historyPreview.acceptedCount}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Пропущено</div>
+                  <div className="font-mono">{historyPreview.skippedCount}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Privacy</div>
+                  <div className={historyPreview.privacyFindingCount === 0 ? "font-mono text-success" : "font-mono text-destructive"}>
+                    {historyPreview.privacyFindingCount}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground">
+                Последний SHA: {historyPreview.latestSha ?? "нет"}.
+                {historyPreview.latestStatus && ` Статус: ${releaseStatusLevelLabel(historyPreview.latestStatus)}.`}
+              </div>
+              {historyPreview.workflowNames.length > 0 && (
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Workflow в preview: {historyPreview.workflowNames.slice(0, 4).join(", ")}
+                  {historyPreview.workflowNames.length > 4 ? "…" : ""}.
+                </div>
+              )}
+              {historyDraft.previewRecords.length > 0 && (
+                <ul className="mt-2 divide-y divide-border rounded-md border border-border" aria-label="Предпросмотр записей release history">
+                  {historyDraft.previewRecords.map((record) => (
+                    <li key={`${record.currentSha}-${record.recordedAt}`} className="grid gap-1 px-2 py-1.5 sm:grid-cols-[1fr_auto]">
+                      <span className="font-mono">{record.currentSha}</span>
+                      <span className="text-muted-foreground">{releaseStatusLevelLabel(record.overallStatus)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </Card>
 
           <Card className="p-4">
@@ -394,6 +472,15 @@ export default function SysReleaseStatusPage() {
               className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-[12px] text-muted-foreground"
             >
               {historyParseNote}
+            </div>
+            <div
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              aria-label="Privacy статус импорта release history"
+              className="mt-2 rounded-md border border-border bg-muted/30 p-3 text-[12px] text-muted-foreground"
+            >
+              {importPrivacyNote}
             </div>
             <label className="mt-3 block text-[12px] text-muted-foreground">
               Baseline для сравнения
@@ -420,6 +507,32 @@ export default function SysReleaseStatusPage() {
                 <dd className="mt-1">{selectedBaseline.detail}</dd>
               </div>
             </dl>
+
+            <div className="mt-4" role="region" aria-label="Аудит импортов release history">
+              <div className="flex items-center gap-1.5 text-[13px] font-semibold">
+                <History className="h-3.5 w-3.5 text-primary" aria-hidden />
+                Аудит импортов
+              </div>
+              {importAuditLog.length === 0 ? (
+                <div role="status" className="mt-2 rounded-md border border-dashed border-border p-3 text-[12px] text-muted-foreground">
+                  Попыток импорта пока нет.
+                </div>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {importAuditLog.map((entry) => (
+                    <li key={`${entry.at}-${entry.status}`} className="rounded-md border border-border p-3 text-[12px]">
+                      <div className={entry.status === "blocked" ? "font-medium text-destructive" : "font-medium text-foreground"}>
+                        {entry.status === "blocked" ? "Импорт заблокирован" : entry.status === "empty" ? "Пустой импорт" : "Импорт обработан"}
+                      </div>
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        {formatTime(entry.at)} · принято {entry.acceptedCount}, пропущено {entry.skippedCount}, privacy {entry.privacyFindingCount}
+                      </div>
+                      <div className="mt-1 text-[11px] text-muted-foreground">{entry.message}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </Card>
         </section>
 

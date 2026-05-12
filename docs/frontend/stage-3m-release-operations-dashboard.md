@@ -229,6 +229,15 @@ The viewer also exposes the UI-side release operator guardrails:
 - Baseline comparison stays browser-only: imported history is not uploaded, is
   not persisted, and only normalized workflow names, conclusions, SHA, branch,
   artifact presence, and guard status are used.
+- The import panel shows a history preview before import: total parsed lines,
+  accepted baseline count, skipped line count, privacy finding count, latest
+  SHA/status, and the first safe history records.
+- Each import attempt is appended to a local audit log with timestamp, result,
+  accepted/skipped counts, privacy finding count, and a sanitized operator
+  message. The audit log is browser-local and is cleared on reload.
+- Import privacy status is announced separately from the general page status,
+  so screen-reader users can distinguish "parse succeeded" from "privacy gate
+  passed" or "privacy gate blocked".
 
 ## 13. Maintenance rule
 
@@ -243,8 +252,9 @@ The viewer also exposes the UI-side release operator guardrails:
 - UI viewer changes must update `src/lib/release-status-ui.ts`,
   `src/pages/sys/SysReleaseStatusPage.test.tsx`, and
   `e2e/sys-release-status.pw.ts` together.
-- RBAC, export, release comparison, history-import, baseline-selector, and
-  privacy-preview changes must also keep `scripts/check-stage3-docs.mjs`
-  aligned with the UI helper names and e2e assertions.
+- RBAC, export, release comparison, history-import, history-preview,
+  import-audit, baseline-selector, and privacy-preview changes must also keep
+  `scripts/check-stage3-docs.mjs` aligned with the UI helper names and e2e
+  assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
   operations docs.

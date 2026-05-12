@@ -17,6 +17,7 @@ import {
   releaseSnapshotFromHistoryRecord,
   releaseStatusFilename,
   releaseStatusLevel,
+  summarizeReleaseHistoryPreview,
   summarizeReleasePrivacy,
 } from "./release-status-ui";
 
@@ -105,11 +106,17 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
 
   it("parses safe release history jsonl into baseline snapshots", () => {
     const result = parseReleaseHistoryJsonl(RELEASE_STATUS_DEMO_HISTORY_JSONL);
+    const preview = summarizeReleaseHistoryPreview(result);
 
     expect(result.privacy.findingCount).toBe(0);
+    expect(result.status).toBe("safe");
+    expect(result.acceptedCount).toBe(2);
     expect(result.skippedCount).toBe(0);
     expect(result.records.length).toBe(2);
     expect(result.records[0]?.currentSha).toBe(RELEASE_STATUS_DEMO_SNAPSHOT.shortSha);
+    expect(result.message).toMatch(/privacy-проверка пройдена/);
+    expect(preview.latestSha).toBe(RELEASE_STATUS_DEMO_SNAPSHOT.shortSha);
+    expect(preview.workflowNames).toContain("e2e-smoke");
 
     const importedSnapshot = releaseSnapshotFromHistoryRecord(result.records[1]!);
     expect(importedSnapshot.shortSha).toBe(RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT.shortSha);
@@ -129,9 +136,13 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     const result = parseReleaseHistoryJsonl(
       `${RELEASE_STATUS_DEMO_HISTORY_JSONL}\n{"actor_email":"doctor@example.com","currentSha":"abcdef1"}`,
     );
+    const preview = summarizeReleaseHistoryPreview(result);
 
+    expect(result.status).toBe("blocked");
     expect(result.records).toEqual([]);
     expect(result.skippedCount).toBeGreaterThan(0);
+    expect(result.message).toMatch(/privacy detector/);
     expect(result.privacy.labels).toEqual(expect.arrayContaining(["email address"]));
+    expect(preview.privacyFindingCount).toBeGreaterThan(0);
   });
 });
