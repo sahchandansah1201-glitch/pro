@@ -169,6 +169,81 @@ describe("SysReleaseStatusPage", () => {
     ).toHaveTextContent(/History JSONL не импортирован/);
   });
 
+  it("exports filtered release history and exposes accessible import errors", async () => {
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    render(<SysReleaseStatusPage />);
+
+    const historyInput = screen.getByLabelText(
+      "Вставить release-history JSONL",
+    );
+    expect(historyInput).toHaveAttribute(
+      "aria-describedby",
+      expect.stringContaining("release-history-import-error-summary"),
+    );
+
+    fireEvent.change(historyInput, {
+      target: {
+        value: [
+          historyLine("aaaaaaaaaaa", "fail", "failure", "10"),
+          historyLine("bbbbbbbbbbb", "ok", "success", "09"),
+        ].join("\n"),
+      },
+    });
+    fireEvent.change(screen.getByLabelText("Фильтр статуса истории"), {
+      target: { value: "fail" },
+    });
+    expect(
+      screen.getByRole("status", { name: "Сводка фильтров release history" }),
+    ).toHaveTextContent("1 из 2");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в JSONL",
+      }),
+    );
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/JSONL экспорт отфильтрованной history готов/);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в CSV",
+      }),
+    );
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/CSV экспорт отфильтрованной history готов/);
+
+    fireEvent.change(screen.getByLabelText("Поиск по release history"), {
+      target: { value: "not-present" },
+    });
+    expect(
+      screen.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в JSONL",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Экспортировать отфильтрованную release history в CSV",
+      }),
+    ).toBeDisabled();
+
+    fireEvent.change(historyInput, { target: { value: "{bad json}\n" } });
+    expect(historyInput).toHaveAttribute("aria-invalid", "true");
+    expect(
+      screen.getByRole("status", {
+        name: "Сводка ошибок импорта release history",
+      }),
+    ).toHaveTextContent(/Ошибок импорта: 1/);
+    expect(
+      screen.getByRole("list", { name: "Ошибки формата release history" }),
+    ).toHaveTextContent(/строка 1: invalid JSON/);
+  });
+
   it("supports dry-run import, history filters, delete import, audit download, and JSONL validation", async () => {
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")

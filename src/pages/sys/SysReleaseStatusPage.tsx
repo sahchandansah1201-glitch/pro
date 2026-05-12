@@ -27,6 +27,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   buildReleaseImportAuditReport,
   buildReleaseImportAuditCsv,
+  buildFilteredReleaseHistoryCsv,
+  buildFilteredReleaseHistoryJsonl,
   buildReleaseStatusExportBundle,
   buildReleaseStatusExportFile,
   buildReleaseBaselineOptions,
@@ -45,7 +47,10 @@ import {
   releaseStatusFormatLabel,
   releaseStatusLevel,
   releaseStatusLevelLabel,
+  releaseHistoryFilteredCsvFilename,
+  releaseHistoryFilteredJsonlFilename,
   summarizeReleaseHistoryPreview,
+  summarizeReleaseHistoryIssues,
   summarizeReleasePrivacy,
   type ReleaseHistoryRecord,
   type ReleaseHistoryArtifactFilter,
@@ -97,6 +102,8 @@ type ReleaseStatusOperation =
   | "history_dry_run"
   | "history_import"
   | "history_delete"
+  | "history_filtered_jsonl"
+  | "history_filtered_csv"
   | "audit_json"
   | "audit_csv"
   | null;
@@ -146,6 +153,10 @@ function releaseStatusOperationLabel(
   if (operation === "history_import") return "Импортируем history JSONL.";
   if (operation === "history_delete")
     return "Удаляем импортированные baseline.";
+  if (operation === "history_filtered_jsonl")
+    return "Готовим JSONL-экспорт отфильтрованной history.";
+  if (operation === "history_filtered_csv")
+    return "Готовим CSV-экспорт отфильтрованной history.";
   if (operation === "audit_json") return "Готовим JSON-отчет аудита.";
   if (operation === "audit_csv") return "Готовим CSV-отчет аудита.";
   return "Операции не выполняются.";
@@ -206,23 +217,33 @@ export default function SysReleaseStatusPage() {
     () => summarizeReleaseHistoryPreview(historyDraft),
     [historyDraft],
   );
-  const filteredHistoryRecords = useMemo(
-    () =>
-      filterReleaseHistoryRecordsAdvanced(historyDraft.records, {
-        status: historyStatusFilter,
-        deno: historyDenoFilter,
-        artifact: historyArtifactFilter,
-        workflow: historyWorkflowFilter,
-        query: historyQuery,
-      }),
+  const historyIssueSummary = useMemo(
+    () => summarizeReleaseHistoryIssues(historyDraft),
+    [historyDraft],
+  );
+  const activeHistoryFilters = useMemo(
+    () => ({
+      status: historyStatusFilter,
+      deno: historyDenoFilter,
+      artifact: historyArtifactFilter,
+      workflow: historyWorkflowFilter,
+      query: historyQuery,
+    }),
     [
       historyArtifactFilter,
       historyDenoFilter,
-      historyDraft.records,
       historyQuery,
       historyStatusFilter,
       historyWorkflowFilter,
     ],
+  );
+  const filteredHistoryRecords = useMemo(
+    () =>
+      filterReleaseHistoryRecordsAdvanced(
+        historyDraft.records,
+        activeHistoryFilters,
+      ),
+    [activeHistoryFilters, historyDraft.records],
   );
   const historyPageData = useMemo(
     () =>
@@ -272,7 +293,9 @@ export default function SysReleaseStatusPage() {
   const historyBusy =
     operation === "history_dry_run" ||
     operation === "history_import" ||
-    operation === "history_delete";
+    operation === "history_delete" ||
+    operation === "history_filtered_jsonl" ||
+    operation === "history_filtered_csv";
   const auditBusy = operation === "audit_json" || operation === "audit_csv";
 
   const runOperation = async (
@@ -531,6 +554,56 @@ export default function SysReleaseStatusPage() {
         });
         setStatus(
           `${targetFormat.toUpperCase()} отчет аудита импортов скачан: ${filename}.`,
+        );
+      },
+    );
+  };
+
+  const handleExportFilteredHistory = (targetFormat: "jsonl" | "csv") => {
+    if (filteredHistoryRecords.length === 0) return;
+    void runOperation(
+      targetFormat === "csv" ? "history_filtered_csv" : "history_filtered_jsonl",
+      () => {
+        const context = {
+          totalCount: historyDraft.records.length,
+          filteredCount: filteredHistoryRecords.length,
+          filters: activeHistoryFilters,
+        };
+        const content =
+          targetFormat === "csv"
+            ? buildFilteredReleaseHistoryCsv(filteredHistoryRecords, context)
+            : buildFilteredReleaseHistoryJsonl(filteredHistoryRecords);
+        const exportPrivacy = summarizeReleasePrivacy(content);
+        if (exportPrivacy.findingCount > 0) {
+          setStatus(
+            "Экспорт отфильтрованной history заблокирован: privacy detector нашёл чувствительные значения.",
+          );
+          return;
+        }
+        const filename =
+          targetFormat === "csv"
+            ? releaseHistoryFilteredCsvFilename()
+            : releaseHistoryFilteredJsonlFilename();
+        downloadText(
+          filename,
+          content,
+          targetFormat === "csv"
+            ? "text/csv;charset=utf-8"
+            : "application/x-ndjson;charset=utf-8",
+        );
+        recordImportAudit({
+          at: new Date().toISOString(),
+          status: "downloaded",
+          acceptedCount: filteredHistoryRecords.length,
+          skippedCount: Math.max(
+            0,
+            historyDraft.records.length - filteredHistoryRecords.length,
+          ),
+          privacyFindingCount: 0,
+          message: `${targetFormat.toUpperCase()} экспорт отфильтрованной history скачан: ${filename}.`,
+        });
+        setStatus(
+          `${targetFormat.toUpperCase()} экспорт отфильтрованной history готов: ${filename}.`,
         );
       },
     );
@@ -819,6 +892,8 @@ export default function SysReleaseStatusPage() {
                 setHistoryPage(1);
               }}
               aria-label="Вставить release-history JSONL"
+              aria-invalid={historyIssueSummary.totalIssues > 0}
+              aria-describedby="release-history-import-error-summary release-history-filter-summary release-history-import-status release-history-import-privacy-status"
               disabled={historyBusy}
               className="mt-3 min-h-[150px] resize-y font-mono text-[11px] leading-relaxed"
             />
@@ -904,6 +979,20 @@ export default function SysReleaseStatusPage() {
                 Последний SHA: {historyPreview.latestSha ?? "нет"}.
                 {historyPreview.latestStatus &&
                   ` Статус: ${releaseStatusLevelLabel(historyPreview.latestStatus)}.`}
+              </div>
+              <div
+                id="release-history-import-error-summary"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                aria-label="Сводка ошибок импорта release history"
+                className={
+                  historyIssueSummary.totalIssues === 0
+                    ? "mt-2 rounded-md border border-border bg-background p-2 text-[11px] text-muted-foreground"
+                    : "mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive"
+                }
+              >
+                {historyIssueSummary.message}
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                 <label className="text-[11px] text-muted-foreground">
@@ -997,21 +1086,55 @@ export default function SysReleaseStatusPage() {
                 </label>
               </div>
               <div className="mt-2 flex flex-col gap-2 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                <div role="status" aria-label="Сводка фильтров release history">
+                <div
+                  id="release-history-filter-summary"
+                  role="status"
+                  aria-label="Сводка фильтров release history"
+                >
                   Найдено history-записей: {filteredHistoryRecords.length} из{" "}
                   {historyDraft.records.length}.
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-fit text-[11px]"
-                  onClick={resetHistoryFilters}
-                  disabled={isBusy}
-                  aria-label="Сбросить фильтры release history"
-                >
-                  Сбросить фильтры
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-fit text-[11px]"
+                    onClick={() => handleExportFilteredHistory("jsonl")}
+                    disabled={filteredHistoryRecords.length === 0 || isBusy}
+                    aria-label="Экспортировать отфильтрованную release history в JSONL"
+                  >
+                    <Download className="mr-1 h-3 w-3" aria-hidden />
+                    {operation === "history_filtered_jsonl"
+                      ? "Готовим JSONL…"
+                      : "JSONL"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-fit text-[11px]"
+                    onClick={() => handleExportFilteredHistory("csv")}
+                    disabled={filteredHistoryRecords.length === 0 || isBusy}
+                    aria-label="Экспортировать отфильтрованную release history в CSV"
+                  >
+                    <Download className="mr-1 h-3 w-3" aria-hidden />
+                    {operation === "history_filtered_csv"
+                      ? "Готовим CSV…"
+                      : "CSV"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-fit text-[11px]"
+                    onClick={resetHistoryFilters}
+                    disabled={isBusy}
+                    aria-label="Сбросить фильтры release history"
+                  >
+                    Сбросить фильтры
+                  </Button>
+                </div>
               </div>
               {historyPreview.workflowNames.length > 0 && (
                 <div className="mt-1 text-[11px] text-muted-foreground">
@@ -1111,6 +1234,7 @@ export default function SysReleaseStatusPage() {
               Baseline status
             </h2>
             <div
+              id="release-history-import-status"
               role="status"
               aria-live="polite"
               aria-atomic="true"
@@ -1120,6 +1244,7 @@ export default function SysReleaseStatusPage() {
               {historyParseNote}
             </div>
             <div
+              id="release-history-import-privacy-status"
               role="status"
               aria-live="polite"
               aria-atomic="true"

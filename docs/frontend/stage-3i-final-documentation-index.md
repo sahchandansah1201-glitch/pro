@@ -181,5 +181,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #63: added advanced release-history filters, import-audit filters,
   sanitized CSV audit export, operation busy states, and edge e2e validation
   for `/sys/release-status`.
+- PR #64: added filtered release-history JSONL/CSV export, import error
+  summaries, history export a11y states, and expanded e2e coverage for
+  `/sys/release-status`.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

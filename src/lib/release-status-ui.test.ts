@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildReleaseImportAuditReport,
   buildReleaseImportAuditCsv,
+  buildFilteredReleaseHistoryCsv,
+  buildFilteredReleaseHistoryJsonl,
   buildReleaseStatusExportBundle,
   buildReleaseBaselineOptions,
   buildReleaseHistoryJsonl,
@@ -20,9 +22,12 @@ import {
   RELEASE_STATUS_DEMO_HISTORY_JSONL,
   RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_PRIVACY_CATEGORIES,
+  releaseHistoryFilteredCsvFilename,
+  releaseHistoryFilteredJsonlFilename,
   releaseSnapshotFromHistoryRecord,
   releaseStatusFilename,
   releaseStatusLevel,
+  summarizeReleaseHistoryIssues,
   summarizeReleaseHistoryPreview,
   summarizeReleasePrivacy,
 } from "./release-status-ui";
@@ -245,6 +250,50 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
       }),
     );
     expect(page.records[0]?.currentSha).toBe("ddddddddddd");
+  });
+
+  it("summarizes import errors and exports filtered history safely", () => {
+    const safeFail =
+      '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}';
+    const result = parseReleaseHistoryJsonl(`${safeFail}\n{bad json}\n`);
+    const issueSummary = summarizeReleaseHistoryIssues(result);
+    const jsonl = buildFilteredReleaseHistoryJsonl(result.records);
+    const csv = buildFilteredReleaseHistoryCsv(result.records, {
+      totalCount: 2,
+      filteredCount: 1,
+      filters: {
+        status: "fail",
+        deno: "blocked",
+        artifact: "missing",
+        workflow: "failure",
+        query: "doctor@example.com",
+      },
+    });
+
+    expect(issueSummary).toEqual(
+      expect.objectContaining({
+        totalIssues: 1,
+        invalidJsonCount: 1,
+        invalidSchemaCount: 0,
+        privacyBlockedCount: 0,
+        affectedLines: [2],
+      }),
+    );
+    expect(issueSummary.message).toContain("JSON: 1");
+    expect(parseReleaseHistoryJsonl(jsonl).acceptedCount).toBe(1);
+    expect(csv).toContain('"summary","filteredCount","1"');
+    expect(csv).toContain('"filter","status","fail"');
+    expect(csv).toContain('"recorded_at"');
+    expect(csv).toContain('"e2e-smoke:failure"');
+    expect(csv).not.toContain("doctor@example.com");
+    expect(csv).toContain("redacted text");
+    expect(detectReleaseStatusUiPrivacyLeaks(`${jsonl}\n${csv}`)).toEqual([]);
+    expect(releaseHistoryFilteredJsonlFilename()).toMatch(
+      /^release-history-filtered-\d{4}-\d{2}-\d{2}\.jsonl$/,
+    );
+    expect(releaseHistoryFilteredCsvFilename()).toMatch(
+      /^release-history-filtered-\d{4}-\d{2}-\d{2}\.csv$/,
+    );
   });
 
   it("filters release history and import audit with advanced criteria", () => {
