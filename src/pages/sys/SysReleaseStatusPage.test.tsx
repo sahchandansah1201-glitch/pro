@@ -59,6 +59,42 @@ describe("SysReleaseStatusPage", () => {
     );
   });
 
+  it("imports safe release history baselines and blocks unsafe history input", () => {
+    render(<SysReleaseStatusPage />);
+
+    const historyInput = screen.getByLabelText("Вставить release-history JSONL");
+    fireEvent.change(historyInput, {
+      target: {
+        value:
+          '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}\n',
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
+
+    expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
+      /Импортировано baseline-записей: 1/,
+    );
+    fireEvent.change(screen.getByLabelText("Выбрать baseline release status"), {
+      target: { value: "imported-aaaaaaaaaaa-0" },
+    });
+    expect(screen.getByRole("region", { name: "Сравнение релизов" })).toHaveTextContent("aaaaaaaaaaa");
+    expect(screen.getByText("Импортированный history")).toBeInTheDocument();
+
+    fireEvent.change(historyInput, {
+      target: {
+        value:
+          'actor_email=doctor@example.com\n{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"bbbbbbb","overallStatus":"ok","dirtyCount":0,"denoLockOk":true,"artifactPresent":true,"workflows":[{"name":"e2e-smoke","conclusion":"success"}]}\n',
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Импортировать history JSONL" }));
+    expect(screen.getByRole("status", { name: "Статус импорта release history" })).toHaveTextContent(
+      /Импорт заблокирован/,
+    );
+    expect(screen.getByRole("status", { name: "Статус релиз-дашборда" })).toHaveTextContent(
+      /History JSONL не импортирован/,
+    );
+  });
+
   it("exports bundle, markdown, json, html, and history files and logs them", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     render(<SysReleaseStatusPage />);

@@ -222,6 +222,13 @@ The viewer also exposes the UI-side release operator guardrails:
   and changed workflow conclusions.
 - The privacy preview shows scanned line count, detector category count, and
   expandable detector categories before any export.
+- Operators can paste a sanitized `release-history.jsonl` fragment into the
+  page, import it locally, and choose an imported baseline for comparison.
+  Imports are blocked when the browser-side privacy detector sees tokens,
+  emails, patient names, storage paths, or raw env values.
+- Baseline comparison stays browser-only: imported history is not uploaded, is
+  not persisted, and only normalized workflow names, conclusions, SHA, branch,
+  artifact presence, and guard status are used.
 
 ## 13. Maintenance rule
 
@@ -236,8 +243,8 @@ The viewer also exposes the UI-side release operator guardrails:
 - UI viewer changes must update `src/lib/release-status-ui.ts`,
   `src/pages/sys/SysReleaseStatusPage.test.tsx`, and
   `e2e/sys-release-status.pw.ts` together.
-- RBAC, export, release comparison, and privacy-preview changes must also keep
-  `scripts/check-stage3-docs.mjs` aligned with the UI helper names and e2e
-  assertions.
+- RBAC, export, release comparison, history-import, baseline-selector, and
+  privacy-preview changes must also keep `scripts/check-stage3-docs.mjs`
+  aligned with the UI helper names and e2e assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
   operations docs.

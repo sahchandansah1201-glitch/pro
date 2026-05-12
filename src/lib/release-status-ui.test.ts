@@ -2,15 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildReleaseStatusExportBundle,
+  buildReleaseBaselineOptions,
   buildReleaseHistoryJsonl,
   buildReleaseStatusHtml,
   buildReleaseStatusJson,
   buildReleaseStatusMarkdown,
   compareReleaseStatusSnapshots,
   detectReleaseStatusUiPrivacyLeaks,
+  parseReleaseHistoryJsonl,
   RELEASE_STATUS_DEMO_SNAPSHOT,
+  RELEASE_STATUS_DEMO_HISTORY_JSONL,
   RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_PRIVACY_CATEGORIES,
+  releaseSnapshotFromHistoryRecord,
   releaseStatusFilename,
   releaseStatusLevel,
   summarizeReleasePrivacy,
@@ -97,5 +101,37 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         expect.objectContaining({ name: "e2e-smoke", previous: "failure", current: "success" }),
       ]),
     );
+  });
+
+  it("parses safe release history jsonl into baseline snapshots", () => {
+    const result = parseReleaseHistoryJsonl(RELEASE_STATUS_DEMO_HISTORY_JSONL);
+
+    expect(result.privacy.findingCount).toBe(0);
+    expect(result.skippedCount).toBe(0);
+    expect(result.records.length).toBe(2);
+    expect(result.records[0]?.currentSha).toBe(RELEASE_STATUS_DEMO_SNAPSHOT.shortSha);
+
+    const importedSnapshot = releaseSnapshotFromHistoryRecord(result.records[1]!);
+    expect(importedSnapshot.shortSha).toBe(RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT.shortSha);
+    expect(importedSnapshot.artifactPath).toBe("history-import");
+    expect(importedSnapshot.workflows.some((workflow) => workflow.conclusion === "failure")).toBe(true);
+
+    const options = buildReleaseBaselineOptions(
+      RELEASE_STATUS_DEMO_SNAPSHOT,
+      RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
+      result.records,
+    );
+    expect(options[0]).toEqual(expect.objectContaining({ id: "demo-previous", source: "demo" }));
+    expect(options.some((option) => option.source === "imported")).toBe(true);
+  });
+
+  it("rejects release history imports that contain private values", () => {
+    const result = parseReleaseHistoryJsonl(
+      `${RELEASE_STATUS_DEMO_HISTORY_JSONL}\n{"actor_email":"doctor@example.com","currentSha":"abcdef1"}`,
+    );
+
+    expect(result.records).toEqual([]);
+    expect(result.skippedCount).toBeGreaterThan(0);
+    expect(result.privacy.labels).toEqual(expect.arrayContaining(["email address"]));
   });
 });

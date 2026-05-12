@@ -20,6 +20,17 @@ test.describe("/sys/release-status", () => {
       "Статус улучшился",
     );
     await expect(page.getByText("npm run preflight:release-status")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Импорт release history" })).toBeVisible();
+
+    await page.getByLabel("Вставить release-history JSONL").fill(
+      '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}\n',
+    );
+    await page.getByRole("button", { name: "Импортировать history JSONL" }).click();
+    await expect(page.getByRole("status", { name: "Статус импорта release history" })).toContainText(
+      "Импортировано baseline-записей: 1",
+    );
+    await page.getByLabel("Выбрать baseline release status").selectOption("imported-aaaaaaaaaaa-0");
+    await expect(page.getByRole("region", { name: "Сравнение релизов" })).toContainText("aaaaaaaaaaa");
 
     const bodyText = await page.locator("body").innerText();
     expect(bodyText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
@@ -67,6 +78,14 @@ test.describe("/sys/release-status", () => {
     await page.getByRole("button", { name: "Подготовить локальный запуск" }).click();
     await expect(page.getByRole("status", { name: "Статус релиз-дашборда" })).toContainText(
       /preflight/,
+    );
+
+    await page.getByLabel("Вставить release-history JSONL").fill(
+      'actor_email=doctor@example.com\n{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"bbbbbbb","overallStatus":"ok","dirtyCount":0,"denoLockOk":true,"artifactPresent":true,"workflows":[{"name":"e2e-smoke","conclusion":"success"}]}\n',
+    );
+    await page.getByRole("button", { name: "Импортировать history JSONL" }).click();
+    await expect(page.getByRole("status", { name: "Статус импорта release history" })).toContainText(
+      "Импорт заблокирован",
     );
   });
 
