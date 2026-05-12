@@ -111,3 +111,8 @@ Nightly full e2e report
   GitHub Actions runs, the deno-lock guard status, and the e2e artifact
   summary presence, run `npm run release:status`. See
   [Stage 3M — Release operations dashboard](./stage-3m-release-operations-dashboard.md).
+- To attach release status to CI or an incident note, run
+  `node scripts/release-status.mjs --output test-results/release-status.md`
+  and `node scripts/release-status.mjs --json --output test-results/release-status.json`.
+  The `release-status` workflow uploads both files as a short-lived
+  `release-status-<run_id>` artifact.

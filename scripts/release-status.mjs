@@ -6,13 +6,14 @@
 // summary. Output is sanitized — no tokens, cookies, signed URLs, emails,
 // patient names, storage paths, or raw env values are printed.
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { redact } from "./write-e2e-artifact-summary.mjs";
 
-const DEFAULT_REPO = "vlsmgr/dermato-pro";
+const DEFAULT_REPO = "sahchandansah1201-glitch/pro";
 const DEFAULT_BRANCH = "main";
 const DEFAULT_WORKFLOWS = [
   "no-deno-locks",
@@ -104,6 +105,7 @@ function safeShaLink(repo, sha) {
 function summarizeWorkflows(workflows) {
   const list = Array.isArray(workflows) ? workflows : [];
   const lines = [];
+  const rows = [];
   let anyFailure = false;
   let anyMissing = false;
   for (const entry of list) {
@@ -115,12 +117,18 @@ function summarizeWorkflows(workflows) {
     const runLink = entry?.runNumber
       ? safeRunLink(entry?.repo, entry?.runNumber)
       : "not available";
+    rows.push({
+      name,
+      conclusion,
+      glyph: statusGlyph(conclusion),
+      runLink,
+    });
     lines.push(
       `- ${statusGlyph(conclusion)} \`${name}\`: ${conclusion} — ${runLink}`,
     );
   }
   if (lines.length === 0) lines.push("- `not available`");
-  return { lines, anyFailure, anyMissing };
+  return { lines, rows, anyFailure, anyMissing };
 }
 
 function summarizeArtifact(artifact) {
@@ -137,6 +145,61 @@ function summarizeArtifact(artifact) {
 }
 
 export function buildReleaseStatusReport(input = {}) {
+  const data = buildReleaseStatusJson(input);
+
+  const lines = [
+    "## Release operations dashboard",
+    "",
+    `- Repo: \`${data.repo}\``,
+    `- Branch: \`${data.branch}\``,
+    `- Current SHA: \`${data.currentSha.short}\` — ${data.currentSha.link}`,
+    `- Working tree: ${data.workingTree.dirtyCount === 0 ? "clean" : `${data.workingTree.dirtyCount} changed file(s)`}`,
+  ];
+  if (data.workingTree.dirtyCount > 0 && data.workingTree.dirtyPaths.length > 0) {
+    lines.push("- Changed paths (truncated):");
+    for (const p of data.workingTree.dirtyPaths) lines.push(`  - \`${p}\``);
+    if (data.workingTree.dirtyCount > data.workingTree.dirtyPaths.length) {
+      lines.push(`  - … and ${data.workingTree.dirtyCount - data.workingTree.dirtyPaths.length} more`);
+    }
+  }
+  lines.push("");
+
+  lines.push("### Latest main workflow runs", "");
+  if (data.workflows.length === 0) {
+    lines.push("- `not available`");
+  } else {
+    for (const workflow of data.workflows) {
+      lines.push(
+        `- ${workflow.glyph} \`${workflow.name}\`: ${workflow.conclusion} — ${workflow.runLink}`,
+      );
+    }
+  }
+  lines.push("");
+
+  lines.push("### Deno lock guard", "");
+  lines.push(`- ${data.denoLockGuard.glyph} ${data.denoLockGuard.note}`);
+  lines.push("");
+
+  lines.push("### E2E artifact summary", "");
+  lines.push(`- Path: \`${data.artifact.path}\``);
+  lines.push(`- Present: ${data.artifact.present ? "yes" : "no"}`);
+  lines.push(`- Size: ${data.artifact.present ? data.artifact.sizeLabel : "n/a"}`);
+  lines.push(`- Modified: ${data.artifact.present ? data.artifact.mtime : "n/a"}`);
+  lines.push("");
+
+  lines.push("### Overall", "");
+  lines.push(`- Status: \`${data.overallStatus}\``);
+  lines.push("");
+
+  lines.push("### Privacy", "");
+  lines.push("- Output is sanitized; tokens, cookies, signed URLs, emails,");
+  lines.push("  patient names, storage paths, and raw env values are not printed.");
+  lines.push("");
+
+  return redact(lines.join("\n"));
+}
+
+export function buildReleaseStatusJson(input = {}) {
   const repo = safeRepo(input.repo);
   const branch = safeBranch(input.branch);
   const sha = safeSha(input.sha);
@@ -148,36 +211,6 @@ export function buildReleaseStatusReport(input = {}) {
   const denoLockOk = Boolean(input.denoLockGuard?.ok);
   const denoLockNote = safeText(input.denoLockGuard?.note ?? (denoLockOk ? "no deno.lock files" : "guard failed"));
   const workflows = summarizeWorkflows(input.workflows);
-  const artifactLines = summarizeArtifact(input.artifact);
-
-  const lines = [
-    "## Release operations dashboard",
-    "",
-    `- Repo: \`${repo}\``,
-    `- Branch: \`${branch}\``,
-    `- Current SHA: \`${shortSha}\` — ${safeShaLink(repo, sha)}`,
-    `- Working tree: ${dirtyCount === 0 ? "clean" : `${dirtyCount} changed file(s)`}`,
-  ];
-  if (dirtyCount > 0 && dirtyPaths.length > 0) {
-    lines.push("- Changed paths (truncated):");
-    for (const p of dirtyPaths) lines.push(`  - \`${p}\``);
-    if (dirtyCount > dirtyPaths.length) {
-      lines.push(`  - … and ${dirtyCount - dirtyPaths.length} more`);
-    }
-  }
-  lines.push("");
-
-  lines.push("### Latest main workflow runs", "");
-  lines.push(...workflows.lines);
-  lines.push("");
-
-  lines.push("### Deno lock guard", "");
-  lines.push(`- ${denoLockOk ? "✓" : "✗"} ${denoLockNote}`);
-  lines.push("");
-
-  lines.push("### E2E artifact summary", "");
-  lines.push(...artifactLines);
-  lines.push("");
 
   const overallFail = workflows.anyFailure || !denoLockOk;
   const overallStatus = overallFail
@@ -186,16 +219,37 @@ export function buildReleaseStatusReport(input = {}) {
       ? "incomplete"
       : "ok";
 
-  lines.push("### Overall", "");
-  lines.push(`- Status: \`${overallStatus}\``);
-  lines.push("");
-
-  lines.push("### Privacy", "");
-  lines.push("- Output is sanitized; tokens, cookies, signed URLs, emails,");
-  lines.push("  patient names, storage paths, and raw env values are not printed.");
-  lines.push("");
-
-  return redact(lines.join("\n"));
+  return {
+    title: "Release operations dashboard",
+    repo,
+    branch,
+    currentSha: {
+      short: shortSha,
+      link: safeShaLink(repo, sha),
+    },
+    workingTree: {
+      dirtyCount,
+      dirtyPaths,
+    },
+    workflows: workflows.rows,
+    denoLockGuard: {
+      ok: denoLockOk,
+      glyph: denoLockOk ? "✓" : "✗",
+      note: denoLockNote,
+    },
+    artifact: {
+      path: safeText(input.artifact?.path ?? DEFAULT_SUMMARY_PATH, DEFAULT_SUMMARY_PATH),
+      present: Boolean(input.artifact?.present),
+      sizeLabel: input.artifact?.present && input.artifact?.sizeLabel
+        ? safeText(input.artifact.sizeLabel)
+        : "n/a",
+      mtime: input.artifact?.present && input.artifact?.mtime
+        ? safeText(input.artifact.mtime)
+        : "n/a",
+    },
+    overallStatus,
+    privacy: "sanitized; tokens, cookies, signed URLs, emails, patient names, storage paths, and raw env values are not printed",
+  };
 }
 
 function readGitState() {
@@ -249,8 +303,12 @@ async function fetchLatestWorkflows(repo, branch, names) {
     let conclusion = "unknown";
     let runNumber = null;
     try {
+      const headers = { "Accept": "application/vnd.github+json" };
+      if (process.env.GITHUB_TOKEN) {
+        headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+      }
       const resp = await fetch(url, {
-        headers: { "Accept": "application/vnd.github+json" },
+        headers,
       });
       if (resp.status === 404) {
         conclusion = "missing";
@@ -259,7 +317,7 @@ async function fetchLatestWorkflows(repo, branch, names) {
         const run = json?.workflow_runs?.[0];
         if (run) {
           conclusion = run.conclusion || run.status || "unknown";
-          runNumber = String(run.run_number ?? "");
+          runNumber = String(run.id ?? run.run_number ?? "");
         } else {
           conclusion = "missing";
         }
@@ -272,21 +330,70 @@ async function fetchLatestWorkflows(repo, branch, names) {
   return results;
 }
 
+function parseCliArgs(argv) {
+  const options = {
+    offline: false,
+    format: "markdown",
+    output: null,
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--offline") {
+      options.offline = true;
+    } else if (arg === "--json") {
+      options.format = "json";
+    } else if (arg === "--format") {
+      const next = argv[i + 1];
+      if (!next) throw new Error("--format requires markdown or json");
+      options.format = next;
+      i += 1;
+    } else if (arg.startsWith("--format=")) {
+      options.format = arg.slice("--format=".length);
+    } else if (arg === "--output" || arg === "-o") {
+      const next = argv[i + 1];
+      if (!next) throw new Error("--output requires a file path");
+      options.output = next;
+      i += 1;
+    } else if (arg.startsWith("--output=")) {
+      options.output = arg.slice("--output=".length);
+    } else {
+      throw new Error(`unknown argument: ${safeText(arg)}`);
+    }
+  }
+
+  if (!["markdown", "json"].includes(options.format)) {
+    throw new Error("--format must be markdown or json");
+  }
+  if (options.output != null && String(options.output).trim() === "") {
+    throw new Error("--output requires a file path");
+  }
+
+  return options;
+}
+
+function writeOutput(path, content) {
+  const parent = dirname(path);
+  if (parent && parent !== ".") {
+    mkdirSync(parent, { recursive: true });
+  }
+  writeFileSync(path, content, "utf8");
+}
+
 async function main() {
-  const args = new Set(process.argv.slice(2));
-  const offline = args.has("--offline");
-  const repo = process.env.RELEASE_STATUS_REPO || DEFAULT_REPO;
+  const options = parseCliArgs(process.argv.slice(2));
+  const repo = safeRepo(process.env.RELEASE_STATUS_REPO || DEFAULT_REPO);
   const branch = DEFAULT_BRANCH;
   const summaryPath = process.env.RELEASE_STATUS_SUMMARY_PATH || DEFAULT_SUMMARY_PATH;
 
   const git = readGitState();
   const denoLockGuard = checkDenoLockGuard();
   const artifact = checkArtifact(summaryPath);
-  const workflows = offline
+  const workflows = options.offline
     ? DEFAULT_WORKFLOWS.map((name) => ({ name, conclusion: "unknown", repo }))
     : await fetchLatestWorkflows(repo, branch, DEFAULT_WORKFLOWS);
 
-  const report = buildReleaseStatusReport({
+  const input = {
     repo,
     branch,
     sha: git.sha,
@@ -294,9 +401,17 @@ async function main() {
     denoLockGuard,
     workflows,
     artifact,
-  });
+  };
+  const report = options.format === "json"
+    ? `${JSON.stringify(buildReleaseStatusJson(input), null, 2)}\n`
+    : buildReleaseStatusReport(input);
 
-  process.stdout.write(report);
+  if (options.output) {
+    writeOutput(options.output, report);
+    process.stdout.write(`[release-status] wrote ${safeText(options.output)}\n`);
+  } else {
+    process.stdout.write(report);
+  }
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {

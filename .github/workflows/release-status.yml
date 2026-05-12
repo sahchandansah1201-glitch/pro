@@ -1,0 +1,85 @@
+name: release-status
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/release-status.mjs"
+      - "scripts/release-status.test.mjs"
+      - "scripts/check-stage3-docs.mjs"
+      - "docs/frontend/stage-3m-release-operations-dashboard.md"
+      - "docs/frontend/stage-3i-final-documentation-index.md"
+      - "docs/frontend/stage-3l-nightly-artifacts-report.md"
+      - "docs/frontend/stage-1i-auth-assets-readiness.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/release-status.yml"
+  push:
+    paths:
+      - "scripts/release-status.mjs"
+      - "scripts/release-status.test.mjs"
+      - "scripts/check-stage3-docs.mjs"
+      - "docs/frontend/stage-3m-release-operations-dashboard.md"
+      - "docs/frontend/stage-3i-final-documentation-index.md"
+      - "docs/frontend/stage-3l-nightly-artifacts-report.md"
+      - "docs/frontend/stage-1i-auth-assets-readiness.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/release-status.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  release-status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test release-status privacy and output modes
+        run: npm run test:release-status
+
+      - name: Check Stage 3 docs
+        run: node scripts/check-stage3-docs.mjs
+
+      - name: Write release status reports
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_STATUS_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p test-results
+          npm run release:status -- --output test-results/release-status.md
+          npm run release:status:json -- --output test-results/release-status.json
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Release status"
+            echo ""
+            if [ -f test-results/release-status.md ]; then
+              cat test-results/release-status.md
+            else
+              echo "release-status report was not generated."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release status reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-status-${{ github.run_id }}
+          path: |
+            test-results/release-status.md
+            test-results/release-status.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -20,6 +20,9 @@ for the backend half.
 - Focused e2e artifact preflight — `npm run preflight:e2e-artifacts`
 - E2E artifact summary viewer — `npm run view:e2e-artifacts -- <summary.md>`
 - Release operations dashboard — `npm run release:status`
+- Release dashboard file/JSON output —
+  `node scripts/release-status.mjs --output test-results/release-status.md`
+  and `node scripts/release-status.mjs --json --output test-results/release-status.json`
 
 ---
 

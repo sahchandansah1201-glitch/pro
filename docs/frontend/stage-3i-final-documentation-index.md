@@ -34,6 +34,8 @@ npm run preflight:e2e-artifacts
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
 node scripts/release-status.mjs --offline
+node scripts/release-status.mjs --offline --output test-results/release-status.md
+node scripts/release-status.mjs --offline --json --output test-results/release-status.json
 node scripts/check-stage3-docs.mjs
 node scripts/check-no-deno-locks.mjs
 git status --short
@@ -96,6 +98,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - [x] Lovable suggestions backlog is linked.
 - [x] Nightly artifacts report is linked.
 - [x] Release operations dashboard is linked.
+- [x] Release operations dashboard file output, JSON output, and CI workflow
+  are documented.
 
 ## 9. Sync changelog
 
@@ -135,9 +139,12 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #54: added a sanitized CLI viewer for generated e2e artifact summaries,
   expanded redaction rules again, and made focused preflight print step
   results.
-- PR #55: added the Stage 3M release operations dashboard CLI
+- Main update `da2bdd7`: added the Stage 3M release operations dashboard CLI
   (`scripts/release-status.mjs`, `npm run release:status`) with sanitized
   output, offline mode, and log-safety tests, plus cross-links from
   Stage 3I and Stage 3L.
+- PR #55: extended Stage 3M with markdown/JSON file output,
+  `.github/workflows/release-status.yml`, GitHub step-summary reporting,
+  uploaded release-status artifacts, and stricter privacy coverage.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

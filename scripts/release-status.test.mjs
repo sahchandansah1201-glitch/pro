@@ -1,10 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { buildReleaseStatusReport } from "./release-status.mjs";
+import { buildReleaseStatusJson, buildReleaseStatusReport } from "./release-status.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(__dirname, "release-status.mjs");
@@ -99,6 +101,46 @@ test("redacts tokens, cookies, emails, patient names, signed URLs, storage paths
   assert.match(out, /\[redacted/);
 });
 
+test("builds sanitized json payload without leaking sensitive fields", () => {
+  const payload = buildReleaseStatusJson({
+    repo: "vlsmgr/dermato-pro",
+    branch: "main",
+    sha: "abcdef1234567890abcdef1234567890abcdef12",
+    git: {
+      dirtyCount: 2,
+      dirtyPaths: [
+        "logs/access_token=secret-token",
+        "patient_full_name=Jane Patient actor_email=doctor@example.com",
+      ],
+    },
+    denoLockGuard: {
+      ok: true,
+      note: "Cookie: session=secret; storage_object_path=private/file.jpg",
+    },
+    workflows: [
+      { name: "e2e-smoke", conclusion: "success", runNumber: "77", repo: "vlsmgr/dermato-pro" },
+    ],
+    artifact: {
+      present: true,
+      path: "test-results/report?signed_url=https://x/y?sig=secret",
+      sizeLabel: "1.0 KiB",
+      mtime: "2026-05-12T03:00:00.000Z",
+    },
+  });
+  const text = JSON.stringify(payload);
+
+  assert.equal(payload.title, "Release operations dashboard");
+  assert.equal(payload.currentSha.short, "abcdef1");
+  assert.equal(payload.workflows[0].runLink, "https://github.com/vlsmgr/dermato-pro/actions/runs/77");
+  assert.doesNotMatch(text, /secret-token/);
+  assert.doesNotMatch(text, /Jane Patient/);
+  assert.doesNotMatch(text, /doctor@example\.com/);
+  assert.doesNotMatch(text, /private\/file\.jpg/);
+  assert.doesNotMatch(text, /session=secret/);
+  assert.doesNotMatch(text, /sig=secret/);
+  assert.match(text, /redacted/);
+});
+
 test("rejects unsafe repo, branch, workflow, and run-number values", () => {
   const out = buildReleaseStatusReport({
     repo: "../etc/passwd",
@@ -113,7 +155,7 @@ test("rejects unsafe repo, branch, workflow, and run-number values", () => {
     artifact: { present: false },
   });
   // falls back to default repo/branch and skips invalid workflow name
-  assert.match(out, /Repo: `vlsmgr\/dermato-pro`/);
+  assert.match(out, /Repo: `sahchandansah1201-glitch\/pro`/);
   assert.match(out, /Branch: `main`/);
   assert.match(out, /Current SHA: `unknown`/);
   assert.doesNotMatch(out, /etc\/passwd/);
@@ -134,4 +176,59 @@ test("cli runs offline and produces a sanitized report", () => {
   assert.match(result.stdout, /E2E artifact summary/);
   // No leaked secrets via env-style values.
   assert.doesNotMatch(result.stdout, /Bearer\s+[A-Za-z0-9]/);
+});
+
+test("cli writes markdown output file when --output is provided", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "release-status-"));
+  const output = path.join(dir, "nested", "release-status.md");
+  try {
+    const result = spawnSync(process.execPath, [
+      SCRIPT,
+      "--offline",
+      "--output",
+      output,
+    ], {
+      encoding: "utf8",
+      env: { ...process.env, RELEASE_STATUS_REPO: "vlsmgr/dermato-pro" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /\[release-status\] wrote/);
+    const content = readFileSync(output, "utf8");
+    assert.match(content, /## Release operations dashboard/);
+    assert.match(content, /Status: `incomplete`/);
+    assert.doesNotMatch(content, /Bearer\s+[A-Za-z0-9]/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli writes json output file when --json and --output are provided", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "release-status-json-"));
+  const output = path.join(dir, "release-status.json");
+  try {
+    const result = spawnSync(process.execPath, [
+      SCRIPT,
+      "--offline",
+      "--json",
+      "--output",
+      output,
+    ], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        RELEASE_STATUS_REPO: "vlsmgr/dermato-pro",
+        RELEASE_STATUS_SUMMARY_PATH: "test-results/access_token=secret",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(readFileSync(output, "utf8"));
+    assert.equal(payload.title, "Release operations dashboard");
+    assert.equal(payload.artifact.present, false);
+    assert.doesNotMatch(JSON.stringify(payload), /access_token=secret/);
+    assert.match(JSON.stringify(payload), /redacted/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
