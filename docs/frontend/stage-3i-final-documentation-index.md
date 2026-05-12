@@ -32,6 +32,8 @@ npm run test:smoke-auth-assets
 npm run test:e2e-artifacts
 npm run preflight:e2e-artifacts
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
+npm run test:release-status
+node scripts/release-status.mjs --offline
 node scripts/check-stage3-docs.mjs
 node scripts/check-no-deno-locks.mjs
 git status --short
@@ -43,7 +45,7 @@ The focused Stage 3 docs guard is standalone and does not require
 
 ## 4. Release-readiness status
 
-- The documentation chain is indexed through Stage 3L.
+- The documentation chain is indexed through Stage 3M.
 - Lovable follow-up suggestions are tracked in Stage 3K before they
   become implementation scope.
 - No runtime changes are included in Stage 3I.
@@ -93,6 +95,7 @@ The focused Stage 3 docs guard is standalone and does not require
 - [x] GitHub-first working mode is linked.
 - [x] Lovable suggestions backlog is linked.
 - [x] Nightly artifacts report is linked.
+- [x] Release operations dashboard is linked.
 
 ## 9. Sync changelog
 
