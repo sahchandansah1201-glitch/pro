@@ -5,8 +5,11 @@ import {
   Download,
   Eye,
   FileCode2,
+  GitCompare,
   History,
+  Lock,
   MonitorCheck,
+  PackageCheck,
   PlayCircle,
   ShieldCheck,
 } from "lucide-react";
@@ -17,11 +20,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  buildReleaseStatusOutput,
-  detectReleaseStatusUiPrivacyLeaks,
+  buildReleaseStatusExportBundle,
+  buildReleaseStatusExportFile,
+  compareReleaseStatusSnapshots,
+  RELEASE_STATUS_ALLOWED_ROLES,
   RELEASE_STATUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_PREFLIGHT_COMMAND,
-  releaseStatusFilename,
+  RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
+  RELEASE_STATUS_PRIVACY_CATEGORIES,
   releaseStatusFormatLabel,
   releaseStatusLevel,
   releaseStatusLevelLabel,
@@ -32,8 +38,9 @@ const FORMATS: ReleaseStatusFormat[] = ["markdown", "json", "html", "history"];
 
 interface ExportLogEntry {
   at: string;
-  format: ReleaseStatusFormat;
+  format: ReleaseStatusFormat | "bundle";
   filename: string;
+  fileCount?: number;
 }
 
 function downloadText(filename: string, content: string, type = "text/plain;charset=utf-8"): void {
@@ -59,31 +66,55 @@ function formatTime(value: string): string {
 
 export default function SysReleaseStatusPage() {
   const snapshot = RELEASE_STATUS_DEMO_SNAPSHOT;
+  const previousSnapshot = RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT;
   const [format, setFormat] = useState<ReleaseStatusFormat>("markdown");
   const [status, setStatus] = useState("Предпросмотр готов. Секреты не отображаются.");
   const [exportLog, setExportLog] = useState<ExportLogEntry[]>([]);
   const [showHistory, setShowHistory] = useState(true);
 
   const level = releaseStatusLevel(snapshot);
-  const output = useMemo(() => buildReleaseStatusOutput(snapshot, format), [format, snapshot]);
-  const privacyFindings = useMemo(() => detectReleaseStatusUiPrivacyLeaks(output), [output]);
+  const currentExport = useMemo(() => buildReleaseStatusExportFile(snapshot, format), [format, snapshot]);
+  const output = currentExport.content;
+  const privacySummary = currentExport.privacy;
+  const privacyFindings = privacySummary.findings;
+  const comparison = useMemo(
+    () => compareReleaseStatusSnapshots(previousSnapshot, snapshot),
+    [previousSnapshot, snapshot],
+  );
   const successCount = snapshot.workflows.filter((workflow) => workflow.conclusion === "success").length;
 
   const handleExport = (targetFormat: ReleaseStatusFormat) => {
-    const content = buildReleaseStatusOutput(snapshot, targetFormat);
-    const findings = detectReleaseStatusUiPrivacyLeaks(content);
-    if (findings.length > 0) {
-      setStatus(`Экспорт заблокирован: найдено ${findings.length} чувствительных совпадений.`);
+    const file = buildReleaseStatusExportFile(snapshot, targetFormat);
+    if (file.privacy.findingCount > 0) {
+      setStatus(`Экспорт заблокирован: найдено ${file.privacy.findingCount} чувствительных совпадений.`);
       return;
     }
-    const filename = releaseStatusFilename(targetFormat);
-    const mime = targetFormat === "html" ? "text/html;charset=utf-8" : "text/plain;charset=utf-8";
-    downloadText(filename, content, mime);
+    downloadText(file.filename, file.content, file.mime);
     setExportLog((items) => [
-      { at: new Date().toISOString(), format: targetFormat, filename },
+      { at: new Date().toISOString(), format: targetFormat, filename: file.filename },
       ...items.slice(0, 4),
     ]);
-    setStatus(`${releaseStatusFormatLabel(targetFormat)} экспорт готов: ${filename}`);
+    setStatus(`${releaseStatusFormatLabel(targetFormat)} экспорт готов: ${file.filename}`);
+  };
+
+  const handleExportBundle = () => {
+    const files = buildReleaseStatusExportBundle(snapshot);
+    const unsafe = files.filter((file) => file.privacy.findingCount > 0);
+    if (unsafe.length > 0) {
+      setStatus(`Пакетный экспорт заблокирован: небезопасных файлов ${unsafe.length}.`);
+      return;
+    }
+    for (const file of files) downloadText(file.filename, file.content, file.mime);
+    setExportLog((items) => [
+      {
+        at: new Date().toISOString(),
+        format: "bundle",
+        filename: "release-status-bundle",
+        fileCount: files.length,
+      },
+      ...items.slice(0, 4),
+    ]);
+    setStatus(`Пакетный экспорт готов: ${files.length} файла.`);
   };
 
   const handlePrivacyCheck = () => {
@@ -207,12 +238,48 @@ export default function SysReleaseStatusPage() {
 
             <div className="mt-4 space-y-3 text-[12px]">
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <div className="font-medium">Скан предпросмотра</div>
-                <div className={privacyFindings.length === 0 ? "mt-1 text-success" : "mt-1 text-destructive"}>
-                  {privacyFindings.length === 0
-                    ? "Чувствительные совпадения не найдены."
-                    : `Найдено совпадений: ${privacyFindings.length}.`}
+                <div className="flex items-center gap-1.5 font-medium">
+                  <Lock className="h-3.5 w-3.5 text-primary" aria-hidden />
+                  RBAC scope
                 </div>
+                <div className="mt-1 text-muted-foreground">
+                  Доступ к разделу открыт только роли {RELEASE_STATUS_ALLOWED_ROLES.join(", ")}.
+                  RouteGuard остаётся UX-симуляцией, серверный доступ проверяется отдельно.
+                </div>
+              </div>
+
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <div className="font-medium">Скан предпросмотра</div>
+                <div className={privacySummary.findingCount === 0 ? "mt-1 text-success" : "mt-1 text-destructive"}>
+                  {privacySummary.findingCount === 0
+                    ? "Чувствительные совпадения не найдены."
+                    : `Найдено совпадений: ${privacySummary.findingCount}.`}
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Проверено строк: {privacySummary.lineCount}. Категорий скана:{" "}
+                  {RELEASE_STATUS_PRIVACY_CATEGORIES.length}.
+                </div>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-[11px] text-muted-foreground">
+                    Показать категории приватности
+                  </summary>
+                  <ul className="mt-2 grid gap-1 sm:grid-cols-2" aria-label="Категории проверки приватности">
+                    {RELEASE_STATUS_PRIVACY_CATEGORIES.map((category) => (
+                      <li key={category} className="rounded bg-background px-2 py-1 font-mono text-[10px]">
+                        {category}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+                {privacySummary.findings.length > 0 && (
+                  <ul className="mt-2 space-y-1" aria-label="Найденные приватные совпадения">
+                    {privacySummary.findings.slice(0, 4).map((finding) => (
+                      <li key={`${finding.label}-${finding.line}`}>
+                        строка {finding.line}: {finding.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -242,6 +309,62 @@ export default function SysReleaseStatusPage() {
                 </Button>
               </div>
             </div>
+          </Card>
+        </section>
+
+        <section aria-label="Сравнение релизов" className="grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <Card className="p-4">
+            <div className="flex items-start gap-2">
+              <GitCompare className="mt-0.5 h-4 w-4 text-primary" aria-hidden />
+              <div>
+                <h2 className="text-[16px] font-semibold tracking-tight">Сравнение релизов</h2>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  Текущий main-снимок сравнивается с предыдущим сохранённым снимком.
+                </p>
+              </div>
+            </div>
+            <dl className="mt-4 grid gap-2 text-[12px] sm:grid-cols-2">
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <dt className="text-muted-foreground">Предыдущий</dt>
+                <dd className="mt-1 font-mono">{previousSnapshot.shortSha}</dd>
+                <dd className="mt-1">{releaseStatusLevelLabel(comparison.previousLevel)}</dd>
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <dt className="text-muted-foreground">Текущий</dt>
+                <dd className="mt-1 font-mono">{snapshot.shortSha}</dd>
+                <dd className="mt-1">{releaseStatusLevelLabel(comparison.currentLevel)}</dd>
+              </div>
+            </dl>
+            <div className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-[12px]">
+              {comparison.improved
+                ? "Статус улучшился: блокирующие сигналы сняты."
+                : comparison.worsened
+                  ? "Статус ухудшился: требуется ручная проверка."
+                  : "Итоговый статус не изменился."}
+              {comparison.artifactChanged && (
+                <span className="block pt-1 text-muted-foreground">Доступность артефакта изменилась.</span>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <h3 className="text-[13px] font-semibold">Изменения workflow</h3>
+            {comparison.workflowChanges.length === 0 ? (
+              <div role="status" className="mt-3 rounded-md border border-dashed border-border p-3 text-[12px] text-muted-foreground">
+                Изменений workflow нет.
+              </div>
+            ) : (
+              <ul className="mt-3 divide-y divide-border rounded-md border border-border" aria-label="Изменения workflow между релизами">
+                {comparison.workflowChanges.map((item) => (
+                  <li key={item.name} className="grid gap-1 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
+                    <span className="font-mono">{item.name}</span>
+                    <span className="text-muted-foreground">
+                      {item.previous} → {item.current}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
         </section>
 
@@ -277,6 +400,17 @@ export default function SysReleaseStatusPage() {
             />
 
             <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-8 text-[12px]"
+                onClick={handleExportBundle}
+                aria-label="Экспортировать единый пакет release status"
+              >
+                <PackageCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Единый пакет
+              </Button>
               {FORMATS.map((item) => (
                 <Button
                   key={item}
@@ -323,8 +457,13 @@ export default function SysReleaseStatusPage() {
                   <ul className="space-y-2">
                     {exportLog.map((entry) => (
                       <li key={`${entry.at}-${entry.filename}`} className="rounded-md border border-border p-3 text-[12px]">
-                        <div className="font-medium">{releaseStatusFormatLabel(entry.format)}</div>
+                        <div className="font-medium">
+                          {entry.format === "bundle" ? "Единый пакет" : releaseStatusFormatLabel(entry.format)}
+                        </div>
                         <div className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{entry.filename}</div>
+                        {entry.fileCount && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">Файлов: {entry.fileCount}</div>
+                        )}
                         <div className="mt-1 text-[11px] text-muted-foreground">{formatTime(entry.at)}</div>
                       </li>
                     ))}

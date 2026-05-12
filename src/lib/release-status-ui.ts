@@ -26,6 +26,37 @@ export interface ReleasePrivacyFinding {
   line: number;
 }
 
+export interface ReleasePrivacySummary {
+  lineCount: number;
+  findingCount: number;
+  labels: string[];
+  findings: ReleasePrivacyFinding[];
+}
+
+export interface ReleaseStatusExportFile {
+  format: ReleaseStatusFormat;
+  filename: string;
+  mime: string;
+  content: string;
+  privacy: ReleasePrivacySummary;
+}
+
+export interface ReleaseWorkflowComparison {
+  name: string;
+  previous: ReleaseWorkflowStatus["conclusion"] | "missing";
+  current: ReleaseWorkflowStatus["conclusion"] | "missing";
+}
+
+export interface ReleaseComparisonSummary {
+  previousLevel: ReleaseStatusLevel;
+  currentLevel: ReleaseStatusLevel;
+  improved: boolean;
+  worsened: boolean;
+  artifactChanged: boolean;
+  dirtyCountDelta: number;
+  workflowChanges: ReleaseWorkflowComparison[];
+}
+
 const TOKEN_PARAM_NAMES = [
   "access_token",
   "refresh_token",
@@ -42,6 +73,19 @@ const TOKEN_PARAM_NAMES = [
 ];
 
 export const RELEASE_STATUS_PREFLIGHT_COMMAND = "npm run preflight:release-status";
+export const RELEASE_STATUS_ALLOWED_ROLES = ["system_admin"] as const;
+export const RELEASE_STATUS_PRIVACY_CATEGORIES = [
+  "bearer token",
+  "cookie header",
+  "url token parameter",
+  "email address",
+  "patient full-name field",
+  "actor email field",
+  "storage object path",
+  "supabase key",
+  "service role env",
+  "jwt-shaped value",
+] as const;
 
 export const RELEASE_STATUS_DEMO_SNAPSHOT: ReleaseStatusSnapshot = {
   repo: "sahchandansah1201-glitch/pro",
@@ -88,6 +132,21 @@ export const RELEASE_STATUS_DEMO_SNAPSHOT: ReleaseStatusSnapshot = {
   ],
 };
 
+export const RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT: ReleaseStatusSnapshot = {
+  ...RELEASE_STATUS_DEMO_SNAPSHOT,
+  shortSha: "c3d2d18",
+  shaUrl: "https://github.com/sahchandansah1201-glitch/pro/commit/c3d2d18",
+  artifactPresent: false,
+  generatedAt: "2026-05-12T13:58:00.000Z",
+  workflows: RELEASE_STATUS_DEMO_SNAPSHOT.workflows.map((workflow) =>
+    workflow.name === "e2e-smoke"
+      ? { ...workflow, conclusion: "failure" }
+      : workflow.name === "release-status"
+        ? { ...workflow, conclusion: "in_progress" }
+        : workflow,
+  ),
+};
+
 export function releaseStatusLevel(snapshot: ReleaseStatusSnapshot): ReleaseStatusLevel {
   if (!snapshot.denoLockOk || snapshot.workflows.some((workflow) => workflow.conclusion === "failure")) {
     return "fail";
@@ -102,10 +161,22 @@ export function releaseStatusLevel(snapshot: ReleaseStatusSnapshot): ReleaseStat
   return "ok";
 }
 
+function releaseStatusRank(level: ReleaseStatusLevel): number {
+  if (level === "fail") return 0;
+  if (level === "incomplete") return 1;
+  return 2;
+}
+
 export function releaseStatusLevelLabel(level: ReleaseStatusLevel): string {
   if (level === "ok") return "Готово";
   if (level === "fail") return "Блокер";
   return "Нужно проверить";
+}
+
+export function releaseStatusMime(format: ReleaseStatusFormat): string {
+  if (format === "html") return "text/html;charset=utf-8";
+  if (format === "json" || format === "history") return "application/json;charset=utf-8";
+  return "text/markdown;charset=utf-8";
 }
 
 export function releaseStatusFormatLabel(format: ReleaseStatusFormat): string {
@@ -279,6 +350,58 @@ export function buildReleaseStatusOutput(
   return buildReleaseHistoryJsonl(snapshot);
 }
 
+export function buildReleaseStatusExportFile(
+  snapshot: ReleaseStatusSnapshot,
+  format: ReleaseStatusFormat,
+): ReleaseStatusExportFile {
+  const content = buildReleaseStatusOutput(snapshot, format);
+  return {
+    format,
+    filename: releaseStatusFilename(format),
+    mime: releaseStatusMime(format),
+    content,
+    privacy: summarizeReleasePrivacy(content),
+  };
+}
+
+export function buildReleaseStatusExportBundle(snapshot: ReleaseStatusSnapshot): ReleaseStatusExportFile[] {
+  return (["markdown", "json", "html", "history"] as ReleaseStatusFormat[]).map((format) =>
+    buildReleaseStatusExportFile(snapshot, format),
+  );
+}
+
+export function compareReleaseStatusSnapshots(
+  previous: ReleaseStatusSnapshot,
+  current: ReleaseStatusSnapshot,
+): ReleaseComparisonSummary {
+  const previousLevel = releaseStatusLevel(previous);
+  const currentLevel = releaseStatusLevel(current);
+  const workflowNames = Array.from(
+    new Set([...previous.workflows.map((workflow) => workflow.name), ...current.workflows.map((workflow) => workflow.name)]),
+  ).sort();
+  const workflowChanges = workflowNames
+    .map((name) => {
+      const previousWorkflow = previous.workflows.find((workflow) => workflow.name === name);
+      const currentWorkflow = current.workflows.find((workflow) => workflow.name === name);
+      return {
+        name,
+        previous: previousWorkflow?.conclusion ?? "missing",
+        current: currentWorkflow?.conclusion ?? "missing",
+      };
+    })
+    .filter((item) => item.previous !== item.current);
+
+  return {
+    previousLevel,
+    currentLevel,
+    improved: releaseStatusRank(currentLevel) > releaseStatusRank(previousLevel),
+    worsened: releaseStatusRank(currentLevel) < releaseStatusRank(previousLevel),
+    artifactChanged: previous.artifactPresent !== current.artifactPresent,
+    dirtyCountDelta: current.changedCount - previous.changedCount,
+    workflowChanges,
+  };
+}
+
 function lineNumberAt(content: string, index: number): number {
   return content.slice(0, index).split(/\r?\n/).length;
 }
@@ -309,4 +432,14 @@ export function detectReleaseStatusUiPrivacyLeaks(content: string): ReleasePriva
     }
   }
   return findings;
+}
+
+export function summarizeReleasePrivacy(content: string): ReleasePrivacySummary {
+  const findings = detectReleaseStatusUiPrivacyLeaks(content);
+  return {
+    lineCount: content.split(/\r?\n/).length,
+    findingCount: findings.length,
+    labels: Array.from(new Set(findings.map((finding) => finding.label))).sort(),
+    findings,
+  };
 }

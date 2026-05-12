@@ -163,5 +163,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #57: added `/sys/release-status`, browser-side release-status preview
   and export, privacy scan feedback, local preflight command handoff, and
   fast-smoke coverage via `e2e/sys-release-status.pw.ts`.
+- PR #58: hardened `/sys/release-status` with visible `system_admin` RBAC
+  scope, e2e no-access coverage for `clinic_admin`, a unified export bundle,
+  release-to-release comparison, and expanded privacy-preview details.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
