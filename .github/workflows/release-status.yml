@@ -8,8 +8,15 @@ on:
       - "scripts/release-status.test.mjs"
       - "scripts/check-release-status-privacy.mjs"
       - "scripts/check-release-status-privacy.test.mjs"
+      - "scripts/check-release-status-sync.mjs"
       - "scripts/preflight-release-status.mjs"
       - "scripts/check-stage3-docs.mjs"
+      - "src/lib/admin-access-events.ts"
+      - "src/lib/release-status-ui.ts"
+      - "src/lib/release-status-ui.test.ts"
+      - "src/pages/sys/SysReleaseStatusPage.tsx"
+      - "src/pages/sys/SysReleaseStatusPage.test.tsx"
+      - "e2e/sys-release-status.pw.ts"
       - "docs/frontend/stage-3m-release-operations-dashboard.md"
       - "docs/frontend/stage-3i-final-documentation-index.md"
       - "docs/frontend/stage-3l-nightly-artifacts-report.md"
@@ -23,8 +30,15 @@ on:
       - "scripts/release-status.test.mjs"
       - "scripts/check-release-status-privacy.mjs"
       - "scripts/check-release-status-privacy.test.mjs"
+      - "scripts/check-release-status-sync.mjs"
       - "scripts/preflight-release-status.mjs"
       - "scripts/check-stage3-docs.mjs"
+      - "src/lib/admin-access-events.ts"
+      - "src/lib/release-status-ui.ts"
+      - "src/lib/release-status-ui.test.ts"
+      - "src/pages/sys/SysReleaseStatusPage.tsx"
+      - "src/pages/sys/SysReleaseStatusPage.test.tsx"
+      - "e2e/sys-release-status.pw.ts"
       - "docs/frontend/stage-3m-release-operations-dashboard.md"
       - "docs/frontend/stage-3i-final-documentation-index.md"
       - "docs/frontend/stage-3l-nightly-artifacts-report.md"
@@ -53,6 +67,9 @@ jobs:
 
       - name: Release-status local preflight
         run: npm run preflight:release-status
+
+      - name: Release-status sync checker
+        run: npm run check:release-status-sync
 
       - name: Write release status reports
         env:

@@ -1,3 +1,8 @@
+import {
+  buildTableXlsxBytes,
+  type XlsxCellValue,
+} from "./admin-access-events";
+
 export type ReleaseStatusLevel = "ok" | "incomplete" | "fail";
 export type ReleaseStatusFormat = "markdown" | "json" | "html" | "history";
 
@@ -187,6 +192,14 @@ export interface ReleaseHistoryExportContext {
   filters?: Partial<ReleaseHistoryFilterState>;
 }
 
+export interface ReleaseHistoryFilterPreset {
+  id: string;
+  name: string;
+  filters: ReleaseHistoryFilterState;
+  source: "built_in" | "saved";
+  createdAt?: string;
+}
+
 const TOKEN_PARAM_NAMES = [
   "access_token",
   "refresh_token",
@@ -217,6 +230,60 @@ export const RELEASE_STATUS_PRIVACY_CATEGORIES = [
   "service role env",
   "jwt-shaped value",
 ] as const;
+
+export const RELEASE_HISTORY_FILTER_PRESET_LIMIT = 8;
+
+export const DEFAULT_RELEASE_HISTORY_FILTER_PRESETS: ReleaseHistoryFilterPreset[] =
+  [
+    {
+      id: "builtin-all",
+      name: "Все записи",
+      source: "built_in",
+      filters: {
+        status: "all",
+        deno: "all",
+        artifact: "all",
+        workflow: "all",
+        query: "",
+      },
+    },
+    {
+      id: "builtin-blockers",
+      name: "Блокеры релиза",
+      source: "built_in",
+      filters: {
+        status: "fail",
+        deno: "blocked",
+        artifact: "missing",
+        workflow: "failure",
+        query: "",
+      },
+    },
+    {
+      id: "builtin-ready",
+      name: "Готовые релизы",
+      source: "built_in",
+      filters: {
+        status: "ok",
+        deno: "ok",
+        artifact: "present",
+        workflow: "success",
+        query: "",
+      },
+    },
+    {
+      id: "builtin-e2e-failures",
+      name: "E2E failures",
+      source: "built_in",
+      filters: {
+        status: "all",
+        deno: "all",
+        artifact: "all",
+        workflow: "failure",
+        query: "e2e",
+      },
+    },
+  ];
 
 export const RELEASE_STATUS_DEMO_SNAPSHOT: ReleaseStatusSnapshot = {
   repo: "sahchandansah1201-glitch/pro",
@@ -548,6 +615,98 @@ function safeWorkflowName(value: unknown): string | null {
   return trimmed;
 }
 
+function safePresetName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const compact = value.replace(/\s+/g, " ").trim().slice(0, 48);
+  if (compact.length < 2) return null;
+  if (summarizeReleasePrivacy(compact).findingCount > 0) return null;
+  return compact;
+}
+
+function safePresetId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const compact = value.trim();
+  if (!/^[A-Za-z0-9._-]{1,80}$/.test(compact)) return null;
+  return compact;
+}
+
+function normalizeHistoryFilterState(
+  value: unknown,
+): ReleaseHistoryFilterState | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  const status = item.status;
+  const deno = item.deno;
+  const artifact = item.artifact;
+  const workflow = item.workflow;
+  const query = typeof item.query === "string" ? item.query : "";
+  const safeQuery = sanitizeAuditText(query).slice(0, 80);
+
+  if (
+    status !== "all" &&
+    status !== "ok" &&
+    status !== "incomplete" &&
+    status !== "fail"
+  ) {
+    return null;
+  }
+  if (deno !== "all" && deno !== "ok" && deno !== "blocked") return null;
+  if (artifact !== "all" && artifact !== "present" && artifact !== "missing")
+    return null;
+  if (workflow !== "all" && !isWorkflowConclusion(workflow)) return null;
+
+  return {
+    status,
+    deno,
+    artifact,
+    workflow,
+    query: safeQuery.startsWith("redacted text") ? "" : safeQuery,
+  };
+}
+
+export function buildReleaseHistoryFilterPreset(
+  name: string,
+  filters: ReleaseHistoryFilterState,
+  createdAt = new Date().toISOString(),
+): ReleaseHistoryFilterPreset | null {
+  const safeName = safePresetName(name);
+  const safeFilters = normalizeHistoryFilterState(filters);
+  const safeCreatedAt = safeIsoDate(createdAt) ?? new Date(0).toISOString();
+  if (!safeName || !safeFilters) return null;
+  const slug = safeName
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return {
+    id: `saved-${Date.parse(safeCreatedAt)}-${slug || "preset"}`,
+    name: safeName,
+    filters: safeFilters,
+    source: "saved",
+    createdAt: safeCreatedAt,
+  };
+}
+
+export function normalizeReleaseHistoryFilterPreset(
+  value: unknown,
+): ReleaseHistoryFilterPreset | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  const source = item.source === "built_in" ? "built_in" : "saved";
+  const id = safePresetId(item.id);
+  const name = safePresetName(item.name);
+  const filters = normalizeHistoryFilterState(item.filters);
+  const createdAt = safeIsoDate(item.createdAt);
+  if (!id || !name || !filters) return null;
+  return {
+    id,
+    name,
+    filters,
+    source,
+    ...(createdAt ? { createdAt } : {}),
+  };
+}
+
 function toHistoryRecord(raw: unknown): ReleaseHistoryRecord | null {
   if (!raw || typeof raw !== "object") return null;
   const item = raw as Record<string, unknown>;
@@ -825,6 +984,10 @@ export function releaseHistoryFilteredCsvFilename(): string {
   return `release-history-filtered-${today()}.csv`;
 }
 
+export function releaseHistoryFilteredXlsxFilename(): string {
+  return `release-history-filtered-${today()}.xlsx`;
+}
+
 function sanitizeAuditText(value: string): string {
   const compact = value.replace(/\s+/g, " ").slice(0, 240);
   const privacy = summarizeReleasePrivacy(compact);
@@ -960,34 +1123,27 @@ export function buildFilteredReleaseHistoryCsv(
   records: ReleaseHistoryRecord[],
   context: ReleaseHistoryExportContext = {},
 ): string {
+  return `${buildFilteredReleaseHistoryMatrix(records, context)
+    .map((row) => row.map((value) => csvEscape(String(value ?? "—"))).join(","))
+    .join("\n")}\n`;
+}
+
+export function buildFilteredReleaseHistoryMatrix(
+  records: ReleaseHistoryRecord[],
+  context: ReleaseHistoryExportContext = {},
+): XlsxCellValue[][] {
   const safeRecords = records.map(safeHistoryExportRecord);
   const filters = context.filters ?? {};
-  const lines = [
-    ["section", "key", "value"].map(csvEscape).join(","),
-    [
-      "summary",
-      "filteredCount",
-      String(context.filteredCount ?? safeRecords.length),
-    ]
-      .map(csvEscape)
-      .join(","),
-    ["summary", "totalCount", String(context.totalCount ?? safeRecords.length)]
-      .map(csvEscape)
-      .join(","),
-    ["filter", "status", String(filters.status ?? "all")]
-      .map(csvEscape)
-      .join(","),
-    ["filter", "deno", String(filters.deno ?? "all")].map(csvEscape).join(","),
-    ["filter", "artifact", String(filters.artifact ?? "all")]
-      .map(csvEscape)
-      .join(","),
-    ["filter", "workflow", String(filters.workflow ?? "all")]
-      .map(csvEscape)
-      .join(","),
-    ["filter", "query", sanitizeAuditText(String(filters.query ?? ""))]
-      .map(csvEscape)
-      .join(","),
-    "",
+  const matrix: XlsxCellValue[][] = [
+    ["section", "key", "value"],
+    ["summary", "filteredCount", String(context.filteredCount ?? safeRecords.length)],
+    ["summary", "totalCount", String(context.totalCount ?? safeRecords.length)],
+    ["filter", "status", String(filters.status ?? "all")],
+    ["filter", "deno", String(filters.deno ?? "all")],
+    ["filter", "artifact", String(filters.artifact ?? "all")],
+    ["filter", "workflow", String(filters.workflow ?? "all")],
+    ["filter", "query", sanitizeAuditText(String(filters.query ?? ""))],
+    [],
     [
       "recorded_at",
       "repo",
@@ -998,32 +1154,36 @@ export function buildFilteredReleaseHistoryCsv(
       "deno_lock_ok",
       "artifact_present",
       "workflows",
-    ]
-      .map(csvEscape)
-      .join(","),
+    ],
   ];
 
   for (const record of safeRecords) {
-    lines.push(
-      [
-        record.recordedAt,
-        record.repo,
-        record.branch,
-        record.currentSha,
-        record.overallStatus,
-        String(record.dirtyCount),
-        record.denoLockOk ? "yes" : "no",
-        record.artifactPresent ? "yes" : "no",
-        record.workflows
-          .map((workflow) => `${workflow.name}:${workflow.conclusion}`)
-          .join("; "),
-      ]
-        .map(csvEscape)
-        .join(","),
-    );
+    matrix.push([
+      record.recordedAt,
+      record.repo,
+      record.branch,
+      record.currentSha,
+      record.overallStatus,
+      String(record.dirtyCount),
+      record.denoLockOk ? "yes" : "no",
+      record.artifactPresent ? "yes" : "no",
+      record.workflows
+        .map((workflow) => `${workflow.name}:${workflow.conclusion}`)
+        .join("; "),
+    ]);
   }
 
-  return `${lines.join("\n")}\n`;
+  return matrix;
+}
+
+export function buildFilteredReleaseHistoryXlsxBytes(
+  records: ReleaseHistoryRecord[],
+  context: ReleaseHistoryExportContext = {},
+): Uint8Array {
+  return buildTableXlsxBytes(
+    buildFilteredReleaseHistoryMatrix(records, context),
+    "Release history",
+  );
 }
 
 export function filterReleaseImportAuditEntries(
