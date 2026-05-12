@@ -166,6 +166,20 @@ const EXPECTED = [
       "## 5. Report fields",
       "## 6. Failure investigation",
       "## 7. Retention and privacy",
+      "## 8. Related dashboards",
+    ],
+  },
+  {
+    file: "stage-3m-release-operations-dashboard.md",
+    headings: [
+      "# Stage 3M — Release operations dashboard for auth/assets readiness",
+      "## 1. Purpose",
+      "## 2. Source script",
+      "## 3. What the dashboard reports",
+      "## 4. Privacy rules",
+      "## 5. Local usage",
+      "## 6. Test coverage",
+      "## 7. Maintenance rule",
     ],
   },
 ];
@@ -183,6 +197,7 @@ const EXTRA_REQUIRED_REFS = [
   "stage-3j-github-lovable-working-mode.md",
   "stage-3k-lovable-suggestions-backlog.md",
   "stage-3l-nightly-artifacts-report.md",
+  "stage-3m-release-operations-dashboard.md",
 ];
 
 const NIGHTLY_FULL_WORKFLOW = ".github/workflows/e2e-nightly-full.yml";
