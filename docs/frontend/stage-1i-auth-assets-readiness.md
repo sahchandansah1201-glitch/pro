@@ -27,6 +27,8 @@ for the backend half.
   `npm run preflight:release-status`,
   `node scripts/release-status.mjs --html --output test-results/release-status.html`,
   and `npm run check:release-status-privacy`
+- System admin release-status viewer — `/sys/release-status`,
+  `src/pages/sys/SysReleaseStatusPage.tsx`, `e2e/sys-release-status.pw.ts`
 
 ---
 

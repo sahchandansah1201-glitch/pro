@@ -73,8 +73,9 @@
 
 - Fast smoke: `npm run e2e:smoke` runs the stable subset
   (`operator-status-badge-smoke`, `patients-demo-flow`, `sys-access-events`,
-  `auth-assets-smoke`). Use for pre-merge sanity, post-deploy check, and
-  release decision (Stage 3E). Excludes visual-regression screenshot specs.
+  `sys-release-status`, `auth-assets-smoke`). Use for pre-merge sanity,
+  post-deploy check, and release decision (Stage 3E). Excludes
+  visual-regression screenshot specs.
 - Full e2e: `npx playwright test` runs every `e2e/*.pw.ts` including
   visual-regression baselines (Linux-only, see
   `e2e/admin-analytics-visual-regression.pw.ts`). Use before tagging a
