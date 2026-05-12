@@ -20,6 +20,7 @@ runtime code, tests, scripts, CI, or backend configuration.
 - Stage 3J — GitHub-first working mode: [docs/frontend/stage-3j-github-lovable-working-mode.md](./stage-3j-github-lovable-working-mode.md)
 - Stage 3K — Lovable suggestions backlog: [docs/frontend/stage-3k-lovable-suggestions-backlog.md](./stage-3k-lovable-suggestions-backlog.md)
 - Stage 3L — Nightly artifacts report: [docs/frontend/stage-3l-nightly-artifacts-report.md](./stage-3l-nightly-artifacts-report.md)
+- Stage 3M — Release operations dashboard: [docs/frontend/stage-3m-release-operations-dashboard.md](./stage-3m-release-operations-dashboard.md)
 
 ## 3. Verification map
 
@@ -31,6 +32,8 @@ npm run test:smoke-auth-assets
 npm run test:e2e-artifacts
 npm run preflight:e2e-artifacts
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
+npm run test:release-status
+node scripts/release-status.mjs --offline
 node scripts/check-stage3-docs.mjs
 node scripts/check-no-deno-locks.mjs
 git status --short
@@ -42,7 +45,7 @@ The focused Stage 3 docs guard is standalone and does not require
 
 ## 4. Release-readiness status
 
-- The documentation chain is indexed through Stage 3L.
+- The documentation chain is indexed through Stage 3M.
 - Lovable follow-up suggestions are tracked in Stage 3K before they
   become implementation scope.
 - No runtime changes are included in Stage 3I.
@@ -92,6 +95,7 @@ The focused Stage 3 docs guard is standalone and does not require
 - [x] GitHub-first working mode is linked.
 - [x] Lovable suggestions backlog is linked.
 - [x] Nightly artifacts report is linked.
+- [x] Release operations dashboard is linked.
 
 ## 9. Sync changelog
 
@@ -131,5 +135,9 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #54: added a sanitized CLI viewer for generated e2e artifact summaries,
   expanded redaction rules again, and made focused preflight print step
   results.
+- PR #55: added the Stage 3M release operations dashboard CLI
+  (`scripts/release-status.mjs`, `npm run release:status`) with sanitized
+  output, offline mode, and log-safety tests, plus cross-links from
+  Stage 3I and Stage 3L.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

@@ -166,6 +166,20 @@ const EXPECTED = [
       "## 5. Report fields",
       "## 6. Failure investigation",
       "## 7. Retention and privacy",
+      "## 8. Related dashboards",
+    ],
+  },
+  {
+    file: "stage-3m-release-operations-dashboard.md",
+    headings: [
+      "# Stage 3M — Release operations dashboard for auth/assets readiness",
+      "## 1. Purpose",
+      "## 2. Source script",
+      "## 3. What the dashboard reports",
+      "## 4. Privacy rules",
+      "## 5. Local usage",
+      "## 6. Test coverage",
+      "## 7. Maintenance rule",
     ],
   },
 ];
@@ -183,6 +197,7 @@ const EXTRA_REQUIRED_REFS = [
   "stage-3j-github-lovable-working-mode.md",
   "stage-3k-lovable-suggestions-backlog.md",
   "stage-3l-nightly-artifacts-report.md",
+  "stage-3m-release-operations-dashboard.md",
 ];
 
 const NIGHTLY_FULL_WORKFLOW = ".github/workflows/e2e-nightly-full.yml";
@@ -193,6 +208,8 @@ const ARTIFACT_SUMMARY_SCRIPT = "scripts/write-e2e-artifact-summary.mjs";
 const ARTIFACT_SUMMARY_TEST = "scripts/write-e2e-artifact-summary.test.mjs";
 const ARTIFACT_VIEWER_SCRIPT = "scripts/view-e2e-artifact-summary.mjs";
 const ARTIFACT_VIEWER_TEST = "scripts/view-e2e-artifact-summary.test.mjs";
+const RELEASE_STATUS_SCRIPT = "scripts/release-status.mjs";
+const RELEASE_STATUS_TEST = "scripts/release-status.test.mjs";
 
 const errors = [];
 
@@ -330,6 +347,36 @@ requireText(PACKAGE_JSON, packageJson, "\"test:e2e-artifacts\": \"node --test sc
 requireText(PACKAGE_JSON, packageJson, "\"preflight:e2e-artifacts\": \"node scripts/preflight-e2e-artifacts.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"view:e2e-artifacts\": \"node scripts/view-e2e-artifact-summary.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "scripts/view-e2e-artifact-summary.test.mjs");
+requireText(PACKAGE_JSON, packageJson, "\"release:status\": \"node scripts/release-status.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test scripts/release-status.test.mjs\"");
+
+const releaseStatusScript = existsSync(join(ROOT, RELEASE_STATUS_SCRIPT))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_SCRIPT), "utf8")
+  : "";
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "buildReleaseStatusReport");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "Release operations dashboard");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "redact");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "no-deno-locks");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "auth-assets-smoke-skip");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "frontend-auth-assets");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "e2e-smoke");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "backend-guardrails");
+requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "e2e-nightly-full-artifact-summary.md");
+
+const stage3m = readDoc("stage-3m-release-operations-dashboard.md");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/release-status.mjs");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run release:status");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "--offline");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "tokens, cookies, signed URLs, emails");
+checkMarkdownLinks("stage-3m-release-operations-dashboard.md", stage3m);
+
+const stage3l = readDoc("stage-3l-nightly-artifacts-report.md");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "## 8. Related dashboards");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "npm run release:status");
+requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "./stage-3m-release-operations-dashboard.md");
+
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run release:status");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "stage-3m-release-operations-dashboard.md");
 
 const preflightScript = existsSync(join(ROOT, PREFLIGHT_SCRIPT))
   ? readFileSync(join(ROOT, PREFLIGHT_SCRIPT), "utf8")
@@ -374,6 +421,8 @@ for (const path of [
   E2E_ARTIFACT_PREFLIGHT_SCRIPT,
   ARTIFACT_VIEWER_SCRIPT,
   ARTIFACT_VIEWER_TEST,
+  RELEASE_STATUS_SCRIPT,
+  RELEASE_STATUS_TEST,
 ]) {
   if (!existsSync(join(ROOT, path))) errors.push(`Missing required script: ${path}`);
 }
