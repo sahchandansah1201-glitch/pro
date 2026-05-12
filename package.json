@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "scan:doctor": "node scripts/scan-doctor-forbidden.mjs",
     "preflight:auth-assets": "node scripts/preflight-auth-assets.mjs",
+    "preflight:e2e-artifacts": "node scripts/preflight-e2e-artifacts.mjs",
     "smoke:auth-assets": "node scripts/smoke-auth-assets.mjs",
     "smoke:auth-assets:dry-run": "SMOKE_AUTH_ASSETS_DRY_RUN=1 node scripts/smoke-auth-assets.mjs",
     "test:smoke-auth-assets": "node --test scripts/smoke-auth-assets.test.mjs",

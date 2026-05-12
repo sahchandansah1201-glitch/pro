@@ -17,6 +17,7 @@ for the backend half.
 - Optional real-auth smoke — `npm run smoke:auth-assets`
 - Smoke runner log-safety test — `npm run test:smoke-auth-assets`
 - E2E artifact summary log-safety test — `npm run test:e2e-artifacts`
+- Focused e2e artifact preflight — `npm run preflight:e2e-artifacts`
 
 ---
 
@@ -465,6 +466,16 @@ access, no Supabase env vars, no Deno, and no Playwright. The
 Playwright real-auth smoke (`auth-assets-smoke-skip`) remains an
 opt-in, separate workflow.
 
+For focused nightly-artifact iterations, use:
+
+```bash
+npm run preflight:e2e-artifacts
+```
+
+This narrower local preflight runs the e2e artifact summary tests,
+the Stage 3 documentation guard, and the `deno.lock` guard without
+running the full auth/assets unit suite.
+
 ### 10.2 CI step summaries
 
 Both workflows write a concise GitHub Actions step summary to
@@ -580,6 +591,8 @@ Expected:
   log-safety` and `e2e artifact summary log-safety` steps (which run
   `npm run test:smoke-auth-assets` and `npm run test:e2e-artifacts`
   without launching Playwright).
+- `npm run preflight:e2e-artifacts` ends with
+  `[preflight-e2e-artifacts] OK` for focused artifact-summary changes.
 - `node scripts/check-no-deno-locks.mjs` exits 0 and prints no
   `deno.lock` paths.
 - `git status --short` shows no unexpected modifications. The

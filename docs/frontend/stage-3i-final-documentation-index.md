@@ -29,6 +29,7 @@ Run these on the target ref:
 npm run preflight:auth-assets
 npm run test:smoke-auth-assets
 npm run test:e2e-artifacts
+npm run preflight:e2e-artifacts
 node scripts/check-stage3-docs.mjs
 node scripts/check-no-deno-locks.mjs
 git status --short
@@ -123,5 +124,8 @@ The focused Stage 3 docs guard is standalone and does not require
   checks for the nightly full e2e artifact bundle.
 - PR #52: added the generated nightly artifact summary writer, workflow
   wiring, and log-safety tests for the nightly artifact report.
+- PR #53: hardened nightly artifact summaries with report entry links,
+  expanded redaction coverage, artifact size checks, and a focused local
+  e2e artifact preflight.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

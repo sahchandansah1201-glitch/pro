@@ -26,6 +26,7 @@ jobs:
     env:
       FULL_E2E_ARTIFACT_NAME: e2e-nightly-full-report-${{ github.run_id }}
       FULL_E2E_REPORT_PATH: test-results/e2e-nightly-full-artifact-summary.md
+      FULL_E2E_REPORT_ENTRY: playwright-report/index.html
       FULL_E2E_RETRIES: "1"
       FULL_E2E_UPLOAD_ARTIFACTS: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_artifacts || 'failure' }}
     steps:
@@ -68,9 +69,13 @@ jobs:
           E2E_ARTIFACT_RESULT: ${{ job.status }}
           E2E_ARTIFACT_NAME: ${{ env.FULL_E2E_ARTIFACT_NAME }}
           E2E_ARTIFACT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          E2E_ARTIFACT_REPORT_PATH: ${{ env.FULL_E2E_REPORT_ENTRY }}
+          E2E_ARTIFACT_SUMMARY_PATH: ${{ env.FULL_E2E_REPORT_PATH }}
+          E2E_ARTIFACT_SIZE_ROOT: ${{ github.workspace }}
           E2E_ARTIFACT_EXPECTED_PATHS: |
             playwright-report/
             test-results/
+            playwright-report/index.html
             test-results/e2e-nightly-full-vite.log
             test-results/e2e-nightly-full-artifact-summary.md
         run: node scripts/write-e2e-artifact-summary.mjs "$FULL_E2E_REPORT_PATH"
