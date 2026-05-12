@@ -184,7 +184,8 @@ const EXPECTED = [
       "## 9. CI automation",
       "## 10. Test coverage",
       "## 11. Local preflight",
-      "## 12. Maintenance rule",
+      "## 12. System admin UI viewer",
+      "## 13. Maintenance rule",
     ],
   },
 ];
@@ -219,6 +220,13 @@ const RELEASE_STATUS_TEST = "scripts/release-status.test.mjs";
 const RELEASE_STATUS_PRIVACY_SCRIPT = "scripts/check-release-status-privacy.mjs";
 const RELEASE_STATUS_PRIVACY_TEST = "scripts/check-release-status-privacy.test.mjs";
 const RELEASE_STATUS_PREFLIGHT_SCRIPT = "scripts/preflight-release-status.mjs";
+const RELEASE_STATUS_UI_LIB = "src/lib/release-status-ui.ts";
+const RELEASE_STATUS_UI_LIB_TEST = "src/lib/release-status-ui.test.ts";
+const RELEASE_STATUS_UI_PAGE = "src/pages/sys/SysReleaseStatusPage.tsx";
+const RELEASE_STATUS_UI_PAGE_TEST = "src/pages/sys/SysReleaseStatusPage.test.tsx";
+const RELEASE_STATUS_UI_E2E = "e2e/sys-release-status.pw.ts";
+const APP_TSX = "src/App.tsx";
+const APP_SIDEBAR = "src/components/shell/AppSidebar.tsx";
 
 const errors = [];
 
@@ -300,6 +308,7 @@ requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e-nightly-full-artifact-summary.md`");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "npm run view:e2e-artifacts");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "./stage-3l-nightly-artifacts-report.md");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "sys-release-status");
 
 const nightlyWorkflowPath = join(ROOT, NIGHTLY_FULL_WORKFLOW);
 const nightlyWorkflow = existsSync(nightlyWorkflowPath)
@@ -370,6 +379,7 @@ requireText(PACKAGE_JSON, packageJson, "\"release:status:offline\": \"node scrip
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test scripts/release-status.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status-privacy\": \"node --test scripts/check-release-status-privacy.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-privacy\": \"node scripts/check-release-status-privacy.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "e2e/sys-release-status.pw.ts");
 
 const releaseStatusScript = existsSync(join(ROOT, RELEASE_STATUS_SCRIPT))
   ? readFileSync(join(ROOT, RELEASE_STATUS_SCRIPT), "utf8")
@@ -448,6 +458,10 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, ".gith
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "test-results/release-status.json");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "test-results/release-status.html");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "test-results/release-history.jsonl");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "/sys/release-status");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "src/pages/sys/SysReleaseStatusPage.tsx");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "src/lib/release-status-ui.ts");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "e2e/sys-release-status.pw.ts");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "tokens, cookies, signed URLs, emails");
 checkMarkdownLinks("stage-3m-release-operations-dashboard.md", stage3m);
 
@@ -462,6 +476,8 @@ requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run ch
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "test-results/release-status.md");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "test-results/release-status.json");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "test-results/release-status.html");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "/sys/release-status");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "e2e/sys-release-status.pw.ts");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "stage-3m-release-operations-dashboard.md");
 
 const preflightScript = existsSync(join(ROOT, PREFLIGHT_SCRIPT))
@@ -502,6 +518,37 @@ requireText(ARTIFACT_VIEWER_SCRIPT, artifactViewerScript, "Missing artifact path
 requireText(ARTIFACT_VIEWER_SCRIPT, artifactViewerScript, "view-e2e-artifact-summary");
 requireText(ARTIFACT_VIEWER_SCRIPT, artifactViewerScript, "redact");
 
+const releaseStatusUiLib = existsSync(join(ROOT, RELEASE_STATUS_UI_LIB))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_UI_LIB), "utf8")
+  : "";
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseStatusHtml");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseHistoryJsonl");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "detectReleaseStatusUiPrivacyLeaks");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "RELEASE_STATUS_PREFLIGHT_COMMAND");
+
+const releaseStatusUiPage = existsSync(join(ROOT, RELEASE_STATUS_UI_PAGE))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_UI_PAGE), "utf8")
+  : "";
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предпросмотр release status");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать release status");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Подготовить локальный запуск");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Статус релиз-дашборда");
+
+const releaseStatusUiE2e = existsSync(join(ROOT, RELEASE_STATUS_UI_E2E))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_UI_E2E), "utf8")
+  : "";
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "/sys/release-status");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать release status в HTML");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "storage_object_path");
+
+const appTsx = existsSync(join(ROOT, APP_TSX)) ? readFileSync(join(ROOT, APP_TSX), "utf8") : "";
+requireText(APP_TSX, appTsx, "SysReleaseStatusPage");
+requireText(APP_TSX, appTsx, "/sys/release-status");
+
+const appSidebar = existsSync(join(ROOT, APP_SIDEBAR)) ? readFileSync(join(ROOT, APP_SIDEBAR), "utf8") : "";
+requireText(APP_SIDEBAR, appSidebar, "Релиз-статус");
+requireText(APP_SIDEBAR, appSidebar, "/sys/release-status");
+
 for (const path of [
   ARTIFACT_SUMMARY_SCRIPT,
   ARTIFACT_SUMMARY_TEST,
@@ -513,6 +560,11 @@ for (const path of [
   RELEASE_STATUS_PRIVACY_SCRIPT,
   RELEASE_STATUS_PRIVACY_TEST,
   RELEASE_STATUS_PREFLIGHT_SCRIPT,
+  RELEASE_STATUS_UI_LIB,
+  RELEASE_STATUS_UI_LIB_TEST,
+  RELEASE_STATUS_UI_PAGE,
+  RELEASE_STATUS_UI_PAGE_TEST,
+  RELEASE_STATUS_UI_E2E,
 ]) {
   if (!existsSync(join(ROOT, path))) errors.push(`Missing required script: ${path}`);
 }

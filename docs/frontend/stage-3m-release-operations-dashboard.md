@@ -189,7 +189,27 @@ the deno-lock guard. The success sentinel is:
 preflight. Use it when touching Stage 3L or the nightly full-e2e artifact
 summary flow.
 
-## 12. Maintenance rule
+## 12. System admin UI viewer
+
+System administrators can review the same release-status surface in the app:
+
+- Route: `/sys/release-status`.
+- Sidebar entry: `Релиз-статус` in the `system_admin` system group.
+- Page component: `src/pages/sys/SysReleaseStatusPage.tsx`.
+- Browser helpers: `src/lib/release-status-ui.ts`.
+- Unit tests:
+  - `src/lib/release-status-ui.test.ts`
+  - `src/pages/sys/SysReleaseStatusPage.test.tsx`
+- Fast smoke: `e2e/sys-release-status.pw.ts`.
+
+The page is intentionally local/demo-only. It does not call GitHub, does not
+run shell commands from the browser, and does not read files from disk. It
+shows a safe visual preview, supports markdown/JSON/HTML/history export from
+the current sanitized snapshot, runs a browser-side privacy check before
+download, and displays the local terminal command
+`npm run preflight:release-status` for the operator to run manually.
+
+## 13. Maintenance rule
 
 - Future workflows added to the tracked list must use safe names matching
   `[A-Za-z0-9._-]+`.
@@ -199,5 +219,8 @@ summary flow.
 - New release-status output files must be added to
   `scripts/check-release-status-privacy.mjs`, `.github/workflows/release-status.yml`,
   and `scripts/preflight-release-status.mjs`.
+- UI viewer changes must update `src/lib/release-status-ui.ts`,
+  `src/pages/sys/SysReleaseStatusPage.test.tsx`, and
+  `e2e/sys-release-status.pw.ts` together.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
   operations docs.

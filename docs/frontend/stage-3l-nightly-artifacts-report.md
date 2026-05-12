@@ -123,3 +123,7 @@ Nightly full e2e report
   The `release-status` workflow uploads markdown, JSON, HTML, and history
   files as a short-lived `release-status-<run_id>` artifact only after this
   privacy scan passes.
+- For a browser-side operator preview, open `/sys/release-status` as
+  `system_admin`. The page mirrors the same sanitized formats and links to
+  the local `npm run preflight:release-status` command without executing shell
+  commands from the browser.

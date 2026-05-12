@@ -19,6 +19,7 @@ import {
   ClipboardList,
   ScanSearch,
   MessagesSquare,
+  MonitorCheck,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -125,6 +126,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { title: "Устройства", url: "/sys/devices", icon: Cpu },
         { title: "Аудит", url: "/sys/audit", icon: Activity },
         { title: "События доступа", url: "/sys/access-events", icon: ClipboardList },
+        { title: "Релиз-статус", url: "/sys/release-status", icon: MonitorCheck },
         { title: "API-ключи", url: "/sys/api-keys", icon: KeyRound },
       ],
     },
