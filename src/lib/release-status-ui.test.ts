@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildReleaseStatusExportBundle,
   buildReleaseHistoryJsonl,
   buildReleaseStatusHtml,
   buildReleaseStatusJson,
   buildReleaseStatusMarkdown,
+  compareReleaseStatusSnapshots,
   detectReleaseStatusUiPrivacyLeaks,
   RELEASE_STATUS_DEMO_SNAPSHOT,
+  RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
+  RELEASE_STATUS_PRIVACY_CATEGORIES,
   releaseStatusFilename,
   releaseStatusLevel,
+  summarizeReleasePrivacy,
 } from "./release-status-ui";
 
 describe("release-status-ui", () => {
@@ -61,5 +66,36 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(releaseStatusFilename("json")).toMatch(/^release-status-\d{4}-\d{2}-\d{2}\.json$/);
     expect(releaseStatusFilename("html")).toMatch(/^release-status-\d{4}-\d{2}-\d{2}\.html$/);
     expect(releaseStatusFilename("history")).toMatch(/^release-history-\d{4}-\d{2}-\d{2}\.jsonl$/);
+  });
+
+  it("builds a unified safe export bundle for all release-status formats", () => {
+    const bundle = buildReleaseStatusExportBundle(RELEASE_STATUS_DEMO_SNAPSHOT);
+
+    expect(bundle.map((item) => item.format)).toEqual(["markdown", "json", "html", "history"]);
+    expect(bundle.every((item) => item.privacy.findingCount === 0)).toBe(true);
+    expect(bundle.find((item) => item.format === "html")?.mime).toBe("text/html;charset=utf-8");
+    expect(bundle.find((item) => item.format === "markdown")?.filename).toMatch(
+      /^release-status-\d{4}-\d{2}-\d{2}\.md$/,
+    );
+  });
+
+  it("summarizes privacy categories and compares release snapshots", () => {
+    const summary = summarizeReleasePrivacy("safe\nactor_email=doctor@example.com");
+    const comparison = compareReleaseStatusSnapshots(
+      RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
+      RELEASE_STATUS_DEMO_SNAPSHOT,
+    );
+
+    expect(RELEASE_STATUS_PRIVACY_CATEGORIES).toContain("service role env");
+    expect(summary.findingCount).toBeGreaterThan(0);
+    expect(summary.labels).toEqual(expect.arrayContaining(["actor email field", "email address"]));
+    expect(comparison.previousLevel).toBe("fail");
+    expect(comparison.currentLevel).toBe("ok");
+    expect(comparison.improved).toBe(true);
+    expect(comparison.workflowChanges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "e2e-smoke", previous: "failure", current: "success" }),
+      ]),
+    );
   });
 });

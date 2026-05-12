@@ -15,6 +15,10 @@ test.describe("/sys/release-status", () => {
     await expect(page.getByRole("region", { name: "Предпросмотр release status" })).toContainText(
       "Main workflows: 6 из 6 success",
     );
+    await expect(page.getByText(/Доступ к разделу открыт только роли system_admin/)).toBeVisible();
+    await expect(page.getByRole("region", { name: "Сравнение релизов" })).toContainText(
+      "Статус улучшился",
+    );
     await expect(page.getByText("npm run preflight:release-status")).toBeVisible();
 
     const bodyText = await page.locator("body").innerText();
@@ -31,6 +35,17 @@ test.describe("/sys/release-status", () => {
     await page.getByRole("button", { name: "Проверить предпросмотр" }).click();
     await expect(page.getByRole("status", { name: "Статус релиз-дашборда" })).toContainText(
       "Проверка приватности пройдена для HTML.",
+    );
+    await page.getByText("Показать категории приватности").click();
+    await expect(page.getByRole("list", { name: "Категории проверки приватности" })).toContainText(
+      "service role env",
+    );
+
+    const bundleDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Экспортировать единый пакет release status" }).click();
+    await bundleDownloadPromise;
+    await expect(page.getByRole("status", { name: "Статус релиз-дашборда" })).toContainText(
+      "Пакетный экспорт готов: 4 файла.",
     );
 
     const htmlDownloadPromise = page.waitForEvent("download");
@@ -53,5 +68,14 @@ test.describe("/sys/release-status", () => {
     await expect(page.getByRole("status", { name: "Статус релиз-дашборда" })).toContainText(
       /preflight/,
     );
+  });
+
+  test("clinic_admin is blocked by the demo RBAC guard", async ({ page }) => {
+    await setDemoRole(page, "clinic_admin");
+    await page.goto("/sys/release-status", { waitUntil: "networkidle" });
+
+    await expect(page.getByRole("heading", { name: "Релиз-статус" })).toBeHidden();
+    await expect(page.getByText("Нет доступа в демо-режиме")).toBeVisible();
+    await expect(page.getByText(/Текущая роль Администратор клиники/)).toBeVisible();
   });
 });

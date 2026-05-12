@@ -209,6 +209,20 @@ the current sanitized snapshot, runs a browser-side privacy check before
 download, and displays the local terminal command
 `npm run preflight:release-status` for the operator to run manually.
 
+The viewer also exposes the UI-side release operator guardrails:
+
+- RBAC scope is visible in the page and the route remains available only to
+  `system_admin` through the demo `RoleGuard`; e2e verifies that
+  `clinic_admin` sees the no-access screen.
+- Export is routed through one shared browser export builder. The UI can export
+  one selected format or a unified four-file bundle (Markdown, JSON, HTML, and
+  history JSONL) after the same privacy scan passes.
+- The page compares the current sanitized main snapshot with the previous
+  stored snapshot, including overall status movement, artifact availability,
+  and changed workflow conclusions.
+- The privacy preview shows scanned line count, detector category count, and
+  expandable detector categories before any export.
+
 ## 13. Maintenance rule
 
 - Future workflows added to the tracked list must use safe names matching
@@ -222,5 +236,8 @@ download, and displays the local terminal command
 - UI viewer changes must update `src/lib/release-status-ui.ts`,
   `src/pages/sys/SysReleaseStatusPage.test.tsx`, and
   `e2e/sys-release-status.pw.ts` together.
+- RBAC, export, release comparison, and privacy-preview changes must also keep
+  `scripts/check-stage3-docs.mjs` aligned with the UI helper names and e2e
+  assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
   operations docs.

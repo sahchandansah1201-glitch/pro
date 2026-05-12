@@ -523,14 +523,21 @@ const releaseStatusUiLib = existsSync(join(ROOT, RELEASE_STATUS_UI_LIB))
   : "";
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseStatusHtml");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseHistoryJsonl");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseStatusExportBundle");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "compareReleaseStatusSnapshots");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "detectReleaseStatusUiPrivacyLeaks");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "RELEASE_STATUS_ALLOWED_ROLES");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "RELEASE_STATUS_PREFLIGHT_COMMAND");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "RELEASE_STATUS_PRIVACY_CATEGORIES");
 
 const releaseStatusUiPage = existsSync(join(ROOT, RELEASE_STATUS_UI_PAGE))
   ? readFileSync(join(ROOT, RELEASE_STATUS_UI_PAGE), "utf8")
   : "";
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предпросмотр release status");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сравнение релизов");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать единый пакет release status");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать release status");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Категории проверки приватности");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Подготовить локальный запуск");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Статус релиз-дашборда");
 
@@ -538,6 +545,8 @@ const releaseStatusUiE2e = existsSync(join(ROOT, RELEASE_STATUS_UI_E2E))
   ? readFileSync(join(ROOT, RELEASE_STATUS_UI_E2E), "utf8")
   : "";
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "/sys/release-status");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "clinic_admin");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать единый пакет release status");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать release status в HTML");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "storage_object_path");
 
