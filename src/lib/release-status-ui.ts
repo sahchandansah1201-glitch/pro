@@ -76,6 +76,11 @@ export interface ReleaseHistoryParseResult {
   records: ReleaseHistoryRecord[];
   skippedCount: number;
   privacy: ReleasePrivacySummary;
+  status: "safe" | "blocked" | "empty" | "partial";
+  lineCount: number;
+  acceptedCount: number;
+  message: string;
+  previewRecords: ReleaseHistoryRecord[];
 }
 
 export interface ReleaseBaselineOption {
@@ -84,6 +89,18 @@ export interface ReleaseBaselineOption {
   detail: string;
   source: "demo" | "imported";
   snapshot: ReleaseStatusSnapshot;
+}
+
+export interface ReleaseHistoryPreviewSummary {
+  status: ReleaseHistoryParseResult["status"];
+  totalLines: number;
+  acceptedCount: number;
+  skippedCount: number;
+  privacyFindingCount: number;
+  privacyLabels: string[];
+  latestSha: string | null;
+  latestStatus: ReleaseStatusLevel | null;
+  workflowNames: string[];
 }
 
 const TOKEN_PARAM_NAMES = [
@@ -462,8 +479,18 @@ function toHistoryRecord(raw: unknown): ReleaseHistoryRecord | null {
 
 export function parseReleaseHistoryJsonl(input: string, maxRecords = 12): ReleaseHistoryParseResult {
   const privacy = summarizeReleasePrivacy(input);
+  const lineCount = input.split(/\r?\n/).filter((line) => line.trim().length > 0).length;
   if (privacy.findingCount > 0) {
-    return { records: [], skippedCount: input.split(/\r?\n/).filter(Boolean).length, privacy };
+    return {
+      records: [],
+      skippedCount: lineCount,
+      privacy,
+      status: "blocked",
+      lineCount,
+      acceptedCount: 0,
+      message: `Импорт заблокирован: privacy detector нашёл ${privacy.findingCount} совпадений (${privacy.labels.join(", ")}).`,
+      previewRecords: [],
+    };
   }
 
   const records: ReleaseHistoryRecord[] = [];
@@ -484,10 +511,37 @@ export function parseReleaseHistoryJsonl(input: string, maxRecords = 12): Releas
   }
 
   records.sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt));
+  const accepted = records.slice(0, Math.max(1, maxRecords));
+  const status: ReleaseHistoryParseResult["status"] =
+    accepted.length === 0 ? "empty" : skippedCount > 0 ? "partial" : "safe";
   return {
-    records: records.slice(0, Math.max(1, maxRecords)),
+    records: accepted,
     skippedCount,
     privacy,
+    status,
+    lineCount,
+    acceptedCount: accepted.length,
+    message:
+      accepted.length === 0
+        ? "Импорт не содержит валидных baseline-записей."
+        : skippedCount > 0
+          ? `Импортировано ${accepted.length} baseline-записей; пропущено строк: ${skippedCount}.`
+          : `Импортировано ${accepted.length} baseline-записей; privacy-проверка пройдена.`,
+    previewRecords: accepted.slice(0, 4),
+  };
+}
+
+export function summarizeReleaseHistoryPreview(result: ReleaseHistoryParseResult): ReleaseHistoryPreviewSummary {
+  return {
+    status: result.status,
+    totalLines: result.lineCount,
+    acceptedCount: result.acceptedCount,
+    skippedCount: result.skippedCount,
+    privacyFindingCount: result.privacy.findingCount,
+    privacyLabels: result.privacy.labels,
+    latestSha: result.records[0]?.currentSha ?? null,
+    latestStatus: result.records[0]?.overallStatus ?? null,
+    workflowNames: Array.from(new Set(result.records.flatMap((record) => record.workflows.map((workflow) => workflow.name)))).sort(),
   };
 }
 

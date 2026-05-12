@@ -21,16 +21,24 @@ test.describe("/sys/release-status", () => {
     );
     await expect(page.getByText("npm run preflight:release-status")).toBeVisible();
     await expect(page.getByRole("region", { name: "Импорт release history" })).toBeVisible();
+    await expect(page.getByText("Предпросмотр истории")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Предпросмотр записей release history" })).toContainText("c3d2d18");
 
     await page.getByLabel("Вставить release-history JSONL").fill(
       '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}\n',
     );
     await page.getByRole("button", { name: "Импортировать history JSONL" }).click();
-    await expect(page.getByRole("status", { name: "Статус импорта release history" })).toContainText(
-      "Импортировано baseline-записей: 1",
+    await expect(page.getByRole("status", { name: "Статус импорта release history", exact: true })).toContainText(
+      "Импортировано 1 baseline-записей",
+    );
+    await expect(page.getByRole("status", { name: "Privacy статус импорта release history", exact: true })).toContainText(
+      "Privacy-проверка импорта пройдена",
     );
     await page.getByLabel("Выбрать baseline release status").selectOption("imported-aaaaaaaaaaa-0");
     await expect(page.getByRole("region", { name: "Сравнение релизов" })).toContainText("aaaaaaaaaaa");
+    await expect(page.getByRole("region", { name: "Аудит импортов release history" })).toContainText(
+      "Импорт обработан",
+    );
 
     const bodyText = await page.locator("body").innerText();
     expect(bodyText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
@@ -84,7 +92,13 @@ test.describe("/sys/release-status", () => {
       'actor_email=doctor@example.com\n{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"bbbbbbb","overallStatus":"ok","dirtyCount":0,"denoLockOk":true,"artifactPresent":true,"workflows":[{"name":"e2e-smoke","conclusion":"success"}]}\n',
     );
     await page.getByRole("button", { name: "Импортировать history JSONL" }).click();
-    await expect(page.getByRole("status", { name: "Статус импорта release history" })).toContainText(
+    await expect(page.getByRole("status", { name: "Статус импорта release history", exact: true })).toContainText(
+      "Импорт заблокирован",
+    );
+    await expect(page.getByRole("status", { name: "Privacy статус импорта release history", exact: true })).toContainText(
+      "Privacy-проверка импорта: блокер",
+    );
+    await expect(page.getByRole("region", { name: "Аудит импортов release history" })).toContainText(
       "Импорт заблокирован",
     );
   });

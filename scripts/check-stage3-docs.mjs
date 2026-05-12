@@ -466,6 +466,8 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "token
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "release-history.jsonl");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "choose an imported baseline");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-import");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-preview");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "import-audit");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "baseline-selector");
 checkMarkdownLinks("stage-3m-release-operations-dashboard.md", stage3m);
 
@@ -536,6 +538,7 @@ requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "RELEASE_STATUS_PRIVACY_C
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "parseReleaseHistoryJsonl");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseBaselineOptions");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseSnapshotFromHistoryRecord");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "summarizeReleaseHistoryPreview");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "RELEASE_STATUS_DEMO_HISTORY_JSONL");
 
 const releaseStatusUiPage = existsSync(join(ROOT, RELEASE_STATUS_UI_PAGE))
@@ -546,6 +549,9 @@ requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сравнение р�
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Импорт release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Вставить release-history JSONL");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Выбрать baseline release status");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предпросмотр истории");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Аудит импортов");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Privacy статус импорта release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать единый пакет release status");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортировать release status");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Категории проверки приватности");
@@ -559,6 +565,8 @@ requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "/sys/release-status");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "clinic_admin");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Импортировать history JSONL");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Импорт заблокирован");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Предпросмотр истории");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Аудит импортов release history");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать единый пакет release status");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать release status в HTML");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "storage_object_path");
