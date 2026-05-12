@@ -20,6 +20,7 @@ runtime code, tests, scripts, CI, or backend configuration.
 - Stage 3J — GitHub-first working mode: [docs/frontend/stage-3j-github-lovable-working-mode.md](./stage-3j-github-lovable-working-mode.md)
 - Stage 3K — Lovable suggestions backlog: [docs/frontend/stage-3k-lovable-suggestions-backlog.md](./stage-3k-lovable-suggestions-backlog.md)
 - Stage 3L — Nightly artifacts report: [docs/frontend/stage-3l-nightly-artifacts-report.md](./stage-3l-nightly-artifacts-report.md)
+- Stage 3M — Release operations dashboard: [docs/frontend/stage-3m-release-operations-dashboard.md](./stage-3m-release-operations-dashboard.md)
 
 ## 3. Verification map
 
