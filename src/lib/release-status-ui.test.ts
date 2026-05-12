@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildReleaseImportAuditReport,
+  buildReleaseImportAuditCsv,
   buildReleaseStatusExportBundle,
   buildReleaseBaselineOptions,
   buildReleaseHistoryJsonl,
@@ -11,6 +12,8 @@ import {
   compareReleaseStatusSnapshots,
   detectReleaseStatusUiPrivacyLeaks,
   filterReleaseHistoryRecords,
+  filterReleaseHistoryRecordsAdvanced,
+  filterReleaseImportAuditEntries,
   paginateReleaseHistoryRecords,
   parseReleaseHistoryJsonl,
   RELEASE_STATUS_DEMO_SNAPSHOT,
@@ -70,25 +73,42 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
 
   it("keeps status level and filenames deterministic enough for UI assertions", () => {
     expect(releaseStatusLevel(RELEASE_STATUS_DEMO_SNAPSHOT)).toBe("ok");
-    expect(releaseStatusFilename("markdown")).toMatch(/^release-status-\d{4}-\d{2}-\d{2}\.md$/);
-    expect(releaseStatusFilename("json")).toMatch(/^release-status-\d{4}-\d{2}-\d{2}\.json$/);
-    expect(releaseStatusFilename("html")).toMatch(/^release-status-\d{4}-\d{2}-\d{2}\.html$/);
-    expect(releaseStatusFilename("history")).toMatch(/^release-history-\d{4}-\d{2}-\d{2}\.jsonl$/);
+    expect(releaseStatusFilename("markdown")).toMatch(
+      /^release-status-\d{4}-\d{2}-\d{2}\.md$/,
+    );
+    expect(releaseStatusFilename("json")).toMatch(
+      /^release-status-\d{4}-\d{2}-\d{2}\.json$/,
+    );
+    expect(releaseStatusFilename("html")).toMatch(
+      /^release-status-\d{4}-\d{2}-\d{2}\.html$/,
+    );
+    expect(releaseStatusFilename("history")).toMatch(
+      /^release-history-\d{4}-\d{2}-\d{2}\.jsonl$/,
+    );
   });
 
   it("builds a unified safe export bundle for all release-status formats", () => {
     const bundle = buildReleaseStatusExportBundle(RELEASE_STATUS_DEMO_SNAPSHOT);
 
-    expect(bundle.map((item) => item.format)).toEqual(["markdown", "json", "html", "history"]);
+    expect(bundle.map((item) => item.format)).toEqual([
+      "markdown",
+      "json",
+      "html",
+      "history",
+    ]);
     expect(bundle.every((item) => item.privacy.findingCount === 0)).toBe(true);
-    expect(bundle.find((item) => item.format === "html")?.mime).toBe("text/html;charset=utf-8");
+    expect(bundle.find((item) => item.format === "html")?.mime).toBe(
+      "text/html;charset=utf-8",
+    );
     expect(bundle.find((item) => item.format === "markdown")?.filename).toMatch(
       /^release-status-\d{4}-\d{2}-\d{2}\.md$/,
     );
   });
 
   it("summarizes privacy categories and compares release snapshots", () => {
-    const summary = summarizeReleasePrivacy("safe\nactor_email=doctor@example.com");
+    const summary = summarizeReleasePrivacy(
+      "safe\nactor_email=doctor@example.com",
+    );
     const comparison = compareReleaseStatusSnapshots(
       RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
       RELEASE_STATUS_DEMO_SNAPSHOT,
@@ -96,13 +116,19 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
 
     expect(RELEASE_STATUS_PRIVACY_CATEGORIES).toContain("service role env");
     expect(summary.findingCount).toBeGreaterThan(0);
-    expect(summary.labels).toEqual(expect.arrayContaining(["actor email field", "email address"]));
+    expect(summary.labels).toEqual(
+      expect.arrayContaining(["actor email field", "email address"]),
+    );
     expect(comparison.previousLevel).toBe("fail");
     expect(comparison.currentLevel).toBe("ok");
     expect(comparison.improved).toBe(true);
     expect(comparison.workflowChanges).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: "e2e-smoke", previous: "failure", current: "success" }),
+        expect.objectContaining({
+          name: "e2e-smoke",
+          previous: "failure",
+          current: "success",
+        }),
       ]),
     );
   });
@@ -116,22 +142,34 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(result.acceptedCount).toBe(2);
     expect(result.skippedCount).toBe(0);
     expect(result.records.length).toBe(2);
-    expect(result.records[0]?.currentSha).toBe(RELEASE_STATUS_DEMO_SNAPSHOT.shortSha);
+    expect(result.records[0]?.currentSha).toBe(
+      RELEASE_STATUS_DEMO_SNAPSHOT.shortSha,
+    );
     expect(result.message).toMatch(/privacy-проверка пройдена/);
     expect(preview.latestSha).toBe(RELEASE_STATUS_DEMO_SNAPSHOT.shortSha);
     expect(preview.workflowNames).toContain("e2e-smoke");
 
-    const importedSnapshot = releaseSnapshotFromHistoryRecord(result.records[1]!);
-    expect(importedSnapshot.shortSha).toBe(RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT.shortSha);
+    const importedSnapshot = releaseSnapshotFromHistoryRecord(
+      result.records[1]!,
+    );
+    expect(importedSnapshot.shortSha).toBe(
+      RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT.shortSha,
+    );
     expect(importedSnapshot.artifactPath).toBe("history-import");
-    expect(importedSnapshot.workflows.some((workflow) => workflow.conclusion === "failure")).toBe(true);
+    expect(
+      importedSnapshot.workflows.some(
+        (workflow) => workflow.conclusion === "failure",
+      ),
+    ).toBe(true);
 
     const options = buildReleaseBaselineOptions(
       RELEASE_STATUS_DEMO_SNAPSHOT,
       RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
       result.records,
     );
-    expect(options[0]).toEqual(expect.objectContaining({ id: "demo-previous", source: "demo" }));
+    expect(options[0]).toEqual(
+      expect.objectContaining({ id: "demo-previous", source: "demo" }),
+    );
     expect(options.some((option) => option.source === "imported")).toBe(true);
   });
 
@@ -145,9 +183,13 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(result.records).toEqual([]);
     expect(result.skippedCount).toBeGreaterThan(0);
     expect(result.message).toMatch(/privacy detector/);
-    expect(result.privacy.labels).toEqual(expect.arrayContaining(["email address"]));
+    expect(result.privacy.labels).toEqual(
+      expect.arrayContaining(["email address"]),
+    );
     expect(preview.privacyFindingCount).toBeGreaterThan(0);
-    expect(result.issues[0]).toEqual(expect.objectContaining({ reason: "privacy_blocked" }));
+    expect(result.issues[0]).toEqual(
+      expect.objectContaining({ reason: "privacy_blocked" }),
+    );
   });
 
   it("reports JSONL validation issues and filters release history records", () => {
@@ -155,21 +197,33 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
       '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}';
     const invalidSchema =
       '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"bbbbbbb","overallStatus":"ok","dirtyCount":0,"denoLockOk":true,"artifactPresent":true,"workflows":[]}';
-    const result = parseReleaseHistoryJsonl(`${validFail}\n{bad json}\n${invalidSchema}`);
+    const result = parseReleaseHistoryJsonl(
+      `${validFail}\n{bad json}\n${invalidSchema}`,
+    );
 
     expect(result.status).toBe("partial");
     expect(result.acceptedCount).toBe(1);
     expect(result.skippedCount).toBe(2);
     expect(result.issues).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ line: 2, reason: "invalid_json", message: "invalid JSON" }),
+        expect.objectContaining({
+          line: 2,
+          reason: "invalid_json",
+          message: "invalid JSON",
+        }),
         expect.objectContaining({ line: 3, reason: "invalid_schema" }),
       ]),
     );
 
-    expect(filterReleaseHistoryRecords(result.records, "fail", "e2e")).toHaveLength(1);
-    expect(filterReleaseHistoryRecords(result.records, "ok", "")).toHaveLength(0);
-    expect(filterReleaseHistoryRecords(result.records, "all", "aaaaaaaa")).toHaveLength(1);
+    expect(
+      filterReleaseHistoryRecords(result.records, "fail", "e2e"),
+    ).toHaveLength(1);
+    expect(filterReleaseHistoryRecords(result.records, "ok", "")).toHaveLength(
+      0,
+    );
+    expect(
+      filterReleaseHistoryRecords(result.records, "all", "aaaaaaaa"),
+    ).toHaveLength(1);
 
     const page = paginateReleaseHistoryRecords(
       [
@@ -191,6 +245,67 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
       }),
     );
     expect(page.records[0]?.currentSha).toBe("ddddddddddd");
+  });
+
+  it("filters release history and import audit with advanced criteria", () => {
+    const records = parseReleaseHistoryJsonl(
+      [
+        '{"recordedAt":"2026-05-11T10:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"aaaaaaaaaaa","overallStatus":"fail","dirtyCount":2,"denoLockOk":false,"artifactPresent":false,"workflows":[{"name":"e2e-smoke","conclusion":"failure"}]}',
+        '{"recordedAt":"2026-05-11T11:00:00Z","repo":"sahchandansah1201-glitch/pro","branch":"main","currentSha":"bbbbbbbbbbb","overallStatus":"ok","dirtyCount":0,"denoLockOk":true,"artifactPresent":true,"workflows":[{"name":"release-status","conclusion":"success"}]}',
+      ].join("\n"),
+    ).records;
+
+    expect(
+      filterReleaseHistoryRecordsAdvanced(records, {
+        status: "fail",
+        deno: "blocked",
+        artifact: "missing",
+        workflow: "failure",
+        query: "e2e",
+      }).map((record) => record.currentSha),
+    ).toEqual(["aaaaaaaaaaa"]);
+    expect(
+      filterReleaseHistoryRecordsAdvanced(records, {
+        status: "ok",
+        deno: "ok",
+        artifact: "present",
+        workflow: "success",
+        query: "release-status",
+      }).map((record) => record.currentSha),
+    ).toEqual(["bbbbbbbbbbb"]);
+
+    const auditEntries = [
+      {
+        at: "2026-05-12T10:00:00Z",
+        status: "dry_run",
+        acceptedCount: 1,
+        skippedCount: 0,
+        privacyFindingCount: 0,
+        message: "Dry-run импорт выполнен.",
+      },
+      {
+        at: "2026-05-12T11:00:00Z",
+        status: "blocked",
+        acceptedCount: 0,
+        skippedCount: 1,
+        privacyFindingCount: 1,
+        message: "actor_email=doctor@example.com",
+      },
+    ];
+    expect(
+      filterReleaseImportAuditEntries(auditEntries, {
+        status: "dry_run",
+        privacy: "clean",
+        query: "dry",
+      }),
+    ).toHaveLength(1);
+    expect(
+      filterReleaseImportAuditEntries(auditEntries, {
+        status: "all",
+        privacy: "with_privacy",
+        query: "email",
+      }),
+    ).toHaveLength(1);
   });
 
   it("builds a sanitized release history import audit report", () => {
@@ -231,10 +346,42 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(parsed.summary.selectedBaselineSha).toBe("aaaaaaaaaaa");
     expect(parsed.summary.selectedBaselineSource).toBe("imported");
     expect(parsed.summary.filters).toEqual(
-      expect.objectContaining({ status: "fail", query: expect.stringContaining("redacted text") }),
+      expect.objectContaining({
+        status: "fail",
+        query: expect.stringContaining("redacted text"),
+      }),
     );
     expect(parsed.entries[0].status).toBe("dry_run");
     expect(report).not.toContain("doctor@example.com");
     expect(report).toContain("redacted message");
+  });
+
+  it("builds a sanitized CSV audit report with summary rows", () => {
+    const csv = buildReleaseImportAuditCsv(
+      [
+        {
+          at: "2026-05-12T10:00:00Z",
+          status: "blocked",
+          acceptedCount: 0,
+          skippedCount: 1,
+          privacyFindingCount: 1,
+          message: "actor_email=doctor@example.com",
+        },
+      ],
+      {
+        selectedBaselineSha: "aaaaaaaaaaa",
+        selectedBaselineSource: "imported",
+        visibleAuditCount: 1,
+        filteredHistoryCount: 2,
+        auditQuery: "doctor@example.com",
+      },
+    );
+
+    expect(csv).toContain('"summary","visibleAuditCount","1"');
+    expect(csv).toContain('"summary","filteredHistoryCount","2"');
+    expect(csv).toContain('"status"');
+    expect(csv).toContain('"blocked"');
+    expect(csv).not.toContain("doctor@example.com");
+    expect(csv).toContain("redacted message");
   });
 });

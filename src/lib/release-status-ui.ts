@@ -72,7 +72,10 @@ export interface ReleaseHistoryRecord {
   }>;
 }
 
-export type ReleaseHistoryParseIssueReason = "invalid_json" | "invalid_schema" | "privacy_blocked";
+export type ReleaseHistoryParseIssueReason =
+  | "invalid_json"
+  | "invalid_schema"
+  | "privacy_blocked";
 
 export interface ReleaseHistoryParseIssue {
   line: number;
@@ -113,6 +116,19 @@ export interface ReleaseHistoryPreviewSummary {
 }
 
 export type ReleaseHistoryStatusFilter = "all" | ReleaseStatusLevel;
+export type ReleaseHistoryDenoFilter = "all" | "ok" | "blocked";
+export type ReleaseHistoryArtifactFilter = "all" | "present" | "missing";
+export type ReleaseHistoryWorkflowFilter =
+  | "all"
+  | ReleaseWorkflowStatus["conclusion"];
+
+export interface ReleaseHistoryFilterState {
+  status: ReleaseHistoryStatusFilter;
+  deno: ReleaseHistoryDenoFilter;
+  artifact: ReleaseHistoryArtifactFilter;
+  workflow: ReleaseHistoryWorkflowFilter;
+  query: string;
+}
 
 export interface ReleaseHistoryAuditReportEntry {
   at: string;
@@ -127,8 +143,23 @@ export interface ReleaseHistoryAuditReportContext {
   selectedBaselineSha?: string;
   selectedBaselineSource?: string;
   filteredHistoryCount?: number;
+  visibleAuditCount?: number;
   historyStatusFilter?: ReleaseHistoryStatusFilter;
+  historyDenoFilter?: ReleaseHistoryDenoFilter;
+  historyArtifactFilter?: ReleaseHistoryArtifactFilter;
+  historyWorkflowFilter?: ReleaseHistoryWorkflowFilter;
   historyQuery?: string;
+  auditStatusFilter?: string;
+  auditPrivacyFilter?: ReleaseImportAuditPrivacyFilter;
+  auditQuery?: string;
+}
+
+export type ReleaseImportAuditPrivacyFilter = "all" | "clean" | "with_privacy";
+
+export interface ReleaseImportAuditFilterState {
+  status: string;
+  privacy: ReleaseImportAuditPrivacyFilter;
+  query: string;
 }
 
 export interface ReleaseHistoryPage {
@@ -156,7 +187,8 @@ const TOKEN_PARAM_NAMES = [
   "download_url",
 ];
 
-export const RELEASE_STATUS_PREFLIGHT_COMMAND = "npm run preflight:release-status";
+export const RELEASE_STATUS_PREFLIGHT_COMMAND =
+  "npm run preflight:release-status";
 export const RELEASE_STATUS_ALLOWED_ROLES = ["system_admin"] as const;
 export const RELEASE_STATUS_PRIVACY_CATEGORIES = [
   "bearer token",
@@ -186,32 +218,38 @@ export const RELEASE_STATUS_DEMO_SNAPSHOT: ReleaseStatusSnapshot = {
     {
       name: "release-status",
       conclusion: "success",
-      runUrl: "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807286",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807286",
     },
     {
       name: "no-deno-locks",
       conclusion: "success",
-      runUrl: "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741808258",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741808258",
     },
     {
       name: "frontend-auth-assets",
       conclusion: "success",
-      runUrl: "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807337",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807337",
     },
     {
       name: "e2e-smoke",
       conclusion: "success",
-      runUrl: "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807293",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807293",
     },
     {
       name: "auth-assets-smoke-skip",
       conclusion: "success",
-      runUrl: "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807579",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807579",
     },
     {
       name: "backend-guardrails",
       conclusion: "success",
-      runUrl: "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807239",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807239",
     },
   ],
 };
@@ -231,8 +269,13 @@ export const RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT: ReleaseStatusSnapshot = {
   ),
 };
 
-export function releaseStatusLevel(snapshot: ReleaseStatusSnapshot): ReleaseStatusLevel {
-  if (!snapshot.denoLockOk || snapshot.workflows.some((workflow) => workflow.conclusion === "failure")) {
+export function releaseStatusLevel(
+  snapshot: ReleaseStatusSnapshot,
+): ReleaseStatusLevel {
+  if (
+    !snapshot.denoLockOk ||
+    snapshot.workflows.some((workflow) => workflow.conclusion === "failure")
+  ) {
     return "fail";
   }
   if (
@@ -259,7 +302,8 @@ export function releaseStatusLevelLabel(level: ReleaseStatusLevel): string {
 
 export function releaseStatusMime(format: ReleaseStatusFormat): string {
   if (format === "html") return "text/html;charset=utf-8";
-  if (format === "json" || format === "history") return "application/json;charset=utf-8";
+  if (format === "json" || format === "history")
+    return "application/json;charset=utf-8";
   return "text/markdown;charset=utf-8";
 }
 
@@ -291,7 +335,9 @@ export function releaseStatusFilename(format: ReleaseStatusFormat): string {
   return `release-history-${date}.jsonl`;
 }
 
-export function buildReleaseStatusMarkdown(snapshot: ReleaseStatusSnapshot): string {
+export function buildReleaseStatusMarkdown(
+  snapshot: ReleaseStatusSnapshot,
+): string {
   const level = releaseStatusLevel(snapshot);
   const lines = [
     "## Release operations dashboard",
@@ -304,7 +350,8 @@ export function buildReleaseStatusMarkdown(snapshot: ReleaseStatusSnapshot): str
     "### Latest main workflow runs",
     "",
     ...snapshot.workflows.map(
-      (workflow) => `- ${workflow.conclusion === "success" ? "✓" : "?"} \`${workflow.name}\`: ${workflow.conclusion} — ${workflow.runUrl}`,
+      (workflow) =>
+        `- ${workflow.conclusion === "success" ? "✓" : "?"} \`${workflow.name}\`: ${workflow.conclusion} — ${workflow.runUrl}`,
     ),
     "",
     "### Deno lock guard",
@@ -328,7 +375,9 @@ export function buildReleaseStatusMarkdown(snapshot: ReleaseStatusSnapshot): str
   return lines.join("\n");
 }
 
-export function buildReleaseStatusJson(snapshot: ReleaseStatusSnapshot): string {
+export function buildReleaseStatusJson(
+  snapshot: ReleaseStatusSnapshot,
+): string {
   return `${JSON.stringify(
     {
       title: "Release operations dashboard",
@@ -353,18 +402,22 @@ export function buildReleaseStatusJson(snapshot: ReleaseStatusSnapshot): string 
       },
       overallStatus: releaseStatusLevel(snapshot),
       generatedAt: snapshot.generatedAt,
-      privacy: "sanitized; no tokens, cookies, signed URLs, emails, patient names, storage paths, or raw env values",
+      privacy:
+        "sanitized; no tokens, cookies, signed URLs, emails, patient names, storage paths, or raw env values",
     },
     null,
     2,
   )}\n`;
 }
 
-export function buildReleaseStatusHtml(snapshot: ReleaseStatusSnapshot): string {
+export function buildReleaseStatusHtml(
+  snapshot: ReleaseStatusSnapshot,
+): string {
   const level = releaseStatusLevel(snapshot);
   const rows = snapshot.workflows
     .map(
-      (workflow) => `<tr><td>${htmlEscape(workflow.name)}</td><td>${htmlEscape(workflow.conclusion)}</td><td><a href="${htmlEscape(workflow.runUrl)}">${htmlEscape(workflow.runUrl)}</a></td></tr>`,
+      (workflow) =>
+        `<tr><td>${htmlEscape(workflow.name)}</td><td>${htmlEscape(workflow.conclusion)}</td><td><a href="${htmlEscape(workflow.runUrl)}">${htmlEscape(workflow.runUrl)}</a></td></tr>`,
     )
     .join("");
   return `<!doctype html>
@@ -407,7 +460,9 @@ export function buildReleaseStatusHtml(snapshot: ReleaseStatusSnapshot): string 
 `;
 }
 
-export function buildReleaseHistoryJsonl(snapshot: ReleaseStatusSnapshot): string {
+export function buildReleaseHistoryJsonl(
+  snapshot: ReleaseStatusSnapshot,
+): string {
   return `${JSON.stringify({
     recordedAt: snapshot.generatedAt,
     repo: snapshot.repo,
@@ -432,8 +487,15 @@ function isReleaseStatusLevel(value: unknown): value is ReleaseStatusLevel {
   return value === "ok" || value === "incomplete" || value === "fail";
 }
 
-function isWorkflowConclusion(value: unknown): value is ReleaseWorkflowStatus["conclusion"] {
-  return value === "success" || value === "failure" || value === "in_progress" || value === "unknown";
+function isWorkflowConclusion(
+  value: unknown,
+): value is ReleaseWorkflowStatus["conclusion"] {
+  return (
+    value === "success" ||
+    value === "failure" ||
+    value === "in_progress" ||
+    value === "unknown"
+  );
 }
 
 function safeShortSha(value: unknown): string | null {
@@ -479,7 +541,13 @@ function toHistoryRecord(raw: unknown): ReleaseHistoryRecord | null {
   const branch = safeBranch(item.branch);
   const currentSha = safeShortSha(item.currentSha);
   const overallStatus = item.overallStatus;
-  if (!recordedAt || !repo || !branch || !currentSha || !isReleaseStatusLevel(overallStatus)) {
+  if (
+    !recordedAt ||
+    !repo ||
+    !branch ||
+    !currentSha ||
+    !isReleaseStatusLevel(overallStatus)
+  ) {
     return null;
   }
 
@@ -493,14 +561,18 @@ function toHistoryRecord(raw: unknown): ReleaseHistoryRecord | null {
           if (!name || !isWorkflowConclusion(conclusion)) return null;
           return { name, conclusion };
         })
-        .filter((workflow): workflow is ReleaseHistoryRecord["workflows"][number] => workflow != null)
+        .filter(
+          (workflow): workflow is ReleaseHistoryRecord["workflows"][number] =>
+            workflow != null,
+        )
     : [];
 
   if (workflows.length === 0) return null;
 
-  const dirtyCount = typeof item.dirtyCount === "number" && Number.isFinite(item.dirtyCount)
-    ? Math.max(0, Math.floor(item.dirtyCount))
-    : 0;
+  const dirtyCount =
+    typeof item.dirtyCount === "number" && Number.isFinite(item.dirtyCount)
+      ? Math.max(0, Math.floor(item.dirtyCount))
+      : 0;
 
   return {
     recordedAt,
@@ -515,9 +587,14 @@ function toHistoryRecord(raw: unknown): ReleaseHistoryRecord | null {
   };
 }
 
-export function parseReleaseHistoryJsonl(input: string, maxRecords = 12): ReleaseHistoryParseResult {
+export function parseReleaseHistoryJsonl(
+  input: string,
+  maxRecords = 12,
+): ReleaseHistoryParseResult {
   const privacy = summarizeReleasePrivacy(input);
-  const lineCount = input.split(/\r?\n/).filter((line) => line.trim().length > 0).length;
+  const lineCount = input
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0).length;
   if (privacy.findingCount > 0) {
     const issues = privacy.findings.slice(0, 8).map((finding) => ({
       line: finding.line,
@@ -588,7 +665,9 @@ export function parseReleaseHistoryJsonl(input: string, maxRecords = 12): Releas
   };
 }
 
-export function summarizeReleaseHistoryPreview(result: ReleaseHistoryParseResult): ReleaseHistoryPreviewSummary {
+export function summarizeReleaseHistoryPreview(
+  result: ReleaseHistoryParseResult,
+): ReleaseHistoryPreviewSummary {
   return {
     status: result.status,
     totalLines: result.lineCount,
@@ -598,7 +677,13 @@ export function summarizeReleaseHistoryPreview(result: ReleaseHistoryParseResult
     privacyLabels: result.privacy.labels,
     latestSha: result.records[0]?.currentSha ?? null,
     latestStatus: result.records[0]?.overallStatus ?? null,
-    workflowNames: Array.from(new Set(result.records.flatMap((record) => record.workflows.map((workflow) => workflow.name)))).sort(),
+    workflowNames: Array.from(
+      new Set(
+        result.records.flatMap((record) =>
+          record.workflows.map((workflow) => workflow.name),
+        ),
+      ),
+    ).sort(),
   };
 }
 
@@ -607,9 +692,35 @@ export function filterReleaseHistoryRecords(
   statusFilter: ReleaseHistoryStatusFilter,
   query: string,
 ): ReleaseHistoryRecord[] {
-  const normalizedQuery = query.trim().toLowerCase();
+  return filterReleaseHistoryRecordsAdvanced(records, {
+    status: statusFilter,
+    deno: "all",
+    artifact: "all",
+    workflow: "all",
+    query,
+  });
+}
+
+export function filterReleaseHistoryRecordsAdvanced(
+  records: ReleaseHistoryRecord[],
+  filters: ReleaseHistoryFilterState,
+): ReleaseHistoryRecord[] {
   return records.filter((record) => {
-    if (statusFilter !== "all" && record.overallStatus !== statusFilter) return false;
+    if (filters.status !== "all" && record.overallStatus !== filters.status)
+      return false;
+    if (filters.deno === "ok" && !record.denoLockOk) return false;
+    if (filters.deno === "blocked" && record.denoLockOk) return false;
+    if (filters.artifact === "present" && !record.artifactPresent) return false;
+    if (filters.artifact === "missing" && record.artifactPresent) return false;
+    if (
+      filters.workflow !== "all" &&
+      !record.workflows.some(
+        (workflow) => workflow.conclusion === filters.workflow,
+      )
+    ) {
+      return false;
+    }
+    const normalizedQuery = filters.query.trim().toLowerCase();
     if (!normalizedQuery) return true;
     const haystack = [
       record.currentSha,
@@ -617,7 +728,10 @@ export function filterReleaseHistoryRecords(
       record.branch,
       record.recordedAt,
       releaseStatusLevelLabel(record.overallStatus),
-      ...record.workflows.flatMap((workflow) => [workflow.name, workflow.conclusion]),
+      ...record.workflows.flatMap((workflow) => [
+        workflow.name,
+        workflow.conclusion,
+      ]),
     ]
       .join(" ")
       .toLowerCase();
@@ -642,12 +756,19 @@ export function paginateReleaseHistoryRecords(
     totalCount: records.length,
     start,
     end,
-    records: records.slice((safePage - 1) * safePageSize, safePage * safePageSize),
+    records: records.slice(
+      (safePage - 1) * safePageSize,
+      safePage * safePageSize,
+    ),
   };
 }
 
 export function releaseHistoryAuditFilename(): string {
   return `release-history-import-audit-${today()}.json`;
+}
+
+export function releaseHistoryAuditCsvFilename(): string {
+  return `release-history-import-audit-${today()}.csv`;
 }
 
 function sanitizeAuditText(value: string): string {
@@ -666,15 +787,27 @@ export function buildReleaseImportAuditReport(
     status: /^[a-z_]{1,24}$/i.test(entry.status) ? entry.status : "unknown",
     acceptedCount: Math.max(0, Math.floor(entry.acceptedCount || 0)),
     skippedCount: Math.max(0, Math.floor(entry.skippedCount || 0)),
-    privacyFindingCount: Math.max(0, Math.floor(entry.privacyFindingCount || 0)),
-    message: sanitizeAuditText(entry.message).replace(/^redacted text;/, "redacted message;"),
+    privacyFindingCount: Math.max(
+      0,
+      Math.floor(entry.privacyFindingCount || 0),
+    ),
+    message: sanitizeAuditText(entry.message).replace(
+      /^redacted text;/,
+      "redacted message;",
+    ),
   }));
-  const statusCounts = safeEntries.reduce<Record<string, number>>((acc, entry) => {
-    acc[entry.status] = (acc[entry.status] ?? 0) + 1;
-    return acc;
-  }, {});
-  const safeBaselineSha = safeShortSha(context.selectedBaselineSha) ?? "unknown";
-  const safeBaselineSource = /^[a-z_ -]{1,40}$/i.test(context.selectedBaselineSource ?? "")
+  const statusCounts = safeEntries.reduce<Record<string, number>>(
+    (acc, entry) => {
+      acc[entry.status] = (acc[entry.status] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  const safeBaselineSha =
+    safeShortSha(context.selectedBaselineSha) ?? "unknown";
+  const safeBaselineSource = /^[a-z_ -]{1,40}$/i.test(
+    context.selectedBaselineSource ?? "",
+  )
     ? context.selectedBaselineSource
     : "unknown";
 
@@ -683,19 +816,42 @@ export function buildReleaseImportAuditReport(
       title: "Release history import audit",
       generatedAt: new Date().toISOString(),
       rowCount: safeEntries.length,
-      privacy: "sanitized; report stores counts and generated status messages only",
+      privacy:
+        "sanitized; report stores counts and generated status messages only",
       summary: {
         totalAttempts: safeEntries.length,
         statusCounts,
-        acceptedTotal: safeEntries.reduce((sum, entry) => sum + entry.acceptedCount, 0),
-        skippedTotal: safeEntries.reduce((sum, entry) => sum + entry.skippedCount, 0),
-        privacyFindingTotal: safeEntries.reduce((sum, entry) => sum + entry.privacyFindingCount, 0),
-        filteredHistoryCount: Math.max(0, Math.floor(context.filteredHistoryCount ?? 0)),
+        acceptedTotal: safeEntries.reduce(
+          (sum, entry) => sum + entry.acceptedCount,
+          0,
+        ),
+        skippedTotal: safeEntries.reduce(
+          (sum, entry) => sum + entry.skippedCount,
+          0,
+        ),
+        privacyFindingTotal: safeEntries.reduce(
+          (sum, entry) => sum + entry.privacyFindingCount,
+          0,
+        ),
+        filteredHistoryCount: Math.max(
+          0,
+          Math.floor(context.filteredHistoryCount ?? 0),
+        ),
+        visibleAuditCount: Math.max(
+          0,
+          Math.floor(context.visibleAuditCount ?? safeEntries.length),
+        ),
         selectedBaselineSha: safeBaselineSha,
         selectedBaselineSource: safeBaselineSource,
         filters: {
           status: context.historyStatusFilter ?? "all",
+          deno: context.historyDenoFilter ?? "all",
+          artifact: context.historyArtifactFilter ?? "all",
+          workflow: context.historyWorkflowFilter ?? "all",
           query: sanitizeAuditText(context.historyQuery ?? ""),
+          auditStatus: sanitizeAuditText(context.auditStatusFilter ?? "all"),
+          auditPrivacy: context.auditPrivacyFilter ?? "all",
+          auditQuery: sanitizeAuditText(context.auditQuery ?? ""),
         },
       },
       entries: safeEntries,
@@ -705,7 +861,114 @@ export function buildReleaseImportAuditReport(
   )}\n`;
 }
 
-export function releaseSnapshotFromHistoryRecord(record: ReleaseHistoryRecord): ReleaseStatusSnapshot {
+function csvEscape(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+export function filterReleaseImportAuditEntries(
+  entries: ReleaseHistoryAuditReportEntry[],
+  filters: ReleaseImportAuditFilterState,
+): ReleaseHistoryAuditReportEntry[] {
+  const normalizedQuery = filters.query.trim().toLowerCase();
+  return entries.filter((entry) => {
+    if (filters.status !== "all" && entry.status !== filters.status)
+      return false;
+    if (filters.privacy === "clean" && entry.privacyFindingCount !== 0)
+      return false;
+    if (filters.privacy === "with_privacy" && entry.privacyFindingCount === 0)
+      return false;
+    if (!normalizedQuery) return true;
+    const haystack = [
+      entry.at,
+      entry.status,
+      String(entry.acceptedCount),
+      String(entry.skippedCount),
+      String(entry.privacyFindingCount),
+      sanitizeAuditText(entry.message),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(normalizedQuery);
+  });
+}
+
+export function buildReleaseImportAuditCsv(
+  entries: ReleaseHistoryAuditReportEntry[],
+  context: ReleaseHistoryAuditReportContext = {},
+): string {
+  const report = JSON.parse(
+    buildReleaseImportAuditReport(entries, context),
+  ) as {
+    summary: Record<string, unknown>;
+    entries: Array<Record<string, unknown>>;
+  };
+  const lines = [
+    ["section", "key", "value"].map(csvEscape).join(","),
+    ["summary", "totalAttempts", String(report.summary.totalAttempts ?? 0)]
+      .map(csvEscape)
+      .join(","),
+    [
+      "summary",
+      "visibleAuditCount",
+      String(report.summary.visibleAuditCount ?? 0),
+    ]
+      .map(csvEscape)
+      .join(","),
+    [
+      "summary",
+      "filteredHistoryCount",
+      String(report.summary.filteredHistoryCount ?? 0),
+    ]
+      .map(csvEscape)
+      .join(","),
+    [
+      "summary",
+      "selectedBaselineSha",
+      String(report.summary.selectedBaselineSha ?? "unknown"),
+    ]
+      .map(csvEscape)
+      .join(","),
+    [
+      "summary",
+      "selectedBaselineSource",
+      String(report.summary.selectedBaselineSource ?? "unknown"),
+    ]
+      .map(csvEscape)
+      .join(","),
+    "",
+    [
+      "at",
+      "status",
+      "accepted_count",
+      "skipped_count",
+      "privacy_finding_count",
+      "message",
+    ]
+      .map(csvEscape)
+      .join(","),
+  ];
+
+  for (const entry of report.entries) {
+    lines.push(
+      [
+        String(entry.at ?? ""),
+        String(entry.status ?? "unknown"),
+        String(entry.acceptedCount ?? 0),
+        String(entry.skippedCount ?? 0),
+        String(entry.privacyFindingCount ?? 0),
+        String(entry.message ?? ""),
+      ]
+        .map(csvEscape)
+        .join(","),
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+export function releaseSnapshotFromHistoryRecord(
+  record: ReleaseHistoryRecord,
+): ReleaseStatusSnapshot {
   return {
     repo: record.repo,
     branch: record.branch,
@@ -779,9 +1042,11 @@ export function buildReleaseStatusExportFile(
   };
 }
 
-export function buildReleaseStatusExportBundle(snapshot: ReleaseStatusSnapshot): ReleaseStatusExportFile[] {
-  return (["markdown", "json", "html", "history"] as ReleaseStatusFormat[]).map((format) =>
-    buildReleaseStatusExportFile(snapshot, format),
+export function buildReleaseStatusExportBundle(
+  snapshot: ReleaseStatusSnapshot,
+): ReleaseStatusExportFile[] {
+  return (["markdown", "json", "html", "history"] as ReleaseStatusFormat[]).map(
+    (format) => buildReleaseStatusExportFile(snapshot, format),
   );
 }
 
@@ -792,12 +1057,19 @@ export function compareReleaseStatusSnapshots(
   const previousLevel = releaseStatusLevel(previous);
   const currentLevel = releaseStatusLevel(current);
   const workflowNames = Array.from(
-    new Set([...previous.workflows.map((workflow) => workflow.name), ...current.workflows.map((workflow) => workflow.name)]),
+    new Set([
+      ...previous.workflows.map((workflow) => workflow.name),
+      ...current.workflows.map((workflow) => workflow.name),
+    ]),
   ).sort();
   const workflowChanges = workflowNames
     .map((name) => {
-      const previousWorkflow = previous.workflows.find((workflow) => workflow.name === name);
-      const currentWorkflow = current.workflows.find((workflow) => workflow.name === name);
+      const previousWorkflow = previous.workflows.find(
+        (workflow) => workflow.name === name,
+      );
+      const currentWorkflow = current.workflows.find(
+        (workflow) => workflow.name === name,
+      );
       return {
         name,
         previous: previousWorkflow?.conclusion ?? "missing",
@@ -809,8 +1081,10 @@ export function compareReleaseStatusSnapshots(
   return {
     previousLevel,
     currentLevel,
-    improved: releaseStatusRank(currentLevel) > releaseStatusRank(previousLevel),
-    worsened: releaseStatusRank(currentLevel) < releaseStatusRank(previousLevel),
+    improved:
+      releaseStatusRank(currentLevel) > releaseStatusRank(previousLevel),
+    worsened:
+      releaseStatusRank(currentLevel) < releaseStatusRank(previousLevel),
     artifactChanged: previous.artifactPresent !== current.artifactPresent,
     dirtyCountDelta: current.changedCount - previous.changedCount,
     workflowChanges,
@@ -821,40 +1095,79 @@ function lineNumberAt(content: string, index: number): number {
   return content.slice(0, index).split(/\r?\n/).length;
 }
 
-export function detectReleaseStatusUiPrivacyLeaks(content: string): ReleasePrivacyFinding[] {
+export function detectReleaseStatusUiPrivacyLeaks(
+  content: string,
+): ReleasePrivacyFinding[] {
   const tokenParamPattern = TOKEN_PARAM_NAMES.join("|");
   const patterns: { label: string; re: RegExp }[] = [
-    { label: "bearer token", re: /Authorization\s*[:=]\s*Bearer\s+(?!\[redacted)[A-Za-z0-9._~+/=-]{8,}/gi },
-    { label: "cookie header", re: /(?:Cookie|Set-Cookie)\s*:\s*(?!\s*\[redacted)[^\n\r]{6,}/gi },
+    {
+      label: "bearer token",
+      re: /Authorization\s*[:=]\s*Bearer\s+(?!\[redacted)[A-Za-z0-9._~+/=-]{8,}/gi,
+    },
+    {
+      label: "cookie header",
+      re: /(?:Cookie|Set-Cookie)\s*:\s*(?!\s*\[redacted)[^\n\r]{6,}/gi,
+    },
     {
       label: "url token parameter",
-      re: new RegExp("(?:".concat(tokenParamPattern, ')=((?!\\[redacted)[^\\s&"\'`<>]+)'), "gi"),
+      re: new RegExp(
+        "(?:".concat(tokenParamPattern, ")=((?!\\[redacted)[^\\s&\"'`<>]+)"),
+        "gi",
+      ),
     },
-    { label: "email address", re: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi },
-    { label: "patient full-name field", re: /patient_full_name\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi },
-    { label: "actor email field", re: /actor_email\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi },
-    { label: "storage object path", re: /storage_object_path\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi },
-    { label: "supabase key", re: /\bsb_(?:publishable|secret)_[A-Za-z0-9_-]{8,}\b/gi },
-    { label: "service role env", re: /\bSUPABASE_SERVICE_ROLE_KEY\s*=\s*(?!\[redacted)[^\s]+/gi },
-    { label: "jwt-shaped value", re: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g },
+    {
+      label: "email address",
+      re: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+    },
+    {
+      label: "patient full-name field",
+      re: /patient_full_name\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi,
+    },
+    {
+      label: "actor email field",
+      re: /actor_email\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi,
+    },
+    {
+      label: "storage object path",
+      re: /storage_object_path\s*[:=]\s*(?!\[redacted)[^\n\r,;]{3,}/gi,
+    },
+    {
+      label: "supabase key",
+      re: /\bsb_(?:publishable|secret)_[A-Za-z0-9_-]{8,}\b/gi,
+    },
+    {
+      label: "service role env",
+      re: /\bSUPABASE_SERVICE_ROLE_KEY\s*=\s*(?!\[redacted)[^\s]+/gi,
+    },
+    {
+      label: "jwt-shaped value",
+      re: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
+    },
   ];
   const findings: ReleasePrivacyFinding[] = [];
   for (const pattern of patterns) {
     pattern.re.lastIndex = 0;
     let match;
     while ((match = pattern.re.exec(content)) != null) {
-      findings.push({ label: pattern.label, line: lineNumberAt(content, match.index) });
+      findings.push({
+        label: pattern.label,
+        line: lineNumberAt(content, match.index),
+      });
     }
   }
   return findings;
 }
 
-export function summarizeReleasePrivacy(content: string): ReleasePrivacySummary {
+export function summarizeReleasePrivacy(
+  content: string,
+): ReleasePrivacySummary {
   const findings = detectReleaseStatusUiPrivacyLeaks(content);
   return {
     lineCount: content.split(/\r?\n/).length,
     findingCount: findings.length,
-    labels: Array.from(new Set(findings.map((finding) => finding.label))).sort(),
+    labels: Array.from(
+      new Set(findings.map((finding) => finding.label)),
+    ).sort(),
     findings,
   };
 }
