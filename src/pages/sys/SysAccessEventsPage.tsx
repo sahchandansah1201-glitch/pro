@@ -30,6 +30,7 @@ import {
   type AccessEventSource,
   type XlsxCellValue,
 } from "@/lib/admin-access-events";
+import { blobFromParts } from "@/lib/blob-utils";
 import { formatDateTime } from "@/lib/format";
 import {
   getAuditLogs,
@@ -436,7 +437,7 @@ function downloadBlob(filename: string, blob: Blob) {
 }
 
 function downloadText(filename: string, text: string) {
-  downloadBlob(filename, new Blob(["\ufeff", text], { type: "text/csv;charset=utf-8" }));
+  downloadBlob(filename, blobFromParts(["\ufeff", text], "text/csv;charset=utf-8"));
 }
 
 interface QueryLogEntry {
@@ -789,11 +790,12 @@ export default function SysAccessEventsPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    Promise.resolve(client
-      .rpc("list_access_events_admin", {
+    Promise.resolve(
+      client.rpc("list_access_events_admin", {
         _limit: ACCESS_EVENTS_LIMIT,
         _offset: 0,
-      })
+      }),
+    )
       .then(({ data, error: apiError }) => {
         if (cancelled) return;
         if (apiError) {
@@ -812,7 +814,7 @@ export default function SysAccessEventsPage() {
           "RPC list_access_events_admin",
           `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`,
         );
-      }))
+      })
       .then(undefined, () => {
         if (cancelled) return;
         setRows([]);
@@ -821,7 +823,7 @@ export default function SysAccessEventsPage() {
         setLastRefreshAt(new Date().toISOString());
         appendQueryLog("RPC list_access_events_admin", "сбой сети");
       })
-      .finally(() => {
+      .then(() => {
         if (!cancelled) setLoading(false);
       });
 

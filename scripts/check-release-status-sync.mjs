@@ -16,14 +16,22 @@ const REQUIRED_FILES = [
   "scripts/check-release-status-workflow-gate.test.mjs",
   "scripts/release-status-smoke.test.mjs",
   "scripts/check-stage3-docs.mjs",
+  "src/lib/blob-utils.ts",
+  "src/lib/blob-utils.test.ts",
+  "src/pages/sys/SysAccessEventsPage.tsx",
+  "src/pages/sys/SysAccessEventsPage.test.tsx",
   "docs/frontend/stage-3m-release-operations-dashboard.md",
   "docs/frontend/stage-3i-final-documentation-index.md",
   ".github/workflows/release-status.yml",
+  ".github/workflows/typecheck.yml",
+  "tsconfig.json",
+  "tsconfig.app.json",
   "package.json",
 ];
 
 const REQUIRED_TEXT = {
   "src/lib/release-status-ui.ts": [
+    "ReleaseWorkflowComparisonState",
     "DEFAULT_RELEASE_HISTORY_FILTER_PRESETS",
     "RELEASE_HISTORY_FILTER_PRESET_LIMIT",
     "buildReleaseHistoryFilterPreset",
@@ -40,6 +48,23 @@ const REQUIRED_TEXT = {
     "releaseHistoryPresetsJsonFilename",
     "releaseHistoryPresetsXlsxFilename",
     "releaseHistoryPresetAuditFilename",
+  ],
+  "src/lib/blob-utils.ts": [
+    "bytesToBlobPart",
+    "blobFromParts",
+    "BlobByteInput",
+  ],
+  "src/lib/blob-utils.test.ts": [
+    "copies a Uint8Array slice into an ArrayBuffer-safe BlobPart",
+    "builds blobs from strings and byte arrays",
+  ],
+  "src/pages/sys/SysAccessEventsPage.tsx": [
+    "blobFromParts",
+    "Promise.resolve",
+  ],
+  "src/pages/sys/SysAccessEventsPage.test.tsx": [
+    "firstMockArg",
+    "exports XLSX with a safe Blob type",
   ],
   "src/lib/release-status-ui.test.ts": [
     "exports and imports release-history filter presets safely",
@@ -119,6 +144,9 @@ const REQUIRED_TEXT = {
     "Фокус на JSONL с ошибкой",
   ],
   "scripts/preflight-release-status.mjs": [
+    "typecheck",
+    "src/lib/blob-utils.test.ts",
+    "src/pages/sys/SysAccessEventsPage.test.tsx",
     "release status sync checker",
     "check:release-status-sync",
     "test:release-status-smoke",
@@ -170,6 +198,11 @@ const REQUIRED_TEXT = {
     "import-error-actions",
   ],
   "docs/frontend/stage-3m-release-operations-dashboard.md": [
+    "typecheck-ci",
+    "blob-utils",
+    "strict-type-unions",
+    "empty-mock-call-guard",
+    "npm run typecheck",
     "history-filter-presets",
     "filtered-history-xlsx",
     "import-error-actions",
@@ -199,6 +232,8 @@ const REQUIRED_TEXT = {
     "npm run check:release-status-sync",
   ],
   "docs/frontend/stage-3i-final-documentation-index.md": [
+    "npm run typecheck",
+    "PR #74",
     "npm run check:release-status-sync",
     "npm run test:release-status-smoke",
     "npm run test:release-status-ci",
@@ -208,6 +243,10 @@ const REQUIRED_TEXT = {
     "PR #68",
   ],
   ".github/workflows/release-status.yml": [
+    "src/lib/blob-utils.ts",
+    "src/lib/blob-utils.test.ts",
+    "tsconfig.json",
+    "tsconfig.app.json",
     "scripts/check-release-status-sync.mjs",
     "scripts/check-release-status-workflow-gate.mjs",
     "scripts/ci-release-status-sync-gate.mjs",
@@ -223,7 +262,24 @@ const REQUIRED_TEXT = {
     "scripts/check-release-status-workflow-gate.test.mjs",
     "if: ${{ success() }}",
   ],
+  ".github/workflows/typecheck.yml": [
+    "name: typecheck",
+    "npm run typecheck",
+    "tsconfig.json",
+    "tsconfig.app.json",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+  ],
+  "tsconfig.json": [
+    "\"target\": \"ES2022\"",
+    "\"lib\": [\"ES2022\", \"DOM\", \"DOM.Iterable\"]",
+  ],
+  "tsconfig.app.json": [
+    "\"target\": \"ES2022\"",
+    "\"lib\": [\"ES2022\", \"DOM\", \"DOM.Iterable\"]",
+  ],
   "package.json": [
+    "\"typecheck\": \"tsc -b --pretty false\"",
     '"check:release-status-sync"',
     '"check:release-status-workflow-gate"',
     '"ci:release-status-sync"',

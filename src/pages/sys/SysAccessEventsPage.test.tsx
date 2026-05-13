@@ -31,6 +31,13 @@ function nonOptionTextCount(text: string): number {
   return screen.queryAllByText(text).filter((node) => node.tagName !== "OPTION").length;
 }
 
+function firstMockArg<T>(mock: ReturnType<typeof vi.fn>): T {
+  const call = mock.mock.calls.at(0) as unknown[] | undefined;
+  expect(call).toBeDefined();
+  expect(call?.length).toBeGreaterThan(0);
+  return call?.[0] as T;
+}
+
 describe("SysAccessEventsPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -407,7 +414,7 @@ describe("SysAccessEventsPage", () => {
       /CSV: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
     );
 
-    expect((createObjectURL.mock.calls[0] as unknown[])[0]).toBeInstanceOf(Blob);
+    expect(firstMockArg<Blob>(createObjectURL)).toBeInstanceOf(Blob);
   });
 
   it("exports XLSX with a safe Blob type and dated filename", async () => {
@@ -438,7 +445,7 @@ describe("SysAccessEventsPage", () => {
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
       /XLSX: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
     );
-    const blob = (createObjectURL.mock.calls[0] as unknown[])[0] as Blob;
+    const blob = firstMockArg<Blob>(createObjectURL);
     expect(blob.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     expect(blob.size).toBeGreaterThan(0);
     expect(accessEventsXlsxFilename("all", "", { scope: "all-pages", rowCount: 12, columnCount: 11 })).toMatch(

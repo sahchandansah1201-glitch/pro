@@ -12,6 +12,10 @@ export interface ReleaseWorkflowStatus {
   runUrl: string;
 }
 
+export type ReleaseWorkflowComparisonState =
+  | ReleaseWorkflowStatus["conclusion"]
+  | "missing";
+
 export interface ReleaseStatusSnapshot {
   repo: string;
   branch: string;
@@ -48,8 +52,8 @@ export interface ReleaseStatusExportFile {
 
 export interface ReleaseWorkflowComparison {
   name: string;
-  previous: ReleaseWorkflowStatus["conclusion"] | "missing";
-  current: ReleaseWorkflowStatus["conclusion"] | "missing";
+  previous: ReleaseWorkflowComparisonState;
+  current: ReleaseWorkflowComparisonState;
 }
 
 export interface ReleaseComparisonSummary {
@@ -1556,10 +1560,10 @@ export function buildReleaseHistoryPresetAuditReport(
   )}\n`;
 }
 
-export function filterReleaseImportAuditEntries(
-  entries: ReleaseHistoryAuditReportEntry[],
+export function filterReleaseImportAuditEntries<T extends ReleaseHistoryAuditReportEntry>(
+  entries: T[],
   filters: ReleaseImportAuditFilterState,
-): ReleaseHistoryAuditReportEntry[] {
+): T[] {
   const normalizedQuery = filters.query.trim().toLowerCase();
   return entries.filter((entry) => {
     if (filters.status !== "all" && entry.status !== filters.status)
@@ -1761,10 +1765,14 @@ export function compareReleaseStatusSnapshots(
       const currentWorkflow = current.workflows.find(
         (workflow) => workflow.name === name,
       );
+      const previousConclusion: ReleaseWorkflowComparisonState =
+        previousWorkflow?.conclusion ?? "missing";
+      const currentConclusion: ReleaseWorkflowComparisonState =
+        currentWorkflow?.conclusion ?? "missing";
       return {
         name,
-        previous: (previousWorkflow?.conclusion ?? "missing") as ReleaseWorkflowComparison["previous"],
-        current: (currentWorkflow?.conclusion ?? "missing") as ReleaseWorkflowComparison["current"],
+        previous: previousConclusion,
+        current: currentConclusion,
       };
     })
     .filter((item) => item.previous !== item.current);

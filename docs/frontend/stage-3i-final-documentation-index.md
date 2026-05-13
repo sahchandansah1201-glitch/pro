@@ -31,6 +31,7 @@ npm run preflight:auth-assets
 npm run test:smoke-auth-assets
 npm run test:e2e-artifacts
 npm run preflight:e2e-artifacts
+npm run typecheck
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
 npm run test:release-status-privacy
@@ -126,6 +127,8 @@ The focused Stage 3 docs guard is standalone and does not require
       targeted E2E entrypoint, and status report smoke test are documented.
 - [x] Release-status gate-fail E2E, runtime CI annotation gating, and the
       full release-status check bundle are documented.
+- [x] TypeScript typecheck CI, strict type unions, BlobPart helper coverage,
+      and empty mock-call guards are documented.
 
 ## 9. Sync changelog
 
@@ -226,5 +229,9 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #73: added dedicated write-gate failure E2E coverage, runtime CI
   annotation-gating tests, and the full release-status check bundle in Stage
   3M.
+- PR #74: added `npm run typecheck`, standalone `typecheck` CI,
+  ES2022 app compiler target, `blob-utils` for safe BlobPart creation,
+  strict-type-unions for release workflow comparisons, empty-mock-call-guard
+  coverage, and local preflight wiring.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

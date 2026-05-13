@@ -1,3 +1,5 @@
+import { blobFromParts } from "./blob-utils";
+
 export type AccessEventSource = "api" | "demo";
 export type XlsxCellValue = string | null;
 
@@ -32,6 +34,7 @@ export const ACCESS_EVENT_EXPORT_COLUMNS = [
 ] as const;
 
 export type AccessEventExportColumnKey = (typeof ACCESS_EVENT_EXPORT_COLUMNS)[number]["key"];
+export type AccessEventExportColumn = (typeof ACCESS_EVENT_EXPORT_COLUMNS)[number];
 
 export const DEFAULT_ACCESS_EVENT_EXPORT_COLUMNS = ACCESS_EVENT_EXPORT_COLUMNS.map((column) => column.key);
 
@@ -56,7 +59,9 @@ export function limitAccessEventExportRows<T>(
   return rows.slice(0, Math.max(0, limit));
 }
 
-function normalizeColumns(columns: AccessEventExportColumnKey[] | undefined): typeof ACCESS_EVENT_EXPORT_COLUMNS {
+function normalizeColumns(
+  columns: AccessEventExportColumnKey[] | undefined,
+): readonly AccessEventExportColumn[] {
   if (!columns || columns.length === 0) return ACCESS_EVENT_EXPORT_COLUMNS;
   const allowed = new Set(columns);
   const selected = ACCESS_EVENT_EXPORT_COLUMNS.filter((column) => allowed.has(column.key));
@@ -323,9 +328,10 @@ export function buildTableXlsxBytes(matrix: XlsxCellValue[][], sheetName = "Shee
 
 export function buildTableXlsxBlob(matrix: XlsxCellValue[][], sheetName = "Sheet1"): Blob {
   const archive = buildTableXlsxBytes(matrix, sheetName);
-  return new Blob([archive as BlobPart], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+  return blobFromParts(
+    [archive],
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
 }
 
 export function buildAccessEventsXlsxBytes(
