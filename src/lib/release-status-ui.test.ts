@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildFilteredReleaseHistoryXlsxBytes,
+  buildReleaseHistoryPresetExportJson,
+  buildReleaseHistoryPresetsXlsxBytes,
   buildReleaseHistoryFilterPreset,
   buildReleaseImportAuditReport,
   buildReleaseImportAuditCsv,
@@ -22,6 +24,7 @@ import {
   normalizeReleaseHistoryFilterPreset,
   paginateReleaseHistoryRecords,
   parseReleaseHistoryJsonl,
+  parseReleaseHistoryPresetExportJson,
   RELEASE_STATUS_DEMO_SNAPSHOT,
   RELEASE_STATUS_DEMO_HISTORY_JSONL,
   RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT,
@@ -29,6 +32,8 @@ import {
   releaseHistoryFilteredCsvFilename,
   releaseHistoryFilteredJsonlFilename,
   releaseHistoryFilteredXlsxFilename,
+  releaseHistoryPresetsJsonFilename,
+  releaseHistoryPresetsXlsxFilename,
   releaseSnapshotFromHistoryRecord,
   releaseStatusFilename,
   releaseStatusLevel,
@@ -358,6 +363,51 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         filters: expect.objectContaining({ query: "" }),
       }),
     );
+  });
+
+  it("exports and imports release-history filter presets safely", () => {
+    const preset = buildReleaseHistoryFilterPreset(
+      "E2E blockers",
+      {
+        status: "fail",
+        deno: "blocked",
+        artifact: "missing",
+        workflow: "failure",
+        query: "e2e",
+      },
+      "2026-05-12T10:00:00Z",
+    )!;
+    const json = buildReleaseHistoryPresetExportJson([preset]);
+    const parsed = parseReleaseHistoryPresetExportJson(json);
+    const xlsx = buildReleaseHistoryPresetsXlsxBytes(parsed.presets);
+
+    expect(JSON.parse(json).presetCount).toBe(1);
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        acceptedCount: 1,
+        skippedCount: 0,
+        status: "safe",
+      }),
+    );
+    expect(parsed.presets[0]).toEqual(
+      expect.objectContaining({
+        name: "E2E blockers",
+        filters: expect.objectContaining({ workflow: "failure" }),
+      }),
+    );
+    expect(Array.from(xlsx.slice(0, 2))).toEqual([80, 75]);
+    expect(releaseHistoryPresetsJsonFilename()).toMatch(
+      /^release-history-filter-presets-\d{4}-\d{2}-\d{2}\.json$/,
+    );
+    expect(releaseHistoryPresetsXlsxFilename()).toMatch(
+      /^release-history-filter-presets-\d{4}-\d{2}-\d{2}\.xlsx$/,
+    );
+
+    const unsafe = parseReleaseHistoryPresetExportJson(
+      '{"presets":[],"actor_email":"doctor@example.com"}',
+    );
+    expect(unsafe.status).toBe("blocked");
+    expect(unsafe.privacy.findingCount).toBeGreaterThan(0);
   });
 
   it("filters release history and import audit with advanced criteria", () => {

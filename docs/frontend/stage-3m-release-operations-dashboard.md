@@ -251,6 +251,13 @@ The viewer also exposes the UI-side release operator guardrails:
   normalized by `buildReleaseHistoryFilterPreset` and
   `normalizeReleaseHistoryFilterPreset`, so unsafe names or query values are
   rejected/redacted before storage.
+- The preset panel now includes `preset-management-ui`: saved presets can be
+  renamed, duplicated, exported as sanitized JSON/XLSX, and imported back from
+  a previously exported JSON file. JSON export uses
+  `buildReleaseHistoryPresetExportJson`; XLSX export uses
+  `buildReleaseHistoryPresetsXlsxBytes`; import uses
+  `parseReleaseHistoryPresetExportJson` and blocks privacy findings before
+  localStorage is updated.
 - The selected comparison baseline has a compact `baseline-preview` with SHA,
   generated date, deno-lock status, artifact presence, and the first workflow
   conclusions before the comparison table.
@@ -282,7 +289,11 @@ The viewer also exposes the UI-side release operator guardrails:
   privacy-blocked lines are announced as counts and affected line numbers.
 - `import-error-actions` add a remediation list and a `Фокус на JSONL с
   ошибкой` control so keyboard users can jump back to the failing JSONL field
-  after reading the summary.
+  after reading the summary. The control now selects the first affected line
+  and announces the focused line number in the page status.
+- The local preflight card exposes both `npm run preflight:release-status` and
+  `npm run check:release-status-sync`; e2e asserts the sync-check command is
+  visible and copyable from the UI.
 - The history import textarea and filtered export controls carry
   `history-export-a11y` states: `aria-invalid`, `aria-describedby`, disabled
   no-result exports, and live status updates for JSONL/CSV export completion.
@@ -319,8 +330,9 @@ The viewer also exposes the UI-side release operator guardrails:
   history-export-a11y, jsonl-validation, dry-run-import, import-audit,
   audit-report-summary, audit-report-download, baseline-preview,
   baseline-delete, baseline-selector, privacy-preview,
-  history-filter-presets, filtered-history-xlsx, import-error-actions, and
-  release-status-sync-checker changes must also keep
+  history-filter-presets, preset-management-ui, preset-json-xlsx-export,
+  filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
+  release-status-sync-checker-ui, and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
   aligned with the UI helper names and e2e assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
