@@ -473,6 +473,8 @@ const releaseStatusCiSyncTest = existsSync(join(ROOT, RELEASE_STATUS_CI_SYNC_TES
   ? readFileSync(join(ROOT, RELEASE_STATUS_CI_SYNC_TEST), "utf8")
   : "";
 requireText(RELEASE_STATUS_CI_SYNC_TEST, releaseStatusCiSyncTest, "CI sync gate emits GitHub annotations");
+requireText(RELEASE_STATUS_CI_SYNC_TEST, releaseStatusCiSyncTest, "does not emit GitHub annotations outside GitHub Actions");
+requireText(RELEASE_STATUS_CI_SYNC_TEST, releaseStatusCiSyncTest, "emits GitHub annotations when GITHUB_ACTIONS is true");
 requireText(RELEASE_STATUS_CI_SYNC_TEST, releaseStatusCiSyncTest, "Release status gate passed");
 requireText(RELEASE_STATUS_CI_SYNC_TEST, releaseStatusCiSyncTest, "generated release-status reports must stay unwritten");
 
@@ -589,6 +591,9 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "repor
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "write-gate-drill");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "workflow-gate-checker");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "ci-check-annotations");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "gate-fail-e2e");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "annotation-gating-runtime");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "full-release-checks");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "release-status-e2e-entrypoint");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "status-report-smoke-test");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "Release status gate passed");
@@ -619,6 +624,7 @@ requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run 
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:release-status-ci");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run e2e:release-status");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #72");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #73");
 
 const stage3l = readDoc("stage-3l-nightly-artifacts-report.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "## 8. Related dashboards");
@@ -811,6 +817,9 @@ requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Предпросмотр
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "\"summary\"");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать единый пакет release status");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать release status в HTML");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "write-gate drill blocks report writes in failed scenario");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "reports stay unwritten");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "deno.lock guard failed");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "storage_object_path");
 
 const appTsx = existsSync(join(ROOT, APP_TSX)) ? readFileSync(join(ROOT, APP_TSX), "utf8") : "";

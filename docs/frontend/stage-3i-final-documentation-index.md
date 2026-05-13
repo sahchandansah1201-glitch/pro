@@ -124,6 +124,8 @@ The focused Stage 3 docs guard is standalone and does not require
       documented.
 - [x] Release-status write-gate drill, CI check annotations,
       targeted E2E entrypoint, and status report smoke test are documented.
+- [x] Release-status gate-fail E2E, runtime CI annotation gating, and the
+      full release-status check bundle are documented.
 
 ## 9. Sync changelog
 
@@ -221,5 +223,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #72: added a targeted release-status E2E entrypoint, CI gate annotations,
   workflow success-condition tests, and a status report smoke test that writes
   markdown/JSON/HTML/history files and privacy-scans them.
+- PR #73: added dedicated write-gate failure E2E coverage, runtime CI
+  annotation-gating tests, and the full release-status check bundle in Stage
+  3M.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

@@ -97,6 +97,7 @@ const REQUIRED_TEXT = {
     "Фокус на JSONL с ошибкой",
   ],
   "e2e/sys-release-status.pw.ts": [
+    "write-gate drill blocks report writes in failed scenario",
     "Пресет фильтров release history",
     "release-history-filter-presets-",
     "release-history-filter-presets-audit-",
@@ -112,6 +113,8 @@ const REQUIRED_TEXT = {
     "CI gate status release status",
     "Write gate drill status",
     "Write gate drill checks",
+    "reports stay unwritten",
+    "deno.lock guard failed",
     "Скопировать sync checker",
     "Фокус на JSONL с ошибкой",
   ],
@@ -135,6 +138,8 @@ const REQUIRED_TEXT = {
   ],
   "scripts/ci-release-status-sync-gate.test.mjs": [
     "CI sync gate emits GitHub annotations",
+    "does not emit GitHub annotations outside GitHub Actions",
+    "emits GitHub annotations when GITHUB_ACTIONS is true",
     "Release status gate passed",
     "Release status gate failed",
     "generated release-status reports must stay unwritten",
@@ -182,6 +187,9 @@ const REQUIRED_TEXT = {
     "ci-check-annotations",
     "release-status-e2e-entrypoint",
     "status-report-smoke-test",
+    "gate-fail-e2e",
+    "annotation-gating-runtime",
+    "full-release-checks",
     "npm run test:release-status-smoke",
     "npm run test:release-status-ci",
     "npm run e2e:release-status",
@@ -196,6 +204,7 @@ const REQUIRED_TEXT = {
     "npm run test:release-status-ci",
     "npm run e2e:release-status",
     "PR #72",
+    "PR #73",
     "PR #68",
   ],
   ".github/workflows/release-status.yml": [

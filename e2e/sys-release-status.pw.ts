@@ -635,6 +635,50 @@ test.describe("/sys/release-status", () => {
     ).toContainText("Импорт заблокирован");
   });
 
+  test("write-gate drill blocks report writes in failed scenario", async ({
+    page,
+  }) => {
+    await setDemoRole(page, "system_admin");
+    await page.goto("/sys/release-status", { waitUntil: "networkidle" });
+
+    const drill = page.getByRole("region", {
+      name: "Write gate drill release status",
+    });
+    const status = page.getByRole("status", {
+      name: "Write gate drill status",
+    });
+    const checks = page.getByRole("list", {
+      name: "Write gate drill checks",
+    });
+
+    await expect(drill).toContainText("Gate passed");
+    await page.getByLabel("Write gate drill scenario").selectOption("fail");
+
+    await expect(status).toContainText(/reports stay unwritten/);
+    await expect(status).not.toContainText(/may write release-status reports/);
+    await expect(checks).toContainText("✗ Workflow success condition");
+    await expect(checks).toContainText("✗ Release-status workflow");
+    await expect(checks).toContainText("✗ CI sync gate");
+    await expect(checks).toContainText("✗ Deno lock guard");
+    await expect(checks).toContainText(
+      "Write reports step can run without the success condition.",
+    );
+    await expect(checks).toContainText("release-status workflow is failure.");
+    await expect(checks).toContainText(
+      "ci:release-status-sync failed before report generation.",
+    );
+    await expect(checks).toContainText("deno.lock guard failed.");
+
+    await page.getByLabel("Write gate drill scenario").selectOption("pass");
+
+    await expect(status).toContainText(/may write release-status reports/);
+    await expect(status).not.toContainText(/reports stay unwritten/);
+    await expect(checks).toContainText("✓ Workflow success condition");
+    await expect(checks).toContainText("✓ Release-status workflow");
+    await expect(checks).toContainText("✓ CI sync gate");
+    await expect(checks).toContainText("✓ Deno lock guard");
+  });
+
   test("clinic_admin is blocked by the demo RBAC guard", async ({ page }) => {
     await setDemoRole(page, "clinic_admin");
     await page.goto("/sys/release-status", { waitUntil: "networkidle" });
