@@ -1,0 +1,99 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4G-visit-workspace",
+    "summary": "Self-hosted backend visit workspace read API",
+    "description": "Stage 4G adds RBAC-protected read endpoints for the doctor visit workspace: visits per patient, visit detail, lesions, and clinical asset metadata. Endpoints are read-only and exposed only by the self-hosted PostgreSQL backend."
+  },
+  "servers": [
+    { "url": "http://localhost:8080", "description": "Self-hosted reverse proxy" }
+  ],
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/patients/{patientId}/visits": {
+      "get": {
+        "operationId": "listPatientVisits",
+        "summary": "List visits for a patient (read-only)",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Read-only list of patient visits from PostgreSQL" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC clinic scope" },
+          "404": { "description": "Patient not found in scope" }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}": {
+      "get": {
+        "operationId": "getVisit",
+        "summary": "Read a single visit (read-only)",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Read-only visit detail from PostgreSQL" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC clinic scope" },
+          "404": { "description": "Visit not found in scope" }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesions": {
+      "get": {
+        "operationId": "listVisitLesions",
+        "summary": "List lesions linked to a visit (read-only)",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Read-only list of lesions from PostgreSQL" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC clinic scope" }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/assets": {
+      "get": {
+        "operationId": "listVisitAssets",
+        "summary": "List clinical asset metadata for a visit (read-only)",
+        "description": "Returns only asset metadata. Storage object paths and signed URLs are deliberately excluded from this contract.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Read-only list of clinical asset metadata from PostgreSQL" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC clinic scope" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    }
+  }
+}
