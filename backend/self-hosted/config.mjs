@@ -32,6 +32,7 @@ export function readSelfHostedConfig(env = process.env) {
     databaseUrl: env.DATABASE_URL || "",
     objectStorageEndpoint: env.OBJECT_STORAGE_ENDPOINT || "",
     objectStorageBucket: env.OBJECT_STORAGE_BUCKET || "clinical-assets",
+    objectStorageLocalDir: env.OBJECT_STORAGE_LOCAL_DIR || ".self-hosted/object-storage",
     jwtIssuer: env.JWT_ISSUER || "dermatolog-pro",
     jwtSecret: env.JWT_SECRET || "",
     jwtExpiresInSeconds: parsePositiveInteger(
@@ -59,10 +60,12 @@ export function dependencyStatus(config) {
     },
     {
       name: "object-storage",
-      configured: Boolean(config.objectStorageEndpoint),
+      configured: Boolean(config.objectStorageEndpoint || config.objectStorageLocalDir),
       detail: config.objectStorageEndpoint
         ? "OBJECT_STORAGE_ENDPOINT configured"
-        : "OBJECT_STORAGE_ENDPOINT missing",
+        : config.objectStorageLocalDir
+          ? "OBJECT_STORAGE_LOCAL_DIR configured"
+          : "object storage missing",
     },
   ];
 }
@@ -83,6 +86,7 @@ export function publicConfig(config) {
     deploymentMode: config.deploymentMode,
     port: config.port,
     objectStorageBucket: config.objectStorageBucket,
+    objectStorageMode: config.objectStorageEndpoint ? "external-endpoint" : "local-filesystem",
     jwtIssuer: config.jwtIssuer,
     jwtExpiresInSeconds: config.jwtExpiresInSeconds,
     corsOrigins: config.corsOrigins,

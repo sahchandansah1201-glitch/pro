@@ -19,16 +19,17 @@ PostgreSQL client used by the container image.
   audit orchestration for patient writes.
 - `visit-workspace-repository.mjs`, `visit-workspace-write-service.mjs` —
   Stage 4G-4H visit, lesion, report and asset metadata read/write boundaries.
-- `asset-write-repository.mjs`, `asset-write-service.mjs` — Stage 4I clinical
-  asset metadata registration and backend-owned download URL contract.
+- `asset-write-repository.mjs`, `asset-write-service.mjs`, `object-store.mjs` —
+  Stage 4I-4J clinical asset metadata, binary storage, and backend-owned
+  download contracts.
 - `openapi.stage4a.json` — contract-first API boundary for auth, patients,
   visits, assets, and audit.
 - `openapi.stage4b.json` — first runtime API boundary with `GET /api/v1/patients`.
 - `openapi.stage4c.json` — local JWT auth and RBAC boundary.
 - `openapi.stage4d.json` — patient create/update/detail/soft-archive boundary.
-- `openapi.stage4g.json`, `openapi.stage4h.json`, `openapi.stage4i.json` —
-  visit workspace read, visit workspace write, and clinical asset write
-  boundaries.
+- `openapi.stage4g.json`, `openapi.stage4h.json`, `openapi.stage4i.json`,
+  `openapi.stage4j.json` — visit workspace read/write and clinical asset
+  write/binary boundaries.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -59,15 +60,21 @@ npm run preflight:stage4d
 npm run test:stage4i
 npm run check:stage4i
 npm run preflight:stage4i
+npm run test:stage4j
+npm run check:stage4j
+npm run preflight:stage4j
 node backend/self-hosted/server.mjs
 ```
 
 `/readyz` returns `503` until `DATABASE_URL` is configured and reachable and
-`OBJECT_STORAGE_ENDPOINT` is configured. Health, metadata, and API error
-responses never print raw connection strings or credentials.
+object storage is configured through `OBJECT_STORAGE_ENDPOINT` or
+`OBJECT_STORAGE_LOCAL_DIR`. Health, metadata, and API error responses never
+print raw connection strings, object paths, or credentials.
 
 Stage 4C protects `GET /api/v1/patients` with backend-issued bearer tokens and
 RBAC. Stage 4D adds backend-owned patient create, detail, update, and soft
 archive routes. Stage 4G-4H add visit workspace reads/writes. Stage 4I registers
-clinical asset metadata and issues backend-owned download URL contracts without
-exposing object bucket/key to the frontend.
+clinical asset metadata and issues backend-owned download URL contracts. Stage
+4J stores uploaded asset bytes in the self-hosted object store and streams them
+through authenticated backend download routes without exposing object bucket/key
+to the frontend.

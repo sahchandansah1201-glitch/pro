@@ -32,3 +32,6 @@ playwright-report/
 
 # TypeScript build-mode cache
 *.tsbuildinfo
+
+# Self-hosted local runtime data
+.self-hosted/

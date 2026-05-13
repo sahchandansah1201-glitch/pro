@@ -1,0 +1,137 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4J-asset-binaries",
+    "description": "Stage 4J self-hosted clinical asset binary upload and authenticated backend download proxy."
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "ClinicalAsset": {
+        "type": "object",
+        "required": ["id", "clinicId", "patientId", "visitId", "kind", "contentType"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "clinicId": { "type": "string", "nullable": true },
+          "patientId": { "type": "string", "nullable": true },
+          "visitId": { "type": "string", "nullable": true },
+          "lesionId": { "type": "string", "nullable": true },
+          "kind": { "type": "string", "enum": ["overview_photo", "dermoscopy", "report_attachment"] },
+          "contentType": { "type": "string" },
+          "byteSize": { "type": "integer", "nullable": true },
+          "capturedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "uploadedBy": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "CreateAssetPayload": {
+        "type": "object",
+        "required": ["contentType", "dataBase64"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["overview_photo", "overview", "macro", "body_map", "dermoscopy", "report_attachment"] },
+          "contentType": { "type": "string" },
+          "byteSize": { "type": "integer", "minimum": 0 },
+          "dataBase64": { "type": "string", "description": "Base64-encoded file bytes. Raw object bucket/key is never accepted from the browser." },
+          "lesionId": { "type": "string", "format": "uuid", "nullable": true },
+          "capturedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "checksumSha256": { "type": "string", "nullable": true },
+          "originalFileName": { "type": "string", "nullable": true }
+        }
+      },
+      "DownloadUrl": {
+        "type": "object",
+        "required": ["assetId", "clinicId", "visitId", "downloadUrl", "expiresIn", "expiresAt"],
+        "properties": {
+          "assetId": { "type": "string", "format": "uuid" },
+          "clinicId": { "type": "string", "nullable": true },
+          "visitId": { "type": "string", "nullable": true },
+          "downloadUrl": { "type": "string", "description": "Backend-owned authenticated route. No signed URL, access token, object bucket, or object key is exposed." },
+          "expiresIn": { "type": "integer", "minimum": 60, "maximum": 900 },
+          "expiresAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "type": "array", "items": { "type": "object" } }
+            }
+          },
+          "correlationId": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/visits/{visitId}/assets": {
+      "get": {
+        "summary": "List visit asset metadata",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Asset metadata list" },
+          "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "post": {
+        "summary": "Upload a visit asset binary and register metadata",
+        "description": "Stores base64 file bytes in the backend-owned self-hosted object store and registers metadata in PostgreSQL. Response never exposes object bucket/key.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateAssetPayload" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "Stored asset", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicalAsset" } } } },
+          "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/v1/assets/{assetId}/download-url": {
+      "get": {
+        "summary": "Issue backend-owned asset download route",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "expiresIn", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 60, "maximum": 900, "default": 300 } }
+        ],
+        "responses": {
+          "200": { "description": "Download route", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DownloadUrl" } } } },
+          "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/v1/assets/{assetId}/download": {
+      "get": {
+        "summary": "Download asset bytes through authenticated backend proxy",
+        "description": "Streams bytes from the self-hosted object store. Requires bearer authentication; no signed URL, access_token, bucket, object key, or storage path is exposed.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Asset binary stream", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
+          "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Asset binary not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    }
+  }
+}

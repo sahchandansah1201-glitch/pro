@@ -1,0 +1,57 @@
+name: stage4j-self-hosted-asset-binaries
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-asset-api.ts"
+      - "src/lib/self-hosted-asset-api.test.ts"
+      - "src/pages/doctor/VisitImagingTab.tsx"
+      - "src/pages/doctor/VisitImagingTab.test.tsx"
+      - "src/pages/doctor/VisitImagingTab.hygiene.test.ts"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4j-self-hosted-asset-binaries.md"
+      - "scripts/check-stage4j-self-hosted-asset-binaries.mjs"
+      - "scripts/check-stage4j-self-hosted-asset-binaries.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4j-self-hosted-asset-binaries.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-asset-api.ts"
+      - "src/lib/self-hosted-asset-api.test.ts"
+      - "src/pages/doctor/VisitImagingTab.tsx"
+      - "src/pages/doctor/VisitImagingTab.test.tsx"
+      - "src/pages/doctor/VisitImagingTab.hygiene.test.ts"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4j-self-hosted-asset-binaries.md"
+      - "scripts/check-stage4j-self-hosted-asset-binaries.mjs"
+      - "scripts/check-stage4j-self-hosted-asset-binaries.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4j-self-hosted-asset-binaries.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4j:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Stage 4J preflight
+        run: npm run preflight:stage4j
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4J self-hosted asset binaries"
+            echo ""
+            echo "- Preflight: ${{ job.status }}"
+            echo "- Command: \`npm run preflight:stage4j\`"
+          } >> "$GITHUB_STEP_SUMMARY"

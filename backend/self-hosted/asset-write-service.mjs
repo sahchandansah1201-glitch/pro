@@ -2,7 +2,7 @@
 // Registers asset metadata, enforces visit RBAC, and issues backend-owned
 // download URLs without exposing object bucket/key to the browser.
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
 import { visitReadScope, visitWriteScope } from "./rbac.mjs";
@@ -33,6 +33,7 @@ const REPORT_CONTENT_TYPES = new Set(["application/pdf"]);
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_REPORT_BYTES = 50 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/i;
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 
 function isPlainObject(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
@@ -82,6 +83,26 @@ function positiveByteSize(value, details) {
   return parsed;
 }
 
+function decodeBase64Asset(value, details) {
+  const raw = cleanString(value);
+  if (!raw) return null;
+  const compact = raw.replace(/\s/g, "");
+  if (!BASE64_PATTERN.test(compact) || compact.length % 4 === 1) {
+    details.push({ field: "dataBase64", message: "dataBase64 must be standard base64 content." });
+    return null;
+  }
+  const bytes = Buffer.from(compact, "base64");
+  if (bytes.byteLength === 0) {
+    details.push({ field: "dataBase64", message: "dataBase64 must contain file bytes." });
+    return null;
+  }
+  return bytes;
+}
+
+function sha256Hex(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
 function validateContentType(kind, contentType, byteSize, details) {
   if (kind === "report_attachment") {
     if (!REPORT_CONTENT_TYPES.has(contentType)) {
@@ -112,21 +133,31 @@ export function normalizeCreateAssetPayload(input = {}) {
   const contentType = cleanString(input.contentType)?.toLowerCase() || "";
   if (!contentType) details.push({ field: "contentType", message: "contentType is required." });
   const byteSize = positiveByteSize(input.byteSize, details);
+  const bytes = decodeBase64Asset(input.dataBase64, details);
+  const effectiveByteSize = bytes ? bytes.byteLength : byteSize;
+  if (bytes && byteSize != null && byteSize !== bytes.byteLength) {
+    details.push({ field: "byteSize", message: "byteSize must match decoded dataBase64 length." });
+  }
   const capturedAt = normalizeCapturedAt(input.capturedAt, details);
   const checksumSha256 = cleanString(input.checksumSha256);
   if (checksumSha256 && !SHA256_PATTERN.test(checksumSha256)) {
     details.push({ field: "checksumSha256", message: "checksumSha256 must be a 64-character hex digest." });
   }
+  const decodedChecksum = bytes ? sha256Hex(bytes) : null;
+  if (checksumSha256 && decodedChecksum && checksumSha256.toLowerCase() !== decodedChecksum) {
+    details.push({ field: "checksumSha256", message: "checksumSha256 must match decoded dataBase64 content." });
+  }
   const lesionId = cleanString(input.lesionId);
   if (lesionId) assertUuid(lesionId, "lesionId");
-  if (contentType) validateContentType(kind, contentType, byteSize, details);
+  if (contentType) validateContentType(kind, contentType, effectiveByteSize, details);
   if (details.length > 0) throw new VisitWorkspaceValidationError(details);
   return {
     kind,
     contentType,
-    byteSize,
+    byteSize: effectiveByteSize,
     capturedAt,
-    checksumSha256: checksumSha256 ? checksumSha256.toLowerCase() : null,
+    checksumSha256: decodedChecksum || (checksumSha256 ? checksumSha256.toLowerCase() : null),
+    bytes,
     lesionId,
     originalFileName: cleanString(input.originalFileName),
   };
@@ -172,6 +203,7 @@ export function createAssetWriteService({
   visitWorkspaceRepository,
   assetWriteRepository,
   auditRepository,
+  objectStore,
   now = () => new Date().toISOString(),
   uuid = randomUUID,
 } = {}) {
@@ -204,6 +236,21 @@ export function createAssetWriteService({
         now,
         uuid,
       });
+      if (payload.bytes && !objectStore?.putObject) {
+        const error = new Error("Object storage is not configured for asset binary upload.");
+        error.publicCode = "object_storage_unavailable";
+        error.publicStatus = 503;
+        throw error;
+      }
+      if (payload.bytes) {
+        await objectStore.putObject({
+          bucket: objectBucket,
+          key: objectKey,
+          bytes: payload.bytes,
+          contentType: payload.contentType,
+          checksumSha256: payload.checksumSha256,
+        });
+      }
       const asset = await assetWriteRepository.createVisitAsset({
         clinicId: visit.clinic.id,
         patientId: visit.patient.id,
@@ -232,6 +279,7 @@ export function createAssetWriteService({
           contentType: asset.contentType,
           byteSize: asset.byteSize,
           hasChecksum: Boolean(payload.checksumSha256),
+          binaryStored: Boolean(payload.bytes),
         },
       });
       return { asset, scope };
@@ -281,6 +329,69 @@ export function createAssetWriteService({
           downloadUrl: `/api/v1/assets/${asset.id}/download`,
           expiresIn,
           expiresAt,
+        },
+        scope,
+      };
+    },
+
+    async downloadAsset(assetId, authContext, { correlationId } = {}) {
+      const safeAssetId = assertUuid(assetId, "assetId");
+      const scope = visitReadScope(authContext);
+      const asset = await assetWriteRepository.getAssetInternal({
+        assetId: safeAssetId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!asset) throw new VisitWorkspaceNotFoundError("Asset was not found in the allowed clinic scope.");
+      if (!asset.objectBucket || !asset.objectKey || !objectStore?.getObject) {
+        const error = new Error("Asset binary is not available in the self-hosted object store.");
+        error.publicCode = "asset_binary_not_found";
+        error.publicStatus = 404;
+        throw error;
+      }
+      let stored;
+      try {
+        stored = await objectStore.getObject({
+          bucket: asset.objectBucket,
+          key: asset.objectKey,
+        });
+      } catch {
+        const error = new Error("Asset binary is not available in the self-hosted object store.");
+        error.publicCode = "asset_binary_not_found";
+        error.publicStatus = 404;
+        throw error;
+      }
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: asset.clinicId,
+        actorUserId: authContext.userId,
+        action: "asset.download",
+        entityType: "clinical_asset",
+        entityId: asset.id,
+        correlationId,
+        metadata: {
+          visitId: asset.visitId,
+          contentType: asset.contentType,
+          byteSize: stored.byteSize,
+        },
+      });
+      return {
+        asset: {
+          id: asset.id,
+          clinicId: asset.clinicId,
+          patientId: asset.patientId,
+          visitId: asset.visitId,
+          lesionId: asset.lesionId,
+          kind: asset.kind,
+          contentType: asset.contentType,
+          byteSize: asset.byteSize,
+          capturedAt: asset.capturedAt,
+          uploadedBy: asset.uploadedBy,
+          createdAt: asset.createdAt,
+        },
+        object: {
+          bytes: stored.bytes,
+          contentType: stored.contentType || asset.contentType || "application/octet-stream",
+          byteSize: stored.byteSize,
         },
         scope,
       };
