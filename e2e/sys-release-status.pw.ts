@@ -49,7 +49,24 @@ test.describe("/sys/release-status", () => {
     ).toBeVisible();
     await expect(
       page.getByRole("region", { name: "Предпросмотр release status" }),
-    ).toContainText("Main workflows: 6 из 6 success");
+    ).toContainText("Main workflows: 9 из 9 success");
+    await expect(
+      page.getByRole("region", { name: "Release readiness dashboard" }),
+    ).toContainText("Release readiness dashboard");
+    await expect(
+      page.getByRole("status", { name: "Release readiness notification" }),
+    ).toContainText("report link may be published");
+    await expect(
+      page.getByRole("status", { name: "CI status summary" }),
+    ).toContainText("CI checks: 9 из 9 green");
+    await expect(
+      page.getByRole("list", { name: "CI status checks" }),
+    ).toContainText("preflight-all");
+    await expect(
+      page.getByRole("link", {
+        name: "Открыть опубликованный release readiness report",
+      }),
+    ).toHaveAttribute("href", /#artifacts$/);
     await expect(
       page.getByText(/Доступ к разделу открыт только роли system_admin/),
     ).toBeVisible();
@@ -564,6 +581,11 @@ test.describe("/sys/release-status", () => {
       page.getByRole("status", { name: "Write gate drill status" }),
     ).toContainText(/reports stay unwritten/);
     await expect(
+      page.getByRole("alert", {
+        name: "Gate failure notification release status",
+      }),
+    ).toContainText(/Gate failed/);
+    await expect(
       page.getByRole("list", { name: "Write gate drill checks" }),
     ).toContainText("Workflow success condition");
     await expect(
@@ -655,6 +677,11 @@ test.describe("/sys/release-status", () => {
     await page.getByLabel("Write gate drill scenario").selectOption("fail");
 
     await expect(status).toContainText(/reports stay unwritten/);
+    await expect(
+      page.getByRole("alert", {
+        name: "Gate failure notification release status",
+      }),
+    ).toContainText(/reports stay unwritten/);
     await expect(status).not.toContainText(/may write release-status reports/);
     await expect(checks).toContainText("✗ Workflow success condition");
     await expect(checks).toContainText("✗ Release-status workflow");

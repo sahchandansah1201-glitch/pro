@@ -258,6 +258,30 @@ export interface ReleaseStatusWriteGateSummary {
   blockedReasons: string[];
 }
 
+export interface ReleaseReadinessCheck {
+  id:
+    | "working-tree"
+    | "deno-lock-guard"
+    | "release-artifact"
+    | "workflow-suite"
+    | "write-gate";
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface ReleaseReadinessSummary {
+  status: "ready" | "attention" | "blocked";
+  label: string;
+  score: number;
+  passedCount: number;
+  totalCount: number;
+  reportUrl: string;
+  reportLabel: string;
+  notification: string;
+  checks: ReleaseReadinessCheck[];
+}
+
 const TOKEN_PARAM_NAMES = [
   "access_token",
   "refresh_token",
@@ -362,10 +386,28 @@ export const RELEASE_STATUS_DEMO_SNAPSHOT: ReleaseStatusSnapshot = {
         "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807286",
     },
     {
+      name: "preflight-all",
+      conclusion: "success",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741807287",
+    },
+    {
       name: "no-deno-locks",
       conclusion: "success",
       runUrl:
         "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741808258",
+    },
+    {
+      name: "typecheck",
+      conclusion: "success",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741808259",
+    },
+    {
+      name: "typecheck-blob-verification",
+      conclusion: "success",
+      runUrl:
+        "https://github.com/sahchandansah1201-glitch/pro/actions/runs/25741808260",
     },
     {
       name: "frontend-auth-assets",
@@ -499,6 +541,118 @@ export function buildReleaseStatusWriteGateSummary(
     message: canWriteReports
       ? "Write gate ready: CI may write release-status reports."
       : `Write gate blocked: reports stay unwritten until ${blockedReasons.join(", ")} pass.`,
+  };
+}
+
+export function buildReleaseReportArtifactUrl(
+  snapshot: ReleaseStatusSnapshot,
+): string {
+  const releaseStatusWorkflow = snapshot.workflows.find(
+    (workflow) => workflow.name === "release-status",
+  );
+  return releaseStatusWorkflow?.runUrl
+    ? `${releaseStatusWorkflow.runUrl}#artifacts`
+    : snapshot.shaUrl;
+}
+
+export function buildReleaseReadinessSummary(
+  snapshot: ReleaseStatusSnapshot,
+  writeGateSummary: ReleaseStatusWriteGateSummary,
+): ReleaseReadinessSummary {
+  const failedWorkflows = snapshot.workflows.filter(
+    (workflow) => workflow.conclusion === "failure",
+  );
+  const pendingWorkflows = snapshot.workflows.filter(
+    (workflow) =>
+      workflow.conclusion !== "success" && workflow.conclusion !== "failure",
+  );
+  const checks: ReleaseReadinessCheck[] = [
+    {
+      id: "working-tree",
+      label: "Working tree",
+      ok: snapshot.workingTree === "clean",
+      detail:
+        snapshot.workingTree === "clean"
+          ? "Local working tree is clean."
+          : `${snapshot.changedCount} changed file(s) remain local.`,
+    },
+    {
+      id: "deno-lock-guard",
+      label: "Deno lock guard",
+      ok: snapshot.denoLockOk,
+      detail: snapshot.denoLockOk
+        ? "No deno.lock files detected."
+        : "deno.lock guard failed.",
+    },
+    {
+      id: "release-artifact",
+      label: "Release artifact",
+      ok: snapshot.artifactPresent,
+      detail: snapshot.artifactPresent
+        ? `${snapshot.artifactPath} is present.`
+        : `${snapshot.artifactPath} is missing.`,
+    },
+    {
+      id: "workflow-suite",
+      label: "CI workflow suite",
+      ok: failedWorkflows.length === 0 && pendingWorkflows.length === 0,
+      detail:
+        failedWorkflows.length === 0 && pendingWorkflows.length === 0
+          ? `${snapshot.workflows.length} tracked workflows are green.`
+          : [
+              failedWorkflows.length > 0
+                ? `${failedWorkflows.length} failed`
+                : "",
+              pendingWorkflows.length > 0
+                ? `${pendingWorkflows.length} pending/unknown`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(", "),
+    },
+    {
+      id: "write-gate",
+      label: "Report write gate",
+      ok: writeGateSummary.canWriteReports,
+      detail: writeGateSummary.message,
+    },
+  ];
+  const passedCount = checks.filter((check) => check.ok).length;
+  const totalCount = checks.length;
+  const blocked =
+    !snapshot.denoLockOk ||
+    failedWorkflows.length > 0 ||
+    !writeGateSummary.canWriteReports;
+  const attention =
+    snapshot.workingTree !== "clean" ||
+    !snapshot.artifactPresent ||
+    pendingWorkflows.length > 0;
+  const status = blocked ? "blocked" : attention ? "attention" : "ready";
+  const reportUrl = buildReleaseReportArtifactUrl(snapshot);
+  const blockerLabels = checks
+    .filter((check) => !check.ok)
+    .map((check) => check.label);
+
+  return {
+    status,
+    label:
+      status === "ready"
+        ? "Ready"
+        : status === "blocked"
+          ? "Blocked"
+          : "Needs review",
+    score: Math.round((passedCount / totalCount) * 100),
+    passedCount,
+    totalCount,
+    reportUrl,
+    reportLabel: `Release report artifacts for ${snapshot.shortSha}`,
+    checks,
+    notification:
+      status === "ready"
+        ? "Release readiness ready: report link may be published after human review."
+        : status === "blocked"
+          ? `Gate failed: reports stay unwritten. Blockers: ${blockerLabels.join(", ")}.`
+          : `Release readiness needs review: ${blockerLabels.join(", ")}.`,
   };
 }
 

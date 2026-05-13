@@ -139,6 +139,8 @@ The focused Stage 3 docs guard is standalone and does not require
       checklist are documented.
 - [x] Full deterministic `preflight:all`, PR summary report artifact, and
       workflow gate checker are documented.
+- [x] CI status page, release readiness dashboard, publishable report link,
+      and gate-failure notification are documented.
 
 ## 9. Sync changelog
 
@@ -249,5 +251,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #77: added `preflight:all`, markdown PR summary output,
   `preflight-all` CI workflow, workflow gate checker/tests, and Stage 3M/3I
   release checklist coverage for full deterministic preflight.
+- PR #79: expanded `/sys/release-status` with a CI status page, release
+  readiness dashboard, publishable GitHub Actions artifact link, and visible
+  gate-failure notification coverage.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.
