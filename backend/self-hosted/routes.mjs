@@ -26,7 +26,8 @@ import {
   assertUuid,
   createPatientWriteService,
 } from "./patient-write-service.mjs";
-import { patientReadScope } from "./rbac.mjs";
+import { patientReadScope, visitReadScope } from "./rbac.mjs";
+import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OPENAPI_4A = JSON.parse(
