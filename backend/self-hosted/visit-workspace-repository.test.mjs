@@ -21,6 +21,7 @@ test("buildListVisitsByPatientSql scopes to clinic ids", () => {
   assert.match(sql, /from visits v/);
   assert.match(sql, new RegExp(`v\\.patient_id = '${PATIENT_ID}'::uuid`));
   assert.match(sql, new RegExp(`v\\.clinic_id in \\('${CLINIC_ID}'::uuid\\)`));
+  assert.match(sql, /jsonb_agg\(row_to_json\(result\) order by result\."startedAt" desc nulls last\)/);
 });
 
 test("buildListVisitsByPatientSql denies access without clinic scope", () => {
@@ -46,6 +47,7 @@ test("buildListVisitLesionsSql filters by visit id", () => {
   assert.match(sql, /from lesions l/);
   assert.match(sql, new RegExp(`l\\.visit_id = '${VISIT_ID}'::uuid`));
   assert.doesNotMatch(sql, /and l\.clinic_id in/);
+  assert.match(sql, /jsonb_agg\(row_to_json\(result\) order by result\."createdAt" asc\)/);
 });
 
 test("buildListVisitAssetsSql exposes only metadata, never object paths", () => {
@@ -57,6 +59,7 @@ test("buildListVisitAssetsSql exposes only metadata, never object paths", () => 
   assert.doesNotMatch(sql, /object_bucket|object_key|checksum/);
   assert.match(sql, /a\.kind/);
   assert.match(sql, /a\.captured_at/);
+  assert.match(sql, /jsonb_agg\(row_to_json\(result\) order by result\."capturedAt" asc nulls last\)/);
 });
 
 test("createVisitWorkspaceRepository normalizes rows from queryJson", async () => {

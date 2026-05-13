@@ -40,6 +40,8 @@ PostgreSQL client used by the container image.
   soft-archive documentation.
 - `db/migrations/0005_stage4h_visit_workspace_writes.sql` — lesion soft archive.
 - `db/migrations/0006_stage4i_asset_write_contract.sql` — asset lookup indexes.
+- `db/migrations/0007_stage4k_deploy_smoke_seed.sql` — harmless visit/lesion
+  seed rows for full compose smoke verification.
 - `Dockerfile` — backend container used by the self-hosted compose stack.
 
 ## Local commands
@@ -63,6 +65,11 @@ npm run preflight:stage4i
 npm run test:stage4j
 npm run check:stage4j
 npm run preflight:stage4j
+npm run test:stage4k
+npm run check:stage4k
+npm run preflight:stage4k
+npm run smoke:stage4k:dry-run
+npm run smoke:stage4k
 node backend/self-hosted/server.mjs
 ```
 
@@ -77,4 +84,5 @@ archive routes. Stage 4G-4H add visit workspace reads/writes. Stage 4I registers
 clinical asset metadata and issues backend-owned download URL contracts. Stage
 4J stores uploaded asset bytes in the self-hosted object store and streams them
 through authenticated backend download routes without exposing object bucket/key
-to the frontend.
+to the frontend. Stage 4K runs a full Docker Compose smoke across frontend,
+backend, PostgreSQL, login, patients, visits, and asset upload/download.
