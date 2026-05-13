@@ -1,0 +1,158 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4A-foundation",
+    "summary": "Self-hosted backend contract for Dermatolog Pro",
+    "description": "Stage 4A fixes the local backend boundary for auth, patients, visits, assets, reports, and audit. Mutating clinical endpoints are contract-first in this stage."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Self-hosted reverse proxy"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthz",
+        "summary": "Backend process health",
+        "responses": {
+          "200": {
+            "description": "The backend process is running"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz",
+        "summary": "Backend dependency readiness",
+        "responses": {
+          "200": {
+            "description": "Required self-hosted dependencies are configured"
+          },
+          "503": {
+            "description": "One or more dependencies are not configured"
+          }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "operationId": "getMeta",
+        "summary": "Read backend capabilities",
+        "responses": {
+          "200": {
+            "description": "Stage 4A capability manifest"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Authenticate a local user",
+        "description": "Contract placeholder for self-hosted username/password authentication. Stage 4A does not implement credential persistence.",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4A"
+          }
+        }
+      }
+    },
+    "/api/v1/patients": {
+      "get": {
+        "operationId": "listPatients",
+        "summary": "List patients visible to the authenticated clinic role",
+        "responses": {
+          "501": {
+            "description": "Contract only in Stage 4A"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPatient",
+        "summary": "Create a patient through the backend",
+        "responses": {
+          "501": {
+            "description": "Contract only in Stage 4A"
+          }
+        }
+      }
+    },
+    "/api/v1/patients/{patientId}": {
+      "parameters": [
+        {
+          "name": "patientId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getPatient",
+        "summary": "Read one patient card",
+        "responses": {
+          "501": {
+            "description": "Contract only in Stage 4A"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePatient",
+        "summary": "Update patient demographics and consent fields",
+        "responses": {
+          "501": {
+            "description": "Contract only in Stage 4A"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePatient",
+        "summary": "Request patient deletion or retention workflow",
+        "responses": {
+          "501": {
+            "description": "Contract only in Stage 4A"
+          }
+        }
+      }
+    },
+    "/api/v1/visits": {
+      "post": {
+        "operationId": "createVisit",
+        "summary": "Create a clinical visit",
+        "responses": {
+          "501": {
+            "description": "Contract only in Stage 4A"
+          }
+        }
+      }
+    },
+    "/api/v1/assets/presign": {
+      "post": {
+        "operationId": "createAssetUploadIntent",
+        "summary": "Create a short-lived upload intent for clinical imaging",
+        "responses": {
+          "501": {
+            "description": "Contract only in Stage 4A"
+          }
+        }
+      }
+    },
+    "/api/v1/audit/events": {
+      "get": {
+        "operationId": "listAuditEvents",
+        "summary": "List sanitized audit events for system administrators",
+        "responses": {
+          "501": {
+            "description": "Contract only in Stage 4A"
+          }
+        }
+      }
+    }
+  }
+}
