@@ -82,6 +82,11 @@ node scripts/check-no-deno-locks.mjs
 `npm run preflight:all` includes Stage 4D after Stage 4A, Stage 4B, and
 Stage 4C.
 
+## 9. Next stage
+
+See [Stage 4E — Frontend patient API integration](./stage-4e-frontend-patient-api.md)
+for the Patients page bridge to the self-hosted Stage 4D API.
+
 ## Non-goals
 
 - No frontend form is wired to the new write endpoints in this slice.

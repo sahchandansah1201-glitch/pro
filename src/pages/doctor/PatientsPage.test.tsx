@@ -1,9 +1,13 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PATIENTS } from "@/lib/mock-data";
+import {
+  SELF_HOSTED_API_BASE_URL_KEY,
+  SELF_HOSTED_API_TOKEN_KEY,
+} from "@/lib/self-hosted-api-session";
 
 import PatientsPage from "./PatientsPage";
 
@@ -15,7 +19,45 @@ function renderPage() {
   );
 }
 
+const LIVE_PATIENT_ID = "11111111-1111-4111-8111-111111111111";
+
+function jsonResponse(body: unknown, init: ResponseInit = {}) {
+  return new Response(JSON.stringify(body), {
+    status: init.status ?? 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function livePatient(overrides: Record<string, unknown> = {}) {
+  return {
+    id: LIVE_PATIENT_ID,
+    code: "DP-live-001",
+    fullName: "Петрова Анна Сергеевна",
+    birthDate: "1990-01-02",
+    sex: "female",
+    phototype: "III",
+    imagingConsent: true,
+    clinic: { id: "c-1", slug: "demo", name: "Demo Clinic" },
+    createdAt: "2026-05-12T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function configureLiveBackend() {
+  window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+  window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-jwt");
+}
+
 describe("PatientsPage", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
   it("shows a new-patient CTA on the patients page", () => {
     renderPage();
 
@@ -368,5 +410,156 @@ describe("PatientsPage", () => {
     ).toHaveValue(
       "1. DP-2026-0001 Иванова Наталья Экспорт: Обновлены данные пациента локально.",
     );
+  });
+
+  it("loads patients from the self-hosted backend when a local backend token is present", async () => {
+    configureLiveBackend();
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ items: [livePatient()] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+
+    expect(
+      screen.getByRole("status", {
+        name: "Статус загрузки пациентов из self-hosted backend",
+      }),
+    ).toHaveTextContent("Загружаем пациентов");
+    expect((await screen.findAllByText("Петрова Анна Сергеевна")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("note", { name: "Ограничения демо-режима пациентов" })).toHaveTextContent(
+      "Self-hosted backend подключён",
+    );
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://localhost:8080/api/v1/patients?limit=200&offset=0");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer local-jwt");
+  });
+
+  it("creates a patient through the self-hosted backend in live mode", async () => {
+    configureLiveBackend();
+    const created = livePatient({
+      id: "22222222-2222-4222-8222-222222222222",
+      code: "DP-live-002",
+      fullName: "Соколова Мария Ивановна",
+      birthDate: "1992-04-03",
+      phototype: "II",
+      imagingConsent: false,
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse({ item: created }, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByRole("button", { name: /Новый пациент/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Новый пациент" });
+    await userEvent.type(within(dialog).getByLabelText("ФИО"), "Соколова Мария Ивановна");
+    await userEvent.type(within(dialog).getByLabelText("Дата рождения"), "1992-04-03");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Создать пациента" }));
+
+    expect((await screen.findAllByText("Соколова Мария Ивановна")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("status", { name: "Статус действий с пациентами" })).toHaveTextContent(
+      "создан в self-hosted backend",
+    );
+    const [, createInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(createInit.method).toBe("POST");
+    expect(JSON.parse(String(createInit.body))).toMatchObject({
+      fullName: "Соколова Мария Ивановна",
+      birthDate: "1992-04-03",
+      sex: "female",
+      phototype: "II",
+      imagingConsent: false,
+    });
+  });
+
+  it("updates a live backend patient instead of writing only local demo state", async () => {
+    configureLiveBackend();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ items: [livePatient()] }))
+      .mockResolvedValueOnce(jsonResponse({ item: livePatient({ fullName: "Петрова Анна Новая" }) }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+    expect((await screen.findAllByText("Петрова Анна Сергеевна")).length).toBeGreaterThan(0);
+    const table = screen.getByRole("table");
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Редактировать пациента Петрова Анна Сергеевна/i,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Редактировать пациента" });
+    expect(within(dialog).getByText(/сохраняются через self-hosted backend/i)).toBeInTheDocument();
+    const nameInput = within(dialog).getByLabelText("ФИО");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Петрова Анна Новая");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Сохранить изменения" }));
+
+    expect((await screen.findAllByText("Петрова Анна Новая")).length).toBeGreaterThan(0);
+    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe(`http://localhost:8080/api/v1/patients/${LIVE_PATIENT_ID}`);
+    expect(init.method).toBe("PATCH");
+  });
+
+  it("archives a live backend patient through soft-delete API without showing demo undo", async () => {
+    configureLiveBackend();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ items: [livePatient()] }))
+      .mockResolvedValueOnce(jsonResponse({ archived: true, item: livePatient() }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+    expect((await screen.findAllByText("Петрова Анна Сергеевна")).length).toBeGreaterThan(0);
+    const table = screen.getByRole("table");
+    await userEvent.click(
+      within(table).getByRole("button", {
+        name: /Удалить пациента Петрова Анна Сергеевна/i,
+      }),
+    );
+    const alert = await screen.findByRole("alertdialog", { name: "Архивировать пациента?" });
+    expect(alert).toHaveTextContent("Физическое удаление не выполняется");
+    await userEvent.click(within(alert).getByRole("button", { name: "Архивировать" }));
+
+    await waitFor(() => {
+      expect(within(table).queryByRole("link", { name: "Петрова Анна Сергеевна" })).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Отменить удаление" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Статус действий с пациентами" })).toHaveTextContent(
+      "архивирован в self-hosted backend",
+    );
+    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe(`http://localhost:8080/api/v1/patients/${LIVE_PATIENT_ID}`);
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("surfaces backend RBAC/list errors without hiding the safe demo fallback", async () => {
+    configureLiveBackend();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            error: {
+              code: "forbidden",
+              message: "The authenticated user does not have access to this resource.",
+            },
+            correlationId: "cid-403",
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole("status", { name: "Статус действий с пациентами" })).toHaveTextContent(
+      "Недостаточно прав",
+    );
+    expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
+    expect(screen.getAllByText("Иванова Наталья Олеговна").length).toBeGreaterThan(0);
   });
 });

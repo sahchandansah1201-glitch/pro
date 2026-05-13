@@ -1,0 +1,57 @@
+name: stage4e-frontend-patient-api
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/self-hosted-api-session.ts"
+      - "src/lib/self-hosted-patient-api.ts"
+      - "src/lib/self-hosted-patient-api.test.ts"
+      - "src/pages/doctor/PatientsPage.tsx"
+      - "src/pages/doctor/PatientsPage.test.tsx"
+      - "docs/backend/stage-4e-frontend-patient-api.md"
+      - "scripts/check-stage4e-frontend-patient-api.mjs"
+      - "scripts/check-stage4e-frontend-patient-api.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4e-frontend-patient-api.yml"
+  push:
+    paths:
+      - "src/lib/self-hosted-api-session.ts"
+      - "src/lib/self-hosted-patient-api.ts"
+      - "src/lib/self-hosted-patient-api.test.ts"
+      - "src/pages/doctor/PatientsPage.tsx"
+      - "src/pages/doctor/PatientsPage.test.tsx"
+      - "docs/backend/stage-4e-frontend-patient-api.md"
+      - "scripts/check-stage4e-frontend-patient-api.mjs"
+      - "scripts/check-stage4e-frontend-patient-api.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4e-frontend-patient-api.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4e-frontend-patient-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 4E preflight
+        run: npm run preflight:stage4e
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4E frontend patient API"
+            echo ""
+            echo "- preflight: \`npm run preflight:stage4e\`"
+            echo "- scope: PatientsPage live/demo bridge to self-hosted /api/v1/patients"
+            echo "- managed backend runtime: not used"
+            echo "- demo fallback: preserved when local backend token is missing"
+          } >> "$GITHUB_STEP_SUMMARY"
