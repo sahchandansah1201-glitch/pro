@@ -480,3 +480,226 @@ test("unknown routes and unsupported methods return the common JSON error shape"
   assert.equal(put.status, 405);
   assert.equal(put.json.error.code, "method_not_allowed");
 });
+
+// =====================================================================
+// Stage 4G · self-hosted visit workspace read endpoints
+// =====================================================================
+
+function visitWorkspaceRuntime({
+  visitsByPatient = [],
+  visit = null,
+  lesions = [],
+  assets = [],
+  authContext,
+  auditEvents = [],
+  authError,
+} = {}) {
+  return {
+    ...createRuntime({ authContext, auditEvents, authError }),
+    visitWorkspaceRepository: {
+      async listVisitsByPatient() {
+        return visitsByPatient;
+      },
+      async getVisit() {
+        return visit;
+      },
+      async listVisitLesions() {
+        return lesions;
+      },
+      async listVisitAssets() {
+        return assets;
+      },
+    },
+  };
+}
+
+const STAGE4G_VISIT_ID = "10000000-0000-4000-8000-000000000301";
+const STAGE4G_PATIENT_ID = "10000000-0000-4000-8000-000000000201";
+const STAGE4G_CLINIC_ID = "10000000-0000-4000-8000-000000000001";
+
+test("Stage 4G · GET /api/v1/patients/{id}/visits returns role-scoped read-only data", async () => {
+  const auditEvents = [];
+  const runtime = visitWorkspaceRuntime({
+    auditEvents,
+    visitsByPatient: [
+      {
+        id: STAGE4G_VISIT_ID,
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        doctorUserId: "10000000-0000-4000-8000-000000000101",
+        status: "in_progress",
+        startedAt: "2026-05-12T09:00:00.000Z",
+        signedAt: null,
+        chiefComplaint: "follow-up",
+        createdAt: "2026-05-12T09:00:00.000Z",
+        updatedAt: "2026-05-12T09:00:00.000Z",
+      },
+    ],
+  });
+  const response = await request(
+    `/api/v1/patients/${STAGE4G_PATIENT_ID}/visits`,
+    configuredEnv,
+    runtime,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "4G");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.count, 1);
+  assert.equal(response.json.items[0].status, "in_progress");
+  assert.equal(auditEvents[0].action, "visit.list");
+  assert.doesNotMatch(response.body, /password|object_key|signed url|secret/i);
+});
+
+test("Stage 4G · GET /api/v1/visits/{id} returns visit detail and audit", async () => {
+  const auditEvents = [];
+  const runtime = visitWorkspaceRuntime({
+    auditEvents,
+    visit: {
+      id: STAGE4G_VISIT_ID,
+      clinicId: STAGE4G_CLINIC_ID,
+      patientId: STAGE4G_PATIENT_ID,
+      doctorUserId: null,
+      status: "in_progress",
+      startedAt: "2026-05-12T09:00:00.000Z",
+      signedAt: null,
+      chiefComplaint: null,
+      createdAt: "2026-05-12T09:00:00.000Z",
+      updatedAt: "2026-05-12T09:00:00.000Z",
+      patient: { id: STAGE4G_PATIENT_ID, fullName: "Demo Patient One", code: "DP-DEMO-0001" },
+      clinic: { id: STAGE4G_CLINIC_ID, slug: "demo-clinic", name: "Dermatolog Pro Demo Clinic" },
+    },
+  });
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}`,
+    configuredEnv,
+    runtime,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.item.patient.fullName, "Demo Patient One");
+  assert.equal(response.json.item.clinic.slug, "demo-clinic");
+  assert.equal(auditEvents[0].action, "visit.read");
+});
+
+test("Stage 4G · visit detail returns 404 when not in scope", async () => {
+  const runtime = visitWorkspaceRuntime({ visit: null });
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}`,
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(response.status, 404);
+  assert.equal(response.json.error.code, "visit_not_found");
+});
+
+test("Stage 4G · GET /api/v1/visits/{id}/lesions returns lesion list and audit", async () => {
+  const auditEvents = [];
+  const runtime = visitWorkspaceRuntime({
+    auditEvents,
+    lesions: [
+      {
+        id: "lesion-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        label: "L1",
+        bodyZone: "спина",
+        bodySurface: null,
+        status: "active",
+        riskLevel: "moderate",
+        createdAt: "2026-05-12T09:00:00.000Z",
+        updatedAt: "2026-05-12T09:00:00.000Z",
+      },
+    ],
+  });
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/lesions`,
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.items[0].label, "L1");
+  assert.equal(auditEvents[0].action, "visit.lesions");
+});
+
+test("Stage 4G · GET /api/v1/visits/{id}/assets returns metadata only", async () => {
+  const auditEvents = [];
+  const runtime = visitWorkspaceRuntime({
+    auditEvents,
+    assets: [
+      {
+        id: "asset-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        lesionId: "lesion-1",
+        kind: "dermoscopy",
+        contentType: "image/jpeg",
+        byteSize: 2048,
+        capturedAt: "2026-05-12T09:00:00.000Z",
+        uploadedBy: "10000000-0000-4000-8000-000000000101",
+        createdAt: "2026-05-12T09:00:00.000Z",
+      },
+    ],
+  });
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/assets`,
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.items[0].kind, "dermoscopy");
+  assert.doesNotMatch(response.body, /object_bucket|object_key|signed/i);
+  assert.equal(auditEvents[0].action, "visit.assets");
+});
+
+test("Stage 4G · visit endpoints require auth and reject roles without read scope", async () => {
+  const anonymous = await request(
+    `/api/v1/patients/${STAGE4G_PATIENT_ID}/visits`,
+    configuredEnv,
+    visitWorkspaceRuntime({ authContext: null }),
+  );
+  assert.equal(anonymous.status, 401);
+  assert.equal(anonymous.json.error.code, "auth_required");
+
+  const denied = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/lesions`,
+    configuredEnv,
+    visitWorkspaceRuntime({
+      authContext: { userId: "u", displayName: "X", roles: ["operator"], clinicIds: [], roleBindings: [], token: {} },
+      authError: new ForbiddenError(),
+    }),
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
+});
+
+test("Stage 4G · invalid uuid in path is rejected with validation error", async () => {
+  const response = await request(
+    "/api/v1/visits/not-a-uuid/lesions",
+    configuredEnv,
+    visitWorkspaceRuntime(),
+  );
+  assert.equal(response.status, 422);
+  assert.equal(response.json.error.code, "validation_error");
+});
+
+test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoints", async () => {
+  const response = await request("/openapi.stage4g.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "4G-visit-workspace");
+  assert.ok(response.json.paths["/api/v1/patients/{patientId}/visits"]);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}"]);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesions"]);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets"]);
+});
+
+test("Stage 4G · /api/v1/meta exposes 4G capabilities and links", async () => {
+  const response = await request("/api/v1/meta", configuredEnv);
+  assert.equal(response.status, 200);
+  assert.equal(response.json.capabilities.visits, "rbac-read-postgres");
+  assert.equal(response.json.capabilities.assets, "rbac-read-metadata-postgres");
+  assert.equal(response.json.links.openapiStage4G, "/openapi.stage4g.json");
+  assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");
+});
