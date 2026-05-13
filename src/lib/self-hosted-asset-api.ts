@@ -94,6 +94,43 @@ async function requestJson(
   return ok(body);
 }
 
+async function requestBlob(
+  url: string,
+  init: RequestInit,
+): Promise<AssetsApiResult<Blob>> {
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch {
+    return fail({
+      kind: "network",
+      message: "Сбой сети при загрузке снимка из self-hosted backend.",
+    });
+  }
+  if (!response.ok) {
+    const body = await parseJsonSafe(response);
+    return fail(apiErrorFromBody(response, body));
+  }
+  return ok(await response.blob());
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  const arrayBuffer =
+    typeof file.arrayBuffer === "function"
+      ? await file.arrayBuffer()
+      : await new Response(file).arrayBuffer();
+  return bytesToBase64(new Uint8Array(arrayBuffer));
+}
+
 function frontendKind(kind: unknown): SafeAssetDTO["kind"] {
   if (kind === "dermoscopy") return "dermoscopy";
   if (kind === "report_attachment") return "macro";
@@ -163,6 +200,7 @@ export async function uploadSelfHostedVisitAsset(
     args.baseUrl,
     `/api/v1/visits/${encodeURIComponent(args.visitId)}/assets`,
   );
+  const dataBase64 = await fileToBase64(args.file);
   const result = await requestJson(url, {
     method: "POST",
     headers: {
@@ -174,6 +212,7 @@ export async function uploadSelfHostedVisitAsset(
       kind: backendKind(args.kind),
       contentType: args.file.type || "application/octet-stream",
       byteSize: args.file.size,
+      dataBase64,
       originalFileName: args.file.name,
       lesionId: args.lesionId ?? null,
       capturedAt: args.capturedAt ?? new Date().toISOString(),
@@ -207,13 +246,23 @@ export async function getSelfHostedAssetDownloadUrl(
   const item = extractItem(result.value);
   if (!item) return fail({ kind: "http", message: "Backend вернул пустую ссылку." });
   const rawUrl = String(item.downloadUrl ?? "");
+  const downloadUrl = rawUrl.startsWith("/")
+    ? buildSelfHostedApiUrl(args.baseUrl, rawUrl)
+    : rawUrl;
+  const blobResult = await requestBlob(downloadUrl, {
+    method: "GET",
+    headers: authHeaders(args.token as string),
+  });
+  if (!blobResult.ok) return fail(blobResult.error as AssetsApiError);
+  const objectUrl =
+    typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+      ? URL.createObjectURL(blobResult.value as Blob)
+      : downloadUrl;
   return ok({
     assetId: String(item.assetId ?? args.assetId),
     clinicId: String(item.clinicId ?? ""),
     visitId: String(item.visitId ?? ""),
-    downloadUrl: rawUrl.startsWith("/")
-      ? buildSelfHostedApiUrl(args.baseUrl, rawUrl)
-      : rawUrl,
+    downloadUrl: objectUrl,
     expiresIn: Number(item.expiresIn ?? 0),
     expiresAt: String(item.expiresAt ?? ""),
   });

@@ -64,6 +64,7 @@ test("buildObjectKey creates deterministic backend-owned path", () => {
 
 function createService(overrides = {}) {
   const audits = [];
+  const storedObjects = [];
   const visitWorkspaceRepository = {
     async getVisit() {
       return {
@@ -118,13 +119,29 @@ function createService(overrides = {}) {
       audits.push(event);
     },
   };
+  const objectStore = {
+    async putObject(object) {
+      storedObjects.push(object);
+      return { byteSize: object.bytes.byteLength };
+    },
+    async getObject() {
+      return {
+        bytes: Buffer.from("download-bytes", "utf8"),
+        byteSize: Buffer.byteLength("download-bytes"),
+        contentType: "image/png",
+      };
+    },
+    ...overrides.objectStore,
+  };
   return {
     audits,
+    storedObjects,
     service: createAssetWriteService({
       config: { objectStorageBucket: "clinical-assets" },
       visitWorkspaceRepository,
       assetWriteRepository,
       auditRepository,
+      objectStore,
       now: () => "2026-05-12T09:10:11.000Z",
       uuid: () => "20000000-0000-4000-8000-000000000999",
     }),
@@ -152,6 +169,45 @@ test("createVisitAsset registers metadata, returns safe DTO and audits", async (
   assert.equal(result.asset.objectKey, undefined);
   assert.equal(audits[0].action, "asset.create");
   assert.equal(audits[0].metadata.kind, "dermoscopy");
+});
+
+test("createVisitAsset stores decoded bytes and verifies checksum", async () => {
+  const data = Buffer.from("binary-image");
+  const checksumSha256 = "3a265d560b5dba77707bcbcdf07e250c3a05e6f4d3f2e7714e5819b0619846a8";
+  const { service, audits, storedObjects } = createService();
+
+  const result = await service.createVisitAsset(
+    VISIT_ID,
+    {
+      kind: "overview_photo",
+      contentType: "image/png",
+      byteSize: data.byteLength,
+      checksumSha256,
+      dataBase64: data.toString("base64"),
+      originalFileName: "spot.png",
+    },
+    authContext,
+    { correlationId: "c-asset-bytes" },
+  );
+
+  assert.equal(result.asset.byteSize, data.byteLength);
+  assert.equal(storedObjects.length, 1);
+  assert.equal(String(storedObjects[0].bytes), "binary-image");
+  assert.equal(storedObjects[0].contentType, "image/png");
+  assert.equal(storedObjects[0].checksumSha256, checksumSha256);
+  assert.equal(audits[0].metadata.binaryStored, true);
+
+  assert.throws(
+    () =>
+      normalizeCreateAssetPayload({
+        contentType: "image/png",
+        byteSize: data.byteLength + 1,
+        dataBase64: data.toString("base64"),
+      }),
+    (error) =>
+      Array.isArray(error.publicDetails) &&
+      error.publicDetails.some((detail) => String(detail.message).includes("byteSize must match")),
+  );
 });
 
 test("createVisitAsset rejects lesion outside visit scope", async () => {
@@ -183,4 +239,15 @@ test("getAssetDownloadUrl returns safe backend route and audits without object p
   assert.equal(result.asset.objectKey, undefined);
   assert.equal(audits[0].action, "asset.download_url");
   assert.equal(audits[0].metadata.objectStorageBacked, true);
+});
+
+test("downloadAsset streams bytes through authenticated backend without object path leakage", async () => {
+  const { service, audits } = createService();
+  const result = await service.downloadAsset(ASSET_ID, authContext, { correlationId: "c-download" });
+
+  assert.equal(String(result.object.bytes), "download-bytes");
+  assert.equal(result.object.contentType, "image/png");
+  assert.equal(result.asset.objectKey, undefined);
+  assert.equal(audits[0].action, "asset.download");
+  assert.equal(audits[0].metadata.byteSize, Buffer.byteLength("download-bytes"));
 });

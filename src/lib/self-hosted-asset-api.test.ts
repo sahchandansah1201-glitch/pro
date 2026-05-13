@@ -61,7 +61,7 @@ describe("self-hosted-asset-api", () => {
     );
   });
 
-  it("registers upload metadata without posting binary form data", async () => {
+  it("uploads asset bytes as base64 JSON without exposing object keys", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -79,6 +79,10 @@ describe("self-hosted-asset-api", () => {
       ),
     );
     const file = new File(["x"], "spot.png", { type: "image/png" });
+    Object.defineProperty(file, "arrayBuffer", {
+      configurable: true,
+      value: async () => new Uint8Array([120]).buffer,
+    });
 
     const result = await uploadSelfHostedVisitAsset({
       token: TOKEN,
@@ -94,10 +98,16 @@ describe("self-hosted-asset-api", () => {
     expect(init.method).toBe("POST");
     expect(init.body).toEqual(expect.any(String));
     expect(String(init.body)).toContain('"contentType":"image/png"');
+    expect(String(init.body)).toContain('"dataBase64":"eA=="');
     expect(String(init.body)).not.toContain("object_key");
   });
 
-  it("expands backend-relative download URL against base URL", async () => {
+  it("fetches backend-relative download URL with bearer token and returns object URL", async () => {
+    const createObjectURL = vi.fn(() => "blob:self-hosted-asset");
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL,
+    });
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -113,6 +123,12 @@ describe("self-hosted-asset-api", () => {
         { status: 200 },
       ),
     );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(new Blob(["asset-bytes"], { type: "image/png" }), {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      }),
+    );
 
     const result = await getSelfHostedAssetDownloadUrl({
       token: TOKEN,
@@ -122,7 +138,16 @@ describe("self-hosted-asset-api", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.value?.downloadUrl).toBe(`${BASE}/api/v1/assets/${ASSET_ID}/download`);
+    expect(result.value?.downloadUrl).toBe("blob:self-hosted-asset");
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      `${BASE}/api/v1/assets/${ASSET_ID}/download`,
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
+      }),
+    );
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(result.value)).not.toMatch(/object_key|storage_object_path|access_token/);
   });
 });

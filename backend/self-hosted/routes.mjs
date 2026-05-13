@@ -31,6 +31,7 @@ import {
   createAssetWriteService,
   normalizeDownloadUrlParams,
 } from "./asset-write-service.mjs";
+import { createLocalObjectStore } from "./object-store.mjs";
 import { patientReadScope, visitReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
 import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
@@ -58,6 +59,11 @@ const OPENAPI_4H = JSON.parse(
 const OPENAPI_4I = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4i.json"), "utf8"),
 );
+const OPENAPI_4J = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4j.json"), "utf8"),
+);
+
+const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
 function getRuntime(config, runtime = {}) {
   const dbClient = runtime.dbClient || createPostgresClient(config);
@@ -91,6 +97,7 @@ function getRuntime(config, runtime = {}) {
     });
   const assetWriteRepository =
     runtime.assetWriteRepository || createAssetWriteRepository(dbClient);
+  const objectStore = runtime.objectStore || createLocalObjectStore(config);
   const assetWriteService =
     runtime.assetWriteService ||
     createAssetWriteService({
@@ -98,6 +105,7 @@ function getRuntime(config, runtime = {}) {
       visitWorkspaceRepository,
       assetWriteRepository,
       auditRepository,
+      objectStore,
     });
   return {
     assetWriteRepository,
@@ -157,7 +165,9 @@ function publicErrorFor(error) {
     forbidden: "The authenticated user does not have access to this resource.",
     invalid_credentials: "Invalid credentials.",
     invalid_token: "Invalid or expired authorization token.",
+    asset_binary_not_found: "Asset binary was not found in the self-hosted object store.",
     asset_not_found: "Asset was not found in the allowed clinic scope.",
+    object_storage_unavailable: "Object storage is unavailable for the self-hosted backend.",
     patient_not_found: "Patient was not found in the allowed clinic scope.",
     visit_not_found: "Visit was not found in the allowed clinic scope.",
     lesion_not_found: "Lesion was not found in the allowed clinic scope.",
@@ -193,6 +203,34 @@ function parseJsonBody(body) {
     error.publicStatus = 400;
     throw error;
   }
+}
+
+function safeContentDispositionFileName(asset) {
+  const ext = String(asset?.contentType || "").includes("png")
+    ? "png"
+    : String(asset?.contentType || "").includes("jpeg") || String(asset?.contentType || "").includes("jpg")
+      ? "jpg"
+      : String(asset?.contentType || "").includes("webp")
+        ? "webp"
+        : String(asset?.contentType || "").includes("pdf")
+          ? "pdf"
+          : "bin";
+  return `asset-${String(asset?.id || "download").slice(0, 8)}.${ext}`;
+}
+
+function binaryResponse(status, { body, contentType, fileName, correlationId }, config, requestOrigin) {
+  return {
+    status,
+    headers: {
+      ...corsHeaders(config, requestOrigin),
+      "content-type": contentType || "application/octet-stream",
+      "content-length": String(body?.byteLength ?? 0),
+      "cache-control": "no-store",
+      "content-disposition": `inline; filename="${fileName || "asset.bin"}"`,
+      "x-correlation-id": correlationId,
+    },
+    body,
+  };
 }
 
 function patientIdFromPath(pathname) {
@@ -695,6 +733,34 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const assetDownloadMatch = url.pathname.match(
+    /^\/api\/v1\/assets\/([^/]+)\/download$/,
+  );
+  if (assetDownloadMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.assetWriteService.downloadAsset(
+        decodeURIComponent(assetDownloadMatch[1]),
+        authContext,
+        { correlationId },
+      );
+      return binaryResponse(
+        200,
+        {
+          body: result.object.bytes,
+          contentType: result.object.contentType,
+          fileName: safeContentDispositionFileName(result.asset),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Stage 4H · self-hosted visit workspace write endpoints.
   if (visitDetailMatch && method === "PATCH") {
     try {
@@ -838,7 +904,7 @@ export async function handleSelfHostedRequest(
     return errorResponse({
       status: 405,
       code: "method_not_allowed",
-      message: "This self-hosted backend route does not allow the requested method in Stage 4I.",
+      message: "This self-hosted backend route does not allow the requested method in Stage 4J.",
       correlationId,
       config,
       requestOrigin,
@@ -971,7 +1037,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4I",
+        stage: "4J",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -979,12 +1045,12 @@ export async function handleSelfHostedRequest(
           patients: "rbac-read-write-postgres",
           visits: "rbac-read-write-postgres",
           lesions: "rbac-read-write-postgres",
-          assets: "rbac-read-write-postgres-backend-url",
+          assets: "rbac-read-write-postgres-backend-url-local-object-store",
           reports: "rbac-write-postgres",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4i.json",
+          openapi: "/openapi.stage4j.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
@@ -992,6 +1058,7 @@ export async function handleSelfHostedRequest(
           openapiStage4G: "/openapi.stage4g.json",
           openapiStage4H: "/openapi.stage4h.json",
           openapiStage4I: "/openapi.stage4i.json",
+          openapiStage4J: "/openapi.stage4j.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           patients: "/api/v1/patients",
@@ -1000,6 +1067,7 @@ export async function handleSelfHostedRequest(
           visitLesions: "/api/v1/visits/{visitId}/lesions",
           visitAssets: "/api/v1/visits/{visitId}/assets",
           assetDownloadUrl: "/api/v1/assets/{assetId}/download-url",
+          assetDownload: "/api/v1/assets/{assetId}/download",
           visitReport: "/api/v1/visits/{visitId}/report",
           lesion: "/api/v1/lesions/{lesionId}",
           health: "/healthz",
@@ -1041,10 +1109,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4I, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4j.json") {
+    return jsonResponse(200, OPENAPI_4J, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4I self-hosted backend route matched the request.",
+    message: "No Stage 4J self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,
@@ -1081,11 +1153,20 @@ function readNodeRequestBody(req, maxBytes = 64_000) {
   });
 }
 
+function requestBodyLimitFor(req) {
+  const method = String(req.method || "").toUpperCase();
+  const url = String(req.url || "");
+  if (method === "POST" && /^\/api\/v1\/visits\/[^/]+\/assets(?:\?|$)/.test(url)) {
+    return LARGE_JSON_BODY_LIMIT_BYTES;
+  }
+  return 64_000;
+}
+
 export function createNodeHandler(config) {
   return async (req, res) => {
     let response;
     try {
-      const body = await readNodeRequestBody(req);
+      const body = await readNodeRequestBody(req, requestBodyLimitFor(req));
       response = await handleSelfHostedRequest(
         {
           method: req.method,
