@@ -386,6 +386,201 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Stage 4G · self-hosted visit workspace read endpoints.
+  const patientVisitsMatch = url.pathname.match(
+    /^\/api\/v1\/patients\/([^/]+)\/visits$/,
+  );
+  if (patientVisitsMatch && method === "GET") {
+    try {
+      const safePatientId = assertUuid(decodeURIComponent(patientVisitsMatch[1]));
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = visitReadScope(authContext);
+      const items = await runtimeServices.visitWorkspaceRepository.listVisitsByPatient({
+        patientId: safePatientId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      await recordAuditBestEffort(runtimeServices.auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "visit.list",
+        entityType: "visit",
+        entityId: safePatientId,
+        correlationId,
+        metadata: { patientId: safePatientId, count: items.length, allClinics: scope.allClinics },
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "4G",
+          source: "postgres",
+          patientId: safePatientId,
+          items,
+          count: items.length,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const visitDetailMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)$/);
+  if (visitDetailMatch && method === "GET") {
+    try {
+      const safeVisitId = assertUuid(decodeURIComponent(visitDetailMatch[1]), "visitId");
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = visitReadScope(authContext);
+      const item = await runtimeServices.visitWorkspaceRepository.getVisit({
+        visitId: safeVisitId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!item) {
+        return errorResponse({
+          status: 404,
+          code: "visit_not_found",
+          message: "Visit was not found in the allowed clinic scope.",
+          correlationId,
+          config,
+          requestOrigin,
+        });
+      }
+      await recordAuditBestEffort(runtimeServices.auditRepository, {
+        clinicId: item.clinic.id || null,
+        actorUserId: authContext.userId,
+        action: "visit.read",
+        entityType: "visit",
+        entityId: item.id,
+        correlationId,
+        metadata: { allClinics: scope.allClinics },
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "4G",
+          source: "postgres",
+          item,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const visitLesionsMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/lesions$/,
+  );
+  if (visitLesionsMatch && method === "GET") {
+    try {
+      const safeVisitId = assertUuid(decodeURIComponent(visitLesionsMatch[1]), "visitId");
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = visitReadScope(authContext);
+      const items = await runtimeServices.visitWorkspaceRepository.listVisitLesions({
+        visitId: safeVisitId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      await recordAuditBestEffort(runtimeServices.auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "visit.lesions",
+        entityType: "lesion",
+        entityId: safeVisitId,
+        correlationId,
+        metadata: { visitId: safeVisitId, count: items.length, allClinics: scope.allClinics },
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "4G",
+          source: "postgres",
+          visitId: safeVisitId,
+          items,
+          count: items.length,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const visitAssetsMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/assets$/,
+  );
+  if (visitAssetsMatch && method === "GET") {
+    try {
+      const safeVisitId = assertUuid(decodeURIComponent(visitAssetsMatch[1]), "visitId");
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = visitReadScope(authContext);
+      const items = await runtimeServices.visitWorkspaceRepository.listVisitAssets({
+        visitId: safeVisitId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      await recordAuditBestEffort(runtimeServices.auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "visit.assets",
+        entityType: "clinical_asset",
+        entityId: safeVisitId,
+        correlationId,
+        metadata: { visitId: safeVisitId, count: items.length, allClinics: scope.allClinics },
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "4G",
+          source: "postgres",
+          visitId: safeVisitId,
+          items,
+          count: items.length,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (method !== "GET") {
     return errorResponse({
       status: 405,
