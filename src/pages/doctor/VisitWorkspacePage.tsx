@@ -169,6 +169,8 @@ export default function VisitWorkspacePage() {
         }
       />
 
+      <VisitWorkspaceLiveBanner visitId={visit.id} />
+
       <Tabs
         value={activeTab}
         onValueChange={(v) => updateNav(v as TabKey, lesionParam)}
