@@ -1,0 +1,43 @@
+name: stage4g-self-hosted-visit-workspace
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-visit-api.ts"
+      - "src/lib/self-hosted-visit-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveBanner.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveBanner.test.tsx"
+      - "src/pages/doctor/VisitWorkspacePage.tsx"
+      - "scripts/check-stage4g-self-hosted-visit-workspace.mjs"
+      - "scripts/check-stage4g-self-hosted-visit-workspace.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "docs/backend/stage-4g-self-hosted-visit-workspace.md"
+      - ".github/workflows/stage4g-self-hosted-visit-workspace.yml"
+      - "package.json"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  preflight-stage4g:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Stage 4G preflight
+        run: npm run preflight:stage4g
+      - name: PR Stage 4G summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4G self-hosted visit workspace"
+            echo ""
+            echo "- Backend: GET /api/v1/patients/{id}/visits, /api/v1/visits/{id}, /lesions, /assets"
+            echo "- Frontend: VisitWorkspaceLiveBanner live/demo switch"
+            echo "- No managed-runtime coupling"
+          } >> "$GITHUB_STEP_SUMMARY"
