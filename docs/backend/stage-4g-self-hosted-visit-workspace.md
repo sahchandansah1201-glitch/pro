@@ -34,6 +34,12 @@ enforce `visitReadScope` (doctors, clinic admins, system admins), and emit
 The rest of the page continues to read mock data; live writes/uploads are out
 of scope for Stage 4G.
 
+## Next stage
+
+Stage 4H adds RBAC-protected JSON write endpoints for the visit workspace before
+any binary asset upload or object-storage write flow is enabled. See
+`docs/backend/stage-4h-visit-workspace-writes.md`.
+
 ## Verification
 
 ```

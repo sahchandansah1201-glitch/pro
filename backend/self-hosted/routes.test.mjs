@@ -180,13 +180,14 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4D");
+  assert.equal(meta.json.stage, "4H");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
-  assert.equal(meta.json.links.openapi, "/openapi.stage4d.json");
+  assert.equal(meta.json.links.openapi, "/openapi.stage4h.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
   assert.equal(meta.json.links.openapiStage4B, "/openapi.stage4b.json");
   assert.equal(meta.json.links.openapiStage4C, "/openapi.stage4c.json");
+  assert.equal(meta.json.links.openapiStage4H, "/openapi.stage4h.json");
   assert.equal(meta.json.service.objectStorageBucket, "medical-assets");
   assert.doesNotMatch(meta.body, /secret|postgres:\/\//);
 
@@ -211,6 +212,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi4d.status, 200);
   assert.equal(openapi4d.json.info.version, "4D-patient-writes");
   assert.equal(openapi4d.json.paths["/api/v1/patients"].post.responses["201"].description, "Patient created");
+
+  const openapi4h = await request("/openapi.stage4h.json");
+  assert.equal(openapi4h.status, 200);
+  assert.equal(openapi4h.json.info.version, "4H-visit-workspace-writes");
+  assert.ok(openapi4h.json.paths["/api/v1/visits/{visitId}/report"].patch);
 });
 
 test("auth login returns a bearer token without leaking password material", async () => {
@@ -513,6 +519,44 @@ function visitWorkspaceRuntime({
   };
 }
 
+function visitWorkspaceWriteRuntime({
+  updatedVisit = null,
+  createdLesion = null,
+  updatedLesion = null,
+  archivedLesion = null,
+  upsertedReport = null,
+  authContext,
+  auditEvents = [],
+  authError,
+  writeError = null,
+} = {}) {
+  return {
+    ...visitWorkspaceRuntime({ authContext, auditEvents, authError }),
+    visitWorkspaceWriteService: {
+      async updateVisit() {
+        if (writeError) throw writeError;
+        return { visit: updatedVisit, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async createLesion() {
+        if (writeError) throw writeError;
+        return { lesion: createdLesion, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async updateLesion() {
+        if (writeError) throw writeError;
+        return { lesion: updatedLesion, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async archiveLesion() {
+        if (writeError) throw writeError;
+        return { lesion: archivedLesion, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async updateReport() {
+        if (writeError) throw writeError;
+        return { report: upsertedReport, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+    },
+  };
+}
+
 const STAGE4G_VISIT_ID = "10000000-0000-4000-8000-000000000301";
 const STAGE4G_PATIENT_ID = "10000000-0000-4000-8000-000000000201";
 const STAGE4G_CLINIC_ID = "10000000-0000-4000-8000-000000000001";
@@ -698,8 +742,147 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes 4G capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.capabilities.visits, "rbac-read-postgres");
+  assert.equal(response.json.stage, "4H");
+  assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
+  assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-metadata-postgres");
   assert.equal(response.json.links.openapiStage4G, "/openapi.stage4g.json");
+  assert.equal(response.json.links.openapiStage4H, "/openapi.stage4h.json");
   assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");
+  assert.equal(response.json.links.visitReport, "/api/v1/visits/{visitId}/report");
+});
+
+// =====================================================================
+// Stage 4H · self-hosted visit workspace write endpoints
+// =====================================================================
+
+test("Stage 4H · PATCH /api/v1/visits/{id} updates visit JSON fields", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}`,
+    configuredEnv,
+    visitWorkspaceWriteRuntime({
+      updatedVisit: {
+        id: STAGE4G_VISIT_ID,
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        status: "in_progress",
+        chiefComplaint: "контроль динамики",
+      },
+    }),
+    "PATCH",
+    JSON.stringify({ chiefComplaint: "контроль динамики" }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "4H");
+  assert.equal(response.json.item.chiefComplaint, "контроль динамики");
+  assert.doesNotMatch(response.body, /password_hash|object_key|access_token|postgres:\/\/|secret/i);
+});
+
+test("Stage 4H · lesion create, update and soft archive routes return audit-safe JSON", async () => {
+  const lesion = {
+    id: "10000000-0000-4000-8000-000000000401",
+    clinicId: STAGE4G_CLINIC_ID,
+    patientId: STAGE4G_PATIENT_ID,
+    visitId: STAGE4G_VISIT_ID,
+    label: "L1",
+    status: "active",
+  };
+  const runtime = visitWorkspaceWriteRuntime({
+    createdLesion: lesion,
+    updatedLesion: { ...lesion, label: "L2", riskLevel: "moderate" },
+    archivedLesion: { ...lesion, status: "archived", deletedAt: "2026-05-13T00:00:00.000Z" },
+  });
+
+  const created = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/lesions`,
+    configuredEnv,
+    runtime,
+    "POST",
+    JSON.stringify({ label: "L1", riskLevel: "moderate" }),
+  );
+  assert.equal(created.status, 201);
+  assert.equal(created.json.item.label, "L1");
+
+  const updated = await request(
+    `/api/v1/lesions/${lesion.id}`,
+    configuredEnv,
+    runtime,
+    "PATCH",
+    JSON.stringify({ label: "L2" }),
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.item.label, "L2");
+
+  const archived = await request(
+    `/api/v1/lesions/${lesion.id}`,
+    configuredEnv,
+    runtime,
+    "DELETE",
+    JSON.stringify({ reason: "duplicate" }),
+  );
+  assert.equal(archived.status, 200);
+  assert.equal(archived.json.archived, true);
+  assert.equal(archived.json.item.status, "archived");
+  assert.doesNotMatch(archived.body, /object_bucket|object_key|signed|storage_object_path/i);
+});
+
+test("Stage 4H · PATCH /api/v1/visits/{id}/report upserts report text", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/report`,
+    configuredEnv,
+    visitWorkspaceWriteRuntime({
+      upsertedReport: {
+        id: "10000000-0000-4000-8000-000000000501",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "draft",
+        physicianText: "Описание для врача",
+        patientSafeText: "Рекомендован контроль у врача.",
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      physicianText: "Описание для врача",
+      patientSafeText: "Рекомендован контроль у врача.",
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "4H");
+  assert.equal(response.json.item.patientSafeText, "Рекомендован контроль у врача.");
+});
+
+test("Stage 4H · write routes validate JSON and RBAC", async () => {
+  const malformed = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/report`,
+    configuredEnv,
+    visitWorkspaceWriteRuntime(),
+    "PATCH",
+    "{bad json",
+  );
+  assert.equal(malformed.status, 400);
+  assert.equal(malformed.json.error.code, "invalid_json");
+
+  const denied = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}`,
+    configuredEnv,
+    visitWorkspaceWriteRuntime({
+      authContext: { userId: "admin-1", displayName: "Admin", roles: ["clinic_admin"], clinicIds: [STAGE4G_CLINIC_ID], roleBindings: [], token: {} },
+      authError: new ForbiddenError(),
+    }),
+    "PATCH",
+    JSON.stringify({ chiefComplaint: "x" }),
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
+});
+
+test("Stage 4H · /openapi.stage4h.json documents write endpoints", async () => {
+  const response = await request("/openapi.stage4h.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "4H-visit-workspace-writes");
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}"].patch);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesions"].post);
+  assert.ok(response.json.paths["/api/v1/lesions/{lesionId}"].delete);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].patch);
 });
