@@ -71,6 +71,8 @@ const REQUIRED_TEXT = {
     "Sync checker gate release status",
     "Скопировать полный sync checker блок",
     "npm run ci:release-status-sync",
+    "CI gate status release status",
+    "Запись release-status отчётов",
   ],
   "src/pages/sys/SysReleaseStatusPage.test.tsx": [
     "renames, duplicates, imports, exports, and deletes release-history filter presets",
@@ -98,6 +100,7 @@ const REQUIRED_TEXT = {
     "Скачать аудит пресетов release history",
     "Скопировать полный sync checker блок",
     "npm run ci:release-status-sync",
+    "CI gate status release status",
     "Скопировать sync checker",
     "Фокус на JSONL с ошибкой",
   ],
@@ -149,6 +152,7 @@ const REQUIRED_TEXT = {
     "e2e/sys-release-status.pw.ts",
     "npm run check:release-status-sync",
     "npm run ci:release-status-sync",
+    "if: ${{ success() }}",
   ],
   "package.json": ['"check:release-status-sync"', '"ci:release-status-sync"'],
 };

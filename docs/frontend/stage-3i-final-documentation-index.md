@@ -206,5 +206,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #69: added a dedicated `ci:release-status-sync` gate for release-status
   sync/docs/deno/diff checks, exposed the command in the system-admin release
   status UI, and wired workflow/docs/sync guards to require it.
+- PR #70: made release-status report writes explicitly conditional on
+  successful CI gates, surfaced CI gate status in `/sys/release-status`, and
+  expanded e2e/docs/sync coverage for the report-write block.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

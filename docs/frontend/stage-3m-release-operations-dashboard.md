@@ -145,6 +145,9 @@ The workflow runs on relevant PRs, pushes, and manual dispatch. It:
   before generated artifacts are written. The gate combines
   `npm run check:release-status-sync`, `node scripts/check-stage3-docs.mjs`,
   `node scripts/check-no-deno-locks.mjs`, and `git diff --check`;
+- keeps `report-write-block` explicit on the report-writing step through
+  `if: ${{ success() }}`. If preflight or `ci-sync-gate` fails, markdown,
+  JSON, HTML, and history files are not written or uploaded as fresh reports;
 - the focused preflight now includes `src/lib/release-status-ui.test.ts` and
   `src/pages/sys/SysReleaseStatusPage.test.tsx` so browser-viewer helpers and
   UI wiring are exercised before generated artifacts are written;
@@ -317,6 +320,9 @@ The viewer also exposes the UI-side release operator guardrails:
   `npm run ci:release-status-sync` as the same compact CI gate used by
   `.github/workflows/release-status.yml`. E2E asserts the sync-check and CI
   gate commands are visible and copyable from the UI.
+- The same card has an announced `CI gate status release status` line so
+  operators can see that generated report writes are blocked until preflight
+  and `ci:release-status-sync` pass.
 - The history import textarea and filtered export controls carry
   `history-export-a11y` states: `aria-invalid`, `aria-describedby`, disabled
   no-result exports, and live status updates for JSONL/CSV export completion.
@@ -335,6 +341,8 @@ The viewer also exposes the UI-side release operator guardrails:
 - `ci-sync-gate` (`npm run ci:release-status-sync`) is the workflow-facing
   guard that runs the release-status sync checker, Stage 3 docs guard,
   deno-lock guard, and whitespace diff check together.
+- `report-write-block` is the workflow-facing guarantee that release-status
+  reports are written only after the gate chain is successful.
 - The local preflight card includes `sync-checker-full-block`: a copyable
   command block with sync checker, Stage 3 docs guard, deno-lock guard, and
   `git status --short` for before-PR and post-Lovable-sync verification.
@@ -362,7 +370,7 @@ The viewer also exposes the UI-side release operator guardrails:
   history-filter-presets, preset-management-ui, preset-json-xlsx-export,
   preset-import-preview, preset-import-plan, preset-import-error-focus,
   preset-clear-undo, preset-audit-export, sync-checker-full-block,
-  ci-sync-gate, filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
+  ci-sync-gate, report-write-block, filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
   release-status-sync-checker-ui, and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
   aligned with the UI helper names and e2e assertions.

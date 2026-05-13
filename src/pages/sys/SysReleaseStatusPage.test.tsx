@@ -65,6 +65,9 @@ describe("SysReleaseStatusPage", () => {
       screen.getByRole("region", { name: "Sync checker gate release status" }),
     ).toHaveTextContent(/npm run ci:release-status-sync/);
     expect(
+      screen.getByRole("status", { name: "CI gate status release status" }),
+    ).toHaveTextContent(/Запись release-status отчётов.*заблокирована/);
+    expect(
       screen.getByRole("region", { name: "Sync checker gate release status" }),
     ).toHaveTextContent(/git status --short/);
     fireEvent.click(
