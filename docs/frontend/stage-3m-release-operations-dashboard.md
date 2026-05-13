@@ -15,6 +15,8 @@ backend configuration, or workflow scheduling.
 - Privacy detector: `scripts/check-release-status-privacy.mjs`.
 - Privacy detector tests: `scripts/check-release-status-privacy.test.mjs`.
 - Release-status sync checker: `scripts/check-release-status-sync.mjs`.
+- Release-status workflow gate checker:
+  `scripts/check-release-status-workflow-gate.mjs`.
 - Release-status CI sync gate: `scripts/ci-release-status-sync-gate.mjs`.
 - Focused preflight: `scripts/preflight-release-status.mjs`.
 - npm scripts:
@@ -26,6 +28,7 @@ backend configuration, or workflow scheduling.
   - `npm run test:release-status-privacy`
   - `npm run check:release-status-privacy`
   - `npm run check:release-status-sync`
+  - `npm run check:release-status-workflow-gate`
   - `npm run ci:release-status-sync`
   - `npm run preflight:release-status`
 
@@ -143,6 +146,7 @@ The workflow runs on relevant PRs, pushes, and manual dispatch. It:
 - runs `npm run preflight:release-status`;
 - runs `npm run ci:release-status-sync` as the explicit `ci-sync-gate`
   before generated artifacts are written. The gate combines
+  `npm run check:release-status-workflow-gate`,
   `npm run check:release-status-sync`, `node scripts/check-stage3-docs.mjs`,
   `node scripts/check-no-deno-locks.mjs`, and `git diff --check`;
 - keeps `report-write-block` explicit on the report-writing step through
@@ -323,6 +327,11 @@ The viewer also exposes the UI-side release operator guardrails:
 - The same card has an announced `CI gate status release status` line so
   operators can see that generated report writes are blocked until preflight
   and `ci:release-status-sync` pass.
+- `write-gate-drill` lets reviewers switch between passing and failing gate
+  states in the browser. The drill is powered by
+  `buildReleaseStatusWriteGateSummary`, lists each gate check, and confirms
+  that report writes stay blocked when the workflow success condition,
+  release-status workflow, CI sync gate, or deno-lock guard fails.
 - The history import textarea and filtered export controls carry
   `history-export-a11y` states: `aria-invalid`, `aria-describedby`, disabled
   no-result exports, and live status updates for JSONL/CSV export completion.
@@ -343,6 +352,10 @@ The viewer also exposes the UI-side release operator guardrails:
   deno-lock guard, and whitespace diff check together.
 - `report-write-block` is the workflow-facing guarantee that release-status
   reports are written only after the gate chain is successful.
+- `workflow-gate-checker` (`npm run check:release-status-workflow-gate`)
+  verifies that the release-status workflow still contains preflight,
+  sync-check, CI gate, `if: ${{ success() }}`, and that the CI gate step
+  appears before report generation.
 - The local preflight card includes `sync-checker-full-block`: a copyable
   command block with sync checker, Stage 3 docs guard, deno-lock guard, and
   `git status --short` for before-PR and post-Lovable-sync verification.
@@ -371,7 +384,8 @@ The viewer also exposes the UI-side release operator guardrails:
   preset-import-preview, preset-import-plan, preset-import-error-focus,
   preset-clear-undo, preset-audit-export, sync-checker-full-block,
   ci-sync-gate, report-write-block, filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
-  release-status-sync-checker-ui, and release-status-sync-checker changes must also keep
+  write-gate-drill, workflow-gate-checker, release-status-sync-checker-ui,
+  and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
   aligned with the UI helper names and e2e assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release

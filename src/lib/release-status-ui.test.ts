@@ -16,6 +16,7 @@ import {
   buildReleaseStatusHtml,
   buildReleaseStatusJson,
   buildReleaseStatusMarkdown,
+  buildReleaseStatusWriteGateSummary,
   compareReleaseStatusSnapshots,
   detectReleaseStatusUiPrivacyLeaks,
   filterReleaseHistoryRecords,
@@ -104,6 +105,44 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     expect(releaseStatusFilename("history")).toMatch(
       /^release-history-\d{4}-\d{2}-\d{2}\.jsonl$/,
     );
+  });
+
+  it("models release-status write gate pass and blocked states", () => {
+    const ready = buildReleaseStatusWriteGateSummary(
+      RELEASE_STATUS_DEMO_SNAPSHOT,
+      { workflowSuccessCondition: true, ciSyncGateOk: true },
+    );
+    const blocked = buildReleaseStatusWriteGateSummary(
+      {
+        ...RELEASE_STATUS_DEMO_SNAPSHOT,
+        denoLockOk: false,
+        workflows: RELEASE_STATUS_DEMO_SNAPSHOT.workflows.map((workflow) =>
+          workflow.name === "release-status"
+            ? { ...workflow, conclusion: "failure" }
+            : workflow,
+        ),
+      },
+      { workflowSuccessCondition: false, ciSyncGateOk: false },
+    );
+
+    expect(ready).toEqual(
+      expect.objectContaining({
+        canWriteReports: true,
+        status: "ready",
+      }),
+    );
+    expect(ready.message).toContain("may write");
+    expect(blocked.canWriteReports).toBe(false);
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.blockedReasons).toEqual(
+      expect.arrayContaining([
+        "Workflow success condition",
+        "Release-status workflow",
+        "CI sync gate",
+        "Deno lock guard",
+      ]),
+    );
+    expect(blocked.message).toContain("reports stay unwritten");
   });
 
   it("builds a unified safe export bundle for all release-status formats", () => {

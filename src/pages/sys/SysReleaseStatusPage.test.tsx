@@ -68,6 +68,21 @@ describe("SysReleaseStatusPage", () => {
       screen.getByRole("status", { name: "CI gate status release status" }),
     ).toHaveTextContent(/Запись release-status отчётов.*заблокирована/);
     expect(
+      screen.getByRole("region", { name: "Write gate drill release status" }),
+    ).toHaveTextContent(/Gate passed/);
+    expect(
+      screen.getByRole("status", { name: "Write gate drill status" }),
+    ).toHaveTextContent(/may write release-status reports/);
+    fireEvent.change(screen.getByLabelText("Write gate drill scenario"), {
+      target: { value: "fail" },
+    });
+    expect(
+      screen.getByRole("status", { name: "Write gate drill status" }),
+    ).toHaveTextContent(/reports stay unwritten/i);
+    expect(
+      screen.getByRole("list", { name: "Write gate drill checks" }),
+    ).toHaveTextContent(/Workflow success condition/);
+    expect(
       screen.getByRole("region", { name: "Sync checker gate release status" }),
     ).toHaveTextContent(/git status --short/);
     fireEvent.click(

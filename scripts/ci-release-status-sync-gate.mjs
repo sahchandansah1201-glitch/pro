@@ -8,6 +8,11 @@ const npmCmd = isWindows ? "npm.cmd" : "npm";
 
 const steps = [
   [
+    "release status workflow gate",
+    npmCmd,
+    ["run", "check:release-status-workflow-gate"],
+  ],
+  [
     "release status sync checker",
     npmCmd,
     ["run", "check:release-status-sync"],

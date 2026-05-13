@@ -36,6 +36,7 @@ import {
   buildReleaseHistoryFilterPreset,
   buildReleaseStatusExportBundle,
   buildReleaseStatusExportFile,
+  buildReleaseStatusWriteGateSummary,
   buildReleaseBaselineOptions,
   compareReleaseStatusSnapshots,
   filterReleaseHistoryRecordsAdvanced,
@@ -142,6 +143,8 @@ type ReleaseStatusOperation =
   | "audit_json"
   | "audit_csv"
   | null;
+
+type ReleaseWriteGateScenario = "pass" | "fail";
 
 function readSavedHistoryFilterPresets(): ReleaseHistoryFilterPreset[] {
   if (typeof window === "undefined") return [];
@@ -293,9 +296,34 @@ export default function SysReleaseStatusPage() {
   const [auditPrivacyFilter, setAuditPrivacyFilter] =
     useState<ReleaseImportAuditPrivacyFilter>("all");
   const [auditQuery, setAuditQuery] = useState("");
+  const [writeGateScenario, setWriteGateScenario] =
+    useState<ReleaseWriteGateScenario>("pass");
   const [operation, setOperation] = useState<ReleaseStatusOperation>(null);
 
   const level = releaseStatusLevel(snapshot);
+  const writeGateSnapshot = useMemo(
+    () =>
+      writeGateScenario === "pass"
+        ? snapshot
+        : {
+            ...snapshot,
+            denoLockOk: false,
+            workflows: snapshot.workflows.map((workflow) =>
+              workflow.name === "release-status"
+                ? { ...workflow, conclusion: "failure" as const }
+                : workflow,
+            ),
+          },
+    [snapshot, writeGateScenario],
+  );
+  const writeGateSummary = useMemo(
+    () =>
+      buildReleaseStatusWriteGateSummary(writeGateSnapshot, {
+        workflowSuccessCondition: writeGateScenario === "pass",
+        ciSyncGateOk: writeGateScenario === "pass",
+      }),
+    [writeGateScenario, writeGateSnapshot],
+  );
   const currentExport = useMemo(
     () => buildReleaseStatusExportFile(snapshot, format),
     [format, snapshot],
@@ -1410,6 +1438,57 @@ export default function SysReleaseStatusPage() {
                     aria-label="CI gate status release status"
                   >
                     {RELEASE_STATUS_CI_GATE_STATUS}
+                  </div>
+                  <div
+                    className="mt-2 rounded-md border border-border bg-muted/30 p-2"
+                    role="region"
+                    aria-label="Write gate drill release status"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="text-[11px] font-medium">
+                          Write gate drill
+                        </div>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Проверяет, будут ли markdown/JSON/HTML/history отчёты
+                          записаны после CI gates.
+                        </p>
+                      </div>
+                      <select
+                        className="h-8 rounded-md border border-input bg-background px-2 text-[11px]"
+                        aria-label="Write gate drill scenario"
+                        value={writeGateScenario}
+                        onChange={(event) =>
+                          setWriteGateScenario(
+                            event.target.value as ReleaseWriteGateScenario,
+                          )
+                        }
+                      >
+                        <option value="pass">Gate passed</option>
+                        <option value="fail">Gate failed</option>
+                      </select>
+                    </div>
+                    <div
+                      className={
+                        writeGateSummary.canWriteReports
+                          ? "mt-2 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700"
+                          : "mt-2 rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive"
+                      }
+                      role="status"
+                      aria-label="Write gate drill status"
+                    >
+                      {writeGateSummary.message}
+                    </div>
+                    <ul
+                      className="mt-2 space-y-1 text-[11px] text-muted-foreground"
+                      aria-label="Write gate drill checks"
+                    >
+                      {writeGateSummary.steps.map((step) => (
+                        <li key={step.id}>
+                          {step.ok ? "✓" : "✗"} {step.label}: {step.detail}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                   <pre
                     className="mt-2 whitespace-pre-wrap rounded bg-muted/50 px-2 py-1 font-mono text-[10px] leading-relaxed"

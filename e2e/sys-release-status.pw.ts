@@ -552,6 +552,21 @@ test.describe("/sys/release-status", () => {
       page.getByRole("status", { name: "CI gate status release status" }),
     ).toContainText(/Запись release-status отчётов.*заблокирована/);
     await expect(
+      page.getByRole("region", { name: "Write gate drill release status" }),
+    ).toContainText("Gate passed");
+    await expect(
+      page.getByRole("status", { name: "Write gate drill status" }),
+    ).toContainText(/may write release-status reports/);
+    await page
+      .getByLabel("Write gate drill scenario")
+      .selectOption("fail");
+    await expect(
+      page.getByRole("status", { name: "Write gate drill status" }),
+    ).toContainText(/reports stay unwritten/);
+    await expect(
+      page.getByRole("list", { name: "Write gate drill checks" }),
+    ).toContainText("Workflow success condition");
+    await expect(
       page.getByRole("region", { name: "Sync checker gate release status" }),
     ).toContainText("git status --short");
     await page
