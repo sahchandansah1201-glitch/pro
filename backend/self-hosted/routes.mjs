@@ -139,6 +139,8 @@ function publicErrorFor(error) {
     invalid_token: "Invalid or expired authorization token.",
     patient_not_found: "Patient was not found in the allowed clinic scope.",
     visit_not_found: "Visit was not found in the allowed clinic scope.",
+    lesion_not_found: "Lesion was not found in the allowed clinic scope.",
+    not_found: "Resource was not found in the allowed clinic scope.",
     invalid_uuid: "The supplied identifier is not a valid UUID.",
     validation_error: "Patient payload failed validation.",
   };
@@ -147,7 +149,7 @@ function publicErrorFor(error) {
     return {
       status: error.publicStatus || 503,
       code,
-      message: messages[code] || "The self-hosted backend could not complete the request.",
+      message: messages[code] || error.message || "The self-hosted backend could not complete the request.",
       details: error.publicDetails,
     };
   }
