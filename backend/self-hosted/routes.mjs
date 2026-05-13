@@ -935,6 +935,10 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4G, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4h.json") {
+    return jsonResponse(200, OPENAPI_4H, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
