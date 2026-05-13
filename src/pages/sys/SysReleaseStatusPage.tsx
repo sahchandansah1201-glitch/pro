@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   buildReleaseImportAuditReport,
   buildReleaseImportAuditCsv,
+  buildReleaseHistoryPresetAuditReport,
   buildFilteredReleaseHistoryCsv,
   buildFilteredReleaseHistoryJsonl,
   buildFilteredReleaseHistoryXlsxBytes,
@@ -59,8 +60,10 @@ import {
   releaseHistoryFilteredXlsxFilename,
   releaseHistoryPresetsJsonFilename,
   releaseHistoryPresetsXlsxFilename,
+  releaseHistoryPresetAuditFilename,
   summarizeReleaseHistoryPreview,
   summarizeReleaseHistoryIssues,
+  summarizeReleaseHistoryPresetImport,
   summarizeReleasePrivacy,
   normalizeReleaseHistoryFilterPreset,
   type ReleaseHistoryFilterPreset,
@@ -68,6 +71,7 @@ import {
   type ReleaseHistoryArtifactFilter,
   type ReleaseHistoryDenoFilter,
   type ReleaseHistoryParseResult,
+  type ReleaseHistoryPresetAuditEntry,
   type ReleaseHistoryStatusFilter,
   type ReleaseHistoryWorkflowFilter,
   type ReleaseImportAuditPrivacyFilter,
@@ -123,6 +127,7 @@ type ReleaseStatusOperation =
   | "preset_json"
   | "preset_xlsx"
   | "preset_import"
+  | "preset_audit"
   | "audit_json"
   | "audit_csv"
   | null;
@@ -216,6 +221,7 @@ function releaseStatusOperationLabel(
   if (operation === "preset_json") return "Готовим JSON-экспорт пресетов.";
   if (operation === "preset_xlsx") return "Готовим XLSX-экспорт пресетов.";
   if (operation === "preset_import") return "Импортируем пресеты фильтров.";
+  if (operation === "preset_audit") return "Готовим аудит пресетов.";
   if (operation === "audit_json") return "Готовим JSON-отчет аудита.";
   if (operation === "audit_csv") return "Готовим CSV-отчет аудита.";
   return "Операции не выполняются.";
@@ -264,6 +270,12 @@ export default function SysReleaseStatusPage() {
   const [historyPresetImportNote, setHistoryPresetImportNote] = useState(
     "Импорт пресетов ожидает JSON из экспортированного файла.",
   );
+  const [lastClearedHistoryPresets, setLastClearedHistoryPresets] = useState<
+    ReleaseHistoryFilterPreset[] | null
+  >(null);
+  const [presetAuditLog, setPresetAuditLog] = useState<
+    ReleaseHistoryPresetAuditEntry[]
+  >([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [auditStatusFilter, setAuditStatusFilter] = useState("all");
   const [auditPrivacyFilter, setAuditPrivacyFilter] =
@@ -334,6 +346,15 @@ export default function SysReleaseStatusPage() {
     return hints;
   }, [historyIssueSummary]);
   const firstHistoryIssue = historyDraft.issues[0] ?? null;
+  const presetImportPreview = useMemo(
+    () =>
+      historyPresetImportInput.trim()
+        ? summarizeReleaseHistoryPresetImport(
+            parseReleaseHistoryPresetExportJson(historyPresetImportInput),
+          )
+        : null,
+    [historyPresetImportInput],
+  );
   const filteredHistoryRecords = useMemo(
     () =>
       filterReleaseHistoryRecordsAdvanced(
@@ -397,7 +418,8 @@ export default function SysReleaseStatusPage() {
   const presetBusy =
     operation === "preset_json" ||
     operation === "preset_xlsx" ||
-    operation === "preset_import";
+    operation === "preset_import" ||
+    operation === "preset_audit";
   const auditBusy = operation === "audit_json" || operation === "audit_csv";
 
   useEffect(() => {
@@ -437,6 +459,22 @@ export default function SysReleaseStatusPage() {
 
   const markHistoryFiltersCustom = () => {
     setSelectedHistoryPresetId("custom");
+  };
+
+  const recordPresetAudit = (
+    action: string,
+    presetCount: number,
+    message: string,
+  ) => {
+    setPresetAuditLog((items) => [
+      {
+        at: new Date().toISOString(),
+        action,
+        presetCount,
+        message,
+      },
+      ...items.slice(0, 9),
+    ]);
   };
 
   const applyHistoryPreset = (preset: ReleaseHistoryFilterPreset) => {
@@ -482,6 +520,8 @@ export default function SysReleaseStatusPage() {
     ]);
     setSelectedHistoryPresetId(preset.id);
     setHistoryPresetName("");
+    setLastClearedHistoryPresets(null);
+    recordPresetAudit("save", 1, `Пресет сохранён: ${preset.name}.`);
     setStatus(`Пресет фильтров сохранён: ${preset.name}.`);
   };
 
@@ -494,6 +534,8 @@ export default function SysReleaseStatusPage() {
       items.filter((item) => item.id !== preset.id),
     );
     setSelectedHistoryPresetId("custom");
+    setLastClearedHistoryPresets(null);
+    recordPresetAudit("delete", 1, `Пресет удалён: ${preset.name}.`);
     setStatus(`Сохранённый пресет удалён: ${preset.name}.`);
   };
 
@@ -518,6 +560,7 @@ export default function SysReleaseStatusPage() {
       items.map((item) => (item.id === preset.id ? nextPreset : item)),
     );
     setHistoryPresetName("");
+    recordPresetAudit("rename", 1, `Пресет переименован: ${nextPreset.name}.`);
     setStatus(`Пресет фильтров переименован: ${nextPreset.name}.`);
   };
 
@@ -545,6 +588,8 @@ export default function SysReleaseStatusPage() {
     ]);
     setSelectedHistoryPresetId(duplicate.id);
     setHistoryPresetName("");
+    setLastClearedHistoryPresets(null);
+    recordPresetAudit("duplicate", 1, `Копия пресета создана: ${duplicate.name}.`);
     setStatus(`Копия пресета создана: ${duplicate.name}.`);
   };
 
@@ -577,6 +622,11 @@ export default function SysReleaseStatusPage() {
       setStatus(
         `${targetFormat.toUpperCase()} экспорт пресетов готов: ${filename}.`,
       );
+      recordPresetAudit(
+        `export_${targetFormat}`,
+        savedHistoryPresets.length,
+        `${targetFormat.toUpperCase()} экспорт пресетов: ${filename}.`,
+      );
     });
   };
 
@@ -605,7 +655,58 @@ export default function SysReleaseStatusPage() {
       });
       setSelectedHistoryPresetId(result.presets[0]?.id ?? "custom");
       setHistoryPresetImportInput("");
+      setLastClearedHistoryPresets(null);
+      recordPresetAudit("import", result.acceptedCount, result.message);
       setStatus(result.message);
+    });
+  };
+
+  const handleClearHistoryPresets = () => {
+    if (savedHistoryPresets.length === 0) return;
+    const previous = savedHistoryPresets;
+    setLastClearedHistoryPresets(previous);
+    setSavedHistoryPresets([]);
+    setSelectedHistoryPresetId("custom");
+    recordPresetAudit(
+      "clear",
+      previous.length,
+      `Очищено сохранённых пресетов: ${previous.length}.`,
+    );
+    setStatus(`Сохранённые пресеты очищены: ${previous.length}.`);
+  };
+
+  const handleUndoClearHistoryPresets = () => {
+    if (!lastClearedHistoryPresets || lastClearedHistoryPresets.length === 0)
+      return;
+    const restored = lastClearedHistoryPresets.slice(
+      0,
+      RELEASE_HISTORY_FILTER_PRESET_LIMIT,
+    );
+    setSavedHistoryPresets(restored);
+    setSelectedHistoryPresetId(restored[0]?.id ?? "custom");
+    setLastClearedHistoryPresets(null);
+    recordPresetAudit(
+      "undo_clear",
+      restored.length,
+      `Восстановлено сохранённых пресетов: ${restored.length}.`,
+    );
+    setStatus(`Сохранённые пресеты восстановлены: ${restored.length}.`);
+  };
+
+  const handleDownloadPresetAudit = () => {
+    if (presetAuditLog.length === 0) return;
+    void runOperation("preset_audit", () => {
+      const content = buildReleaseHistoryPresetAuditReport(presetAuditLog);
+      const privacy = summarizeReleasePrivacy(content);
+      if (privacy.findingCount > 0) {
+        setStatus(
+          "Аудит пресетов заблокирован: privacy detector нашёл чувствительные значения.",
+        );
+        return;
+      }
+      const filename = releaseHistoryPresetAuditFilename();
+      downloadText(filename, content, "application/json;charset=utf-8");
+      setStatus(`Аудит пресетов скачан: ${filename}.`);
     });
   };
 
@@ -1513,6 +1614,28 @@ export default function SysReleaseStatusPage() {
                     >
                       XLSX пресеты
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={handleClearHistoryPresets}
+                      disabled={savedHistoryPresets.length === 0 || isBusy}
+                      aria-label="Очистить сохранённые пресеты release history"
+                    >
+                      Очистить
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={handleUndoClearHistoryPresets}
+                      disabled={!lastClearedHistoryPresets || isBusy}
+                      aria-label="Восстановить очищенные пресеты release history"
+                    >
+                      Вернуть
+                    </Button>
                   </div>
                   <Textarea
                     value={historyPresetImportInput}
@@ -1524,6 +1647,26 @@ export default function SysReleaseStatusPage() {
                     placeholder='{"presets":[...]}'
                     disabled={isBusy}
                   />
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    aria-label="Предпросмотр импорта пресетов release history"
+                    className="mt-2 rounded-md border border-border bg-background p-2 text-[11px] text-muted-foreground"
+                  >
+                    {presetImportPreview ? (
+                      <>
+                        Статус: {presetImportPreview.status}; принято:{" "}
+                        {presetImportPreview.acceptedCount}; пропущено:{" "}
+                        {presetImportPreview.skippedCount}; privacy:{" "}
+                        {presetImportPreview.privacyFindingCount}.
+                        {presetImportPreview.previewNames.length > 0 &&
+                          ` Пресеты: ${presetImportPreview.previewNames.join(", ")}.`}
+                      </>
+                    ) : (
+                      "Предпросмотр появится после вставки JSON пресетов."
+                    )}
+                  </div>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div
                       role="status"
@@ -1547,6 +1690,48 @@ export default function SysReleaseStatusPage() {
                         ? "Импортируем…"
                         : "Импорт пресетов"}
                     </Button>
+                  </div>
+                  <div
+                    className="mt-3 rounded-md border border-border bg-background p-2"
+                    role="region"
+                    aria-label="Аудит пресетов release history"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-[11px] font-medium">
+                        Аудит пресетов: {presetAuditLog.length}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 w-fit text-[11px]"
+                        onClick={handleDownloadPresetAudit}
+                        disabled={presetAuditLog.length === 0 || isBusy}
+                        aria-label="Скачать аудит пресетов release history"
+                      >
+                        Скачать аудит
+                      </Button>
+                    </div>
+                    {presetAuditLog.length > 0 ? (
+                      <ul
+                        className="mt-2 space-y-1 text-[11px] text-muted-foreground"
+                        aria-label="Записи аудита пресетов release history"
+                      >
+                        {presetAuditLog.slice(0, 4).map((entry) => (
+                          <li key={`${entry.at}-${entry.action}`}>
+                            {formatTime(entry.at)} · {entry.action} ·{" "}
+                            {entry.presetCount}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div
+                        role="status"
+                        className="mt-2 text-[11px] text-muted-foreground"
+                      >
+                        Операций с пресетами пока нет.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

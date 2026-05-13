@@ -499,6 +499,9 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "basel
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-filter-presets");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "preset-management-ui");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "preset-json-xlsx-export");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "preset-import-preview");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "preset-clear-undo");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "preset-audit-export");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "filtered-history-xlsx");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "import-error-actions");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "jsonl-error-line-selection");
@@ -514,6 +517,9 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "norma
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseHistoryPresetExportJson");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseHistoryPresetsXlsxBytes");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "parseReleaseHistoryPresetExportJson");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "summarizeReleaseHistoryPresetImport");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseHistoryPresetAuditReport");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "releaseHistoryPresetAuditFilename");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "releaseHistoryFilteredXlsxFilename");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "summarizeReleaseHistoryIssues");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "filterReleaseHistoryRecords");
@@ -604,6 +610,9 @@ requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildFilteredReleaseHist
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildFilteredReleaseHistoryXlsxBytes");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseHistoryFilterPreset");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "normalizeReleaseHistoryFilterPreset");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "summarizeReleaseHistoryPresetImport");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseHistoryPresetAuditReport");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryPresetAuditFilename");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryFilteredJsonlFilename");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryFilteredCsvFilename");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryFilteredXlsxFilename");
@@ -635,6 +644,11 @@ requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Экспортиров
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Пресет фильтров release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сводка пресетов release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сохранить текущие фильтры release history как пресет");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предпросмотр импорта пресетов release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Очистить сохранённые пресеты release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Восстановить очищенные пресеты release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Аудит пресетов release history");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Скачать аудит пресетов release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Удалить сохранённый пресет release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Подсказки исправления release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Фокус на JSONL с ошибкой");
@@ -677,6 +691,10 @@ requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортирова
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать отфильтрованную release history в CSV");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Экспортировать отфильтрованную release history в XLSX");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Пресет фильтров release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Предпросмотр импорта пресетов release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Очистить сохранённые пресеты release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Скачать аудит пресетов release history");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "release-history-filter-presets-audit");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Фокус на JSONL с ошибкой");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "release-history-filtered");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Пагинация release history");

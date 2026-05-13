@@ -380,6 +380,16 @@ describe("SysReleaseStatusPage", () => {
         },
       },
     );
+    expect(
+      screen.getByRole("status", {
+        name: "Предпросмотр импорта пресетов release history",
+      }),
+    ).toHaveTextContent(/принято: 1/i);
+    expect(
+      screen.getByRole("status", {
+        name: "Предпросмотр импорта пресетов release history",
+      }),
+    ).toHaveTextContent(/Imported safe preset/);
     await waitFor(() =>
       expect(
         screen.getByRole("button", {
@@ -402,6 +412,9 @@ describe("SysReleaseStatusPage", () => {
     expect(
       screen.getByRole("option", { name: "Imported safe preset" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Аудит пресетов release history" }),
+    ).toHaveTextContent(/import/);
     fireEvent.click(
       screen.getByRole("button", {
         name: "Удалить сохранённый пресет release history",
@@ -410,6 +423,37 @@ describe("SysReleaseStatusPage", () => {
     expect(
       screen.getByRole("status", { name: "Сводка пресетов release history" }),
     ).toHaveTextContent(/Сохранено: 2\/8/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Очистить сохранённые пресеты release history",
+      }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toHaveTextContent(/Сохранено: 0\/8/);
+    expect(
+      screen.queryByRole("option", { name: "Мой E2E фильтр v2" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Восстановить очищенные пресеты release history",
+      }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toHaveTextContent(/Сохранено: 2\/8/);
+    expect(
+      screen.getByRole("option", { name: "Мой E2E фильтр v2" }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Скачать аудит пресетов release history",
+      }),
+    );
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/Аудит пресетов скачан/);
   });
 
   it("supports dry-run import, history filters, delete import, audit download, and JSONL validation", async () => {
