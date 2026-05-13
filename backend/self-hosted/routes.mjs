@@ -42,6 +42,9 @@ const OPENAPI_4C = JSON.parse(
 const OPENAPI_4D = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4d.json"), "utf8"),
 );
+const OPENAPI_4G = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4g.json"), "utf8"),
+);
 
 function getRuntime(config, runtime = {}) {
   const dbClient = runtime.dbClient || createPostgresClient(config);
