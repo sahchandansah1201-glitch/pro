@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFilteredReleaseHistoryXlsxBytes,
   buildReleaseHistoryPresetExportJson,
+  buildReleaseHistoryPresetAuditReport,
   buildReleaseHistoryPresetsXlsxBytes,
   buildReleaseHistoryFilterPreset,
   buildReleaseImportAuditReport,
@@ -32,12 +33,14 @@ import {
   releaseHistoryFilteredCsvFilename,
   releaseHistoryFilteredJsonlFilename,
   releaseHistoryFilteredXlsxFilename,
+  releaseHistoryPresetAuditFilename,
   releaseHistoryPresetsJsonFilename,
   releaseHistoryPresetsXlsxFilename,
   releaseSnapshotFromHistoryRecord,
   releaseStatusFilename,
   releaseStatusLevel,
   summarizeReleaseHistoryIssues,
+  summarizeReleaseHistoryPresetImport,
   summarizeReleaseHistoryPreview,
   summarizeReleasePrivacy,
 } from "./release-status-ui";
@@ -379,7 +382,16 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     )!;
     const json = buildReleaseHistoryPresetExportJson([preset]);
     const parsed = parseReleaseHistoryPresetExportJson(json);
+    const importSummary = summarizeReleaseHistoryPresetImport(parsed);
     const xlsx = buildReleaseHistoryPresetsXlsxBytes(parsed.presets);
+    const audit = buildReleaseHistoryPresetAuditReport([
+      {
+        at: "2026-05-12T12:00:00Z",
+        action: "export_json",
+        presetCount: 1,
+        message: "actor_email=doctor@example.com preset exported safely",
+      },
+    ]);
 
     expect(JSON.parse(json).presetCount).toBe(1);
     expect(parsed).toEqual(
@@ -395,12 +407,37 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         filters: expect.objectContaining({ workflow: "failure" }),
       }),
     );
+    expect(importSummary).toEqual(
+      expect.objectContaining({
+        acceptedCount: 1,
+        skippedCount: 0,
+        privacyFindingCount: 0,
+        previewNames: ["E2E blockers"],
+      }),
+    );
     expect(Array.from(xlsx.slice(0, 2))).toEqual([80, 75]);
+    expect(JSON.parse(audit)).toEqual(
+      expect.objectContaining({
+        title: "Release history preset audit",
+        rowCount: 1,
+        entries: [
+          expect.objectContaining({
+            action: "export_json",
+            presetCount: 1,
+          }),
+        ],
+      }),
+    );
+    expect(audit).not.toContain("doctor@example.com");
+    expect(audit).toContain("redacted");
     expect(releaseHistoryPresetsJsonFilename()).toMatch(
       /^release-history-filter-presets-\d{4}-\d{2}-\d{2}\.json$/,
     );
     expect(releaseHistoryPresetsXlsxFilename()).toMatch(
       /^release-history-filter-presets-\d{4}-\d{2}-\d{2}\.xlsx$/,
+    );
+    expect(releaseHistoryPresetAuditFilename()).toMatch(
+      /^release-history-filter-presets-audit-\d{4}-\d{2}-\d{2}\.json$/,
     );
 
     const unsafe = parseReleaseHistoryPresetExportJson(

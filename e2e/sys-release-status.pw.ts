@@ -139,6 +139,83 @@ test.describe("/sys/release-status", () => {
     expect(presetXlsxPath).not.toBeNull();
     const presetXlsxBytes = await readFile(presetXlsxPath!);
     expect(Array.from(presetXlsxBytes.subarray(0, 2))).toEqual([80, 75]);
+
+    await page
+      .getByLabel("Импортировать пресеты release history JSON")
+      .fill(
+        JSON.stringify({
+          presets: [
+            {
+              id: "saved-imported-e2e-safe",
+              name: "Imported E2E safe preset",
+              source: "saved",
+              createdAt: "2026-05-12T10:00:00Z",
+              filters: {
+                status: "ok",
+                deno: "ok",
+                artifact: "present",
+                workflow: "success",
+                query: "release-status",
+              },
+            },
+          ],
+        }),
+      );
+    await expect(
+      page.getByRole("status", {
+        name: "Предпросмотр импорта пресетов release history",
+      }),
+    ).toContainText("принято: 1");
+    await expect(
+      page.getByRole("status", {
+        name: "Предпросмотр импорта пресетов release history",
+      }),
+    ).toContainText("Imported E2E safe preset");
+    await page
+      .getByRole("button", {
+        name: "Импортировать пресеты release history",
+      })
+      .click();
+    await expect(
+      page.getByRole("option", { name: "Imported E2E safe preset" }),
+    ).toBeAttached();
+    await expect(
+      page.getByRole("region", { name: "Аудит пресетов release history" }),
+    ).toContainText("import");
+
+    await page
+      .getByRole("button", {
+        name: "Очистить сохранённые пресеты release history",
+      })
+      .click();
+    await expect(
+      page.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toContainText("Сохранено: 0/8");
+    await page
+      .getByRole("button", {
+        name: "Восстановить очищенные пресеты release history",
+      })
+      .click();
+    await expect(
+      page.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toContainText("Сохранено: 2/8");
+
+    const presetAuditDownloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("button", {
+        name: "Скачать аудит пресетов release history",
+      })
+      .click();
+    const presetAuditDownload = await presetAuditDownloadPromise;
+    expect(presetAuditDownload.suggestedFilename()).toMatch(
+      /^release-history-filter-presets-audit-\d{4}-\d{2}-\d{2}\.json$/,
+    );
+    const presetAuditPath = await presetAuditDownload.path();
+    expect(presetAuditPath).not.toBeNull();
+    const presetAuditText = await readFile(presetAuditPath!, "utf8");
+    expect(presetAuditText).toContain("Release history preset audit");
+    expect(presetAuditText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+
     await page.reload({ waitUntil: "networkidle" });
     await expect(
       page.getByRole("option", { name: "E2E blockers" }),

@@ -196,5 +196,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #66: expanded release-history preset management with rename/duplicate,
   sanitized preset JSON/XLSX export/import, first-error JSONL line selection,
   and sync-checker visibility in `/sys/release-status` e2e coverage.
+- PR #67: added preset import preview, bulk clear/undo for saved release-history
+  presets, sanitized preset audit export, and sync/docs/e2e coverage for the
+  extended preset workflow.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

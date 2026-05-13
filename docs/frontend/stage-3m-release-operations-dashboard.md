@@ -258,6 +258,15 @@ The viewer also exposes the UI-side release operator guardrails:
   `buildReleaseHistoryPresetsXlsxBytes`; import uses
   `parseReleaseHistoryPresetExportJson` and blocks privacy findings before
   localStorage is updated.
+- Preset import now includes `preset-import-preview`: before import,
+  `summarizeReleaseHistoryPresetImport` reports accepted/skipped preset counts,
+  privacy finding count, and up to four safe preset names.
+- Operators can use `preset-clear-undo` to bulk-clear browser-local saved
+  presets and restore the last cleared set within the same session.
+- Preset operations append browser-local `preset-audit-export` entries. The
+  sanitized JSON report is built by `buildReleaseHistoryPresetAuditReport`,
+  downloaded with `releaseHistoryPresetAuditFilename`, and must not include
+  raw query text, emails, tokens, storage paths, or patient identifiers.
 - The selected comparison baseline has a compact `baseline-preview` with SHA,
   generated date, deno-lock status, artifact presence, and the first workflow
   conclusions before the comparison table.
@@ -331,6 +340,7 @@ The viewer also exposes the UI-side release operator guardrails:
   audit-report-summary, audit-report-download, baseline-preview,
   baseline-delete, baseline-selector, privacy-preview,
   history-filter-presets, preset-management-ui, preset-json-xlsx-export,
+  preset-import-preview, preset-clear-undo, preset-audit-export,
   filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
   release-status-sync-checker-ui, and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
