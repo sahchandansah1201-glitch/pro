@@ -28,7 +28,10 @@ const REQUIRED_TEXT = {
     "buildListVisitAssetsSql",
   ],
   "backend/self-hosted/routes.mjs": [
-    "/api/v1/patients/${patientId}/visits",
+    "patientVisitsMatch",
+    "visitDetailMatch",
+    "visitLesionsMatch",
+    "visitAssetsMatch",
     "visit_not_found",
     "visit.list",
     "visit.read",
