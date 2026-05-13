@@ -18,6 +18,8 @@ const DEFAULT_STEPS = [
   ["release-status preflight", npmCmd, ["run", "preflight:release-status"]],
   ["typecheck/blob preflight", npmCmd, ["run", "preflight:typecheck-blob"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
+  ["self-hosted product guard tests", npmCmd, ["run", "test:self-hosted-product"]],
+  ["self-hosted product guard", npmCmd, ["run", "check:self-hosted-product"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],
   ["Whitespace diff check", "git", ["diff", "--check"]],

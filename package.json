@@ -18,6 +18,8 @@
     "preflight:release-status": "node scripts/preflight-release-status.mjs",
     "preflight:typecheck-blob": "node scripts/preflight-typecheck-blob.mjs",
     "preflight:all": "node scripts/preflight-all.mjs",
+    "check:self-hosted-product": "node scripts/check-self-hosted-product.mjs",
+    "test:self-hosted-product": "node --test scripts/check-self-hosted-product.test.mjs",
     "view:e2e-artifacts": "node scripts/view-e2e-artifact-summary.mjs",
     "smoke:auth-assets": "node scripts/smoke-auth-assets.mjs",
     "smoke:auth-assets:dry-run": "SMOKE_AUTH_ASSETS_DRY_RUN=1 node scripts/smoke-auth-assets.mjs",

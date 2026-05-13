@@ -28,6 +28,10 @@ const checks = [
     ok: content.includes("npm run preflight:all -- --summary test-results/preflight-all.md"),
   },
   {
+    label: "architecture docs trigger preflight all",
+    ok: content.includes('"docs/architecture/**"'),
+  },
+  {
     label: "step summary includes preflight report",
     ok: content.includes("cat test-results/preflight-all.md >> \"$GITHUB_STEP_SUMMARY\""),
   },

@@ -37,6 +37,8 @@ npm run preflight:typecheck-blob
 npm run test:preflight-all
 npm run test:preflight-all-gate
 npm run check:preflight-all-gate
+npm run test:self-hosted-product
+npm run check:self-hosted-product
 npm run preflight:all -- --summary test-results/preflight-all.md
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
@@ -139,6 +141,8 @@ The focused Stage 3 docs guard is standalone and does not require
       checklist are documented.
 - [x] Full deterministic `preflight:all`, PR summary report artifact, and
       workflow gate checker are documented.
+- [x] Stage 4A self-hosted product guard, CI workflow, and full-preflight
+      integration are documented.
 
 ## 9. Sync changelog
 
@@ -249,5 +253,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #77: added `preflight:all`, markdown PR summary output,
   `preflight-all` CI workflow, workflow gate checker/tests, and Stage 3M/3I
   release checklist coverage for full deterministic preflight.
+- PR #78: added Stage 4A self-hosted product guardrails covering PRODUCT/DESIGN
+  docs, deployable frontend+backend+database+object-storage architecture,
+  frontend secret checks, CI, and `preflight:all` integration.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

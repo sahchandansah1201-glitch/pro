@@ -1,0 +1,58 @@
+name: self-hosted-product
+
+on:
+  pull_request:
+    paths:
+      - "PRODUCT.md"
+      - "DESIGN.md"
+      - "docs/architecture/**"
+      - "src/**"
+      - "scripts/check-self-hosted-product.mjs"
+      - "scripts/check-self-hosted-product.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/self-hosted-product.yml"
+      - ".github/workflows/preflight-all.yml"
+  push:
+    paths:
+      - "PRODUCT.md"
+      - "DESIGN.md"
+      - "docs/architecture/**"
+      - "src/**"
+      - "scripts/check-self-hosted-product.mjs"
+      - "scripts/check-self-hosted-product.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/self-hosted-product.yml"
+      - ".github/workflows/preflight-all.yml"
+  workflow_dispatch:
+
+jobs:
+  self-hosted-product:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Self-hosted product guard tests
+        run: npm run test:self-hosted-product
+      - name: Self-hosted product guard
+        run: npm run check:self-hosted-product
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## self-hosted-product"
+            echo ""
+            echo "- Contract: frontend + backend API + database + object storage"
+            echo "- Supabase Cloud: legacy transition artifact, not target runtime"
+            echo "- Command: \`npm run check:self-hosted-product\`"
+          } >> "$GITHUB_STEP_SUMMARY"

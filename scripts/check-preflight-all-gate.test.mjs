@@ -21,7 +21,7 @@ test("preflight-all workflow gate checker passes and reports all checks", () => 
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /\[check-preflight-all-gate\] OK/);
-  assert.match(result.stdout, /\(10 workflow gate checks\)/);
+  assert.match(result.stdout, /\(11 workflow gate checks\)/);
 });
 
 test("preflight-all workflow keeps summary and artifact report wiring", () => {
@@ -37,5 +37,6 @@ test("preflight-all workflow keeps summary and artifact report wiring", () => {
   assert.match(workflow, /npm run test:preflight-all/);
   assert.match(workflow, /npm run test:preflight-all-gate/);
   assert.match(workflow, /npm run check:preflight-all-gate/);
+  assert.match(workflow, /"docs\/architecture\/\*\*"/);
   assert.match(workflow, /if-no-files-found:\s*warn/);
 });
