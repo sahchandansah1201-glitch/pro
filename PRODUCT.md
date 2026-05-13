@@ -111,3 +111,17 @@ Supabase Cloud **не считается** целевой зависимость
 Допустимо использовать PostgreSQL и совместимые open-source компоненты,
 которые могут быть развёрнуты на собственной инфраструктуре. Решения по
 конкретному backend-стэку принимаются отдельной стадией миграции.
+
+## Architecture guardrail
+
+Целевой путь контролируется репозиторным guardrail:
+
+- Архитектурный контракт: `docs/architecture/stage-4a-self-hosted-product.md`.
+- Локальная проверка: `npm run check:self-hosted-product`.
+- Unit-проверка guardrail: `npm run test:self-hosted-product`.
+- Полная проверка перед PR/release: `npm run preflight:all`.
+
+Любая новая реальная функция для пациентов, визитов, образований, файлов,
+отчётов, пользователей, ролей или аудита должна либо идти через целевой backend
+API, либо оставаться явно помеченной как demo/local-only до появления backend
+контракта.

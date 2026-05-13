@@ -795,6 +795,8 @@ Auth/assets readiness is considered release-ready when:
 - `npm run preflight:auth-assets` is green.
 - `npm run preflight:typecheck-blob` is green for TypeScript/blob helper
   changes.
+- `npm run check:self-hosted-product` is green for changes that affect product
+  architecture, backend/frontend boundaries, or deployment assumptions.
 - `npm run preflight:all -- --summary test-results/preflight-all.md` is green
   for large cross-surface release handoffs.
 - `node scripts/check-no-deno-locks.mjs` is green.
@@ -809,4 +811,4 @@ Further changes to upload UX, preview UX, auth routing, CI, or smoke behavior sh
 
 Deployment steps live in docs/frontend/stage-3a-deployment-runbook.md. Rollback drill: docs/frontend/stage-3b-rollback-drill.md. Production smoke: docs/frontend/stage-3c-production-smoke.md. Incident response: docs/frontend/stage-3d-incident-response.md. Final go/no-go release decision record: docs/frontend/stage-3e-release-decision-record.md.
 
-Release audit index: docs/frontend/stage-3f-release-audit-index.md. Final handoff summary: docs/frontend/stage-3g-final-handoff-summary.md. Release reviewer FAQ: docs/frontend/stage-3h-release-reviewer-faq.md. Final documentation index: docs/frontend/stage-3i-final-documentation-index.md. GitHub/Lovable working mode: docs/frontend/stage-3j-github-lovable-working-mode.md. Lovable suggestions backlog: docs/frontend/stage-3k-lovable-suggestions-backlog.md. Nightly artifacts report: docs/frontend/stage-3l-nightly-artifacts-report.md. Release operations dashboard: docs/frontend/stage-3m-release-operations-dashboard.md.
+Release audit index: docs/frontend/stage-3f-release-audit-index.md. Final handoff summary: docs/frontend/stage-3g-final-handoff-summary.md. Release reviewer FAQ: docs/frontend/stage-3h-release-reviewer-faq.md. Final documentation index: docs/frontend/stage-3i-final-documentation-index.md. GitHub/Lovable working mode: docs/frontend/stage-3j-github-lovable-working-mode.md. Lovable suggestions backlog: docs/frontend/stage-3k-lovable-suggestions-backlog.md. Nightly artifacts report: docs/frontend/stage-3l-nightly-artifacts-report.md. Release operations dashboard: docs/frontend/stage-3m-release-operations-dashboard.md. Self-hosted product architecture guardrail: docs/architecture/stage-4a-self-hosted-product.md.

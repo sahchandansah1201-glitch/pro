@@ -502,6 +502,36 @@ Full-preflight release checklist:
 - `npm run check:preflight-all-gate` is green.
 - Lovable confirms Stage 3M §12.3 and Stage 3I verification map are synced.
 
+### 12.4 Self-hosted product guard
+
+Stage 4A makes the next architecture direction explicit: the product must move
+toward a self-hosted frontend + backend API + database + object-storage stack
+that can be deployed on the owner's server as one coherent product.
+
+The guard commands are:
+
+```bash
+npm run test:self-hosted-product
+npm run check:self-hosted-product
+npm run preflight:all -- --summary test-results/preflight-all.md
+```
+
+The guard verifies:
+
+- `PRODUCT.md` states the self-hosted product goal and the Supabase transition
+  rule.
+- `docs/architecture/stage-4a-self-hosted-product.md` lists the target runtime
+  components and backend ownership rules.
+- `preflight:all` includes the self-hosted guard tests and checker.
+- Frontend runtime code does not read `SUPABASE_SERVICE_ROLE_KEY`,
+  `sb_secret_*`, or equivalent privileged Supabase service-role values.
+- `.github/workflows/self-hosted-product.yml` keeps the architecture contract
+  checked in CI.
+
+This does not remove legacy Supabase files yet. It prevents the next product
+iterations from treating Supabase Cloud or Edge Functions as the final backend
+boundary unless that decision is made explicitly.
+
 ## 13. Write-gate drill and CI annotations
 
 The write-gate drill is the browser-side rehearsal of the CI report-write

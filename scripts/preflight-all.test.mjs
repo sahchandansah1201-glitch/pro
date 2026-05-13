@@ -30,6 +30,8 @@ test("preflight all command list covers deterministic local gates", () => {
     "release-status preflight",
     "typecheck/blob preflight",
     "release-status CI sync gate",
+    "self-hosted product guard tests",
+    "self-hosted product guard",
     "preflight-all workflow gate",
     "No deno.lock files",
     "Whitespace diff check",
@@ -39,9 +41,11 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[2], /npm(\.cmd)? run preflight:release-status/);
   assert.match(commands[3], /npm(\.cmd)? run preflight:typecheck-blob/);
   assert.match(commands[4], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[5], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[6], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[7], "git diff --check");
+  assert.match(commands[5], /npm(\.cmd)? run test:self-hosted-product/);
+  assert.match(commands[6], /npm(\.cmd)? run check:self-hosted-product/);
+  assert.match(commands[7], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[8], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[9], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
@@ -68,6 +72,8 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:release-status/);
   assert.match(out, /preflight:typecheck-blob/);
   assert.match(out, /ci:release-status-sync/);
+  assert.match(out, /test:self-hosted-product/);
+  assert.match(out, /check:self-hosted-product/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /git diff --check/);
 });
