@@ -28,6 +28,7 @@ const DEFAULT_STEPS = [
   ["Stage 4I self-hosted assets preflight", npmCmd, ["run", "preflight:stage4i"]],
   ["Stage 4J self-hosted asset binaries preflight", npmCmd, ["run", "preflight:stage4j"]],
   ["Stage 4K self-hosted deploy smoke preflight", npmCmd, ["run", "preflight:stage4k"]],
+  ["Stage 4L self-hosted ops hardening preflight", npmCmd, ["run", "preflight:stage4l"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],

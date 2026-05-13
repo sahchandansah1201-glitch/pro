@@ -68,8 +68,13 @@ npm run preflight:stage4j
 npm run test:stage4k
 npm run check:stage4k
 npm run preflight:stage4k
+npm run test:stage4l
+npm run check:stage4l
+npm run preflight:stage4l
 npm run smoke:stage4k:dry-run
 npm run smoke:stage4k
+npm run ops:stage4l:backup:dry-run
+npm run ops:stage4l:restore:dry-run
 node backend/self-hosted/server.mjs
 ```
 
@@ -86,3 +91,6 @@ clinical asset metadata and issues backend-owned download URL contracts. Stage
 through authenticated backend download routes without exposing object bucket/key
 to the frontend. Stage 4K runs a full Docker Compose smoke across frontend,
 backend, PostgreSQL, login, patients, visits, and asset upload/download.
+Stage 4L adds production env templates, compose hardening, backup/restore
+dry-runs, restore verification guidance, and CI guardrails for operating the
+self-hosted stack on a server.
