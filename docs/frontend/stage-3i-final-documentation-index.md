@@ -34,6 +34,10 @@ npm run preflight:e2e-artifacts
 npm run typecheck
 npm run test:typecheck-blob-preflight
 npm run preflight:typecheck-blob
+npm run test:preflight-all
+npm run test:preflight-all-gate
+npm run check:preflight-all-gate
+npm run preflight:all -- --summary test-results/preflight-all.md
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
 npm run test:release-status-privacy
@@ -133,6 +137,8 @@ The focused Stage 3 docs guard is standalone and does not require
       and empty mock-call guards are documented.
 - [x] Focused typecheck/blob preflight, CI verification workflow, and release
       checklist are documented.
+- [x] Full deterministic `preflight:all`, PR summary report artifact, and
+      workflow gate checker are documented.
 
 ## 9. Sync changelog
 
@@ -240,5 +246,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #76: added the focused `preflight:typecheck-blob` command, unit-tested
   dry-run coverage, `typecheck-blob-verification` CI workflow, and Stage 3M
   release checklist for the typecheck/blob slice.
+- PR #77: added `preflight:all`, markdown PR summary output,
+  `preflight-all` CI workflow, workflow gate checker/tests, and Stage 3M/3I
+  release checklist coverage for full deterministic preflight.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

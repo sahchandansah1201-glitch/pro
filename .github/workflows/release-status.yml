@@ -16,6 +16,10 @@ on:
       - "scripts/preflight-release-status.mjs"
       - "scripts/preflight-typecheck-blob.mjs"
       - "scripts/preflight-typecheck-blob.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "scripts/check-preflight-all-gate.mjs"
+      - "scripts/check-preflight-all-gate.test.mjs"
       - "scripts/release-status-smoke.test.mjs"
       - "scripts/check-stage3-docs.mjs"
       - "src/lib/blob-utils.ts"
@@ -40,6 +44,7 @@ on:
       - "package-lock.json"
       - ".github/workflows/release-status.yml"
       - ".github/workflows/typecheck-blob-verification.yml"
+      - ".github/workflows/preflight-all.yml"
   push:
     paths:
       - "scripts/release-status.mjs"
@@ -54,6 +59,10 @@ on:
       - "scripts/preflight-release-status.mjs"
       - "scripts/preflight-typecheck-blob.mjs"
       - "scripts/preflight-typecheck-blob.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "scripts/check-preflight-all-gate.mjs"
+      - "scripts/check-preflight-all-gate.test.mjs"
       - "scripts/release-status-smoke.test.mjs"
       - "scripts/check-stage3-docs.mjs"
       - "src/lib/blob-utils.ts"
@@ -78,6 +87,7 @@ on:
       - "package-lock.json"
       - ".github/workflows/release-status.yml"
       - ".github/workflows/typecheck-blob-verification.yml"
+      - ".github/workflows/preflight-all.yml"
 
 permissions:
   actions: read

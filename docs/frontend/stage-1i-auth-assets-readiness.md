@@ -795,6 +795,8 @@ Auth/assets readiness is considered release-ready when:
 - `npm run preflight:auth-assets` is green.
 - `npm run preflight:typecheck-blob` is green for TypeScript/blob helper
   changes.
+- `npm run preflight:all -- --summary test-results/preflight-all.md` is green
+  for large cross-surface release handoffs.
 - `node scripts/check-no-deno-locks.mjs` is green.
 - `frontend-auth-assets` workflow is green.
 - `auth-assets-smoke-skip` workflow is green/skipped as expected.
