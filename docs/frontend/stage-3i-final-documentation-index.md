@@ -34,6 +34,7 @@ npm run preflight:e2e-artifacts
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
 npm run test:release-status-privacy
+npm run check:release-status-workflow-gate
 npm run check:release-status-sync
 npm run ci:release-status-sync
 npm run preflight:release-status
@@ -209,5 +210,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #70: made release-status report writes explicitly conditional on
   successful CI gates, surfaced CI gate status in `/sys/release-status`, and
   expanded e2e/docs/sync coverage for the report-write block.
+- PR #71: added a workflow-gate checker, browser write-gate drill with
+  pass/fail states, and expanded unit/e2e/docs coverage for report-write
+  blocking behavior.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

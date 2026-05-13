@@ -235,6 +235,25 @@ export interface ReleaseHistoryPresetAuditEntry {
   message: string;
 }
 
+export interface ReleaseStatusWriteGateStep {
+  id:
+    | "workflow-success-condition"
+    | "release-status-workflow"
+    | "ci-sync-gate"
+    | "deno-lock-guard";
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface ReleaseStatusWriteGateSummary {
+  canWriteReports: boolean;
+  status: "ready" | "blocked";
+  message: string;
+  steps: ReleaseStatusWriteGateStep[];
+  blockedReasons: string[];
+}
+
 const TOKEN_PARAM_NAMES = [
   "access_token",
   "refresh_token",
@@ -415,6 +434,68 @@ export function releaseStatusLevelLabel(level: ReleaseStatusLevel): string {
   if (level === "ok") return "Готово";
   if (level === "fail") return "Блокер";
   return "Нужно проверить";
+}
+
+export function buildReleaseStatusWriteGateSummary(
+  snapshot: ReleaseStatusSnapshot,
+  options: {
+    workflowSuccessCondition?: boolean;
+    ciSyncGateOk?: boolean;
+  } = {},
+): ReleaseStatusWriteGateSummary {
+  const releaseStatusWorkflow = snapshot.workflows.find(
+    (workflow) => workflow.name === "release-status",
+  );
+  const workflowSuccessCondition = options.workflowSuccessCondition ?? true;
+  const ciSyncGateOk = options.ciSyncGateOk ?? true;
+  const releaseWorkflowOk = releaseStatusWorkflow?.conclusion === "success";
+  const steps: ReleaseStatusWriteGateStep[] = [
+    {
+      id: "workflow-success-condition",
+      label: "Workflow success condition",
+      ok: workflowSuccessCondition,
+      detail: workflowSuccessCondition
+        ? "Write reports step uses if: ${{ success() }}."
+        : "Write reports step can run without the success condition.",
+    },
+    {
+      id: "release-status-workflow",
+      label: "Release-status workflow",
+      ok: releaseWorkflowOk,
+      detail: releaseWorkflowOk
+        ? "release-status workflow is green."
+        : `release-status workflow is ${releaseStatusWorkflow?.conclusion ?? "missing"}.`,
+    },
+    {
+      id: "ci-sync-gate",
+      label: "CI sync gate",
+      ok: ciSyncGateOk,
+      detail: ciSyncGateOk
+        ? "ci:release-status-sync passed sync/docs/deno/diff checks."
+        : "ci:release-status-sync failed before report generation.",
+    },
+    {
+      id: "deno-lock-guard",
+      label: "Deno lock guard",
+      ok: snapshot.denoLockOk,
+      detail: snapshot.denoLockOk
+        ? "No deno.lock files detected."
+        : "deno.lock guard failed.",
+    },
+  ];
+  const blockedReasons = steps
+    .filter((step) => !step.ok)
+    .map((step) => step.label);
+  const canWriteReports = blockedReasons.length === 0;
+  return {
+    canWriteReports,
+    status: canWriteReports ? "ready" : "blocked",
+    blockedReasons,
+    steps,
+    message: canWriteReports
+      ? "Write gate ready: CI may write release-status reports."
+      : `Write gate blocked: reports stay unwritten until ${blockedReasons.join(", ")} pass.`,
+  };
 }
 
 export function releaseStatusMime(format: ReleaseStatusFormat): string {
