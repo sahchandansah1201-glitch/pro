@@ -28,6 +28,8 @@ import {
 } from "./patient-write-service.mjs";
 import { patientReadScope, visitReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
+import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
+import { createVisitWorkspaceWriteService } from "./visit-workspace-write-service.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OPENAPI_4A = JSON.parse(
@@ -44,6 +46,9 @@ const OPENAPI_4D = JSON.parse(
 );
 const OPENAPI_4G = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4g.json"), "utf8"),
+);
+const OPENAPI_4H = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4h.json"), "utf8"),
 );
 
 function getRuntime(config, runtime = {}) {
@@ -67,6 +72,15 @@ function getRuntime(config, runtime = {}) {
     });
   const visitWorkspaceRepository =
     runtime.visitWorkspaceRepository || createVisitWorkspaceRepository(dbClient);
+  const visitWorkspaceWriteRepository =
+    runtime.visitWorkspaceWriteRepository || createVisitWorkspaceWriteRepository(dbClient);
+  const visitWorkspaceWriteService =
+    runtime.visitWorkspaceWriteService ||
+    createVisitWorkspaceWriteService({
+      visitWorkspaceRepository,
+      visitWorkspaceWriteRepository,
+      auditRepository,
+    });
   return {
     auditRepository,
     authRepository,
@@ -75,6 +89,8 @@ function getRuntime(config, runtime = {}) {
     patientRepository,
     patientWriteService,
     visitWorkspaceRepository,
+    visitWorkspaceWriteRepository,
+    visitWorkspaceWriteService,
   };
 }
 
@@ -123,6 +139,8 @@ function publicErrorFor(error) {
     invalid_token: "Invalid or expired authorization token.",
     patient_not_found: "Patient was not found in the allowed clinic scope.",
     visit_not_found: "Visit was not found in the allowed clinic scope.",
+    lesion_not_found: "Lesion was not found in the allowed clinic scope.",
+    not_found: "Resource was not found in the allowed clinic scope.",
     invalid_uuid: "The supplied identifier is not a valid UUID.",
     validation_error: "Patient payload failed validation.",
   };
@@ -131,7 +149,7 @@ function publicErrorFor(error) {
     return {
       status: error.publicStatus || 503,
       code,
-      message: messages[code] || "The self-hosted backend could not complete the request.",
+      message: messages[code] || error.message || "The self-hosted backend could not complete the request.",
       details: error.publicDetails,
     };
   }
@@ -581,11 +599,150 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Stage 4H · self-hosted visit workspace write endpoints.
+  if (visitDetailMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.visitWorkspaceWriteService.updateVisit(
+        decodeURIComponent(visitDetailMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4H",
+          source: "postgres",
+          item: result.visit,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (visitLesionsMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.visitWorkspaceWriteService.createLesion(
+        decodeURIComponent(visitLesionsMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        201,
+        {
+          stage: "4H",
+          source: "postgres",
+          item: result.lesion,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const lesionMatch = url.pathname.match(/^\/api\/v1\/lesions\/([^/]+)$/);
+  if (lesionMatch && (method === "PATCH" || method === "DELETE")) {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const lesionId = decodeURIComponent(lesionMatch[1]);
+      const result = method === "PATCH"
+        ? await runtimeServices.visitWorkspaceWriteService.updateLesion(
+            lesionId,
+            parseJsonBody(request.body),
+            authContext,
+            { correlationId },
+          )
+        : await runtimeServices.visitWorkspaceWriteService.archiveLesion(
+            lesionId,
+            authContext,
+            { correlationId },
+          );
+      return jsonResponse(
+        200,
+        {
+          stage: "4H",
+          source: "postgres",
+          archived: method === "DELETE",
+          item: result.lesion,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const visitReportMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/report$/);
+  if (visitReportMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.visitWorkspaceWriteService.updateReport(
+        decodeURIComponent(visitReportMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4H",
+          source: "postgres",
+          item: result.report,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (method !== "GET") {
     return errorResponse({
       status: 405,
       code: "method_not_allowed",
-      message: "This self-hosted backend route does not allow the requested method in Stage 4D.",
+      message: "This self-hosted backend route does not allow the requested method in Stage 4H.",
       correlationId,
       config,
       requestOrigin,
@@ -718,24 +875,26 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4D",
+        stage: "4H",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
           auth: "local-jwt",
           patients: "rbac-read-write-postgres",
-          visits: "rbac-read-postgres",
-          lesions: "rbac-read-postgres",
+          visits: "rbac-read-write-postgres",
+          lesions: "rbac-read-write-postgres",
           assets: "rbac-read-metadata-postgres",
+          reports: "rbac-write-postgres",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4d.json",
+          openapi: "/openapi.stage4h.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
           openapiStage4D: "/openapi.stage4d.json",
           openapiStage4G: "/openapi.stage4g.json",
+          openapiStage4H: "/openapi.stage4h.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           patients: "/api/v1/patients",
@@ -743,6 +902,39 @@ export async function handleSelfHostedRequest(
           visit: "/api/v1/visits/{visitId}",
           visitLesions: "/api/v1/visits/{visitId}/lesions",
           visitAssets: "/api/v1/visits/{visitId}/assets",
+          visitReport: "/api/v1/visits/{visitId}/report",
+          lesion: "/api/v1/lesions/{lesionId}",
+          health: "/healthz",
+          readiness: "/readyz",
+        },
+        deploymentMode: config.deploymentMode,
+        service: publicConfig(config),
+        capabilities: {
+          auth: "local-jwt",
+          patients: "rbac-read-write-postgres",
+          visits: "rbac-read-write-postgres",
+          lesions: "rbac-read-write-postgres",
+          assets: "rbac-read-metadata-postgres",
+          reports: "rbac-write-postgres",
+          audit: "append-only-contract",
+        },
+        links: {
+          openapi: "/openapi.stage4h.json",
+          openapiStage4A: "/openapi.stage4a.json",
+          openapiStage4B: "/openapi.stage4b.json",
+          openapiStage4C: "/openapi.stage4c.json",
+          openapiStage4D: "/openapi.stage4d.json",
+          openapiStage4G: "/openapi.stage4g.json",
+          openapiStage4H: "/openapi.stage4h.json",
+          login: "/api/v1/auth/login",
+          me: "/api/v1/auth/me",
+          patients: "/api/v1/patients",
+          patientVisits: "/api/v1/patients/{patientId}/visits",
+          visit: "/api/v1/visits/{visitId}",
+          visitLesions: "/api/v1/visits/{visitId}/lesions",
+          visitAssets: "/api/v1/visits/{visitId}/assets",
+          visitReport: "/api/v1/visits/{visitId}/report",
+          lesion: "/api/v1/lesions/{lesionId}",
           health: "/healthz",
           readiness: "/readyz",
         },
@@ -772,6 +964,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage4g.json") {
     return jsonResponse(200, OPENAPI_4G, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage4h.json") {
+    return jsonResponse(200, OPENAPI_4H, config, requestOrigin);
   }
 
   return errorResponse({
