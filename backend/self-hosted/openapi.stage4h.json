@@ -1,0 +1,167 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4H-visit-workspace-writes",
+    "summary": "Self-hosted backend visit workspace write API",
+    "description": "Stage 4H adds RBAC-protected write endpoints for the doctor visit workspace: PATCH /api/v1/visits/{visitId}, POST /api/v1/visits/{visitId}/lesions, PATCH /api/v1/lesions/{lesionId}, DELETE /api/v1/lesions/{lesionId} (soft archive), PATCH /api/v1/visits/{visitId}/report. Only system_admin and doctor roles may write."
+  },
+  "servers": [{ "url": "http://localhost:8080", "description": "Self-hosted reverse proxy" }],
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/visits/{visitId}": {
+      "patch": {
+        "operationId": "updateVisit",
+        "summary": "Update visit status, chief complaint, started_at",
+        "parameters": [
+          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VisitPatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Visit updated" },
+          "400": { "description": "Invalid JSON" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC clinic scope" },
+          "404": { "description": "Visit not found in scope" },
+          "422": { "description": "Validation error" }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesions": {
+      "post": {
+        "operationId": "createLesion",
+        "summary": "Create a lesion attached to a visit",
+        "parameters": [
+          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LesionCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Lesion created" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC" },
+          "404": { "description": "Visit not found in scope" },
+          "422": { "description": "Validation error" }
+        }
+      }
+    },
+    "/api/v1/lesions/{lesionId}": {
+      "patch": {
+        "operationId": "updateLesion",
+        "summary": "Update lesion fields",
+        "parameters": [
+          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LesionPatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Lesion updated" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC" },
+          "404": { "description": "Lesion not found in scope" },
+          "422": { "description": "Validation error" }
+        }
+      },
+      "delete": {
+        "operationId": "archiveLesion",
+        "summary": "Soft-archive lesion (sets deleted_at)",
+        "parameters": [
+          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Lesion archived" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC" },
+          "404": { "description": "Lesion not found in scope" }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/report": {
+      "patch": {
+        "operationId": "updateReport",
+        "summary": "Upsert visit report (physician + patient-safe text)",
+        "parameters": [
+          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReportPatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Report saved" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Forbidden by RBAC" },
+          "404": { "description": "Visit not found in scope" },
+          "422": { "description": "Validation error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "VisitPatchRequest": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["draft", "in_progress", "signed", "cancelled"] },
+          "chiefComplaint": { "type": "string", "nullable": true },
+          "startedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "LesionCreateRequest": {
+        "type": "object",
+        "required": ["label"],
+        "properties": {
+          "label": { "type": "string" },
+          "bodyZone": { "type": "string", "nullable": true },
+          "bodySurface": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["active", "monitoring", "removed", "archived"] },
+          "riskLevel": { "type": "string", "enum": ["low", "moderate", "high", "urgent"], "nullable": true }
+        }
+      },
+      "LesionPatchRequest": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string" },
+          "bodyZone": { "type": "string", "nullable": true },
+          "bodySurface": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["active", "monitoring", "removed", "archived"] },
+          "riskLevel": { "type": "string", "enum": ["low", "moderate", "high", "urgent"], "nullable": true }
+        }
+      },
+      "ReportPatchRequest": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["draft", "ready", "signed", "sent"] },
+          "physicianText": { "type": "string", "nullable": true },
+          "patientSafeText": { "type": "string", "nullable": true }
+        }
+      }
+    }
+  }
+}
