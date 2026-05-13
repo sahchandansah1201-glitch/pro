@@ -122,6 +122,8 @@ function publicErrorFor(error) {
     invalid_credentials: "Invalid credentials.",
     invalid_token: "Invalid or expired authorization token.",
     patient_not_found: "Patient was not found in the allowed clinic scope.",
+    visit_not_found: "Visit was not found in the allowed clinic scope.",
+    invalid_uuid: "The supplied identifier is not a valid UUID.",
     validation_error: "Patient payload failed validation.",
   };
   if (error instanceof DatabaseConfigError || error?.publicCode) {
