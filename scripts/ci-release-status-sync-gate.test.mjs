@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.join(__dirname, "..");
 const SCRIPT = path.join(__dirname, "ci-release-status-sync-gate.mjs");
 
 test("CI sync gate emits GitHub annotations only inside GitHub Actions", () => {
@@ -17,6 +19,38 @@ test("CI sync gate emits GitHub annotations only inside GitHub Actions", () => {
   assert.match(source, /Release status gate failed/);
   assert.match(source, /Release status reports may be written/);
   assert.match(source, /generated release-status reports must stay unwritten/);
+});
+
+test("CI sync gate does not emit GitHub annotations outside GitHub Actions", () => {
+  const env = { ...process.env };
+  delete env.GITHUB_ACTIONS;
+
+  const result = spawnSync(process.execPath, [SCRIPT], {
+    cwd: ROOT,
+    encoding: "utf8",
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /\[ci-release-status-sync-gate\] OK/);
+  assert.doesNotMatch(result.stdout, /::notice/);
+  assert.doesNotMatch(result.stdout, /::error/);
+});
+
+test("CI sync gate emits GitHub annotations when GITHUB_ACTIONS is true", () => {
+  const result = spawnSync(process.execPath, [SCRIPT], {
+    cwd: ROOT,
+    encoding: "utf8",
+    env: { ...process.env, GITHUB_ACTIONS: "true" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /::notice title=Release status gate passed::/);
+  assert.match(result.stdout, /::notice title=Release status reports may be written::/);
+  assert.doesNotMatch(result.stdout, /::error title=Release status gate failed::/);
+  assert.match(result.stdout, /\[ci-release-status-sync-gate\] OK/);
 });
 
 test("CI sync gate keeps workflow gate before sync checker and report write checks", () => {

@@ -396,6 +396,10 @@ The drill exposes two operator scenarios:
 
 - `Gate passed` shows `may write release-status reports`.
 - `Gate failed` shows `reports stay unwritten` and lists the blocked checks.
+- `gate-fail-e2e` is covered by a dedicated Playwright case that switches the
+  drill to `Gate failed`, asserts all four blocked checks, confirms the page
+  does not announce report-write permission, then switches back to `Gate
+  passed`.
 
 CI uses the same policy at workflow level:
 
@@ -410,6 +414,24 @@ CI uses the same policy at workflow level:
 - `scripts/check-release-status-workflow-gate.test.mjs` and
   `scripts/ci-release-status-sync-gate.test.mjs` keep the success condition,
   gate ordering, and annotation text covered by local tests.
+- `annotation-gating-runtime` is verified by running
+  `scripts/ci-release-status-sync-gate.mjs` in two runtime environments:
+  without `GITHUB_ACTIONS`, where no `::notice` or `::error` annotations may be
+  printed, and with `GITHUB_ACTIONS=true`, where the passing gate emits the
+  expected `Release status gate passed` and `Release status reports may be
+  written` notices.
+
+Use this `full-release-checks` bundle before merging release-status gate
+changes:
+
+```bash
+npm run preflight:release-status
+npm run ci:release-status-sync
+npm run e2e:release-status
+npm run build
+node scripts/check-no-deno-locks.mjs
+git diff --check
+```
 
 ## 14. Maintenance rule
 
@@ -436,8 +458,9 @@ CI uses the same policy at workflow level:
   preset-clear-undo, preset-audit-export, sync-checker-full-block,
   ci-sync-gate, report-write-block, filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
   write-gate-drill, workflow-gate-checker, release-status-sync-checker-ui,
-  release-status-e2e-entrypoint, ci-check-annotations,
-  status-report-smoke-test, and release-status-sync-checker changes must also keep
+  release-status-e2e-entrypoint, ci-check-annotations, gate-fail-e2e,
+  annotation-gating-runtime, full-release-checks, status-report-smoke-test,
+  and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
   aligned with the UI helper names and e2e assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
