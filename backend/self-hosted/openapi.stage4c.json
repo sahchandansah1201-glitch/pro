@@ -1,0 +1,215 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4C-auth-rbac",
+    "summary": "Self-hosted backend auth and RBAC foundation for Dermatolog Pro",
+    "description": "Stage 4C adds local JWT authentication, role-bound patient reads, and audit events while keeping the deployment self-hosted."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Self-hosted reverse proxy"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthz",
+        "summary": "Backend process health",
+        "security": [],
+        "responses": {
+          "200": { "description": "The backend process is running" }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz",
+        "summary": "Backend dependency readiness",
+        "security": [],
+        "responses": {
+          "200": { "description": "PostgreSQL is reachable and auth/object-storage config is present" },
+          "503": { "description": "One or more dependencies are missing or unavailable" }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "operationId": "getMeta",
+        "summary": "Read backend capabilities",
+        "security": [],
+        "responses": {
+          "200": { "description": "Stage 4C capability manifest" }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Authenticate a local self-hosted user",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Bearer access token issued by the backend" },
+          "401": { "description": "Invalid credentials" },
+          "503": { "description": "Auth signing secret or database unavailable" }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "getCurrentUser",
+        "summary": "Read the authenticated user and role bindings",
+        "responses": {
+          "200": { "description": "Authenticated user context" },
+          "401": { "description": "Missing, invalid, or expired bearer token" }
+        }
+      }
+    },
+    "/api/v1/patients": {
+      "get": {
+        "operationId": "listPatients",
+        "summary": "List non-deleted patients visible to the authenticated role",
+        "description": "Requires system_admin, clinic_admin, or doctor. Non-system roles are scoped to assigned clinic IDs.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": { "type": "string", "maxLength": 120 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Role-scoped read-only patient list from PostgreSQL" },
+          "401": { "description": "Missing, invalid, or expired bearer token" },
+          "403": { "description": "Authenticated user does not have a patient-read role" },
+          "503": { "description": "Database is not configured or unavailable" }
+        }
+      },
+      "post": {
+        "operationId": "createPatient",
+        "summary": "Create a patient through the backend",
+        "responses": {
+          "501": { "description": "Not implemented in Stage 4C" }
+        }
+      }
+    },
+    "/api/v1/patients/{patientId}": {
+      "parameters": [
+        {
+          "name": "patientId",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }
+      ],
+      "get": {
+        "operationId": "getPatient",
+        "summary": "Read one patient card",
+        "responses": {
+          "501": { "description": "Not implemented in Stage 4C" }
+        }
+      },
+      "patch": {
+        "operationId": "updatePatient",
+        "summary": "Update patient demographics and consent fields",
+        "responses": {
+          "501": { "description": "Not implemented in Stage 4C" }
+        }
+      },
+      "delete": {
+        "operationId": "deletePatient",
+        "summary": "Request patient deletion or retention workflow",
+        "responses": {
+          "501": { "description": "Not implemented in Stage 4C" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 1 }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["error", "correlationId"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" }
+            }
+          },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "RoleBinding": {
+        "type": "object",
+        "required": ["role"],
+        "properties": {
+          "role": { "type": "string" },
+          "clinicId": { "type": ["string", "null"], "format": "uuid" },
+          "clinicSlug": { "type": ["string", "null"] }
+        }
+      },
+      "PatientListItem": {
+        "type": "object",
+        "required": ["id", "code", "fullName", "imagingConsent", "clinic"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "fullName": { "type": "string" },
+          "birthDate": { "type": ["string", "null"], "format": "date" },
+          "sex": { "type": "string" },
+          "phototype": { "type": ["string", "null"] },
+          "imagingConsent": { "type": "boolean" },
+          "clinic": {
+            "type": "object",
+            "required": ["slug", "name"],
+            "properties": {
+              "slug": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

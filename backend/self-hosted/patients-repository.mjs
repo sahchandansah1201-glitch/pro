@@ -11,6 +11,10 @@ function sqlLiteral(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
+function sqlUuidList(values = []) {
+  return values.map((value) => `${sqlLiteral(value)}::uuid`).join(", ");
+}
+
 function normalizeSearch(value) {
   return String(value || "").trim().slice(0, 120);
 }
@@ -30,13 +34,25 @@ export function parsePatientListParams(searchParams) {
   return { limit, offset, search };
 }
 
-export function buildListPatientsSql({ limit = DEFAULT_LIMIT, offset = 0, search = "" } = {}) {
+export function buildListPatientsSql({
+  limit = DEFAULT_LIMIT,
+  offset = 0,
+  search = "",
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
   const safeLimit = clampInteger(limit, { fallback: DEFAULT_LIMIT, min: 1, max: MAX_LIMIT });
   const safeOffset = clampInteger(offset, { fallback: 0, min: 0, max: 10_000 });
   const safeSearch = normalizeSearch(search);
   const searchWhere = safeSearch
     ? `and (p.full_name ilike '%' || ${sqlLiteral(safeSearch)} || '%' or p.code ilike '%' || ${sqlLiteral(safeSearch)} || '%')`
     : "";
+  const safeClinicIds = Array.isArray(clinicIds) ? clinicIds.filter(Boolean).slice(0, 100) : [];
+  const clinicWhere = allClinics
+    ? ""
+    : safeClinicIds.length > 0
+      ? `and p.clinic_id in (${sqlUuidList(safeClinicIds)})`
+      : "and false";
 
   return `
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
@@ -56,6 +72,7 @@ from (
   from patients p
   join clinics c on c.id = p.clinic_id
   where p.deleted_at is null
+  ${clinicWhere}
   ${searchWhere}
   order by p.created_at desc, p.id desc
   limit ${safeLimit}
@@ -89,6 +106,8 @@ export function createPatientRepository(dbClient) {
         limit: clampInteger(params.limit, { fallback: DEFAULT_LIMIT, min: 1, max: MAX_LIMIT }),
         offset: clampInteger(params.offset, { fallback: 0, min: 0, max: 10_000 }),
         search: normalizeSearch(params.search),
+        clinicIds: Array.isArray(params.clinicIds) ? params.clinicIds : [],
+        allClinics: Boolean(params.allClinics),
       };
       const rows = await dbClient.queryJson(buildListPatientsSql(query));
       const items = Array.isArray(rows) ? rows.map(normalizePatient) : [];
@@ -98,6 +117,8 @@ export function createPatientRepository(dbClient) {
         limit: query.limit,
         offset: query.offset,
         search: query.search,
+        clinicIds: query.clinicIds,
+        allClinics: query.allClinics,
         source: "postgres",
       };
     },

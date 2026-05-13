@@ -21,6 +21,8 @@ services:
       OBJECT_STORAGE_ENDPOINT: "http://object-storage:9000"
       OBJECT_STORAGE_BUCKET: "${OBJECT_STORAGE_BUCKET:-clinical-assets}"
       JWT_ISSUER: "dermatolog-pro-self-hosted"
+      JWT_SECRET: "${JWT_SECRET:-change-me-local-jwt-secret-stage4c}"
+      JWT_EXPIRES_IN_SECONDS: "${JWT_EXPIRES_IN_SECONDS:-3600}"
       CORS_ORIGINS: "http://localhost:${APP_PORT:-8080},http://127.0.0.1:${APP_PORT:-8080}"
     depends_on:
       - postgres
