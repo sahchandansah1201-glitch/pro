@@ -407,7 +407,7 @@ describe("SysAccessEventsPage", () => {
       /CSV: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
     );
 
-    expect(createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob);
+    expect((createObjectURL.mock.calls[0] as unknown[])[0]).toBeInstanceOf(Blob);
   });
 
   it("exports XLSX with a safe Blob type and dated filename", async () => {
@@ -438,7 +438,7 @@ describe("SysAccessEventsPage", () => {
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
       /XLSX: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
     );
-    const blob = createObjectURL.mock.calls[0][0] as Blob;
+    const blob = (createObjectURL.mock.calls[0] as unknown[])[0] as Blob;
     expect(blob.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     expect(blob.size).toBeGreaterThan(0);
     expect(accessEventsXlsxFilename("all", "", { scope: "all-pages", rowCount: 12, columnCount: 11 })).toMatch(

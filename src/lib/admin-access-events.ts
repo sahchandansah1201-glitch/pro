@@ -60,7 +60,7 @@ function normalizeColumns(columns: AccessEventExportColumnKey[] | undefined): ty
   if (!columns || columns.length === 0) return ACCESS_EVENT_EXPORT_COLUMNS;
   const allowed = new Set(columns);
   const selected = ACCESS_EVENT_EXPORT_COLUMNS.filter((column) => allowed.has(column.key));
-  return selected.length > 0 ? selected : ACCESS_EVENT_EXPORT_COLUMNS;
+  return (selected.length > 0 ? selected : ACCESS_EVENT_EXPORT_COLUMNS) as typeof ACCESS_EVENT_EXPORT_COLUMNS;
 }
 
 function valueForColumn(row: AccessEventExportRow, key: AccessEventExportColumnKey): XlsxCellValue {
@@ -323,7 +323,7 @@ export function buildTableXlsxBytes(matrix: XlsxCellValue[][], sheetName = "Shee
 
 export function buildTableXlsxBlob(matrix: XlsxCellValue[][], sheetName = "Sheet1"): Blob {
   const archive = buildTableXlsxBytes(matrix, sheetName);
-  return new Blob([archive], {
+  return new Blob([archive as BlobPart], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
 }

@@ -891,13 +891,13 @@ export function parseReleaseHistoryPresetExportJson(
     };
   }
 
-  const rawPresets =
+  const rawPresets: unknown[] =
     parsed &&
     typeof parsed === "object" &&
     Array.isArray((parsed as Record<string, unknown>).presets)
-      ? (parsed as Record<string, unknown>).presets
+      ? ((parsed as Record<string, unknown>).presets as unknown[])
       : Array.isArray(parsed)
-        ? parsed
+        ? (parsed as unknown[])
         : [];
   const normalized = rawPresets
     .map((item) => normalizeReleaseHistoryFilterPreset(item))
@@ -1702,7 +1702,7 @@ export function buildReleaseBaselineOptions(
       id: "demo-previous",
       label: `Сохранённый baseline: ${demoPrevious.shortSha}`,
       detail: `${demoPrevious.branch}, ${demoPrevious.generatedAt.slice(0, 10)}, ${releaseStatusLevelLabel(releaseStatusLevel(demoPrevious))}`,
-      source: "demo",
+      source: "demo" as const,
       snapshot: demoPrevious,
     },
     ...imported,
@@ -1763,8 +1763,8 @@ export function compareReleaseStatusSnapshots(
       );
       return {
         name,
-        previous: previousWorkflow?.conclusion ?? "missing",
-        current: currentWorkflow?.conclusion ?? "missing",
+        previous: (previousWorkflow?.conclusion ?? "missing") as ReleaseWorkflowComparison["previous"],
+        current: (currentWorkflow?.conclusion ?? "missing") as ReleaseWorkflowComparison["current"],
       };
     })
     .filter((item) => item.previous !== item.current);
