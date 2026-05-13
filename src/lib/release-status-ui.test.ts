@@ -12,6 +12,8 @@ import {
   buildFilteredReleaseHistoryJsonl,
   buildReleaseStatusExportBundle,
   buildReleaseBaselineOptions,
+  buildReleaseReadinessSummary,
+  buildReleaseReportArtifactUrl,
   buildReleaseHistoryJsonl,
   buildReleaseStatusHtml,
   buildReleaseStatusJson,
@@ -143,6 +145,72 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
       ]),
     );
     expect(blocked.message).toContain("reports stay unwritten");
+  });
+
+  it("builds release readiness summary and publishable report link", () => {
+    const gate = buildReleaseStatusWriteGateSummary(
+      RELEASE_STATUS_DEMO_SNAPSHOT,
+      { workflowSuccessCondition: true, ciSyncGateOk: true },
+    );
+    const summary = buildReleaseReadinessSummary(
+      RELEASE_STATUS_DEMO_SNAPSHOT,
+      gate,
+    );
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        status: "ready",
+        label: "Ready",
+        score: 100,
+        passedCount: 5,
+        totalCount: 5,
+      }),
+    );
+    expect(summary.reportUrl).toBe(
+      `${RELEASE_STATUS_DEMO_SNAPSHOT.workflows[0].runUrl}#artifacts`,
+    );
+    expect(buildReleaseReportArtifactUrl(RELEASE_STATUS_DEMO_SNAPSHOT)).toBe(
+      summary.reportUrl,
+    );
+    expect(summary.notification).toMatch(/report link may be published/i);
+    expect(summary.checks.map((check) => check.id)).toEqual([
+      "working-tree",
+      "deno-lock-guard",
+      "release-artifact",
+      "workflow-suite",
+      "write-gate",
+    ]);
+  });
+
+  it("blocks release readiness when the write gate fails", () => {
+    const failedSnapshot = {
+      ...RELEASE_STATUS_DEMO_SNAPSHOT,
+      denoLockOk: false,
+      workflows: RELEASE_STATUS_DEMO_SNAPSHOT.workflows.map((workflow) =>
+        workflow.name === "release-status"
+          ? { ...workflow, conclusion: "failure" as const }
+          : workflow,
+      ),
+    };
+    const gate = buildReleaseStatusWriteGateSummary(failedSnapshot, {
+      workflowSuccessCondition: false,
+      ciSyncGateOk: false,
+    });
+    const summary = buildReleaseReadinessSummary(failedSnapshot, gate);
+
+    expect(summary.status).toBe("blocked");
+    expect(summary.score).toBeLessThan(100);
+    expect(summary.notification).toMatch(/Gate failed/i);
+    expect(summary.notification).toMatch(/reports stay unwritten/i);
+    expect(
+      summary.checks.filter((check) => !check.ok).map((check) => check.id),
+    ).toEqual(
+      expect.arrayContaining([
+        "deno-lock-guard",
+        "workflow-suite",
+        "write-gate",
+      ]),
+    );
   });
 
   it("builds a unified safe export bundle for all release-status formats", () => {

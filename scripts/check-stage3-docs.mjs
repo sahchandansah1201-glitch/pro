@@ -186,7 +186,8 @@ const EXPECTED = [
       "## 11. Local preflight",
       "## 12. System admin UI viewer",
       "## 13. Write-gate drill and CI annotations",
-      "## 14. Maintenance rule",
+      "## 14. CI status and readiness dashboard",
+      "## 15. Maintenance rule",
     ],
   },
 ];
@@ -789,6 +790,11 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "ci-sy
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "report-write-block");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "write-gate-drill");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "workflow-gate-checker");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "CI status and readiness dashboard");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseReadinessSummary");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseReportArtifactUrl");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "Gate failure notification release status");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "Открыть опубликованный release readiness report");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "ci-check-annotations");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "gate-fail-e2e");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "annotation-gating-runtime");
@@ -832,6 +838,7 @@ requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #72")
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #73");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #76");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #77");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #79");
 
 const stage3l = readDoc("stage-3l-nightly-artifacts-report.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "## 8. Related dashboards");
@@ -920,6 +927,8 @@ requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "normalizeReleaseHistoryF
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "summarizeReleaseHistoryPresetImport");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "planReleaseHistoryPresetImport");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseHistoryPresetAuditReport");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseReadinessSummary");
+requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "buildReleaseReportArtifactUrl");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryPresetAuditFilename");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryFilteredJsonlFilename");
 requireText(RELEASE_STATUS_UI_LIB, releaseStatusUiLib, "releaseHistoryFilteredCsvFilename");
@@ -930,6 +939,11 @@ const releaseStatusUiPage = existsSync(join(ROOT, RELEASE_STATUS_UI_PAGE))
   ? readFileSync(join(ROOT, RELEASE_STATUS_UI_PAGE), "utf8")
   : "";
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Предпросмотр release status");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Release readiness dashboard");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "CI status page");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "CI status checks");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Gate failure notification release status");
+requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Открыть опубликованный release readiness report");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Сравнение релизов");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Импорт release history");
 requireText(RELEASE_STATUS_UI_PAGE, releaseStatusUiPage, "Вставить release-history JSONL");
@@ -988,6 +1002,9 @@ const releaseStatusUiE2e = existsSync(join(ROOT, RELEASE_STATUS_UI_E2E))
   ? readFileSync(join(ROOT, RELEASE_STATUS_UI_E2E), "utf8")
   : "";
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "/sys/release-status");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Release readiness dashboard");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "CI status summary");
+requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Gate failure notification release status");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "clinic_admin");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Импортировать history JSONL");
 requireText(RELEASE_STATUS_UI_E2E, releaseStatusUiE2e, "Импорт заблокирован");

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Bell,
   CheckCircle2,
   ClipboardCheck,
   Download,
   Eye,
+  ExternalLink,
   FileUp,
   FileCode2,
   GitCompare,
@@ -32,6 +34,7 @@ import {
   buildFilteredReleaseHistoryCsv,
   buildFilteredReleaseHistoryJsonl,
   buildFilteredReleaseHistoryXlsxBytes,
+  buildReleaseReadinessSummary,
   buildReleaseHistoryPresetExportJson,
   buildReleaseHistoryPresetsXlsxBytes,
   buildReleaseHistoryFilterPreset,
@@ -323,6 +326,10 @@ export default function SysReleaseStatusPage() {
         ciSyncGateOk: writeGateScenario === "pass",
       }),
     [writeGateScenario, writeGateSnapshot],
+  );
+  const readinessSummary = useMemo(
+    () => buildReleaseReadinessSummary(writeGateSnapshot, writeGateSummary),
+    [writeGateSnapshot, writeGateSummary],
   );
   const currentExport = useMemo(
     () => buildReleaseStatusExportFile(snapshot, format),
@@ -1186,6 +1193,17 @@ export default function SysReleaseStatusPage() {
     }
   };
 
+  const handleCopyReportLink = async () => {
+    try {
+      if (!navigator.clipboard?.writeText)
+        throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(readinessSummary.reportUrl);
+      setStatus("Ссылка на release readiness report скопирована.");
+    } catch {
+      setStatus(`Release readiness report: ${readinessSummary.reportUrl}`);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -1222,6 +1240,200 @@ export default function SysReleaseStatusPage() {
           Демо-режим. Реальные роли, RLS, аудит, ключи и Device Bridge
           включаются на этапе бэкенда.
         </div>
+
+        <section
+          aria-label="Release readiness dashboard"
+          className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]"
+        >
+          <Card className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <PackageCheck
+                    className="h-4 w-4 text-primary"
+                    aria-hidden
+                  />
+                  <h2 className="text-[16px] font-semibold tracking-tight">
+                    Release readiness dashboard
+                  </h2>
+                </div>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  Единый снимок готовности релиза: CI, артефакты, deno-lock
+                  guard и gate записи отчётов.
+                </p>
+              </div>
+              <Badge
+                variant={
+                  readinessSummary.status === "ready"
+                    ? "secondary"
+                    : readinessSummary.status === "blocked"
+                      ? "destructive"
+                      : "outline"
+                }
+                className="w-fit"
+              >
+                {readinessSummary.label}
+              </Badge>
+            </div>
+
+            <div
+              className={
+                readinessSummary.status === "blocked"
+                  ? "mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive"
+                  : "mt-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-700"
+              }
+              role={readinessSummary.status === "blocked" ? "alert" : "status"}
+              aria-label="Release readiness notification"
+            >
+              {readinessSummary.notification}
+            </div>
+
+            <dl className="mt-4 grid gap-2 text-[12px] sm:grid-cols-3">
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <dt className="text-muted-foreground">Score</dt>
+                <dd className="mt-1 text-[18px] font-semibold">
+                  {readinessSummary.score}%
+                </dd>
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <dt className="text-muted-foreground">Checks</dt>
+                <dd className="mt-1">
+                  {readinessSummary.passedCount} из{" "}
+                  {readinessSummary.totalCount}
+                </dd>
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <dt className="text-muted-foreground">Report</dt>
+                <dd className="mt-1 truncate font-mono text-[11px]">
+                  {snapshot.artifactPath}
+                </dd>
+              </div>
+            </dl>
+
+            <ul
+              className="mt-4 grid gap-2 text-[12px] sm:grid-cols-2"
+              aria-label="Release readiness checks"
+            >
+              {readinessSummary.checks.map((check) => (
+                <li
+                  key={check.id}
+                  className="rounded-md border border-border bg-muted/30 p-3"
+                >
+                  <div className="flex items-center gap-1.5 font-medium">
+                    {check.ok ? (
+                      <CheckCircle2
+                        className="h-3.5 w-3.5 text-success"
+                        aria-hidden
+                      />
+                    ) : (
+                      <Bell
+                        className="h-3.5 w-3.5 text-destructive"
+                        aria-hidden
+                      />
+                    )}
+                    {check.label}
+                  </div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {check.detail}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-start gap-2">
+              <MonitorCheck
+                className="mt-0.5 h-4 w-4 text-primary"
+                aria-hidden
+              />
+              <div>
+                <h2 className="text-[16px] font-semibold tracking-tight">
+                  CI status page
+                </h2>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  Публикуемая ссылка ведёт на GitHub Actions run с артефактами
+                  release-status.
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="mt-4 rounded-md border border-border bg-muted/30 p-3 text-[12px]"
+              role="status"
+              aria-label="CI status summary"
+            >
+              CI checks: {successCount} из {snapshot.workflows.length} green.
+              Release report link: {readinessSummary.reportLabel}.
+            </div>
+
+            <ul
+              className="mt-3 max-h-[260px] divide-y divide-border overflow-auto rounded-md border border-border"
+              aria-label="CI status checks"
+            >
+              {snapshot.workflows.map((workflow) => (
+                <li
+                  key={workflow.name}
+                  className="flex items-center justify-between gap-3 px-3 py-2 text-[12px]"
+                >
+                  <span className="min-w-0 truncate font-mono">
+                    {workflow.name}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-success">
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                    {workflow.conclusion}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-8 text-[12px]"
+                asChild
+              >
+                <a
+                  href={readinessSummary.reportUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Открыть опубликованный release readiness report"
+                >
+                  <ExternalLink
+                    className="mr-1.5 h-3.5 w-3.5"
+                    aria-hidden
+                  />
+                  Открыть отчёт
+                </a>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-[12px]"
+                onClick={handleCopyReportLink}
+              >
+                <ClipboardCheck
+                  className="mr-1.5 h-3.5 w-3.5"
+                  aria-hidden
+                />
+                Скопировать ссылку
+              </Button>
+            </div>
+
+            {readinessSummary.status === "blocked" && (
+              <div
+                className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive"
+                role="alert"
+                aria-label="Gate failure notification release status"
+              >
+                {readinessSummary.notification}
+              </div>
+            )}
+          </Card>
+        </section>
 
         <section
           aria-label="Предпросмотр release status"

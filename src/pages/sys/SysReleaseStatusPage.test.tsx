@@ -53,7 +53,33 @@ describe("SysReleaseStatusPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "Предпросмотр release status" }),
-    ).toHaveTextContent(/Main workflows: 6 из 6 success/);
+    ).toHaveTextContent(/Main workflows: 9 из 9 success/);
+    expect(
+      screen.getByRole("region", { name: "Release readiness dashboard" }),
+    ).toHaveTextContent(/Release readiness dashboard/);
+    expect(
+      screen.getByRole("status", { name: "Release readiness notification" }),
+    ).toHaveTextContent(/report link may be published/i);
+    expect(
+      screen.getByRole("list", { name: "Release readiness checks" }),
+    ).toHaveTextContent(/CI workflow suite/);
+    expect(
+      screen.getByRole("status", { name: "CI status summary" }),
+    ).toHaveTextContent(/CI checks: 9 из 9 green/);
+    expect(
+      screen.getByRole("list", { name: "CI status checks" }),
+    ).toHaveTextContent(/preflight-all/);
+    expect(
+      screen.getByRole("link", {
+        name: "Открыть опубликованный release readiness report",
+      }),
+    ).toHaveAttribute("href", expect.stringContaining("#artifacts"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Скопировать ссылку" }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/release readiness report/i);
     expect(screen.getAllByText("Готово").length).toBeGreaterThan(0);
     expect(
       screen.getByText(/Доступ к разделу открыт только роли system_admin/),
@@ -78,6 +104,16 @@ describe("SysReleaseStatusPage", () => {
     });
     expect(
       screen.getByRole("status", { name: "Write gate drill status" }),
+    ).toHaveTextContent(/reports stay unwritten/i);
+    expect(
+      screen.getByRole("alert", {
+        name: "Gate failure notification release status",
+      }),
+    ).toHaveTextContent(/Gate failed/i);
+    expect(
+      screen.getByRole("alert", {
+        name: "Gate failure notification release status",
+      }),
     ).toHaveTextContent(/reports stay unwritten/i);
     expect(
       screen.getByRole("list", { name: "Write gate drill checks" }),
