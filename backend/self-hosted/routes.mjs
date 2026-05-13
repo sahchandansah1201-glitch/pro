@@ -28,6 +28,8 @@ import {
 } from "./patient-write-service.mjs";
 import { patientReadScope, visitReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
+import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
+import { createVisitWorkspaceWriteService } from "./visit-workspace-write-service.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OPENAPI_4A = JSON.parse(
@@ -44,6 +46,9 @@ const OPENAPI_4D = JSON.parse(
 );
 const OPENAPI_4G = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4g.json"), "utf8"),
+);
+const OPENAPI_4H = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4h.json"), "utf8"),
 );
 
 function getRuntime(config, runtime = {}) {
