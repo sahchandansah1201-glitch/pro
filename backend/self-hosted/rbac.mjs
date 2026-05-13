@@ -90,3 +90,20 @@ export const VISIT_READ_ROLES = PATIENT_READ_ROLES;
 export function visitReadScope(authContext) {
   return patientReadScope(authContext);
 }
+
+// Stage 4H · Visit workspace write scope. Only doctors and system admins may
+// mutate visits/lesions/reports. clinic_admin/assistant/operator are denied
+// to keep clinical writes inside the doctor's hands.
+export const VISIT_WRITE_ROLES = ["system_admin", "doctor"];
+
+export function visitWriteScope(authContext) {
+  const scoped = requireAnyRole(authContext, VISIT_WRITE_ROLES);
+  if (scoped.roles.includes("system_admin")) {
+    return { allClinics: true, clinicIds: [], roles: scoped.roles };
+  }
+  const clinicIds = normalizeRoles(scoped.clinicIds);
+  if (clinicIds.length === 0) {
+    throw new ForbiddenError("The authenticated user has no clinic scope.");
+  }
+  return { allClinics: false, clinicIds, roles: scoped.roles };
+}
