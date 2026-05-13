@@ -82,6 +82,10 @@
   release or when touching shared UI primitives.
 - `auth-assets-smoke` skips itself when credential env vars are missing;
   a pure skip is a pass for the fast smoke.
+- Targeted release-status smoke: `npm run e2e:release-status` runs only
+  `e2e/sys-release-status.pw.ts` when a change is limited to the
+  system-admin release-status viewer, write-gate drill, or release-history
+  import/export UX.
 
 ## 8. CI fast smoke workflow
 

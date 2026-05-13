@@ -21,6 +21,16 @@ const steps = [
     ["run", "test:release-status-privacy"],
   ],
   [
+    "release status smoke test",
+    npmCmd,
+    ["run", "test:release-status-smoke"],
+  ],
+  [
+    "release status CI gate tests",
+    npmCmd,
+    ["run", "test:release-status-ci"],
+  ],
+  [
     "release status UI tests",
     npmCmd,
     [
