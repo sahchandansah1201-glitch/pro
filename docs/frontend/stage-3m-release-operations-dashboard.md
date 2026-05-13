@@ -15,6 +15,7 @@ backend configuration, or workflow scheduling.
 - Privacy detector: `scripts/check-release-status-privacy.mjs`.
 - Privacy detector tests: `scripts/check-release-status-privacy.test.mjs`.
 - Release-status sync checker: `scripts/check-release-status-sync.mjs`.
+- Release-status CI sync gate: `scripts/ci-release-status-sync-gate.mjs`.
 - Focused preflight: `scripts/preflight-release-status.mjs`.
 - npm scripts:
   - `npm run release:status`
@@ -25,6 +26,7 @@ backend configuration, or workflow scheduling.
   - `npm run test:release-status-privacy`
   - `npm run check:release-status-privacy`
   - `npm run check:release-status-sync`
+  - `npm run ci:release-status-sync`
   - `npm run preflight:release-status`
 
 The CLI does not mutate git state or source files. It writes only the explicit
@@ -139,6 +141,10 @@ Workflow: `.github/workflows/release-status.yml`.
 The workflow runs on relevant PRs, pushes, and manual dispatch. It:
 
 - runs `npm run preflight:release-status`;
+- runs `npm run ci:release-status-sync` as the explicit `ci-sync-gate`
+  before generated artifacts are written. The gate combines
+  `npm run check:release-status-sync`, `node scripts/check-stage3-docs.mjs`,
+  `node scripts/check-no-deno-locks.mjs`, and `git diff --check`;
 - the focused preflight now includes `src/lib/release-status-ui.test.ts` and
   `src/pages/sys/SysReleaseStatusPage.test.tsx` so browser-viewer helpers and
   UI wiring are exercised before generated artifacts are written;
@@ -307,8 +313,10 @@ The viewer also exposes the UI-side release operator guardrails:
   after reading the summary. The control now selects the first affected line
   and announces the focused line number in the page status.
 - The local preflight card exposes both `npm run preflight:release-status` and
-  `npm run check:release-status-sync`; e2e asserts the sync-check command is
-  visible and copyable from the UI.
+  `npm run check:release-status-sync`; it also shows
+  `npm run ci:release-status-sync` as the same compact CI gate used by
+  `.github/workflows/release-status.yml`. E2E asserts the sync-check and CI
+  gate commands are visible and copyable from the UI.
 - The history import textarea and filtered export controls carry
   `history-export-a11y` states: `aria-invalid`, `aria-describedby`, disabled
   no-result exports, and live status updates for JSONL/CSV export completion.
@@ -324,6 +332,9 @@ The viewer also exposes the UI-side release operator guardrails:
 - The `release-status-sync-checker` (`npm run check:release-status-sync`)
   keeps the release-status page, helper library, unit/e2e tests, workflow,
   preflight, and Stage 3 docs aligned before generated reports are written.
+- `ci-sync-gate` (`npm run ci:release-status-sync`) is the workflow-facing
+  guard that runs the release-status sync checker, Stage 3 docs guard,
+  deno-lock guard, and whitespace diff check together.
 - The local preflight card includes `sync-checker-full-block`: a copyable
   command block with sync checker, Stage 3 docs guard, deno-lock guard, and
   `git status --short` for before-PR and post-Lovable-sync verification.
@@ -351,7 +362,7 @@ The viewer also exposes the UI-side release operator guardrails:
   history-filter-presets, preset-management-ui, preset-json-xlsx-export,
   preset-import-preview, preset-import-plan, preset-import-error-focus,
   preset-clear-undo, preset-audit-export, sync-checker-full-block,
-  filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
+  ci-sync-gate, filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
   release-status-sync-checker-ui, and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
   aligned with the UI helper names and e2e assertions.

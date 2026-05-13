@@ -220,6 +220,7 @@ const RELEASE_STATUS_TEST = "scripts/release-status.test.mjs";
 const RELEASE_STATUS_PRIVACY_SCRIPT = "scripts/check-release-status-privacy.mjs";
 const RELEASE_STATUS_PRIVACY_TEST = "scripts/check-release-status-privacy.test.mjs";
 const RELEASE_STATUS_SYNC_SCRIPT = "scripts/check-release-status-sync.mjs";
+const RELEASE_STATUS_CI_SYNC_SCRIPT = "scripts/ci-release-status-sync-gate.mjs";
 const RELEASE_STATUS_PREFLIGHT_SCRIPT = "scripts/preflight-release-status.mjs";
 const RELEASE_STATUS_UI_LIB = "src/lib/release-status-ui.ts";
 const RELEASE_STATUS_UI_LIB_TEST = "src/lib/release-status-ui.test.ts";
@@ -381,6 +382,7 @@ requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test s
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status-privacy\": \"node --test scripts/check-release-status-privacy.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-privacy\": \"node scripts/check-release-status-privacy.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-sync\": \"node scripts/check-release-status-sync.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"ci:release-status-sync\": \"node scripts/ci-release-status-sync-gate.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "e2e/sys-release-status.pw.ts");
 
 const releaseStatusScript = existsSync(join(ROOT, RELEASE_STATUS_SCRIPT))
@@ -432,6 +434,15 @@ requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scri
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-stage3-docs.mjs");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-no-deno-locks.mjs");
 
+const releaseStatusCiSyncScript = existsSync(join(ROOT, RELEASE_STATUS_CI_SYNC_SCRIPT))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_CI_SYNC_SCRIPT), "utf8")
+  : "";
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "ci-release-status-sync-gate");
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "check:release-status-sync");
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "scripts/check-stage3-docs.mjs");
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "scripts/check-no-deno-locks.mjs");
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "git diff");
+
 const releaseStatusWorkflow = existsSync(join(ROOT, RELEASE_STATUS_WORKFLOW))
   ? readFileSync(join(ROOT, RELEASE_STATUS_WORKFLOW), "utf8")
   : "";
@@ -440,6 +451,7 @@ if (!releaseStatusWorkflow) {
 }
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run preflight:release-status");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run check:release-status-sync");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run ci:release-status-sync");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status -- --output test-results/release-status.md --history test-results/release-history.jsonl");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:json -- --output test-results/release-status.json");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:html -- --output test-results/release-status.html");
@@ -450,6 +462,7 @@ requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "release-status-${{ 
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "test-results/release-status.html");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "test-results/release-history.jsonl");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/check-release-status-sync.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/ci-release-status-sync-gate.mjs");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/release-status-ui.ts");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/pages/sys/SysReleaseStatusPage.tsx");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "e2e/sys-release-status.pw.ts");
@@ -511,6 +524,9 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "jsonl
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "release-status-sync-checker-ui");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "release-status-sync-checker");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run check:release-status-sync");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run ci:release-status-sync");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "ci-sync-gate");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/ci-release-status-sync-gate.mjs");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseImportAuditReport");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildFilteredReleaseHistoryJsonl");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildFilteredReleaseHistoryCsv");

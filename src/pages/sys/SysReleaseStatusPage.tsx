@@ -83,7 +83,9 @@ import {
 const FORMATS: ReleaseStatusFormat[] = ["markdown", "json", "html", "history"];
 const HISTORY_PREVIEW_PAGE_SIZE = 3;
 const RELEASE_STATUS_SYNC_COMMAND = "npm run check:release-status-sync";
+const RELEASE_STATUS_CI_SYNC_COMMAND = "npm run ci:release-status-sync";
 const RELEASE_STATUS_SYNC_BLOCK = [
+  "npm run ci:release-status-sync",
   "npm run check:release-status-sync",
   "node scripts/check-stage3-docs.mjs",
   "node scripts/check-no-deno-locks.mjs",
@@ -1369,6 +1371,9 @@ export default function SysReleaseStatusPage() {
                 <code className="mt-2 block rounded bg-background px-2 py-1 text-[11px]">
                   {RELEASE_STATUS_SYNC_COMMAND}
                 </code>
+                <code className="mt-2 block rounded bg-background px-2 py-1 text-[11px]">
+                  {RELEASE_STATUS_CI_SYNC_COMMAND}
+                </code>
                 <Button
                   type="button"
                   variant="outline"
@@ -1408,6 +1413,7 @@ export default function SysReleaseStatusPage() {
                       className="space-y-1 text-[11px] text-muted-foreground"
                       aria-label="Sync checker критерии release status"
                     >
+                      <li>CI gate: `ci:release-status-sync` запускает sync/docs/deno/diff checks.</li>
                       <li>До PR review: sync checker и Stage 3 docs должны пройти.</li>
                       <li>После Lovable sync: HEAD должен быть main SHA или новее.</li>
                       <li>Если sync stale, не переимплементировать отсутствующий код.</li>
