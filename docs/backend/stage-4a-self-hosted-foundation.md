@@ -103,3 +103,10 @@ Expected:
 - No claim that browser role switching is security.
 
 Those belong to later Stage 4 backend slices.
+
+## 8. Next slice
+
+Stage 4B lives in
+[`docs/backend/stage-4b-backend-runtime.md`](./stage-4b-backend-runtime.md).
+It keeps the same self-hosted boundary and adds PostgreSQL runtime readiness
+plus the first read-only patient-list endpoint.

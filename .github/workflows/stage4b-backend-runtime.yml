@@ -1,0 +1,52 @@
+name: stage4b-backend-runtime
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4b-backend-runtime.md"
+      - "scripts/check-stage4b-backend-runtime.mjs"
+      - "scripts/check-stage4b-backend-runtime.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4b-backend-runtime.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4b-backend-runtime.md"
+      - "scripts/check-stage4b-backend-runtime.mjs"
+      - "scripts/check-stage4b-backend-runtime.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4b-backend-runtime.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4b-backend-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 4B preflight
+        run: npm run preflight:stage4b
+      - name: Compose syntax check
+        run: docker compose --env-file deploy/self-hosted/.env.example -f deploy/self-hosted/docker-compose.stage4a.yml config
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4B backend runtime"
+            echo ""
+            echo "- preflight:stage4b"
+            echo "- docker compose config"
+            echo "- package-lock.json remains controlled by npm ci"
+          } >> "$GITHUB_STEP_SUMMARY"

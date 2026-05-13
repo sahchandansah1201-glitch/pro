@@ -1,0 +1,229 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4B-runtime",
+    "summary": "Self-hosted backend runtime foundation for Dermatolog Pro",
+    "description": "Stage 4B keeps the deployment self-hosted and adds the first PostgreSQL-backed runtime endpoint: read-only patient listing. Mutating clinical endpoints remain contract-first."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Self-hosted reverse proxy"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthz",
+        "summary": "Backend process health",
+        "responses": {
+          "200": {
+            "description": "The backend process is running"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz",
+        "summary": "Backend dependency readiness",
+        "responses": {
+          "200": {
+            "description": "Required self-hosted dependencies are configured and PostgreSQL is reachable"
+          },
+          "503": {
+            "description": "One or more dependencies are missing or unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "operationId": "getMeta",
+        "summary": "Read backend capabilities",
+        "responses": {
+          "200": {
+            "description": "Stage 4B capability manifest"
+          }
+        }
+      }
+    },
+    "/api/v1/patients": {
+      "get": {
+        "operationId": "listPatients",
+        "summary": "List non-deleted patients from self-hosted PostgreSQL",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only patient list from PostgreSQL"
+          },
+          "503": {
+            "description": "Database is not configured or unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPatient",
+        "summary": "Create a patient through the backend",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4B"
+          }
+        }
+      }
+    },
+    "/api/v1/patients/{patientId}": {
+      "parameters": [
+        {
+          "name": "patientId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getPatient",
+        "summary": "Read one patient card",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4B"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePatient",
+        "summary": "Update patient demographics and consent fields",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4B"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePatient",
+        "summary": "Request patient deletion or retention workflow",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4B"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Authenticate a local user",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4B"
+          }
+        }
+      }
+    },
+    "/api/v1/visits": {
+      "post": {
+        "operationId": "createVisit",
+        "summary": "Create a clinical visit",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4B"
+          }
+        }
+      }
+    },
+    "/api/v1/assets/presign": {
+      "post": {
+        "operationId": "createAssetUploadIntent",
+        "summary": "Create a short-lived upload intent for clinical imaging",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4B"
+          }
+        }
+      }
+    },
+    "/api/v1/audit/events": {
+      "get": {
+        "operationId": "listAuditEvents",
+        "summary": "List sanitized audit events for system administrators",
+        "responses": {
+          "501": {
+            "description": "Not implemented in Stage 4B"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "required": ["error", "correlationId"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" }
+            }
+          },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "PatientListItem": {
+        "type": "object",
+        "required": ["id", "code", "fullName", "imagingConsent", "clinic"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "fullName": { "type": "string" },
+          "birthDate": { "type": ["string", "null"], "format": "date" },
+          "sex": { "type": "string" },
+          "phototype": { "type": ["string", "null"] },
+          "imagingConsent": { "type": "boolean" },
+          "clinic": {
+            "type": "object",
+            "required": ["slug", "name"],
+            "properties": {
+              "slug": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
