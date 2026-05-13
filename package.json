@@ -24,6 +24,7 @@
     "test:release-status-privacy": "node --test scripts/check-release-status-privacy.test.mjs",
     "check:release-status-privacy": "node scripts/check-release-status-privacy.mjs",
     "check:release-status-sync": "node scripts/check-release-status-sync.mjs",
+    "ci:release-status-sync": "node scripts/ci-release-status-sync-gate.mjs",
     "release:status": "node scripts/release-status.mjs",
     "release:status:json": "node scripts/release-status.mjs --json",
     "release:status:html": "node scripts/release-status.mjs --html",

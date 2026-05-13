@@ -35,6 +35,7 @@ npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
 npm run test:release-status-privacy
 npm run check:release-status-sync
+npm run ci:release-status-sync
 npm run preflight:release-status
 npm test -- --run src/lib/release-status-ui.test.ts src/pages/sys/SysReleaseStatusPage.test.tsx
 npx playwright test e2e/sys-release-status.pw.ts
@@ -202,5 +203,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #68: added preset import planning, focus recovery for invalid preset JSON,
   a full local sync-check command block, and matching release-status unit/e2e
   plus Stage 3 sync guard coverage.
+- PR #69: added a dedicated `ci:release-status-sync` gate for release-status
+  sync/docs/deno/diff checks, exposed the command in the system-admin release
+  status UI, and wired workflow/docs/sync guards to require it.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

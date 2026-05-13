@@ -547,6 +547,9 @@ test.describe("/sys/release-status", () => {
     ).toContainText(/sync checker/);
     await expect(
       page.getByRole("region", { name: "Sync checker gate release status" }),
+    ).toContainText("npm run ci:release-status-sync");
+    await expect(
+      page.getByRole("region", { name: "Sync checker gate release status" }),
     ).toContainText("git status --short");
     await page
       .getByRole("button", { name: "Скопировать полный sync checker блок" })

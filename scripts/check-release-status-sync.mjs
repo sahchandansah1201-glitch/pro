@@ -10,6 +10,7 @@ const REQUIRED_FILES = [
   "src/pages/sys/SysReleaseStatusPage.test.tsx",
   "e2e/sys-release-status.pw.ts",
   "scripts/preflight-release-status.mjs",
+  "scripts/ci-release-status-sync-gate.mjs",
   "scripts/check-stage3-docs.mjs",
   "docs/frontend/stage-3m-release-operations-dashboard.md",
   "docs/frontend/stage-3i-final-documentation-index.md",
@@ -69,6 +70,7 @@ const REQUIRED_TEXT = {
     "npm run check:release-status-sync",
     "Sync checker gate release status",
     "Скопировать полный sync checker блок",
+    "npm run ci:release-status-sync",
   ],
   "src/pages/sys/SysReleaseStatusPage.test.tsx": [
     "renames, duplicates, imports, exports, and deletes release-history filter presets",
@@ -95,6 +97,7 @@ const REQUIRED_TEXT = {
     "Очистить сохранённые пресеты release history",
     "Скачать аудит пресетов release history",
     "Скопировать полный sync checker блок",
+    "npm run ci:release-status-sync",
     "Скопировать sync checker",
     "Фокус на JSONL с ошибкой",
   ],
@@ -102,7 +105,15 @@ const REQUIRED_TEXT = {
     "release status sync checker",
     "check:release-status-sync",
   ],
+  "scripts/ci-release-status-sync-gate.mjs": [
+    "ci-release-status-sync-gate",
+    "check:release-status-sync",
+    "scripts/check-stage3-docs.mjs",
+    "scripts/check-no-deno-locks.mjs",
+    "git diff",
+  ],
   "scripts/check-stage3-docs.mjs": [
+    "ci-release-status-sync-gate.mjs",
     "check-release-status-sync.mjs",
     "history-filter-presets",
     "filtered-history-xlsx",
@@ -120,6 +131,7 @@ const REQUIRED_TEXT = {
     "preset-clear-undo",
     "preset-audit-export",
     "sync-checker-full-block",
+    "ci-sync-gate",
     "jsonl-error-line-selection",
     "release-status-sync-checker-ui",
     "release-status-sync-checker",
@@ -131,12 +143,14 @@ const REQUIRED_TEXT = {
   ],
   ".github/workflows/release-status.yml": [
     "scripts/check-release-status-sync.mjs",
+    "scripts/ci-release-status-sync-gate.mjs",
     "src/lib/release-status-ui.ts",
     "src/pages/sys/SysReleaseStatusPage.tsx",
     "e2e/sys-release-status.pw.ts",
     "npm run check:release-status-sync",
+    "npm run ci:release-status-sync",
   ],
-  "package.json": ['"check:release-status-sync"'],
+  "package.json": ['"check:release-status-sync"', '"ci:release-status-sync"'],
 };
 
 const errors = [];

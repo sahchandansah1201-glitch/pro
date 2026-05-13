@@ -9,6 +9,7 @@ on:
       - "scripts/check-release-status-privacy.mjs"
       - "scripts/check-release-status-privacy.test.mjs"
       - "scripts/check-release-status-sync.mjs"
+      - "scripts/ci-release-status-sync-gate.mjs"
       - "scripts/preflight-release-status.mjs"
       - "scripts/check-stage3-docs.mjs"
       - "src/lib/admin-access-events.ts"
@@ -31,6 +32,7 @@ on:
       - "scripts/check-release-status-privacy.mjs"
       - "scripts/check-release-status-privacy.test.mjs"
       - "scripts/check-release-status-sync.mjs"
+      - "scripts/ci-release-status-sync-gate.mjs"
       - "scripts/preflight-release-status.mjs"
       - "scripts/check-stage3-docs.mjs"
       - "src/lib/admin-access-events.ts"
@@ -70,6 +72,9 @@ jobs:
 
       - name: Release-status sync checker
         run: npm run check:release-status-sync
+
+      - name: Release-status CI sync gate
+        run: npm run ci:release-status-sync
 
       - name: Write release status reports
         env:
