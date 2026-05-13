@@ -81,3 +81,12 @@ export function patientWriteScope(authContext) {
     roles: scoped.roles,
   };
 }
+
+// Stage 4G · Visit workspace read scope. Reuses the patient read RBAC: doctors,
+// clinic admins and system admins can list visits/lesions/assets. Operators and
+// other roles are denied.
+export const VISIT_READ_ROLES = PATIENT_READ_ROLES;
+
+export function visitReadScope(authContext) {
+  return patientReadScope(authContext);
+}

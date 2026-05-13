@@ -20,6 +20,7 @@ import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { useApiSession } from "@/lib/api-session";
+import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanner";
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
@@ -167,6 +168,8 @@ export default function VisitWorkspacePage() {
           </Button>
         }
       />
+
+      <VisitWorkspaceLiveBanner visitId={visit.id} />
 
       <Tabs
         value={activeTab}
