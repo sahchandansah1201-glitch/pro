@@ -813,7 +813,7 @@ export default function SysAccessEventsPage() {
           `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`,
         );
       })
-      .catch(() => {
+      .then(undefined, () => {
         if (cancelled) return;
         setRows([]);
         setSource("api");

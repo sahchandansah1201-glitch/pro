@@ -700,7 +700,7 @@ export default function SysReleaseStatusPage() {
         const bytes = buildReleaseHistoryPresetsXlsxBytes(savedHistoryPresets);
         downloadBlob(
           filename,
-          new Blob([bytes], {
+          new Blob([bytes as BlobPart], {
             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           }),
         );
@@ -1097,7 +1097,7 @@ export default function SysReleaseStatusPage() {
           );
           downloadBlob(
             filename,
-            new Blob([bytes], {
+            new Blob([bytes as BlobPart], {
               type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             }),
           );
