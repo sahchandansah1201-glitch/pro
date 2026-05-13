@@ -114,6 +114,9 @@ The focused Stage 3 docs guard is standalone and does not require
       documented.
 - [x] Release history filter presets, filtered XLSX export, import-error
       actions, and release-status sync checker are documented.
+- [x] Release history preset management, preset JSON/XLSX export/import,
+      JSONL first-error line selection, and sync-checker UI coverage are
+      documented.
 
 ## 9. Sync changelog
 
@@ -190,5 +193,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #65: added saved release-history filter presets, filtered XLSX export,
   import-error remediation actions, and the release-status sync checker across
   UI, tests, workflow, preflight, and Stage 3 docs.
+- PR #66: expanded release-history preset management with rename/duplicate,
+  sanitized preset JSON/XLSX export/import, first-error JSONL line selection,
+  and sync-checker visibility in `/sys/release-status` e2e coverage.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

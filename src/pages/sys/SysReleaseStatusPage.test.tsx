@@ -254,7 +254,7 @@ describe("SysReleaseStatusPage", () => {
       screen.getByRole("status", {
         name: "Сводка ошибок импорта release history",
       }),
-    ).toHaveTextContent(/Ошибок импорта: 1/);
+    ).toHaveTextContent(/Первая ошибка: строка 1/);
     expect(
       screen.getByRole("list", { name: "Ошибки формата release history" }),
     ).toHaveTextContent(/строка 1: invalid JSON/);
@@ -267,9 +267,15 @@ describe("SysReleaseStatusPage", () => {
       screen.getByRole("button", { name: "Фокус на JSONL с ошибкой" }),
     );
     expect(historyInput).toHaveFocus();
+    expect((historyInput as HTMLTextAreaElement).selectionEnd).toBeGreaterThan(
+      (historyInput as HTMLTextAreaElement).selectionStart,
+    );
   });
 
-  it("applies, saves, persists, and deletes release-history filter presets", () => {
+  it("applies, saves, renames, duplicates, imports, exports, and deletes release-history filter presets", async () => {
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
     const view = render(<SysReleaseStatusPage />);
 
     fireEvent.change(
@@ -319,6 +325,83 @@ describe("SysReleaseStatusPage", () => {
     expect(
       screen.getByRole("status", { name: "Сводка пресетов release history" }),
     ).toHaveTextContent(/Мой E2E фильтр/);
+    fireEvent.change(screen.getByLabelText("Название пресета release history"), {
+      target: { value: "Мой E2E фильтр v2" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Переименовать сохранённый пресет release history",
+      }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/переименован/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Дублировать выбранный пресет release history",
+      }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Сводка пресетов release history" }),
+    ).toHaveTextContent(/Сохранено: 2\/8/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать пресеты release history в JSON",
+      }),
+    );
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Экспортировать пресеты release history в XLSX",
+      }),
+    );
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    fireEvent.change(
+      screen.getByLabelText("Импортировать пресеты release history JSON"),
+      {
+        target: {
+          value: JSON.stringify({
+            presets: [
+              {
+                id: "saved-imported-safe",
+                name: "Imported safe preset",
+                source: "saved",
+                createdAt: "2026-05-12T10:00:00Z",
+                filters: {
+                  status: "ok",
+                  deno: "ok",
+                  artifact: "present",
+                  workflow: "success",
+                  query: "release-status",
+                },
+              },
+            ],
+          }),
+        },
+      },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Импортировать пресеты release history",
+        }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Импортировать пресеты release history",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", {
+          name: "Статус импорта пресетов release history",
+        }),
+      ).toHaveTextContent(/1 принято/),
+    );
+    expect(
+      screen.getByRole("option", { name: "Imported safe preset" }),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", {
         name: "Удалить сохранённый пресет release history",
@@ -326,7 +409,7 @@ describe("SysReleaseStatusPage", () => {
     );
     expect(
       screen.getByRole("status", { name: "Сводка пресетов release history" }),
-    ).toHaveTextContent(/Сохранено: 0\/8/);
+    ).toHaveTextContent(/Сохранено: 2\/8/);
   });
 
   it("supports dry-run import, history filters, delete import, audit download, and JSONL validation", async () => {

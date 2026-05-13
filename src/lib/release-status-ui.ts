@@ -200,6 +200,15 @@ export interface ReleaseHistoryFilterPreset {
   createdAt?: string;
 }
 
+export interface ReleaseHistoryPresetExportResult {
+  presets: ReleaseHistoryFilterPreset[];
+  acceptedCount: number;
+  skippedCount: number;
+  privacy: ReleasePrivacySummary;
+  message: string;
+  status: "safe" | "blocked" | "empty" | "partial";
+}
+
 const TOKEN_PARAM_NAMES = [
   "access_token",
   "refresh_token",
@@ -707,6 +716,107 @@ export function normalizeReleaseHistoryFilterPreset(
   };
 }
 
+function uniqueSavedPresets(
+  presets: ReleaseHistoryFilterPreset[],
+): ReleaseHistoryFilterPreset[] {
+  const seen = new Set<string>();
+  const normalized: ReleaseHistoryFilterPreset[] = [];
+  for (const preset of presets) {
+    if (preset.source !== "saved") continue;
+    const key = preset.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(preset);
+    if (normalized.length >= RELEASE_HISTORY_FILTER_PRESET_LIMIT) break;
+  }
+  return normalized;
+}
+
+export function buildReleaseHistoryPresetExportJson(
+  presets: ReleaseHistoryFilterPreset[],
+): string {
+  const safePresets = uniqueSavedPresets(
+    presets
+      .map((preset) => normalizeReleaseHistoryFilterPreset(preset))
+      .filter((preset): preset is ReleaseHistoryFilterPreset => preset != null),
+  );
+  return `${JSON.stringify(
+    {
+      title: "Release history filter presets",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      presetCount: safePresets.length,
+      privacy:
+        "sanitized; preset names and filter queries are checked before export",
+      presets: safePresets,
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+export function parseReleaseHistoryPresetExportJson(
+  input: string,
+): ReleaseHistoryPresetExportResult {
+  const privacy = summarizeReleasePrivacy(input);
+  if (privacy.findingCount > 0) {
+    return {
+      presets: [],
+      acceptedCount: 0,
+      skippedCount: 0,
+      privacy,
+      status: "blocked",
+      message: `Импорт пресетов заблокирован: privacy detector нашёл ${privacy.findingCount} совпадений.`,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input);
+  } catch {
+    return {
+      presets: [],
+      acceptedCount: 0,
+      skippedCount: 1,
+      privacy,
+      status: "empty",
+      message: "Импорт пресетов не выполнен: JSON некорректен.",
+    };
+  }
+
+  const rawPresets =
+    parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>).presets)
+      ? (parsed as Record<string, unknown>).presets
+      : Array.isArray(parsed)
+        ? parsed
+        : [];
+  const normalized = rawPresets
+    .map((item) => normalizeReleaseHistoryFilterPreset(item))
+    .filter((item): item is ReleaseHistoryFilterPreset => item != null)
+    .map((preset) => ({ ...preset, source: "saved" as const }));
+  const presets = uniqueSavedPresets(normalized);
+  const skippedCount = Math.max(0, rawPresets.length - presets.length);
+  const status =
+    rawPresets.length === 0
+      ? "empty"
+      : presets.length === 0
+        ? "empty"
+        : skippedCount > 0
+          ? "partial"
+          : "safe";
+  return {
+    presets,
+    acceptedCount: presets.length,
+    skippedCount,
+    privacy,
+    status,
+    message:
+      presets.length === 0
+        ? "Импорт пресетов не нашёл безопасных записей."
+        : `Импорт пресетов готов: ${presets.length} принято, ${skippedCount} пропущено.`,
+  };
+}
+
 function toHistoryRecord(raw: unknown): ReleaseHistoryRecord | null {
   if (!raw || typeof raw !== "object") return null;
   const item = raw as Record<string, unknown>;
@@ -988,6 +1098,14 @@ export function releaseHistoryFilteredXlsxFilename(): string {
   return `release-history-filtered-${today()}.xlsx`;
 }
 
+export function releaseHistoryPresetsJsonFilename(): string {
+  return `release-history-filter-presets-${today()}.json`;
+}
+
+export function releaseHistoryPresetsXlsxFilename(): string {
+  return `release-history-filter-presets-${today()}.xlsx`;
+}
+
 function sanitizeAuditText(value: string): string {
   const compact = value.replace(/\s+/g, " ").slice(0, 240);
   const privacy = summarizeReleasePrivacy(compact);
@@ -1183,6 +1301,54 @@ export function buildFilteredReleaseHistoryXlsxBytes(
   return buildTableXlsxBytes(
     buildFilteredReleaseHistoryMatrix(records, context),
     "Release history",
+  );
+}
+
+export function buildReleaseHistoryPresetsMatrix(
+  presets: ReleaseHistoryFilterPreset[],
+): XlsxCellValue[][] {
+  const safePresets = uniqueSavedPresets(
+    presets
+      .map((preset) => normalizeReleaseHistoryFilterPreset(preset))
+      .filter((preset): preset is ReleaseHistoryFilterPreset => preset != null),
+  );
+  const matrix: XlsxCellValue[][] = [
+    ["section", "key", "value"],
+    ["summary", "presetCount", String(safePresets.length)],
+    ["summary", "limit", String(RELEASE_HISTORY_FILTER_PRESET_LIMIT)],
+    [],
+    [
+      "id",
+      "name",
+      "status",
+      "deno",
+      "artifact",
+      "workflow",
+      "query",
+      "created_at",
+    ],
+  ];
+  for (const preset of safePresets) {
+    matrix.push([
+      preset.id,
+      preset.name,
+      preset.filters.status,
+      preset.filters.deno,
+      preset.filters.artifact,
+      preset.filters.workflow,
+      sanitizeAuditText(preset.filters.query),
+      preset.createdAt ?? "—",
+    ]);
+  }
+  return matrix;
+}
+
+export function buildReleaseHistoryPresetsXlsxBytes(
+  presets: ReleaseHistoryFilterPreset[],
+): Uint8Array {
+  return buildTableXlsxBytes(
+    buildReleaseHistoryPresetsMatrix(presets),
+    "History presets",
   );
 }
 

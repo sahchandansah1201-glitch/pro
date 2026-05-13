@@ -497,8 +497,12 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "audit
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "baseline-preview");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "baseline-delete");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "history-filter-presets");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "preset-management-ui");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "preset-json-xlsx-export");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "filtered-history-xlsx");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "import-error-actions");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "jsonl-error-line-selection");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "release-status-sync-checker-ui");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "release-status-sync-checker");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run check:release-status-sync");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseImportAuditReport");
@@ -507,6 +511,9 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "build
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildFilteredReleaseHistoryXlsxBytes");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseHistoryFilterPreset");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "normalizeReleaseHistoryFilterPreset");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseHistoryPresetExportJson");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseHistoryPresetsXlsxBytes");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "parseReleaseHistoryPresetExportJson");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "releaseHistoryFilteredXlsxFilename");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "summarizeReleaseHistoryIssues");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "filterReleaseHistoryRecords");

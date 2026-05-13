@@ -104,6 +104,41 @@ test.describe("/sys/release-status", () => {
     await expect(
       page.getByRole("status", { name: "Сводка пресетов release history" }),
     ).toContainText("Сохранено: 1/8");
+    await expect(
+      page.getByRole("region", {
+        name: "Управление пресетами release history",
+      }),
+    ).toBeVisible();
+    const presetJsonDownloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("button", {
+        name: "Экспортировать пресеты release history в JSON",
+      })
+      .click();
+    const presetJsonDownload = await presetJsonDownloadPromise;
+    expect(presetJsonDownload.suggestedFilename()).toMatch(
+      /^release-history-filter-presets-\d{4}-\d{2}-\d{2}\.json$/,
+    );
+    const presetJsonPath = await presetJsonDownload.path();
+    expect(presetJsonPath).not.toBeNull();
+    const presetJsonText = await readFile(presetJsonPath!, "utf8");
+    expect(presetJsonText).toContain("E2E blockers");
+    expect(presetJsonText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+
+    const presetXlsxDownloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("button", {
+        name: "Экспортировать пресеты release history в XLSX",
+      })
+      .click();
+    const presetXlsxDownload = await presetXlsxDownloadPromise;
+    expect(presetXlsxDownload.suggestedFilename()).toMatch(
+      /^release-history-filter-presets-\d{4}-\d{2}-\d{2}\.xlsx$/,
+    );
+    const presetXlsxPath = await presetXlsxDownload.path();
+    expect(presetXlsxPath).not.toBeNull();
+    const presetXlsxBytes = await readFile(presetXlsxPath!);
+    expect(Array.from(presetXlsxBytes.subarray(0, 2))).toEqual([80, 75]);
     await page.reload({ waitUntil: "networkidle" });
     await expect(
       page.getByRole("option", { name: "E2E blockers" }),
@@ -399,6 +434,13 @@ test.describe("/sys/release-status", () => {
     await expect(
       page.getByRole("status", { name: "Статус релиз-дашборда" }),
     ).toContainText(/preflight/);
+    await expect(page.getByText("npm run check:release-status-sync")).toBeVisible();
+    await page
+      .getByRole("button", { name: "Скопировать sync checker" })
+      .click();
+    await expect(
+      page.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toContainText(/sync checker/);
 
     await page
       .getByLabel("Вставить release-history JSONL")
@@ -411,7 +453,7 @@ test.describe("/sys/release-status", () => {
       page.getByRole("status", {
         name: "Сводка ошибок импорта release history",
       }),
-    ).toContainText("Ошибок импорта: 1");
+    ).toContainText("Первая ошибка: строка 1");
     await expect(
       page.getByRole("list", { name: "Ошибки формата release history" }),
     ).toContainText("строка 1: invalid JSON");
