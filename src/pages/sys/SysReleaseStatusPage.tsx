@@ -2517,7 +2517,7 @@ export default function SysReleaseStatusPage() {
                             : "font-medium text-foreground"
                         }
                       >
-                        {importAuditStatusLabel(entry.status)}
+                        {importAuditStatusLabel(entry.status as Parameters<typeof importAuditStatusLabel>[0])}
                       </div>
                       <div className="mt-1 text-[11px] text-muted-foreground">
                         {formatTime(entry.at)} · принято {entry.acceptedCount},

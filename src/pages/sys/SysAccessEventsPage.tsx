@@ -789,7 +789,7 @@ export default function SysAccessEventsPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    client
+    Promise.resolve(client
       .rpc("list_access_events_admin", {
         _limit: ACCESS_EVENTS_LIMIT,
         _offset: 0,
@@ -812,7 +812,7 @@ export default function SysAccessEventsPage() {
           "RPC list_access_events_admin",
           `загружено ${safeRows.length} из лимита ${ACCESS_EVENTS_LIMIT}`,
         );
-      })
+      }))
       .then(undefined, () => {
         if (cancelled) return;
         setRows([]);
