@@ -83,39 +83,39 @@ export function buildCreateVisitAssetSql({
   uploadedBy = null,
 } = {}) {
   return `
+with inserted as (
+  insert into clinical_assets (
+    clinic_id,
+    patient_id,
+    visit_id,
+    lesion_id,
+    kind,
+    object_bucket,
+    object_key,
+    content_type,
+    byte_size,
+    checksum_sha256,
+    captured_at,
+    uploaded_by
+  )
+  values (
+    ${sqlUuid(clinicId)},
+    ${sqlUuid(patientId)},
+    ${sqlUuid(visitId)},
+    ${sqlNullableUuid(lesionId)},
+    ${sqlLiteral(kind)}::asset_kind,
+    ${sqlLiteral(objectBucket)},
+    ${sqlLiteral(objectKey)},
+    ${sqlLiteral(contentType)},
+    ${sqlNullableBigint(byteSize)},
+    ${sqlNullableText(checksumSha256)},
+    ${sqlNullableTimestamp(capturedAt)},
+    ${sqlNullableUuid(uploadedBy)}
+  )
+  returning *
+)
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
-  with inserted as (
-    insert into clinical_assets (
-      clinic_id,
-      patient_id,
-      visit_id,
-      lesion_id,
-      kind,
-      object_bucket,
-      object_key,
-      content_type,
-      byte_size,
-      checksum_sha256,
-      captured_at,
-      uploaded_by
-    )
-    values (
-      ${sqlUuid(clinicId)},
-      ${sqlUuid(patientId)},
-      ${sqlUuid(visitId)},
-      ${sqlNullableUuid(lesionId)},
-      ${sqlLiteral(kind)}::asset_kind,
-      ${sqlLiteral(objectBucket)},
-      ${sqlLiteral(objectKey)},
-      ${sqlLiteral(contentType)},
-      ${sqlNullableBigint(byteSize)},
-      ${sqlNullableText(checksumSha256)},
-      ${sqlNullableTimestamp(capturedAt)},
-      ${sqlNullableUuid(uploadedBy)}
-    )
-    returning *
-  )
   select ${assetSafeColumns("a")}
   from inserted a
 ) result;

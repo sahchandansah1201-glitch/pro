@@ -27,6 +27,8 @@ test("buildCreateVisitAssetSql inserts object storage fields but returns only sa
     capturedAt: "2026-05-12T09:00:00.000Z",
     uploadedBy: USER_ID,
   });
+  assert.match(sql, /^with inserted as \(/);
+  assert.doesNotMatch(sql, /from \(\s+with inserted as/i);
   assert.match(sql, /insert into clinical_assets/);
   assert.match(sql, /object_bucket/);
   assert.match(sql, /object_key/);

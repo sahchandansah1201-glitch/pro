@@ -50,7 +50,7 @@ export function buildListVisitsByPatientSql({
   allClinics = false,
 } = {}) {
   return `
-select coalesce(jsonb_agg(row_to_json(result) order by ("startedAt" desc nulls last)), '[]'::jsonb)::text
+select coalesce(jsonb_agg(row_to_json(result) order by result."startedAt" desc nulls last), '[]'::jsonb)::text
 from (
   select
     ${visitColumns("v")}
@@ -93,7 +93,7 @@ export function buildListVisitLesionsSql({
   allClinics = false,
 } = {}) {
   return `
-select coalesce(jsonb_agg(row_to_json(result) order by ("createdAt" asc)), '[]'::jsonb)::text
+select coalesce(jsonb_agg(row_to_json(result) order by result."createdAt" asc), '[]'::jsonb)::text
 from (
   select
     l.id::text as "id",
@@ -122,7 +122,7 @@ export function buildListVisitAssetsSql({
   allClinics = false,
 } = {}) {
   return `
-select coalesce(jsonb_agg(row_to_json(result) order by ("capturedAt" asc nulls last)), '[]'::jsonb)::text
+select coalesce(jsonb_agg(row_to_json(result) order by result."capturedAt" asc nulls last), '[]'::jsonb)::text
 from (
   select
     a.id::text as "id",

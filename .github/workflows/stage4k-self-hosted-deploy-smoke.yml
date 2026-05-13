@@ -1,0 +1,77 @@
+name: stage4k-self-hosted-deploy-smoke
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "scripts/stage4k-self-hosted-compose-smoke.mjs"
+      - "scripts/stage4k-self-hosted-compose-smoke.test.mjs"
+      - "scripts/check-stage4k-self-hosted-deploy-smoke.mjs"
+      - "scripts/check-stage4k-self-hosted-deploy-smoke.test.mjs"
+      - "docs/backend/stage-4k-self-hosted-deploy-smoke.md"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4k-self-hosted-deploy-smoke.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "scripts/stage4k-self-hosted-compose-smoke.mjs"
+      - "scripts/stage4k-self-hosted-compose-smoke.test.mjs"
+      - "scripts/check-stage4k-self-hosted-deploy-smoke.mjs"
+      - "scripts/check-stage4k-self-hosted-deploy-smoke.test.mjs"
+      - "docs/backend/stage-4k-self-hosted-deploy-smoke.md"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4k-self-hosted-deploy-smoke.yml"
+  schedule:
+    - cron: "43 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_PORT: "18080"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Stage 4K preflight
+        run: npm run preflight:stage4k
+      - name: Run full compose smoke
+        run: npm run smoke:stage4k -- --keep-up-on-fail --summary test-results/stage4k-compose-smoke-report.md
+      - name: Collect compose logs
+        if: failure()
+        run: |
+          mkdir -p test-results
+          docker compose -f deploy/self-hosted/docker-compose.stage4a.yml -p dermatolog-pro-stage4k-smoke logs --no-color > test-results/stage4k-compose-logs.txt || true
+      - name: Cleanup compose stack
+        if: always()
+        run: docker compose -f deploy/self-hosted/docker-compose.stage4a.yml -p dermatolog-pro-stage4k-smoke down -v || true
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage4k-compose-smoke-${{ github.run_id }}
+          path: |
+            test-results/stage4k-compose-smoke-report.md
+            test-results/stage4k-compose-logs.txt
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4K self-hosted deploy smoke"
+            echo ""
+            echo "- Preflight + compose smoke: ${{ job.status }}"
+            echo "- Compose: \`deploy/self-hosted/docker-compose.stage4a.yml\`"
+            echo "- Checked: healthz, readyz, login, patients, visits, asset upload/download"
+            echo "- Report: \`test-results/stage4k-compose-smoke-report.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
