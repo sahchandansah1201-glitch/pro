@@ -1,0 +1,120 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4I-assets-write",
+    "description": "Stage 4I self-hosted clinical asset metadata registration and backend-owned download URL contract."
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "ClinicalAsset": {
+        "type": "object",
+        "required": ["id", "clinicId", "patientId", "visitId", "kind", "contentType"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "clinicId": { "type": "string", "nullable": true },
+          "patientId": { "type": "string", "nullable": true },
+          "visitId": { "type": "string", "nullable": true },
+          "lesionId": { "type": "string", "nullable": true },
+          "kind": { "type": "string", "enum": ["overview_photo", "dermoscopy", "report_attachment"] },
+          "contentType": { "type": "string" },
+          "byteSize": { "type": "integer", "nullable": true },
+          "capturedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "uploadedBy": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "CreateAssetPayload": {
+        "type": "object",
+        "required": ["contentType"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["overview_photo", "overview", "macro", "body_map", "dermoscopy", "report_attachment"] },
+          "contentType": { "type": "string" },
+          "byteSize": { "type": "integer", "minimum": 0 },
+          "lesionId": { "type": "string", "format": "uuid", "nullable": true },
+          "capturedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "checksumSha256": { "type": "string", "nullable": true },
+          "originalFileName": { "type": "string", "nullable": true }
+        }
+      },
+      "DownloadUrl": {
+        "type": "object",
+        "required": ["assetId", "clinicId", "visitId", "downloadUrl", "expiresIn", "expiresAt"],
+        "properties": {
+          "assetId": { "type": "string", "format": "uuid" },
+          "clinicId": { "type": "string", "nullable": true },
+          "visitId": { "type": "string", "nullable": true },
+          "downloadUrl": { "type": "string", "description": "Backend-owned route. Raw object bucket/key is never exposed." },
+          "expiresIn": { "type": "integer", "minimum": 60, "maximum": 900 },
+          "expiresAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "type": "array", "items": { "type": "object" } }
+            }
+          },
+          "correlationId": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/visits/{visitId}/assets": {
+      "get": {
+        "summary": "List visit asset metadata",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Asset metadata list" },
+          "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "post": {
+        "summary": "Register a visit asset metadata record",
+        "description": "Registers metadata and backend-owned object location. The response does not expose object bucket/key.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateAssetPayload" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "Registered asset", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicalAsset" } } } },
+          "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/v1/assets/{assetId}/download-url": {
+      "get": {
+        "summary": "Issue backend-owned asset download URL",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "expiresIn", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 60, "maximum": 900, "default": 300 } }
+        ],
+        "responses": {
+          "200": { "description": "Download URL", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DownloadUrl" } } } },
+          "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    }
+  }
+}

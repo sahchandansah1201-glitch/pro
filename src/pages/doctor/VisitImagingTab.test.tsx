@@ -9,12 +9,21 @@ import { MemoryRouter } from "react-router-dom";
 
 import { VisitImagingTab } from "./VisitImagingTab";
 import { LESIONS, VISITS, getLesionsByPatientId } from "@/lib/mock-data";
+import {
+  SELF_HOSTED_API_BASE_URL_KEY,
+  SELF_HOSTED_API_TOKEN_KEY,
+} from "@/lib/self-hosted-api-session";
 
 const visit = VISITS[0];
 const patientId = visit.patientId;
 const lesions = getLesionsByPatientId(patientId).length > 0
   ? getLesionsByPatientId(patientId)
   : LESIONS.slice(0, 1);
+
+beforeEach(() => {
+  window.localStorage.removeItem(SELF_HOSTED_API_BASE_URL_KEY);
+  window.localStorage.removeItem(SELF_HOSTED_API_TOKEN_KEY);
+});
 
 function renderTab(extra: Record<string, unknown> = {}) {
   return render(
@@ -100,6 +109,20 @@ describe("VisitImagingTab · API panel · with token", () => {
     await waitFor(() => {
       expect(within(region).getByText(/В API ещё нет ассетов/i)).toBeInTheDocument();
     });
+  });
+
+  it("prefers self-hosted backend assets when local backend session exists", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-token");
+    renderTab({ apiToken: "legacy-token", apiBaseUrl: "https://x.supabase.co" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`http://localhost:3001/api/v1/visits/${visit.id}/assets`);
+    expect((init as RequestInit).method).toBe("GET");
+    expect(screen.getByText(/Подключено: self-hosted backend/i)).toBeInTheDocument();
   });
 });
 

@@ -1,0 +1,53 @@
+name: stage4i-self-hosted-assets
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-asset-api.ts"
+      - "src/lib/self-hosted-asset-api.test.ts"
+      - "src/pages/doctor/VisitImagingTab.tsx"
+      - "src/pages/doctor/VisitImagingTab.test.tsx"
+      - "scripts/check-stage4i-self-hosted-assets.mjs"
+      - "scripts/check-stage4i-self-hosted-assets.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4i-self-hosted-assets.yml"
+      - "docs/backend/stage-4i-self-hosted-assets.md"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-asset-api.ts"
+      - "src/lib/self-hosted-asset-api.test.ts"
+      - "src/pages/doctor/VisitImagingTab.tsx"
+      - "src/pages/doctor/VisitImagingTab.test.tsx"
+      - "scripts/check-stage4i-self-hosted-assets.mjs"
+      - "scripts/check-stage4i-self-hosted-assets.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4i-self-hosted-assets.yml"
+      - "docs/backend/stage-4i-self-hosted-assets.md"
+  workflow_dispatch:
+
+jobs:
+  stage4i:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 4I preflight
+        run: npm run preflight:stage4i
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4I self-hosted assets"
+            echo ""
+            echo "- Command: \`npm run preflight:stage4i\`"
+            echo "- Result: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
