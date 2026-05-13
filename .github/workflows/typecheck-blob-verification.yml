@@ -1,0 +1,67 @@
+name: typecheck-blob-verification
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/blob-utils.ts"
+      - "src/lib/blob-utils.test.ts"
+      - "src/lib/admin-access-events.ts"
+      - "src/lib/release-status-ui.ts"
+      - "src/pages/sys/SysAccessEventsPage.tsx"
+      - "src/pages/sys/SysReleaseStatusPage.tsx"
+      - "scripts/preflight-typecheck-blob.mjs"
+      - "scripts/preflight-typecheck-blob.test.mjs"
+      - "scripts/check-stage3-docs.mjs"
+      - "docs/frontend/stage-3i-final-documentation-index.md"
+      - "docs/frontend/stage-3m-release-operations-dashboard.md"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/typecheck-blob-verification.yml"
+  push:
+    paths:
+      - "src/lib/blob-utils.ts"
+      - "src/lib/blob-utils.test.ts"
+      - "src/lib/admin-access-events.ts"
+      - "src/lib/release-status-ui.ts"
+      - "src/pages/sys/SysAccessEventsPage.tsx"
+      - "src/pages/sys/SysReleaseStatusPage.tsx"
+      - "scripts/preflight-typecheck-blob.mjs"
+      - "scripts/preflight-typecheck-blob.test.mjs"
+      - "scripts/check-stage3-docs.mjs"
+      - "docs/frontend/stage-3i-final-documentation-index.md"
+      - "docs/frontend/stage-3m-release-operations-dashboard.md"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/typecheck-blob-verification.yml"
+  workflow_dispatch:
+
+jobs:
+  typecheck-blob-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Preflight script unit tests
+        run: npm run test:typecheck-blob-preflight
+      - name: Typecheck and blob-utils preflight
+        run: npm run preflight:typecheck-blob
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## typecheck-blob-verification"
+            echo ""
+            echo "- Command: \`npm run preflight:typecheck-blob\`"
+            echo "- Script tests: \`npm run test:typecheck-blob-preflight\`"
+            echo "- Coverage: typecheck, blob-utils tests, Stage 3 docs guard, deno-lock guard, whitespace diff"
+            echo "- Result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
