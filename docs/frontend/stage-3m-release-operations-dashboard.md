@@ -29,6 +29,7 @@ backend configuration, or workflow scheduling.
   - `npm run release:status:json`
   - `npm run release:status:html`
   - `npm run release:status:offline`
+  - `npm run typecheck`
   - `npm run test:release-status`
   - `npm run test:release-status-privacy`
   - `npm run test:release-status-smoke`
@@ -148,10 +149,14 @@ JWT-shaped values. Redacted placeholders such as `[redacted-cookie]` and
 ## 9. CI automation
 
 Workflow: `.github/workflows/release-status.yml`.
+Typecheck workflow: `.github/workflows/typecheck.yml`.
 
 The workflow runs on relevant PRs, pushes, and manual dispatch. It:
 
 - runs `npm run preflight:release-status`;
+- inherits the `typecheck-ci` gate through `npm run typecheck` in local
+  preflight and through the standalone `.github/workflows/typecheck.yml`
+  workflow on TypeScript/config changes;
 - runs `npm run ci:release-status-sync` as the explicit `ci-sync-gate`
   before generated artifacts are written. The gate combines
   `npm run check:release-status-workflow-gate`,
@@ -216,9 +221,10 @@ npm run preflight:release-status
 ```
 
 It sequentially runs the release-status tests, privacy detector tests,
-the status report smoke test, CI annotation/workflow-gate tests,
-markdown/json/html/history generation, privacy scan, Stage 3 docs guard, and
-the deno-lock guard. The success sentinel is:
+the status report smoke test, CI annotation/workflow-gate tests, `npm run
+typecheck`, `src/lib/blob-utils.test.ts`, markdown/json/html/history
+generation, `src/pages/sys/SysAccessEventsPage.test.tsx`, privacy scan, Stage
+3 docs guard, and the deno-lock guard. The success sentinel is:
 
 ```text
 [preflight-release-status] OK
@@ -380,6 +386,18 @@ The viewer also exposes the UI-side release operator guardrails:
 - The local preflight card includes `sync-checker-full-block`: a copyable
   command block with sync checker, Stage 3 docs guard, deno-lock guard, and
   `git status --short` for before-PR and post-Lovable-sync verification.
+- `typecheck-ci` runs `npm run typecheck` in TypeScript project build mode.
+  The app compiler target is ES2022, so `replaceAll` and other modern string
+  APIs are type-checked consistently in local and CI environments.
+- `blob-utils` centralizes safe BlobPart creation for XLSX/CSV/download
+  helpers. Binary exports should use `blobFromParts` instead of passing
+  generic `Uint8Array` values directly to `new Blob(...)`.
+- `strict-type-unions` keeps release workflow comparison states, baseline
+  source values, import audit entries, and access-events export columns
+  narrowed to their explicit literals instead of widening to `string`.
+- `empty-mock-call-guard` keeps tests that inspect `mock.calls[0]` from
+  indexing possibly empty tuple types; use a small assertion helper before
+  reading the first argument.
 
 ## 13. Write-gate drill and CI annotations
 
@@ -426,6 +444,7 @@ changes:
 
 ```bash
 npm run preflight:release-status
+npm run typecheck
 npm run ci:release-status-sync
 npm run e2e:release-status
 npm run build
@@ -443,6 +462,9 @@ git diff --check
 - New release-status output files must be added to
   `scripts/check-release-status-privacy.mjs`, `.github/workflows/release-status.yml`,
   and `scripts/preflight-release-status.mjs`.
+- TypeScript helper or config changes must keep `npm run typecheck`,
+  `.github/workflows/typecheck.yml`, and `scripts/preflight-release-status.mjs`
+  aligned.
 - UI viewer changes must update `src/lib/release-status-ui.ts`,
   `src/pages/sys/SysReleaseStatusPage.test.tsx`, and
   `e2e/sys-release-status.pw.ts` together.
@@ -460,6 +482,7 @@ git diff --check
   write-gate-drill, workflow-gate-checker, release-status-sync-checker-ui,
   release-status-e2e-entrypoint, ci-check-annotations, gate-fail-e2e,
   annotation-gating-runtime, full-release-checks, status-report-smoke-test,
+  typecheck-ci, blob-utils, strict-type-unions, empty-mock-call-guard,
   and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
   aligned with the UI helper names and e2e assertions.

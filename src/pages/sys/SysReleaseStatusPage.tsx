@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { blobFromParts } from "@/lib/blob-utils";
 import {
   buildReleaseImportAuditReport,
   buildReleaseImportAuditCsv,
@@ -193,8 +194,7 @@ function downloadText(
   content: string,
   type = "text/plain;charset=utf-8",
 ): void {
-  const blob = new Blob([content], { type });
-  downloadBlob(filename, blob);
+  downloadBlob(filename, blobFromParts([content], type));
 }
 
 function formatTime(value: string): string {
@@ -700,9 +700,10 @@ export default function SysReleaseStatusPage() {
         const bytes = buildReleaseHistoryPresetsXlsxBytes(savedHistoryPresets);
         downloadBlob(
           filename,
-          new Blob([bytes as BlobPart], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          }),
+          blobFromParts(
+            [bytes],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          ),
         );
       } else {
         downloadText(filename, json, "application/json;charset=utf-8");
@@ -1097,9 +1098,10 @@ export default function SysReleaseStatusPage() {
           );
           downloadBlob(
             filename,
-            new Blob([bytes as BlobPart], {
-              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            }),
+            blobFromParts(
+              [bytes],
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
           );
         } else {
           downloadText(

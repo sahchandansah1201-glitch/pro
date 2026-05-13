@@ -434,7 +434,8 @@ step:
 Local and CI deterministic auth/assets checks therefore share the
 same command — `npm run preflight:auth-assets` — which runs the full
 unit-test set listed in §9.5, the doctor forbidden-patterns scan,
-the Vite build, and the `deno.lock` guard.
+the TypeScript typecheck (`npm run typecheck`), the Vite build, and
+the `deno.lock` guard.
 
 The `auth-assets-smoke-skip` workflow remains a separate, opt-in
 guard. It installs Playwright Chromium and runs
@@ -470,8 +471,9 @@ smoke runner log-safety tests (`npm run test:smoke-auth-assets`,
 which verify missing-env and dry-run redaction behavior without
 launching Playwright), the e2e artifact summary log-safety tests
 (`npm run test:e2e-artifacts`, which verify the generated artifact
-summary without launching Playwright), the Vite build, and the
-`deno.lock` guard, stopping at the first failure and ending with
+summary without launching Playwright), the TypeScript typecheck
+(`npm run typecheck`), the Vite build, and the `deno.lock` guard,
+stopping at the first failure and ending with
 `[preflight-auth-assets] OK` on success. It also prints a final
 `[preflight-auth-assets] Results` block with each step status and
 duration. It requires no network access, no Supabase env vars, no

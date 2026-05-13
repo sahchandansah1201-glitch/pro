@@ -209,6 +209,7 @@ const EXTRA_REQUIRED_REFS = [
 
 const NIGHTLY_FULL_WORKFLOW = ".github/workflows/e2e-nightly-full.yml";
 const RELEASE_STATUS_WORKFLOW = ".github/workflows/release-status.yml";
+const TYPECHECK_WORKFLOW = ".github/workflows/typecheck.yml";
 const PACKAGE_JSON = "package.json";
 const PREFLIGHT_SCRIPT = "scripts/preflight-auth-assets.mjs";
 const E2E_ARTIFACT_PREFLIGHT_SCRIPT = "scripts/preflight-e2e-artifacts.mjs";
@@ -229,6 +230,8 @@ const RELEASE_STATUS_CI_SYNC_TEST = "scripts/ci-release-status-sync-gate.test.mj
 const RELEASE_STATUS_PREFLIGHT_SCRIPT = "scripts/preflight-release-status.mjs";
 const RELEASE_STATUS_UI_LIB = "src/lib/release-status-ui.ts";
 const RELEASE_STATUS_UI_LIB_TEST = "src/lib/release-status-ui.test.ts";
+const BLOB_UTILS_LIB = "src/lib/blob-utils.ts";
+const BLOB_UTILS_TEST = "src/lib/blob-utils.test.ts";
 const RELEASE_STATUS_UI_PAGE = "src/pages/sys/SysReleaseStatusPage.tsx";
 const RELEASE_STATUS_UI_PAGE_TEST = "src/pages/sys/SysReleaseStatusPage.test.tsx";
 const RELEASE_STATUS_UI_E2E = "e2e/sys-release-status.pw.ts";
@@ -306,6 +309,7 @@ checkMarkdownLinks("stage-1i-auth-assets-readiness.md", readiness);
 checkPlainDocRefs("stage-1i-auth-assets-readiness.md", readiness);
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run preflight:e2e-artifacts");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run view:e2e-artifacts");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run typecheck");
 
 const stage3c = readDoc("stage-3c-production-smoke.md");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 9. Nightly full e2e");
@@ -378,6 +382,7 @@ const packageJson = existsSync(join(ROOT, PACKAGE_JSON))
 requireText(PACKAGE_JSON, packageJson, "\"test:e2e-artifacts\": \"node --test scripts/write-e2e-artifact-summary.test.mjs scripts/view-e2e-artifact-summary.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"preflight:e2e-artifacts\": \"node scripts/preflight-e2e-artifacts.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"preflight:release-status\": \"node scripts/preflight-release-status.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"typecheck\": \"tsc -b --pretty false\"");
 requireText(PACKAGE_JSON, packageJson, "\"view:e2e-artifacts\": \"node scripts/view-e2e-artifact-summary.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "scripts/view-e2e-artifact-summary.test.mjs");
 requireText(PACKAGE_JSON, packageJson, "\"release:status\": \"node scripts/release-status.mjs\"");
@@ -441,6 +446,9 @@ const releaseStatusPreflightScript = existsSync(join(ROOT, RELEASE_STATUS_PREFLI
   ? readFileSync(join(ROOT, RELEASE_STATUS_PREFLIGHT_SCRIPT), "utf8")
   : "";
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "preflight-release-status");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "typecheck");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/lib/blob-utils.test.ts");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/pages/sys/SysAccessEventsPage.test.tsx");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-privacy");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-smoke");
@@ -523,10 +531,50 @@ requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/release-sta
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/pages/sys/SysReleaseStatusPage.tsx");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "e2e/sys-release-status.pw.ts");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "docs/frontend/stage-3c-production-smoke.md");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/blob-utils.ts");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/blob-utils.test.ts");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "tsconfig.json");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "tsconfig.app.json");
+
+const typecheckWorkflow = existsSync(join(ROOT, TYPECHECK_WORKFLOW))
+  ? readFileSync(join(ROOT, TYPECHECK_WORKFLOW), "utf8")
+  : "";
+if (!typecheckWorkflow) {
+  errors.push(`Missing required workflow: ${TYPECHECK_WORKFLOW}`);
+}
+requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "name: typecheck");
+requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "npm run typecheck");
+requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "src/**/*.ts");
+requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "src/**/*.tsx");
+requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "tsconfig.json");
+requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "tsconfig.app.json");
+
+const blobUtils = existsSync(join(ROOT, BLOB_UTILS_LIB))
+  ? readFileSync(join(ROOT, BLOB_UTILS_LIB), "utf8")
+  : "";
+if (!blobUtils) {
+  errors.push(`Missing required helper: ${BLOB_UTILS_LIB}`);
+}
+requireText(BLOB_UTILS_LIB, blobUtils, "bytesToBlobPart");
+requireText(BLOB_UTILS_LIB, blobUtils, "blobFromParts");
+
+const blobUtilsTest = existsSync(join(ROOT, BLOB_UTILS_TEST))
+  ? readFileSync(join(ROOT, BLOB_UTILS_TEST), "utf8")
+  : "";
+if (!blobUtilsTest) {
+  errors.push(`Missing required helper test: ${BLOB_UTILS_TEST}`);
+}
+requireText(BLOB_UTILS_TEST, blobUtilsTest, "copies a Uint8Array slice into an ArrayBuffer-safe BlobPart");
+requireText(BLOB_UTILS_TEST, blobUtilsTest, "builds blobs from strings and byte arrays");
 
 const stage3m = readDoc("stage-3m-release-operations-dashboard.md");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/release-status.mjs");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run release:status");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run typecheck");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "typecheck-ci");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "blob-utils");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "strict-type-unions");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "empty-mock-call-guard");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "--offline");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "--output <path>");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run release:status:json");

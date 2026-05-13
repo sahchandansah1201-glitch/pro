@@ -14,6 +14,7 @@ const HTML_REPORT = `${OUTPUT_DIR}/release-status.html`;
 const HISTORY_REPORT = `${OUTPUT_DIR}/release-history.jsonl`;
 
 const steps = [
+  ["typecheck", npmCmd, ["run", "typecheck"]],
   ["release status tests", npmCmd, ["run", "test:release-status"]],
   [
     "release status privacy detector tests",
@@ -37,7 +38,9 @@ const steps = [
       "test",
       "--",
       "--run",
+      "src/lib/blob-utils.test.ts",
       "src/lib/release-status-ui.test.ts",
+      "src/pages/sys/SysAccessEventsPage.test.tsx",
       "src/pages/sys/SysReleaseStatusPage.test.tsx",
     ],
   ],
