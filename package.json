@@ -54,6 +54,7 @@
     "check:stage4d": "node scripts/check-stage4d-patient-writes.mjs",
     "check:stage4e": "node scripts/check-stage4e-frontend-patient-api.mjs",
     "check:stage4f": "node scripts/check-stage4f-self-hosted-auth-bridge.mjs",
+    "check:stage4g": "node scripts/check-stage4g-self-hosted-visit-workspace.mjs",
     "ci:release-status-sync": "node scripts/ci-release-status-sync-gate.mjs",
     "release:status": "node scripts/release-status.mjs",
     "release:status:json": "node scripts/release-status.mjs --json",
