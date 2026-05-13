@@ -26,6 +26,11 @@ import {
   assertUuid,
   createPatientWriteService,
 } from "./patient-write-service.mjs";
+import { createAssetWriteRepository } from "./asset-write-repository.mjs";
+import {
+  createAssetWriteService,
+  normalizeDownloadUrlParams,
+} from "./asset-write-service.mjs";
 import { patientReadScope, visitReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
 import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
@@ -49,6 +54,9 @@ const OPENAPI_4G = JSON.parse(
 );
 const OPENAPI_4H = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4h.json"), "utf8"),
+);
+const OPENAPI_4I = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4i.json"), "utf8"),
 );
 
 function getRuntime(config, runtime = {}) {
@@ -81,7 +89,19 @@ function getRuntime(config, runtime = {}) {
       visitWorkspaceWriteRepository,
       auditRepository,
     });
+  const assetWriteRepository =
+    runtime.assetWriteRepository || createAssetWriteRepository(dbClient);
+  const assetWriteService =
+    runtime.assetWriteService ||
+    createAssetWriteService({
+      config,
+      visitWorkspaceRepository,
+      assetWriteRepository,
+      auditRepository,
+    });
   return {
+    assetWriteRepository,
+    assetWriteService,
     auditRepository,
     authRepository,
     authService,
@@ -137,12 +157,13 @@ function publicErrorFor(error) {
     forbidden: "The authenticated user does not have access to this resource.",
     invalid_credentials: "Invalid credentials.",
     invalid_token: "Invalid or expired authorization token.",
+    asset_not_found: "Asset was not found in the allowed clinic scope.",
     patient_not_found: "Patient was not found in the allowed clinic scope.",
     visit_not_found: "Visit was not found in the allowed clinic scope.",
     lesion_not_found: "Lesion was not found in the allowed clinic scope.",
     not_found: "Resource was not found in the allowed clinic scope.",
     invalid_uuid: "The supplied identifier is not a valid UUID.",
-    validation_error: "Patient payload failed validation.",
+    validation_error: "Request payload failed validation.",
   };
   if (error instanceof DatabaseConfigError || error?.publicCode) {
     const code = error.publicCode || "database_unavailable";
@@ -192,7 +213,7 @@ export async function handleSelfHostedRequest(
   const correlationId =
     request.headers?.["x-correlation-id"] ||
     request.headers?.["X-Correlation-Id"] ||
-    "stage4d-local";
+    "stage4i-local";
 
   if (method === "OPTIONS") {
     return {
@@ -599,6 +620,81 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Stage 4I · self-hosted clinical asset write/download-url endpoints.
+  if (visitAssetsMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.assetWriteService.createVisitAsset(
+        decodeURIComponent(visitAssetsMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        201,
+        {
+          stage: "4I",
+          source: "postgres",
+          item: result.asset,
+          upload: {
+            mode: "metadata_registered",
+            objectStorage: "backend-owned",
+          },
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const assetDownloadUrlMatch = url.pathname.match(
+    /^\/api\/v1\/assets\/([^/]+)\/download-url$/,
+  );
+  if (assetDownloadUrlMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.assetWriteService.getAssetDownloadUrl(
+        decodeURIComponent(assetDownloadUrlMatch[1]),
+        authContext,
+        {
+          correlationId,
+          expiresIn: normalizeDownloadUrlParams(url.searchParams),
+        },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4I",
+          source: "postgres",
+          item: result.download,
+          asset: result.asset,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Stage 4H · self-hosted visit workspace write endpoints.
   if (visitDetailMatch && method === "PATCH") {
     try {
@@ -742,7 +838,7 @@ export async function handleSelfHostedRequest(
     return errorResponse({
       status: 405,
       code: "method_not_allowed",
-      message: "This self-hosted backend route does not allow the requested method in Stage 4H.",
+      message: "This self-hosted backend route does not allow the requested method in Stage 4I.",
       correlationId,
       config,
       requestOrigin,
@@ -875,7 +971,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4H",
+        stage: "4I",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -883,18 +979,19 @@ export async function handleSelfHostedRequest(
           patients: "rbac-read-write-postgres",
           visits: "rbac-read-write-postgres",
           lesions: "rbac-read-write-postgres",
-          assets: "rbac-read-metadata-postgres",
+          assets: "rbac-read-write-postgres-backend-url",
           reports: "rbac-write-postgres",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4h.json",
+          openapi: "/openapi.stage4i.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
           openapiStage4D: "/openapi.stage4d.json",
           openapiStage4G: "/openapi.stage4g.json",
           openapiStage4H: "/openapi.stage4h.json",
+          openapiStage4I: "/openapi.stage4i.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           patients: "/api/v1/patients",
@@ -902,6 +999,7 @@ export async function handleSelfHostedRequest(
           visit: "/api/v1/visits/{visitId}",
           visitLesions: "/api/v1/visits/{visitId}/lesions",
           visitAssets: "/api/v1/visits/{visitId}/assets",
+          assetDownloadUrl: "/api/v1/assets/{assetId}/download-url",
           visitReport: "/api/v1/visits/{visitId}/report",
           lesion: "/api/v1/lesions/{lesionId}",
           health: "/healthz",
@@ -939,10 +1037,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4H, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4i.json") {
+    return jsonResponse(200, OPENAPI_4I, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4D self-hosted backend route matched the request.",
+    message: "No Stage 4I self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,
@@ -997,7 +1099,7 @@ export function createNodeHandler(config) {
       response = internalErrorResponse(
         config,
         req.headers?.origin || "",
-        req.headers?.["x-correlation-id"] || "stage4d-local",
+        req.headers?.["x-correlation-id"] || "stage4i-local",
       );
     }
     res.writeHead(response.status, response.headers);

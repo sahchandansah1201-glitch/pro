@@ -180,14 +180,16 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4H");
+  assert.equal(meta.json.stage, "4I");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
-  assert.equal(meta.json.links.openapi, "/openapi.stage4h.json");
+  assert.equal(meta.json.links.openapi, "/openapi.stage4i.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
   assert.equal(meta.json.links.openapiStage4B, "/openapi.stage4b.json");
   assert.equal(meta.json.links.openapiStage4C, "/openapi.stage4c.json");
   assert.equal(meta.json.links.openapiStage4H, "/openapi.stage4h.json");
+  assert.equal(meta.json.links.openapiStage4I, "/openapi.stage4i.json");
+  assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
   assert.equal(meta.json.service.objectStorageBucket, "medical-assets");
   assert.doesNotMatch(meta.body, /secret|postgres:\/\//);
 
@@ -217,6 +219,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi4h.status, 200);
   assert.equal(openapi4h.json.info.version, "4H-visit-workspace-writes");
   assert.ok(openapi4h.json.paths["/api/v1/visits/{visitId}/report"].patch);
+
+  const openapi4i = await request("/openapi.stage4i.json");
+  assert.equal(openapi4i.status, 200);
+  assert.equal(openapi4i.json.info.version, "4I-assets-write");
+  assert.ok(openapi4i.json.paths["/api/v1/assets/{assetId}/download-url"].get);
 });
 
 test("auth login returns a bearer token without leaking password material", async () => {
@@ -471,7 +478,7 @@ test("unknown routes and unsupported methods return the common JSON error shape"
   assert.equal(missing.status, 404);
   assert.equal(missing.json.error.code, "not_found");
   assert.equal(typeof missing.json.error.message, "string");
-  assert.equal(missing.json.correlationId, "stage4d-local");
+  assert.equal(missing.json.correlationId, "stage4i-local");
 
   const post = await request("/api/v1/meta", {}, createRuntime(), "POST");
   assert.equal(post.status, 405);
@@ -552,6 +559,35 @@ function visitWorkspaceWriteRuntime({
       async updateReport() {
         if (writeError) throw writeError;
         return { report: upsertedReport, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+    },
+  };
+}
+
+function assetWriteRuntime({
+  createdAsset = null,
+  download = null,
+  authContext,
+  auditEvents = [],
+  authError,
+  assetError = null,
+} = {}) {
+  return {
+    ...visitWorkspaceRuntime({ authContext, auditEvents, authError }),
+    assetWriteService: {
+      async createVisitAsset() {
+        if (assetError) throw assetError;
+        return {
+          asset: createdAsset,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async getAssetDownloadUrl() {
+        if (assetError) throw assetError;
+        return {
+          ...download,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
       },
     },
   };
@@ -742,14 +778,82 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes 4G capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4H");
+  assert.equal(response.json.stage, "4I");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
-  assert.equal(response.json.capabilities.assets, "rbac-read-metadata-postgres");
+  assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url");
   assert.equal(response.json.links.openapiStage4G, "/openapi.stage4g.json");
   assert.equal(response.json.links.openapiStage4H, "/openapi.stage4h.json");
+  assert.equal(response.json.links.openapiStage4I, "/openapi.stage4i.json");
   assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");
   assert.equal(response.json.links.visitReport, "/api/v1/visits/{visitId}/report");
+  assert.equal(response.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
+});
+
+// =====================================================================
+// Stage 4I · self-hosted clinical asset write/download-url endpoints
+// =====================================================================
+
+test("Stage 4I · POST /api/v1/visits/{id}/assets registers metadata only", async () => {
+  const asset = {
+    id: "10000000-0000-4000-8000-000000000901",
+    clinicId: STAGE4G_CLINIC_ID,
+    patientId: STAGE4G_PATIENT_ID,
+    visitId: STAGE4G_VISIT_ID,
+    lesionId: null,
+    kind: "overview_photo",
+    contentType: "image/png",
+    byteSize: 4096,
+    capturedAt: "2026-05-12T09:00:00.000Z",
+    uploadedBy: "10000000-0000-4000-8000-000000000101",
+    createdAt: "2026-05-12T09:00:01.000Z",
+  };
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/assets`,
+    configuredEnv,
+    assetWriteRuntime({ createdAsset: asset }),
+    "POST",
+    JSON.stringify({ kind: "overview", contentType: "image/png", byteSize: 4096 }),
+  );
+  assert.equal(response.status, 201);
+  assert.equal(response.json.stage, "4I");
+  assert.equal(response.json.item.kind, "overview_photo");
+  assert.equal(response.json.upload.objectStorage, "backend-owned");
+  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed|access_token/i);
+});
+
+test("Stage 4I · GET /api/v1/assets/{id}/download-url returns backend route only", async () => {
+  const assetId = "10000000-0000-4000-8000-000000000901";
+  const response = await request(
+    `/api/v1/assets/${assetId}/download-url?expiresIn=120`,
+    configuredEnv,
+    assetWriteRuntime({
+      download: {
+        asset: { id: assetId, clinicId: STAGE4G_CLINIC_ID, visitId: STAGE4G_VISIT_ID },
+        download: {
+          assetId,
+          clinicId: STAGE4G_CLINIC_ID,
+          visitId: STAGE4G_VISIT_ID,
+          downloadUrl: `/api/v1/assets/${assetId}/download`,
+          expiresIn: 120,
+          expiresAt: "2026-05-13T00:02:00.000Z",
+        },
+      },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "4I");
+  assert.equal(response.json.item.downloadUrl, `/api/v1/assets/${assetId}/download`);
+  assert.equal(response.json.item.expiresIn, 120);
+  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|sig=|access_token/i);
+});
+
+test("Stage 4I · /openapi.stage4i.json documents asset write contract", async () => {
+  const response = await request("/openapi.stage4i.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "4I-assets-write");
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets"].post);
+  assert.ok(response.json.paths["/api/v1/assets/{assetId}/download-url"].get);
 });
 
 // =====================================================================

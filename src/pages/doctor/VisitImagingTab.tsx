@@ -43,6 +43,15 @@ import {
   type AssetsApiError,
   type SafeAssetDTO,
 } from "@/lib/clinical-assets-api";
+import {
+  getSelfHostedAssetDownloadUrl,
+  listSelfHostedVisitAssets,
+  uploadSelfHostedVisitAsset,
+} from "@/lib/self-hosted-asset-api";
+import {
+  isSelfHostedApiConfigured,
+  useSelfHostedApiSession,
+} from "@/lib/self-hosted-api-session";
 
 // Порог качества изображения. Ниже — снимок «требует проверки».
 const QUALITY_THRESHOLD = 0.8;
@@ -115,6 +124,8 @@ export function VisitImagingTab({
   apiToken,
   apiBaseUrl,
 }: Props) {
+  const selfHostedSession = useSelfHostedApiSession();
+  const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
   const allImages = useMemo(
     () => [...getImagesByVisitId(visit.id)].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
     [visit.id],
@@ -487,6 +498,8 @@ export function VisitImagingTab({
         visitId={visit.id}
         apiToken={apiToken ?? null}
         apiBaseUrl={apiBaseUrl ?? null}
+        selfHostedApiToken={selfHostedConfigured ? selfHostedSession.apiToken : null}
+        selfHostedApiBaseUrl={selfHostedConfigured ? selfHostedSession.apiBaseUrl : null}
       />
     </div>
   );
@@ -498,6 +511,8 @@ interface ApiAssetsPanelProps {
   visitId: string;
   apiToken: string | null;
   apiBaseUrl: string | null;
+  selfHostedApiToken?: string | null;
+  selfHostedApiBaseUrl?: string | null;
 }
 
 type ErrorContext = "list" | "download" | "upload";
@@ -529,8 +544,19 @@ function isRetryableUploadStatus(status: UploadItemStatus) {
   return status === "failed" || status === "skipped";
 }
 
-function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) {
-  const configured = Boolean(apiToken && apiBaseUrl);
+function ApiAssetsPanel({
+  visitId,
+  apiToken,
+  apiBaseUrl,
+  selfHostedApiToken = null,
+  selfHostedApiBaseUrl = null,
+}: ApiAssetsPanelProps) {
+  const selfHostedConfigured = Boolean(selfHostedApiToken && selfHostedApiBaseUrl);
+  const legacyConfigured = Boolean(apiToken && apiBaseUrl);
+  const configured = selfHostedConfigured || legacyConfigured;
+  const activeToken = selfHostedConfigured ? selfHostedApiToken : apiToken;
+  const activeBaseUrl = selfHostedConfigured ? selfHostedApiBaseUrl : apiBaseUrl;
+  const activeApiLabel = selfHostedConfigured ? "self-hosted backend" : "API клинических ассетов";
   const [assets, setAssets] = useState<SafeAssetDTO[] | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -593,6 +619,62 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
   const canClearUploadedUploadItems =
     uploadedUploadCount > 0 && uploadItems.length > uploadedUploadCount;
 
+  const listActiveAssets = useCallback(
+    () =>
+      selfHostedConfigured
+        ? listSelfHostedVisitAssets({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            visitId,
+          })
+        : listVisitAssets({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            visitId,
+          }),
+    [activeBaseUrl, activeToken, selfHostedConfigured, visitId],
+  );
+
+  const uploadActiveAsset = useCallback(
+    (file: File, signal: AbortSignal) =>
+      selfHostedConfigured
+        ? uploadSelfHostedVisitAsset({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            visitId,
+            file,
+            kind: "overview",
+            source: "file",
+            signal,
+          })
+        : uploadVisitAsset({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            visitId,
+            file,
+            kind: "overview",
+            source: "file",
+            signal,
+          }),
+    [activeBaseUrl, activeToken, selfHostedConfigured, visitId],
+  );
+
+  const getActiveAssetDownloadUrl = useCallback(
+    (assetId: string) =>
+      selfHostedConfigured
+        ? getSelfHostedAssetDownloadUrl({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            assetId,
+          })
+        : getAssetDownloadUrl({
+            token: activeToken,
+            baseUrl: activeBaseUrl,
+            assetId,
+          }),
+    [activeBaseUrl, activeToken, selfHostedConfigured],
+  );
+
   // Initial load + manual reload trigger.
   useEffect(() => {
     if (!configured) {
@@ -604,7 +686,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     busyRef.current = true;
     setError(null);
     setErrorContext(null);
-    listVisitAssets({ token: apiToken, baseUrl: apiBaseUrl, visitId })
+    listActiveAssets()
       .then((res) => {
         if (cancelled) return;
         if (res.ok) {
@@ -623,7 +705,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     return () => {
       cancelled = true;
     };
-  }, [configured, apiToken, apiBaseUrl, visitId, reloadTick]);
+  }, [configured, listActiveAssets, reloadTick]);
 
   const handleUploadClick = useCallback(() => {
     if (!configured) {
@@ -704,15 +786,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
               ? `Загружаем: ${file.name}`
               : `Загружаем ${idx + 1} из ${files.length}: ${file.name}`,
           );
-          const res = await uploadVisitAsset({
-            token: apiToken,
-            baseUrl: apiBaseUrl,
-            visitId,
-            file,
-            kind: "overview",
-            source: "file",
-            signal: controller.signal,
-          });
+          const res = await uploadActiveAsset(file, controller.signal);
           if (controller.signal.aborted) {
             const cancelledIds = new Set(items.slice(idx).map((x) => x.id));
             setUploadItemsSync((prev) =>
@@ -783,9 +857,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       }
     },
     [
-      apiToken,
-      apiBaseUrl,
-      visitId,
+      uploadActiveAsset,
       setUploadItemsSync,
       updateUploadItemStatus,
     ],
@@ -938,11 +1010,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
       setErrorContext(null);
       setPreviewRefreshError(null);
       setStatus("Подготовка ссылки…");
-      const res = await getAssetDownloadUrl({
-        token: apiToken,
-        baseUrl: apiBaseUrl,
-        assetId: asset.id,
-      });
+      const res = await getActiveAssetDownloadUrl(asset.id);
       setBusy(false);
       busyRef.current = false;
       setOpeningAssetId(null);
@@ -957,7 +1025,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
         restorePreviewOpenerFocus();
       }
     },
-    [apiToken, apiBaseUrl, restorePreviewOpenerFocus],
+    [getActiveAssetDownloadUrl, restorePreviewOpenerFocus],
   );
 
   const handleClosePreview = useCallback(() => {
@@ -973,11 +1041,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     setBusy(true);
     busyRef.current = true;
     setStatus("Подготовка ссылки…");
-    const res = await getAssetDownloadUrl({
-      token: apiToken,
-      baseUrl: apiBaseUrl,
-      assetId: preview.asset.id,
-    });
+    const res = await getActiveAssetDownloadUrl(preview.asset.id);
     setBusy(false);
     busyRef.current = false;
     setPreviewRefreshing(false);
@@ -987,7 +1051,7 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
     } else if (!res.ok) {
       setPreviewRefreshError(res.error);
     }
-  }, [apiToken, apiBaseUrl, preview]);
+  }, [getActiveAssetDownloadUrl, preview]);
 
   const handleOpenInNewTab = useCallback(() => {
     if (preview) {
@@ -1009,6 +1073,12 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
             : "демо-режим"}
         </span>
       </div>
+
+      {configured && (
+        <p className="px-3 pb-2 text-[12px] text-muted-foreground">
+          Подключено: {activeApiLabel}. В списке показаны только клинические метаданные снимков.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 px-3 pb-2">
         <Button
@@ -1109,8 +1179,8 @@ function ApiAssetsPanel({ visitId, apiToken, apiBaseUrl }: ApiAssetsPanelProps) 
 
       {!configured && (
         <p className="px-3 pb-3 text-[12px] text-muted-foreground">
-          Демо-режим: API клинических ассетов не сконфигурирован для текущей сессии.
-          Загрузка и подписанные ссылки доступны только при авторизованной сессии.
+          Демо-режим: API клинических ассетов не сконфигурирован для текущей сессии;
+          self-hosted backend также не подключён. Загрузка и ссылки доступны только после входа в backend.
         </p>
       )}
 
