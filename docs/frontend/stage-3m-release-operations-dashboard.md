@@ -418,6 +418,42 @@ This report is intentionally narrow: it confirms the TypeScript build gate and
 the shared BlobPart helper coverage without re-running the broader release,
 auth/assets, or e2e suites.
 
+### 12.2 Typecheck/blob preflight and CI release checklist
+
+Use the focused preflight when the change touches TypeScript config, typed
+release-status helpers, access-events export helpers, or `blob-utils`:
+
+```bash
+npm run preflight:typecheck-blob
+```
+
+The command runs, in order:
+
+- `npm run typecheck`
+- `npm test -- --run src/lib/blob-utils.test.ts`
+- `node scripts/check-stage3-docs.mjs`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`
+
+The preflight has a dry-run mode for PR descriptions and Lovable confirmation:
+
+```bash
+node scripts/preflight-typecheck-blob.mjs --dry-run
+```
+
+CI mirrors the same guard in
+`.github/workflows/typecheck-blob-verification.yml`. The workflow first runs
+`npm run test:typecheck-blob-preflight`, then `npm run preflight:typecheck-blob`,
+and writes a concise GitHub Step Summary.
+
+Release checklist for this slice:
+
+- Local `npm run preflight:typecheck-blob` is green.
+- `typecheck-blob-verification` workflow is green on the PR/head ref.
+- `typecheck` workflow remains green.
+- `node scripts/check-no-deno-locks.mjs` reports no `deno.lock` files.
+- Lovable confirms Stage 3M §12.1 and §12.2 are synced without conflicts.
+
 ## 13. Write-gate drill and CI annotations
 
 The write-gate drill is the browser-side rehearsal of the CI report-write

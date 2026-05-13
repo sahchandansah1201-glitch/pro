@@ -210,6 +210,7 @@ const EXTRA_REQUIRED_REFS = [
 const NIGHTLY_FULL_WORKFLOW = ".github/workflows/e2e-nightly-full.yml";
 const RELEASE_STATUS_WORKFLOW = ".github/workflows/release-status.yml";
 const TYPECHECK_WORKFLOW = ".github/workflows/typecheck.yml";
+const TYPECHECK_BLOB_WORKFLOW = ".github/workflows/typecheck-blob-verification.yml";
 const PACKAGE_JSON = "package.json";
 const PREFLIGHT_SCRIPT = "scripts/preflight-auth-assets.mjs";
 const E2E_ARTIFACT_PREFLIGHT_SCRIPT = "scripts/preflight-e2e-artifacts.mjs";
@@ -228,6 +229,8 @@ const RELEASE_STATUS_WORKFLOW_GATE_TEST = "scripts/check-release-status-workflow
 const RELEASE_STATUS_CI_SYNC_SCRIPT = "scripts/ci-release-status-sync-gate.mjs";
 const RELEASE_STATUS_CI_SYNC_TEST = "scripts/ci-release-status-sync-gate.test.mjs";
 const RELEASE_STATUS_PREFLIGHT_SCRIPT = "scripts/preflight-release-status.mjs";
+const TYPECHECK_BLOB_PREFLIGHT_SCRIPT = "scripts/preflight-typecheck-blob.mjs";
+const TYPECHECK_BLOB_PREFLIGHT_TEST = "scripts/preflight-typecheck-blob.test.mjs";
 const RELEASE_STATUS_UI_LIB = "src/lib/release-status-ui.ts";
 const RELEASE_STATUS_UI_LIB_TEST = "src/lib/release-status-ui.test.ts";
 const BLOB_UTILS_LIB = "src/lib/blob-utils.ts";
@@ -310,6 +313,7 @@ checkPlainDocRefs("stage-1i-auth-assets-readiness.md", readiness);
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run preflight:e2e-artifacts");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run view:e2e-artifacts");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run typecheck");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run preflight:typecheck-blob");
 
 const stage3c = readDoc("stage-3c-production-smoke.md");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 9. Nightly full e2e");
@@ -382,6 +386,7 @@ const packageJson = existsSync(join(ROOT, PACKAGE_JSON))
 requireText(PACKAGE_JSON, packageJson, "\"test:e2e-artifacts\": \"node --test scripts/write-e2e-artifact-summary.test.mjs scripts/view-e2e-artifact-summary.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"preflight:e2e-artifacts\": \"node scripts/preflight-e2e-artifacts.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"preflight:release-status\": \"node scripts/preflight-release-status.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"preflight:typecheck-blob\": \"node scripts/preflight-typecheck-blob.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"typecheck\": \"tsc -b --pretty false\"");
 requireText(PACKAGE_JSON, packageJson, "\"view:e2e-artifacts\": \"node scripts/view-e2e-artifact-summary.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "scripts/view-e2e-artifact-summary.test.mjs");
@@ -389,6 +394,7 @@ requireText(PACKAGE_JSON, packageJson, "\"release:status\": \"node scripts/relea
 requireText(PACKAGE_JSON, packageJson, "\"release:status:json\": \"node scripts/release-status.mjs --json\"");
 requireText(PACKAGE_JSON, packageJson, "\"release:status:html\": \"node scripts/release-status.mjs --html\"");
 requireText(PACKAGE_JSON, packageJson, "\"release:status:offline\": \"node scripts/release-status.mjs --offline\"");
+requireText(PACKAGE_JSON, packageJson, "\"test:typecheck-blob-preflight\": \"node --test scripts/preflight-typecheck-blob.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test scripts/release-status.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status-privacy\": \"node --test scripts/check-release-status-privacy.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status-smoke\": \"node --test scripts/release-status-smoke.test.mjs\"");
@@ -463,6 +469,35 @@ requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scri
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-stage3-docs.mjs");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "scripts/check-no-deno-locks.mjs");
 
+const typecheckBlobPreflightScript = existsSync(join(ROOT, TYPECHECK_BLOB_PREFLIGHT_SCRIPT))
+  ? readFileSync(join(ROOT, TYPECHECK_BLOB_PREFLIGHT_SCRIPT), "utf8")
+  : "";
+if (!typecheckBlobPreflightScript) {
+  errors.push(`Missing required preflight script: ${TYPECHECK_BLOB_PREFLIGHT_SCRIPT}`);
+}
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "preflight-typecheck-blob");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "runTypecheckBlobPreflight");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "renderTypecheckBlobDryRun");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "npmCmd");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "typecheck");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "src/lib/blob-utils.test.ts");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "scripts/check-stage3-docs.mjs");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "scripts/check-no-deno-locks.mjs");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "git");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "diff");
+requireText(TYPECHECK_BLOB_PREFLIGHT_SCRIPT, typecheckBlobPreflightScript, "--dry-run");
+
+const typecheckBlobPreflightTest = existsSync(join(ROOT, TYPECHECK_BLOB_PREFLIGHT_TEST))
+  ? readFileSync(join(ROOT, TYPECHECK_BLOB_PREFLIGHT_TEST), "utf8")
+  : "";
+if (!typecheckBlobPreflightTest) {
+  errors.push(`Missing required preflight test: ${TYPECHECK_BLOB_PREFLIGHT_TEST}`);
+}
+requireText(TYPECHECK_BLOB_PREFLIGHT_TEST, typecheckBlobPreflightTest, "preflight command list covers typecheck");
+requireText(TYPECHECK_BLOB_PREFLIGHT_TEST, typecheckBlobPreflightTest, "dry run prints copyable commands");
+requireText(TYPECHECK_BLOB_PREFLIGHT_TEST, typecheckBlobPreflightTest, "runner stops at first failing step");
+requireText(TYPECHECK_BLOB_PREFLIGHT_TEST, typecheckBlobPreflightTest, "cli dry-run exits 0");
+
 const releaseStatusCiSyncScript = existsSync(join(ROOT, RELEASE_STATUS_CI_SYNC_SCRIPT))
   ? readFileSync(join(ROOT, RELEASE_STATUS_CI_SYNC_SCRIPT), "utf8")
   : "";
@@ -513,6 +548,8 @@ requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run check:relea
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run ci:release-status-sync");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "if: ${{ success() }}");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/check-release-status-workflow-gate.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/preflight-typecheck-blob.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/preflight-typecheck-blob.test.mjs");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status -- --output test-results/release-status.md --history test-results/release-history.jsonl");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:json -- --output test-results/release-status.json");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:html -- --output test-results/release-status.html");
@@ -533,6 +570,7 @@ requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "e2e/sys-release-sta
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "docs/frontend/stage-3c-production-smoke.md");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/blob-utils.ts");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/blob-utils.test.ts");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, ".github/workflows/typecheck-blob-verification.yml");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "tsconfig.json");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "tsconfig.app.json");
 
@@ -548,6 +586,20 @@ requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "src/**/*.ts");
 requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "src/**/*.tsx");
 requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "tsconfig.json");
 requireText(TYPECHECK_WORKFLOW, typecheckWorkflow, "tsconfig.app.json");
+
+const typecheckBlobWorkflow = existsSync(join(ROOT, TYPECHECK_BLOB_WORKFLOW))
+  ? readFileSync(join(ROOT, TYPECHECK_BLOB_WORKFLOW), "utf8")
+  : "";
+if (!typecheckBlobWorkflow) {
+  errors.push(`Missing required workflow: ${TYPECHECK_BLOB_WORKFLOW}`);
+}
+requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "name: typecheck-blob-verification");
+requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "npm run test:typecheck-blob-preflight");
+requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "npm run preflight:typecheck-blob");
+requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "src/lib/blob-utils.ts");
+requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "scripts/preflight-typecheck-blob.mjs");
+requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "docs/frontend/stage-3m-release-operations-dashboard.md");
+requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "$GITHUB_STEP_SUMMARY");
 
 const blobUtils = existsSync(join(ROOT, BLOB_UTILS_LIB))
   ? readFileSync(join(ROOT, BLOB_UTILS_LIB), "utf8")
@@ -571,6 +623,11 @@ const stage3m = readDoc("stage-3m-release-operations-dashboard.md");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/release-status.mjs");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run release:status");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run typecheck");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run preflight:typecheck-blob");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run test:typecheck-blob-preflight");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "node scripts/preflight-typecheck-blob.mjs --dry-run");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, ".github/workflows/typecheck-blob-verification.yml");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "typecheck-blob-verification");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "typecheck-ci");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "blob-utils");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "strict-type-unions");
@@ -671,8 +728,11 @@ const stage3i = readDoc("stage-3i-final-documentation-index.md");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:release-status-smoke");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:release-status-ci");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run e2e:release-status");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:typecheck-blob-preflight");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run preflight:typecheck-blob");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #72");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #73");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #76");
 
 const stage3l = readDoc("stage-3l-nightly-artifacts-report.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "## 8. Related dashboards");
@@ -890,6 +950,8 @@ for (const path of [
   RELEASE_STATUS_PRIVACY_TEST,
   RELEASE_STATUS_SYNC_SCRIPT,
   RELEASE_STATUS_PREFLIGHT_SCRIPT,
+  TYPECHECK_BLOB_PREFLIGHT_SCRIPT,
+  TYPECHECK_BLOB_PREFLIGHT_TEST,
   RELEASE_STATUS_UI_LIB,
   RELEASE_STATUS_UI_LIB_TEST,
   RELEASE_STATUS_UI_PAGE,
