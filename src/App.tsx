@@ -11,6 +11,7 @@ import { RoleGuard } from "@/components/shell/RoleGuard";
 import { RoleHome } from "@/components/shell/RoleHome";
 
 import LoginPage from "./pages/Login";
+import SelfHostedLoginPage from "./pages/SelfHostedLoginPage";
 import NotFound from "./pages/NotFound.tsx";
 import AnalysisPublicPage from "./pages/public/AnalysisPublicPage";
 import DeskPage from "./pages/doctor/DeskPage";
@@ -60,6 +61,7 @@ const App = () => (
           <Routes>
             {/* Публичные/без shell-маршруты */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/self-hosted/login" element={<SelfHostedLoginPage />} />
             <Route path="/analysis/:token" element={<AnalysisPublicPage />} />
 
             {/* Все остальные — внутри AppShell */}
