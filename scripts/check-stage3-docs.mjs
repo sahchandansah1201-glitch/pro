@@ -231,6 +231,11 @@ const RELEASE_STATUS_CI_SYNC_TEST = "scripts/ci-release-status-sync-gate.test.mj
 const RELEASE_STATUS_PREFLIGHT_SCRIPT = "scripts/preflight-release-status.mjs";
 const TYPECHECK_BLOB_PREFLIGHT_SCRIPT = "scripts/preflight-typecheck-blob.mjs";
 const TYPECHECK_BLOB_PREFLIGHT_TEST = "scripts/preflight-typecheck-blob.test.mjs";
+const PREFLIGHT_ALL_SCRIPT = "scripts/preflight-all.mjs";
+const PREFLIGHT_ALL_TEST = "scripts/preflight-all.test.mjs";
+const PREFLIGHT_ALL_GATE_SCRIPT = "scripts/check-preflight-all-gate.mjs";
+const PREFLIGHT_ALL_GATE_TEST = "scripts/check-preflight-all-gate.test.mjs";
+const PREFLIGHT_ALL_WORKFLOW = ".github/workflows/preflight-all.yml";
 const RELEASE_STATUS_UI_LIB = "src/lib/release-status-ui.ts";
 const RELEASE_STATUS_UI_LIB_TEST = "src/lib/release-status-ui.test.ts";
 const BLOB_UTILS_LIB = "src/lib/blob-utils.ts";
@@ -314,6 +319,7 @@ requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run pr
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run view:e2e-artifacts");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run typecheck");
 requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run preflight:typecheck-blob");
+requireText(relPath("stage-1i-auth-assets-readiness.md"), readiness, "npm run preflight:all -- --summary test-results/preflight-all.md");
 
 const stage3c = readDoc("stage-3c-production-smoke.md");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "## 9. Nightly full e2e");
@@ -387,6 +393,7 @@ requireText(PACKAGE_JSON, packageJson, "\"test:e2e-artifacts\": \"node --test sc
 requireText(PACKAGE_JSON, packageJson, "\"preflight:e2e-artifacts\": \"node scripts/preflight-e2e-artifacts.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"preflight:release-status\": \"node scripts/preflight-release-status.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"preflight:typecheck-blob\": \"node scripts/preflight-typecheck-blob.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"preflight:all\": \"node scripts/preflight-all.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"typecheck\": \"tsc -b --pretty false\"");
 requireText(PACKAGE_JSON, packageJson, "\"view:e2e-artifacts\": \"node scripts/view-e2e-artifact-summary.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "scripts/view-e2e-artifact-summary.test.mjs");
@@ -395,6 +402,8 @@ requireText(PACKAGE_JSON, packageJson, "\"release:status:json\": \"node scripts/
 requireText(PACKAGE_JSON, packageJson, "\"release:status:html\": \"node scripts/release-status.mjs --html\"");
 requireText(PACKAGE_JSON, packageJson, "\"release:status:offline\": \"node scripts/release-status.mjs --offline\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:typecheck-blob-preflight\": \"node --test scripts/preflight-typecheck-blob.test.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"test:preflight-all\": \"node --test scripts/preflight-all.test.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"test:preflight-all-gate\": \"node --test scripts/check-preflight-all-gate.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test scripts/release-status.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status-privacy\": \"node --test scripts/check-release-status-privacy.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status-smoke\": \"node --test scripts/release-status-smoke.test.mjs\"");
@@ -402,6 +411,7 @@ requireText(PACKAGE_JSON, packageJson, "\"test:release-status-ci\": \"node --tes
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-privacy\": \"node scripts/check-release-status-privacy.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-sync\": \"node scripts/check-release-status-sync.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-workflow-gate\": \"node scripts/check-release-status-workflow-gate.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"check:preflight-all-gate\": \"node scripts/check-preflight-all-gate.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"ci:release-status-sync\": \"node scripts/ci-release-status-sync-gate.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"e2e:release-status\": \"playwright test e2e/sys-release-status.pw.ts\"");
 requireText(PACKAGE_JSON, packageJson, "e2e/sys-release-status.pw.ts");
@@ -459,6 +469,9 @@ requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-privacy");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-smoke");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-ci");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:preflight-all");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:preflight-all-gate");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "check:preflight-all-gate");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/lib/release-status-ui.test.ts");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/pages/sys/SysReleaseStatusPage.test.tsx");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release status sync checker");
@@ -497,6 +510,59 @@ requireText(TYPECHECK_BLOB_PREFLIGHT_TEST, typecheckBlobPreflightTest, "prefligh
 requireText(TYPECHECK_BLOB_PREFLIGHT_TEST, typecheckBlobPreflightTest, "dry run prints copyable commands");
 requireText(TYPECHECK_BLOB_PREFLIGHT_TEST, typecheckBlobPreflightTest, "runner stops at first failing step");
 requireText(TYPECHECK_BLOB_PREFLIGHT_TEST, typecheckBlobPreflightTest, "cli dry-run exits 0");
+
+const preflightAllScript = existsSync(join(ROOT, PREFLIGHT_ALL_SCRIPT))
+  ? readFileSync(join(ROOT, PREFLIGHT_ALL_SCRIPT), "utf8")
+  : "";
+if (!preflightAllScript) {
+  errors.push(`Missing required preflight script: ${PREFLIGHT_ALL_SCRIPT}`);
+}
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "preflight-all");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "runPreflightAll");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "renderPreflightAllSummary");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "renderPreflightAllDryRun");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "preflight:auth-assets");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "preflight:e2e-artifacts");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "preflight:release-status");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "preflight:typecheck-blob");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "ci:release-status-sync");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "check:preflight-all-gate");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "test-results/preflight-all.md");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "--summary");
+requireText(PREFLIGHT_ALL_SCRIPT, preflightAllScript, "--dry-run");
+
+const preflightAllTest = existsSync(join(ROOT, PREFLIGHT_ALL_TEST))
+  ? readFileSync(join(ROOT, PREFLIGHT_ALL_TEST), "utf8")
+  : "";
+if (!preflightAllTest) {
+  errors.push(`Missing required preflight test: ${PREFLIGHT_ALL_TEST}`);
+}
+requireText(PREFLIGHT_ALL_TEST, preflightAllTest, "preflight all command list covers deterministic local gates");
+requireText(PREFLIGHT_ALL_TEST, preflightAllTest, "argument parser supports dry-run and summary path forms");
+requireText(PREFLIGHT_ALL_TEST, preflightAllTest, "summary renderer reports status");
+requireText(PREFLIGHT_ALL_TEST, preflightAllTest, "runner writes success summary and stops at first failing step");
+requireText(PREFLIGHT_ALL_TEST, preflightAllTest, "cli dry-run exits 0");
+
+const preflightAllGateScript = existsSync(join(ROOT, PREFLIGHT_ALL_GATE_SCRIPT))
+  ? readFileSync(join(ROOT, PREFLIGHT_ALL_GATE_SCRIPT), "utf8")
+  : "";
+if (!preflightAllGateScript) {
+  errors.push(`Missing required gate script: ${PREFLIGHT_ALL_GATE_SCRIPT}`);
+}
+requireText(PREFLIGHT_ALL_GATE_SCRIPT, preflightAllGateScript, "check-preflight-all-gate");
+requireText(PREFLIGHT_ALL_GATE_SCRIPT, preflightAllGateScript, ".github/workflows/preflight-all.yml");
+requireText(PREFLIGHT_ALL_GATE_SCRIPT, preflightAllGateScript, "npm run preflight:all -- --summary test-results/preflight-all.md");
+requireText(PREFLIGHT_ALL_GATE_SCRIPT, preflightAllGateScript, "$GITHUB_STEP_SUMMARY");
+requireText(PREFLIGHT_ALL_GATE_SCRIPT, preflightAllGateScript, "actions/upload-artifact@v4");
+
+const preflightAllGateTest = existsSync(join(ROOT, PREFLIGHT_ALL_GATE_TEST))
+  ? readFileSync(join(ROOT, PREFLIGHT_ALL_GATE_TEST), "utf8")
+  : "";
+if (!preflightAllGateTest) {
+  errors.push(`Missing required gate test: ${PREFLIGHT_ALL_GATE_TEST}`);
+}
+requireText(PREFLIGHT_ALL_GATE_TEST, preflightAllGateTest, "preflight-all workflow gate checker passes");
+requireText(PREFLIGHT_ALL_GATE_TEST, preflightAllGateTest, "summary and artifact report wiring");
 
 const releaseStatusCiSyncScript = existsSync(join(ROOT, RELEASE_STATUS_CI_SYNC_SCRIPT))
   ? readFileSync(join(ROOT, RELEASE_STATUS_CI_SYNC_SCRIPT), "utf8")
@@ -550,6 +616,10 @@ requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "if: ${{ success() }
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/check-release-status-workflow-gate.mjs");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/preflight-typecheck-blob.mjs");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/preflight-typecheck-blob.test.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/preflight-all.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/preflight-all.test.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/check-preflight-all-gate.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/check-preflight-all-gate.test.mjs");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status -- --output test-results/release-status.md --history test-results/release-history.jsonl");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:json -- --output test-results/release-status.json");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:html -- --output test-results/release-status.html");
@@ -571,6 +641,7 @@ requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "docs/frontend/stage
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/blob-utils.ts");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/blob-utils.test.ts");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, ".github/workflows/typecheck-blob-verification.yml");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, ".github/workflows/preflight-all.yml");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "tsconfig.json");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "tsconfig.app.json");
 
@@ -601,6 +672,22 @@ requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "scripts/preflight-t
 requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "docs/frontend/stage-3m-release-operations-dashboard.md");
 requireText(TYPECHECK_BLOB_WORKFLOW, typecheckBlobWorkflow, "$GITHUB_STEP_SUMMARY");
 
+const preflightAllWorkflow = existsSync(join(ROOT, PREFLIGHT_ALL_WORKFLOW))
+  ? readFileSync(join(ROOT, PREFLIGHT_ALL_WORKFLOW), "utf8")
+  : "";
+if (!preflightAllWorkflow) {
+  errors.push(`Missing required workflow: ${PREFLIGHT_ALL_WORKFLOW}`);
+}
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "name: preflight-all");
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "npm run test:preflight-all");
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "npm run test:preflight-all-gate");
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "npm run check:preflight-all-gate");
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "npm run preflight:all -- --summary test-results/preflight-all.md");
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "cat test-results/preflight-all.md >> \"$GITHUB_STEP_SUMMARY\"");
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "actions/upload-artifact@v4");
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "preflight-all-${{ github.run_id }}");
+requireText(PREFLIGHT_ALL_WORKFLOW, preflightAllWorkflow, "test-results/preflight-all.md");
+
 const blobUtils = existsSync(join(ROOT, BLOB_UTILS_LIB))
   ? readFileSync(join(ROOT, BLOB_UTILS_LIB), "utf8")
   : "";
@@ -628,6 +715,13 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm r
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "node scripts/preflight-typecheck-blob.mjs --dry-run");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, ".github/workflows/typecheck-blob-verification.yml");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "typecheck-blob-verification");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run preflight:all -- --summary test-results/preflight-all.md");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, ".github/workflows/preflight-all.yml");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run test:preflight-all");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run test:preflight-all-gate");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run check:preflight-all-gate");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "$GITHUB_STEP_SUMMARY");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "preflight-all-<run_id>");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "typecheck-ci");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "blob-utils");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "strict-type-unions");
@@ -730,9 +824,14 @@ requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run 
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run e2e:release-status");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:typecheck-blob-preflight");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run preflight:typecheck-blob");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:preflight-all");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:preflight-all-gate");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run check:preflight-all-gate");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run preflight:all -- --summary test-results/preflight-all.md");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #72");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #73");
 requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #76");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #77");
 
 const stage3l = readDoc("stage-3l-nightly-artifacts-report.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "## 8. Related dashboards");
@@ -952,6 +1051,10 @@ for (const path of [
   RELEASE_STATUS_PREFLIGHT_SCRIPT,
   TYPECHECK_BLOB_PREFLIGHT_SCRIPT,
   TYPECHECK_BLOB_PREFLIGHT_TEST,
+  PREFLIGHT_ALL_SCRIPT,
+  PREFLIGHT_ALL_TEST,
+  PREFLIGHT_ALL_GATE_SCRIPT,
+  PREFLIGHT_ALL_GATE_TEST,
   RELEASE_STATUS_UI_LIB,
   RELEASE_STATUS_UI_LIB_TEST,
   RELEASE_STATUS_UI_PAGE,

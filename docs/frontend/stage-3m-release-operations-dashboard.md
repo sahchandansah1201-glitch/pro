@@ -454,6 +454,54 @@ Release checklist for this slice:
 - `node scripts/check-no-deno-locks.mjs` reports no `deno.lock` files.
 - Lovable confirms Stage 3M §12.1 and §12.2 are synced without conflicts.
 
+### 12.3 Full preflight, PR report, and CI gate
+
+Use the full deterministic preflight before release handoff or before merging a
+large cross-surface PR:
+
+```bash
+npm run preflight:all -- --summary test-results/preflight-all.md
+```
+
+The command runs the deterministic local preflight chain:
+
+- `npm run preflight:auth-assets`
+- `npm run preflight:e2e-artifacts`
+- `npm run preflight:release-status`
+- `npm run preflight:typecheck-blob`
+- `npm run ci:release-status-sync`
+- `npm run check:preflight-all-gate`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`
+
+The `--summary` argument writes a markdown report at
+`test-results/preflight-all.md`. The report includes step status, commands,
+durations, a release checklist, and privacy notes. It intentionally does not
+print secrets, signed URLs, patient identifiers, or raw environment values.
+
+For PR visibility, `.github/workflows/preflight-all.yml` runs:
+
+- `npm run test:preflight-all`
+- `npm run test:preflight-all-gate`
+- `npm run check:preflight-all-gate`
+- `npm run preflight:all -- --summary test-results/preflight-all.md`
+
+The workflow appends the generated report to `$GITHUB_STEP_SUMMARY` and uploads
+`test-results/preflight-all.md` as the `preflight-all-<run_id>` artifact.
+
+The additional CI gate is `npm run check:preflight-all-gate`; it verifies that
+the workflow keeps script tests, gate checks, summary writing, artifact upload,
+and the full `preflight:all` command wired together.
+
+Full-preflight release checklist:
+
+- Local `npm run preflight:all -- --summary test-results/preflight-all.md`
+  is green.
+- The `preflight-all` workflow is green on the PR/head ref.
+- `test-results/preflight-all.md` is present in the workflow summary/artifact.
+- `npm run check:preflight-all-gate` is green.
+- Lovable confirms Stage 3M §12.3 and Stage 3I verification map are synced.
+
 ## 13. Write-gate drill and CI annotations
 
 The write-gate drill is the browser-side rehearsal of the CI report-write

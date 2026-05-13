@@ -32,6 +32,21 @@ const steps = [
     ["run", "test:release-status-ci"],
   ],
   [
+    "preflight all script tests",
+    npmCmd,
+    ["run", "test:preflight-all"],
+  ],
+  [
+    "preflight all workflow gate tests",
+    npmCmd,
+    ["run", "test:preflight-all-gate"],
+  ],
+  [
+    "preflight all workflow gate",
+    npmCmd,
+    ["run", "check:preflight-all-gate"],
+  ],
+  [
     "release status UI tests",
     npmCmd,
     [
