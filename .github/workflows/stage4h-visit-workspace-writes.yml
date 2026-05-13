@@ -1,0 +1,55 @@
+name: stage4h-visit-workspace-writes
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-visit-write-api.ts"
+      - "src/lib/self-hosted-visit-write-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "src/pages/doctor/VisitWorkspacePage.tsx"
+      - "scripts/check-stage4h-self-hosted-visit-workspace-writes.mjs"
+      - "scripts/check-stage4h-self-hosted-visit-workspace-writes.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4h-visit-workspace-writes.yml"
+      - "docs/backend/stage-4h-visit-workspace-writes.md"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-visit-write-api.ts"
+      - "src/lib/self-hosted-visit-write-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "src/pages/doctor/VisitWorkspacePage.tsx"
+      - "scripts/check-stage4h-self-hosted-visit-workspace-writes.mjs"
+      - "scripts/check-stage4h-self-hosted-visit-workspace-writes.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4h-visit-workspace-writes.yml"
+      - "docs/backend/stage-4h-visit-workspace-writes.md"
+  workflow_dispatch:
+
+jobs:
+  stage4h:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 4H preflight
+        run: npm run preflight:stage4h
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4H visit workspace writes"
+            echo ""
+            echo "- Command: \`npm run preflight:stage4h\`"
+            echo "- Result: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
