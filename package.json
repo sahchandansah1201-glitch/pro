@@ -23,6 +23,7 @@
     "preflight:stage4d": "npm run test:stage4d && npm run check:stage4d && node scripts/check-no-deno-locks.mjs",
     "preflight:stage4e": "npm run test:stage4e && npm run check:stage4e && node scripts/check-no-deno-locks.mjs",
     "preflight:stage4f": "npm run test:stage4f && npm run check:stage4f && node scripts/check-no-deno-locks.mjs",
+    "preflight:stage4g": "npm run test:stage4g && npm run check:stage4g && node scripts/check-no-deno-locks.mjs",
     "preflight:all": "node scripts/preflight-all.mjs",
     "view:e2e-artifacts": "node scripts/view-e2e-artifact-summary.mjs",
     "smoke:auth-assets": "node scripts/smoke-auth-assets.mjs",
