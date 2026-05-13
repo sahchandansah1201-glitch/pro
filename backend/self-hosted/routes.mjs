@@ -599,11 +599,150 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Stage 4H · self-hosted visit workspace write endpoints.
+  if (visitDetailMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.visitWorkspaceWriteService.updateVisit(
+        decodeURIComponent(visitDetailMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4H",
+          source: "postgres",
+          item: result.visit,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (visitLesionsMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.visitWorkspaceWriteService.createLesion(
+        decodeURIComponent(visitLesionsMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        201,
+        {
+          stage: "4H",
+          source: "postgres",
+          item: result.lesion,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const lesionMatch = url.pathname.match(/^\/api\/v1\/lesions\/([^/]+)$/);
+  if (lesionMatch && (method === "PATCH" || method === "DELETE")) {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const lesionId = decodeURIComponent(lesionMatch[1]);
+      const result = method === "PATCH"
+        ? await runtimeServices.visitWorkspaceWriteService.updateLesion(
+            lesionId,
+            parseJsonBody(request.body),
+            authContext,
+            { correlationId },
+          )
+        : await runtimeServices.visitWorkspaceWriteService.archiveLesion(
+            lesionId,
+            authContext,
+            { correlationId },
+          );
+      return jsonResponse(
+        200,
+        {
+          stage: "4H",
+          source: "postgres",
+          archived: method === "DELETE",
+          item: result.lesion,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const visitReportMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/report$/);
+  if (visitReportMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.visitWorkspaceWriteService.updateReport(
+        decodeURIComponent(visitReportMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4H",
+          source: "postgres",
+          item: result.report,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (method !== "GET") {
     return errorResponse({
       status: 405,
       code: "method_not_allowed",
-      message: "This self-hosted backend route does not allow the requested method in Stage 4D.",
+      message: "This self-hosted backend route does not allow the requested method in Stage 4H.",
       correlationId,
       config,
       requestOrigin,
