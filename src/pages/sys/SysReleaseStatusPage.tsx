@@ -41,6 +41,7 @@ import {
   filterReleaseHistoryRecordsAdvanced,
   filterReleaseImportAuditEntries,
   paginateReleaseHistoryRecords,
+  planReleaseHistoryPresetImport,
   DEFAULT_RELEASE_HISTORY_FILTER_PRESETS,
   RELEASE_HISTORY_FILTER_PRESET_LIMIT,
   RELEASE_STATUS_ALLOWED_ROLES,
@@ -82,6 +83,12 @@ import {
 const FORMATS: ReleaseStatusFormat[] = ["markdown", "json", "html", "history"];
 const HISTORY_PREVIEW_PAGE_SIZE = 3;
 const RELEASE_STATUS_SYNC_COMMAND = "npm run check:release-status-sync";
+const RELEASE_STATUS_SYNC_BLOCK = [
+  "npm run check:release-status-sync",
+  "node scripts/check-stage3-docs.mjs",
+  "node scripts/check-no-deno-locks.mjs",
+  "git status --short",
+].join("\n");
 const HISTORY_FILTER_PRESETS_STORAGE_KEY =
   "derma-pro:sys-release-status:history-filter-presets";
 const AUDIT_STATUS_OPTIONS = [
@@ -231,6 +238,7 @@ export default function SysReleaseStatusPage() {
   const snapshot = RELEASE_STATUS_DEMO_SNAPSHOT;
   const previousSnapshot = RELEASE_STATUS_PREVIOUS_DEMO_SNAPSHOT;
   const historyInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const historyPresetImportRef = useRef<HTMLTextAreaElement | null>(null);
   const [format, setFormat] = useState<ReleaseStatusFormat>("markdown");
   const [status, setStatus] = useState(
     "Предпросмотр готов. Секреты не отображаются.",
@@ -346,14 +354,62 @@ export default function SysReleaseStatusPage() {
     return hints;
   }, [historyIssueSummary]);
   const firstHistoryIssue = historyDraft.issues[0] ?? null;
-  const presetImportPreview = useMemo(
+  const presetImportResult = useMemo(
     () =>
       historyPresetImportInput.trim()
-        ? summarizeReleaseHistoryPresetImport(
-            parseReleaseHistoryPresetExportJson(historyPresetImportInput),
-          )
+        ? parseReleaseHistoryPresetExportJson(historyPresetImportInput)
         : null,
     [historyPresetImportInput],
+  );
+  const presetImportPreview = useMemo(
+    () =>
+      presetImportResult
+        ? summarizeReleaseHistoryPresetImport(presetImportResult)
+        : null,
+    [presetImportResult],
+  );
+  const presetImportPlan = useMemo(
+    () =>
+      presetImportResult
+        ? planReleaseHistoryPresetImport(
+            presetImportResult,
+            savedHistoryPresets,
+          )
+        : null,
+    [presetImportResult, savedHistoryPresets],
+  );
+  const presetImportHints = useMemo(() => {
+    if (!presetImportResult || !historyPresetImportInput.trim()) return [];
+    const hints: string[] = [];
+    if (presetImportResult.status === "blocked") {
+      hints.push(
+        "Удалите email, токены, signed URL и другие приватные значения.",
+      );
+    }
+    if (
+      presetImportResult.status === "empty" &&
+      presetImportResult.skippedCount > 0
+    ) {
+      hints.push(
+        "Проверьте JSON: ожидается объект с массивом presets или массив пресетов.",
+      );
+    }
+    if (
+      presetImportResult.status === "empty" &&
+      presetImportResult.skippedCount === 0
+    ) {
+      hints.push("Добавьте хотя бы один безопасный saved-пресет.");
+    }
+    if (presetImportResult.status === "partial") {
+      hints.push("Часть пресетов пропущена из-за формата, дублей или лимита.");
+    }
+    return hints;
+  }, [historyPresetImportInput, presetImportResult]);
+  const presetImportHasError = Boolean(
+    historyPresetImportInput.trim() &&
+      presetImportResult &&
+      (presetImportResult.status === "blocked" ||
+        presetImportResult.status === "empty"),
   );
   const filteredHistoryRecords = useMemo(
     () =>
@@ -728,6 +784,14 @@ export default function SysReleaseStatusPage() {
     setStatus(historyIssueSummary.message);
   };
 
+  const handleFocusPresetImportError = () => {
+    const input = historyPresetImportRef.current;
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(0, input.value.length);
+    setStatus("Выделен JSON пресетов release history для исправления.");
+  };
+
   const handleExport = (targetFormat: ReleaseStatusFormat) => {
     void runOperation("format_export", () => {
       const file = buildReleaseStatusExportFile(snapshot, targetFormat);
@@ -1075,6 +1139,19 @@ export default function SysReleaseStatusPage() {
     }
   };
 
+  const handlePrepareSyncBlock = async () => {
+    try {
+      if (!navigator.clipboard?.writeText)
+        throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(RELEASE_STATUS_SYNC_BLOCK);
+      setStatus(
+        "Полный sync checker блок скопирован. Запустите его до PR review и после Lovable sync.",
+      );
+    } catch {
+      setStatus(`Sync checker block:\n${RELEASE_STATUS_SYNC_BLOCK}`);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -1312,6 +1389,41 @@ export default function SysReleaseStatusPage() {
                   <ListChecks className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   Скопировать sync checker
                 </Button>
+                <div
+                  className="mt-3 rounded-md border border-border bg-background p-2"
+                  role="region"
+                  aria-label="Sync checker gate release status"
+                >
+                  <div className="text-[11px] font-medium">
+                    Sync checker gate
+                  </div>
+                  <pre
+                    className="mt-2 whitespace-pre-wrap rounded bg-muted/50 px-2 py-1 font-mono text-[10px] leading-relaxed"
+                    aria-label="Полный sync checker блок"
+                  >
+                    {RELEASE_STATUS_SYNC_BLOCK}
+                  </pre>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <ul
+                      className="space-y-1 text-[11px] text-muted-foreground"
+                      aria-label="Sync checker критерии release status"
+                    >
+                      <li>До PR review: sync checker и Stage 3 docs должны пройти.</li>
+                      <li>После Lovable sync: HEAD должен быть main SHA или новее.</li>
+                      <li>Если sync stale, не переимплементировать отсутствующий код.</li>
+                    </ul>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-fit shrink-0 text-[11px]"
+                      onClick={handlePrepareSyncBlock}
+                      aria-label="Скопировать полный sync checker блок"
+                    >
+                      Скопировать блок
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>
@@ -1638,17 +1750,21 @@ export default function SysReleaseStatusPage() {
                     </Button>
                   </div>
                   <Textarea
+                    ref={historyPresetImportRef}
                     value={historyPresetImportInput}
                     onChange={(event) =>
                       setHistoryPresetImportInput(event.target.value)
                     }
                     aria-label="Импортировать пресеты release history JSON"
+                    aria-invalid={presetImportHasError}
+                    aria-describedby="release-history-preset-import-preview release-history-preset-import-plan release-history-preset-import-status release-history-preset-import-hints"
                     className="mt-2 min-h-[72px] resize-y font-mono text-[11px]"
                     placeholder='{"presets":[...]}'
                     disabled={isBusy}
                   />
                   <div
                     role="status"
+                    id="release-history-preset-import-preview"
                     aria-live="polite"
                     aria-atomic="true"
                     aria-label="Предпросмотр импорта пресетов release history"
@@ -1667,8 +1783,60 @@ export default function SysReleaseStatusPage() {
                       "Предпросмотр появится после вставки JSON пресетов."
                     )}
                   </div>
+                  <div
+                    id="release-history-preset-import-plan"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    aria-label="План импорта пресетов release history"
+                    className={
+                      presetImportHasError
+                        ? "mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive"
+                        : "mt-2 rounded-md border border-border bg-background p-2 text-[11px] text-muted-foreground"
+                    }
+                  >
+                    {presetImportPlan ? (
+                      <>
+                        {presetImportPlan.message} Доступно слотов:{" "}
+                        {presetImportPlan.availableSlots}. Будет импортировано:{" "}
+                        {presetImportPlan.willImportCount}.
+                        {presetImportPlan.duplicateCount > 0 &&
+                          ` Заменит: ${presetImportPlan.duplicateNames.join(", ")}.`}
+                        {presetImportPlan.willTrimExistingCount > 0 &&
+                          ` Вытеснит старые: ${presetImportPlan.trimmedExistingNames.join(", ")}.`}
+                      </>
+                    ) : (
+                      "План импорта появится после вставки JSON пресетов."
+                    )}
+                  </div>
+                  {presetImportHints.length > 0 && (
+                    <div className="mt-2 rounded-md border border-border bg-background p-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <ul
+                          id="release-history-preset-import-hints"
+                          className="space-y-1 text-[11px] text-muted-foreground"
+                          aria-label="Подсказки исправления импорта пресетов release history"
+                        >
+                          {presetImportHints.map((hint) => (
+                            <li key={hint}>{hint}</li>
+                          ))}
+                        </ul>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 w-fit shrink-0 text-[11px]"
+                          onClick={handleFocusPresetImportError}
+                          aria-label="Фокус на JSON пресетов с ошибкой"
+                        >
+                          К JSON пресетов
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div
+                      id="release-history-preset-import-status"
                       role="status"
                       aria-live="polite"
                       aria-atomic="true"

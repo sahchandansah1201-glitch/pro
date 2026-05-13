@@ -261,6 +261,12 @@ The viewer also exposes the UI-side release operator guardrails:
 - Preset import now includes `preset-import-preview`: before import,
   `summarizeReleaseHistoryPresetImport` reports accepted/skipped preset counts,
   privacy finding count, and up to four safe preset names.
+- The same panel adds `preset-import-plan` through
+  `planReleaseHistoryPresetImport`, including replacements, available preset
+  slots, and older saved presets that will be displaced by the import.
+- `preset-import-error-focus` gives invalid or privacy-blocked preset JSON the
+  same keyboard recovery path as history JSONL: a visible hint list and a
+  "К JSON пресетов" focus control.
 - Operators can use `preset-clear-undo` to bulk-clear browser-local saved
   presets and restore the last cleared set within the same session.
 - Preset operations append browser-local `preset-audit-export` entries. The
@@ -318,6 +324,9 @@ The viewer also exposes the UI-side release operator guardrails:
 - The `release-status-sync-checker` (`npm run check:release-status-sync`)
   keeps the release-status page, helper library, unit/e2e tests, workflow,
   preflight, and Stage 3 docs aligned before generated reports are written.
+- The local preflight card includes `sync-checker-full-block`: a copyable
+  command block with sync checker, Stage 3 docs guard, deno-lock guard, and
+  `git status --short` for before-PR and post-Lovable-sync verification.
 
 ## 13. Maintenance rule
 
@@ -340,7 +349,8 @@ The viewer also exposes the UI-side release operator guardrails:
   audit-report-summary, audit-report-download, baseline-preview,
   baseline-delete, baseline-selector, privacy-preview,
   history-filter-presets, preset-management-ui, preset-json-xlsx-export,
-  preset-import-preview, preset-clear-undo, preset-audit-export,
+  preset-import-preview, preset-import-plan, preset-import-error-focus,
+  preset-clear-undo, preset-audit-export, sync-checker-full-block,
   filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
   release-status-sync-checker-ui, and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`

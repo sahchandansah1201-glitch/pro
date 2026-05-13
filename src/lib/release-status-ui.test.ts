@@ -23,6 +23,7 @@ import {
   filterReleaseImportAuditEntries,
   DEFAULT_RELEASE_HISTORY_FILTER_PRESETS,
   normalizeReleaseHistoryFilterPreset,
+  planReleaseHistoryPresetImport,
   paginateReleaseHistoryRecords,
   parseReleaseHistoryJsonl,
   parseReleaseHistoryPresetExportJson,
@@ -383,6 +384,16 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
     const json = buildReleaseHistoryPresetExportJson([preset]);
     const parsed = parseReleaseHistoryPresetExportJson(json);
     const importSummary = summarizeReleaseHistoryPresetImport(parsed);
+    const importPlan = planReleaseHistoryPresetImport(parsed, [
+      preset,
+      buildReleaseHistoryFilterPreset("Old safe preset", {
+        status: "ok",
+        deno: "ok",
+        artifact: "present",
+        workflow: "success",
+        query: "release-status",
+      })!,
+    ]);
     const xlsx = buildReleaseHistoryPresetsXlsxBytes(parsed.presets);
     const audit = buildReleaseHistoryPresetAuditReport([
       {
@@ -415,6 +426,16 @@ eyJabcdefghi.eyJklmnopq.eyJrstuvwx
         previewNames: ["E2E blockers"],
       }),
     );
+    expect(importPlan).toEqual(
+      expect.objectContaining({
+        duplicateCount: 1,
+        availableSlots: 6,
+        willImportCount: 1,
+        willTrimExistingCount: 0,
+        duplicateNames: ["E2E blockers"],
+      }),
+    );
+    expect(importPlan.message).toContain("заменит существующие");
     expect(Array.from(xlsx.slice(0, 2))).toEqual([80, 75]);
     expect(JSON.parse(audit)).toEqual(
       expect.objectContaining({

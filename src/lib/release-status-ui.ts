@@ -218,6 +218,16 @@ export interface ReleaseHistoryPresetImportSummary {
   message: string;
 }
 
+export interface ReleaseHistoryPresetImportPlan
+  extends ReleaseHistoryPresetImportSummary {
+  duplicateCount: number;
+  availableSlots: number;
+  willImportCount: number;
+  willTrimExistingCount: number;
+  duplicateNames: string[];
+  trimmedExistingNames: string[];
+}
+
 export interface ReleaseHistoryPresetAuditEntry {
   at: string;
   action: string;
@@ -845,6 +855,58 @@ export function summarizeReleaseHistoryPresetImport(
     privacyFindingCount: result.privacy.findingCount,
     previewNames: result.presets.slice(0, 4).map((preset) => preset.name),
     message: result.message,
+  };
+}
+
+export function planReleaseHistoryPresetImport(
+  result: ReleaseHistoryPresetExportResult,
+  currentPresets: ReleaseHistoryFilterPreset[],
+): ReleaseHistoryPresetImportPlan {
+  const currentSavedPresets = uniqueSavedPresets(
+    currentPresets
+      .map((preset) => normalizeReleaseHistoryFilterPreset(preset))
+      .filter((preset): preset is ReleaseHistoryFilterPreset => preset != null),
+  );
+  const incomingNames = new Set(
+    result.presets.map((preset) => preset.name.toLowerCase()),
+  );
+  const duplicateNames = result.presets
+    .filter((preset) =>
+      currentSavedPresets.some(
+        (current) => current.name.toLowerCase() === preset.name.toLowerCase(),
+      ),
+    )
+    .map((preset) => preset.name);
+  const nonDuplicateCurrent = currentSavedPresets.filter(
+    (preset) => !incomingNames.has(preset.name.toLowerCase()),
+  );
+  const willTrimExistingCount = Math.max(
+    0,
+    result.presets.length +
+      nonDuplicateCurrent.length -
+      RELEASE_HISTORY_FILTER_PRESET_LIMIT,
+  );
+  const trimmedExistingNames =
+    willTrimExistingCount > 0
+      ? nonDuplicateCurrent.slice(-willTrimExistingCount).map((preset) => preset.name)
+      : [];
+  const baseSummary = summarizeReleaseHistoryPresetImport(result);
+
+  return {
+    ...baseSummary,
+    duplicateCount: duplicateNames.length,
+    availableSlots: Math.max(
+      0,
+      RELEASE_HISTORY_FILTER_PRESET_LIMIT - currentSavedPresets.length,
+    ),
+    willImportCount: result.presets.length,
+    willTrimExistingCount,
+    duplicateNames: duplicateNames.slice(0, 4),
+    trimmedExistingNames: trimmedExistingNames.slice(0, 4),
+    message:
+      result.acceptedCount === 0
+        ? result.message
+        : `План импорта: ${result.presets.length} будет добавлено/обновлено, ${duplicateNames.length} заменит существующие, ${willTrimExistingCount} старых пресетов будет вытеснено.`,
   };
 }
 
