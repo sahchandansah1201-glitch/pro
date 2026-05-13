@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
   ChevronRight,
   Download,
   Eye,
   History,
+  LogOut,
   Pencil,
   RotateCcw,
   Search,
+  ServerCog,
   SlidersHorizontal,
   Trash2,
   UserPlus,
@@ -59,6 +61,7 @@ import {
   type SelfHostedApiError,
 } from "@/lib/self-hosted-patient-api";
 import {
+  clearSelfHostedApiSession,
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
@@ -227,6 +230,7 @@ function patientApiErrorText(error: SelfHostedApiError | null | undefined): stri
 }
 
 export default function PatientsPage() {
+  const navigate = useNavigate();
   const selfHostedSession = useSelfHostedApiSession();
   const liveBackend = isSelfHostedApiConfigured(selfHostedSession);
   const [patients, setPatients] = useState<Patient[]>(() => PATIENTS);
@@ -570,17 +574,49 @@ export default function PatientsPage() {
         title="Пациенты"
         subtitle={`Всего в базе: ${patients.length}`}
         actions={
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="h-9 gap-1.5 text-[12px]"
-            aria-describedby={PATIENT_DEMO_GATE_ID}
-            onClick={handleCreateOpen}
-          >
-            <UserPlus className="h-3.5 w-3.5" aria-hidden />
-            Новый пациент
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-9 gap-1.5 text-[12px]"
+              aria-describedby={PATIENT_DEMO_GATE_ID}
+              onClick={handleCreateOpen}
+            >
+              <UserPlus className="h-3.5 w-3.5" aria-hidden />
+              Новый пациент
+            </Button>
+            {liveBackend ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-1.5 text-[12px]"
+                aria-label="Выйти из self-hosted backend"
+                onClick={() => {
+                  clearSelfHostedApiSession();
+                  setStatusMessage("Self-hosted сессия завершена. Возврат в демо-режим.");
+                  navigate("/self-hosted/login");
+                }}
+              >
+                <LogOut className="h-3.5 w-3.5" aria-hidden />
+                Выйти из self-hosted
+              </Button>
+            ) : (
+              <Button
+                asChild
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-1.5 text-[12px]"
+              >
+                <Link to="/self-hosted/login" aria-label="Войти в self-hosted backend">
+                  <ServerCog className="h-3.5 w-3.5" aria-hidden />
+                  Войти в self-hosted backend
+                </Link>
+              </Button>
+            )}
+          </div>
         }
       />
 
