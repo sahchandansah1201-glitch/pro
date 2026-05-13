@@ -1,0 +1,52 @@
+name: stage4a-self-hosted
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4a-self-hosted-foundation.md"
+      - "scripts/check-stage4a-self-hosted.mjs"
+      - "scripts/check-stage4a-self-hosted.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/stage4a-self-hosted.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4a-self-hosted-foundation.md"
+      - "scripts/check-stage4a-self-hosted.mjs"
+      - "scripts/check-stage4a-self-hosted.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/stage4a-self-hosted.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4a-self-hosted:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 4A preflight
+        run: npm run preflight:stage4a
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## stage4a-self-hosted"
+            echo ""
+            echo "- Command: \`npm run preflight:stage4a\`"
+            echo "- Coverage: backend routes, self-hosted guard, no deno.lock"
+            echo "- Result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

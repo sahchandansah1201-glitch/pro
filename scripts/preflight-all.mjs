@@ -17,6 +17,7 @@ const DEFAULT_STEPS = [
   ["e2e artifacts preflight", npmCmd, ["run", "preflight:e2e-artifacts"]],
   ["release-status preflight", npmCmd, ["run", "preflight:release-status"]],
   ["typecheck/blob preflight", npmCmd, ["run", "preflight:typecheck-blob"]],
+  ["Stage 4A self-hosted preflight", npmCmd, ["run", "preflight:stage4a"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],
