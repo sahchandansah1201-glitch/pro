@@ -199,5 +199,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #67: added preset import preview, bulk clear/undo for saved release-history
   presets, sanitized preset audit export, and sync/docs/e2e coverage for the
   extended preset workflow.
+- PR #68: added preset import planning, focus recovery for invalid preset JSON,
+  a full local sync-check command block, and matching release-status unit/e2e
+  plus Stage 3 sync guard coverage.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

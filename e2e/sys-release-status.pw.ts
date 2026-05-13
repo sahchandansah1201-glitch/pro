@@ -171,6 +171,11 @@ test.describe("/sys/release-status", () => {
         name: "Предпросмотр импорта пресетов release history",
       }),
     ).toContainText("Imported E2E safe preset");
+    await expect(
+      page.getByRole("status", {
+        name: "План импорта пресетов release history",
+      }),
+    ).toContainText("Будет импортировано: 1");
     await page
       .getByRole("button", {
         name: "Импортировать пресеты release history",
@@ -215,6 +220,24 @@ test.describe("/sys/release-status", () => {
     const presetAuditText = await readFile(presetAuditPath!, "utf8");
     expect(presetAuditText).toContain("Release history preset audit");
     expect(presetAuditText).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+
+    await page
+      .getByLabel("Импортировать пресеты release history JSON")
+      .fill("{bad json");
+    await expect(
+      page.getByLabel("Импортировать пресеты release history JSON"),
+    ).toHaveAttribute("aria-invalid", "true");
+    await expect(
+      page.getByRole("list", {
+        name: "Подсказки исправления импорта пресетов release history",
+      }),
+    ).toContainText("Проверьте JSON");
+    await page
+      .getByRole("button", { name: "Фокус на JSON пресетов с ошибкой" })
+      .click();
+    await expect(
+      page.getByLabel("Импортировать пресеты release history JSON"),
+    ).toBeFocused();
 
     await page.reload({ waitUntil: "networkidle" });
     await expect(
@@ -511,13 +534,26 @@ test.describe("/sys/release-status", () => {
     await expect(
       page.getByRole("status", { name: "Статус релиз-дашборда" }),
     ).toContainText(/preflight/);
-    await expect(page.getByText("npm run check:release-status-sync")).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Sync checker gate release status" })
+        .getByText("npm run check:release-status-sync"),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: "Скопировать sync checker" })
       .click();
     await expect(
       page.getByRole("status", { name: "Статус релиз-дашборда" }),
     ).toContainText(/sync checker/);
+    await expect(
+      page.getByRole("region", { name: "Sync checker gate release status" }),
+    ).toContainText("git status --short");
+    await page
+      .getByRole("button", { name: "Скопировать полный sync checker блок" })
+      .click();
+    await expect(
+      page.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toContainText(/sync checker/i);
 
     await page
       .getByLabel("Вставить release-history JSONL")

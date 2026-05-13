@@ -62,6 +62,17 @@ describe("SysReleaseStatusPage", () => {
       screen.getByText("npm run preflight:release-status"),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("region", { name: "Sync checker gate release status" }),
+    ).toHaveTextContent(/git status --short/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Скопировать полный sync checker блок",
+      }),
+    );
+    expect(
+      screen.getByRole("status", { name: "Статус релиз-дашборда" }),
+    ).toHaveTextContent(/sync checker/i);
+    expect(
       screen.getByRole("region", { name: "Сравнение релизов" }),
     ).toHaveTextContent(/Статус улучшился/);
     expect(container.innerHTML).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
@@ -390,6 +401,11 @@ describe("SysReleaseStatusPage", () => {
         name: "Предпросмотр импорта пресетов release history",
       }),
     ).toHaveTextContent(/Imported safe preset/);
+    expect(
+      screen.getByRole("status", {
+        name: "План импорта пресетов release history",
+      }),
+    ).toHaveTextContent(/Будет импортировано: 1/);
     await waitFor(() =>
       expect(
         screen.getByRole("button", {
@@ -454,6 +470,31 @@ describe("SysReleaseStatusPage", () => {
     expect(
       screen.getByRole("status", { name: "Статус релиз-дашборда" }),
     ).toHaveTextContent(/Аудит пресетов скачан/);
+
+    const presetImportInput = screen.getByLabelText(
+      "Импортировать пресеты release history JSON",
+    ) as HTMLTextAreaElement;
+    fireEvent.change(presetImportInput, { target: { value: "{bad json" } });
+    expect(presetImportInput).toHaveAttribute("aria-invalid", "true");
+    expect(
+      screen.getByRole("status", {
+        name: "План импорта пресетов release history",
+      }),
+    ).toHaveTextContent(/JSON некорректен|не выполнен/i);
+    expect(
+      screen.getByRole("list", {
+        name: "Подсказки исправления импорта пресетов release history",
+      }),
+    ).toHaveTextContent(/Проверьте JSON/);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Фокус на JSON пресетов с ошибкой",
+      }),
+    );
+    expect(presetImportInput).toHaveFocus();
+    expect(presetImportInput.selectionEnd).toBeGreaterThan(
+      presetImportInput.selectionStart,
+    );
   });
 
   it("supports dry-run import, history filters, delete import, audit download, and JSONL validation", async () => {
