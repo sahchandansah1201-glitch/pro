@@ -1,0 +1,63 @@
+name: stage4f-self-hosted-auth-bridge
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/self-hosted-api-session.ts"
+      - "src/lib/self-hosted-auth-api.ts"
+      - "src/lib/self-hosted-auth-api.test.ts"
+      - "src/pages/SelfHostedLoginPage.tsx"
+      - "src/pages/SelfHostedLoginPage.test.tsx"
+      - "src/pages/doctor/PatientsPage.tsx"
+      - "src/App.tsx"
+      - "e2e/self-hosted-stage4f.pw.ts"
+      - "docs/backend/stage-4f-self-hosted-auth-bridge.md"
+      - "scripts/check-stage4f-self-hosted-auth-bridge.mjs"
+      - "scripts/check-stage4f-self-hosted-auth-bridge.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4f-self-hosted-auth-bridge.yml"
+  push:
+    paths:
+      - "src/lib/self-hosted-api-session.ts"
+      - "src/lib/self-hosted-auth-api.ts"
+      - "src/lib/self-hosted-auth-api.test.ts"
+      - "src/pages/SelfHostedLoginPage.tsx"
+      - "src/pages/SelfHostedLoginPage.test.tsx"
+      - "src/pages/doctor/PatientsPage.tsx"
+      - "src/App.tsx"
+      - "e2e/self-hosted-stage4f.pw.ts"
+      - "docs/backend/stage-4f-self-hosted-auth-bridge.md"
+      - "scripts/check-stage4f-self-hosted-auth-bridge.mjs"
+      - "scripts/check-stage4f-self-hosted-auth-bridge.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4f-self-hosted-auth-bridge.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4f-self-hosted-auth-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 4F preflight
+        run: npm run preflight:stage4f
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4F self-hosted frontend auth bridge"
+            echo ""
+            echo "- preflight: \`npm run preflight:stage4f\`"
+            echo "- scope: /self-hosted/login + live PatientsPage CRUD"
+            echo "- managed backend runtime: not used"
+            echo "- mocked e2e covers login → list → create → edit → archive"
+          } >> "$GITHUB_STEP_SUMMARY"
