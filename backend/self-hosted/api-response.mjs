@@ -1,4 +1,4 @@
-const DEFAULT_ALLOWED_METHODS = "GET,OPTIONS";
+const DEFAULT_ALLOWED_METHODS = "GET,POST,PATCH,DELETE,OPTIONS";
 
 export const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",

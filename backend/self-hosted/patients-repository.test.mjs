@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildArchivePatientSql,
+  buildCreatePatientSql,
+  buildGetPatientSql,
   buildListPatientsSql,
+  buildUpdatePatientSql,
   createPatientRepository,
   parsePatientListParams,
 } from "./patients-repository.mjs";
@@ -80,4 +84,98 @@ test("createPatientRepository normalizes PostgreSQL rows into safe DTOs", async 
   assert.equal(result.items[0].fullName, "Demo Patient One");
   assert.equal(result.items[0].notes, undefined);
   assert.match(sql, /limit 1/);
+});
+
+test("patient detail and write SQL are clinic-scoped and use soft archive", () => {
+  const scoped = {
+    patientId: "10000000-0000-4000-8000-000000000201",
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+  };
+  const getSql = buildGetPatientSql(scoped);
+  assert.match(getSql, /where p\.id = '10000000-0000-4000-8000-000000000201'::uuid/);
+  assert.match(getSql, /p\.clinic_id in \('10000000-0000-4000-8000-000000000001'::uuid\)/);
+  assert.match(getSql, /p\.notes as "notes"/);
+
+  const createSql = buildCreatePatientSql({
+    clinicId: "10000000-0000-4000-8000-000000000001",
+    fullName: "O'Hara Patient",
+    birthDate: "1984-02-14",
+    sex: "female",
+    phototype: "II",
+    imagingConsent: true,
+    notes: "safe note",
+    actorUserId: "10000000-0000-4000-8000-000000000101",
+  });
+  assert.match(createSql, /insert into patients/);
+  assert.match(createSql, /O''Hara Patient/);
+  assert.match(createSql, /gen_random_uuid/);
+  assert.doesNotMatch(createSql, /password_hash|object_key|metadata_json/);
+
+  const updateSql = buildUpdatePatientSql({
+    ...scoped,
+    changes: { fullName: "Updated Patient", imagingConsent: false },
+  });
+  assert.match(updateSql, /update patients p/);
+  assert.match(updateSql, /full_name = 'Updated Patient'/);
+  assert.match(updateSql, /imaging_consent = false/);
+  assert.match(updateSql, /p\.deleted_at is null/);
+
+  const archiveSql = buildArchivePatientSql(scoped);
+  assert.match(archiveSql, /set deleted_at = now\(\)/);
+  assert.doesNotMatch(archiveSql, /\bdelete\s+from\b/i);
+});
+
+test("createPatientRepository delegates detail and write methods", async () => {
+  const calls = [];
+  const repository = createPatientRepository({
+    async queryJson(sql) {
+      calls.push(sql);
+      return [
+        {
+          id: "10000000-0000-4000-8000-000000000201",
+          clinicId: "10000000-0000-4000-8000-000000000001",
+          code: "DP-DEMO-0001",
+          fullName: "Demo Patient One",
+          birthDate: "1984-02-14",
+          sex: "female",
+          phototype: "II",
+          imagingConsent: true,
+          notes: "visible only on detail/write responses",
+          clinicSlug: "demo-clinic",
+          clinicName: "Dermatolog Pro Demo Clinic",
+          createdAt: "2026-05-13T00:00:00.000Z",
+          updatedAt: "2026-05-13T00:00:00.000Z",
+          deletedAt: null,
+        },
+      ];
+    },
+  });
+
+  const detail = await repository.getPatient({
+    patientId: "10000000-0000-4000-8000-000000000201",
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+  });
+  const created = await repository.createPatient({
+    clinicId: "10000000-0000-4000-8000-000000000001",
+    fullName: "Demo Patient One",
+    actorUserId: "10000000-0000-4000-8000-000000000101",
+  });
+  const updated = await repository.updatePatient({
+    patientId: "10000000-0000-4000-8000-000000000201",
+    changes: { fullName: "Updated Patient" },
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+  });
+  const archived = await repository.archivePatient({
+    patientId: "10000000-0000-4000-8000-000000000201",
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+  });
+
+  assert.equal(detail.notes, "visible only on detail/write responses");
+  assert.equal(created.clinic.id, "10000000-0000-4000-8000-000000000001");
+  assert.equal(updated.fullName, "Demo Patient One");
+  assert.equal(archived.deletedAt, null);
+  assert.equal(calls.length, 4);
+  assert.match(calls[1], /insert into patients/);
+  assert.match(calls[2], /update patients p/);
+  assert.match(calls[3], /deleted_at = now/);
 });

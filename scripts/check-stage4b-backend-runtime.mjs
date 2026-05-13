@@ -41,7 +41,6 @@ const REQUIRED_TEXT = {
   ],
   "backend/self-hosted/routes.mjs": [
     "openapi.stage4b.json",
-    "read-only-postgres",
     "/api/v1/patients",
     "runtimeReadiness",
     "database_unavailable",

@@ -53,7 +53,7 @@ const REQUIRED_TEXT = {
   "backend/self-hosted/routes.mjs": [
     "/api/v1/auth/login",
     "/api/v1/auth/me",
-    "rbac-read-only-postgres",
+    "rbac-read-write-postgres",
     "patientReadScope",
     "patient.list",
     "openapi.stage4c.json",

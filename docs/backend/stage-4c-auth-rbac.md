@@ -117,3 +117,15 @@ Expected:
 - No refresh tokens yet.
 - No browser integration with the real backend auth flow yet.
 - No final production password reset or MFA flow yet.
+
+## 10. Next slice
+
+Stage 4D implements the first RBAC-protected patient write routes in the same
+self-hosted backend:
+
+- `POST /api/v1/patients`;
+- `GET /api/v1/patients/:patientId`;
+- `PATCH /api/v1/patients/:patientId`;
+- `DELETE /api/v1/patients/:patientId` as soft archive.
+
+See [Stage 4D — Self-hosted patient write API](./stage-4d-patient-writes.md).

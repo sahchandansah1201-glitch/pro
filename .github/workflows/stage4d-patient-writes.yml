@@ -1,0 +1,53 @@
+name: stage4d-patient-writes
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4d-patient-writes.md"
+      - "scripts/check-stage4d-patient-writes.mjs"
+      - "scripts/check-stage4d-patient-writes.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4d-patient-writes.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4d-patient-writes.md"
+      - "scripts/check-stage4d-patient-writes.mjs"
+      - "scripts/check-stage4d-patient-writes.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4d-patient-writes.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4d-patient-writes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 4D preflight
+        run: npm run preflight:stage4d
+      - name: Compose config
+        run: docker compose --env-file deploy/self-hosted/.env.example -f deploy/self-hosted/docker-compose.stage4a.yml config
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4D patient writes"
+            echo ""
+            echo "- preflight: \`npm run preflight:stage4d\`"
+            echo "- compose: \`docker compose --env-file deploy/self-hosted/.env.example -f deploy/self-hosted/docker-compose.stage4a.yml config\`"
+            echo "- scope: self-hosted backend patient create/update/soft-archive"
+            echo "- managed backend runtime: not used"
+          } >> "$GITHUB_STEP_SUMMARY"

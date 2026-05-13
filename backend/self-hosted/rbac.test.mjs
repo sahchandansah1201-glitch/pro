@@ -5,6 +5,7 @@ import {
   AuthRequiredError,
   ForbiddenError,
   patientReadScope,
+  patientWriteScope,
   requireAnyRole,
 } from "./rbac.mjs";
 
@@ -12,6 +13,39 @@ test("requireAnyRole rejects anonymous and disallowed roles", () => {
   assert.throws(() => requireAnyRole(null, ["doctor"]), AuthRequiredError);
   assert.throws(
     () => requireAnyRole({ userId: "u", roles: ["operator"] }, ["doctor"]),
+    ForbiddenError,
+  );
+});
+
+test("patientWriteScope mirrors patient read clinic scoping for mutating routes", () => {
+  assert.deepEqual(
+    patientWriteScope({
+      userId: "u",
+      roles: ["clinic_admin"],
+      clinicIds: ["clinic-1", "clinic-2"],
+    }),
+    {
+      allClinics: false,
+      clinicIds: ["clinic-1", "clinic-2"],
+      roles: ["clinic_admin"],
+    },
+  );
+
+  assert.deepEqual(
+    patientWriteScope({
+      userId: "admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+    }),
+    {
+      allClinics: true,
+      clinicIds: [],
+      roles: ["system_admin"],
+    },
+  );
+
+  assert.throws(
+    () => patientWriteScope({ userId: "u", roles: ["assistant"], clinicIds: ["clinic-1"] }),
     ForbiddenError,
   );
 });
