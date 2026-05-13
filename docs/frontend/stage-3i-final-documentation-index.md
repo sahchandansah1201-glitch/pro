@@ -34,11 +34,14 @@ npm run preflight:e2e-artifacts
 npm run view:e2e-artifacts -- test-results/e2e-nightly-full-artifact-summary.md
 npm run test:release-status
 npm run test:release-status-privacy
+npm run test:release-status-smoke
+npm run test:release-status-ci
 npm run check:release-status-workflow-gate
 npm run check:release-status-sync
 npm run ci:release-status-sync
 npm run preflight:release-status
 npm test -- --run src/lib/release-status-ui.test.ts src/pages/sys/SysReleaseStatusPage.test.tsx
+npm run e2e:release-status
 npx playwright test e2e/sys-release-status.pw.ts
 node scripts/release-status.mjs --offline
 node scripts/release-status.mjs --offline --output test-results/release-status.md
@@ -119,6 +122,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - [x] Release history preset management, preset JSON/XLSX export/import,
       JSONL first-error line selection, and sync-checker UI coverage are
       documented.
+- [x] Release-status write-gate drill, CI check annotations,
+      targeted E2E entrypoint, and status report smoke test are documented.
 
 ## 9. Sync changelog
 
@@ -213,5 +218,8 @@ The focused Stage 3 docs guard is standalone and does not require
 - PR #71: added a workflow-gate checker, browser write-gate drill with
   pass/fail states, and expanded unit/e2e/docs coverage for report-write
   blocking behavior.
+- PR #72: added a targeted release-status E2E entrypoint, CI gate annotations,
+  workflow success-condition tests, and a status report smoke test that writes
+  markdown/JSON/HTML/history files and privacy-scans them.
 - Future Codex-authored changes should use the same GitHub-first
   handoff and a short Lovable confirmation prompt.

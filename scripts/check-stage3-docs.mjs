@@ -185,7 +185,8 @@ const EXPECTED = [
       "## 10. Test coverage",
       "## 11. Local preflight",
       "## 12. System admin UI viewer",
-      "## 13. Maintenance rule",
+      "## 13. Write-gate drill and CI annotations",
+      "## 14. Maintenance rule",
     ],
   },
 ];
@@ -217,11 +218,14 @@ const ARTIFACT_VIEWER_SCRIPT = "scripts/view-e2e-artifact-summary.mjs";
 const ARTIFACT_VIEWER_TEST = "scripts/view-e2e-artifact-summary.test.mjs";
 const RELEASE_STATUS_SCRIPT = "scripts/release-status.mjs";
 const RELEASE_STATUS_TEST = "scripts/release-status.test.mjs";
+const RELEASE_STATUS_SMOKE_TEST = "scripts/release-status-smoke.test.mjs";
 const RELEASE_STATUS_PRIVACY_SCRIPT = "scripts/check-release-status-privacy.mjs";
 const RELEASE_STATUS_PRIVACY_TEST = "scripts/check-release-status-privacy.test.mjs";
 const RELEASE_STATUS_SYNC_SCRIPT = "scripts/check-release-status-sync.mjs";
 const RELEASE_STATUS_WORKFLOW_GATE_SCRIPT = "scripts/check-release-status-workflow-gate.mjs";
+const RELEASE_STATUS_WORKFLOW_GATE_TEST = "scripts/check-release-status-workflow-gate.test.mjs";
 const RELEASE_STATUS_CI_SYNC_SCRIPT = "scripts/ci-release-status-sync-gate.mjs";
+const RELEASE_STATUS_CI_SYNC_TEST = "scripts/ci-release-status-sync-gate.test.mjs";
 const RELEASE_STATUS_PREFLIGHT_SCRIPT = "scripts/preflight-release-status.mjs";
 const RELEASE_STATUS_UI_LIB = "src/lib/release-status-ui.ts";
 const RELEASE_STATUS_UI_LIB_TEST = "src/lib/release-status-ui.test.ts";
@@ -312,6 +316,7 @@ requireText(relPath("stage-3c-production-smoke.md"), stage3c, "`test-results/e2e
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "npm run view:e2e-artifacts");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "./stage-3l-nightly-artifacts-report.md");
 requireText(relPath("stage-3c-production-smoke.md"), stage3c, "sys-release-status");
+requireText(relPath("stage-3c-production-smoke.md"), stage3c, "npm run e2e:release-status");
 
 const nightlyWorkflowPath = join(ROOT, NIGHTLY_FULL_WORKFLOW);
 const nightlyWorkflow = existsSync(nightlyWorkflowPath)
@@ -381,10 +386,13 @@ requireText(PACKAGE_JSON, packageJson, "\"release:status:html\": \"node scripts/
 requireText(PACKAGE_JSON, packageJson, "\"release:status:offline\": \"node scripts/release-status.mjs --offline\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status\": \"node --test scripts/release-status.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"test:release-status-privacy\": \"node --test scripts/check-release-status-privacy.test.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"test:release-status-smoke\": \"node --test scripts/release-status-smoke.test.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"test:release-status-ci\": \"node --test scripts/ci-release-status-sync-gate.test.mjs scripts/check-release-status-workflow-gate.test.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-privacy\": \"node scripts/check-release-status-privacy.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-sync\": \"node scripts/check-release-status-sync.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"check:release-status-workflow-gate\": \"node scripts/check-release-status-workflow-gate.mjs\"");
 requireText(PACKAGE_JSON, packageJson, "\"ci:release-status-sync\": \"node scripts/ci-release-status-sync-gate.mjs\"");
+requireText(PACKAGE_JSON, packageJson, "\"e2e:release-status\": \"playwright test e2e/sys-release-status.pw.ts\"");
 requireText(PACKAGE_JSON, packageJson, "e2e/sys-release-status.pw.ts");
 
 const releaseStatusScript = existsSync(join(ROOT, RELEASE_STATUS_SCRIPT))
@@ -408,6 +416,15 @@ requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "e2e-smoke");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "backend-guardrails");
 requireText(RELEASE_STATUS_SCRIPT, releaseStatusScript, "e2e-nightly-full-artifact-summary.md");
 
+const releaseStatusSmokeTest = existsSync(join(ROOT, RELEASE_STATUS_SMOKE_TEST))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_SMOKE_TEST), "utf8")
+  : "";
+requireText(RELEASE_STATUS_SMOKE_TEST, releaseStatusSmokeTest, "release-status smoke writes markdown/json/html/history");
+requireText(RELEASE_STATUS_SMOKE_TEST, releaseStatusSmokeTest, "check-release-status-privacy.mjs");
+requireText(RELEASE_STATUS_SMOKE_TEST, releaseStatusSmokeTest, "Release operations dashboard");
+requireText(RELEASE_STATUS_SMOKE_TEST, releaseStatusSmokeTest, "access_token=secret");
+requireText(RELEASE_STATUS_SMOKE_TEST, releaseStatusSmokeTest, "SUPABASE_SERVICE_ROLE_KEY");
+
 const releaseStatusPrivacyScript = existsSync(join(ROOT, RELEASE_STATUS_PRIVACY_SCRIPT))
   ? readFileSync(join(ROOT, RELEASE_STATUS_PRIVACY_SCRIPT), "utf8")
   : "";
@@ -426,6 +443,8 @@ const releaseStatusPreflightScript = existsSync(join(ROOT, RELEASE_STATUS_PREFLI
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "preflight-release-status");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-privacy");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-smoke");
+requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "test:release-status-ci");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/lib/release-status-ui.test.ts");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "src/pages/sys/SysReleaseStatusPage.test.tsx");
 requireText(RELEASE_STATUS_PREFLIGHT_SCRIPT, releaseStatusPreflightScript, "release status sync checker");
@@ -445,6 +464,17 @@ requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "check:rel
 requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "scripts/check-stage3-docs.mjs");
 requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "scripts/check-no-deno-locks.mjs");
 requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "git diff");
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "GITHUB_ACTIONS");
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "Release status gate passed");
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "Release status gate failed");
+requireText(RELEASE_STATUS_CI_SYNC_SCRIPT, releaseStatusCiSyncScript, "Release status reports may be written");
+
+const releaseStatusCiSyncTest = existsSync(join(ROOT, RELEASE_STATUS_CI_SYNC_TEST))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_CI_SYNC_TEST), "utf8")
+  : "";
+requireText(RELEASE_STATUS_CI_SYNC_TEST, releaseStatusCiSyncTest, "CI sync gate emits GitHub annotations");
+requireText(RELEASE_STATUS_CI_SYNC_TEST, releaseStatusCiSyncTest, "Release status gate passed");
+requireText(RELEASE_STATUS_CI_SYNC_TEST, releaseStatusCiSyncTest, "generated release-status reports must stay unwritten");
 
 const releaseStatusWorkflowGateScript = existsSync(join(ROOT, RELEASE_STATUS_WORKFLOW_GATE_SCRIPT))
   ? readFileSync(join(ROOT, RELEASE_STATUS_WORKFLOW_GATE_SCRIPT), "utf8")
@@ -454,6 +484,13 @@ requireText(RELEASE_STATUS_WORKFLOW_GATE_SCRIPT, releaseStatusWorkflowGateScript
 requireText(RELEASE_STATUS_WORKFLOW_GATE_SCRIPT, releaseStatusWorkflowGateScript, "Write release status reports");
 requireText(RELEASE_STATUS_WORKFLOW_GATE_SCRIPT, releaseStatusWorkflowGateScript, "success()");
 requireText(RELEASE_STATUS_WORKFLOW_GATE_SCRIPT, releaseStatusWorkflowGateScript, "CI sync gate runs before report writes");
+
+const releaseStatusWorkflowGateTest = existsSync(join(ROOT, RELEASE_STATUS_WORKFLOW_GATE_TEST))
+  ? readFileSync(join(ROOT, RELEASE_STATUS_WORKFLOW_GATE_TEST), "utf8")
+  : "";
+requireText(RELEASE_STATUS_WORKFLOW_GATE_TEST, releaseStatusWorkflowGateTest, "workflow gate checker passes and reports all gate checks");
+requireText(RELEASE_STATUS_WORKFLOW_GATE_TEST, releaseStatusWorkflowGateTest, "workflow success condition");
+requireText(RELEASE_STATUS_WORKFLOW_GATE_TEST, releaseStatusWorkflowGateTest, "CI gate must run before report writes");
 
 const releaseStatusWorkflow = existsSync(join(ROOT, RELEASE_STATUS_WORKFLOW))
   ? readFileSync(join(ROOT, RELEASE_STATUS_WORKFLOW), "utf8")
@@ -477,9 +514,13 @@ requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "test-results/releas
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "test-results/release-history.jsonl");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/check-release-status-sync.mjs");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/ci-release-status-sync-gate.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/release-status-smoke.test.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/ci-release-status-sync-gate.test.mjs");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "scripts/check-release-status-workflow-gate.test.mjs");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/lib/release-status-ui.ts");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "src/pages/sys/SysReleaseStatusPage.tsx");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "e2e/sys-release-status.pw.ts");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "docs/frontend/stage-3c-production-smoke.md");
 
 const stage3m = readDoc("stage-3m-release-operations-dashboard.md");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/release-status.mjs");
@@ -540,10 +581,18 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "relea
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run check:release-status-sync");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run ci:release-status-sync");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run check:release-status-workflow-gate");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run test:release-status-smoke");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run test:release-status-ci");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run e2e:release-status");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "ci-sync-gate");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "report-write-block");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "write-gate-drill");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "workflow-gate-checker");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "ci-check-annotations");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "release-status-e2e-entrypoint");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "status-report-smoke-test");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "Release status gate passed");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "Release status gate failed");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "CI gate status release status");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/ci-release-status-sync-gate.mjs");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseImportAuditReport");
@@ -564,6 +613,12 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "summa
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "filterReleaseHistoryRecords");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "paginateReleaseHistoryRecords");
 checkMarkdownLinks("stage-3m-release-operations-dashboard.md", stage3m);
+
+const stage3i = readDoc("stage-3i-final-documentation-index.md");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:release-status-smoke");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run test:release-status-ci");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "npm run e2e:release-status");
+requireText(relPath("stage-3i-final-documentation-index.md"), stage3i, "PR #72");
 
 const stage3l = readDoc("stage-3l-nightly-artifacts-report.md");
 requireText(relPath("stage-3l-nightly-artifacts-report.md"), stage3l, "## 8. Related dashboards");

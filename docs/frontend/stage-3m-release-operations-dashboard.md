@@ -12,12 +12,17 @@ backend configuration, or workflow scheduling.
 
 - Dashboard script: `scripts/release-status.mjs`.
 - Dashboard tests: `scripts/release-status.test.mjs`.
+- Dashboard smoke test: `scripts/release-status-smoke.test.mjs`.
 - Privacy detector: `scripts/check-release-status-privacy.mjs`.
 - Privacy detector tests: `scripts/check-release-status-privacy.test.mjs`.
 - Release-status sync checker: `scripts/check-release-status-sync.mjs`.
 - Release-status workflow gate checker:
   `scripts/check-release-status-workflow-gate.mjs`.
+- Release-status workflow gate tests:
+  `scripts/check-release-status-workflow-gate.test.mjs`.
 - Release-status CI sync gate: `scripts/ci-release-status-sync-gate.mjs`.
+- Release-status CI sync gate annotation tests:
+  `scripts/ci-release-status-sync-gate.test.mjs`.
 - Focused preflight: `scripts/preflight-release-status.mjs`.
 - npm scripts:
   - `npm run release:status`
@@ -26,11 +31,14 @@ backend configuration, or workflow scheduling.
   - `npm run release:status:offline`
   - `npm run test:release-status`
   - `npm run test:release-status-privacy`
+  - `npm run test:release-status-smoke`
+  - `npm run test:release-status-ci`
   - `npm run check:release-status-privacy`
   - `npm run check:release-status-sync`
   - `npm run check:release-status-workflow-gate`
   - `npm run ci:release-status-sync`
   - `npm run preflight:release-status`
+  - `npm run e2e:release-status`
 
 The CLI does not mutate git state or source files. It writes only the explicit
 output/history artifacts requested by `--output` and `--history`.
@@ -187,6 +195,18 @@ The token is never printed in markdown, JSON, HTML, history, or logs by
 placeholders, generated markdown/JSON/HTML/history outputs, and CLI exit
 codes.
 
+`npm run test:release-status-smoke` writes markdown, JSON, HTML, and history
+JSONL files into a temp directory, verifies their basic shape, and runs
+`npm run check:release-status-privacy` against those generated files.
+
+`npm run test:release-status-ci` verifies the workflow success condition,
+CI-gate-before-report-write ordering, and the GitHub annotation strings used by
+`scripts/ci-release-status-sync-gate.mjs`.
+
+`npm run e2e:release-status` runs only `e2e/sys-release-status.pw.ts`. It is
+the targeted browser verification for the system-admin release-status page and
+is also part of the fast e2e smoke set.
+
 ## 11. Local preflight
 
 Use this local preflight before merging changes to the release dashboard:
@@ -196,6 +216,7 @@ npm run preflight:release-status
 ```
 
 It sequentially runs the release-status tests, privacy detector tests,
+the status report smoke test, CI annotation/workflow-gate tests,
 markdown/json/html/history generation, privacy scan, Stage 3 docs guard, and
 the deno-lock guard. The success sentinel is:
 
@@ -360,7 +381,37 @@ The viewer also exposes the UI-side release operator guardrails:
   command block with sync checker, Stage 3 docs guard, deno-lock guard, and
   `git status --short` for before-PR and post-Lovable-sync verification.
 
-## 13. Maintenance rule
+## 13. Write-gate drill and CI annotations
+
+The write-gate drill is the browser-side rehearsal of the CI report-write
+block. It is not a shell runner and does not write files; it models the same
+release-status conditions that the workflow uses before report generation:
+
+- workflow success condition is present;
+- release-status workflow result is successful;
+- `npm run ci:release-status-sync` is green;
+- deno-lock guard is green.
+
+The drill exposes two operator scenarios:
+
+- `Gate passed` shows `may write release-status reports`.
+- `Gate failed` shows `reports stay unwritten` and lists the blocked checks.
+
+CI uses the same policy at workflow level:
+
+- `scripts/check-release-status-workflow-gate.mjs` verifies the YAML contains
+  `if: ${{ success() }}` and that `Release-status CI sync gate` runs before
+  `Write release status reports`.
+- `scripts/ci-release-status-sync-gate.mjs` emits GitHub Actions annotations
+  only when `GITHUB_ACTIONS=true`. Passing steps produce
+  `Release status gate passed` notices; failures produce
+  `Release status gate failed` errors and explicitly state that generated
+  release-status reports must stay unwritten.
+- `scripts/check-release-status-workflow-gate.test.mjs` and
+  `scripts/ci-release-status-sync-gate.test.mjs` keep the success condition,
+  gate ordering, and annotation text covered by local tests.
+
+## 14. Maintenance rule
 
 - Future workflows added to the tracked list must use safe names matching
   `[A-Za-z0-9._-]+`.
@@ -385,7 +436,8 @@ The viewer also exposes the UI-side release operator guardrails:
   preset-clear-undo, preset-audit-export, sync-checker-full-block,
   ci-sync-gate, report-write-block, filtered-history-xlsx, import-error-actions, jsonl-error-line-selection,
   write-gate-drill, workflow-gate-checker, release-status-sync-checker-ui,
-  and release-status-sync-checker changes must also keep
+  release-status-e2e-entrypoint, ci-check-annotations,
+  status-report-smoke-test, and release-status-sync-checker changes must also keep
   `scripts/check-stage3-docs.mjs` and `scripts/check-release-status-sync.mjs`
   aligned with the UI helper names and e2e assertions.
 - Cross-link this stage from Stage 3I and Stage 3L when adding new release
