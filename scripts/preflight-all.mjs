@@ -21,6 +21,7 @@ const DEFAULT_STEPS = [
   ["Stage 4B backend runtime preflight", npmCmd, ["run", "preflight:stage4b"]],
   ["Stage 4C auth/RBAC preflight", npmCmd, ["run", "preflight:stage4c"]],
   ["Stage 4D patient writes preflight", npmCmd, ["run", "preflight:stage4d"]],
+  ["Stage 4E frontend patient API preflight", npmCmd, ["run", "preflight:stage4e"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],
