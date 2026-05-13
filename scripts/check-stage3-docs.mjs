@@ -452,6 +452,7 @@ if (!releaseStatusWorkflow) {
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run preflight:release-status");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run check:release-status-sync");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run ci:release-status-sync");
+requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "if: ${{ success() }}");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status -- --output test-results/release-status.md --history test-results/release-history.jsonl");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:json -- --output test-results/release-status.json");
 requireText(RELEASE_STATUS_WORKFLOW, releaseStatusWorkflow, "npm run release:status:html -- --output test-results/release-status.html");
@@ -526,6 +527,8 @@ requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "relea
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run check:release-status-sync");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "npm run ci:release-status-sync");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "ci-sync-gate");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "report-write-block");
+requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "CI gate status release status");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "scripts/ci-release-status-sync-gate.mjs");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildReleaseImportAuditReport");
 requireText(relPath("stage-3m-release-operations-dashboard.md"), stage3m, "buildFilteredReleaseHistoryJsonl");

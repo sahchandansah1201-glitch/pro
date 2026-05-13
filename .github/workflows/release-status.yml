@@ -77,6 +77,7 @@ jobs:
         run: npm run ci:release-status-sync
 
       - name: Write release status reports
+        if: ${{ success() }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           RELEASE_STATUS_REPO: ${{ github.repository }}

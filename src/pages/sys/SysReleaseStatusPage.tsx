@@ -91,6 +91,8 @@ const RELEASE_STATUS_SYNC_BLOCK = [
   "node scripts/check-no-deno-locks.mjs",
   "git status --short",
 ].join("\n");
+const RELEASE_STATUS_CI_GATE_STATUS =
+  "CI gate status: включён. Запись release-status отчётов в CI заблокирована, пока preflight и ci:release-status-sync не пройдут.";
 const HISTORY_FILTER_PRESETS_STORAGE_KEY =
   "derma-pro:sys-release-status:history-filter-presets";
 const AUDIT_STATUS_OPTIONS = [
@@ -1402,6 +1404,13 @@ export default function SysReleaseStatusPage() {
                   <div className="text-[11px] font-medium">
                     Sync checker gate
                   </div>
+                  <div
+                    className="mt-2 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700"
+                    role="status"
+                    aria-label="CI gate status release status"
+                  >
+                    {RELEASE_STATUS_CI_GATE_STATUS}
+                  </div>
                   <pre
                     className="mt-2 whitespace-pre-wrap rounded bg-muted/50 px-2 py-1 font-mono text-[10px] leading-relaxed"
                     aria-label="Полный sync checker блок"
@@ -1414,6 +1423,7 @@ export default function SysReleaseStatusPage() {
                       aria-label="Sync checker критерии release status"
                     >
                       <li>CI gate: `ci:release-status-sync` запускает sync/docs/deno/diff checks.</li>
+                      <li>Report write block: workflow пишет артефакты только после успешных gates.</li>
                       <li>До PR review: sync checker и Stage 3 docs должны пройти.</li>
                       <li>После Lovable sync: HEAD должен быть main SHA или новее.</li>
                       <li>Если sync stale, не переимплементировать отсутствующий код.</li>
