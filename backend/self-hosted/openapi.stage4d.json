@@ -1,0 +1,272 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4D-patient-writes",
+    "summary": "Self-hosted backend patient write API for Dermatolog Pro",
+    "description": "Stage 4D adds RBAC-protected patient create, update, detail read, and soft archive endpoints while keeping the deployment self-hosted."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Self-hosted reverse proxy"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthz",
+        "summary": "Backend process health",
+        "security": [],
+        "responses": {
+          "200": { "description": "The backend process is running" }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz",
+        "summary": "Backend dependency readiness",
+        "security": [],
+        "responses": {
+          "200": { "description": "PostgreSQL is reachable and auth/object-storage config is present" },
+          "503": { "description": "One or more dependencies are missing or unavailable" }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "operationId": "getMeta",
+        "summary": "Read backend capabilities",
+        "security": [],
+        "responses": {
+          "200": { "description": "Stage 4D capability manifest" }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Authenticate a local self-hosted user",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Bearer access token issued by the backend" },
+          "400": { "description": "Malformed JSON body" },
+          "401": { "description": "Invalid credentials" },
+          "503": { "description": "Auth signing secret or database unavailable" }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "getCurrentUser",
+        "summary": "Read the authenticated user and role bindings",
+        "responses": {
+          "200": { "description": "Authenticated user context" },
+          "401": { "description": "Missing, invalid, or expired bearer token" }
+        }
+      }
+    },
+    "/api/v1/patients": {
+      "get": {
+        "operationId": "listPatients",
+        "summary": "List non-deleted patients visible to the authenticated role",
+        "description": "Requires system_admin, clinic_admin, or doctor. Non-system roles are scoped to assigned clinic IDs.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": { "type": "string", "maxLength": 120 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Role-scoped patient list from PostgreSQL" },
+          "401": { "description": "Missing, invalid, or expired bearer token" },
+          "403": { "description": "Authenticated user does not have a patient-read role" },
+          "503": { "description": "Database is not configured or unavailable" }
+        }
+      },
+      "post": {
+        "operationId": "createPatient",
+        "summary": "Create a patient through the self-hosted backend",
+        "description": "Creates a patient row in PostgreSQL, scoped by RBAC. Non-system users may only write to assigned clinics.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PatientWriteRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Patient created" },
+          "400": { "description": "Malformed JSON body" },
+          "401": { "description": "Missing, invalid, or expired bearer token" },
+          "403": { "description": "Authenticated user does not have patient-write access" },
+          "422": { "description": "Patient payload validation failed" },
+          "503": { "description": "Database is not configured or unavailable" }
+        }
+      }
+    },
+    "/api/v1/patients/{patientId}": {
+      "parameters": [
+        {
+          "name": "patientId",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }
+      ],
+      "get": {
+        "operationId": "getPatient",
+        "summary": "Read one patient card",
+        "responses": {
+          "200": { "description": "Role-scoped patient detail" },
+          "401": { "description": "Missing, invalid, or expired bearer token" },
+          "403": { "description": "Authenticated user does not have patient-read access" },
+          "404": { "description": "Patient was not found in the allowed clinic scope" }
+        }
+      },
+      "patch": {
+        "operationId": "updatePatient",
+        "summary": "Update patient demographics and consent fields",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PatientPatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Patient updated" },
+          "400": { "description": "Malformed JSON body" },
+          "401": { "description": "Missing, invalid, or expired bearer token" },
+          "403": { "description": "Authenticated user does not have patient-write access" },
+          "404": { "description": "Patient was not found in the allowed clinic scope" },
+          "422": { "description": "Patient payload validation failed" }
+        }
+      },
+      "delete": {
+        "operationId": "archivePatient",
+        "summary": "Soft-archive a patient",
+        "description": "Sets deleted_at instead of physically deleting the patient row.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PatientArchiveRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Patient archived" },
+          "400": { "description": "Malformed JSON body" },
+          "401": { "description": "Missing, invalid, or expired bearer token" },
+          "403": { "description": "Authenticated user does not have patient-write access" },
+          "404": { "description": "Patient was not found in the allowed clinic scope" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 1 }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["error", "correlationId"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "PatientWriteRequest": {
+        "type": "object",
+        "required": ["fullName"],
+        "properties": {
+          "clinicId": { "type": "string", "format": "uuid" },
+          "code": { "type": "string", "maxLength": 48 },
+          "fullName": { "type": "string", "maxLength": 180 },
+          "birthDate": { "type": ["string", "null"], "format": "date" },
+          "sex": { "type": "string", "enum": ["female", "male", "other", "unknown"] },
+          "phototype": { "type": ["string", "null"], "enum": ["I", "II", "III", "IV", "V", "VI", null] },
+          "imagingConsent": { "type": "boolean" },
+          "notes": { "type": ["string", "null"], "maxLength": 2000 }
+        }
+      },
+      "PatientPatchRequest": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string", "maxLength": 48 },
+          "fullName": { "type": "string", "maxLength": 180 },
+          "birthDate": { "type": ["string", "null"], "format": "date" },
+          "sex": { "type": "string", "enum": ["female", "male", "other", "unknown"] },
+          "phototype": { "type": ["string", "null"], "enum": ["I", "II", "III", "IV", "V", "VI", null] },
+          "imagingConsent": { "type": "boolean" },
+          "notes": { "type": ["string", "null"], "maxLength": 2000 }
+        },
+        "minProperties": 1
+      },
+      "PatientArchiveRequest": {
+        "type": "object",
+        "properties": {
+          "reason": { "type": "string", "maxLength": 240 }
+        }
+      }
+    }
+  }
+}

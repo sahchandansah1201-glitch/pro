@@ -6,7 +6,6 @@ import {
   corsHeaders,
   errorResponse,
   jsonResponse,
-  notImplementedResponse,
 } from "./api-response.mjs";
 import { createAuthRepository } from "./auth-repository.mjs";
 import { createAuthService } from "./auth-service.mjs";
@@ -23,6 +22,10 @@ import {
   createPatientRepository,
   parsePatientListParams,
 } from "./patients-repository.mjs";
+import {
+  assertUuid,
+  createPatientWriteService,
+} from "./patient-write-service.mjs";
 import { patientReadScope } from "./rbac.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +37,9 @@ const OPENAPI_4B = JSON.parse(
 );
 const OPENAPI_4C = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4c.json"), "utf8"),
+);
+const OPENAPI_4D = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4d.json"), "utf8"),
 );
 
 function getRuntime(config, runtime = {}) {
@@ -49,12 +55,19 @@ function getRuntime(config, runtime = {}) {
     });
   const patientRepository =
     runtime.patientRepository || createPatientRepository(dbClient);
+  const patientWriteService =
+    runtime.patientWriteService ||
+    createPatientWriteService({
+      patientRepository,
+      auditRepository,
+    });
   return {
     auditRepository,
     authRepository,
     authService,
     dbClient,
     patientRepository,
+    patientWriteService,
   };
 }
 
@@ -95,11 +108,14 @@ function publicErrorFor(error) {
   const messages = {
     auth_not_configured: "Authentication is not configured for the self-hosted backend.",
     auth_required: "Authentication is required for this endpoint.",
+    invalid_json: "Request body must be valid JSON.",
     database_not_configured: "Database is not configured for the self-hosted backend.",
     database_unavailable: "Database is unavailable for the self-hosted backend.",
     forbidden: "The authenticated user does not have access to this resource.",
     invalid_credentials: "Invalid credentials.",
     invalid_token: "Invalid or expired authorization token.",
+    patient_not_found: "Patient was not found in the allowed clinic scope.",
+    validation_error: "Patient payload failed validation.",
   };
   if (error instanceof DatabaseConfigError || error?.publicCode) {
     const code = error.publicCode || "database_unavailable";
@@ -107,6 +123,7 @@ function publicErrorFor(error) {
       status: error.publicStatus || 503,
       code,
       message: messages[code] || "The self-hosted backend could not complete the request.",
+      details: error.publicDetails,
     };
   }
 
@@ -120,7 +137,19 @@ function publicErrorFor(error) {
 function parseJsonBody(body) {
   if (body == null || body === "") return {};
   if (typeof body === "object") return body;
-  return JSON.parse(String(body));
+  try {
+    return JSON.parse(String(body));
+  } catch {
+    const error = new Error("Request body must be valid JSON.");
+    error.publicCode = "invalid_json";
+    error.publicStatus = 400;
+    throw error;
+  }
+}
+
+function patientIdFromPath(pathname) {
+  const match = pathname.match(/^\/api\/v1\/patients\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : "";
 }
 
 export async function handleSelfHostedRequest(
@@ -136,7 +165,7 @@ export async function handleSelfHostedRequest(
   const correlationId =
     request.headers?.["x-correlation-id"] ||
     request.headers?.["X-Correlation-Id"] ||
-    "stage4c-local";
+    "stage4d-local";
 
   if (method === "OPTIONS") {
     return {
@@ -154,7 +183,7 @@ export async function handleSelfHostedRequest(
       return jsonResponse(
         200,
         {
-          stage: "4C",
+          stage: "4D",
           ...login,
           correlationId,
         },
@@ -173,28 +202,186 @@ export async function handleSelfHostedRequest(
   }
 
   if (url.pathname === "/api/v1/patients" && method === "POST") {
-    return notImplementedResponse({
-      capability: "Patient creation",
-      correlationId,
-      config,
-      requestOrigin,
-    });
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientWriteService.createPatient(
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        201,
+        {
+          stage: "4D",
+          source: "postgres",
+          item: result.patient,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({
+        ...publicError,
+        correlationId,
+        config,
+        requestOrigin,
+      });
+    }
   }
 
-  if (url.pathname.startsWith("/api/v1/patients/")) {
-    return notImplementedResponse({
-      capability: "Patient detail mutations",
-      correlationId,
-      config,
-      requestOrigin,
-    });
+  const patientId = patientIdFromPath(url.pathname);
+  if (patientId) {
+    if (method === "GET") {
+      try {
+        const safePatientId = assertUuid(patientId);
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const scope = patientReadScope(authContext);
+        const patient = await runtimeServices.patientRepository.getPatient({
+          patientId: safePatientId,
+          clinicIds: scope.clinicIds,
+          allClinics: scope.allClinics,
+        });
+        if (!patient) {
+          return errorResponse({
+            status: 404,
+            code: "patient_not_found",
+            message: "Patient was not found in the allowed clinic scope.",
+            correlationId,
+            config,
+            requestOrigin,
+          });
+        }
+        await recordAuditBestEffort(
+          runtimeServices.auditRepository,
+          {
+            clinicId: patient.clinic.id || null,
+            actorUserId: authContext.userId,
+            action: "patient.read",
+            entityType: "patient",
+            entityId: patient.id,
+            correlationId,
+            metadata: {
+              allClinics: scope.allClinics,
+            },
+          },
+        );
+        return jsonResponse(
+          200,
+          {
+            stage: "4D",
+            source: "postgres",
+            item: patient,
+            auth: {
+              userId: authContext.userId,
+              roles: authContext.roles,
+              allClinics: scope.allClinics,
+            },
+            generatedAt: now(),
+            correlationId,
+          },
+          config,
+          requestOrigin,
+        );
+      } catch (error) {
+        const publicError = publicErrorFor(error);
+        return errorResponse({
+          ...publicError,
+          correlationId,
+          config,
+          requestOrigin,
+        });
+      }
+    }
+
+    if (method === "PATCH") {
+      try {
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const result = await runtimeServices.patientWriteService.updatePatient(
+          patientId,
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+        return jsonResponse(
+          200,
+          {
+            stage: "4D",
+            source: "postgres",
+            item: result.patient,
+            auth: {
+              userId: authContext.userId,
+              roles: authContext.roles,
+              allClinics: result.scope.allClinics,
+            },
+            generatedAt: now(),
+            correlationId,
+          },
+          config,
+          requestOrigin,
+        );
+      } catch (error) {
+        const publicError = publicErrorFor(error);
+        return errorResponse({
+          ...publicError,
+          correlationId,
+          config,
+          requestOrigin,
+        });
+      }
+    }
+
+    if (method === "DELETE") {
+      try {
+        const authContext = await runtimeServices.authService.authenticate(request.headers);
+        const result = await runtimeServices.patientWriteService.archivePatient(
+          patientId,
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+        return jsonResponse(
+          200,
+          {
+            stage: "4D",
+            source: "postgres",
+            archived: true,
+            item: result.patient,
+            auth: {
+              userId: authContext.userId,
+              roles: authContext.roles,
+              allClinics: result.scope.allClinics,
+            },
+            generatedAt: now(),
+            correlationId,
+          },
+          config,
+          requestOrigin,
+        );
+      } catch (error) {
+        const publicError = publicErrorFor(error);
+        return errorResponse({
+          ...publicError,
+          correlationId,
+          config,
+          requestOrigin,
+        });
+      }
+    }
   }
 
   if (method !== "GET") {
     return errorResponse({
       status: 405,
       code: "method_not_allowed",
-      message: "This self-hosted backend route is read-only in Stage 4B.",
+      message: "This self-hosted backend route does not allow the requested method in Stage 4D.",
       correlationId,
       config,
       requestOrigin,
@@ -229,7 +416,7 @@ export async function handleSelfHostedRequest(
       return jsonResponse(
         200,
         {
-          stage: "4C",
+          stage: "4D",
           ...result,
           auth: {
             userId: authContext.userId,
@@ -269,7 +456,7 @@ export async function handleSelfHostedRequest(
       return jsonResponse(
         200,
         {
-          stage: "4C",
+          stage: "4D",
           user: {
             id: authContext.userId,
             displayName: authContext.displayName,
@@ -327,20 +514,21 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4C",
+        stage: "4D",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
           auth: "local-jwt",
-          patients: "rbac-read-only-postgres",
+          patients: "rbac-read-write-postgres",
           visits: "contract",
           assets: "contract",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4c.json",
+          openapi: "/openapi.stage4d.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
+          openapiStage4C: "/openapi.stage4c.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           patients: "/api/v1/patients",
@@ -367,10 +555,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4C, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4d.json") {
+    return jsonResponse(200, OPENAPI_4D, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4C self-hosted backend route matched the request.",
+    message: "No Stage 4D self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,
@@ -425,7 +617,7 @@ export function createNodeHandler(config) {
       response = internalErrorResponse(
         config,
         req.headers?.origin || "",
-        req.headers?.["x-correlation-id"] || "stage4c-local",
+        req.headers?.["x-correlation-id"] || "stage4d-local",
       );
     }
     res.writeHead(response.status, response.headers);

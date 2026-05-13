@@ -12,6 +12,10 @@ function createRuntime({
   connected = true,
   patients = [],
   patientError = null,
+  patientDetail = null,
+  createdPatient = null,
+  updatedPatient = null,
+  archivedPatient = null,
   authContext = {
     userId: "10000000-0000-4000-8000-000000000101",
     displayName: "Demo Doctor",
@@ -77,6 +81,22 @@ function createRuntime({
           allClinics: params.allClinics,
           source: "postgres",
         };
+      },
+      async getPatient() {
+        if (patientError) throw patientError;
+        return patientDetail;
+      },
+      async createPatient() {
+        if (patientError) throw patientError;
+        return createdPatient;
+      },
+      async updatePatient() {
+        if (patientError) throw patientError;
+        return updatedPatient;
+      },
+      async archivePatient() {
+        if (patientError) throw patientError;
+        return archivedPatient;
       },
     },
   };
@@ -160,12 +180,13 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4C");
+  assert.equal(meta.json.stage, "4D");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
-  assert.equal(meta.json.capabilities.patients, "rbac-read-only-postgres");
-  assert.equal(meta.json.links.openapi, "/openapi.stage4c.json");
+  assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
+  assert.equal(meta.json.links.openapi, "/openapi.stage4d.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
   assert.equal(meta.json.links.openapiStage4B, "/openapi.stage4b.json");
+  assert.equal(meta.json.links.openapiStage4C, "/openapi.stage4c.json");
   assert.equal(meta.json.service.objectStorageBucket, "medical-assets");
   assert.doesNotMatch(meta.body, /secret|postgres:\/\//);
 
@@ -185,6 +206,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi4c.status, 200);
   assert.equal(openapi4c.json.info.version, "4C-auth-rbac");
   assert.equal(openapi4c.json.components.securitySchemes.bearerAuth.scheme, "bearer");
+
+  const openapi4d = await request("/openapi.stage4d.json");
+  assert.equal(openapi4d.status, 200);
+  assert.equal(openapi4d.json.info.version, "4D-patient-writes");
+  assert.equal(openapi4d.json.paths["/api/v1/patients"].post.responses["201"].description, "Patient created");
 });
 
 test("auth login returns a bearer token without leaking password material", async () => {
@@ -197,7 +223,7 @@ test("auth login returns a bearer token without leaking password material", asyn
   );
 
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4C");
+  assert.equal(response.json.stage, "4D");
   assert.equal(response.json.tokenType, "Bearer");
   assert.equal(response.json.user.displayName, "Demo Doctor");
   assert.equal(response.json.user.roles[0].role, "doctor");
@@ -208,7 +234,7 @@ test("auth me returns role bindings for an authenticated bearer token", async ()
   const response = await request("/api/v1/auth/me", configuredEnv, createRuntime());
 
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4C");
+  assert.equal(response.json.stage, "4D");
   assert.equal(response.json.user.displayName, "Demo Doctor");
   assert.equal(response.json.user.roles[0].clinicSlug, "demo-clinic");
   assert.equal(response.json.token.expiresAt, 3601);
@@ -237,7 +263,7 @@ test("patients list returns role-scoped read-only PostgreSQL data and audit meta
   );
 
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4C");
+  assert.equal(response.json.stage, "4D");
   assert.equal(response.json.source, "postgres");
   assert.equal(response.json.limit, 1);
   assert.equal(response.json.offset, 2);
@@ -305,23 +331,152 @@ test("patients list requires auth and rejects roles without patient-read access"
   );
 });
 
+test("patient detail returns role-scoped data and audit event", async () => {
+  const auditEvents = [];
+  const response = await request(
+    "/api/v1/patients/10000000-0000-4000-8000-000000000201",
+    configuredEnv,
+    createRuntime({
+      auditEvents,
+      patientDetail: {
+        id: "10000000-0000-4000-8000-000000000201",
+        code: "DP-DEMO-0001",
+        fullName: "Demo Patient One",
+        birthDate: "1984-02-14",
+        sex: "female",
+        phototype: "II",
+        imagingConsent: true,
+        notes: "detail note",
+        clinic: {
+          id: "10000000-0000-4000-8000-000000000001",
+          slug: "demo-clinic",
+          name: "Dermatolog Pro Demo Clinic",
+        },
+        createdAt: "2026-05-13T00:00:00.000Z",
+        updatedAt: "2026-05-13T00:00:00.000Z",
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "4D");
+  assert.equal(response.json.item.notes, "detail note");
+  assert.equal(auditEvents[0].action, "patient.read");
+});
+
+test("patient write routes create, update, and archive with audit-safe responses", async () => {
+  const auditEvents = [];
+  const basePatient = {
+    id: "10000000-0000-4000-8000-000000000201",
+    code: "DP-DEMO-0001",
+    fullName: "Demo Patient One",
+    birthDate: "1984-02-14",
+    sex: "female",
+    phototype: "II",
+    imagingConsent: true,
+    notes: null,
+    clinic: {
+      id: "10000000-0000-4000-8000-000000000001",
+      slug: "demo-clinic",
+      name: "Dermatolog Pro Demo Clinic",
+    },
+    createdAt: "2026-05-13T00:00:00.000Z",
+    updatedAt: "2026-05-13T00:00:00.000Z",
+  };
+  const runtime = createRuntime({
+    auditEvents,
+    createdPatient: basePatient,
+    updatedPatient: { ...basePatient, fullName: "Updated Patient" },
+    archivedPatient: { ...basePatient, deletedAt: "2026-05-13T00:00:00.000Z" },
+  });
+
+  const created = await request(
+    "/api/v1/patients",
+    configuredEnv,
+    runtime,
+    "POST",
+    JSON.stringify({ fullName: "Demo Patient One", birthDate: "1984-02-14" }),
+  );
+  assert.equal(created.status, 201);
+  assert.equal(created.json.stage, "4D");
+  assert.equal(created.json.item.id, basePatient.id);
+
+  const updated = await request(
+    `/api/v1/patients/${basePatient.id}`,
+    configuredEnv,
+    runtime,
+    "PATCH",
+    JSON.stringify({ fullName: "Updated Patient" }),
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.item.fullName, "Updated Patient");
+
+  const archived = await request(
+    `/api/v1/patients/${basePatient.id}`,
+    configuredEnv,
+    runtime,
+    "DELETE",
+    JSON.stringify({ reason: "duplicate" }),
+  );
+  assert.equal(archived.status, 200);
+  assert.equal(archived.json.archived, true);
+  assert.equal(auditEvents.map((event) => event.action).join(","), "patient.create,patient.update,patient.archive");
+  assert.doesNotMatch(archived.body, /password_hash|storage_object_path|access_token|postgres:\/\/|secret/i);
+});
+
+test("patient write routes validate payload, auth, and clinic scope safely", async () => {
+  const invalid = await request(
+    "/api/v1/patients",
+    configuredEnv,
+    createRuntime(),
+    "POST",
+    JSON.stringify({ fullName: "Only" }),
+  );
+  assert.equal(invalid.status, 422);
+  assert.equal(invalid.json.error.code, "validation_error");
+  assert.equal(invalid.json.error.details[0].field, "fullName");
+
+  const malformed = await request(
+    "/api/v1/patients",
+    configuredEnv,
+    createRuntime(),
+    "POST",
+    "{bad json",
+  );
+  assert.equal(malformed.status, 400);
+  assert.equal(malformed.json.error.code, "invalid_json");
+
+  const forbiddenClinic = await request(
+    "/api/v1/patients",
+    configuredEnv,
+    createRuntime(),
+    "POST",
+    JSON.stringify({
+      clinicId: "10000000-0000-4000-8000-000000000099",
+      fullName: "Demo Patient",
+    }),
+  );
+  assert.equal(forbiddenClinic.status, 403);
+  assert.equal(forbiddenClinic.json.error.code, "forbidden");
+});
+
 test("unknown routes and unsupported methods return the common JSON error shape", async () => {
   const missing = await request("/missing");
   assert.equal(missing.status, 404);
   assert.equal(missing.json.error.code, "not_found");
   assert.equal(typeof missing.json.error.message, "string");
-  assert.equal(missing.json.correlationId, "stage4c-local");
+  assert.equal(missing.json.correlationId, "stage4d-local");
 
   const post = await request("/api/v1/meta", {}, createRuntime(), "POST");
   assert.equal(post.status, 405);
   assert.equal(post.json.error.code, "method_not_allowed");
 
-  const createPatient = await request(
-    "/api/v1/patients",
+  const put = await request(
+    "/api/v1/patients/10000000-0000-4000-8000-000000000201",
     configuredEnv,
     createRuntime(),
-    "POST",
+    "PUT",
   );
-  assert.equal(createPatient.status, 501);
-  assert.equal(createPatient.json.error.code, "not_implemented");
+  assert.equal(put.status, 405);
+  assert.equal(put.json.error.code, "method_not_allowed");
 });
