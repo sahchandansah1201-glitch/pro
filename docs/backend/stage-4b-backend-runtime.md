@@ -110,3 +110,9 @@ Expected:
 - No frontend migration from demo patient data yet.
 - No claim that the read-only patient endpoint is the final authorization
   model.
+
+## 8. Next slice
+
+Stage 4C lives in [`docs/backend/stage-4c-auth-rbac.md`](./stage-4c-auth-rbac.md).
+It keeps the self-hosted runtime boundary and adds local JWT auth, RBAC, and
+audit events before any real patient writes.

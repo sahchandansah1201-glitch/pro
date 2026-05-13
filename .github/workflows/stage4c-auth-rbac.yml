@@ -1,0 +1,52 @@
+name: stage4c-auth-rbac
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4c-auth-rbac.md"
+      - "scripts/check-stage4c-auth-rbac.mjs"
+      - "scripts/check-stage4c-auth-rbac.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4c-auth-rbac.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-4c-auth-rbac.md"
+      - "scripts/check-stage4c-auth-rbac.mjs"
+      - "scripts/check-stage4c-auth-rbac.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4c-auth-rbac.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4c-auth-rbac:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 4C preflight
+        run: npm run preflight:stage4c
+      - name: Compose syntax check
+        run: docker compose --env-file deploy/self-hosted/.env.example -f deploy/self-hosted/docker-compose.stage4a.yml config
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4C auth/RBAC"
+            echo ""
+            echo "- preflight:stage4c"
+            echo "- docker compose config"
+            echo "- local JWT auth, RBAC, and audit guardrails"
+          } >> "$GITHUB_STEP_SUMMARY"
