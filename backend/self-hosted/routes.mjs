@@ -65,6 +65,8 @@ function getRuntime(config, runtime = {}) {
       patientRepository,
       auditRepository,
     });
+  const visitWorkspaceRepository =
+    runtime.visitWorkspaceRepository || createVisitWorkspaceRepository(dbClient);
   return {
     auditRepository,
     authRepository,
@@ -72,6 +74,7 @@ function getRuntime(config, runtime = {}) {
     dbClient,
     patientRepository,
     patientWriteService,
+    visitWorkspaceRepository,
   };
 }
 
