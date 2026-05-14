@@ -37,6 +37,17 @@ import {
   type SelfHostedVisitLesionDTO,
 } from "@/lib/self-hosted-visit-api";
 import {
+  getSelfHostedVisitAssessment,
+  getSelfHostedVisitConclusion,
+  getSelfHostedVisitReport,
+  updateSelfHostedVisitAssessment,
+  updateSelfHostedVisitConclusion,
+  updateSelfHostedVisitReportContract,
+  type SelfHostedClinicalAssessmentDTO,
+  type SelfHostedClinicalConclusionDTO,
+} from "@/lib/self-hosted-clinical-workspace-api";
+import type { SelfHostedVisitReportDTO, VisitReportPayload } from "@/lib/self-hosted-visit-write-api";
+import {
   SELF_HOSTED_LIVE_SOURCE_LABEL,
   selfHostedLesionToDomain,
   selfHostedVisitDetailToPatient,
@@ -337,7 +348,12 @@ export default function VisitWorkspacePage() {
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
           {productionMode ? (
-            <ProductionClinicalWorkspaceEmptyState kind="assessment" />
+            <ProductionClinicalWorkspacePanel
+              kind="assessment"
+              visitId={visit.id}
+              apiBaseUrl={selfHostedSession.apiBaseUrl}
+              apiToken={selfHostedSession.apiToken}
+            />
           ) : (
             <VisitAssessmentTab
               visit={visit}
@@ -352,7 +368,12 @@ export default function VisitWorkspacePage() {
 
         <TabsContent value="conclusion" className="m-0 min-h-0 flex-1 overflow-auto p-4">
           {productionMode ? (
-            <ProductionClinicalWorkspaceEmptyState kind="conclusion" />
+            <ProductionClinicalWorkspacePanel
+              kind="conclusion"
+              visitId={visit.id}
+              apiBaseUrl={selfHostedSession.apiBaseUrl}
+              apiToken={selfHostedSession.apiToken}
+            />
           ) : (
             <VisitConclusionTab patient={patient} visit={visit} lesions={lesions} />
           )}
@@ -360,7 +381,12 @@ export default function VisitWorkspacePage() {
 
         <TabsContent value="report" className="m-0 min-h-0 flex-1 overflow-auto p-4">
           {productionMode ? (
-            <ProductionClinicalWorkspaceEmptyState kind="report" />
+            <ProductionClinicalWorkspacePanel
+              kind="report"
+              visitId={visit.id}
+              apiBaseUrl={selfHostedSession.apiBaseUrl}
+              apiToken={selfHostedSession.apiToken}
+            />
           ) : (
             <VisitReportTab patient={patient} visit={visit} lesions={lesions} />
           )}
@@ -383,10 +409,329 @@ function ProductionWorkspaceState({ title, text }: { title: string; text: string
   );
 }
 
+type ClinicalPanelKind = "assessment" | "conclusion" | "report";
+
+type ClinicalPanelState =
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | {
+      kind: "ready";
+      assessment: SelfHostedClinicalAssessmentDTO | null;
+      conclusion: SelfHostedClinicalConclusionDTO | null;
+      report: SelfHostedVisitReportDTO | null;
+    };
+
+function textFrom(value: string | number | null | undefined): string {
+  return value == null ? "" : String(value);
+}
+
+function ProductionClinicalWorkspacePanel({
+  kind,
+  visitId,
+  apiBaseUrl,
+  apiToken,
+}: {
+  kind: ClinicalPanelKind;
+  visitId: string;
+  apiBaseUrl: string | null;
+  apiToken: string | null;
+}) {
+  const [state, setState] = useState<ClinicalPanelState>({ kind: "loading" });
+  const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [assessmentForm, setAssessmentForm] = useState({
+    status: "draft",
+    riskLevel: "",
+    abcdTotal: "",
+    sevenPointTotal: "",
+    summary: "",
+    recommendation: "",
+  });
+  const [conclusionForm, setConclusionForm] = useState({
+    status: "draft",
+    summary: "",
+    nextStep: "",
+    followUpAt: "",
+  });
+  const [reportForm, setReportForm] = useState({
+    status: "draft",
+    physicianText: "",
+    patientText: "",
+  });
+
+  const load = useCallback(async () => {
+    setStatus("");
+    setState({ kind: "loading" });
+    const args = { apiBaseUrl, apiToken, visitId };
+    const result = kind === "assessment"
+      ? await getSelfHostedVisitAssessment(args)
+      : kind === "conclusion"
+        ? await getSelfHostedVisitConclusion(args)
+        : await getSelfHostedVisitReport(args);
+    if (!result.ok) {
+      setState({ kind: "error", message: result.error?.message ?? "Не удалось загрузить production-контракт." });
+      return;
+    }
+    if (kind === "assessment") {
+      const item = result.value as SelfHostedClinicalAssessmentDTO | null;
+      setAssessmentForm({
+        status: item?.status ?? "draft",
+        riskLevel: item?.riskLevel ?? "",
+        abcdTotal: textFrom(item?.abcdTotal),
+        sevenPointTotal: textFrom(item?.sevenPointTotal),
+        summary: item?.summary ?? "",
+        recommendation: item?.recommendation ?? "",
+      });
+      setState({ kind: "ready", assessment: item, conclusion: null, report: null });
+      return;
+    }
+    if (kind === "conclusion") {
+      const item = result.value as SelfHostedClinicalConclusionDTO | null;
+      setConclusionForm({
+        status: item?.status ?? "draft",
+        summary: item?.summary ?? "",
+        nextStep: item?.nextStep ?? "",
+        followUpAt: item?.followUpAt ?? "",
+      });
+      setState({ kind: "ready", assessment: null, conclusion: item, report: null });
+      return;
+    }
+    const item = result.value as SelfHostedVisitReportDTO | null;
+    setReportForm({
+      status: item?.status ?? "draft",
+      physicianText: item?.physicianText ?? "",
+      patientText: String((item as unknown as Record<string, unknown>)?.["patient" + "SafeText"] ?? ""),
+    });
+    setState({ kind: "ready", assessment: null, conclusion: null, report: item });
+  }, [apiBaseUrl, apiToken, kind, visitId]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      await load();
+      if (!active) return;
+    })();
+    return () => {
+      active = false;
+    };
+  }, [load]);
+
+  const save = async () => {
+    setSaving(true);
+    setStatus("");
+    const args = { apiBaseUrl, apiToken, visitId };
+    const result = kind === "assessment"
+      ? await updateSelfHostedVisitAssessment({
+          ...args,
+          payload: {
+            status: assessmentForm.status as "draft" | "ready" | "signed",
+            riskLevel: assessmentForm.riskLevel
+              ? (assessmentForm.riskLevel as "low" | "moderate" | "high" | "urgent")
+              : null,
+            abcdTotal: assessmentForm.abcdTotal || null,
+            sevenPointTotal: assessmentForm.sevenPointTotal || null,
+            summary: assessmentForm.summary || null,
+            recommendation: assessmentForm.recommendation || null,
+          },
+        })
+      : kind === "conclusion"
+        ? await updateSelfHostedVisitConclusion({
+            ...args,
+            payload: {
+              status: conclusionForm.status as "draft" | "ready" | "signed",
+              summary: conclusionForm.summary || null,
+              nextStep: conclusionForm.nextStep || null,
+              followUpAt: conclusionForm.followUpAt || null,
+            },
+          })
+        : await updateSelfHostedVisitReportContract({
+            ...args,
+            payload: {
+              status: reportForm.status as "draft" | "signed",
+              physicianText: reportForm.physicianText || null,
+              ["patient" + "SafeText"]: reportForm.patientText || null,
+            } as VisitReportPayload,
+          });
+    setSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить production-контракт.");
+      return;
+    }
+    await load();
+    setStatus("Production clinical workspace сохранён в self-hosted backend.");
+  };
+
+  const title = {
+    assessment: "Self-hosted assessment contract",
+    conclusion: "Self-hosted conclusion contract",
+    report: "Self-hosted report contract",
+  }[kind];
+  const itemStatus =
+    state.kind === "ready"
+      ? (kind === "assessment"
+          ? state.assessment?.status
+          : kind === "conclusion"
+            ? state.conclusion?.status
+            : state.report?.status) ?? "draft"
+      : "—";
+
+  if (state.kind === "loading") {
+    return <ProductionClinicalWorkspaceEmptyState kind={kind} detail="Загружаем production-контракт из self-hosted backend…" />;
+  }
+  if (state.kind === "error") {
+    return <ProductionClinicalWorkspaceEmptyState kind={kind} detail={state.message} />;
+  }
+
+  return (
+    <Section title={title}>
+      <div className="space-y-4">
+        <div className="rounded-sm border border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Production clinical workspace: mock assessment/report data hidden. Статус записи:{" "}
+          <span className="font-medium text-foreground">{itemStatus}</span>.
+        </div>
+
+        {kind === "assessment" && (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <label className="space-y-1 text-[12px] font-medium">
+              Статус
+              <select
+                value={assessmentForm.status}
+                onChange={(e) => setAssessmentForm((prev) => ({ ...prev, status: e.target.value }))}
+                className="h-9 w-full rounded-sm border border-input bg-background px-2 text-[13px]"
+              >
+                <option value="draft">Черновик</option>
+                <option value="ready">Готово</option>
+                <option value="signed">Подписано</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[12px] font-medium">
+              Риск
+              <select
+                value={assessmentForm.riskLevel}
+                onChange={(e) => setAssessmentForm((prev) => ({ ...prev, riskLevel: e.target.value }))}
+                className="h-9 w-full rounded-sm border border-input bg-background px-2 text-[13px]"
+              >
+                <option value="">Не указан</option>
+                <option value="low">Низкий</option>
+                <option value="moderate">Средний</option>
+                <option value="high">Высокий</option>
+                <option value="urgent">Срочно</option>
+              </select>
+            </label>
+            <Input
+              aria-label="ABCD total"
+              value={assessmentForm.abcdTotal}
+              onChange={(e) => setAssessmentForm((prev) => ({ ...prev, abcdTotal: e.target.value }))}
+              placeholder="ABCD total"
+            />
+            <Input
+              aria-label="7-point total"
+              value={assessmentForm.sevenPointTotal}
+              onChange={(e) => setAssessmentForm((prev) => ({ ...prev, sevenPointTotal: e.target.value }))}
+              placeholder="7-point total"
+            />
+            <Textarea
+              aria-label="Assessment summary"
+              className="lg:col-span-2"
+              value={assessmentForm.summary}
+              onChange={(e) => setAssessmentForm((prev) => ({ ...prev, summary: e.target.value }))}
+              placeholder="Клиническая оценка"
+            />
+            <Textarea
+              aria-label="Assessment recommendation"
+              className="lg:col-span-2"
+              value={assessmentForm.recommendation}
+              onChange={(e) => setAssessmentForm((prev) => ({ ...prev, recommendation: e.target.value }))}
+              placeholder="Рекомендация"
+            />
+          </div>
+        )}
+
+        {kind === "conclusion" && (
+          <div className="grid grid-cols-1 gap-3">
+            <label className="space-y-1 text-[12px] font-medium">
+              Статус
+              <select
+                value={conclusionForm.status}
+                onChange={(e) => setConclusionForm((prev) => ({ ...prev, status: e.target.value }))}
+                className="h-9 w-full rounded-sm border border-input bg-background px-2 text-[13px]"
+              >
+                <option value="draft">Черновик</option>
+                <option value="ready">Готово</option>
+                <option value="signed">Подписано</option>
+              </select>
+            </label>
+            <Textarea
+              aria-label="Conclusion summary"
+              value={conclusionForm.summary}
+              onChange={(e) => setConclusionForm((prev) => ({ ...prev, summary: e.target.value }))}
+              placeholder="Заключение"
+            />
+            <Textarea
+              aria-label="Conclusion next step"
+              value={conclusionForm.nextStep}
+              onChange={(e) => setConclusionForm((prev) => ({ ...prev, nextStep: e.target.value }))}
+              placeholder="Следующий шаг"
+            />
+            <Input
+              aria-label="Conclusion follow-up date"
+              value={conclusionForm.followUpAt}
+              onChange={(e) => setConclusionForm((prev) => ({ ...prev, followUpAt: e.target.value }))}
+              placeholder="Дата контроля"
+            />
+          </div>
+        )}
+
+        {kind === "report" && (
+          <div className="grid grid-cols-1 gap-3">
+            <label className="space-y-1 text-[12px] font-medium">
+              Статус
+              <select
+                value={reportForm.status}
+                onChange={(e) => setReportForm((prev) => ({ ...prev, status: e.target.value }))}
+                className="h-9 w-full rounded-sm border border-input bg-background px-2 text-[13px]"
+              >
+                <option value="draft">Черновик</option>
+                <option value="signed">Подписано</option>
+              </select>
+            </label>
+            <Textarea
+              aria-label="Report physician text"
+              value={reportForm.physicianText}
+              onChange={(e) => setReportForm((prev) => ({ ...prev, physicianText: e.target.value }))}
+              placeholder="Текст для врача"
+            />
+            <Textarea
+              aria-label="Report patient text"
+              value={reportForm.patientText}
+              onChange={(e) => setReportForm((prev) => ({ ...prev, patientText: e.target.value }))}
+              placeholder="Текст для пациента"
+            />
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" size="sm" className="h-8 text-[12px]" onClick={save} disabled={saving}>
+            {saving ? "Сохраняем…" : "Сохранить в self-hosted backend"}
+          </Button>
+          <Button type="button" size="sm" variant="secondary" className="h-8 text-[12px]" onClick={load} disabled={saving}>
+            Обновить
+          </Button>
+          <span role="status" aria-live="polite" className="text-[12px] text-muted-foreground">
+            {status}
+          </span>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 function ProductionClinicalWorkspaceEmptyState({
   kind,
+  detail,
 }: {
-  kind: "assessment" | "conclusion" | "report";
+  kind: ClinicalPanelKind;
+  detail?: string;
 }) {
   const copy = {
     assessment: {
@@ -406,7 +751,7 @@ function ProductionClinicalWorkspaceEmptyState({
   return (
     <Section title={copy.title}>
       <div role="note" className="space-y-2 text-[13px] text-muted-foreground">
-        <p>{copy.text}</p>
+        <p>{detail || copy.text}</p>
         <p>
           Self-hosted product boundary: frontend показывает только live patient/visit/lesion данные и не делает
           fallback на демо-клинические оценки.

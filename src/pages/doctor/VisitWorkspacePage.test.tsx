@@ -445,6 +445,66 @@ function createLiveWorkspaceFetchMock() {
         }),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/assessment")) {
+      const method = (_init?.method ?? "GET").toUpperCase();
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "live-assessment",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: method === "PATCH" ? "ready" : "draft",
+              riskLevel: "moderate",
+              abcdTotal: 3.4,
+              sevenPointTotal: 2,
+              summary: method === "PATCH" ? "Live assessment saved" : "Live assessment summary",
+              recommendation: "Live recommendation",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
+    if (href.endsWith("/api/v1/visits/live-visit/conclusion")) {
+      const method = (_init?.method ?? "GET").toUpperCase();
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "live-conclusion",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: method === "PATCH" ? "ready" : "draft",
+              summary: method === "PATCH" ? "Live conclusion saved" : "Live conclusion summary",
+              nextStep: "Контроль",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
+    if (href.endsWith("/api/v1/visits/live-visit/report")) {
+      const method = (_init?.method ?? "GET").toUpperCase();
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "live-report",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: method === "PATCH" ? "signed" : "draft",
+              physicianText: method === "PATCH" ? "Live report saved" : "Live report physician text",
+              patientSafeText: "Live report patient text",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
     return Promise.resolve(new Response(JSON.stringify({ items: [] })));
   });
 }
@@ -497,16 +557,55 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     renderAt("/patients/live-patient/visits/live-visit?tab=assessment");
 
     expect(await screen.findByRole("heading", { name: /Петрова Анна Live/ })).toBeInTheDocument();
-    expect(screen.getByText(/Оценка ждёт self-hosted assessment API/)).toBeInTheDocument();
+    expect(await screen.findByText(/Self-hosted assessment contract/)).toBeInTheDocument();
     expect(screen.getByText(/mock assessment\/report data hidden/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Live assessment summary/)).toBeInTheDocument();
 
     selectTab(/Заключение/);
-    expect(screen.getByText(/Заключение ждёт self-hosted conclusion API/)).toBeInTheDocument();
+    expect(await screen.findByText(/Self-hosted conclusion contract/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Live conclusion summary/)).toBeInTheDocument();
     expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
 
     selectTab(/Отчёт/);
-    expect(screen.getByText(/Отчёт ждёт self-hosted report API/)).toBeInTheDocument();
+    expect(await screen.findByText(/Self-hosted report contract/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Live report physician text/)).toBeInTheDocument();
     expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
+  });
+
+  it("saves production assessment, conclusion and report through self-hosted backend contracts", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=assessment");
+
+    expect(await screen.findByText(/Self-hosted assessment contract/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Assessment summary"), {
+      target: { value: "Updated assessment" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить в self-hosted backend/ }));
+    await screen.findByText(/Production clinical workspace сохранён/);
+
+    selectTab(/Заключение/);
+    expect(await screen.findByText(/Self-hosted conclusion contract/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Conclusion summary"), {
+      target: { value: "Updated conclusion" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить в self-hosted backend/ }));
+    await screen.findByText(/Production clinical workspace сохранён/);
+
+    selectTab(/Отчёт/);
+    expect(await screen.findByText(/Self-hosted report contract/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Report physician text"), {
+      target: { value: "Updated report" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить в self-hosted backend/ }));
+    await screen.findByText(/Production clinical workspace сохранён/);
+
+    const patchUrls = fetchMock.mock.calls
+      .filter(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")
+      .map(([url]) => String(url));
+    expect(patchUrls).toContain("http://localhost:8080/api/v1/visits/live-visit/assessment");
+    expect(patchUrls).toContain("http://localhost:8080/api/v1/visits/live-visit/conclusion");
+    expect(patchUrls).toContain("http://localhost:8080/api/v1/visits/live-visit/report");
   });
 
   it("disables local demo lesion placement in production Body Map", async () => {

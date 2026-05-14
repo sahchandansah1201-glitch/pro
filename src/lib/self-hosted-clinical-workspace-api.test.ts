@@ -1,0 +1,118 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  getSelfHostedVisitAssessment,
+  updateSelfHostedVisitAssessment,
+  updateSelfHostedVisitConclusion,
+  getSelfHostedVisitReport,
+} from "@/lib/self-hosted-clinical-workspace-api";
+
+describe("self-hosted-clinical-workspace-api", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns not_configured without a token", async () => {
+    const result = await getSelfHostedVisitAssessment({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: null,
+      visitId: "visit-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe("not_configured");
+  });
+
+  it("reads assessment and maps numeric fields without protected runtime tokens", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "assessment-1",
+            visitId: "visit-1",
+            status: "ready",
+            riskLevel: "moderate",
+            abcdTotal: "3.70",
+            sevenPointTotal: 2,
+            summary: "контроль",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await getSelfHostedVisitAssessment({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.abcdTotal).toBe(3.7);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/assessment",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+  });
+
+  it("patches assessment and conclusion through backend contracts", async () => {
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: url.includes("assessment") ? "assessment-1" : "conclusion-1",
+            visitId: "visit-1",
+            status: "ready",
+            summary: "готово",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const assessment = await updateSelfHostedVisitAssessment({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: { status: "ready", summary: "готово" },
+    });
+    const conclusion = await updateSelfHostedVisitConclusion({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: { status: "ready", summary: "готово" },
+    });
+    expect(assessment.ok).toBe(true);
+    expect(conclusion.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "PATCH" });
+  });
+
+  it("reads report and surfaces mapped validation errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "validation_error",
+              message: "Request payload failed validation.",
+              details: [{ field: "summary", message: "required" }],
+            },
+            correlationId: "corr-1",
+          }),
+          { status: 422, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    const result = await getSelfHostedVisitReport({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error?.kind).toBe("validation");
+    expect(result.error?.details?.[0]).toEqual({ field: "summary", message: "required" });
+  });
+});

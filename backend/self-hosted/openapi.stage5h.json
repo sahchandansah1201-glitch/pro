@@ -1,0 +1,100 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted Clinical Workspace Contracts",
+    "version": "5H-clinical-workspace-contracts"
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "ClinicalAssessment": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft", "ready", "signed"] },
+          "riskLevel": { "type": ["string", "null"], "enum": ["low", "moderate", "high", "urgent", null] },
+          "abcdTotal": { "type": ["number", "null"] },
+          "sevenPointTotal": { "type": ["integer", "null"] },
+          "summary": { "type": ["string", "null"] },
+          "recommendation": { "type": ["string", "null"] }
+        }
+      },
+      "ClinicalConclusion": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft", "ready", "signed"] },
+          "summary": { "type": ["string", "null"] },
+          "nextStep": { "type": ["string", "null"] },
+          "followUpAt": { "type": ["string", "null"] }
+        }
+      },
+      "VisitReport": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string" },
+          "status": { "type": "string" },
+          "physicianText": { "type": ["string", "null"] },
+          "patientSafeText": { "type": ["string", "null"] }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/visits/{visitId}/assessment": {
+      "get": {
+        "summary": "Read the production clinical assessment for a visit",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Assessment or null" } }
+      },
+      "patch": {
+        "summary": "Create or update the production clinical assessment for a visit",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicalAssessment" } } }
+        },
+        "responses": { "200": { "description": "Saved assessment" } }
+      }
+    },
+    "/api/v1/visits/{visitId}/conclusion": {
+      "get": {
+        "summary": "Read the production clinical conclusion for a visit",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Conclusion or null" } }
+      },
+      "patch": {
+        "summary": "Create or update the production clinical conclusion for a visit",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicalConclusion" } } }
+        },
+        "responses": { "200": { "description": "Saved conclusion" } }
+      }
+    },
+    "/api/v1/visits/{visitId}/report": {
+      "get": {
+        "summary": "Read the production visit report",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Report or null" } }
+      },
+      "patch": {
+        "summary": "Create or update the production visit report",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VisitReport" } } }
+        },
+        "responses": { "200": { "description": "Saved report" } }
+      }
+    }
+  }
+}
