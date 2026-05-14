@@ -48,6 +48,13 @@ function openBodyMap() {
   fireEvent.click(t);
 }
 
+function selectTab(name: RegExp) {
+  const tab = screen.getByRole("tab", { name });
+  fireEvent.pointerDown(tab, { button: 0 });
+  fireEvent.mouseDown(tab, { button: 0 });
+  fireEvent.click(tab);
+}
+
 describe("VisitWorkspacePage · Body map", () => {
   it("p-001/v-001 (female) shows 'Тип карты: Женщина', front surface label, badge and aria-label", () => {
     renderAt("/patients/p-001/visits/v-001");
@@ -386,6 +393,62 @@ describe("VisitWorkspacePage · Stage 1I-A · authenticated API session smoke", 
   });
 });
 
+function createLiveWorkspaceFetchMock() {
+  return vi.fn((url: RequestInfo | URL, _init?: RequestInit) => {
+    const href = String(url);
+    if (href.endsWith("/api/v1/visits/live-visit")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "live-visit",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              doctorUserId: "doctor-1",
+              status: "in_progress",
+              startedAt: "2026-05-12T09:00:00.000Z",
+              signedAt: null,
+              chiefComplaint: "контроль live",
+              createdAt: "2026-05-12T08:00:00.000Z",
+              updatedAt: "2026-05-12T09:00:00.000Z",
+              patient: { id: "live-patient", fullName: "Петрова Анна Live", code: "DP-live-001" },
+              clinic: { id: "clinic-1", slug: "live", name: "Live Clinic" },
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
+    if (href.endsWith("/api/v1/visits/live-visit/lesions")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: "live-lesion",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                label: "Live lesion A",
+                bodyZone: "спина",
+                status: "active",
+              },
+            ],
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
+    if (href.endsWith("/api/v1/visits/live-visit/assets")) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ items: [] }), {
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    }
+    return Promise.resolve(new Response(JSON.stringify({ items: [] })));
+  });
+}
+
 describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () => {
   beforeEach(() => {
     vi.stubEnv("VITE_APP_MODE", "production");
@@ -400,59 +463,7 @@ describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () 
   });
 
   it("loads live patient, visit and lesions by UUID without demo patient lookup", async () => {
-    const fetchMock = vi.fn((url: RequestInfo | URL, _init?: RequestInit) => {
-      const href = String(url);
-      if (href.endsWith("/api/v1/visits/live-visit")) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              item: {
-                id: "live-visit",
-                clinicId: "clinic-1",
-                patientId: "live-patient",
-                doctorUserId: "doctor-1",
-                status: "in_progress",
-                startedAt: "2026-05-12T09:00:00.000Z",
-                signedAt: null,
-                chiefComplaint: "контроль live",
-                createdAt: "2026-05-12T08:00:00.000Z",
-                updatedAt: "2026-05-12T09:00:00.000Z",
-                patient: { id: "live-patient", fullName: "Петрова Анна Live", code: "DP-live-001" },
-                clinic: { id: "clinic-1", slug: "live", name: "Live Clinic" },
-              },
-            }),
-            { headers: { "Content-Type": "application/json" } },
-          ),
-        );
-      }
-      if (href.endsWith("/api/v1/visits/live-visit/lesions")) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              items: [
-                {
-                  id: "live-lesion",
-                  patientId: "live-patient",
-                  visitId: "live-visit",
-                  label: "Live lesion A",
-                  bodyZone: "спина",
-                  status: "active",
-                },
-              ],
-            }),
-            { headers: { "Content-Type": "application/json" } },
-          ),
-        );
-      }
-      if (href.endsWith("/api/v1/visits/live-visit/assets")) {
-        return Promise.resolve(
-          new Response(JSON.stringify({ items: [] }), {
-            headers: { "Content-Type": "application/json" },
-          }),
-        );
-      }
-      return Promise.resolve(new Response(JSON.stringify({ items: [] })));
-    });
+    const fetchMock = createLiveWorkspaceFetchMock();
     vi.stubGlobal("fetch", fetchMock);
 
     renderAt("/patients/live-patient/visits/live-visit?tab=bodymap");
@@ -465,5 +476,50 @@ describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () 
     for (const [, init] of fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/v1/"))) {
       expect((init as RequestInit).headers).toMatchObject({ Authorization: "Bearer local-jwt" });
     }
+  });
+});
+
+describe("VisitWorkspacePage · Stage 5G · production clinical workspace completion", () => {
+  beforeEach(() => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-jwt");
+    vi.stubGlobal("fetch", createLiveWorkspaceFetchMock());
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("hides mock-derived assessment, conclusion and report tabs in production", async () => {
+    renderAt("/patients/live-patient/visits/live-visit?tab=assessment");
+
+    expect(await screen.findByRole("heading", { name: /Петрова Анна Live/ })).toBeInTheDocument();
+    expect(screen.getByText(/Оценка ждёт self-hosted assessment API/)).toBeInTheDocument();
+    expect(screen.getByText(/mock assessment\/report data hidden/)).toBeInTheDocument();
+
+    selectTab(/Заключение/);
+    expect(screen.getByText(/Заключение ждёт self-hosted conclusion API/)).toBeInTheDocument();
+    expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
+
+    selectTab(/Отчёт/);
+    expect(screen.getByText(/Отчёт ждёт self-hosted report API/)).toBeInTheDocument();
+    expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
+  });
+
+  it("disables local demo lesion placement in production Body Map", async () => {
+    renderAt("/patients/live-patient/visits/live-visit?tab=bodymap");
+
+    expect((await screen.findAllByText(/Live lesion A/)).length).toBeGreaterThan(0);
+    const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
+    (svg as unknown as HTMLElement).getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    fireEvent.click(svg, { clientX: 100, clientY: 200 });
+
+    expect(screen.getByText(/локальное демо-добавление очага отключено/)).toBeInTheDocument();
+    expect(screen.queryByText(/Новый очаг \(демо\)/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Добавить локально/ })).toBeNull();
   });
 });

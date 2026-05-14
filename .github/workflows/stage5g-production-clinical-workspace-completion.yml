@@ -1,0 +1,53 @@
+name: stage5g-production-clinical-workspace-completion
+
+on:
+  pull_request:
+    paths:
+      - "src/pages/doctor/VisitWorkspacePage.tsx"
+      - "src/pages/doctor/VisitWorkspacePage.test.tsx"
+      - "scripts/check-stage5g-production-clinical-workspace-completion.mjs"
+      - "scripts/check-stage5g-production-clinical-workspace-completion.test.mjs"
+      - "docs/backend/stage-5g-production-clinical-workspace-completion.md"
+      - ".github/workflows/stage5g-production-clinical-workspace-completion.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "src/pages/doctor/VisitWorkspacePage.tsx"
+      - "src/pages/doctor/VisitWorkspacePage.test.tsx"
+      - "scripts/check-stage5g-production-clinical-workspace-completion.mjs"
+      - "scripts/check-stage5g-production-clinical-workspace-completion.test.mjs"
+      - "docs/backend/stage-5g-production-clinical-workspace-completion.md"
+      - ".github/workflows/stage5g-production-clinical-workspace-completion.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage5g:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 5G preflight
+        run: npm run preflight:stage5g
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5G production clinical workspace completion"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5g\`"
+            echo "- Boundary: self-hosted frontend/backend/PostgreSQL/object-storage stack"
+            echo "- Production mock clinical tabs: blocked"
+          } >> "$GITHUB_STEP_SUMMARY"
