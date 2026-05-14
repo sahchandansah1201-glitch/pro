@@ -37,6 +37,9 @@ import {
 } from "@/components/ui/sidebar";
 import { useRole } from "@/context/role-context";
 import type { Role } from "@/lib/roles";
+import { isProductionAppMode } from "@/lib/app-mode";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import { selfHostedRoles } from "@/lib/self-hosted-role";
 
 interface NavItem {
   title: string;
@@ -156,11 +159,20 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
   const { role } = useRole();
+  const session = useSelfHostedApiSession();
+  const productionMode = isProductionAppMode();
 
   const isActive = (path: string) =>
     path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
 
-  const groups = [...NAV_BY_ROLE[role], SHARED];
+  const productionRoles = selfHostedRoles(session);
+  const roleGroups = productionMode
+    ? productionRoles.flatMap((r) => NAV_BY_ROLE[r])
+    : NAV_BY_ROLE[role];
+  const uniqueGroups = roleGroups.filter(
+    (group, index, all) => all.findIndex((candidate) => candidate.label === group.label) === index,
+  );
+  const groups = [...uniqueGroups, SHARED];
 
   return (
     <Sidebar collapsible="icon">

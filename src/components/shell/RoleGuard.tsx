@@ -14,14 +14,29 @@ import { Lock, Loader2 } from "lucide-react";
 import { useRole } from "@/context/role-context";
 import { useAuth } from "@/context/use-auth";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
+import { isProductionAppMode } from "@/lib/app-mode";
 import { canRoleAccess } from "@/lib/access";
 import { ROLES } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
+import { isSelfHostedApiConfigured, useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import { canSelfHostedSessionAccessPath, selfHostedRoleLabel } from "@/lib/self-hosted-role";
 
 export function RoleGuard({ children }: { children: React.ReactNode }) {
   const { pathname, search, hash } = useLocation();
   const { role, setRole, label } = useRole();
   const { status } = useAuth();
+  const selfHostedSession = useSelfHostedApiSession();
+  const productionMode = isProductionAppMode();
+
+  if (productionMode) {
+    if (!isSelfHostedApiConfigured(selfHostedSession)) {
+      const from = `${pathname}${search}${hash}`;
+      return <Navigate to="/self-hosted/login" replace state={{ from }} />;
+    }
+    if (canSelfHostedSessionAccessPath(selfHostedSession, pathname)) return <>{children}</>;
+    return <ProductionNoAccessScreen roleLabel={selfHostedRoleLabel(selfHostedSession)} />;
+  }
+
   const configured = isSupabaseConfigured();
 
   if (configured) {
@@ -35,6 +50,35 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
   if (canRoleAccess(role, pathname)) return <>{children}</>;
 
   return <NoAccessScreen currentLabel={label} onSwitchRole={setRole} />;
+}
+
+function ProductionNoAccessScreen({ roleLabel }: { roleLabel: string }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex h-full items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-md border border-border bg-surface p-6">
+        <div className="mb-3 flex items-center gap-2 text-warning">
+          <Lock className="h-4 w-4" aria-hidden />
+          <div className="text-[13px] font-semibold">Нет доступа</div>
+        </div>
+        <p className="text-[13px] text-muted-foreground">
+          Текущая self-hosted роль <span className="text-foreground">{roleLabel}</span> не
+          имеет доступа к этому разделу. В production переключение демо-ролей отключено;
+          доступ определяется только backend-сессией.
+        </p>
+
+        <div className="mt-4 flex gap-2">
+          <Button size="sm" variant="secondary" className="h-8 text-[12px]" onClick={() => navigate(-1)}>
+            Назад
+          </Button>
+          <Button size="sm" className="h-8 text-[12px]" onClick={() => navigate("/self-hosted/login")}>
+            Сменить self-hosted сессию
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AuthLoadingScreen() {

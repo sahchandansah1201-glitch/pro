@@ -1,0 +1,61 @@
+name: stage5d-production-mode-cutover
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/app-mode.ts"
+      - "src/lib/app-mode.test.ts"
+      - "src/lib/self-hosted-role.ts"
+      - "src/lib/self-hosted-role.test.ts"
+      - "src/components/shell/AppLayout.tsx"
+      - "src/components/shell/AppLayout.test.tsx"
+      - "src/components/shell/AppSidebar.tsx"
+      - "src/components/shell/RoleGuard.tsx"
+      - "src/components/shell/RoleGuard.test.tsx"
+      - "src/components/shell/RoleHome.tsx"
+      - "src/components/shell/RoleHome.test.tsx"
+      - "docs/backend/stage-5d-production-mode-cutover.md"
+      - "scripts/check-stage5d-production-mode-cutover.mjs"
+      - "scripts/check-stage5d-production-mode-cutover.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage5d-production-mode-cutover.yml"
+  push:
+    paths:
+      - "src/lib/app-mode.ts"
+      - "src/lib/self-hosted-role.ts"
+      - "src/components/shell/AppLayout.tsx"
+      - "src/components/shell/AppSidebar.tsx"
+      - "src/components/shell/RoleGuard.tsx"
+      - "src/components/shell/RoleHome.tsx"
+      - "docs/backend/stage-5d-production-mode-cutover.md"
+      - "scripts/check-stage5d-production-mode-cutover.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage5d-production-mode-cutover.yml"
+
+jobs:
+  stage5d:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5d
+      - name: Write production mode summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5D production mode cutover"
+            echo
+            echo "- Preflight: npm run preflight:stage5d"
+            echo "- Production flag: VITE_APP_MODE=production"
+            echo "- Demo banner/switcher: disabled in production shell"
+            echo "- Route access: self-hosted backend session roles"
+            echo "- Managed runtime: none"
+            echo "- Managed database: none"
+          } >> "$GITHUB_STEP_SUMMARY"
