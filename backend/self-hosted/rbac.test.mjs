@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   AuthRequiredError,
   ForbiddenError,
+  opsStatusScope,
   patientReadScope,
   patientWriteScope,
   requireAnyRole,
@@ -114,4 +115,23 @@ test("visitWriteScope allows doctors/system admins and rejects clinic admins/ope
     () => visitWriteScope({ userId: "operator", roles: ["operator"], clinicIds: ["clinic-1"] }),
     ForbiddenError,
   );
+});
+
+test("opsStatusScope is restricted to system_admin", () => {
+  assert.deepEqual(
+    opsStatusScope({
+      userId: "admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+    }),
+    {
+      roles: ["system_admin"],
+    },
+  );
+
+  assert.throws(
+    () => opsStatusScope({ userId: "doctor", roles: ["doctor"], clinicIds: ["clinic-1"] }),
+    ForbiddenError,
+  );
+  assert.throws(() => opsStatusScope(null), AuthRequiredError);
 });

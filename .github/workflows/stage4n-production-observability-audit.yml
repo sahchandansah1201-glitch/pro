@@ -1,0 +1,67 @@
+name: stage4n-production-observability-audit
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/ops-logger.mjs"
+      - "backend/self-hosted/ops-logger.test.mjs"
+      - "backend/self-hosted/api-response.mjs"
+      - "backend/self-hosted/rbac.mjs"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "backend/self-hosted/openapi.stage4n.json"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "scripts/stage4n-audit-export.mjs"
+      - "scripts/stage4n-audit-export.test.mjs"
+      - "scripts/check-stage4n-production-observability.mjs"
+      - "scripts/check-stage4n-production-observability.test.mjs"
+      - "docs/backend/stage-4n-production-observability-audit.md"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4n-production-observability-audit.yml"
+  push:
+    paths:
+      - "backend/self-hosted/ops-logger.mjs"
+      - "backend/self-hosted/ops-logger.test.mjs"
+      - "backend/self-hosted/api-response.mjs"
+      - "backend/self-hosted/rbac.mjs"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "backend/self-hosted/openapi.stage4n.json"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "scripts/stage4n-audit-export.mjs"
+      - "scripts/stage4n-audit-export.test.mjs"
+      - "scripts/check-stage4n-production-observability.mjs"
+      - "scripts/check-stage4n-production-observability.test.mjs"
+      - "docs/backend/stage-4n-production-observability-audit.md"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4n-production-observability-audit.yml"
+  workflow_dispatch:
+
+jobs:
+  production-observability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Stage 4N preflight
+        run: npm run preflight:stage4n
+      - name: Audit export dry-run
+        run: npm run ops:stage4n:audit-export:dry-run
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4N production observability and audit"
+            echo ""
+            echo "- Preflight: ${{ job.status }}"
+            echo "- Checked: structured logs, correlation headers, system_admin ops status, safe audit export dry-run, guard"
+            echo "- CI does not connect to a live production server"
+          } >> "$GITHUB_STEP_SUMMARY"

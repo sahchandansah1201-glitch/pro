@@ -182,16 +182,19 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4J");
+  assert.equal(meta.json.stage, "4N");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
-  assert.equal(meta.json.links.openapi, "/openapi.stage4j.json");
+  assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status");
+  assert.equal(meta.json.links.openapi, "/openapi.stage4n.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
   assert.equal(meta.json.links.openapiStage4B, "/openapi.stage4b.json");
   assert.equal(meta.json.links.openapiStage4C, "/openapi.stage4c.json");
   assert.equal(meta.json.links.openapiStage4H, "/openapi.stage4h.json");
   assert.equal(meta.json.links.openapiStage4I, "/openapi.stage4i.json");
   assert.equal(meta.json.links.openapiStage4J, "/openapi.stage4j.json");
+  assert.equal(meta.json.links.openapiStage4N, "/openapi.stage4n.json");
+  assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
   assert.equal(meta.json.links.assetDownload, "/api/v1/assets/{assetId}/download");
   assert.equal(meta.json.service.objectStorageBucket, "medical-assets");
@@ -233,6 +236,63 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi4j.status, 200);
   assert.equal(openapi4j.json.info.version, "4J-asset-binaries");
   assert.ok(openapi4j.json.paths["/api/v1/assets/{assetId}/download"].get);
+
+  const openapi4n = await request("/openapi.stage4n.json");
+  assert.equal(openapi4n.status, 200);
+  assert.equal(openapi4n.json.info.version, "4N-production-observability-audit");
+  assert.ok(openapi4n.json.paths["/api/v1/ops/status"].get);
+});
+
+test("ops status is system-admin only, safe, audited, and correlation-aware", async () => {
+  const auditEvents = [];
+  const systemAdminRuntime = createRuntime({
+    auditEvents,
+    authContext: {
+      userId: "10000000-0000-4000-8000-000000000999",
+      displayName: "System Admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+      roleBindings: [{ role: "system_admin", clinicId: null, clinicSlug: null }],
+      token: {},
+    },
+  });
+  const response = await request("/api/v1/ops/status", configuredEnv, systemAdminRuntime);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers["x-correlation-id"], "stage4i-local");
+  assert.equal(response.json.stage, "4N");
+  assert.equal(response.json.source, "self-hosted");
+  assert.equal(response.json.observability.structuredJsonLogs, true);
+  assert.equal(response.json.observability.correlationHeader, "x-correlation-id");
+  assert.equal(response.json.audit.mode, "append-only");
+  assert.equal(response.json.auth.roles[0], "system_admin");
+  assert.equal(auditEvents[0].action, "ops.status.read");
+  assert.doesNotMatch(response.body, /secret|postgres:\/\/|password|Bearer|object_key|storage_object_path|patient_full_name|Demo Patient/i);
+
+  const denied = await request(
+    "/api/v1/ops/status",
+    configuredEnv,
+    createRuntime({
+      authContext: {
+        userId: "10000000-0000-4000-8000-000000000102",
+        displayName: "Clinic Admin",
+        roles: ["clinic_admin"],
+        clinicIds: ["10000000-0000-4000-8000-000000000001"],
+        roleBindings: [{ role: "clinic_admin", clinicId: "10000000-0000-4000-8000-000000000001" }],
+        token: {},
+      },
+    }),
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
+
+  const anonymous = await request(
+    "/api/v1/ops/status",
+    configuredEnv,
+    createRuntime({ authContext: null }),
+  );
+  assert.equal(anonymous.status, 401);
+  assert.equal(anonymous.json.error.code, "auth_required");
 });
 
 test("auth login returns a bearer token without leaking password material", async () => {
@@ -804,14 +864,17 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes 4G capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4J");
+  assert.equal(response.json.stage, "4N");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
+  assert.equal(response.json.capabilities.observability, "structured-json-logs-redacted-ops-status");
   assert.equal(response.json.links.openapiStage4G, "/openapi.stage4g.json");
   assert.equal(response.json.links.openapiStage4H, "/openapi.stage4h.json");
   assert.equal(response.json.links.openapiStage4I, "/openapi.stage4i.json");
   assert.equal(response.json.links.openapiStage4J, "/openapi.stage4j.json");
+  assert.equal(response.json.links.openapiStage4N, "/openapi.stage4n.json");
+  assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");
   assert.equal(response.json.links.visitReport, "/api/v1/visits/{visitId}/report");
   assert.equal(response.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");

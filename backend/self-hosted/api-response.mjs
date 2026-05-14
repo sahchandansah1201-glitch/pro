@@ -18,10 +18,12 @@ export function corsHeaders(config, requestOrigin = "") {
 }
 
 export function jsonResponse(status, body, config, requestOrigin) {
+  const correlationId = body && typeof body === "object" ? body.correlationId : null;
   return {
     status,
     headers: {
       ...JSON_HEADERS,
+      ...(correlationId ? { "x-correlation-id": String(correlationId) } : {}),
       ...corsHeaders(config, requestOrigin),
     },
     body: JSON.stringify(body),
