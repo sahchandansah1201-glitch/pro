@@ -1,0 +1,59 @@
+name: stage4u-device-bridge-worker-observability
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/device-bridge-worker-repository.mjs"
+      - "backend/self-hosted/device-bridge-worker-repository.test.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.test.mjs"
+      - "backend/self-hosted/openapi.stage4u.json"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "e2e/sys-devices-stage4q.pw.ts"
+      - "docs/backend/stage-4u-device-bridge-worker-observability.md"
+      - "scripts/check-stage4u-device-bridge-worker-observability.mjs"
+      - "scripts/check-stage4u-device-bridge-worker-observability.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4u-device-bridge-worker-observability.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/self-hosted/device-bridge-worker-repository.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.mjs"
+      - "backend/self-hosted/openapi.stage4u.json"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "scripts/check-stage4u-device-bridge-worker-observability.mjs"
+      - "package.json"
+      - ".github/workflows/stage4u-device-bridge-worker-observability.yml"
+
+jobs:
+  stage4u:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run preflight:stage4u
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4U Device Bridge worker observability"
+            echo ""
+            echo "- Backend: /api/v1/device-bridge-worker/status"
+            echo "- Frontend: /sys/devices worker observability panel"
+            echo "- Boundary: self-hosted backend/PostgreSQL only; no browser hardware APIs"
+          } >> "$GITHUB_STEP_SUMMARY"

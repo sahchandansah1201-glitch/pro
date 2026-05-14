@@ -70,6 +70,53 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
         }),
       });
     });
+    await page.route("http://localhost:8080/api/v1/device-bridge-worker/status?limit=25", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4U",
+          source: "postgres",
+          summary: {
+            bridgeCount: 1,
+            onlineWorkers: 1,
+            degradedWorkers: 0,
+            offlineWorkers: 0,
+            queuedCommands: 1,
+            failedCommands: 1,
+          },
+          items: [
+            {
+              id: "br-uuid",
+              clinicId: "clinic-1",
+              bridgeCode: "br-live-01",
+              hostName: "live-bridge",
+              lanStatus: "online",
+              workerStatus: "online",
+              workerVersion: "stage4t-local-worker",
+              workerLastSeenAt: "2026-05-14T08:02:00Z",
+              queuedCount: 1,
+              failedCount: 1,
+              access_token: "secret",
+              storage_object_path: "hidden",
+            },
+          ],
+          commands: [
+            {
+              id: "cmd-worker-e2e",
+              bridgeCode: "br-live-01",
+              commandType: "bridge_health_check",
+              status: "failed",
+              createdAt: "2026-05-14T08:01:00Z",
+              payload_json: { secret: true },
+              result_json: { token: "hidden" },
+            },
+          ],
+          filters: { workerStatus: "all", commandStatus: "all", limit: 25 },
+        }),
+      });
+    });
     await page.route("http://localhost:8080/api/v1/device-bridges/br-uuid/commands", async (route) => {
       expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
       expect(route.request().method()).toBe("POST");
@@ -112,6 +159,12 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     await expect(page.getByText("Self-hosted backend подключён")).toBeVisible();
     await expect(page.getByText("LiveScope 20").first()).toBeVisible();
     await expect(page.getByText("br-live-01").first()).toBeVisible();
+    await expect(page.getByRole("region", { name: "Device Bridge worker observability" })).toContainText(
+      "stage4t-local-worker",
+    );
+    await expect(page.getByRole("region", { name: "Device Bridge worker command lifecycle" })).toContainText(
+      "bridge_health_check",
+    );
     await expect(page.getByText("Реестр устройств загружен из backend.")).toBeVisible();
     await expect(page.getByText("Браузер не подключается к драйверу напрямую")).toBeVisible();
 
@@ -123,6 +176,8 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     const html = await page.locator("main").innerHTML();
     expect(html).not.toContain("access_token");
     expect(html).not.toContain("storage_object_path");
+    expect(html).not.toContain("payload_json");
+    expect(html).not.toContain("result_json");
     expect(html).not.toContain("Bearer");
     expect(html).not.toContain("WebUSB");
     expect(html).not.toContain("WebBluetooth");

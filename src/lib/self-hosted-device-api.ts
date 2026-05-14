@@ -80,6 +80,82 @@ export interface SelfHostedDeviceCommandDTO {
   createdAt: string | null;
 }
 
+export type SelfHostedWorkerStatusFilter = "all" | "unknown" | "online" | "degraded" | "offline";
+export type SelfHostedCommandStatusFilter =
+  | "all"
+  | "queued"
+  | "acknowledged"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface SelfHostedDeviceBridgeWorkerBridgeDTO {
+  id: string;
+  clinicId: string;
+  bridgeCode: string;
+  hostName: string;
+  lanStatus: "online" | "degraded" | "offline";
+  workerStatus: "unknown" | "online" | "degraded" | "offline";
+  version: string;
+  workerVersion: string;
+  lastHeartbeatAt: string | null;
+  workerLastSeenAt: string | null;
+  pairedCount: number;
+  queuedCount: number;
+  acknowledgedCount: number;
+  completedCount: number;
+  failedCount: number;
+  latestCommandAt: string | null;
+  clinic?: {
+    id?: string;
+    slug?: string;
+    name?: string;
+  };
+}
+
+export interface SelfHostedDeviceBridgeWorkerCommandDTO {
+  id: string;
+  clinicId: string;
+  bridgeId: string | null;
+  deviceId: string | null;
+  bridgeCode: string | null;
+  deviceSerial: string | null;
+  commandType: SelfHostedDeviceCommandType;
+  status: "queued" | "acknowledged" | "completed" | "failed" | "cancelled";
+  reason: string | null;
+  createdAt: string | null;
+  dispatchedAt: string | null;
+  acknowledgedAt: string | null;
+  completedAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface SelfHostedDeviceBridgeWorkerSummaryDTO {
+  bridgeCount: number;
+  onlineWorkers: number;
+  degradedWorkers: number;
+  offlineWorkers: number;
+  queuedCommands: number;
+  failedCommands: number;
+}
+
+export interface SelfHostedDeviceBridgeWorkerStatusDTO {
+  stage: "4U" | string;
+  source: "postgres" | string;
+  summary: SelfHostedDeviceBridgeWorkerSummaryDTO;
+  items: SelfHostedDeviceBridgeWorkerBridgeDTO[];
+  commands: SelfHostedDeviceBridgeWorkerCommandDTO[];
+  count: number;
+  commandCount: number;
+  filters: {
+    workerStatus: SelfHostedWorkerStatusFilter;
+    commandStatus: SelfHostedCommandStatusFilter;
+    limit: number;
+  };
+  correlationId: string;
+  generatedAt: string;
+}
+
 export interface RequestSelfHostedBridgeCommandArgs extends BaseArgs {
   bridgeId: string;
   commandType: "bridge_health_check";
@@ -90,6 +166,12 @@ export interface RequestSelfHostedDeviceCommandArgs extends BaseArgs {
   deviceId: string;
   commandType: "device_calibration_request" | "device_stream_open_request";
   reason?: string;
+}
+
+export interface GetSelfHostedDeviceBridgeWorkerStatusArgs extends BaseArgs {
+  workerStatus?: SelfHostedWorkerStatusFilter;
+  commandStatus?: SelfHostedCommandStatusFilter;
+  limit?: number;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -286,6 +368,34 @@ function normalizeCommandStatus(input: unknown): SelfHostedDeviceCommandDTO["sta
   return "queued";
 }
 
+function normalizeWorkerStatus(input: unknown): SelfHostedDeviceBridgeWorkerBridgeDTO["workerStatus"] {
+  if (input === "online" || input === "degraded" || input === "offline" || input === "unknown") {
+    return input;
+  }
+  return "unknown";
+}
+
+function normalizeWorkerStatusFilter(input: unknown): SelfHostedWorkerStatusFilter {
+  if (input === "all" || input === "online" || input === "degraded" || input === "offline" || input === "unknown") {
+    return input;
+  }
+  return "all";
+}
+
+function normalizeCommandStatusFilter(input: unknown): SelfHostedCommandStatusFilter {
+  if (input === "all") return "all";
+  if (
+    input === "queued" ||
+    input === "acknowledged" ||
+    input === "completed" ||
+    input === "failed" ||
+    input === "cancelled"
+  ) {
+    return input;
+  }
+  return "all";
+}
+
 export function toSelfHostedDeviceCommandDTO(input: unknown): SelfHostedDeviceCommandDTO | null {
   if (!isRecord(input)) return null;
   const id = String(input.id ?? "");
@@ -300,6 +410,89 @@ export function toSelfHostedDeviceCommandDTO(input: unknown): SelfHostedDeviceCo
     status: normalizeCommandStatus(input.status),
     reason: input.reason ? String(input.reason) : null,
     createdAt: input.createdAt ? String(input.createdAt) : null,
+  };
+}
+
+export function toSelfHostedDeviceBridgeWorkerBridgeDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeWorkerBridgeDTO | null {
+  if (!isRecord(input)) return null;
+  const id = String(input.id ?? "");
+  const bridgeCode = String(input.bridgeCode ?? "");
+  if (!id || !bridgeCode) return null;
+  return {
+    id,
+    clinicId: String(input.clinicId ?? ""),
+    bridgeCode,
+    hostName: String(input.hostName ?? ""),
+    lanStatus: normalizeLanStatus(input.lanStatus),
+    workerStatus: normalizeWorkerStatus(input.workerStatus),
+    version: String(input.version ?? ""),
+    workerVersion: String(input.workerVersion ?? input.version ?? ""),
+    lastHeartbeatAt: input.lastHeartbeatAt ? String(input.lastHeartbeatAt) : null,
+    workerLastSeenAt: input.workerLastSeenAt ? String(input.workerLastSeenAt) : null,
+    pairedCount: Number(input.pairedCount ?? 0),
+    queuedCount: Number(input.queuedCount ?? 0),
+    acknowledgedCount: Number(input.acknowledgedCount ?? 0),
+    completedCount: Number(input.completedCount ?? 0),
+    failedCount: Number(input.failedCount ?? 0),
+    latestCommandAt: input.latestCommandAt ? String(input.latestCommandAt) : null,
+    clinic: toClinic(input.clinic),
+  };
+}
+
+export function toSelfHostedDeviceBridgeWorkerCommandDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeWorkerCommandDTO | null {
+  const command = toSelfHostedDeviceCommandDTO(input);
+  if (!command || !isRecord(input)) return null;
+  return {
+    ...command,
+    bridgeCode: input.bridgeCode ? String(input.bridgeCode) : null,
+    deviceSerial: input.deviceSerial ? String(input.deviceSerial) : null,
+    dispatchedAt: input.dispatchedAt ? String(input.dispatchedAt) : null,
+    acknowledgedAt: input.acknowledgedAt ? String(input.acknowledgedAt) : null,
+    completedAt: input.completedAt ? String(input.completedAt) : null,
+    updatedAt: input.updatedAt ? String(input.updatedAt) : null,
+  };
+}
+
+export function toSelfHostedDeviceBridgeWorkerStatusDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeWorkerStatusDTO | null {
+  if (!isRecord(input)) return null;
+  const summary = isRecord(input.summary) ? input.summary : {};
+  const filters = isRecord(input.filters) ? input.filters : {};
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "postgres",
+    summary: {
+      bridgeCount: Number(summary.bridgeCount ?? 0),
+      onlineWorkers: Number(summary.onlineWorkers ?? 0),
+      degradedWorkers: Number(summary.degradedWorkers ?? 0),
+      offlineWorkers: Number(summary.offlineWorkers ?? 0),
+      queuedCommands: Number(summary.queuedCommands ?? 0),
+      failedCommands: Number(summary.failedCommands ?? 0),
+    },
+    items: Array.isArray(input.items)
+      ? input.items
+          .map(toSelfHostedDeviceBridgeWorkerBridgeDTO)
+          .filter((item): item is SelfHostedDeviceBridgeWorkerBridgeDTO => item != null)
+      : [],
+    commands: Array.isArray(input.commands)
+      ? input.commands
+          .map(toSelfHostedDeviceBridgeWorkerCommandDTO)
+          .filter((item): item is SelfHostedDeviceBridgeWorkerCommandDTO => item != null)
+      : [],
+    count: Number(input.count ?? 0),
+    commandCount: Number(input.commandCount ?? 0),
+    filters: {
+      workerStatus: normalizeWorkerStatusFilter(filters.workerStatus),
+      commandStatus: normalizeCommandStatusFilter(filters.commandStatus),
+      limit: Number(filters.limit ?? 25),
+    },
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
   };
 }
 
@@ -400,5 +593,29 @@ export async function requestSelfHostedDeviceCommand(
         kind: "http",
         code: "invalid_response",
         message: "Backend вернул некорректный ответ команды.",
+      });
+}
+
+export async function getSelfHostedDeviceBridgeWorkerStatus(
+  args: GetSelfHostedDeviceBridgeWorkerStatusArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeWorkerStatusDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const params = new URLSearchParams();
+  params.set("limit", String(args.limit ?? 25));
+  if (args.workerStatus && args.workerStatus !== "all") params.set("workerStatus", args.workerStatus);
+  if (args.commandStatus && args.commandStatus !== "all") params.set("commandStatus", args.commandStatus);
+  const result = await requestJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, `/api/v1/device-bridge-worker/status?${params.toString()}`),
+    args.apiToken as string,
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const status = toSelfHostedDeviceBridgeWorkerStatusDTO(result.value);
+  return status
+    ? ok(status)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ статуса Device Bridge worker.",
       });
 }

@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildListWorkerCommandsSql,
+  buildListWorkerTelemetrySql,
   buildUpdateWorkerCommandStatusSql,
   buildWorkerHeartbeatSql,
   createDeviceBridgeWorkerRepository,
@@ -41,6 +42,23 @@ test("worker SQL upserts heartbeat, polls queued commands, and updates lifecycle
   assert.match(updateSql, /completed_at/);
   assert.match(updateSql, /result_json/);
   assert.doesNotMatch(`${heartbeatSql}\n${listSql}\n${updateSql}`, /\bsupabase\b|api-read|api-write|edge function/i);
+});
+
+test("worker telemetry SQL returns safe bridge status and command lifecycle only", () => {
+  const sql = buildListWorkerTelemetrySql({
+    clinicIds: [CLINIC_ID],
+    allClinics: false,
+    workerStatus: "online",
+    commandStatus: "failed",
+    limit: 40,
+  });
+
+  assert.match(sql, /worker_status/i);
+  assert.match(sql, /worker_status = 'online'/);
+  assert.match(sql, /c.status = 'failed'/);
+  assert.match(sql, /queued_count/);
+  assert.match(sql, /recent_commands/);
+  assert.doesNotMatch(sql, /payload_json|result_json|worker_metadata_json|token|secret|supabase|api-read|api-write|edge function/i);
 });
 
 test("repository normalizes worker bridge and commands", async () => {
@@ -89,4 +107,60 @@ test("repository normalizes worker bridge and commands", async () => {
   assert.equal(bridge.workerStatus, "online");
   assert.equal(commands[0].payload.requestedFrom, "sys_devices");
   assert.equal(updated.status, "completed");
+});
+
+test("repository normalizes worker telemetry projection", async () => {
+  const repository = createDeviceBridgeWorkerRepository({
+    async queryJson(sql) {
+      assert.match(sql, /jsonb_build_object/);
+      return {
+        bridges: [
+          {
+            id: BRIDGE_ID,
+            clinicId: CLINIC_ID,
+            clinicSlug: "demo",
+            clinicName: "Demo Clinic",
+            bridgeCode: "bridge-01",
+            hostName: "bridge-host",
+            lanStatus: "online",
+            workerStatus: "online",
+            version: "4.0.0",
+            workerVersion: "stage4t-local-worker",
+            pairedCount: 2,
+            queuedCount: 1,
+            acknowledgedCount: 1,
+            completedCount: 3,
+            failedCount: 1,
+            workerLastSeenAt: "2026-05-14T10:00:00.000Z",
+          },
+        ],
+        commands: [
+          {
+            id: COMMAND_ID,
+            clinicId: CLINIC_ID,
+            bridgeId: BRIDGE_ID,
+            bridgeCode: "bridge-01",
+            commandType: "bridge_health_check",
+            status: "failed",
+            reason: "ops check",
+            createdAt: "2026-05-14T09:00:00.000Z",
+          },
+        ],
+      };
+    },
+  });
+
+  const result = await repository.listWorkerTelemetry({
+    clinicIds: [CLINIC_ID],
+    workerStatus: "online",
+    commandStatus: "failed",
+  });
+
+  assert.equal(result.summary.bridgeCount, 1);
+  assert.equal(result.summary.onlineWorkers, 1);
+  assert.equal(result.summary.queuedCommands, 1);
+  assert.equal(result.summary.failedCommands, 1);
+  assert.equal(result.bridges[0].workerVersion, "stage4t-local-worker");
+  assert.equal(result.commands[0].status, "failed");
+  assert.equal(result.commands[0].bridgeCode, "bridge-01");
 });

@@ -236,6 +236,48 @@ function createRuntime({
           },
         };
       },
+      async listWorkerTelemetry(authContext, searchParams) {
+        if (deviceWorkerError) throw deviceWorkerError;
+        if (!authContext.roles.includes("system_admin")) throw new ForbiddenError();
+        return {
+          source: "postgres",
+          summary: {
+            bridgeCount: 1,
+            onlineWorkers: 1,
+            degradedWorkers: 0,
+            offlineWorkers: 0,
+            queuedCommands: 1,
+            failedCommands: 1,
+          },
+          bridges: [{
+            id: "10000000-0000-4000-8000-000000000301",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            bridgeCode: "br-live-01",
+            hostName: "worker-host",
+            lanStatus: "online",
+            workerStatus: searchParams?.get?.("workerStatus") || "online",
+            workerVersion: "stage4t-local-worker",
+            workerLastSeenAt: "2026-05-14T10:00:00.000Z",
+            queuedCount: 1,
+            failedCount: 1,
+          }],
+          commands: [{
+            id: "10000000-0000-4000-8000-000000000901",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            bridgeId: "10000000-0000-4000-8000-000000000301",
+            bridgeCode: "br-live-01",
+            commandType: "bridge_health_check",
+            status: searchParams?.get?.("commandStatus") || "failed",
+            createdAt: "2026-05-14T09:00:00.000Z",
+          }],
+          filters: {
+            workerStatus: searchParams?.get?.("workerStatus") || "all",
+            commandStatus: searchParams?.get?.("commandStatus") || "all",
+            limit: Number(searchParams?.get?.("limit") || 25),
+          },
+          scope: { roles: ["system_admin"] },
+        };
+      },
     },
   };
 }
@@ -322,13 +364,13 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4S");
+  assert.equal(meta.json.stage, "4U");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
-  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete");
+  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
-  assert.equal(meta.json.links.openapi, "/openapi.stage4s.json");
+  assert.equal(meta.json.links.openapi, "/openapi.stage4u.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
   assert.equal(meta.json.links.openapiStage4B, "/openapi.stage4b.json");
   assert.equal(meta.json.links.openapiStage4C, "/openapi.stage4c.json");
@@ -340,6 +382,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage4Q, "/openapi.stage4q.json");
   assert.equal(meta.json.links.openapiStage4R, "/openapi.stage4r.json");
   assert.equal(meta.json.links.openapiStage4S, "/openapi.stage4s.json");
+  assert.equal(meta.json.links.openapiStage4U, "/openapi.stage4u.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.deviceBridges, "/api/v1/device-bridges");
@@ -347,6 +390,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.deviceBridgeWorkerHeartbeat, "/api/v1/device-bridge-worker/heartbeat");
   assert.equal(meta.json.links.deviceBridgeWorkerCommands, "/api/v1/device-bridge-worker/commands");
   assert.equal(meta.json.links.deviceBridgeWorkerCommand, "/api/v1/device-bridge-worker/commands/{commandId}");
+  assert.equal(meta.json.links.deviceBridgeWorkerStatus, "/api/v1/device-bridge-worker/status");
   assert.equal(meta.json.links.devices, "/api/v1/devices");
   assert.equal(meta.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
@@ -413,6 +457,10 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi4s.json.info.version, "4S-device-bridge-worker-contract");
   assert.ok(openapi4s.json.paths["/api/v1/device-bridge-worker/heartbeat"].post);
   assert.ok(openapi4s.json.paths["/api/v1/device-bridge-worker/commands"].get);
+  const openapi4u = await request("/openapi.stage4u.json");
+  assert.equal(openapi4u.status, 200);
+  assert.equal(openapi4u.json.info.version, "4U-device-bridge-worker-observability");
+  assert.ok(openapi4u.json.paths["/api/v1/device-bridge-worker/status"].get);
   assert.ok(openapi4q.json.paths["/api/v1/devices"].get);
   assert.ok(openapi4q.json.paths["/api/v1/device-bridges"].get);
 });
@@ -750,6 +798,47 @@ test("Stage 4S · Device Bridge worker endpoints map auth and lifecycle errors s
   assert.equal(missing.status, 404);
   assert.equal(missing.json.error.code, "command_not_found");
   assert.doesNotMatch(missing.body, /postgres:\/\/|SUPABASE_|DEVICE_BRIDGE_WORKER_TOKEN/i);
+});
+
+test("Stage 4U · system_admin reads Device Bridge worker telemetry safely", async () => {
+  const auditEvents = [];
+  const runtime = createRuntime({
+    auditEvents,
+    authContext: {
+      userId: "10000000-0000-4000-8000-000000000999",
+      displayName: "System Admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+      roleBindings: [{ role: "system_admin", clinicId: null, clinicSlug: null }],
+      token: {},
+    },
+  });
+  const response = await request(
+    "/api/v1/device-bridge-worker/status?workerStatus=online&commandStatus=failed&limit=10",
+    configuredEnv,
+    runtime,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "4U");
+  assert.equal(response.json.summary.bridgeCount, 1);
+  assert.equal(response.json.items[0].workerVersion, "stage4t-local-worker");
+  assert.equal(response.json.commands[0].status, "failed");
+  assert.equal(response.json.filters.workerStatus, "online");
+  assert.deepEqual(response.json.auth.roles, ["system_admin"]);
+  assert.doesNotMatch(response.body, /stage4s-worker-token|payload_json|result_json|access_token|storage_object_path|patient_full_name|navigator\./i);
+});
+
+test("Stage 4U · Device Bridge worker telemetry denies non-system-admin", async () => {
+  const response = await request(
+    "/api/v1/device-bridge-worker/status",
+    configuredEnv,
+    createRuntime(),
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(response.json.error.code, "forbidden");
+  assert.doesNotMatch(response.body, /DEVICE_BRIDGE_WORKER_TOKEN|postgres:\/\/|SUPABASE_/i);
 });
 
 test("auth login returns a bearer token without leaking password material", async () => {
@@ -1321,7 +1410,7 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4S");
+  assert.equal(response.json.stage, "4U");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
@@ -1335,12 +1424,14 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage4Q, "/openapi.stage4q.json");
   assert.equal(response.json.links.openapiStage4R, "/openapi.stage4r.json");
   assert.equal(response.json.links.openapiStage4S, "/openapi.stage4s.json");
+  assert.equal(response.json.links.openapiStage4U, "/openapi.stage4u.json");
   assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(response.json.links.deviceBridges, "/api/v1/device-bridges");
   assert.equal(response.json.links.deviceBridgeCommands, "/api/v1/device-bridges/{bridgeId}/commands");
   assert.equal(response.json.links.deviceBridgeWorkerHeartbeat, "/api/v1/device-bridge-worker/heartbeat");
   assert.equal(response.json.links.deviceBridgeWorkerCommands, "/api/v1/device-bridge-worker/commands");
+  assert.equal(response.json.links.deviceBridgeWorkerStatus, "/api/v1/device-bridge-worker/status");
   assert.equal(response.json.links.devices, "/api/v1/devices");
   assert.equal(response.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");

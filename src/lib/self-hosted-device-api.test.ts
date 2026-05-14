@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
+  getSelfHostedDeviceBridgeWorkerStatus,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   toSelfHostedDeviceBridgeDTO,
+  toSelfHostedDeviceBridgeWorkerStatusDTO,
   toSelfHostedDeviceCommandDTO,
   toSelfHostedDeviceDTO,
 } from "./self-hosted-device-api";
@@ -64,6 +66,51 @@ describe("self-hosted-device-api", () => {
     expect(command?.commandType).toBe("device_calibration_request");
     expect(JSON.stringify(command)).not.toContain("payload_json");
     expect(JSON.stringify(command)).not.toContain("rawDriver");
+  });
+
+  it("normalizes worker status DTO without exposing worker payload internals", () => {
+    const status = toSelfHostedDeviceBridgeWorkerStatusDTO({
+      stage: "4U",
+      source: "postgres",
+      summary: { bridgeCount: 1, onlineWorkers: 1, queuedCommands: 2, failedCommands: 1 },
+      items: [
+        {
+          id: "br-1",
+          clinicId: "clinic-1",
+          bridgeCode: "br-msk-01",
+          hostName: "host",
+          lanStatus: "online",
+          workerStatus: "online",
+          workerVersion: "stage4t-local-worker",
+          queuedCount: 2,
+          failedCount: 1,
+          worker_metadata_json: { secret: true },
+        },
+      ],
+      commands: [
+        {
+          id: "cmd-1",
+          clinicId: "clinic-1",
+          bridgeId: "br-1",
+          bridgeCode: "br-msk-01",
+          commandType: "bridge_health_check",
+          status: "failed",
+          result_json: { token: "hidden" },
+          payload_json: { driver: "hidden" },
+        },
+      ],
+      filters: { workerStatus: "online", commandStatus: "failed", limit: 10 },
+      access_token: "secret",
+      storage_object_path: "hidden",
+    });
+
+    expect(status?.summary.onlineWorkers).toBe(1);
+    expect(status?.items[0].workerVersion).toBe("stage4t-local-worker");
+    expect(status?.commands[0].status).toBe("failed");
+    expect(JSON.stringify(status)).not.toContain("worker_metadata_json");
+    expect(JSON.stringify(status)).not.toContain("payload_json");
+    expect(JSON.stringify(status)).not.toContain("result_json");
+    expect(JSON.stringify(status)).not.toContain("access_token");
   });
 
   it("returns not_configured before network calls when token is missing", async () => {
@@ -164,5 +211,37 @@ describe("self-hosted-device-api", () => {
     expect(bridge.value?.commandType).toBe("bridge_health_check");
     expect(device.value?.deviceId).toBe("device-1");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("fetches Device Bridge worker status with safe filters and bearer auth", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          stage: "4U",
+          source: "postgres",
+          summary: { bridgeCount: 1, onlineWorkers: 1, queuedCommands: 1, failedCommands: 0 },
+          items: [{ id: "br-1", bridgeCode: "br-msk-01", workerStatus: "online", lanStatus: "online" }],
+          commands: [{ id: "cmd-1", commandType: "bridge_health_check", status: "queued" }],
+          filters: { workerStatus: "online", commandStatus: "queued", limit: 10 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const result = await getSelfHostedDeviceBridgeWorkerStatus({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      workerStatus: "online",
+      commandStatus: "queued",
+      limit: 10,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.summary.bridgeCount).toBe(1);
+    expect(result.value?.commands[0].status).toBe("queued");
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "http://localhost:8080/api/v1/device-bridge-worker/status?limit=10&workerStatus=online&commandStatus=queued",
+    );
+    expect((fetchMock.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
   });
 });

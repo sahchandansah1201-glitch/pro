@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ShieldAlert, Search } from "lucide-react";
+import { Activity, RadioTower, ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,10 @@ import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
+  getSelfHostedDeviceBridgeWorkerStatus,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
+  type SelfHostedDeviceBridgeWorkerStatusDTO,
   type SelfHostedDeviceBridgeDTO,
   type SelfHostedDeviceDTO,
 } from "@/lib/self-hosted-device-api";
@@ -54,6 +56,21 @@ const LAN_TONE = {
   online: "hsl(var(--success))",
   degraded: "hsl(var(--warning))",
   offline: "hsl(var(--destructive))",
+};
+
+const WORKER_STATUS_LABEL: Record<string, string> = {
+  online: "Worker online",
+  degraded: "Worker degraded",
+  offline: "Worker offline",
+  unknown: "Worker unknown",
+};
+
+const COMMAND_STATUS_LABEL: Record<string, string> = {
+  queued: "В очереди",
+  acknowledged: "Принята",
+  completed: "Выполнена",
+  failed: "Ошибка",
+  cancelled: "Отменена",
 };
 
 type DevStatus = "connected" | "standby" | "offline";
@@ -135,6 +152,8 @@ export default function SysDevicesPage() {
   const [liveBridges, setLiveBridges] = useState<BridgeRow[] | null>(null);
   const [loadStatus, setLoadStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [workerStatus, setWorkerStatus] = useState<SelfHostedDeviceBridgeWorkerStatusDTO | null>(null);
+  const [workerStatusError, setWorkerStatusError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -144,6 +163,8 @@ export default function SysDevicesPage() {
     if (!session.apiToken) {
       setLiveDevices(null);
       setLiveBridges(null);
+      setWorkerStatus(null);
+      setWorkerStatusError(null);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -152,6 +173,7 @@ export default function SysDevicesPage() {
     let cancelled = false;
     setLoadStatus("loading");
     setLoadError(null);
+    setWorkerStatusError(null);
     Promise.all([
       listSelfHostedDeviceBridges({
         apiBaseUrl: session.apiBaseUrl,
@@ -162,17 +184,31 @@ export default function SysDevicesPage() {
         apiToken: session.apiToken,
         limit: 200,
       }),
-    ]).then(([bridgeResult, deviceResult]) => {
+      getSelfHostedDeviceBridgeWorkerStatus({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+        workerStatus: "all",
+        commandStatus: "all",
+        limit: 25,
+      }),
+    ]).then(([bridgeResult, deviceResult, workerResult]) => {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
         setLoadError(bridgeResult.error?.message || deviceResult.error?.message || "Не удалось загрузить устройства.");
         setLiveDevices(null);
         setLiveBridges(null);
+        setWorkerStatus(null);
         return;
       }
       setLiveBridges((bridgeResult.value ?? []).map(bridgeFromDto));
       setLiveDevices((deviceResult.value ?? []).map(deviceFromDto));
+      if (workerResult?.ok) {
+        setWorkerStatus(workerResult.value ?? null);
+      } else {
+        setWorkerStatus(null);
+        setWorkerStatusError(workerResult?.error?.message || "Не удалось загрузить Device Bridge worker status.");
+      }
       setLoadStatus("ready");
     });
 
@@ -308,6 +344,115 @@ export default function SysDevicesPage() {
             {loadStatus === "ready" && "Реестр устройств загружен из backend."}
             {loadStatus === "error" && (loadError || "Не удалось загрузить реестр устройств.")}
           </div>
+        )}
+
+        {isLive && (
+          <section
+            className="space-y-2"
+            aria-label="Device Bridge worker observability"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <RadioTower className="h-3.5 w-3.5" aria-hidden />
+                Worker runtime
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                Stage 4U /api/v1/device-bridge-worker/status
+              </span>
+            </div>
+            <Card className="p-3">
+              {workerStatus ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                    <WorkerMetric label="Bridge workers" value={workerStatus.summary.bridgeCount} />
+                    <WorkerMetric label="Online" value={workerStatus.summary.onlineWorkers} />
+                    <WorkerMetric label="Degraded" value={workerStatus.summary.degradedWorkers} />
+                    <WorkerMetric label="Offline" value={workerStatus.summary.offlineWorkers} />
+                    <WorkerMetric label="Queued commands" value={workerStatus.summary.queuedCommands} />
+                    <WorkerMetric label="Failed commands" value={workerStatus.summary.failedCommands} />
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
+                    <div
+                      role="region"
+                      aria-label="Device Bridge worker heartbeat list"
+                      className="rounded-md border border-border"
+                    >
+                      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Heartbeat
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {workerStatus.items.length > 0 ? workerStatus.items.map((bridge) => (
+                          <div key={bridge.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                            <div className="min-w-0">
+                              <div className="truncate font-mono text-[11px] font-semibold">{bridge.bridgeCode}</div>
+                              <div className="truncate text-[11px] text-muted-foreground">
+                                {bridge.hostName || "host не указан"} · {bridge.workerVersion || "version unknown"}
+                              </div>
+                            </div>
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {WORKER_STATUS_LABEL[bridge.workerStatus] ?? bridge.workerStatus}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {formatDateTime(bridge.workerLastSeenAt ?? bridge.lastHeartbeatAt ?? "")}
+                            </span>
+                          </div>
+                        )) : (
+                          <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
+                            Worker telemetry пока не поступала.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      role="region"
+                      aria-label="Device Bridge worker command lifecycle"
+                      className="rounded-md border border-border"
+                    >
+                      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Command lifecycle
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {workerStatus.commands.slice(0, 5).map((command) => (
+                          <div key={command.id} className="px-3 py-2 text-[12px]">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate font-mono text-[11px]">{command.commandType}</span>
+                              <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                                {COMMAND_STATUS_LABEL[command.status] ?? command.status}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              {command.bridgeCode ?? "bridge"} · {formatDateTime(command.createdAt ?? "")}
+                            </div>
+                          </div>
+                        ))}
+                        {workerStatus.commands.length === 0 ? (
+                          <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
+                            Команд worker runtime пока нет.
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    role="note"
+                    aria-label="Device Bridge worker privacy boundary"
+                    className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+                  >
+                    <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span>
+                      Показываются только lifecycle-метаданные. Служебные секреты, сырые payloads,
+                      storage paths, patient names и browser hardware APIs не выводятся в UI.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div role="status" className="text-[12px] text-muted-foreground">
+                  {workerStatusError || "Device Bridge worker observability ожидает ответ backend."}
+                </div>
+              )}
+            </Card>
+          </section>
         )}
 
         {/* Bridges */}
@@ -585,6 +730,19 @@ export default function SysDevicesPage() {
           />
         </section>
       </div>
+    </div>
+  );
+}
+
+function WorkerMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div
+      role="region"
+      aria-label={label}
+      className="rounded-md border border-border bg-surface px-3 py-2"
+    >
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 text-[18px] font-semibold tabular-nums text-foreground">{value}</div>
     </div>
   );
 }
