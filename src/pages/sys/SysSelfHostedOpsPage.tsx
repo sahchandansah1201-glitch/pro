@@ -22,9 +22,12 @@ import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   buildStage4POperationsPreview,
   buildStage4OAuditExportPreview,
+  buildStage4ZProductReadinessPreview,
+  fetchSelfHostedProductReadiness,
   fetchSelfHostedOpsRuntimeChecks,
   fetchSelfHostedOpsStatus,
   STAGE4O_AUDIT_EXPORT_COMMAND,
+  type SelfHostedProductReadiness,
   type SelfHostedOpsRuntimeChecks,
   type SelfHostedOpsStatus,
 } from "@/lib/self-hosted-ops-api";
@@ -70,6 +73,7 @@ export default function SysSelfHostedOpsPage() {
   const session = useSelfHostedApiSession();
   const [opsStatus, setOpsStatus] = useState<SelfHostedOpsStatus | null>(null);
   const [runtimeChecks, setRuntimeChecks] = useState<SelfHostedOpsRuntimeChecks | null>(null);
+  const [productReadiness, setProductReadiness] = useState<SelfHostedProductReadiness | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("Self-hosted ops console готова.");
@@ -86,11 +90,12 @@ export default function SysSelfHostedOpsPage() {
     if (!isConfigured) {
       setOpsStatus(null);
       setRuntimeChecks(null);
+      setProductReadiness(null);
       setStatusMessage("Self-hosted backend-сессия не подключена.");
       return;
     }
     setLoading(true);
-    const [statusResult, runtimeResult] = await Promise.all([
+    const [statusResult, runtimeResult, productResult] = await Promise.all([
       fetchSelfHostedOpsStatus({
         apiBaseUrl: session.apiBaseUrl,
         apiToken: session.apiToken,
@@ -99,11 +104,16 @@ export default function SysSelfHostedOpsPage() {
         apiBaseUrl: session.apiBaseUrl,
         apiToken: session.apiToken,
       }),
+      fetchSelfHostedProductReadiness({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      }),
     ]);
     setLoading(false);
     if (!statusResult.ok || !statusResult.value) {
       setOpsStatus(null);
       setRuntimeChecks(null);
+      setProductReadiness(null);
       setError(statusResult.error?.message ?? "Не удалось загрузить ops status.");
       setStatusMessage("Ops status не загружен.");
       return;
@@ -116,9 +126,16 @@ export default function SysSelfHostedOpsPage() {
       return;
     }
     setRuntimeChecks(runtimeResult.value);
+    if (!productResult.ok || !productResult.value) {
+      setProductReadiness(null);
+      setError(productResult.error?.message ?? "Не удалось загрузить product readiness.");
+      setStatusMessage("Ops status и runtime checks загружены, product readiness недоступен.");
+      return;
+    }
+    setProductReadiness(productResult.value);
     setStatusMessage(
-      `Ops status и runtime checks обновлены. Correlation: ${
-        runtimeResult.value.correlationId || statusResult.value.correlationId || "нет"
+      `Ops status, runtime checks и product readiness обновлены. Correlation: ${
+        productResult.value.correlationId || runtimeResult.value.correlationId || statusResult.value.correlationId || "нет"
       }.`,
     );
   }
@@ -138,6 +155,12 @@ export default function SysSelfHostedOpsPage() {
     const content = buildStage4POperationsPreview(runtimeChecks);
     downloadText("stage4p-operations-preview.md", content);
     setStatusMessage("Operations dry-run preview скачан.");
+  }
+
+  function downloadProductReadinessPlan() {
+    const content = buildStage4ZProductReadinessPreview(productReadiness);
+    downloadText("stage4z-product-readiness-preview.md", content);
+    setStatusMessage("Product readiness preview скачан.");
   }
 
   return (
@@ -178,9 +201,9 @@ export default function SysSelfHostedOpsPage() {
           <div>
             <div className="font-medium text-foreground">Self-hosted boundary</div>
             <p>
-              Страница читает только наш backend `/api/v1/ops/status` и
-              `/api/v1/ops/runtime-checks`. Managed runtime, внешние облачные базы
-              данных и edge functions не используются.
+              Страница читает только наш backend `/api/v1/ops/status`,
+              `/api/v1/ops/runtime-checks` и `/api/v1/product/readiness`.
+              Managed runtime, внешние облачные базы данных и hosted function runtimes не используются.
             </p>
           </div>
         </div>
@@ -236,7 +259,7 @@ export default function SysSelfHostedOpsPage() {
         ) : null}
 
         <section
-          className="grid gap-3 md:grid-cols-3 xl:grid-cols-5"
+          className="grid gap-3 md:grid-cols-3 xl:grid-cols-6"
           aria-label="Сводка self-hosted ops"
         >
           <MetricTile
@@ -264,6 +287,102 @@ export default function SysSelfHostedOpsPage() {
             value={runtimeChecks ? statusLabel(runtimeChecks.status) : "Ожидает"}
             hint={`${runtimeChecks?.checks.length ?? 0} checks`}
           />
+          <MetricTile
+            label="Product readiness"
+            value={productReadiness ? "Готов" : "Ожидает"}
+            hint={productReadiness?.status ?? "stage 4Z"}
+          />
+        </section>
+
+        <section className="surface-card overflow-hidden" aria-label="Self-hosted product readiness">
+          <div className="section-bar">
+            <div>
+              <h2 className="h-section">Product readiness</h2>
+              <p className="h-section-hint">
+                Единая проверка, что frontend, backend, PostgreSQL, object storage и Device Bridge
+                разворачиваются как цельный self-hosted продукт.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={productReadiness ? "default" : "secondary"}>
+                {productReadiness?.status ?? "pending"}
+              </Badge>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[12px]"
+                onClick={downloadProductReadinessPlan}
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden />
+                Скачать readiness
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-4 p-4 xl:grid-cols-[1fr_1fr]">
+            <div className="space-y-3">
+              <StatusLine
+                icon={<ServerCog className="h-4 w-4" aria-hidden />}
+                label="Managed runtime"
+                value={productReadiness?.productBoundary.managedRuntime ?? "none"}
+              />
+              <StatusLine
+                icon={<Database className="h-4 w-4" aria-hidden />}
+                label="Managed database"
+                value={productReadiness?.productBoundary.managedDatabase ?? "none"}
+              />
+              <StatusLine
+                icon={<ShieldCheck className="h-4 w-4" aria-hidden />}
+                label="Managed app runtime coupling"
+                value={productReadiness?.productBoundary.supabaseRuntimeCoupling ? "есть" : "нет"}
+              />
+              <StatusLine
+                icon={<Lock className="h-4 w-4" aria-hidden />}
+                label="Browser hardware APIs"
+                value={productReadiness?.productBoundary.browserHardwareApis ? "есть" : "нет"}
+              />
+            </div>
+            <div className="space-y-2">
+              {(productReadiness?.gates ?? []).slice(0, 5).map((gate) => (
+                <div key={gate.key} className="rounded-md border border-border bg-surface-muted p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-medium text-foreground">{gate.label}</div>
+                    <Badge variant={gate.required ? "default" : "secondary"}>
+                      {gate.required ? "required" : "optional"}
+                    </Badge>
+                  </div>
+                  <code className="mt-2 block break-words rounded border border-border bg-background px-2 py-1 font-mono text-[11px]">
+                    {gate.command}
+                  </code>
+                </div>
+              ))}
+              {!productReadiness ? (
+                <div className="rounded-md border border-border bg-surface-muted p-3 text-meta">
+                  Product readiness появится после system_admin self-hosted session.
+                </div>
+              ) : null}
+            </div>
+          </div>
+          {productReadiness ? (
+            <div className="border-t border-border p-4">
+              <div className="mb-2 text-[12px] font-medium text-muted-foreground">
+                Capabilities
+              </div>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {productReadiness.capabilities.map((capability) => (
+                  <div key={capability.key} className="rounded-md border border-border px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-medium text-foreground">{capability.label}</div>
+                      <Badge variant="secondary">{capability.status}</Badge>
+                    </div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      {capability.evidence.join(" / ")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">

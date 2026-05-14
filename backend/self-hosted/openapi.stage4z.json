@@ -1,0 +1,46 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted product readiness",
+    "version": "4Z-self-hosted-product-readiness",
+    "description": "Stage 4Z exposes a system-admin self-hosted product readiness manifest for the complete server-deployable product: frontend, backend, operator-owned PostgreSQL, operator-owned object storage, local auth/RBAC, clinical workflows, Device Bridge operations, observability, backup/restore and deploy gates. No managed app runtime, managed database, hosted function runtime, browser hardware API, patient names, object keys, storage paths, signed URLs, tokens, passwords or raw environment values are exposed."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/product/readiness": {
+      "get": {
+        "summary": "Read self-hosted product readiness",
+        "description": "Returns a safe readiness manifest for system-admin release and server deployment review. The response contains product boundary, capabilities, deploy gates, OpenAPI references and privacy rules only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe self-hosted product readiness manifest"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "system_admin required"
+          }
+        }
+      }
+    }
+  }
+}

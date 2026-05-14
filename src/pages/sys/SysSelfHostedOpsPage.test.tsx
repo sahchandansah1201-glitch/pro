@@ -89,6 +89,40 @@ const RUNTIME_CHECKS_BODY = {
   correlationId: "corr-4p",
 };
 
+const PRODUCT_READINESS_BODY = {
+  stage: "4Z",
+  source: "self-hosted",
+  status: "ready_for_server_deploy",
+  productBoundary: {
+    deployment: "single self-hosted product",
+    frontend: "static React build served by nginx",
+    backend: "Node self-hosted API",
+    database: "operator-owned PostgreSQL",
+    objectStorage: "operator-owned object storage",
+    managedRuntime: "none",
+    managedDatabase: "none",
+    supabaseRuntimeCoupling: false,
+    browserHardwareApis: false,
+  },
+  capabilities: [
+    { key: "frontend", label: "React frontend", status: "ready", evidence: ["dist build"] },
+    { key: "device_bridge", label: "Device Bridge worker operations", status: "ready", evidence: ["audit export"] },
+  ],
+  gates: [
+    { key: "full_preflight", label: "Full deterministic preflight", command: "npm run preflight:all", required: true },
+    { key: "compose_smoke", label: "Self-hosted compose smoke", command: "npm run smoke:stage4k", required: true },
+  ],
+  openapi: ["/openapi.stage4y.json", "/openapi.stage4z.json"],
+  privacy: {
+    redaction: "enabled",
+    exportedData: "metadata-only operational readiness",
+    excluded: ["tokens", "passwords", "patient names", "storage paths"],
+  },
+  auth: { userId: "u-1", roles: ["system_admin"] },
+  generatedAt: "2026-05-14T00:00:00.000Z",
+  correlationId: "corr-4z",
+};
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -159,6 +193,11 @@ describe("SysSelfHostedOpsPage", () => {
       access_token: "secret",
       patient_full_name: "Ivanova Natalia",
       storage_object_path: "bucket/key",
+    })).mockResolvedValueOnce(jsonResponse({
+      ...PRODUCT_READINESS_BODY,
+      access_token: "secret",
+      patient_full_name: "Ivanova Natalia",
+      storage_object_path: "bucket/key",
     }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -181,6 +220,13 @@ describe("SysSelfHostedOpsPage", () => {
         headers: expect.objectContaining({ Authorization: "Bearer jwt-ops" }),
       }),
     );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/api/v1/product/readiness",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt-ops" }),
+      }),
+    );
     expect(screen.getByRole("region", { name: "Self-hosted dependencies" })).toHaveTextContent("postgres");
     expect(screen.getByRole("region", { name: "Self-hosted runtime checks" })).toHaveTextContent(
       "PostgreSQL connectivity",
@@ -190,6 +236,12 @@ describe("SysSelfHostedOpsPage", () => {
     );
     expect(screen.getByRole("region", { name: "Self-hosted observability contract" })).toHaveTextContent(
       "Structured JSON logs",
+    );
+    expect(screen.getByRole("region", { name: "Self-hosted product readiness" })).toHaveTextContent(
+      "npm run preflight:all",
+    );
+    expect(screen.getByRole("region", { name: "Self-hosted product readiness" })).toHaveTextContent(
+      "Managed runtime",
     );
     expect(screen.getByLabelText("Предпросмотр audit export dry-run")).toHaveTextContent(
       "npm run ops:stage4n:audit-export:dry-run",
@@ -204,6 +256,17 @@ describe("SysSelfHostedOpsPage", () => {
   it("shows role warning and backend 403 message for non-system-admin session", async () => {
     seedSession(["doctor"]);
     const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            code: "forbidden",
+            message: "The authenticated user does not have access to this resource.",
+          },
+          correlationId: "corr-denied",
+        },
+        { status: 403 },
+      ),
+    ).mockResolvedValueOnce(
       jsonResponse(
         {
           error: {
@@ -246,7 +309,8 @@ describe("SysSelfHostedOpsPage", () => {
       "fetch",
       vi.fn()
         .mockResolvedValueOnce(jsonResponse(OPS_STATUS_BODY))
-        .mockResolvedValueOnce(jsonResponse(RUNTIME_CHECKS_BODY)),
+        .mockResolvedValueOnce(jsonResponse(RUNTIME_CHECKS_BODY))
+        .mockResolvedValueOnce(jsonResponse(PRODUCT_READINESS_BODY)),
     );
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
@@ -268,7 +332,8 @@ describe("SysSelfHostedOpsPage", () => {
       "fetch",
       vi.fn()
         .mockResolvedValueOnce(jsonResponse(OPS_STATUS_BODY))
-        .mockResolvedValueOnce(jsonResponse(RUNTIME_CHECKS_BODY)),
+        .mockResolvedValueOnce(jsonResponse(RUNTIME_CHECKS_BODY))
+        .mockResolvedValueOnce(jsonResponse(PRODUCT_READINESS_BODY)),
     );
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
@@ -283,6 +348,31 @@ describe("SysSelfHostedOpsPage", () => {
     expect(click).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("status", { name: "Статус self-hosted ops" })).toHaveTextContent(
       /Operations dry-run preview скачан/,
+    );
+  });
+
+  it("downloads a safe product readiness preview", async () => {
+    seedSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse(OPS_STATUS_BODY))
+        .mockResolvedValueOnce(jsonResponse(RUNTIME_CHECKS_BODY))
+        .mockResolvedValueOnce(jsonResponse(PRODUCT_READINESS_BODY)),
+    );
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: "Self-hosted product readiness" })).toHaveTextContent(
+        "Self-hosted compose smoke",
+      );
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Скачать readiness" }));
+
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status", { name: "Статус self-hosted ops" })).toHaveTextContent(
+      /Product readiness preview скачан/,
     );
   });
 });

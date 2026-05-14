@@ -79,6 +79,40 @@ const RUNTIME_CHECKS = {
   correlationId: "corr-e2e-runtime",
 };
 
+const PRODUCT_READINESS = {
+  stage: "4Z",
+  source: "self-hosted",
+  status: "ready_for_server_deploy",
+  productBoundary: {
+    deployment: "single self-hosted product",
+    frontend: "static React build served by nginx",
+    backend: "Node self-hosted API",
+    database: "operator-owned PostgreSQL",
+    objectStorage: "operator-owned object storage",
+    managedRuntime: "none",
+    managedDatabase: "none",
+    supabaseRuntimeCoupling: false,
+    browserHardwareApis: false,
+  },
+  capabilities: [
+    { key: "frontend", label: "React frontend", status: "ready", evidence: ["dist build"] },
+    { key: "device_bridge", label: "Device Bridge worker operations", status: "ready", evidence: ["audit export"] },
+  ],
+  gates: [
+    { key: "full_preflight", label: "Full deterministic preflight", command: "npm run preflight:all", required: true },
+    { key: "compose_smoke", label: "Self-hosted compose smoke", command: "npm run smoke:stage4k", required: true },
+  ],
+  openapi: ["/openapi.stage4y.json", "/openapi.stage4z.json"],
+  privacy: {
+    redaction: "enabled",
+    exportedData: "metadata-only operational readiness",
+    excluded: ["tokens", "passwords", "patient names", "storage paths"],
+  },
+  auth: { userId: "u-1", roles: ["system_admin"] },
+  generatedAt: "2026-05-14T00:00:00.000Z",
+  correlationId: "corr-e2e-product",
+};
+
 test.describe("/sys/self-hosted-ops", () => {
   test("system_admin sees ops status and safe audit export preview", async ({ page }) => {
     await setDemoRole(page, "system_admin");
@@ -116,6 +150,19 @@ test.describe("/sys/self-hosted-ops", () => {
         }),
       });
     });
+    await page.route("http://localhost:8080/api/v1/product/readiness", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-e2e");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...PRODUCT_READINESS,
+          access_token: "secret",
+          patient_full_name: "Ivanova Natalia",
+          storage_object_path: "bucket/key",
+        }),
+      });
+    });
 
     await page.goto("/sys/self-hosted-ops", { waitUntil: "networkidle" });
 
@@ -130,6 +177,12 @@ test.describe("/sys/self-hosted-ops", () => {
     );
     await expect(page.getByRole("region", { name: "Self-hosted observability contract" })).toContainText(
       "Structured JSON logs",
+    );
+    await expect(page.getByRole("region", { name: "Self-hosted product readiness" })).toContainText(
+      "npm run preflight:all",
+    );
+    await expect(page.getByRole("region", { name: "Self-hosted product readiness" })).toContainText(
+      "Managed runtime",
     );
     await expect(page.getByLabel("Предпросмотр audit export dry-run")).toContainText(
       "npm run ops:stage4n:audit-export:dry-run",
@@ -159,6 +212,17 @@ test.describe("/sys/self-hosted-ops", () => {
     expect(operationsText).toContain("Stage 4P operations preview");
     expect(operationsText).toContain("npm run smoke:stage4k:dry-run");
     expect(operationsText).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
+
+    const readinessDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Скачать readiness" }).click();
+    const readiness = await readinessDownload;
+    expect(readiness.suggestedFilename()).toBe("stage4z-product-readiness-preview.md");
+    const readinessPath = await readiness.path();
+    expect(readinessPath).not.toBeNull();
+    const readinessText = await readFile(readinessPath!, "utf8");
+    expect(readinessText).toContain("Stage 4Z product readiness preview");
+    expect(readinessText).toContain("npm run preflight:all");
+    expect(readinessText).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
   });
 
   test("clinic_admin demo role is blocked by route guard", async ({ page }) => {

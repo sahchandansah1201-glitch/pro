@@ -570,13 +570,13 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4Y");
+  assert.equal(meta.json.stage, "4Z");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
-  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export");
+  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
-  assert.equal(meta.json.links.openapi, "/openapi.stage4y.json");
+  assert.equal(meta.json.links.openapi, "/openapi.stage4z.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
   assert.equal(meta.json.links.openapiStage4B, "/openapi.stage4b.json");
   assert.equal(meta.json.links.openapiStage4C, "/openapi.stage4c.json");
@@ -593,8 +593,10 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage4W, "/openapi.stage4w.json");
   assert.equal(meta.json.links.openapiStage4X, "/openapi.stage4x.json");
   assert.equal(meta.json.links.openapiStage4Y, "/openapi.stage4y.json");
+  assert.equal(meta.json.links.openapiStage4Z, "/openapi.stage4z.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
+  assert.equal(meta.json.links.productReadiness, "/api/v1/product/readiness");
   assert.equal(meta.json.links.deviceBridges, "/api/v1/device-bridges");
   assert.equal(meta.json.links.deviceBridgeCommands, "/api/v1/device-bridges/{bridgeId}/commands");
   assert.equal(meta.json.links.deviceBridgeWorkerHeartbeat, "/api/v1/device-bridge-worker/heartbeat");
@@ -694,6 +696,10 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi4y.status, 200);
   assert.equal(openapi4y.json.info.version, "4Y-device-bridge-audit-export");
   assert.ok(openapi4y.json.paths["/api/v1/device-bridge-worker/audit/export"].get);
+  const openapi4z = await request("/openapi.stage4z.json");
+  assert.equal(openapi4z.status, 200);
+  assert.equal(openapi4z.json.info.version, "4Z-self-hosted-product-readiness");
+  assert.ok(openapi4z.json.paths["/api/v1/product/readiness"].get);
   assert.ok(openapi4q.json.paths["/api/v1/devices"].get);
   assert.ok(openapi4q.json.paths["/api/v1/device-bridges"].get);
 });
@@ -748,6 +754,45 @@ test("ops status is system-admin only, safe, audited, and correlation-aware", as
   );
   assert.equal(anonymous.status, 401);
   assert.equal(anonymous.json.error.code, "auth_required");
+});
+
+test("Stage 4Z · product readiness is system-admin only, safe, and audited", async () => {
+  const auditEvents = [];
+  const runtime = createRuntime({
+    auditEvents,
+    authContext: {
+      userId: "10000000-0000-4000-8000-000000000999",
+      displayName: "System Admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+      roleBindings: [{ role: "system_admin", clinicId: null, clinicSlug: null }],
+      token: {},
+    },
+  });
+
+  const response = await request("/api/v1/product/readiness", configuredEnv, runtime);
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "4Z");
+  assert.equal(response.json.source, "self-hosted");
+  assert.equal(response.json.status, "ready_for_server_deploy");
+  assert.equal(response.json.productBoundary.managedRuntime, "none");
+  assert.equal(response.json.productBoundary.managedDatabase, "none");
+  assert.equal(response.json.productBoundary.supabaseRuntimeCoupling, false);
+  assert.equal(response.json.productBoundary.browserHardwareApis, false);
+  assert.ok(response.json.capabilities.some((item) => item.key === "frontend"));
+  assert.ok(response.json.capabilities.some((item) => item.key === "device_bridge"));
+  assert.ok(response.json.gates.some((item) => item.command === "npm run preflight:all"));
+  assert.ok(response.json.openapi.includes("/openapi.stage4z.json"));
+  assert.deepEqual(response.json.auth.roles, ["system_admin"]);
+  assert.equal(auditEvents.at(-1).action, "product.readiness.read");
+  assert.doesNotMatch(
+    response.body,
+    /SUPABASE_|access_token|storage_object_path|patient_full_name|signed_url|navigator\.|postgres:\/\//i,
+  );
+
+  const denied = await request("/api/v1/product/readiness", configuredEnv, createRuntime());
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
 });
 
 test("ops runtime checks are system-admin only, safe, audited, and self-hosted", async () => {
@@ -1885,7 +1930,7 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4Y");
+  assert.equal(response.json.stage, "4Z");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
@@ -1904,8 +1949,10 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage4W, "/openapi.stage4w.json");
   assert.equal(response.json.links.openapiStage4X, "/openapi.stage4x.json");
   assert.equal(response.json.links.openapiStage4Y, "/openapi.stage4y.json");
+  assert.equal(response.json.links.openapiStage4Z, "/openapi.stage4z.json");
   assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
+  assert.equal(response.json.links.productReadiness, "/api/v1/product/readiness");
   assert.equal(response.json.links.deviceBridges, "/api/v1/device-bridges");
   assert.equal(response.json.links.deviceBridgeCommands, "/api/v1/device-bridges/{bridgeId}/commands");
   assert.equal(response.json.links.deviceBridgeWorkerHeartbeat, "/api/v1/device-bridge-worker/heartbeat");

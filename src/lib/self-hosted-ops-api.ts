@@ -84,6 +84,51 @@ export interface SelfHostedOpsRuntimeChecks {
   correlationId: string;
 }
 
+export interface SelfHostedProductCapability {
+  key: string;
+  label: string;
+  status: string;
+  evidence: string[];
+}
+
+export interface SelfHostedProductGate {
+  key: string;
+  label: string;
+  command: string;
+  required: boolean;
+}
+
+export interface SelfHostedProductReadiness {
+  stage: "4Z" | string;
+  source: "self-hosted" | string;
+  status: string;
+  productBoundary: {
+    deployment: string;
+    frontend: string;
+    backend: string;
+    database: string;
+    objectStorage: string;
+    managedRuntime: string;
+    managedDatabase: string;
+    supabaseRuntimeCoupling: boolean;
+    browserHardwareApis: boolean;
+  };
+  capabilities: SelfHostedProductCapability[];
+  gates: SelfHostedProductGate[];
+  openapi: string[];
+  privacy: {
+    redaction: string;
+    exportedData: string;
+    excluded: string[];
+  };
+  auth: {
+    userId: string;
+    roles: string[];
+  };
+  generatedAt: string;
+  correlationId: string;
+}
+
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
@@ -194,6 +239,31 @@ function toCommand(input: unknown): SelfHostedOpsCommand | null {
   };
 }
 
+function toProductCapability(input: unknown): SelfHostedProductCapability | null {
+  if (!isRecord(input)) return null;
+  const key = typeof input.key === "string" ? input.key : "";
+  if (!key) return null;
+  return {
+    key,
+    label: typeof input.label === "string" ? input.label : key,
+    status: typeof input.status === "string" ? input.status : "unknown",
+    evidence: toStringArray(input.evidence),
+  };
+}
+
+function toProductGate(input: unknown): SelfHostedProductGate | null {
+  if (!isRecord(input)) return null;
+  const key = typeof input.key === "string" ? input.key : "";
+  const command = typeof input.command === "string" ? input.command : "";
+  if (!key || !command) return null;
+  return {
+    key,
+    label: typeof input.label === "string" ? input.label : key,
+    command,
+    required: Boolean(input.required),
+  };
+}
+
 export function toSelfHostedOpsStatus(input: unknown): SelfHostedOpsStatus | null {
   if (!isRecord(input)) return null;
   return {
@@ -258,6 +328,47 @@ export function toSelfHostedOpsRuntimeChecks(input: unknown): SelfHostedOpsRunti
   };
 }
 
+export function toSelfHostedProductReadiness(input: unknown): SelfHostedProductReadiness | null {
+  if (!isRecord(input)) return null;
+  const boundary = isRecord(input.productBoundary) ? input.productBoundary : {};
+  const privacy = isRecord(input.privacy) ? input.privacy : {};
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "self-hosted",
+    status: typeof input.status === "string" ? input.status : "unknown",
+    productBoundary: {
+      deployment: typeof boundary.deployment === "string" ? boundary.deployment : "single self-hosted product",
+      frontend: typeof boundary.frontend === "string" ? boundary.frontend : "static React build served by nginx",
+      backend: typeof boundary.backend === "string" ? boundary.backend : "Node self-hosted API",
+      database: typeof boundary.database === "string" ? boundary.database : "operator-owned PostgreSQL",
+      objectStorage:
+        typeof boundary.objectStorage === "string" ? boundary.objectStorage : "operator-owned object storage",
+      managedRuntime: typeof boundary.managedRuntime === "string" ? boundary.managedRuntime : "none",
+      managedDatabase: typeof boundary.managedDatabase === "string" ? boundary.managedDatabase : "none",
+      supabaseRuntimeCoupling: Boolean(boundary.supabaseRuntimeCoupling),
+      browserHardwareApis: Boolean(boundary.browserHardwareApis),
+    },
+    capabilities: Array.isArray(input.capabilities)
+      ? input.capabilities.map(toProductCapability).filter((item): item is SelfHostedProductCapability => item != null)
+      : [],
+    gates: Array.isArray(input.gates)
+      ? input.gates.map(toProductGate).filter((item): item is SelfHostedProductGate => item != null)
+      : [],
+    openapi: toStringArray(input.openapi),
+    privacy: {
+      redaction: typeof privacy.redaction === "string" ? privacy.redaction : "enabled",
+      exportedData: typeof privacy.exportedData === "string" ? privacy.exportedData : "metadata-only",
+      excluded: toStringArray(privacy.excluded),
+    },
+    auth: {
+      userId: isRecord(input.auth) && typeof input.auth.userId === "string" ? input.auth.userId : "",
+      roles: isRecord(input.auth) ? toStringArray(input.auth.roles) : [],
+    },
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+  };
+}
+
 async function getJson<T>(
   args: BaseArgs,
   path: string,
@@ -305,6 +416,12 @@ export async function fetchSelfHostedOpsRuntimeChecks(
   args: BaseArgs,
 ): Promise<SelfHostedApiResult<SelfHostedOpsRuntimeChecks>> {
   return getJson(args, "/api/v1/ops/runtime-checks", toSelfHostedOpsRuntimeChecks);
+}
+
+export async function fetchSelfHostedProductReadiness(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<SelfHostedProductReadiness>> {
+  return getJson(args, "/api/v1/product/readiness", toSelfHostedProductReadiness);
 }
 
 export const STAGE4O_AUDIT_EXPORT_COMMAND =
@@ -357,6 +474,33 @@ export function buildStage4POperationsPreview(runtime: SelfHostedOpsRuntimeCheck
       "",
     ]),
     "- Excluded: request bodies, tokens, passwords, patient names, object keys, storage paths, raw env values",
+    "",
+  ].join("\n");
+}
+
+export function buildStage4ZProductReadinessPreview(readiness: SelfHostedProductReadiness | null): string {
+  const gates = readiness?.gates?.length
+    ? readiness.gates
+    : [
+        { label: "Full deterministic preflight", command: "npm run preflight:all", required: true },
+        { label: "Self-hosted compose smoke", command: "npm run smoke:stage4k", required: true },
+      ];
+  return [
+    "# Stage 4Z product readiness preview",
+    "",
+    `- Status: ${readiness?.status ?? "unknown"}`,
+    "- Boundary: self-hosted frontend + backend + operator-owned PostgreSQL + operator-owned object storage",
+    "- Managed runtime: none",
+    "- Managed database: none",
+    "- Managed app runtime coupling: false",
+    "",
+    ...gates.flatMap((item) => [
+      `## ${item.label}`,
+      `- Command: ${item.command}`,
+      `- Required: ${item.required ? "yes" : "no"}`,
+      "",
+    ]),
+    "- Excluded: tokens, passwords, patient names, object keys, storage paths, signed URLs, raw env values",
     "",
   ].join("\n");
 }

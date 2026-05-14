@@ -3,9 +3,12 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import {
   buildStage4POperationsPreview,
   buildStage4OAuditExportPreview,
+  buildStage4ZProductReadinessPreview,
+  fetchSelfHostedProductReadiness,
   fetchSelfHostedOpsRuntimeChecks,
   fetchSelfHostedOpsStatus,
   STAGE4O_AUDIT_EXPORT_COMMAND,
+  toSelfHostedProductReadiness,
   toSelfHostedOpsRuntimeChecks,
   toSelfHostedOpsStatus,
 } from "@/lib/self-hosted-ops-api";
@@ -87,6 +90,40 @@ const RUNTIME_CHECKS_BODY = {
   correlationId: "corr-4p",
 };
 
+const PRODUCT_READINESS_BODY = {
+  stage: "4Z",
+  source: "self-hosted",
+  status: "ready_for_server_deploy",
+  productBoundary: {
+    deployment: "single self-hosted product",
+    frontend: "static React build served by nginx",
+    backend: "Node self-hosted API",
+    database: "operator-owned PostgreSQL",
+    objectStorage: "operator-owned object storage",
+    managedRuntime: "none",
+    managedDatabase: "none",
+    supabaseRuntimeCoupling: false,
+    browserHardwareApis: false,
+  },
+  capabilities: [
+    { key: "frontend", label: "React frontend", status: "ready", evidence: ["dist build"] },
+    { key: "device_bridge", label: "Device Bridge worker operations", status: "ready", evidence: ["audit export"] },
+  ],
+  gates: [
+    { key: "full_preflight", label: "Full deterministic preflight", command: "npm run preflight:all", required: true },
+    { key: "compose_smoke", label: "Self-hosted compose smoke", command: "npm run smoke:stage4k", required: true },
+  ],
+  openapi: ["/openapi.stage4y.json", "/openapi.stage4z.json"],
+  privacy: {
+    redaction: "enabled",
+    exportedData: "metadata-only operational readiness",
+    excluded: ["tokens", "passwords", "patient names", "storage paths"],
+  },
+  auth: { userId: "u-1", roles: ["system_admin"] },
+  generatedAt: "2026-05-14T00:00:00.000Z",
+  correlationId: "corr-4z",
+};
+
 describe("self-hosted-ops-api", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -157,6 +194,41 @@ describe("self-hosted-ops-api", () => {
     );
   });
 
+  it("normalizes and fetches /api/v1/product/readiness safely", async () => {
+    const normalized = toSelfHostedProductReadiness({
+      ...PRODUCT_READINESS_BODY,
+      access_token: "secret",
+      storage_object_path: "bucket/key",
+      patient_full_name: "Ivanova Natalia",
+    });
+    expect(normalized?.stage).toBe("4Z");
+    expect(normalized?.productBoundary.managedRuntime).toBe("none");
+    expect(normalized?.productBoundary.managedDatabase).toBe("none");
+    expect(normalized?.productBoundary.supabaseRuntimeCoupling).toBe(false);
+    expect(normalized?.capabilities.map((item) => item.key)).toContain("device_bridge");
+    expect(JSON.stringify(normalized)).not.toContain("secret");
+    expect(JSON.stringify(normalized)).not.toContain("bucket/key");
+    expect(JSON.stringify(normalized)).not.toContain("Ivanova Natalia");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(PRODUCT_READINESS_BODY));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await fetchSelfHostedProductReadiness({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.gates[0].command).toBe("npm run preflight:all");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/api/v1/product/readiness",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt-1",
+        }),
+      }),
+    );
+  });
+
   it("returns not_configured without token", async () => {
     const result = await fetchSelfHostedOpsStatus({
       apiBaseUrl: "http://localhost:8080",
@@ -181,6 +253,17 @@ describe("self-hosted-ops-api", () => {
     expect(preview).toContain("Stage 4P operations preview");
     expect(preview).toContain("npm run ops:stage4l:backup:dry-run");
     expect(preview).toContain("npm run smoke:stage4k:dry-run");
+    expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=|patient_full_name/i);
+  });
+
+  it("builds safe Stage 4Z product readiness preview", () => {
+    const preview = buildStage4ZProductReadinessPreview(
+      toSelfHostedProductReadiness(PRODUCT_READINESS_BODY),
+    );
+    expect(preview).toContain("Stage 4Z product readiness preview");
+    expect(preview).toContain("npm run preflight:all");
+    expect(preview).toContain("npm run smoke:stage4k");
+    expect(preview).toContain("Managed runtime: none");
     expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=|patient_full_name/i);
   });
 });

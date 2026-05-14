@@ -42,6 +42,7 @@ import {
 import { createLocalObjectStore } from "./object-store.mjs";
 import { extractCorrelationId, safeRequestPath } from "./ops-logger.mjs";
 import { collectSelfHostedOpsRuntimeChecks } from "./ops-runtime-checks.mjs";
+import { buildSelfHostedProductReadiness } from "./product-readiness.mjs";
 import { deviceReadScope, opsStatusScope, patientReadScope, visitReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
 import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
@@ -101,6 +102,9 @@ const OPENAPI_4X = JSON.parse(
 );
 const OPENAPI_4Y = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4y.json"), "utf8"),
+);
+const OPENAPI_4Z = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4z.json"), "utf8"),
 );
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
@@ -1621,6 +1625,53 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/product/readiness") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = opsStatusScope(authContext);
+      const readiness = buildSelfHostedProductReadiness({
+        config,
+        generatedAt: now(),
+        correlationId,
+      });
+      await recordAuditBestEffort(
+        runtimeServices.auditRepository,
+        {
+          clinicId: null,
+          actorUserId: authContext.userId,
+          action: "product.readiness.read",
+          entityType: "self_hosted_product",
+          correlationId,
+          metadata: {
+            status: readiness.status,
+            capabilityCount: readiness.capabilities.length,
+            gateCount: readiness.gates.length,
+          },
+        },
+      );
+      return jsonResponse(
+        200,
+        {
+          ...readiness,
+          auth: {
+            userId: authContext.userId,
+            roles: scope.roles,
+          },
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({
+        ...publicError,
+        correlationId,
+        config,
+        requestOrigin,
+      });
+    }
+  }
+
   if (url.pathname === "/api/v1/device-bridges" && method === "GET") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -1760,7 +1811,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4Y",
+        stage: "4Z",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -1770,13 +1821,13 @@ export async function handleSelfHostedRequest(
           lesions: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
-          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export",
+          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness",
           reports: "rbac-write-postgres",
           observability: "structured-json-logs-redacted-ops-status-runtime-checks",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4y.json",
+          openapi: "/openapi.stage4z.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
@@ -1795,10 +1846,12 @@ export async function handleSelfHostedRequest(
           openapiStage4W: "/openapi.stage4w.json",
           openapiStage4X: "/openapi.stage4x.json",
           openapiStage4Y: "/openapi.stage4y.json",
+          openapiStage4Z: "/openapi.stage4z.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
           opsRuntimeChecks: "/api/v1/ops/runtime-checks",
+          productReadiness: "/api/v1/product/readiness",
           deviceBridges: "/api/v1/device-bridges",
           deviceBridgeCommands: "/api/v1/device-bridges/{bridgeId}/commands",
           deviceBridgeWorkerHeartbeat: "/api/v1/device-bridge-worker/heartbeat",
@@ -1904,10 +1957,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4Y, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4z.json") {
+    return jsonResponse(200, OPENAPI_4Z, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4S self-hosted backend route matched the request.",
+    message: "No Stage 4Z self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,
