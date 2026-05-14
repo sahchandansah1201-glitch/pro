@@ -1,0 +1,213 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Device Bridge audit export",
+    "version": "4Y-device-bridge-audit-export",
+    "description": "Stage 4Y exposes safe system-admin Device Bridge command audit export and preserves backend-owned replay controls. Audit export returns CSV content with safe operational metadata only; raw audit metadata, command payloads, worker results, storage paths, patient names, signed URLs, and browser hardware APIs are not exposed."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/device-bridge-worker/audit": {
+      "get": {
+        "summary": "Read Device Bridge command audit",
+        "description": "Returns safe append-only command audit metadata for system-admin review. Raw audit metadata_json, command payload_json, result_json, worker tokens, patient names, storage paths, and signed URLs are not returned.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "poll",
+                "ack",
+                "complete",
+                "reschedule",
+                "cancel",
+                "replay"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "queued",
+                "acknowledged",
+                "completed",
+                "failed",
+                "cancelled"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe Device Bridge command audit projection"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only system_admin can read command audit data"
+          }
+        }
+      }
+    },
+    "/api/v1/device-bridge-worker/commands/{commandId}/replay": {
+      "post": {
+        "summary": "Replay a safe Device Bridge command",
+        "description": "Creates a new queued command from a completed, failed, or cancelled source command using backend-only payload reuse. Replay is limited by policy to safe command types and never returns raw payloads to the browser.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "commandId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 240
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Replay command queued"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only system_admin can replay commands"
+          },
+          "404": {
+            "description": "Replayable command not found"
+          },
+          "422": {
+            "description": "Invalid replay request"
+          }
+        }
+      }
+    },
+    "/api/v1/device-bridge-worker/audit/export": {
+      "get": {
+        "summary": "Export Device Bridge command audit CSV",
+        "description": "Returns a safe CSV export payload for system-admin review. The export excludes raw metadata_json, payload_json, result_json, worker tokens, storage paths, patient names, signed URLs, and browser hardware APIs.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "poll",
+                "ack",
+                "complete",
+                "reschedule",
+                "cancel",
+                "replay"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "queued",
+                "acknowledged",
+                "completed",
+                "failed",
+                "cancelled"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe Device Bridge command audit CSV export"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only system_admin can export command audit data"
+          }
+        }
+      }
+    }
+  }
+}

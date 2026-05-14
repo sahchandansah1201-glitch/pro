@@ -189,6 +189,15 @@ export function normalizeWorkerCommandAuditQuery(searchParams = new URLSearchPar
   };
 }
 
+export function normalizeWorkerCommandAuditExportQuery(searchParams = new URLSearchParams()) {
+  const query = normalizeWorkerCommandAuditQuery(searchParams);
+  return {
+    ...query,
+    limit: Math.min(query.limit, 100),
+    format: "csv",
+  };
+}
+
 export function normalizeWorkerCommandUpdate(input = {}) {
   if (!isPlainObject(input)) {
     throw new DeviceBridgeWorkerValidationError([{ field: "body", message: "JSON object is required." }]);
@@ -242,6 +251,80 @@ function auditActionForStatus(status) {
   return status === "acknowledged"
     ? "device_bridge.command.ack"
     : "device_bridge.command.complete";
+}
+
+function csvCell(value) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function buildCommandAuditCsv(events = [], query = {}) {
+  const header = [
+    "event_id",
+    "created_at",
+    "action",
+    "command_id",
+    "bridge_code",
+    "device_serial",
+    "command_type",
+    "status",
+    "attempt_count",
+    "lifecycle_revision",
+    "replay_policy",
+    "replay_of_command_id",
+    "correlation_id",
+  ];
+  const lines = [
+    `# stage,4Y`,
+    `# scope,device_bridge_command_audit`,
+    `# action,${query.action || "all"}`,
+    `# status,${query.status || "all"}`,
+    header.map(csvCell).join(","),
+  ];
+  for (const event of events) {
+    lines.push([
+      event.id,
+      event.createdAt,
+      event.action,
+      event.commandId,
+      event.bridgeCode,
+      event.deviceSerial,
+      event.commandType,
+      event.status,
+      event.attemptCount,
+      event.lifecycleRevision,
+      event.replayPolicy,
+      event.replayOfCommandId,
+      event.correlationId,
+    ].map(csvCell).join(","));
+  }
+  return lines.join("\n");
+}
+
+export function buildWorkerCommandAuditExport(result, query) {
+  const events = Array.isArray(result?.events) ? result.events : [];
+  const safeAction = query?.action || "all";
+  const safeStatus = query?.status || "all";
+  const excludedFieldCount = [
+    "metadata_json",
+    "payload_json",
+    "result_json",
+    "worker_token",
+    "storage_object_path",
+    "patient_full_name",
+    "signed_url",
+  ].length;
+  return {
+    format: "csv",
+    mime: "text/csv;charset=utf-8",
+    filename: `device-bridge-command-audit-${safeAction}-${safeStatus}-${events.length}-rows.csv`,
+    rowCount: events.length,
+    content: buildCommandAuditCsv(events, query),
+    privacy: {
+      payloadVisibility: "backend-only",
+      excludedFieldCount,
+      exportedFieldSet: "safe-command-metadata-only",
+    },
+  };
 }
 
 function requireCommand(command) {
@@ -464,6 +547,39 @@ export function createDeviceBridgeWorkerService({
       });
       return {
         ...result,
+        scope,
+        query,
+      };
+    },
+
+    async exportWorkerCommandAudit(authContext, searchParams, { correlationId } = {}) {
+      const scope = opsStatusScope(authContext);
+      const query = normalizeWorkerCommandAuditExportQuery(searchParams);
+      const result = await deviceBridgeWorkerRepository.listWorkerCommandAudit({
+        ...query,
+        clinicIds: [],
+        allClinics: true,
+      });
+      const exportFile = buildWorkerCommandAuditExport(result, query);
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "device_bridge.command.audit.export",
+        entityType: "device_bridge_command",
+        correlationId,
+        metadata: {
+          rowCount: exportFile.rowCount,
+          action: query.action,
+          status: query.status,
+          format: exportFile.format,
+          roles: scope.roles,
+        },
+      });
+      return {
+        source: result.source,
+        policy: result.policy,
+        filters: result.filters,
+        export: exportFile,
         scope,
         query,
       };

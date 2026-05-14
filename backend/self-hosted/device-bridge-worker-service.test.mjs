@@ -3,8 +3,10 @@ import { test } from "node:test";
 
 import {
   DeviceBridgeWorkerValidationError,
+  buildWorkerCommandAuditExport,
   createDeviceBridgeWorkerService,
   normalizeWorkerCommandUpdate,
+  normalizeWorkerCommandAuditExportQuery,
   normalizeWorkerCommandAuditQuery,
   normalizeWorkerHardeningQuery,
   normalizeWorkerHeartbeat,
@@ -327,6 +329,9 @@ test("normalizes worker command audit query and replay payloads", () => {
   const query = normalizeWorkerCommandAuditQuery(
     new URLSearchParams({ action: "replay", status: "cancelled", limit: "500" }),
   );
+  const exportQuery = normalizeWorkerCommandAuditExportQuery(
+    new URLSearchParams({ action: "cancel", status: "completed", limit: "500" }),
+  );
   const fallback = normalizeWorkerCommandAuditQuery(
     new URLSearchParams({ action: "raw", status: "secret", limit: "-1" }),
   );
@@ -339,12 +344,47 @@ test("normalizes worker command audit query and replay payloads", () => {
     status: "cancelled",
     limit: 100,
   });
+  assert.deepEqual(exportQuery, {
+    action: "cancel",
+    status: "completed",
+    limit: 100,
+    format: "csv",
+  });
   assert.deepEqual(fallback, {
     action: "all",
     status: "all",
     limit: 25,
   });
   assert.equal(replay.reason, "Повторить safe command");
+});
+
+test("builds safe Device Bridge command audit CSV export", () => {
+  const exportFile = buildWorkerCommandAuditExport({
+    events: [{
+      id: "audit-1",
+      createdAt: "2026-05-14T08:05:00Z",
+      action: "replay",
+      commandId: COMMAND_ID,
+      bridgeCode: "bridge-01",
+      deviceSerial: "DL5-1",
+      commandType: "bridge_health_check",
+      status: "failed",
+      attemptCount: 3,
+      lifecycleRevision: 4,
+      replayPolicy: "manual_system_admin",
+      replayOfCommandId: "source-command",
+      correlationId: "corr-1",
+      metadata_json: { token: "secret" },
+      payload_json: { raw: true },
+    }],
+  }, { action: "replay", status: "failed" });
+
+  assert.equal(exportFile.filename, "device-bridge-command-audit-replay-failed-1-rows.csv");
+  assert.equal(exportFile.rowCount, 1);
+  assert.match(exportFile.content, /# stage,4Y/);
+  assert.match(exportFile.content, /"event_id","created_at","action"/);
+  assert.match(exportFile.content, /"audit-1"/);
+  assert.doesNotMatch(exportFile.content, /metadata_json|payload_json|result_json|secret|raw/);
 });
 
 test("records heartbeat, polls commands, and audits command lifecycle", async () => {
@@ -488,6 +528,15 @@ test("lists command audit and replays commands through system_admin RBAC", async
     new URLSearchParams({ action: "replay", status: "queued", limit: "10" }),
     { correlationId: "corr-worker-audit" },
   );
+  const exportFile = await service.exportWorkerCommandAudit(
+    {
+      userId: "10000000-0000-4000-8000-000000000999",
+      roles: ["system_admin"],
+      clinicIds: [],
+    },
+    new URLSearchParams({ action: "replay", status: "queued", limit: "10" }),
+    { correlationId: "corr-worker-export" },
+  );
   const replay = await service.replayCommand(
     COMMAND_ID,
     {
@@ -502,10 +551,14 @@ test("lists command audit and replays commands through system_admin RBAC", async
   assert.equal(audit.summary.replayEvents, 1);
   assert.equal(audit.policy.payloadVisibility, "backend-only");
   assert.equal(audit.events[0].action, "replay");
+  assert.equal(exportFile.export.rowCount, 1);
+  assert.match(exportFile.export.content, /"audit-1"/);
+  assert.equal(exportFile.export.privacy.payloadVisibility, "backend-only");
   assert.equal(replay.command.status, "queued");
   assert.equal(replay.command.replayOfCommandId, COMMAND_ID);
   assert.deepEqual(replay.scope.roles, ["system_admin"]);
-  assert.equal(auditEvents.at(-2).action, "device_bridge.command.audit.read");
+  assert.equal(auditEvents.at(-3).action, "device_bridge.command.audit.read");
+  assert.equal(auditEvents.at(-2).action, "device_bridge.command.audit.export");
   assert.equal(auditEvents.at(-1).action, "device_bridge.command.replay");
 });
 
@@ -514,6 +567,18 @@ test("denies command audit and replay to non-system-admin roles", async () => {
 
   await assert.rejects(
     () => service.listWorkerCommandAudit(
+      {
+        userId: "10000000-0000-4000-8000-000000000777",
+        roles: ["clinic_admin"],
+        clinicIds: [CLINIC_ID],
+      },
+      new URLSearchParams(),
+    ),
+    (error) => error.publicCode === "forbidden" && error.publicStatus === 403,
+  );
+
+  await assert.rejects(
+    () => service.exportWorkerCommandAudit(
       {
         userId: "10000000-0000-4000-8000-000000000777",
         roles: ["clinic_admin"],

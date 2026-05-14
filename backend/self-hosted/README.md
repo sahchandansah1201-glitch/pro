@@ -41,9 +41,10 @@ PostgreSQL client used by the container image.
 - `openapi.stage4n.json` — production observability status contract.
 - `openapi.stage4q.json`, `openapi.stage4r.json`, `openapi.stage4s.json`,
   `openapi.stage4u.json`, `openapi.stage4v.json`, `openapi.stage4w.json`,
-  `openapi.stage4x.json` —
+  `openapi.stage4x.json`, `openapi.stage4y.json` —
   Device Bridge registry, command queue, worker contract, worker observability,
-  production hardening, command recovery, and command audit/replay boundaries.
+  production hardening, command recovery, command audit/replay, and command
+  audit export boundaries.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -123,6 +124,9 @@ npm run preflight:stage4w
 npm run test:stage4x
 npm run check:stage4x
 npm run preflight:stage4x
+npm run test:stage4y
+npm run check:stage4y
+npm run preflight:stage4y
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -180,3 +184,8 @@ manual replay endpoint at `/api/v1/device-bridge-worker/audit` and
 payload server-side in PostgreSQL, but the API/UI return only safe command
 metadata and never expose worker tokens, raw payloads, storage paths, patient
 identifiers, or browser hardware APIs.
+Stage 4Y adds a backend-owned CSV export endpoint at
+`/api/v1/device-bridge-worker/audit/export`; exports include safe command
+metadata and filter metadata only, log `device_bridge.command.audit.export`,
+and never expose raw payloads, worker tokens, storage paths, patient
+identifiers, signed URLs, or browser hardware APIs.
