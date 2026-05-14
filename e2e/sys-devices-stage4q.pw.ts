@@ -155,6 +155,65 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
         }),
       });
     });
+    await page.route("http://localhost:8080/api/v1/device-bridge-worker/recovery?limit=25&staleAfterMinutes=10&leaseTtlSeconds=90", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4W",
+          source: "postgres",
+          summary: {
+            stuckCommands: 1,
+            expiredCommands: 0,
+            leaseExpiredCommands: 1,
+            retryableCommands: 1,
+            cancellableCommands: 2,
+          },
+          policy: { staleAfterMinutes: 10, leaseTtlSeconds: 90, maxRecoveryBatch: 100, allowedActions: ["reschedule", "cancel"] },
+          items: [
+            {
+              id: "cmd-recovery-e2e",
+              clinicId: "clinic-1",
+              bridgeId: "br-uuid",
+              bridgeCode: "br-live-01",
+              commandType: "bridge_health_check",
+              status: "failed",
+              attemptCount: 3,
+              lifecycleRevision: 2,
+              recoveryState: "retryable_failed",
+              payload_json: { secret: true },
+              result_json: { token: "hidden" },
+            },
+          ],
+          filters: { staleAfterMinutes: 10, leaseTtlSeconds: 90, limit: 25 },
+        }),
+      });
+    });
+    await page.route("http://localhost:8080/api/v1/device-bridge-worker/commands/cmd-recovery-e2e/recovery", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      expect(route.request().method()).toBe("POST");
+      const body = route.request().postDataJSON();
+      expect(body.action).toBe("reschedule");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4W",
+          command: {
+            id: "cmd-recovery-e2e",
+            clinicId: "clinic-1",
+            bridgeId: "br-uuid",
+            bridgeCode: "br-live-01",
+            commandType: "bridge_health_check",
+            status: "queued",
+            attemptCount: 3,
+            recoveryAction: "reschedule",
+          },
+          recovery: { action: "reschedule", persisted: true },
+        }),
+      });
+    });
     await page.route("http://localhost:8080/api/v1/device-bridges/br-uuid/commands", async (route) => {
       expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
       expect(route.request().method()).toBe("POST");
@@ -209,6 +268,12 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     await expect(page.getByRole("region", { name: "Device Bridge worker hardening policy" })).toContainText(
       "linear-capped",
     );
+    await expect(page.getByRole("region", { name: "Device Bridge command recovery", exact: true })).toContainText(
+      "Retryable failed",
+    );
+    await expect(page.getByRole("region", { name: "Device Bridge command recovery queue" })).toContainText(
+      "retryable_failed",
+    );
     await expect(page.getByText("Реестр устройств загружен из backend.")).toBeVisible();
     await expect(page.getByText("Браузер не подключается к драйверу напрямую")).toBeVisible();
 
@@ -216,6 +281,8 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     await expect(page.getByText(/cmd-bridge-e2e/)).toBeVisible();
     await page.getByRole("button", { name: "Запросить калибровку" }).first().click();
     await expect(page.getByText(/cmd-device-e2e/)).toBeVisible();
+    await page.getByRole("button", { name: "Повторить" }).click();
+    await expect(page.getByText(/cmd-recovery-e2e возвращена в очередь/)).toBeVisible();
 
     const html = await page.locator("main").innerHTML();
     expect(html).not.toContain("access_token");

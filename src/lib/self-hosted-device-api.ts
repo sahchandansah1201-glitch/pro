@@ -183,6 +183,49 @@ export interface SelfHostedDeviceBridgeWorkerHardeningDTO {
   generatedAt: string;
 }
 
+export interface SelfHostedDeviceBridgeWorkerRecoverySummaryDTO {
+  stuckCommands: number;
+  expiredCommands: number;
+  leaseExpiredCommands: number;
+  retryableCommands: number;
+  cancellableCommands: number;
+}
+
+export interface SelfHostedDeviceBridgeWorkerRecoveryCommandDTO extends SelfHostedDeviceBridgeWorkerCommandDTO {
+  attemptCount: number;
+  lifecycleRevision: number;
+  lastPolledAt: string | null;
+  nextAttemptAt: string | null;
+  leaseOwner: string | null;
+  leaseExpiresAt: string | null;
+  expiresAt: string | null;
+  recoveryAction: string | null;
+  recoveryReason: string | null;
+  recoveryRequestedAt: string | null;
+  recoveryState: string | null;
+}
+
+export interface SelfHostedDeviceBridgeWorkerRecoveryDTO {
+  stage: "4W" | string;
+  source: "postgres" | string;
+  summary: SelfHostedDeviceBridgeWorkerRecoverySummaryDTO;
+  policy: {
+    staleAfterMinutes: number;
+    leaseTtlSeconds: number;
+    maxRecoveryBatch: number;
+    allowedActions: string[];
+  };
+  items: SelfHostedDeviceBridgeWorkerRecoveryCommandDTO[];
+  count: number;
+  filters: {
+    limit: number;
+    staleAfterMinutes: number;
+    leaseTtlSeconds: number;
+  };
+  correlationId: string;
+  generatedAt: string;
+}
+
 export interface SelfHostedDeviceBridgeWorkerStatusDTO {
   stage: "4U" | string;
   source: "postgres" | string;
@@ -222,6 +265,18 @@ export interface GetSelfHostedDeviceBridgeWorkerHardeningArgs extends BaseArgs {
   staleAfterMinutes?: number;
   retentionDays?: number;
   limit?: number;
+}
+
+export interface GetSelfHostedDeviceBridgeWorkerRecoveryArgs extends BaseArgs {
+  staleAfterMinutes?: number;
+  leaseTtlSeconds?: number;
+  limit?: number;
+}
+
+export interface RecoverSelfHostedDeviceBridgeWorkerCommandArgs extends BaseArgs {
+  commandId: string;
+  action: "reschedule" | "cancel";
+  reason?: string;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -608,6 +663,66 @@ export function toSelfHostedDeviceBridgeWorkerHardeningDTO(
   };
 }
 
+export function toSelfHostedDeviceBridgeWorkerRecoveryCommandDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeWorkerRecoveryCommandDTO | null {
+  const command = toSelfHostedDeviceBridgeWorkerCommandDTO(input);
+  if (!command || !isRecord(input)) return null;
+  return {
+    ...command,
+    attemptCount: Number(input.attemptCount ?? 0),
+    lifecycleRevision: Number(input.lifecycleRevision ?? 0),
+    lastPolledAt: input.lastPolledAt ? String(input.lastPolledAt) : null,
+    nextAttemptAt: input.nextAttemptAt ? String(input.nextAttemptAt) : null,
+    leaseOwner: input.leaseOwner ? String(input.leaseOwner) : null,
+    leaseExpiresAt: input.leaseExpiresAt ? String(input.leaseExpiresAt) : null,
+    expiresAt: input.expiresAt ? String(input.expiresAt) : null,
+    recoveryAction: input.recoveryAction ? String(input.recoveryAction) : null,
+    recoveryReason: input.recoveryReason ? String(input.recoveryReason) : null,
+    recoveryRequestedAt: input.recoveryRequestedAt ? String(input.recoveryRequestedAt) : null,
+    recoveryState: input.recoveryState ? String(input.recoveryState) : null,
+  };
+}
+
+export function toSelfHostedDeviceBridgeWorkerRecoveryDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeWorkerRecoveryDTO | null {
+  if (!isRecord(input)) return null;
+  const summary = isRecord(input.summary) ? input.summary : {};
+  const policy = isRecord(input.policy) ? input.policy : {};
+  const filters = isRecord(input.filters) ? input.filters : {};
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "postgres",
+    summary: {
+      stuckCommands: Number(summary.stuckCommands ?? 0),
+      expiredCommands: Number(summary.expiredCommands ?? 0),
+      leaseExpiredCommands: Number(summary.leaseExpiredCommands ?? 0),
+      retryableCommands: Number(summary.retryableCommands ?? 0),
+      cancellableCommands: Number(summary.cancellableCommands ?? 0),
+    },
+    policy: {
+      staleAfterMinutes: Number(policy.staleAfterMinutes ?? 10),
+      leaseTtlSeconds: Number(policy.leaseTtlSeconds ?? 90),
+      maxRecoveryBatch: Number(policy.maxRecoveryBatch ?? 100),
+      allowedActions: Array.isArray(policy.allowedActions) ? policy.allowedActions.map(String) : ["reschedule", "cancel"],
+    },
+    items: Array.isArray(input.items)
+      ? input.items
+          .map(toSelfHostedDeviceBridgeWorkerRecoveryCommandDTO)
+          .filter((item): item is SelfHostedDeviceBridgeWorkerRecoveryCommandDTO => item != null)
+      : [],
+    count: Number(input.count ?? 0),
+    filters: {
+      limit: Number(filters.limit ?? 25),
+      staleAfterMinutes: Number(filters.staleAfterMinutes ?? 10),
+      leaseTtlSeconds: Number(filters.leaseTtlSeconds ?? 90),
+    },
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+  };
+}
+
 function extractItems<T>(body: unknown, mapper: (item: unknown) => T | null): T[] {
   const rawItems = isRecord(body) && Array.isArray(body.items) ? body.items : [];
   return rawItems.map(mapper).filter((item): item is T => item != null);
@@ -753,5 +868,62 @@ export async function getSelfHostedDeviceBridgeWorkerHardening(
         kind: "http",
         code: "invalid_response",
         message: "Backend вернул некорректный ответ hardening Device Bridge worker.",
+      });
+}
+
+export async function getSelfHostedDeviceBridgeWorkerRecovery(
+  args: GetSelfHostedDeviceBridgeWorkerRecoveryArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeWorkerRecoveryDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const params = new URLSearchParams();
+  params.set("limit", String(args.limit ?? 25));
+  params.set("staleAfterMinutes", String(args.staleAfterMinutes ?? 10));
+  params.set("leaseTtlSeconds", String(args.leaseTtlSeconds ?? 90));
+  const result = await requestJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, `/api/v1/device-bridge-worker/recovery?${params.toString()}`),
+    args.apiToken as string,
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const recovery = toSelfHostedDeviceBridgeWorkerRecoveryDTO(result.value);
+  return recovery
+    ? ok(recovery)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ recovery Device Bridge worker.",
+      });
+}
+
+export async function recoverSelfHostedDeviceBridgeWorkerCommand(
+  args: RecoverSelfHostedDeviceBridgeWorkerCommandArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeWorkerRecoveryCommandDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  if (!args.commandId) {
+    return fail({
+      kind: "validation",
+      code: "command_id_required",
+      message: "Не выбрана команда Device Bridge worker.",
+    });
+  }
+  const result = await postJson(
+    buildSelfHostedApiUrl(
+      args.apiBaseUrl,
+      `/api/v1/device-bridge-worker/commands/${encodeURIComponent(args.commandId)}/recovery`,
+    ),
+    args.apiToken as string,
+    { action: args.action, reason: args.reason },
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const command = isRecord(result.value)
+    ? toSelfHostedDeviceBridgeWorkerRecoveryCommandDTO(result.value.command)
+    : null;
+  return command
+    ? ok(command)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ восстановления команды Device Bridge worker.",
       });
 }

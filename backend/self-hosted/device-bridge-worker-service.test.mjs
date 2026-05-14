@@ -7,6 +7,8 @@ import {
   normalizeWorkerCommandUpdate,
   normalizeWorkerHardeningQuery,
   normalizeWorkerHeartbeat,
+  normalizeWorkerRecoveryAction,
+  normalizeWorkerRecoveryQuery,
   normalizeWorkerTelemetryQuery,
 } from "./device-bridge-worker-service.mjs";
 
@@ -117,6 +119,55 @@ function createService({ auditEvents = [], command = {} } = {}) {
           allClinics: true,
         };
       },
+      async listWorkerRecovery(params) {
+        return {
+          source: "postgres",
+          summary: {
+            stuckCommands: 1,
+            expiredCommands: 1,
+            leaseExpiredCommands: 1,
+            retryableCommands: 1,
+            cancellableCommands: 2,
+          },
+          policy: {
+            staleAfterMinutes: params.staleAfterMinutes,
+            leaseTtlSeconds: params.leaseTtlSeconds,
+            maxRecoveryBatch: 100,
+            allowedActions: ["reschedule", "cancel"],
+          },
+          commands: [{
+            id: COMMAND_ID,
+            clinicId: CLINIC_ID,
+            bridgeId: BRIDGE_ID,
+            commandType: "bridge_health_check",
+            status: "failed",
+            attemptCount: 3,
+            recoveryState: "retryable_failed",
+          }],
+          filters: {
+            limit: params.limit,
+            staleAfterMinutes: params.staleAfterMinutes,
+            leaseTtlSeconds: params.leaseTtlSeconds,
+          },
+          clinicIds: [],
+          allClinics: true,
+        };
+      },
+      async recoverCommand(params) {
+        if (command === null) return null;
+        return {
+          id: params.commandId,
+          clinicId: CLINIC_ID,
+          bridgeId: BRIDGE_ID,
+          commandType: "bridge_health_check",
+          status: params.action === "cancel" ? "cancelled" : "queued",
+          attemptCount: 3,
+          lifecycleRevision: 4,
+          recoveryAction: params.action,
+          recoveryReason: params.reason,
+          ...command,
+        };
+      },
     },
     auditRepository: {
       async recordEvent(event) {
@@ -190,6 +241,36 @@ test("normalizes worker hardening query for production metrics", () => {
     retentionDays: 30,
     limit: 25,
   });
+});
+
+test("normalizes worker recovery query and action payloads", () => {
+  const query = normalizeWorkerRecoveryQuery(
+    new URLSearchParams({ staleAfterMinutes: "20", leaseTtlSeconds: "120", limit: "500" }),
+  );
+  const fallback = normalizeWorkerRecoveryQuery(
+    new URLSearchParams({ staleAfterMinutes: "0", leaseTtlSeconds: "-2", limit: "raw" }),
+  );
+  const action = normalizeWorkerRecoveryAction({
+    action: "reschedule",
+    reason: "  Повторить   безопасно  ",
+  });
+
+  assert.deepEqual(query, {
+    staleAfterMinutes: 20,
+    leaseTtlSeconds: 120,
+    limit: 100,
+  });
+  assert.deepEqual(fallback, {
+    staleAfterMinutes: 10,
+    leaseTtlSeconds: 90,
+    limit: 25,
+  });
+  assert.equal(action.action, "reschedule");
+  assert.equal(action.reason, "Повторить безопасно");
+  assert.throws(
+    () => normalizeWorkerRecoveryAction({ action: "delete" }),
+    DeviceBridgeWorkerValidationError,
+  );
 });
 
 test("records heartbeat, polls commands, and audits command lifecycle", async () => {
@@ -275,6 +356,51 @@ test("lists worker hardening through system_admin RBAC and audits safe metadata"
   assert.equal(auditEvents.at(-1).metadata.cleanupCandidates, 3);
 });
 
+test("lists worker recovery through system_admin RBAC and audits safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.listWorkerRecovery(
+    {
+      userId: "10000000-0000-4000-8000-000000000999",
+      roles: ["system_admin"],
+      clinicIds: [],
+    },
+    new URLSearchParams({ staleAfterMinutes: "20", leaseTtlSeconds: "120", limit: "10" }),
+    { correlationId: "corr-worker-recovery" },
+  );
+
+  assert.equal(result.summary.stuckCommands, 1);
+  assert.equal(result.summary.retryableCommands, 1);
+  assert.equal(result.policy.leaseTtlSeconds, 120);
+  assert.equal(result.commands[0].recoveryState, "retryable_failed");
+  assert.deepEqual(result.scope.roles, ["system_admin"]);
+  assert.equal(auditEvents.at(-1).action, "device_bridge.worker.recovery.read");
+  assert.equal(auditEvents.at(-1).metadata.stuckCommands, 1);
+});
+
+test("runs worker command recovery actions through system_admin RBAC", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.recoverCommand(
+    COMMAND_ID,
+    {
+      userId: "10000000-0000-4000-8000-000000000999",
+      roles: ["system_admin"],
+      clinicIds: [],
+    },
+    { action: "cancel", reason: "Operator cancelled" },
+    { correlationId: "corr-worker-recover-action" },
+  );
+
+  assert.equal(result.action, "cancel");
+  assert.equal(result.command.status, "cancelled");
+  assert.deepEqual(result.scope.roles, ["system_admin"]);
+  assert.equal(auditEvents.at(-1).action, "device_bridge.command.cancel");
+  assert.equal(auditEvents.at(-1).metadata.lifecycleRevision, 4);
+});
+
 test("denies worker hardening to non-system-admin roles", async () => {
   const service = createService();
 
@@ -286,6 +412,35 @@ test("denies worker hardening to non-system-admin roles", async () => {
         clinicIds: [CLINIC_ID],
       },
       new URLSearchParams(),
+    ),
+    (error) => error.publicCode === "forbidden" && error.publicStatus === 403,
+  );
+});
+
+test("denies worker recovery to non-system-admin roles", async () => {
+  const service = createService();
+
+  await assert.rejects(
+    () => service.listWorkerRecovery(
+      {
+        userId: "10000000-0000-4000-8000-000000000777",
+        roles: ["clinic_admin"],
+        clinicIds: [CLINIC_ID],
+      },
+      new URLSearchParams(),
+    ),
+    (error) => error.publicCode === "forbidden" && error.publicStatus === 403,
+  );
+
+  await assert.rejects(
+    () => service.recoverCommand(
+      COMMAND_ID,
+      {
+        userId: "10000000-0000-4000-8000-000000000777",
+        roles: ["clinic_admin"],
+        clinicIds: [CLINIC_ID],
+      },
+      { action: "reschedule" },
     ),
     (error) => error.publicCode === "forbidden" && error.publicStatus === 403,
   );

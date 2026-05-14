@@ -4,11 +4,14 @@ import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
   getSelfHostedDeviceBridgeWorkerHardening,
+  getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeWorkerStatus,
+  recoverSelfHostedDeviceBridgeWorkerCommand,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   toSelfHostedDeviceBridgeDTO,
   toSelfHostedDeviceBridgeWorkerHardeningDTO,
+  toSelfHostedDeviceBridgeWorkerRecoveryDTO,
   toSelfHostedDeviceBridgeWorkerStatusDTO,
   toSelfHostedDeviceCommandDTO,
   toSelfHostedDeviceDTO,
@@ -155,6 +158,53 @@ describe("self-hosted-device-api", () => {
     expect(JSON.stringify(hardening)).not.toContain("payload_json");
     expect(JSON.stringify(hardening)).not.toContain("result_json");
     expect(JSON.stringify(hardening)).not.toContain("access_token");
+  });
+
+  it("normalizes worker recovery DTO without exposing worker internals", () => {
+    const recovery = toSelfHostedDeviceBridgeWorkerRecoveryDTO({
+      stage: "4W",
+      source: "postgres",
+      summary: {
+        stuckCommands: 1,
+        expiredCommands: 2,
+        leaseExpiredCommands: 1,
+        retryableCommands: 3,
+        cancellableCommands: 4,
+      },
+      policy: {
+        staleAfterMinutes: 10,
+        leaseTtlSeconds: 90,
+        maxRecoveryBatch: 100,
+        allowedActions: ["reschedule", "cancel"],
+      },
+      items: [
+        {
+          id: "cmd-1",
+          clinicId: "clinic-1",
+          bridgeId: "br-1",
+          bridgeCode: "br-msk-01",
+          commandType: "bridge_health_check",
+          status: "failed",
+          attemptCount: 3,
+          lifecycleRevision: 2,
+          leaseOwner: "br-msk-01",
+          leaseExpiresAt: "2026-05-14T08:01:30Z",
+          recoveryState: "retryable_failed",
+          payload_json: { hidden: true },
+          result_json: { hidden: true },
+        },
+      ],
+      access_token: "secret",
+      storage_object_path: "hidden",
+    });
+
+    expect(recovery?.stage).toBe("4W");
+    expect(recovery?.summary.stuckCommands).toBe(1);
+    expect(recovery?.items[0].recoveryState).toBe("retryable_failed");
+    expect(recovery?.items[0].leaseOwner).toBe("br-msk-01");
+    expect(JSON.stringify(recovery)).not.toContain("payload_json");
+    expect(JSON.stringify(recovery)).not.toContain("result_json");
+    expect(JSON.stringify(recovery)).not.toContain("access_token");
   });
 
   it("returns not_configured before network calls when token is missing", async () => {
@@ -325,5 +375,85 @@ describe("self-hosted-device-api", () => {
       "http://localhost:8080/api/v1/device-bridge-worker/hardening?limit=20&staleAfterMinutes=15&retentionDays=45",
     );
     expect((fetchMock.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
+  });
+
+  it("fetches Device Bridge worker recovery and posts recovery actions", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
+      if (url.includes("/api/v1/device-bridge-worker/recovery?")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4W",
+            source: "postgres",
+            summary: {
+              stuckCommands: 1,
+              expiredCommands: 0,
+              leaseExpiredCommands: 1,
+              retryableCommands: 1,
+              cancellableCommands: 2,
+            },
+            policy: {
+              staleAfterMinutes: 20,
+              leaseTtlSeconds: 120,
+              maxRecoveryBatch: 100,
+              allowedActions: ["reschedule", "cancel"],
+            },
+            items: [
+              {
+                id: "cmd-1",
+                clinicId: "clinic-1",
+                bridgeId: "br-1",
+                bridgeCode: "br-msk-01",
+                commandType: "bridge_health_check",
+                status: "failed",
+                attemptCount: 3,
+                recoveryState: "retryable_failed",
+              },
+            ],
+            filters: { staleAfterMinutes: 20, leaseTtlSeconds: 120, limit: 10 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toBe(JSON.stringify({ action: "reschedule", reason: "Retry" }));
+      return new Response(
+        JSON.stringify({
+          command: {
+            id: "cmd-1",
+            clinicId: "clinic-1",
+            bridgeId: "br-1",
+            commandType: "bridge_health_check",
+            status: "queued",
+            attemptCount: 3,
+            recoveryAction: "reschedule",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    const recovery = await getSelfHostedDeviceBridgeWorkerRecovery({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      staleAfterMinutes: 20,
+      leaseTtlSeconds: 120,
+      limit: 10,
+    });
+    const action = await recoverSelfHostedDeviceBridgeWorkerCommand({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      commandId: "cmd-1",
+      action: "reschedule",
+      reason: "Retry",
+    });
+
+    expect(recovery.value?.summary.stuckCommands).toBe(1);
+    expect(recovery.value?.policy.leaseTtlSeconds).toBe(120);
+    expect(action.value?.status).toBe("queued");
+    expect(action.value?.recoveryAction).toBe("reschedule");
+    expect(String(fetchMock.mock.calls[0][0])).toContain("leaseTtlSeconds=120");
+    expect(String(fetchMock.mock.calls[1][0])).toContain("/api/v1/device-bridge-worker/commands/cmd-1/recovery");
   });
 });
