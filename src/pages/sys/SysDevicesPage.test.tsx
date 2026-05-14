@@ -69,6 +69,49 @@ describe("SysDevicesPage", () => {
           { status: 202, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/status")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4U",
+            source: "postgres",
+            summary: {
+              bridgeCount: 1,
+              onlineWorkers: 1,
+              degradedWorkers: 0,
+              offlineWorkers: 0,
+              queuedCommands: 1,
+              failedCommands: 1,
+            },
+            items: [
+              {
+                id: "br-uuid",
+                clinicId: "clinic-1",
+                bridgeCode: "br-live-01",
+                hostName: "live-bridge",
+                lanStatus: "online",
+                workerStatus: "online",
+                workerVersion: "stage4t-local-worker",
+                workerLastSeenAt: "2026-05-14T08:02:00Z",
+                queuedCount: 1,
+                failedCount: 1,
+              },
+            ],
+            commands: [
+              {
+                id: "cmd-live",
+                clinicId: "clinic-1",
+                bridgeId: "br-uuid",
+                bridgeCode: "br-live-01",
+                commandType: "bridge_health_check",
+                status: "failed",
+                createdAt: "2026-05-14T08:01:00Z",
+              },
+            ],
+            filters: { workerStatus: "all", commandStatus: "all", limit: 25 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -116,7 +159,16 @@ describe("SysDevicesPage", () => {
     expect((await screen.findAllByText("LiveScope 20")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("br-live-01").length).toBeGreaterThan(0);
     expect(screen.getByText("Реестр устройств загружен из backend.")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("region", { name: "Device Bridge worker observability" })).toHaveTextContent(
+      "stage4t-local-worker",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge worker command lifecycle" })).toHaveTextContent(
+      "bridge_health_check",
+    );
+    expect(screen.getByRole("note", { name: "Device Bridge worker privacy boundary" })).toHaveTextContent(
+      "lifecycle-метаданные",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
@@ -126,7 +178,7 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
     expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

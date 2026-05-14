@@ -1,0 +1,76 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Device Bridge worker observability",
+    "version": "4U-device-bridge-worker-observability",
+    "description": "Stage 4U exposes system-admin Device Bridge worker telemetry and command history through the self-hosted backend. Worker tokens, browser hardware APIs, raw payloads, and managed runtimes are not exposed."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/device-bridge-worker/status": {
+      "get": {
+        "summary": "List Device Bridge worker telemetry and recent command lifecycle",
+        "description": "Returns safe metadata for system admins: bridge worker status, heartbeat timestamps, command counters, and recent command lifecycle rows. Does not return worker tokens, payload_json, result_json, storage paths, patient names, or browser hardware access.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workerStatus",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "unknown", "online", "degraded", "offline"],
+              "default": "all"
+            }
+          },
+          {
+            "name": "commandStatus",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "queued", "acknowledged", "completed", "failed", "cancelled"],
+              "default": "all"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe Device Bridge worker status projection"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only system_admin can read worker observability"
+          }
+        }
+      }
+    }
+  }
+}

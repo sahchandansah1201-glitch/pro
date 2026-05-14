@@ -39,8 +39,9 @@ PostgreSQL client used by the container image.
   `openapi.stage4j.json` — visit workspace read/write and clinical asset
   write/binary boundaries.
 - `openapi.stage4n.json` — production observability status contract.
-- `openapi.stage4q.json`, `openapi.stage4r.json`, `openapi.stage4s.json` —
-  Device Bridge registry, command queue, and worker contract boundaries.
+- `openapi.stage4q.json`, `openapi.stage4r.json`, `openapi.stage4s.json`,
+  `openapi.stage4u.json` — Device Bridge registry, command queue, worker
+  contract, and worker observability boundaries.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -106,6 +107,9 @@ npm run preflight:stage4s
 npm run test:stage4t
 npm run check:stage4t
 npm run preflight:stage4t
+npm run test:stage4u
+npm run check:stage4u
+npm run preflight:stage4u
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -145,3 +149,7 @@ and a deployment-local worker contract using `DEVICE_BRIDGE_WORKER_TOKEN`.
 Stage 4T adds the local worker runtime, dry-run/once/loop commands, a systemd
 unit template, and a noop adapter boundary for future clinic-owned hardware
 drivers.
+Stage 4U adds a system-admin worker observability projection at
+`/api/v1/device-bridge-worker/status` and shows safe heartbeat/command lifecycle
+metadata on `/sys/devices` without exposing worker tokens, payloads, storage
+paths, patient names, or browser hardware APIs.

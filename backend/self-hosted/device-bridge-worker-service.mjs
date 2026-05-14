@@ -3,6 +3,7 @@
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
 import { authenticateDeviceBridgeWorker } from "./device-bridge-worker-auth.mjs";
+import { opsStatusScope } from "./rbac.mjs";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BRIDGE_CODE_LENGTH = 80;
@@ -67,6 +68,17 @@ function normalizeLimit(value) {
   return Math.min(parsed, 50);
 }
 
+function normalizeTelemetryLimit(value) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 25;
+  return Math.min(parsed, 100);
+}
+
+function normalizeTelemetryStatus(value, allowed, fallback = "all") {
+  const raw = String(value || "all");
+  return raw === "all" || allowed.includes(raw) ? raw : fallback;
+}
+
 function sanitizeWorkerResult(value, depth = 0) {
   if (depth > 2) return "[truncated]";
   if (Array.isArray(value)) {
@@ -108,6 +120,20 @@ export function normalizeWorkerCommandQuery(searchParams = new URLSearchParams()
     clinicId: assertUuid(searchParams.get("clinicId"), "clinicId"),
     bridgeCode: normalizeBridgeCode(searchParams.get("bridgeCode")),
     limit: normalizeLimit(searchParams.get("limit")),
+  };
+}
+
+export function normalizeWorkerTelemetryQuery(searchParams = new URLSearchParams()) {
+  return {
+    workerStatus: normalizeTelemetryStatus(
+      searchParams.get("workerStatus"),
+      ["unknown", "online", "degraded", "offline"],
+    ),
+    commandStatus: normalizeTelemetryStatus(
+      searchParams.get("commandStatus"),
+      ["queued", "acknowledged", "completed", "failed", "cancelled"],
+    ),
+    limit: normalizeTelemetryLimit(searchParams.get("limit")),
   };
 }
 
@@ -215,6 +241,34 @@ export function createDeviceBridgeWorkerService({
         },
       });
       return { worker, command, status: payload.status };
+    },
+
+    async listWorkerTelemetry(authContext, searchParams, { correlationId } = {}) {
+      const scope = opsStatusScope(authContext);
+      const query = normalizeWorkerTelemetryQuery(searchParams);
+      const result = await deviceBridgeWorkerRepository.listWorkerTelemetry({
+        ...query,
+        clinicIds: [],
+        allClinics: true,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "device_bridge.worker.telemetry.read",
+        entityType: "device_bridge_worker",
+        correlationId,
+        metadata: {
+          bridgeCount: result.summary.bridgeCount,
+          commandCount: result.commands.length,
+          workerStatus: query.workerStatus,
+          commandStatus: query.commandStatus,
+        },
+      });
+      return {
+        ...result,
+        scope,
+        query,
+      };
     },
   };
 }
