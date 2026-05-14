@@ -226,3 +226,9 @@ seed files away from production, generates
 `deploy/self-hosted/prestart-schema-check.stage5c.sql` style checks, verifies
 the audit append-only trigger and first `system_admin`, and gates this through
 `npm run preflight:stage5c`.
+Stage 5D cuts the browser shell over to an explicit production mode:
+`VITE_APP_MODE=production` hides the demo banner and demo role switcher,
+requires `/self-hosted/login` for protected routes, and derives navigation and
+access checks from self-hosted backend roles. Demo mode remains available for
+local review, but production deployments are driven by the self-hosted session
+and gated by `npm run preflight:stage5d`.

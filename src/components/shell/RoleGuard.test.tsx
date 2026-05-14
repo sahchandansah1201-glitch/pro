@@ -8,6 +8,11 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthContext, type AuthContextValue } from "@/context/auth-context";
 import { RoleProvider } from "@/context/RoleContext";
 import { ROLE_STORAGE_KEY } from "@/context/role-context";
+import {
+  SELF_HOSTED_API_BASE_URL_KEY,
+  SELF_HOSTED_API_TOKEN_KEY,
+  SELF_HOSTED_API_USER_KEY,
+} from "@/lib/self-hosted-api-session";
 
 // Configure mock per-test by mutating this flag.
 let configured = false;
@@ -63,6 +68,7 @@ function renderAt(
               }
             />
             <Route path="/login" element={<div data-testid="login-page">LOGIN</div>} />
+            <Route path="/self-hosted/login" element={<div data-testid="self-hosted-login">SELF HOSTED LOGIN</div>} />
           </Routes>
         </RoleProvider>
       </AuthContext.Provider>
@@ -71,9 +77,13 @@ function renderAt(
 }
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   configured = false;
   try {
     window.localStorage.removeItem(ROLE_STORAGE_KEY);
+    window.localStorage.removeItem(SELF_HOSTED_API_BASE_URL_KEY);
+    window.localStorage.removeItem(SELF_HOSTED_API_TOKEN_KEY);
+    window.localStorage.removeItem(SELF_HOSTED_API_USER_KEY);
   } catch {
     // ignore
   }
@@ -124,5 +134,39 @@ describe("RoleGuard · configured + auth-aware", () => {
       "doctor",
     );
     expect(screen.getByText(/Нет доступа в демо-режиме/)).toBeInTheDocument();
+  });
+});
+
+describe("RoleGuard · production self-hosted mode", () => {
+  function writeSelfHostedSession(roles: string[]) {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt-production");
+    window.localStorage.setItem(
+      SELF_HOSTED_API_USER_KEY,
+      JSON.stringify({ id: "u-1", displayName: "Production User", roles }),
+    );
+  }
+
+  it("redirects missing self-hosted sessions to /self-hosted/login", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    renderAt("/desk", authValue(), "doctor");
+    expect(screen.getByTestId("self-hosted-login")).toBeInTheDocument();
+    expect(screen.queryByTestId("protected")).not.toBeInTheDocument();
+  });
+
+  it("allows access using backend roles instead of the demo role", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    writeSelfHostedSession(["system_admin"]);
+    renderAt("/sys/users", authValue(), "doctor");
+    expect(screen.getByTestId("protected-sys")).toBeInTheDocument();
+  });
+
+  it("denies access without exposing demo role switching", () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    writeSelfHostedSession(["doctor"]);
+    renderAt("/sys/users", authValue(), "system_admin");
+    expect(screen.getByText("Нет доступа")).toBeInTheDocument();
+    expect(screen.getByText(/переключение демо-ролей отключено/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Сменить демо-роль/i)).not.toBeInTheDocument();
   });
 });
