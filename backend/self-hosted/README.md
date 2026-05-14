@@ -41,10 +41,10 @@ PostgreSQL client used by the container image.
 - `openapi.stage4n.json` — production observability status contract.
 - `openapi.stage4q.json`, `openapi.stage4r.json`, `openapi.stage4s.json`,
   `openapi.stage4u.json`, `openapi.stage4v.json`, `openapi.stage4w.json`,
-  `openapi.stage4x.json`, `openapi.stage4y.json` —
+  `openapi.stage4x.json`, `openapi.stage4y.json`, `openapi.stage4z.json` —
   Device Bridge registry, command queue, worker contract, worker observability,
   production hardening, command recovery, command audit/replay, and command
-  audit export boundaries.
+  audit export/product-readiness boundaries.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -127,6 +127,9 @@ npm run preflight:stage4x
 npm run test:stage4y
 npm run check:stage4y
 npm run preflight:stage4y
+npm run test:stage4z
+npm run check:stage4z
+npm run preflight:stage4z
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -189,3 +192,9 @@ Stage 4Y adds a backend-owned CSV export endpoint at
 metadata and filter metadata only, log `device_bridge.command.audit.export`,
 and never expose raw payloads, worker tokens, storage paths, patient
 identifiers, signed URLs, or browser hardware APIs.
+Stage 4Z adds a system-admin product-readiness manifest at
+`/api/v1/product/readiness` and `/openapi.stage4z.json`; it ties frontend,
+backend, PostgreSQL, object storage, auth/RBAC, clinical workflows, Device
+Bridge, backup/restore, deploy smoke, observability, and release gates into one
+self-hosted product boundary with no managed runtime or managed database
+dependency.
