@@ -642,6 +642,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi4h.json.info.version, "4H-visit-workspace-writes");
   assert.ok(openapi4h.json.paths["/api/v1/visits/{visitId}/report"].patch);
 
+  const openapi5h = await request("/openapi.stage5h.json");
+  assert.equal(openapi5h.status, 200);
+  assert.equal(openapi5h.json.info.version, "5H-clinical-workspace-contracts");
+  assert.ok(openapi5h.json.paths["/api/v1/visits/{visitId}/assessment"].patch);
+
   const openapi4i = await request("/openapi.stage4i.json");
   assert.equal(openapi4i.status, 200);
   assert.equal(openapi4i.json.info.version, "4I-assets-write");
@@ -1699,6 +1704,42 @@ function visitWorkspaceWriteRuntime({
   };
 }
 
+function clinicalWorkspaceRuntime({
+  assessment = null,
+  conclusion = null,
+  report = null,
+  authContext,
+  auditEvents = [],
+  authError,
+  clinicalError = null,
+} = {}) {
+  return {
+    ...visitWorkspaceRuntime({ authContext, auditEvents, authError }),
+    clinicalWorkspaceService: {
+      async getAssessment() {
+        if (clinicalError) throw clinicalError;
+        return { assessment, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async updateAssessment() {
+        if (clinicalError) throw clinicalError;
+        return { assessment, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async getConclusion() {
+        if (clinicalError) throw clinicalError;
+        return { conclusion, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async updateConclusion() {
+        if (clinicalError) throw clinicalError;
+        return { conclusion, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async getReport() {
+        if (clinicalError) throw clinicalError;
+        return { report, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+    },
+  };
+}
+
 function assetWriteRuntime({
   createdAsset = null,
   download = null,
@@ -2194,4 +2235,91 @@ test("Stage 4H · /openapi.stage4h.json documents write endpoints", async () => 
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesions"].post);
   assert.ok(response.json.paths["/api/v1/lesions/{lesionId}"].delete);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].patch);
+});
+
+// =====================================================================
+// Stage 5H · production clinical workspace contracts
+// =====================================================================
+
+test("Stage 5H · assessment and conclusion contracts read/write via self-hosted backend", async () => {
+  const assessment = {
+    id: "10000000-0000-4000-8000-000000000701",
+    clinicId: STAGE4G_CLINIC_ID,
+    patientId: STAGE4G_PATIENT_ID,
+    visitId: STAGE4G_VISIT_ID,
+    status: "ready",
+    riskLevel: "moderate",
+    summary: "Нужен контроль динамики.",
+  };
+  const conclusion = {
+    id: "10000000-0000-4000-8000-000000000702",
+    clinicId: STAGE4G_CLINIC_ID,
+    patientId: STAGE4G_PATIENT_ID,
+    visitId: STAGE4G_VISIT_ID,
+    status: "ready",
+    summary: "Плановое наблюдение.",
+  };
+  const runtime = clinicalWorkspaceRuntime({ assessment, conclusion });
+
+  const readAssessment = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/assessment`,
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(readAssessment.status, 200);
+  assert.equal(readAssessment.json.stage, "5H");
+  assert.equal(readAssessment.json.item.summary, "Нужен контроль динамики.");
+
+  const writeAssessment = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/assessment`,
+    configuredEnv,
+    runtime,
+    "PATCH",
+    JSON.stringify({ status: "ready", summary: "Нужен контроль динамики." }),
+  );
+  assert.equal(writeAssessment.status, 200);
+  assert.equal(writeAssessment.json.item.riskLevel, "moderate");
+
+  const writeConclusion = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/conclusion`,
+    configuredEnv,
+    runtime,
+    "PATCH",
+    JSON.stringify({ status: "ready", summary: "Плановое наблюдение." }),
+  );
+  assert.equal(writeConclusion.status, 200);
+  assert.equal(writeConclusion.json.stage, "5H");
+  assert.equal(writeConclusion.json.item.summary, "Плановое наблюдение.");
+  assert.doesNotMatch(writeConclusion.body, /storage_object_path|signed_url|access_token|postgres:\/\/|secret/i);
+});
+
+test("Stage 5H · GET /api/v1/visits/{id}/report reads report without exposing protected fields", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/report`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      report: {
+        id: "10000000-0000-4000-8000-000000000703",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "draft",
+        physicianText: "Описание для врача",
+        patientSafeText: "Пациенту рекомендован контроль.",
+      },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.item.patientSafeText, "Пациенту рекомендован контроль.");
+  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token/i);
+});
+
+test("Stage 5H · /openapi.stage5h.json documents production clinical contracts", async () => {
+  const response = await request("/openapi.stage5h.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "5H-clinical-workspace-contracts");
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/assessment"].get);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/conclusion"].patch);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].get);
 });

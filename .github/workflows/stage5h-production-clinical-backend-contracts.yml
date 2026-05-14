@@ -1,0 +1,36 @@
+name: stage5h-production-clinical-backend-contracts
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-clinical-workspace-api.ts"
+      - "src/lib/self-hosted-clinical-workspace-api.test.ts"
+      - "src/pages/doctor/VisitWorkspacePage.tsx"
+      - "src/pages/doctor/VisitWorkspacePage.test.tsx"
+      - "scripts/check-stage5h-production-clinical-backend-contracts.mjs"
+      - "scripts/check-stage5h-production-clinical-backend-contracts.test.mjs"
+      - "docs/backend/stage-5h-production-clinical-backend-contracts.md"
+      - "package.json"
+  workflow_dispatch:
+
+jobs:
+  stage5h:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5h
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5H production clinical backend contracts"
+            echo
+            echo "- Command: \`npm run preflight:stage5h\`"
+            echo "- Self-hosted product boundary: no managed runtime/database coupling in protected files"
+          } >> "$GITHUB_STEP_SUMMARY"

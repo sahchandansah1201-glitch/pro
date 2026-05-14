@@ -39,6 +39,8 @@ import {
   createAssetWriteService,
   normalizeDownloadUrlParams,
 } from "./asset-write-service.mjs";
+import { createClinicalWorkspaceRepository } from "./clinical-workspace-repository.mjs";
+import { createClinicalWorkspaceService } from "./clinical-workspace-service.mjs";
 import { createLocalObjectStore } from "./object-store.mjs";
 import { extractCorrelationId, safeRequestPath } from "./ops-logger.mjs";
 import { collectSelfHostedOpsRuntimeChecks } from "./ops-runtime-checks.mjs";
@@ -106,6 +108,9 @@ const OPENAPI_4Y = JSON.parse(
 const OPENAPI_4Z = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4z.json"), "utf8"),
 );
+const OPENAPI_5H = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5h.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -158,6 +163,15 @@ function getRuntime(config, runtime = {}) {
       visitWorkspaceWriteRepository,
       auditRepository,
     });
+  const clinicalWorkspaceRepository =
+    runtime.clinicalWorkspaceRepository || createClinicalWorkspaceRepository(dbClient);
+  const clinicalWorkspaceService =
+    runtime.clinicalWorkspaceService ||
+    createClinicalWorkspaceService({
+      visitWorkspaceRepository,
+      clinicalWorkspaceRepository,
+      auditRepository,
+    });
   const assetWriteRepository =
     runtime.assetWriteRepository || createAssetWriteRepository(dbClient);
   const objectStore = runtime.objectStore || createLocalObjectStore(config);
@@ -176,6 +190,8 @@ function getRuntime(config, runtime = {}) {
     auditRepository,
     authRepository,
     authService,
+    clinicalWorkspaceRepository,
+    clinicalWorkspaceService,
     dbClient,
     deviceBridgeCommandRepository,
     deviceBridgeCommandService,
@@ -939,20 +955,108 @@ export async function handleSelfHostedRequest(
     }
   }
 
-  const visitReportMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/report$/);
-  if (visitReportMatch && method === "PATCH") {
+  // Stage 5H · production clinical workspace assessment/conclusion/report contracts.
+  const visitAssessmentMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/assessment$/);
+  if (visitAssessmentMatch && (method === "GET" || method === "PATCH")) {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
-      const result = await runtimeServices.visitWorkspaceWriteService.updateReport(
-        decodeURIComponent(visitReportMatch[1]),
-        parseJsonBody(request.body),
-        authContext,
-        { correlationId },
+      const visitIdFromPath = decodeURIComponent(visitAssessmentMatch[1]);
+      const result = method === "GET"
+        ? await runtimeServices.clinicalWorkspaceService.getAssessment(
+            visitIdFromPath,
+            authContext,
+            { correlationId },
+          )
+        : await runtimeServices.clinicalWorkspaceService.updateAssessment(
+            visitIdFromPath,
+            parseJsonBody(request.body),
+            authContext,
+            { correlationId },
+          );
+      return jsonResponse(
+        method === "GET" ? 200 : 200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.assessment,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
       );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const visitConclusionMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/conclusion$/);
+  if (visitConclusionMatch && (method === "GET" || method === "PATCH")) {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const visitIdFromPath = decodeURIComponent(visitConclusionMatch[1]);
+      const result = method === "GET"
+        ? await runtimeServices.clinicalWorkspaceService.getConclusion(
+            visitIdFromPath,
+            authContext,
+            { correlationId },
+          )
+        : await runtimeServices.clinicalWorkspaceService.updateConclusion(
+            visitIdFromPath,
+            parseJsonBody(request.body),
+            authContext,
+            { correlationId },
+          );
       return jsonResponse(
         200,
         {
-          stage: "4H",
+          stage: "5H",
+          source: "postgres",
+          item: result.conclusion,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const visitReportMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/report$/);
+  if (visitReportMatch && (method === "GET" || method === "PATCH")) {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const visitIdFromPath = decodeURIComponent(visitReportMatch[1]);
+      const result = method === "GET"
+        ? await runtimeServices.clinicalWorkspaceService.getReport(
+            visitIdFromPath,
+            authContext,
+            { correlationId },
+          )
+        : await runtimeServices.visitWorkspaceWriteService.updateReport(
+            visitIdFromPath,
+            parseJsonBody(request.body),
+            authContext,
+            { correlationId },
+          );
+      return jsonResponse(
+        200,
+        {
+          stage: method === "GET" ? "5H" : "4H",
           source: "postgres",
           item: result.report,
           auth: {
@@ -1819,6 +1923,7 @@ export async function handleSelfHostedRequest(
           patients: "rbac-read-write-postgres",
           visits: "rbac-read-write-postgres",
           lesions: "rbac-read-write-postgres",
+          clinicalWorkspace: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness",
@@ -1847,6 +1952,7 @@ export async function handleSelfHostedRequest(
           openapiStage4X: "/openapi.stage4x.json",
           openapiStage4Y: "/openapi.stage4y.json",
           openapiStage4Z: "/openapi.stage4z.json",
+          openapiStage5H: "/openapi.stage5h.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -1872,6 +1978,8 @@ export async function handleSelfHostedRequest(
           visitAssets: "/api/v1/visits/{visitId}/assets",
           assetDownloadUrl: "/api/v1/assets/{assetId}/download-url",
           assetDownload: "/api/v1/assets/{assetId}/download",
+          visitAssessment: "/api/v1/visits/{visitId}/assessment",
+          visitConclusion: "/api/v1/visits/{visitId}/conclusion",
           visitReport: "/api/v1/visits/{visitId}/report",
           lesion: "/api/v1/lesions/{lesionId}",
           health: "/healthz",
@@ -1959,6 +2067,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage4z.json") {
     return jsonResponse(200, OPENAPI_4Z, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage5h.json") {
+    return jsonResponse(200, OPENAPI_5H, config, requestOrigin);
   }
 
   return errorResponse({

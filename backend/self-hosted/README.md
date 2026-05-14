@@ -19,6 +19,8 @@ PostgreSQL client used by the container image.
   audit orchestration for patient writes.
 - `visit-workspace-repository.mjs`, `visit-workspace-write-service.mjs` —
   Stage 4G-4H visit, lesion, report and asset metadata read/write boundaries.
+- `clinical-workspace-repository.mjs`, `clinical-workspace-service.mjs` —
+  Stage 5H production assessment, conclusion, and report read/write contracts.
 - `asset-write-repository.mjs`, `asset-write-service.mjs`, `object-store.mjs` —
   Stage 4I-4J clinical asset metadata, binary storage, and backend-owned
   download contracts.
@@ -45,6 +47,8 @@ PostgreSQL client used by the container image.
   Device Bridge registry, command queue, worker contract, worker observability,
   production hardening, command recovery, command audit/replay, and command
   audit export/product-readiness boundaries.
+- `openapi.stage5h.json` — production clinical workspace assessment,
+  conclusion, and report contracts.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -65,6 +69,8 @@ PostgreSQL client used by the container image.
   heartbeat/lifecycle metadata and command queue indexes.
 - `db/migrations/0013_stage4x_device_bridge_audit_replay.sql` — command
   replay metadata and command-audit lookup indexes.
+- `db/migrations/0014_stage5h_clinical_workspace_contracts.sql` — production
+  clinical assessment/conclusion tables and report lookup contract.
 - `Dockerfile` — backend container used by the self-hosted compose stack.
 
 ## Local commands
@@ -157,6 +163,9 @@ npm run preflight:stage5f
 npm run test:stage5g
 npm run check:stage5g
 npm run preflight:stage5g
+npm run test:stage5h
+npm run check:stage5h
+npm run preflight:stage5h
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -257,3 +266,8 @@ conclusion, and report tabs no longer render mock-derived clinical content in
 production, Body Map disables local demo lesion creation, and the remaining
 live workspace surface stays within the self-hosted product boundary through
 `npm run preflight:stage5g`.
+Stage 5H adds backend-owned production clinical workspace contracts:
+assessment and conclusion tables, report read access, RBAC/audit-protected
+GET/PATCH endpoints, frontend adapters, and production UI panels that save only
+through the self-hosted backend. Demo/dev mode keeps mock tabs; production mode
+uses the local server and is gated by `npm run preflight:stage5h`.
