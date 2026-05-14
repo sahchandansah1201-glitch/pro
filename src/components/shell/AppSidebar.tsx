@@ -20,6 +20,7 @@ import {
   ScanSearch,
   MessagesSquare,
   MonitorCheck,
+  ServerCog,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -127,6 +128,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { title: "Аудит", url: "/sys/audit", icon: Activity },
         { title: "События доступа", url: "/sys/access-events", icon: ClipboardList },
         { title: "Релиз-статус", url: "/sys/release-status", icon: MonitorCheck },
+        { title: "Self-hosted ops", url: "/sys/self-hosted-ops", icon: ServerCog },
         { title: "API-ключи", url: "/sys/api-keys", icon: KeyRound },
       ],
     },

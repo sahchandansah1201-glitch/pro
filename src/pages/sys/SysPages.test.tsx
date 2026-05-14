@@ -6,6 +6,7 @@ import SysDevicesPage from "./SysDevicesPage";
 import SysAuditPage from "./SysAuditPage";
 import SysApiKeysPage from "./SysApiKeysPage";
 import SysReleaseStatusPage from "./SysReleaseStatusPage";
+import SysSelfHostedOpsPage from "./SysSelfHostedOpsPage";
 
 // Build forbidden token strings dynamically so this test source itself
 // stays clean of the literals (rg scan over src/pages/sys must return 0).
@@ -32,6 +33,7 @@ describe("Sys pages — render & safety", () => {
     ["SysDevicesPage", <SysDevicesPage />, /Устройства/],
     ["SysAuditPage", <SysAuditPage />, /Аудит/],
     ["SysReleaseStatusPage", <SysReleaseStatusPage />, /Релиз-статус/],
+    ["SysSelfHostedOpsPage", <SysSelfHostedOpsPage />, /Self-hosted ops/],
     ["SysApiKeysPage", <SysApiKeysPage />, /API-ключи/],
   ])("%s renders demo banner and is not a placeholder", (_n, ui, headingRe) => {
     const { container, unmount } = renderRouted(ui);

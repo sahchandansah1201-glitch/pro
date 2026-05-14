@@ -1,0 +1,88 @@
+name: stage4o-self-hosted-ops-ui
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/self-hosted-ops-api.ts"
+      - "src/lib/self-hosted-ops-api.test.ts"
+      - "src/pages/sys/SysSelfHostedOpsPage.tsx"
+      - "src/pages/sys/SysSelfHostedOpsPage.test.tsx"
+      - "src/pages/sys/SysPages.test.tsx"
+      - "src/App.tsx"
+      - "src/components/shell/AppSidebar.tsx"
+      - "e2e/sys-self-hosted-ops.pw.ts"
+      - "scripts/check-stage4o-self-hosted-ops-ui.mjs"
+      - "scripts/check-stage4o-self-hosted-ops-ui.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4o-self-hosted-ops-ui.md"
+      - "package.json"
+      - ".github/workflows/stage4o-self-hosted-ops-ui.yml"
+  push:
+    paths:
+      - "src/lib/self-hosted-ops-api.ts"
+      - "src/lib/self-hosted-ops-api.test.ts"
+      - "src/pages/sys/SysSelfHostedOpsPage.tsx"
+      - "src/pages/sys/SysSelfHostedOpsPage.test.tsx"
+      - "src/pages/sys/SysPages.test.tsx"
+      - "src/App.tsx"
+      - "src/components/shell/AppSidebar.tsx"
+      - "e2e/sys-self-hosted-ops.pw.ts"
+      - "scripts/check-stage4o-self-hosted-ops-ui.mjs"
+      - "scripts/check-stage4o-self-hosted-ops-ui.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4o-self-hosted-ops-ui.md"
+      - "package.json"
+      - ".github/workflows/stage4o-self-hosted-ops-ui.yml"
+  workflow_dispatch:
+
+jobs:
+  self-hosted-ops-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Stage 4O preflight
+        run: npm run preflight:stage4o
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start Vite
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          npm run dev -- --host 127.0.0.1 --port 8080 > test-results/stage4o-vite.log 2>&1 &
+          echo "$!" > /tmp/stage4o-vite.pid
+          for _ in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080 >/dev/null; then
+              echo "Vite is ready on http://127.0.0.1:8080"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat test-results/stage4o-vite.log
+          exit 1
+      - name: Run Stage 4O e2e
+        run: npm run e2e:stage4o
+      - name: Stop Vite
+        if: always()
+        run: |
+          if [ -f /tmp/stage4o-vite.pid ]; then
+            kill "$(cat /tmp/stage4o-vite.pid)" || true
+          fi
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4O self-hosted ops UI"
+            echo ""
+            echo "- Status: ${{ job.status }}"
+            echo "- Checked: /sys/self-hosted-ops UI, /api/v1/ops/status client, e2e mock, self-hosted boundary guard"
+            echo "- Boundary: frontend talks only to the self-hosted backend; CI does not require a live production server"
+          } >> "$GITHUB_STEP_SUMMARY"
