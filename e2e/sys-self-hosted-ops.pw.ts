@@ -51,9 +51,9 @@ const RUNTIME_CHECKS = {
       label: "Migration bundle",
       status: "ready",
       detail: "Self-hosted PostgreSQL migration bundle is present",
-      count: 7,
-      expectedCount: 7,
-      latest: "0007_stage4k_deploy_smoke_seed.sql",
+      count: 8,
+      expectedCount: 8,
+      latest: "0008_stage4q_device_registry.sql",
     },
   ],
   commands: [

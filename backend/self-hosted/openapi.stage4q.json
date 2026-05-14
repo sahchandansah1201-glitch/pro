@@ -1,0 +1,83 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Device Bridge registry",
+    "version": "4Q-device-registry"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/device-bridges": {
+      "get": {
+        "summary": "List self-hosted Device Bridge agents",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "bridgeStatus",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["all", "online", "degraded", "offline"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clinic-scoped bridge metadata. No host secrets or driver payloads."
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role does not allow device registry access" }
+        }
+      }
+    },
+    "/api/v1/devices": {
+      "get": {
+        "summary": "List registered dermatoscopes and capture devices",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0 }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": { "type": "string", "maxLength": 120 }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["all", "connected", "standby", "offline"] }
+          },
+          {
+            "name": "needsCalibration",
+            "in": "query",
+            "schema": { "type": "boolean" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clinic-scoped device metadata. No raw image bytes, object keys, storage paths, or hardware driver access."
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role does not allow device registry access" }
+        }
+      }
+    }
+  }
+}

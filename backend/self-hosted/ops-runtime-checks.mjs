@@ -17,6 +17,7 @@ const EXPECTED_MIGRATION_PREFIXES = [
   "0005_stage4h",
   "0006_stage4i",
   "0007_stage4k",
+  "0008_stage4q",
 ];
 
 const OPS_COMMANDS = [
