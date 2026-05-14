@@ -65,6 +65,7 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
+import { isProductionAppMode } from "@/lib/app-mode";
 
 const PHOTOTYPES: Phototype[] = ["I", "II", "III", "IV", "V", "VI"];
 const PATIENT_EDIT_DEMO_TODAY = "2026-05-11";
@@ -75,6 +76,8 @@ const PATIENT_DEMO_CREATE_BLOCKED_MESSAGE =
 const PATIENT_DEMO_GATE_ID = "patients-demo-gate-note";
 const PATIENT_LIVE_GATE_MESSAGE =
   "Self-hosted backend подключён: создание, редактирование и архивирование пациентов идут через локальный API /api/v1/patients.";
+const PATIENT_PRODUCTION_GATE_MESSAGE =
+  "Production-режим: пациенты загружаются только из self-hosted backend. Mock-данные и демо-fallback отключены.";
 
 type ConsentFilter = "any" | "yes" | "no";
 type LesionsFilter = "any" | "with_active" | "without_active";
@@ -232,8 +235,9 @@ function patientApiErrorText(error: SelfHostedApiError | null | undefined): stri
 export default function PatientsPage() {
   const navigate = useNavigate();
   const selfHostedSession = useSelfHostedApiSession();
+  const productionMode = isProductionAppMode();
   const liveBackend = isSelfHostedApiConfigured(selfHostedSession);
-  const [patients, setPatients] = useState<Patient[]>(() => PATIENTS);
+  const [patients, setPatients] = useState<Patient[]>(() => (productionMode ? [] : PATIENTS));
   const [query, setQuery] = useState("");
   const [advancedSearch, setAdvancedSearch] = useState<AdvancedSearchState>({
     code: "",
@@ -264,13 +268,14 @@ export default function PatientsPage() {
 
   useEffect(() => {
     if (!liveBackend) {
-      setPatients(PATIENTS);
+      setPatients(productionMode ? [] : PATIENTS);
       setBackendLoadState("idle");
       return;
     }
 
     let cancelled = false;
     setBackendLoadState("loading");
+    if (productionMode) setPatients([]);
     listSelfHostedPatients({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -284,13 +289,14 @@ export default function PatientsPage() {
         return;
       }
       setBackendLoadState("error");
+      if (productionMode) setPatients([]);
       setStatusMessage(`Не удалось загрузить пациентов из self-hosted backend: ${patientApiErrorText(result.error)}`);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [liveBackend, selfHostedSession.apiBaseUrl, selfHostedSession.apiToken]);
+  }, [liveBackend, productionMode, selfHostedSession.apiBaseUrl, selfHostedSession.apiToken]);
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -575,6 +581,19 @@ export default function PatientsPage() {
         subtitle={`Всего в базе: ${patients.length}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {productionMode && !liveBackend ? (
+              <Button
+                asChild
+                type="button"
+                size="sm"
+                className="h-9 gap-1.5 text-[12px]"
+              >
+                <Link to="/self-hosted/login" aria-label="Войти в production self-hosted backend">
+                  <ServerCog className="h-3.5 w-3.5" aria-hidden />
+                  Войти в продукт
+                </Link>
+              </Button>
+            ) : null}
             <Button
               type="button"
               size="sm"
@@ -602,7 +621,7 @@ export default function PatientsPage() {
                 <LogOut className="h-3.5 w-3.5" aria-hidden />
                 Выйти из self-hosted
               </Button>
-            ) : (
+            ) : !productionMode ? (
               <Button
                 asChild
                 type="button"
@@ -615,7 +634,7 @@ export default function PatientsPage() {
                   Войти в self-hosted backend
                 </Link>
               </Button>
-            )}
+            ) : null}
           </div>
         }
       />
@@ -627,9 +646,15 @@ export default function PatientsPage() {
         className="border-b border-border bg-surface px-6 py-2 text-[12px] text-muted-foreground"
       >
         <span className="font-medium text-foreground">
-          {liveBackend ? "Self-hosted backend: " : "Демо-ограничение: "}
+          {productionMode ? "Production patients: " : liveBackend ? "Self-hosted backend: " : "Демо-ограничение: "}
         </span>
-        {liveBackend ? PATIENT_LIVE_GATE_MESSAGE : PATIENT_DEMO_GATE_MESSAGE}
+        {productionMode
+          ? liveBackend
+            ? PATIENT_PRODUCTION_GATE_MESSAGE
+            : "Production-режим требует self-hosted сессию. Войдите через /self-hosted/login."
+          : liveBackend
+            ? PATIENT_LIVE_GATE_MESSAGE
+            : PATIENT_DEMO_GATE_MESSAGE}
       </section>
 
       {liveBackend && backendLoadState === "loading" && (
@@ -852,7 +877,9 @@ export default function PatientsPage() {
       <div className="flex-1 overflow-auto px-6 py-6">
         {rows.length === 0 ? (
           <div className="surface-card p-12 text-center text-row text-muted-foreground">
-            Под текущие фильтры пациентов не найдено.
+            {productionMode && backendLoadState === "error"
+              ? "Self-hosted backend недоступен. Production-режим не показывает демо-пациентов."
+              : "Под текущие фильтры пациентов не найдено."}
           </div>
         ) : (
           <>

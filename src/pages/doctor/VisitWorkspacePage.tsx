@@ -25,6 +25,23 @@ import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanne
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
+import { isProductionAppMode } from "@/lib/app-mode";
+import {
+  isSelfHostedApiConfigured,
+  useSelfHostedApiSession,
+} from "@/lib/self-hosted-api-session";
+import {
+  getSelfHostedVisit,
+  listSelfHostedVisitLesions,
+  type SelfHostedVisitDetailDTO,
+  type SelfHostedVisitLesionDTO,
+} from "@/lib/self-hosted-visit-api";
+import {
+  SELF_HOSTED_LIVE_SOURCE_LABEL,
+  selfHostedLesionToDomain,
+  selfHostedVisitDetailToPatient,
+  selfHostedVisitToDomain,
+} from "@/lib/self-hosted-clinical-adapter";
 import {
   BODY_MAP_DEMO_NOW,
   BODY_MAP_VIEWS,
@@ -58,6 +75,15 @@ function userName(id: string | null | undefined): string {
   return Object.values(DEMO_USERS).find((u) => u.id === id)?.fullName ?? id;
 }
 
+type LiveWorkspaceState =
+  | { kind: "idle" | "loading" }
+  | {
+      kind: "ready";
+      visit: SelfHostedVisitDetailDTO;
+      lesions: SelfHostedVisitLesionDTO[];
+    }
+  | { kind: "error"; message: string };
+
 // Детерминированное размещение точек по bodyZone, если mapPoint некорректен.
 // Используется как fallback, чтобы UI оставался стабильным.
 const ZONE_FALLBACK: Record<string, { view: BodyMapPoint["view"]; x: number; y: number }> = {
@@ -88,8 +114,10 @@ function resolvePoint(l: Lesion): BodyMapPoint {
 
 export default function VisitWorkspacePage() {
   const { id, visitId } = useParams<{ id: string; visitId: string }>();
-  const patient = id ? getPatientById(id) : undefined;
-  const visit = visitId ? getVisitById(visitId) : undefined;
+  const productionMode = isProductionAppMode();
+  const selfHostedSession = useSelfHostedApiSession();
+  const liveBackend = isSelfHostedApiConfigured(selfHostedSession);
+  const [liveState, setLiveState] = useState<LiveWorkspaceState>({ kind: "idle" });
   const apiSession = useApiSession();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -109,6 +137,84 @@ export default function VisitWorkspacePage() {
     [setSearchParams],
   );
 
+  useEffect(() => {
+    if (!productionMode || !liveBackend || !visitId) {
+      setLiveState({ kind: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setLiveState({ kind: "loading" });
+    void (async () => {
+      const [visitResult, lesionsResult] = await Promise.all([
+        getSelfHostedVisit({
+          apiBaseUrl: selfHostedSession.apiBaseUrl,
+          apiToken: selfHostedSession.apiToken,
+          visitId,
+        }),
+        listSelfHostedVisitLesions({
+          apiBaseUrl: selfHostedSession.apiBaseUrl,
+          apiToken: selfHostedSession.apiToken,
+          visitId,
+        }),
+      ]);
+      if (cancelled) return;
+      if (!visitResult.ok || !visitResult.value) {
+        setLiveState({
+          kind: "error",
+          message: visitResult.error?.message ?? "Не удалось загрузить визит из self-hosted backend.",
+        });
+        return;
+      }
+      if (!lesionsResult.ok) {
+        setLiveState({
+          kind: "error",
+          message: lesionsResult.error?.message ?? "Не удалось загрузить очаги визита из self-hosted backend.",
+        });
+        return;
+      }
+      setLiveState({
+        kind: "ready",
+        visit: visitResult.value,
+        lesions: lesionsResult.value ?? [],
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    liveBackend,
+    productionMode,
+    selfHostedSession.apiBaseUrl,
+    selfHostedSession.apiToken,
+    visitId,
+  ]);
+
+  if (productionMode && !liveBackend) {
+    return (
+      <ProductionWorkspaceState
+        title="Требуется self-hosted вход"
+        text="Production-режим не открывает workspace визита из mock-данных. Войдите через self-hosted backend."
+      />
+    );
+  }
+
+  if (productionMode && liveState.kind === "loading") {
+    return <ProductionWorkspaceState title="Загружаем workspace визита" text="Читаем визит из self-hosted backend…" />;
+  }
+
+  if (productionMode && liveState.kind === "error") {
+    return <ProductionWorkspaceState title="Workspace визита недоступен" text={liveState.message} />;
+  }
+
+  const livePatient = productionMode && liveState.kind === "ready"
+    ? selfHostedVisitDetailToPatient(liveState.visit)
+    : undefined;
+  const liveVisit = productionMode && liveState.kind === "ready"
+    ? selfHostedVisitToDomain(liveState.visit)
+    : undefined;
+  const patient = livePatient ?? (id ? getPatientById(id) : undefined);
+  const visit = liveVisit ?? (visitId ? getVisitById(visitId) : undefined);
+
   if (!patient || !visit || visit.patientId !== patient.id) {
     return (
       <div className="flex h-full flex-col">
@@ -122,7 +228,9 @@ export default function VisitWorkspacePage() {
     );
   }
 
-  const lesions = getLesionsByPatientId(patient.id);
+  const lesions = productionMode && liveState.kind === "ready"
+    ? liveState.lesions.map((lesion) => selfHostedLesionToDomain(lesion, patient.id))
+    : getLesionsByPatientId(patient.id);
   const clinic = getClinicById(visit.clinicId);
 
   const validTabs = ["intake", "bodymap", "imaging", "assessment", "conclusion", "report"] as const;
@@ -169,6 +277,17 @@ export default function VisitWorkspacePage() {
           </Button>
         }
       />
+
+      {productionMode ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-b border-border bg-surface px-4 py-2 text-[12px] text-muted-foreground"
+        >
+          <span className="font-medium text-foreground">{SELF_HOSTED_LIVE_SOURCE_LABEL}</span>
+          {" · "}workspace визита не использует mock patient/visit lookup.
+        </div>
+      ) : null}
 
       <VisitWorkspaceLiveBanner visitId={visit.id} />
       <VisitWorkspaceLiveActions visit={visit} lesions={lesions} />
@@ -234,6 +353,19 @@ export default function VisitWorkspacePage() {
           <VisitReportTab patient={patient} visit={visit} lesions={lesions} />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ProductionWorkspaceState({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader title={title} subtitle={text} />
+      <div className="p-4">
+        <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+          <Link to="/self-hosted/login">К production входу</Link>
+        </Button>
+      </div>
     </div>
   );
 }

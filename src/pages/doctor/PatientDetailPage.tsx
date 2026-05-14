@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 
@@ -17,8 +18,23 @@ import {
   getVisitsByPatientId,
 } from "@/lib/mock-data";
 import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
-import type { Lesion, Visit } from "@/lib/domain";
+import type { Lesion, Patient, Report, Visit } from "@/lib/domain";
 import { getReportLinkExpiry, getReportSafeText } from "@/lib/report-access";
+import { isProductionAppMode } from "@/lib/app-mode";
+import {
+  isSelfHostedApiConfigured,
+  useSelfHostedApiSession,
+} from "@/lib/self-hosted-api-session";
+import {
+  getSelfHostedPatient,
+  type SelfHostedApiError,
+} from "@/lib/self-hosted-patient-api";
+import { listSelfHostedVisitsByPatient } from "@/lib/self-hosted-visit-api";
+import {
+  SELF_HOSTED_LIVE_SOURCE_LABEL,
+  selfHostedPatientDetailToDomain,
+  selfHostedVisitToDomain,
+} from "@/lib/self-hosted-clinical-adapter";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
   scheduled: "Запланирован",
@@ -39,10 +55,105 @@ function userName(id: string | null | undefined): string {
   return Object.values(DEMO_USERS).find((u) => u.id === id)?.fullName ?? id;
 }
 
+type LivePatientDetailState =
+  | { kind: "idle" | "loading" }
+  | { kind: "ready"; patient: Patient; visits: Visit[] }
+  | { kind: "error"; message: string };
+
+function apiErrorText(error: SelfHostedApiError | null | undefined): string {
+  if (!error) return "Self-hosted backend не вернул описание ошибки.";
+  if (error.status === 401) return "Требуется повторный вход в self-hosted backend.";
+  if (error.status === 403) return "Недостаточно прав для просмотра карточки пациента.";
+  return error.message;
+}
+
 export default function PatientDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const patient = id ? getPatientById(id) : undefined;
+  const productionMode = isProductionAppMode();
+  const selfHostedSession = useSelfHostedApiSession();
+  const liveBackend = isSelfHostedApiConfigured(selfHostedSession);
+  const [liveState, setLiveState] = useState<LivePatientDetailState>({ kind: "idle" });
+
+  useEffect(() => {
+    if (!productionMode || !liveBackend || !id) {
+      setLiveState({ kind: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setLiveState({ kind: "loading" });
+    void (async () => {
+      const [patientResult, visitsResult] = await Promise.all([
+        getSelfHostedPatient({
+          apiBaseUrl: selfHostedSession.apiBaseUrl,
+          apiToken: selfHostedSession.apiToken,
+          patientId: id,
+        }),
+        listSelfHostedVisitsByPatient({
+          apiBaseUrl: selfHostedSession.apiBaseUrl,
+          apiToken: selfHostedSession.apiToken,
+          patientId: id,
+        }),
+      ]);
+      if (cancelled) return;
+      if (!patientResult.ok || !patientResult.value) {
+        setLiveState({ kind: "error", message: apiErrorText(patientResult.error) });
+        return;
+      }
+      if (!visitsResult.ok) {
+        setLiveState({ kind: "error", message: apiErrorText(visitsResult.error) });
+        return;
+      }
+      setLiveState({
+        kind: "ready",
+        patient: selfHostedPatientDetailToDomain(patientResult.value),
+        visits: (visitsResult.value ?? []).map(selfHostedVisitToDomain),
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    id,
+    liveBackend,
+    productionMode,
+    selfHostedSession.apiBaseUrl,
+    selfHostedSession.apiToken,
+  ]);
+
+  if (productionMode && !liveBackend) {
+    return (
+      <ProductionPatientState
+        title="Требуется self-hosted вход"
+        text="Production-режим не открывает карточки пациентов из mock-данных. Войдите через self-hosted backend."
+      />
+    );
+  }
+
+  if (productionMode && liveState.kind === "loading") {
+    return <ProductionPatientState title="Загружаем карточку пациента" text="Читаем данные из self-hosted backend…" />;
+  }
+
+  if (productionMode && liveState.kind === "error") {
+    return <ProductionPatientState title="Карточка пациента недоступна" text={liveState.message} />;
+  }
+
+  const patient = productionMode && liveState.kind === "ready"
+    ? liveState.patient
+    : id
+      ? getPatientById(id)
+      : undefined;
+  const visits = productionMode && liveState.kind === "ready"
+    ? liveState.visits.sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    : patient
+      ? getVisitsByPatientId(patient.id).sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      : [];
+  const lesions: Lesion[] = productionMode ? [] : patient ? getLesionsByPatientId(patient.id) : [];
+  const reports: Report[] = productionMode
+    ? []
+    : patient
+      ? getReportsByPatientId(patient.id).sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+      : [];
 
   if (!patient) {
     return (
@@ -57,9 +168,6 @@ export default function PatientDetailPage() {
     );
   }
 
-  const visits = getVisitsByPatientId(patient.id).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
-  const lesions = getLesionsByPatientId(patient.id);
-  const reports = getReportsByPatientId(patient.id).sort((a, b) => b.generatedAt.localeCompare(a.generatedAt));
   const lastVisit = visits.find((v) => v.status === "closed") ?? visits[0];
   const lastReport = reports[0];
 
@@ -74,6 +182,17 @@ export default function PatientDetailPage() {
           </Button>
         }
       />
+
+      {productionMode ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-b border-border bg-surface px-6 py-2 text-[12px] text-muted-foreground"
+        >
+          <span className="font-medium text-foreground">{SELF_HOSTED_LIVE_SOURCE_LABEL}</span>
+          {" · "}mock-данные для карточки пациента отключены.
+        </div>
+      ) : null}
 
       <Tabs defaultValue="overview" className="flex-1">
         <div className="border-b border-border bg-surface px-6">
@@ -278,6 +397,19 @@ export default function PatientDetailPage() {
           )}
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ProductionPatientState({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="flex h-full flex-col">
+      <PageHeader title={title} subtitle={text} />
+      <div className="p-4">
+        <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+          <Link to="/self-hosted/login">К production входу</Link>
+        </Button>
+      </div>
     </div>
   );
 }

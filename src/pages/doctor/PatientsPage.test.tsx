@@ -55,6 +55,7 @@ describe("PatientsPage", () => {
 
   afterEach(() => {
     window.localStorage.clear();
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
 
@@ -561,5 +562,37 @@ describe("PatientsPage", () => {
     );
     expect(screen.getByText(/Всего в базе: 8/)).toBeInTheDocument();
     expect(screen.getAllByText("Иванова Наталья Олеговна").length).toBeGreaterThan(0);
+  });
+
+  it("does not show demo patient rows when production live loading fails", async () => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    configureLiveBackend();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            error: {
+              code: "forbidden",
+              message: "The authenticated user does not have access to this resource.",
+            },
+            correlationId: "cid-403",
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole("status", { name: "Статус действий с пациентами" })).toHaveTextContent(
+      "Недостаточно прав",
+    );
+    expect(screen.getByRole("note", { name: "Ограничения демо-режима пациентов" })).toHaveTextContent(
+      "Production-режим",
+    );
+    expect(screen.getByText(/Self-hosted backend недоступен/i)).toBeInTheDocument();
+    expect(screen.queryByText("Иванова Наталья Олеговна")).not.toBeInTheDocument();
+    expect(screen.getByText(/Всего в базе: 0/)).toBeInTheDocument();
   });
 });
