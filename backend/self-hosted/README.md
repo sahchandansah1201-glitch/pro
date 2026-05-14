@@ -26,6 +26,8 @@ PostgreSQL client used by the container image.
   `device-bridge-worker-service.mjs` — Stage 4Q-4S Device Bridge registry,
   backend-owned command queue, and local worker heartbeat/poll/ack/complete
   contract.
+- `../../worker/device-bridge/worker.mjs` — Stage 4T local Device Bridge
+  worker runtime that consumes the Stage 4S contract.
 - `ops-logger.mjs` — Stage 4N structured JSON logs, correlation helpers, and
   redaction for production observability.
 - `openapi.stage4a.json` — contract-first API boundary for auth, patients,
@@ -101,6 +103,10 @@ npm run preflight:stage4r
 npm run test:stage4s
 npm run check:stage4s
 npm run preflight:stage4s
+npm run test:stage4t
+npm run check:stage4t
+npm run preflight:stage4t
+npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
 npm run smoke:stage4k
@@ -136,3 +142,6 @@ system-admin-only `/api/v1/ops/status` endpoint, metadata-only audit export
 dry-run, and privacy guardrails for production observability.
 Stage 4Q-4S add a Device Bridge registry, safe backend-owned command enqueueing,
 and a deployment-local worker contract using `DEVICE_BRIDGE_WORKER_TOKEN`.
+Stage 4T adds the local worker runtime, dry-run/once/loop commands, a systemd
+unit template, and a noop adapter boundary for future clinic-owned hardware
+drivers.
