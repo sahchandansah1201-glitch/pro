@@ -139,6 +139,12 @@ npm run check:stage5b
 npm run preflight:stage5b
 npm run bootstrap:stage5b:dry-run
 npm run bootstrap:stage5b:verify-env:example
+npm run test:stage5c
+npm run check:stage5c
+npm run preflight:stage5c
+npm run migrate:stage5c:dry-run
+npm run migrate:stage5c:schema-sql
+npm run migrate:stage5c:seed-policy
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -215,3 +221,8 @@ Stage 5B adds the production server bootstrap flow: host/env checks, port and
 directory planning, first `system_admin` SQL generation through
 `deploy/self-hosted/bootstrap-system-admin.stage5b.sql.example`, and
 `npm run preflight:stage5b` before first server install.
+Stage 5C hardens production migrations and bootstrap: it classifies demo/smoke
+seed files away from production, generates
+`deploy/self-hosted/prestart-schema-check.stage5c.sql` style checks, verifies
+the audit append-only trigger and first `system_admin`, and gates this through
+`npm run preflight:stage5c`.

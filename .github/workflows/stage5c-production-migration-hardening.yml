@@ -1,0 +1,61 @@
+name: stage5c-production-migration-hardening
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/db/migrations/**"
+      - "deploy/self-hosted/prestart-schema-check.stage5c.sql"
+      - "docs/backend/stage-5c-production-migration-hardening.md"
+      - "scripts/stage5c-production-migration-hardening.mjs"
+      - "scripts/stage5c-production-migration-hardening.test.mjs"
+      - "scripts/check-stage5c-production-migration-hardening.mjs"
+      - "scripts/check-stage5c-production-migration-hardening.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage5c-production-migration-hardening.yml"
+  push:
+    paths:
+      - "backend/self-hosted/db/migrations/**"
+      - "deploy/self-hosted/prestart-schema-check.stage5c.sql"
+      - "docs/backend/stage-5c-production-migration-hardening.md"
+      - "scripts/stage5c-production-migration-hardening.mjs"
+      - "scripts/check-stage5c-production-migration-hardening.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage5c-production-migration-hardening.yml"
+
+jobs:
+  stage5c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5c
+      - name: Write migration hardening summary
+        if: always()
+        run: |
+          mkdir -p test-results
+          npm run migrate:stage5c:dry-run -- --summary test-results/stage5c-production-migration-hardening.md
+          npm run migrate:stage5c:schema-sql
+          {
+            echo "## Stage 5C production migration hardening"
+            echo
+            echo "- Preflight: npm run preflight:stage5c"
+            echo "- Migration inventory: test-results/stage5c-production-migration-hardening.md"
+            echo "- Pre-start SQL: test-results/stage5c-prestart-schema-check.sql"
+            echo "- Managed runtime: none"
+            echo "- Managed database: none"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5c-production-migration-hardening
+          path: |
+            test-results/stage5c-production-migration-hardening.md
+            test-results/stage5c-prestart-schema-check.sql
+          if-no-files-found: error
