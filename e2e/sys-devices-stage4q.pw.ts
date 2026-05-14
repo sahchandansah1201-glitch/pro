@@ -6,7 +6,7 @@ if (process.env.PW_CHROMIUM_PATH) {
   test.use({ launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } });
 }
 
-test.describe("Stage 4Q · /sys/devices self-hosted registry", () => {
+test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", () => {
   test("system_admin sees live Device Bridge registry without browser hardware APIs", async ({ page }) => {
     await setDemoRole(page, "system_admin");
     await page.addInitScript(() => {
@@ -70,6 +70,41 @@ test.describe("Stage 4Q · /sys/devices self-hosted registry", () => {
         }),
       });
     });
+    await page.route("http://localhost:8080/api/v1/device-bridges/br-uuid/commands", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      expect(route.request().method()).toBe("POST");
+      const body = route.request().postDataJSON();
+      expect(body.commandType).toBe("bridge_health_check");
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4R",
+          command: { id: "cmd-bridge-e2e", commandType: "bridge_health_check", status: "queued" },
+          execution: { worker: "local_device_bridge", browserHardwareAccess: false },
+        }),
+      });
+    });
+    await page.route("http://localhost:8080/api/v1/devices/dev-uuid/commands", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      expect(route.request().method()).toBe("POST");
+      const body = route.request().postDataJSON();
+      expect(body.commandType).toBe("device_calibration_request");
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4R",
+          command: {
+            id: "cmd-device-e2e",
+            commandType: "device_calibration_request",
+            status: "queued",
+            deviceId: "dev-uuid",
+          },
+          execution: { worker: "local_device_bridge", browserHardwareAccess: false },
+        }),
+      });
+    });
 
     await page.goto("/sys/devices");
 
@@ -79,6 +114,11 @@ test.describe("Stage 4Q · /sys/devices self-hosted registry", () => {
     await expect(page.getByText("br-live-01").first()).toBeVisible();
     await expect(page.getByText("Реестр устройств загружен из backend.")).toBeVisible();
     await expect(page.getByText("Браузер не подключается к драйверу напрямую")).toBeVisible();
+
+    await page.getByRole("button", { name: "Проверить мост" }).first().click();
+    await expect(page.getByText(/cmd-bridge-e2e/)).toBeVisible();
+    await page.getByRole("button", { name: "Запросить калибровку" }).first().click();
+    await expect(page.getByText(/cmd-device-e2e/)).toBeVisible();
 
     const html = await page.locator("main").innerHTML();
     expect(html).not.toContain("access_token");

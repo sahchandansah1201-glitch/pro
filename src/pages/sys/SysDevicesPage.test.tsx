@@ -51,6 +51,24 @@ describe("SysDevicesPage", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
       expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer jwt-device-test");
+      if (url.includes("/api/v1/device-bridges/br-uuid/commands")) {
+        expect(init?.method).toBe("POST");
+        return new Response(
+          JSON.stringify({
+            command: { id: "cmd-bridge", commandType: "bridge_health_check", status: "queued" },
+          }),
+          { status: 202, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/devices/dev-uuid/commands")) {
+        expect(init?.method).toBe("POST");
+        return new Response(
+          JSON.stringify({
+            command: { id: "cmd-device", commandType: "device_calibration_request", status: "queued", deviceId: "dev-uuid" },
+          }),
+          { status: 202, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -102,6 +120,13 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Проверить мост" })[0]);
+    expect(await screen.findByText(/Команда проверки моста br-live-01 поставлена в очередь Device Bridge: cmd-bridge/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
+    expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

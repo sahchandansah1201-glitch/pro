@@ -12,6 +12,8 @@ import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
+  requestSelfHostedBridgeCommand,
+  requestSelfHostedDeviceCommand,
   type SelfHostedDeviceBridgeDTO,
   type SelfHostedDeviceDTO,
 } from "@/lib/self-hosted-device-api";
@@ -33,6 +35,7 @@ const BRIDGE_NOTE =
 
 interface BridgeRow {
   id: string;
+  code?: string;
   host: string;
   lan: "online" | "degraded" | "offline";
   version: string;
@@ -94,7 +97,8 @@ const TODAY = "2026-05-14";
 
 function bridgeFromDto(dto: SelfHostedDeviceBridgeDTO): BridgeRow {
   return {
-    id: dto.bridgeCode,
+    id: dto.id,
+    code: dto.bridgeCode,
     host: dto.hostName,
     lan: dto.lanStatus,
     version: dto.version,
@@ -134,6 +138,7 @@ export default function SysDevicesPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [commandBusyKey, setCommandBusyKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session.apiToken) {
@@ -206,6 +211,71 @@ export default function SysDevicesPage() {
   });
   const visible = pagination.visible;
 
+  async function runBridgeHealthCheck(bridge: BridgeRow) {
+    const label = bridge.code ?? bridge.id;
+    if (!isLive || !session.apiToken) {
+      setNote(`Проверка моста ${label} — демо-действие.`);
+      return;
+    }
+    const key = `bridge:${bridge.id}`;
+    setCommandBusyKey(key);
+    setNote(`Команда проверки моста ${label} отправляется в self-hosted backend.`);
+    const result = await requestSelfHostedBridgeCommand({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      bridgeId: bridge.id,
+      commandType: "bridge_health_check",
+      reason: "Проверка LAN и heartbeat из системной страницы устройств.",
+    });
+    setCommandBusyKey(null);
+    setNote(
+      result.ok
+        ? `Команда проверки моста ${label} поставлена в очередь Device Bridge: ${result.value.id}.`
+        : result.error?.message || `Не удалось поставить команду проверки моста ${label} в очередь.`,
+    );
+  }
+
+  async function runDeviceCommand(
+    device: DeviceRow,
+    commandType: "device_calibration_request" | "device_stream_open_request",
+  ) {
+    const isCalibration = commandType === "device_calibration_request";
+    if (!isLive || !session.apiToken) {
+      setNote(
+        isCalibration
+          ? `Калибровка ${device.serial} — демо.`
+          : `Открытие потока ${device.serial} появится с Device Bridge.`,
+      );
+      return;
+    }
+    const key = `${commandType}:${device.id}`;
+    setCommandBusyKey(key);
+    setNote(
+      isCalibration
+        ? `Команда калибровки ${device.serial} отправляется в self-hosted backend.`
+        : `Команда открытия потока ${device.serial} отправляется в self-hosted backend.`,
+    );
+    const result = await requestSelfHostedDeviceCommand({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      deviceId: device.id,
+      commandType,
+      reason: isCalibration
+        ? "Запрос калибровки из системной страницы устройств."
+        : "Запрос открытия потока через локальный Device Bridge.",
+    });
+    setCommandBusyKey(null);
+    setNote(
+      result.ok
+        ? (
+            isCalibration
+              ? `Команда калибровки ${device.serial} поставлена в очередь Device Bridge: ${result.value.id}.`
+              : `Команда открытия потока ${device.serial} поставлена в очередь Device Bridge: ${result.value.id}.`
+          )
+        : result.error?.message || `Не удалось поставить команду ${device.serial} в очередь.`,
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader title="Устройства" subtitle="Device Bridge и электронные дерматоскопы." />
@@ -261,7 +331,7 @@ export default function SysDevicesPage() {
               <tbody>
                 {bridges.map((b) => (
                   <tr key={b.id} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2 font-mono text-[11px]">{b.id}</td>
+                    <td className="px-3 py-2 font-mono text-[11px]">{b.code ?? b.id}</td>
                     <td className="px-3 py-2">{b.host}</td>
                     <td className="px-3 py-2">
                       <span
@@ -280,9 +350,10 @@ export default function SysDevicesPage() {
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(isLive ? `Проверка моста ${b.id} выполняется через backend registry.` : `Проверка моста ${b.id} — демо-действие.`)}
+                          disabled={commandBusyKey === `bridge:${b.id}`}
+                          onClick={() => void runBridgeHealthCheck(b)}
                         >
-                          Проверить мост (демо)
+                          {commandBusyKey === `bridge:${b.id}` ? "Ставим в очередь..." : "Проверить мост"}
                         </Button>
                       </div>
                     </td>
@@ -298,7 +369,7 @@ export default function SysDevicesPage() {
               <Card key={b.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="truncate font-mono text-[12px] font-semibold">{b.id}</div>
+                    <div className="truncate font-mono text-[12px] font-semibold">{b.code ?? b.id}</div>
                     <div className="truncate text-[11px] text-muted-foreground">{b.host}</div>
                   </div>
                   <span
@@ -320,9 +391,10 @@ export default function SysDevicesPage() {
                   <Button
                     variant="outline"
                     className="w-full min-h-[44px] text-[12px]"
-                    onClick={() => setNote(isLive ? `Проверка моста ${b.id} выполняется через backend registry.` : `Проверка моста ${b.id} — демо-действие.`)}
+                    disabled={commandBusyKey === `bridge:${b.id}`}
+                    onClick={() => void runBridgeHealthCheck(b)}
                   >
-                    Проверить мост (демо)
+                    {commandBusyKey === `bridge:${b.id}` ? "Ставим в очередь..." : "Проверить мост"}
                   </Button>
                 </div>
               </Card>
@@ -424,17 +496,19 @@ export default function SysDevicesPage() {
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(isLive ? `Калибровка ${d.serial} фиксируется через Device Bridge, не через браузер.` : `Калибровка ${d.serial} — демо.`)}
+                          disabled={commandBusyKey === `device_calibration_request:${d.id}`}
+                          onClick={() => void runDeviceCommand(d, "device_calibration_request")}
                         >
-                          Сымитировать калибровку
+                          {commandBusyKey === `device_calibration_request:${d.id}` ? "Ставим..." : "Запросить калибровку"}
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(isLive ? `Поток ${d.serial} открывается через локальный Device Bridge компонент.` : `Открытие потока ${d.serial} появится с Device Bridge.`)}
+                          disabled={commandBusyKey === `device_stream_open_request:${d.id}`}
+                          onClick={() => void runDeviceCommand(d, "device_stream_open_request")}
                         >
-                          Открыть поток (демо)
+                          {commandBusyKey === `device_stream_open_request:${d.id}` ? "Ставим..." : "Открыть поток"}
                         </Button>
                       </div>
                     </td>
@@ -478,11 +552,21 @@ export default function SysDevicesPage() {
                   <dd className="text-right">{formatDateTime(d.lastSeenAt)}</dd>
                 </dl>
                 <div className="mt-3 flex flex-col gap-1.5">
-                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(isLive ? `Калибровка ${d.serial} фиксируется через Device Bridge, не через браузер.` : `Калибровка ${d.serial} — демо.`)}>
-                    Сымитировать калибровку
+                  <Button
+                    variant="outline"
+                    className="min-h-[44px] text-[12px]"
+                    disabled={commandBusyKey === `device_calibration_request:${d.id}`}
+                    onClick={() => void runDeviceCommand(d, "device_calibration_request")}
+                  >
+                    {commandBusyKey === `device_calibration_request:${d.id}` ? "Ставим..." : "Запросить калибровку"}
                   </Button>
-                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(isLive ? `Поток ${d.serial} открывается через локальный Device Bridge компонент.` : `Открытие потока ${d.serial} появится с Device Bridge.`)}>
-                    Открыть поток (демо)
+                  <Button
+                    variant="outline"
+                    className="min-h-[44px] text-[12px]"
+                    disabled={commandBusyKey === `device_stream_open_request:${d.id}`}
+                    onClick={() => void runDeviceCommand(d, "device_stream_open_request")}
+                  >
+                    {commandBusyKey === `device_stream_open_request:${d.id}` ? "Ставим..." : "Открыть поток"}
                   </Button>
                 </div>
               </Card>

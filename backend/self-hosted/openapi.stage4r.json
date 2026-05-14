@@ -1,0 +1,105 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Device Bridge commands",
+    "version": "4R-device-bridge-commands"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/device-bridges/{bridgeId}/commands": {
+      "post": {
+        "summary": "Queue a safe Device Bridge command",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "bridgeId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["commandType"],
+                "properties": {
+                  "commandType": {
+                    "type": "string",
+                    "enum": ["bridge_health_check"]
+                  },
+                  "reason": { "type": "string", "maxLength": 240 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Command queued for the local Device Bridge worker. Browser hardware access is false."
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role does not allow device commands" },
+          "404": { "description": "Bridge not found in allowed clinic scope" },
+          "422": { "description": "Invalid command payload" }
+        }
+      }
+    },
+    "/api/v1/devices/{deviceId}/commands": {
+      "post": {
+        "summary": "Queue a safe command for a registered dermatoscope",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["commandType"],
+                "properties": {
+                  "commandType": {
+                    "type": "string",
+                    "enum": ["device_calibration_request", "device_stream_open_request"]
+                  },
+                  "reason": { "type": "string", "maxLength": 240 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Command queued for the local Device Bridge worker. No WebUSB/WebBluetooth/WebSerial contract."
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role does not allow device commands" },
+          "404": { "description": "Device not found in allowed clinic scope" },
+          "422": { "description": "Invalid command payload" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,69 @@
+name: stage4r-device-bridge-commands
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "e2e/sys-devices-stage4q.pw.ts"
+      - "scripts/check-stage4r-device-bridge-commands.mjs"
+      - "scripts/check-stage4r-device-bridge-commands.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4r-device-bridge-commands.md"
+      - "package.json"
+      - ".github/workflows/stage4r-device-bridge-commands.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "e2e/sys-devices-stage4q.pw.ts"
+      - "scripts/check-stage4r-device-bridge-commands.mjs"
+      - "scripts/check-stage4r-device-bridge-commands.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4r-device-bridge-commands.md"
+      - "package.json"
+      - ".github/workflows/stage4r-device-bridge-commands.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4r-device-bridge-commands:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage4r
+      - run: npx playwright install --with-deps chromium
+      - name: Start frontend
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 8080 > /tmp/stage4r-vite.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:8080 >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/stage4r-vite.log
+          exit 1
+      - run: npm run e2e:stage4r
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4R Device Bridge commands"
+            echo ""
+            echo "- Backend command endpoints: /api/v1/device-bridges/{bridgeId}/commands, /api/v1/devices/{deviceId}/commands"
+            echo "- Frontend page: /sys/devices live action buttons"
+            echo "- Boundary: commands are queued in PostgreSQL for a local Device Bridge worker"
+          } >> "$GITHUB_STEP_SUMMARY"
