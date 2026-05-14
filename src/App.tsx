@@ -38,6 +38,7 @@ import SysAuditPage from "./pages/sys/SysAuditPage";
 import SysAccessEventsPage from "./pages/sys/SysAccessEventsPage";
 import SysApiKeysPage from "./pages/sys/SysApiKeysPage";
 import SysReleaseStatusPage from "./pages/sys/SysReleaseStatusPage";
+import SysSelfHostedOpsPage from "./pages/sys/SysSelfHostedOpsPage";
 import MeHomePage from "./pages/patient/MeHomePage";
 import MeReportPage from "./pages/patient/MeReportPage";
 import MeReportsPage from "./pages/patient/MeReportsPage";
@@ -96,6 +97,7 @@ const App = () => (
               <Route path="/sys/audit" element={<G><SysAuditPage /></G>} />
               <Route path="/sys/access-events" element={<G><SysAccessEventsPage /></G>} />
               <Route path="/sys/release-status" element={<G><SysReleaseStatusPage /></G>} />
+              <Route path="/sys/self-hosted-ops" element={<G><SysSelfHostedOpsPage /></G>} />
               <Route path="/sys/api-keys" element={<G><SysApiKeysPage /></G>} />
 
               {/* Patient portal */}
