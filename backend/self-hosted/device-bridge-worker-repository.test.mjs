@@ -3,8 +3,10 @@ import { test } from "node:test";
 
 import {
   buildListWorkerCommandsSql,
+  buildListWorkerCommandAuditSql,
   buildListWorkerHardeningSql,
   buildListWorkerRecoverySql,
+  buildReplayWorkerCommandSql,
   buildRecoverWorkerCommandSql,
   buildListWorkerTelemetrySql,
   buildUpdateWorkerCommandStatusSql,
@@ -75,6 +77,29 @@ test("worker recovery SQL reports recoverable commands and writes safe actions",
   assert.match(recoverSql, /recovered_by/);
   assert.match(recoverSql, /lifecycle_revision/);
   assert.doesNotMatch(`${listSql}\n${recoverSql}`, /payload_json|result_json|worker_metadata_json|token|secret|supabase|api-read|api-write|edge function/i);
+});
+
+test("worker command audit SQL returns safe events and backend-only replay", () => {
+  const auditSql = buildListWorkerCommandAuditSql({
+    clinicIds: [CLINIC_ID],
+    action: "replay",
+    status: "queued",
+    limit: 10,
+  });
+  const replaySql = buildReplayWorkerCommandSql({
+    commandId: COMMAND_ID,
+    actorUserId: "10000000-0000-4000-8000-000000000999",
+    reason: "safe replay",
+  });
+
+  assert.match(auditSql, /audit_log/);
+  assert.match(auditSql, /device_bridge\.command\.replay/);
+  assert.match(auditSql, /manual_system_admin/);
+  assert.match(replaySql, /replay_of_command_id/);
+  assert.match(replaySql, /payload_json/);
+  assert.match(replaySql, /metadata_json/);
+  assert.doesNotMatch(auditSql, /metadata_json|payload_json|result_json|worker_metadata_json|token|secret|supabase|api-read|api-write|edge function/i);
+  assert.doesNotMatch(replaySql, /\bsupabase\b|api-read|api-write|edge function/i);
 });
 
 test("worker telemetry SQL returns safe bridge status and command lifecycle only", () => {
@@ -321,4 +346,68 @@ test("repository normalizes worker recovery projection and recovered commands", 
   assert.equal(recovery.commands[0].recoveryState, "retryable_failed");
   assert.equal(command.status, "cancelled");
   assert.equal(command.recoveryAction, "cancel");
+});
+
+test("repository normalizes worker command audit and replay projection", async () => {
+  const repository = createDeviceBridgeWorkerRepository({
+    async queryJson(sql) {
+      if (sql.includes("insert into device_bridge_commands")) {
+        return [{
+          id: "10000000-0000-4000-8000-000000000902",
+          clinicId: CLINIC_ID,
+          bridgeId: BRIDGE_ID,
+          bridgeCode: "bridge-01",
+          commandType: "bridge_health_check",
+          status: "queued",
+          replayOfCommandId: COMMAND_ID,
+          replayPolicy: "manual_system_admin",
+        }];
+      }
+      assert.match(sql, /scoped_audit/);
+      return {
+        summary: {
+          totalEvents: 2,
+          replayEvents: 1,
+          recoveryEvents: 1,
+          affectedCommands: 2,
+        },
+        policy: {
+          replayPolicy: "manual_system_admin",
+          allowedReplayStatuses: ["completed", "failed", "cancelled"],
+          allowedReplayCommandTypes: ["bridge_health_check"],
+          payloadVisibility: "backend-only",
+        },
+        events: [
+          {
+            id: "audit-1",
+            clinicId: CLINIC_ID,
+            action: "replay",
+            commandId: COMMAND_ID,
+            bridgeCode: "bridge-01",
+            commandType: "bridge_health_check",
+            status: "queued",
+            lifecycleRevision: 2,
+            replayPolicy: "manual_system_admin",
+          },
+        ],
+      };
+    },
+  });
+
+  const audit = await repository.listWorkerCommandAudit({
+    clinicIds: [CLINIC_ID],
+    action: "replay",
+    status: "queued",
+  });
+  const replay = await repository.replayCommand({
+    commandId: COMMAND_ID,
+    actorUserId: "10000000-0000-4000-8000-000000000999",
+    reason: "safe replay",
+  });
+
+  assert.equal(audit.summary.totalEvents, 2);
+  assert.equal(audit.policy.payloadVisibility, "backend-only");
+  assert.equal(audit.events[0].action, "replay");
+  assert.equal(replay.status, "queued");
+  assert.equal(replay.replayOfCommandId, COMMAND_ID);
 });

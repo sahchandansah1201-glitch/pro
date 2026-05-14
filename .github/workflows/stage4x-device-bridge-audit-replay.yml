@@ -1,0 +1,62 @@
+name: stage4x-device-bridge-audit-replay
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/db/migrations/0013_stage4x_device_bridge_audit_replay.sql"
+      - "backend/self-hosted/device-bridge-worker-repository.mjs"
+      - "backend/self-hosted/device-bridge-worker-repository.test.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.test.mjs"
+      - "backend/self-hosted/openapi.stage4x.json"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "e2e/sys-devices-stage4q.pw.ts"
+      - "docs/backend/stage-4x-device-bridge-audit-replay.md"
+      - "scripts/check-stage4x-device-bridge-audit-replay.mjs"
+      - "scripts/check-stage4x-device-bridge-audit-replay.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4x-device-bridge-audit-replay.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/self-hosted/db/migrations/0013_stage4x_device_bridge_audit_replay.sql"
+      - "backend/self-hosted/device-bridge-worker-repository.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.mjs"
+      - "backend/self-hosted/openapi.stage4x.json"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "scripts/check-stage4x-device-bridge-audit-replay.mjs"
+      - "package.json"
+      - ".github/workflows/stage4x-device-bridge-audit-replay.yml"
+
+jobs:
+  stage4x:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run preflight:stage4x
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4X Device Bridge audit replay"
+            echo ""
+            echo "- Backend: /api/v1/device-bridge-worker/audit"
+            echo "- Backend: /api/v1/device-bridge-worker/commands/{commandId}/replay"
+            echo "- Frontend: /sys/devices command audit/replay panel"
+            echo "- Boundary: self-hosted backend/PostgreSQL/local worker only; no browser hardware APIs"
+          } >> "$GITHUB_STEP_SUMMARY"

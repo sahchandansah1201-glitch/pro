@@ -193,6 +193,65 @@ describe("SysDevicesPage", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/commands/cmd-audit/replay")) {
+        expect(init?.method).toBe("POST");
+        expect(init.body).toBe(JSON.stringify({ reason: "Manual replay из Stage 4X command audit панели." }));
+        return new Response(
+          JSON.stringify({
+            command: {
+              id: "cmd-replay",
+              clinicId: "clinic-1",
+              bridgeId: "br-uuid",
+              bridgeCode: "br-live-01",
+              commandType: "bridge_health_check",
+              status: "queued",
+              replayOfCommandId: "cmd-audit",
+              replayPolicy: "manual_system_admin",
+            },
+          }),
+          { status: 202, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/api/v1/device-bridge-worker/audit")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4X",
+            source: "postgres",
+            summary: {
+              totalEvents: 3,
+              replayEvents: 1,
+              recoveryEvents: 1,
+              affectedCommands: 2,
+            },
+            policy: {
+              replayPolicy: "manual_system_admin",
+              allowedReplayStatuses: ["completed", "failed", "cancelled"],
+              allowedReplayCommandTypes: ["bridge_health_check", "device_calibration_request"],
+              payloadVisibility: "backend_only",
+            },
+            items: [
+              {
+                id: "audit-1",
+                clinicId: "clinic-1",
+                action: "replay",
+                commandId: "cmd-audit",
+                bridgeId: "br-uuid",
+                bridgeCode: "br-live-01",
+                commandType: "bridge_health_check",
+                status: "failed",
+                attemptCount: 3,
+                lifecycleRevision: 4,
+                replayPolicy: "manual_system_admin",
+                createdAt: "2026-05-14T08:05:00Z",
+                metadata_json: { secret: true },
+                payload_json: { token: "hidden" },
+              },
+            ],
+            filters: { action: "all", status: "all", limit: 25 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -267,7 +326,19 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("note", { name: "Device Bridge command recovery privacy boundary" })).toHaveTextContent(
       "recovery audit",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(screen.getByRole("region", { name: "Device Bridge command audit and replay" })).toHaveTextContent(
+      "Audit events",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge replay policy" })).toHaveTextContent(
+      "backend_only",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge command audit log" })).toHaveTextContent(
+      "manual_system_admin",
+    );
+    expect(screen.getByRole("note", { name: "Device Bridge command audit privacy boundary" })).toHaveTextContent(
+      "append-only audit projection",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(6);
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
@@ -277,11 +348,15 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
     expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(fetchMock).toHaveBeenCalledTimes(8);
 
     fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
     expect(await screen.findByText(/Команда cmd-retry возвращена в очередь Device Bridge/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(fetchMock).toHaveBeenCalledTimes(9);
+
+    fireEvent.click(screen.getByRole("button", { name: "Replay" }));
+    expect(await screen.findByText(/Replay команды cmd-audit поставлен в очередь Device Bridge: cmd-replay/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(10);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

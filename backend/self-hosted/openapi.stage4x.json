@@ -1,0 +1,131 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Device Bridge audit and replay",
+    "version": "4X-device-bridge-audit-replay",
+    "description": "Stage 4X exposes safe system-admin Device Bridge command audit and backend-owned replay controls. It keeps replay execution self-hosted and does not expose worker tokens, raw command payloads, raw command results, storage paths, patient names, signed URLs, or browser hardware APIs."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/device-bridge-worker/audit": {
+      "get": {
+        "summary": "Read Device Bridge command audit",
+        "description": "Returns safe append-only command audit metadata for system-admin review. Raw audit metadata_json, command payload_json, result_json, worker tokens, patient names, storage paths, and signed URLs are not returned.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "poll", "ack", "complete", "reschedule", "cancel", "replay"],
+              "default": "all"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "queued", "acknowledged", "completed", "failed", "cancelled"],
+              "default": "all"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe Device Bridge command audit projection"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only system_admin can read command audit data"
+          }
+        }
+      }
+    },
+    "/api/v1/device-bridge-worker/commands/{commandId}/replay": {
+      "post": {
+        "summary": "Replay a safe Device Bridge command",
+        "description": "Creates a new queued command from a completed, failed, or cancelled source command using backend-only payload reuse. Replay is limited by policy to safe command types and never returns raw payloads to the browser.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "commandId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 240
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Replay command queued"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only system_admin can replay commands"
+          },
+          "404": {
+            "description": "Replayable command not found"
+          },
+          "422": {
+            "description": "Invalid replay request"
+          }
+        }
+      }
+    }
+  }
+}

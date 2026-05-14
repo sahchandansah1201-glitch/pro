@@ -203,6 +203,9 @@ export interface SelfHostedDeviceBridgeWorkerRecoveryCommandDTO extends SelfHost
   recoveryReason: string | null;
   recoveryRequestedAt: string | null;
   recoveryState: string | null;
+  replayOfCommandId: string | null;
+  replayRequestedAt: string | null;
+  replayPolicy: string | null;
 }
 
 export interface SelfHostedDeviceBridgeWorkerRecoveryDTO {
@@ -221,6 +224,65 @@ export interface SelfHostedDeviceBridgeWorkerRecoveryDTO {
     limit: number;
     staleAfterMinutes: number;
     leaseTtlSeconds: number;
+  };
+  correlationId: string;
+  generatedAt: string;
+}
+
+export type SelfHostedDeviceBridgeCommandAuditAction =
+  | "all"
+  | "poll"
+  | "ack"
+  | "complete"
+  | "reschedule"
+  | "cancel"
+  | "replay";
+
+export interface SelfHostedDeviceBridgeCommandAuditSummaryDTO {
+  totalEvents: number;
+  replayEvents: number;
+  recoveryEvents: number;
+  affectedCommands: number;
+}
+
+export interface SelfHostedDeviceBridgeCommandAuditEventDTO {
+  id: string;
+  clinicId: string;
+  actorUserId: string | null;
+  action: SelfHostedDeviceBridgeCommandAuditAction;
+  commandId: string | null;
+  correlationId: string | null;
+  createdAt: string | null;
+  bridgeId: string | null;
+  deviceId: string | null;
+  bridgeCode: string | null;
+  deviceSerial: string | null;
+  commandType: SelfHostedDeviceCommandType | null;
+  status: SelfHostedDeviceCommandDTO["status"];
+  reason: string | null;
+  attemptCount: number;
+  lifecycleRevision: number;
+  replayOfCommandId: string | null;
+  replayRequestedAt: string | null;
+  replayPolicy: string | null;
+}
+
+export interface SelfHostedDeviceBridgeCommandAuditDTO {
+  stage: "4X" | string;
+  source: "postgres" | string;
+  summary: SelfHostedDeviceBridgeCommandAuditSummaryDTO;
+  policy: {
+    replayPolicy: string;
+    allowedReplayStatuses: string[];
+    allowedReplayCommandTypes: string[];
+    payloadVisibility: string;
+  };
+  items: SelfHostedDeviceBridgeCommandAuditEventDTO[];
+  count: number;
+  filters: {
+    action: SelfHostedDeviceBridgeCommandAuditAction;
+    status: SelfHostedCommandStatusFilter;
+    limit: number;
   };
   correlationId: string;
   generatedAt: string;
@@ -276,6 +338,17 @@ export interface GetSelfHostedDeviceBridgeWorkerRecoveryArgs extends BaseArgs {
 export interface RecoverSelfHostedDeviceBridgeWorkerCommandArgs extends BaseArgs {
   commandId: string;
   action: "reschedule" | "cancel";
+  reason?: string;
+}
+
+export interface GetSelfHostedDeviceBridgeCommandAuditArgs extends BaseArgs {
+  action?: SelfHostedDeviceBridgeCommandAuditAction;
+  status?: SelfHostedCommandStatusFilter;
+  limit?: number;
+}
+
+export interface ReplaySelfHostedDeviceBridgeCommandArgs extends BaseArgs {
+  commandId: string;
   reason?: string;
 }
 
@@ -501,6 +574,20 @@ function normalizeCommandStatusFilter(input: unknown): SelfHostedCommandStatusFi
   return "all";
 }
 
+function normalizeCommandAuditAction(input: unknown): SelfHostedDeviceBridgeCommandAuditAction {
+  if (
+    input === "poll" ||
+    input === "ack" ||
+    input === "complete" ||
+    input === "reschedule" ||
+    input === "cancel" ||
+    input === "replay"
+  ) {
+    return input;
+  }
+  return "all";
+}
+
 export function toSelfHostedDeviceCommandDTO(input: unknown): SelfHostedDeviceCommandDTO | null {
   if (!isRecord(input)) return null;
   const id = String(input.id ?? "");
@@ -681,6 +768,38 @@ export function toSelfHostedDeviceBridgeWorkerRecoveryCommandDTO(
     recoveryReason: input.recoveryReason ? String(input.recoveryReason) : null,
     recoveryRequestedAt: input.recoveryRequestedAt ? String(input.recoveryRequestedAt) : null,
     recoveryState: input.recoveryState ? String(input.recoveryState) : null,
+    replayOfCommandId: input.replayOfCommandId ? String(input.replayOfCommandId) : null,
+    replayRequestedAt: input.replayRequestedAt ? String(input.replayRequestedAt) : null,
+    replayPolicy: input.replayPolicy ? String(input.replayPolicy) : null,
+  };
+}
+
+export function toSelfHostedDeviceBridgeCommandAuditEventDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeCommandAuditEventDTO | null {
+  if (!isRecord(input)) return null;
+  const id = String(input.id ?? "");
+  if (!id) return null;
+  return {
+    id,
+    clinicId: String(input.clinicId ?? ""),
+    actorUserId: input.actorUserId ? String(input.actorUserId) : null,
+    action: normalizeCommandAuditAction(input.action),
+    commandId: input.commandId ? String(input.commandId) : null,
+    correlationId: input.correlationId ? String(input.correlationId) : null,
+    createdAt: input.createdAt ? String(input.createdAt) : null,
+    bridgeId: input.bridgeId ? String(input.bridgeId) : null,
+    deviceId: input.deviceId ? String(input.deviceId) : null,
+    bridgeCode: input.bridgeCode ? String(input.bridgeCode) : null,
+    deviceSerial: input.deviceSerial ? String(input.deviceSerial) : null,
+    commandType: normalizeCommandType(input.commandType),
+    status: normalizeCommandStatus(input.status),
+    reason: input.reason ? String(input.reason) : null,
+    attemptCount: Number(input.attemptCount ?? 0),
+    lifecycleRevision: Number(input.lifecycleRevision ?? 0),
+    replayOfCommandId: input.replayOfCommandId ? String(input.replayOfCommandId) : null,
+    replayRequestedAt: input.replayRequestedAt ? String(input.replayRequestedAt) : null,
+    replayPolicy: input.replayPolicy ? String(input.replayPolicy) : null,
   };
 }
 
@@ -717,6 +836,48 @@ export function toSelfHostedDeviceBridgeWorkerRecoveryDTO(
       limit: Number(filters.limit ?? 25),
       staleAfterMinutes: Number(filters.staleAfterMinutes ?? 10),
       leaseTtlSeconds: Number(filters.leaseTtlSeconds ?? 90),
+    },
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+  };
+}
+
+export function toSelfHostedDeviceBridgeCommandAuditDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeCommandAuditDTO | null {
+  if (!isRecord(input)) return null;
+  const summary = isRecord(input.summary) ? input.summary : {};
+  const policy = isRecord(input.policy) ? input.policy : {};
+  const filters = isRecord(input.filters) ? input.filters : {};
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "postgres",
+    summary: {
+      totalEvents: Number(summary.totalEvents ?? 0),
+      replayEvents: Number(summary.replayEvents ?? 0),
+      recoveryEvents: Number(summary.recoveryEvents ?? 0),
+      affectedCommands: Number(summary.affectedCommands ?? 0),
+    },
+    policy: {
+      replayPolicy: typeof policy.replayPolicy === "string" ? policy.replayPolicy : "manual_system_admin",
+      allowedReplayStatuses: Array.isArray(policy.allowedReplayStatuses)
+        ? policy.allowedReplayStatuses.map(String)
+        : ["completed", "failed", "cancelled"],
+      allowedReplayCommandTypes: Array.isArray(policy.allowedReplayCommandTypes)
+        ? policy.allowedReplayCommandTypes.map(String)
+        : ["bridge_health_check", "device_calibration_request"],
+      payloadVisibility: typeof policy.payloadVisibility === "string" ? policy.payloadVisibility : "backend-only",
+    },
+    items: Array.isArray(input.items)
+      ? input.items
+          .map(toSelfHostedDeviceBridgeCommandAuditEventDTO)
+          .filter((item): item is SelfHostedDeviceBridgeCommandAuditEventDTO => item != null)
+      : [],
+    count: Number(input.count ?? 0),
+    filters: {
+      action: normalizeCommandAuditAction(filters.action),
+      status: normalizeCommandStatusFilter(filters.status),
+      limit: Number(filters.limit ?? 25),
     },
     correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
     generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
@@ -925,5 +1086,62 @@ export async function recoverSelfHostedDeviceBridgeWorkerCommand(
         kind: "http",
         code: "invalid_response",
         message: "Backend вернул некорректный ответ восстановления команды Device Bridge worker.",
+      });
+}
+
+export async function getSelfHostedDeviceBridgeCommandAudit(
+  args: GetSelfHostedDeviceBridgeCommandAuditArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeCommandAuditDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const params = new URLSearchParams();
+  params.set("limit", String(args.limit ?? 25));
+  if (args.action && args.action !== "all") params.set("action", args.action);
+  if (args.status && args.status !== "all") params.set("status", args.status);
+  const result = await requestJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, `/api/v1/device-bridge-worker/audit?${params.toString()}`),
+    args.apiToken as string,
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const audit = toSelfHostedDeviceBridgeCommandAuditDTO(result.value);
+  return audit
+    ? ok(audit)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ аудита команд Device Bridge.",
+      });
+}
+
+export async function replaySelfHostedDeviceBridgeCommand(
+  args: ReplaySelfHostedDeviceBridgeCommandArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeWorkerRecoveryCommandDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  if (!args.commandId) {
+    return fail({
+      kind: "validation",
+      code: "command_id_required",
+      message: "Не выбрана команда Device Bridge для replay.",
+    });
+  }
+  const result = await postJson(
+    buildSelfHostedApiUrl(
+      args.apiBaseUrl,
+      `/api/v1/device-bridge-worker/commands/${encodeURIComponent(args.commandId)}/replay`,
+    ),
+    args.apiToken as string,
+    { reason: args.reason },
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const command = isRecord(result.value)
+    ? toSelfHostedDeviceBridgeWorkerRecoveryCommandDTO(result.value.command)
+    : null;
+  return command
+    ? ok(command)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ replay команды Device Bridge.",
       });
 }
