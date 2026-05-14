@@ -1,0 +1,69 @@
+name: stage4q-self-hosted-device-registry
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "e2e/sys-devices-stage4q.pw.ts"
+      - "scripts/check-stage4q-self-hosted-device-registry.mjs"
+      - "scripts/check-stage4q-self-hosted-device-registry.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4q-self-hosted-device-registry.md"
+      - "package.json"
+      - ".github/workflows/stage4q-self-hosted-device-registry.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "e2e/sys-devices-stage4q.pw.ts"
+      - "scripts/check-stage4q-self-hosted-device-registry.mjs"
+      - "scripts/check-stage4q-self-hosted-device-registry.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4q-self-hosted-device-registry.md"
+      - "package.json"
+      - ".github/workflows/stage4q-self-hosted-device-registry.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4q-self-hosted-device-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage4q
+      - run: npx playwright install --with-deps chromium
+      - name: Start frontend
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 8080 > /tmp/stage4q-vite.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:8080 >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/stage4q-vite.log
+          exit 1
+      - run: npm run e2e:stage4q
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4Q self-hosted Device Bridge registry"
+            echo ""
+            echo "- Backend registry endpoints: /api/v1/device-bridges, /api/v1/devices"
+            echo "- Frontend page: /sys/devices"
+            echo "- Boundary: no direct browser hardware APIs and no managed-runtime database dependency"
+          } >> "$GITHUB_STEP_SUMMARY"

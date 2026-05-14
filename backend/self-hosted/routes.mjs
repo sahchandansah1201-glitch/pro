@@ -19,6 +19,10 @@ import {
 } from "./config.mjs";
 import { createPostgresClient, DatabaseConfigError } from "./db-client.mjs";
 import {
+  createDeviceRegistryRepository,
+  parseDeviceRegistryParams,
+} from "./device-registry-repository.mjs";
+import {
   createPatientRepository,
   parsePatientListParams,
 } from "./patients-repository.mjs";
@@ -34,7 +38,7 @@ import {
 import { createLocalObjectStore } from "./object-store.mjs";
 import { extractCorrelationId, safeRequestPath } from "./ops-logger.mjs";
 import { collectSelfHostedOpsRuntimeChecks } from "./ops-runtime-checks.mjs";
-import { opsStatusScope, patientReadScope, visitReadScope } from "./rbac.mjs";
+import { deviceReadScope, opsStatusScope, patientReadScope, visitReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
 import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
 import { createVisitWorkspaceWriteService } from "./visit-workspace-write-service.mjs";
@@ -70,6 +74,9 @@ const OPENAPI_4N = JSON.parse(
 const OPENAPI_4P = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4p.json"), "utf8"),
 );
+const OPENAPI_4Q = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4q.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -86,6 +93,8 @@ function getRuntime(config, runtime = {}) {
     });
   const patientRepository =
     runtime.patientRepository || createPatientRepository(dbClient);
+  const deviceRegistryRepository =
+    runtime.deviceRegistryRepository || createDeviceRegistryRepository(dbClient);
   const patientWriteService =
     runtime.patientWriteService ||
     createPatientWriteService({
@@ -122,6 +131,7 @@ function getRuntime(config, runtime = {}) {
     authRepository,
     authService,
     dbClient,
+    deviceRegistryRepository,
     patientRepository,
     patientWriteService,
     visitWorkspaceRepository,
@@ -1128,6 +1138,110 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/device-bridges" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = deviceReadScope(authContext);
+      const params = parseDeviceRegistryParams(url.searchParams);
+      const result = await runtimeServices.deviceRegistryRepository.listDeviceBridges({
+        bridgeStatus: params.bridgeStatus,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      await recordAuditBestEffort(runtimeServices.auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "device_bridge.list",
+        entityType: "device_bridge",
+        correlationId,
+        metadata: { count: result.count, allClinics: scope.allClinics },
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "4Q",
+          source: "postgres",
+          items: result.items,
+          count: result.count,
+          auth: {
+            userId: authContext.userId,
+            roles: scope.roles,
+            allClinics: scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({
+        ...publicError,
+        correlationId,
+        config,
+        requestOrigin,
+      });
+    }
+  }
+
+  if (url.pathname === "/api/v1/devices" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = deviceReadScope(authContext);
+      const params = parseDeviceRegistryParams(url.searchParams);
+      const result = await runtimeServices.deviceRegistryRepository.listMedicalDevices({
+        ...params,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      await recordAuditBestEffort(runtimeServices.auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "device.list",
+        entityType: "device",
+        correlationId,
+        metadata: {
+          count: result.count,
+          status: result.status,
+          needsCalibration: result.needsCalibration,
+          allClinics: scope.allClinics,
+        },
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "4Q",
+          source: "postgres",
+          items: result.items,
+          count: result.count,
+          limit: result.limit,
+          offset: result.offset,
+          search: result.search,
+          status: result.status,
+          needsCalibration: result.needsCalibration,
+          auth: {
+            userId: authContext.userId,
+            roles: scope.roles,
+            allClinics: scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({
+        ...publicError,
+        correlationId,
+        config,
+        requestOrigin,
+      });
+    }
+  }
+
   if (url.pathname === "/healthz") {
     return jsonResponse(
       200,
@@ -1163,7 +1277,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4P",
+        stage: "4Q",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -1172,12 +1286,13 @@ export async function handleSelfHostedRequest(
           visits: "rbac-read-write-postgres",
           lesions: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
+          devices: "rbac-read-postgres-device-bridge-registry",
           reports: "rbac-write-postgres",
           observability: "structured-json-logs-redacted-ops-status-runtime-checks",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4p.json",
+          openapi: "/openapi.stage4q.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
@@ -1188,10 +1303,13 @@ export async function handleSelfHostedRequest(
           openapiStage4J: "/openapi.stage4j.json",
           openapiStage4N: "/openapi.stage4n.json",
           openapiStage4P: "/openapi.stage4p.json",
+          openapiStage4Q: "/openapi.stage4q.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
           opsRuntimeChecks: "/api/v1/ops/runtime-checks",
+          deviceBridges: "/api/v1/device-bridges",
+          devices: "/api/v1/devices",
           patients: "/api/v1/patients",
           patientVisits: "/api/v1/patients/{patientId}/visits",
           visit: "/api/v1/visits/{visitId}",
@@ -1252,10 +1370,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4P, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4q.json") {
+    return jsonResponse(200, OPENAPI_4Q, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4P self-hosted backend route matched the request.",
+    message: "No Stage 4Q self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,

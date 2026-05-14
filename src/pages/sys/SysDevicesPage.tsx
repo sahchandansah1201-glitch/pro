@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -8,6 +8,14 @@ import { ListPagination } from "@/components/admin/ListPagination";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { getDevices } from "@/lib/mock-data";
 import { formatDateTime } from "@/lib/format";
+import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
+import {
+  listSelfHostedDeviceBridges,
+  listSelfHostedDevices,
+  type SelfHostedDeviceBridgeDTO,
+  type SelfHostedDeviceDTO,
+} from "@/lib/self-hosted-device-api";
+import type { Device } from "@/lib/domain";
 
 /**
  * Sys Devices — Device Bridge и электронные дерматоскопы (MVP).
@@ -16,6 +24,9 @@ import { formatDateTime } from "@/lib/format";
 
 const DEMO_BANNER =
   "Демо-режим. Реальные роли, RLS, аудит, ключи и Device Bridge включаются на этапе бэкенда.";
+
+const LIVE_BANNER =
+  "Self-hosted backend подключён. Устройства и Device Bridge читаются из серверного реестра PostgreSQL.";
 
 const BRIDGE_NOTE =
   "Браузер не подключается к драйверу напрямую. Реальная интеграция идёт через локальный Device Bridge.";
@@ -29,7 +40,7 @@ interface BridgeRow {
   lastHeartbeatAt: string;
 }
 
-const BRIDGES: BridgeRow[] = [
+const DEMO_BRIDGES: BridgeRow[] = [
   { id: "br-msk-01", host: "dp-bridge-msk-01", lan: "online",   version: "0.7.2", pairedCount: 2, lastHeartbeatAt: "2026-03-13T09:01:00Z" },
   { id: "br-msk-02", host: "dp-bridge-msk-02", lan: "degraded", version: "0.7.0", pairedCount: 1, lastHeartbeatAt: "2026-03-13T08:50:00Z" },
   { id: "br-spb-01", host: "dp-bridge-spb-01", lan: "offline",  version: "0.6.9", pairedCount: 1, lastHeartbeatAt: "2026-03-12T15:12:00Z" },
@@ -54,10 +65,16 @@ const STATUS_TONE: Record<DevStatus, string> = {
   offline: "hsl(var(--destructive))",
 };
 
-function deriveStatus(lastSeenIso: string, bridgeId: string | null): DevStatus {
-  const bridge = BRIDGES.find((b) => b.id === bridgeId);
+interface DeviceRow extends Device {
+  derivedStatus: DevStatus;
+  calibrationDueAt?: string | null;
+}
+
+function deriveStatus(lastSeenIso: string | null | undefined, bridgeId: string | null, bridges: BridgeRow[]): DevStatus {
+  const bridge = bridges.find((b) => b.id === bridgeId);
   if (!bridge || bridge.lan === "offline") return "offline";
-  const ageMin = (Date.parse("2026-03-13T09:05:00Z") - Date.parse(lastSeenIso)) / 60000;
+  const ageMin = (Date.parse("2026-03-13T09:05:00Z") - Date.parse(lastSeenIso || "")) / 60000;
+  if (!Number.isFinite(ageMin)) return "offline";
   if (ageMin < 30) return "connected";
   if (ageMin < 24 * 60) return "standby";
   return "offline";
@@ -73,16 +90,102 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 // Деттерминированный список устройств, требующих калибровки.
 const NEEDS_CALIB = new Set(["d-004"]);
+const TODAY = "2026-05-14";
+
+function bridgeFromDto(dto: SelfHostedDeviceBridgeDTO): BridgeRow {
+  return {
+    id: dto.bridgeCode,
+    host: dto.hostName,
+    lan: dto.lanStatus,
+    version: dto.version,
+    pairedCount: dto.pairedCount,
+    lastHeartbeatAt: dto.lastHeartbeatAt ?? "",
+  };
+}
+
+function deviceFromDto(dto: SelfHostedDeviceDTO): DeviceRow {
+  return {
+    id: dto.id,
+    model: dto.model,
+    serial: dto.serial,
+    firmware: dto.firmware,
+    magnification: dto.magnification,
+    polarization: dto.polarization,
+    calibrationProfile: dto.calibrationProfile,
+    calibrationDueAt: dto.calibrationDueAt,
+    lastSeenAt: dto.lastSeenAt ?? "",
+    bridgeId: dto.bridge?.code ?? dto.bridgeId,
+    derivedStatus: dto.status,
+  };
+}
+
+function needsCalibration(device: DeviceRow): boolean {
+  if (NEEDS_CALIB.has(device.id)) return true;
+  return Boolean(device.calibrationDueAt && device.calibrationDueAt <= TODAY);
+}
 
 export default function SysDevicesPage() {
-  const devices = getDevices();
+  const session = useSelfHostedApiSession();
+  const isLive = Boolean(session.apiToken);
+  const [liveDevices, setLiveDevices] = useState<DeviceRow[] | null>(null);
+  const [liveBridges, setLiveBridges] = useState<BridgeRow[] | null>(null);
+  const [loadStatus, setLoadStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!session.apiToken) {
+      setLiveDevices(null);
+      setLiveBridges(null);
+      setLoadStatus("idle");
+      setLoadError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadStatus("loading");
+    setLoadError(null);
+    Promise.all([
+      listSelfHostedDeviceBridges({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      }),
+      listSelfHostedDevices({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+        limit: 200,
+      }),
+    ]).then(([bridgeResult, deviceResult]) => {
+      if (cancelled) return;
+      if (!bridgeResult.ok || !deviceResult.ok) {
+        setLoadStatus("error");
+        setLoadError(bridgeResult.error?.message || deviceResult.error?.message || "Не удалось загрузить устройства.");
+        setLiveDevices(null);
+        setLiveBridges(null);
+        return;
+      }
+      setLiveBridges((bridgeResult.value ?? []).map(bridgeFromDto));
+      setLiveDevices((deviceResult.value ?? []).map(deviceFromDto));
+      setLoadStatus("ready");
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.apiBaseUrl, session.apiToken]);
+
+  const bridges = liveBridges ?? DEMO_BRIDGES;
+  const devices = liveDevices ?? getDevices();
+
   const enriched = useMemo(
-    () => devices.map((d) => ({ ...d, derivedStatus: deriveStatus(d.lastSeenAt, d.bridgeId) })),
-    [devices],
+    () => devices.map((d) => (
+      "derivedStatus" in d
+        ? d as DeviceRow
+        : { ...d, derivedStatus: deriveStatus(d.lastSeenAt, d.bridgeId, bridges) }
+    )),
+    [bridges, devices],
   );
 
   const rows = useMemo(() => {
@@ -90,7 +193,7 @@ export default function SysDevicesPage() {
     return enriched.filter((d) => {
       if (filter === "connected" && d.derivedStatus !== "connected") return false;
       if (filter === "offline" && d.derivedStatus !== "offline") return false;
-      if (filter === "needs_calibration" && !NEEDS_CALIB.has(d.id)) return false;
+      if (filter === "needs_calibration" && !needsCalibration(d)) return false;
       if (q && !`${d.model} ${d.serial} ${d.bridgeId ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -118,12 +221,24 @@ export default function SysDevicesPage() {
           }}
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>{DEMO_BANNER}</span>
+          <span>{isLive ? LIVE_BANNER : DEMO_BANNER}</span>
         </div>
 
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
           {BRIDGE_NOTE}
         </div>
+
+        {isLive && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
+          >
+            {loadStatus === "loading" && "Загружаем реестр устройств из self-hosted backend."}
+            {loadStatus === "ready" && "Реестр устройств загружен из backend."}
+            {loadStatus === "error" && (loadError || "Не удалось загрузить реестр устройств.")}
+          </div>
+        )}
 
         {/* Bridges */}
         <section className="space-y-2">
@@ -144,7 +259,7 @@ export default function SysDevicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {BRIDGES.map((b) => (
+                {bridges.map((b) => (
                   <tr key={b.id} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2 font-mono text-[11px]">{b.id}</td>
                     <td className="px-3 py-2">{b.host}</td>
@@ -165,7 +280,7 @@ export default function SysDevicesPage() {
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(`Проверка моста ${b.id} — демо-действие.`)}
+                          onClick={() => setNote(isLive ? `Проверка моста ${b.id} выполняется через backend registry.` : `Проверка моста ${b.id} — демо-действие.`)}
                         >
                           Проверить мост (демо)
                         </Button>
@@ -179,7 +294,7 @@ export default function SysDevicesPage() {
 
           {/* Bridges — Mobile */}
           <div className="grid grid-cols-1 gap-2 md:hidden">
-            {BRIDGES.map((b) => (
+            {bridges.map((b) => (
               <Card key={b.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -205,7 +320,7 @@ export default function SysDevicesPage() {
                   <Button
                     variant="outline"
                     className="w-full min-h-[44px] text-[12px]"
-                    onClick={() => setNote(`Проверка моста ${b.id} — демо-действие.`)}
+                    onClick={() => setNote(isLive ? `Проверка моста ${b.id} выполняется через backend registry.` : `Проверка моста ${b.id} — демо-действие.`)}
                   >
                     Проверить мост (демо)
                   </Button>
@@ -309,7 +424,7 @@ export default function SysDevicesPage() {
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(`Калибровка ${d.serial} — демо.`)}
+                          onClick={() => setNote(isLive ? `Калибровка ${d.serial} фиксируется через Device Bridge, не через браузер.` : `Калибровка ${d.serial} — демо.`)}
                         >
                           Сымитировать калибровку
                         </Button>
@@ -317,7 +432,7 @@ export default function SysDevicesPage() {
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(`Открытие потока ${d.serial} появится с Device Bridge.`)}
+                          onClick={() => setNote(isLive ? `Поток ${d.serial} открывается через локальный Device Bridge компонент.` : `Открытие потока ${d.serial} появится с Device Bridge.`)}
                         >
                           Открыть поток (демо)
                         </Button>
@@ -363,10 +478,10 @@ export default function SysDevicesPage() {
                   <dd className="text-right">{formatDateTime(d.lastSeenAt)}</dd>
                 </dl>
                 <div className="mt-3 flex flex-col gap-1.5">
-                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Калибровка ${d.serial} — демо.`)}>
+                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(isLive ? `Калибровка ${d.serial} фиксируется через Device Bridge, не через браузер.` : `Калибровка ${d.serial} — демо.`)}>
                     Сымитировать калибровку
                   </Button>
-                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Открытие потока ${d.serial} появится с Device Bridge.`)}>
+                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(isLive ? `Поток ${d.serial} открывается через локальный Device Bridge компонент.` : `Открытие потока ${d.serial} появится с Device Bridge.`)}>
                     Открыть поток (демо)
                   </Button>
                 </div>

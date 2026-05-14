@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   AuthRequiredError,
   ForbiddenError,
+  deviceReadScope,
   opsStatusScope,
   patientReadScope,
   patientWriteScope,
@@ -134,4 +135,41 @@ test("opsStatusScope is restricted to system_admin", () => {
     ForbiddenError,
   );
   assert.throws(() => opsStatusScope(null), AuthRequiredError);
+});
+
+test("deviceReadScope allows system admins globally and clinic admins by clinic", () => {
+  assert.deepEqual(
+    deviceReadScope({
+      userId: "admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+    }),
+    {
+      allClinics: true,
+      clinicIds: [],
+      roles: ["system_admin"],
+    },
+  );
+
+  assert.deepEqual(
+    deviceReadScope({
+      userId: "clinic-admin",
+      roles: ["clinic_admin"],
+      clinicIds: ["clinic-1"],
+    }),
+    {
+      allClinics: false,
+      clinicIds: ["clinic-1"],
+      roles: ["clinic_admin"],
+    },
+  );
+
+  assert.throws(
+    () => deviceReadScope({ userId: "doctor", roles: ["doctor"], clinicIds: ["clinic-1"] }),
+    ForbiddenError,
+  );
+  assert.throws(
+    () => deviceReadScope({ userId: "clinic-admin", roles: ["clinic_admin"], clinicIds: [] }),
+    ForbiddenError,
+  );
 });
