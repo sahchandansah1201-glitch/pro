@@ -236,3 +236,7 @@ Stage 5E turns `/self-hosted/login` into the production login and bootstrap UX:
 operators can check `/healthz`, `/readyz`, and `/api/v1/meta` before sign-in,
 see first-`system_admin` guidance tied to Stage 5B/5C, and validate the flow
 through `npm run preflight:stage5e`.
+Stage 5F completes the production patient/workspace cutover: `/patients`,
+`/patients/:id`, and `/patients/:id/visits/:visitId` use self-hosted backend
+patient/visit endpoints in `VITE_APP_MODE=production`; demo/mock fallback stays
+demo/dev-only and is guarded by `npm run preflight:stage5f`.

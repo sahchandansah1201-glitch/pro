@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import {
+  SELF_HOSTED_API_BASE_URL_KEY,
+  SELF_HOSTED_API_TOKEN_KEY,
+} from "@/lib/self-hosted-api-session";
 
 // Stage 1I-A · Mock the api-session hook with a mutable container so the
 // majority of tests keep the demo (null) session, while the auth smoke
@@ -379,5 +383,87 @@ describe("VisitWorkspacePage · Stage 1I-A · authenticated API session smoke", 
     expect(
       within(region).queryByText(/API клинических ассетов не сконфигурирован/i),
     ).toBeNull();
+  });
+});
+
+describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () => {
+  beforeEach(() => {
+    vi.stubEnv("VITE_APP_MODE", "production");
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "local-jwt");
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("loads live patient, visit and lesions by UUID without demo patient lookup", async () => {
+    const fetchMock = vi.fn((url: RequestInfo | URL, _init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith("/api/v1/visits/live-visit")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              item: {
+                id: "live-visit",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                doctorUserId: "doctor-1",
+                status: "in_progress",
+                startedAt: "2026-05-12T09:00:00.000Z",
+                signedAt: null,
+                chiefComplaint: "контроль live",
+                createdAt: "2026-05-12T08:00:00.000Z",
+                updatedAt: "2026-05-12T09:00:00.000Z",
+                patient: { id: "live-patient", fullName: "Петрова Анна Live", code: "DP-live-001" },
+                clinic: { id: "clinic-1", slug: "live", name: "Live Clinic" },
+              },
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (href.endsWith("/api/v1/visits/live-visit/lesions")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                {
+                  id: "live-lesion",
+                  patientId: "live-patient",
+                  visitId: "live-visit",
+                  label: "Live lesion A",
+                  bodyZone: "спина",
+                  status: "active",
+                },
+              ],
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (href.endsWith("/api/v1/visits/live-visit/assets")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ items: [] }), {
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify({ items: [] })));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/patients/live-patient/visits/live-visit?tab=bodymap");
+
+    expect(await screen.findByRole("heading", { name: /Петрова Анна Live/ })).toBeInTheDocument();
+    expect(screen.getByText(/Источник данных: self-hosted backend/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Live lesion A/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Визит не найден/)).not.toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    for (const [, init] of fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/v1/"))) {
+      expect((init as RequestInit).headers).toMatchObject({ Authorization: "Bearer local-jwt" });
+    }
   });
 });
