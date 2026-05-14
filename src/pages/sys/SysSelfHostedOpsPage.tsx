@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ClipboardCheck,
+  Database,
   Download,
+  FileText,
   ListChecks,
   Lock,
+  PlayCircle,
   RefreshCw,
   ServerCog,
   ShieldCheck,
@@ -17,9 +20,12 @@ import { Button } from "@/components/ui/button";
 import { blobFromParts } from "@/lib/blob-utils";
 import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
+  buildStage4POperationsPreview,
   buildStage4OAuditExportPreview,
+  fetchSelfHostedOpsRuntimeChecks,
   fetchSelfHostedOpsStatus,
   STAGE4O_AUDIT_EXPORT_COMMAND,
+  type SelfHostedOpsRuntimeChecks,
   type SelfHostedOpsStatus,
 } from "@/lib/self-hosted-ops-api";
 
@@ -29,6 +35,8 @@ const DEMO_SYS_BANNER =
 function statusLabel(status: string): string {
   if (status === "ready") return "Готов";
   if (status === "degraded") return "Снижена готовность";
+  if (status === "warning") return "Требует внимания";
+  if (status === "failed") return "Ошибка";
   if (status === "connected") return "Подключено";
   if (status === "configured") return "Настроено";
   if (status === "missing") return "Не настроено";
@@ -61,6 +69,7 @@ function downloadText(filename: string, content: string): void {
 export default function SysSelfHostedOpsPage() {
   const session = useSelfHostedApiSession();
   const [opsStatus, setOpsStatus] = useState<SelfHostedOpsStatus | null>(null);
+  const [runtimeChecks, setRuntimeChecks] = useState<SelfHostedOpsRuntimeChecks | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("Self-hosted ops console готова.");
@@ -76,23 +85,42 @@ export default function SysSelfHostedOpsPage() {
     setError(null);
     if (!isConfigured) {
       setOpsStatus(null);
+      setRuntimeChecks(null);
       setStatusMessage("Self-hosted backend-сессия не подключена.");
       return;
     }
     setLoading(true);
-    const result = await fetchSelfHostedOpsStatus({
-      apiBaseUrl: session.apiBaseUrl,
-      apiToken: session.apiToken,
-    });
+    const [statusResult, runtimeResult] = await Promise.all([
+      fetchSelfHostedOpsStatus({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      }),
+      fetchSelfHostedOpsRuntimeChecks({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      }),
+    ]);
     setLoading(false);
-    if (!result.ok || !result.value) {
+    if (!statusResult.ok || !statusResult.value) {
       setOpsStatus(null);
-      setError(result.error?.message ?? "Не удалось загрузить ops status.");
+      setRuntimeChecks(null);
+      setError(statusResult.error?.message ?? "Не удалось загрузить ops status.");
       setStatusMessage("Ops status не загружен.");
       return;
     }
-    setOpsStatus(result.value);
-    setStatusMessage(`Ops status обновлён. Correlation: ${result.value.correlationId || "нет"}.`);
+    setOpsStatus(statusResult.value);
+    if (!runtimeResult.ok || !runtimeResult.value) {
+      setRuntimeChecks(null);
+      setError(runtimeResult.error?.message ?? "Не удалось загрузить runtime checks.");
+      setStatusMessage("Ops status загружен, runtime checks недоступны.");
+      return;
+    }
+    setRuntimeChecks(runtimeResult.value);
+    setStatusMessage(
+      `Ops status и runtime checks обновлены. Correlation: ${
+        runtimeResult.value.correlationId || statusResult.value.correlationId || "нет"
+      }.`,
+    );
   }
 
   useEffect(() => {
@@ -104,6 +132,12 @@ export default function SysSelfHostedOpsPage() {
     const content = buildStage4OAuditExportPreview(opsStatus);
     downloadText("stage4o-audit-export-preview.md", content);
     setStatusMessage("Audit export dry-run preview скачан.");
+  }
+
+  function downloadOperationsPlan() {
+    const content = buildStage4POperationsPreview(runtimeChecks);
+    downloadText("stage4p-operations-preview.md", content);
+    setStatusMessage("Operations dry-run preview скачан.");
   }
 
   return (
@@ -144,8 +178,9 @@ export default function SysSelfHostedOpsPage() {
           <div>
             <div className="font-medium text-foreground">Self-hosted boundary</div>
             <p>
-              Страница читает только наш backend `/api/v1/ops/status`. Managed runtime,
-              внешние облачные базы данных и edge functions не используются.
+              Страница читает только наш backend `/api/v1/ops/status` и
+              `/api/v1/ops/runtime-checks`. Managed runtime, внешние облачные базы
+              данных и edge functions не используются.
             </p>
           </div>
         </div>
@@ -201,7 +236,7 @@ export default function SysSelfHostedOpsPage() {
         ) : null}
 
         <section
-          className="grid gap-3 md:grid-cols-4"
+          className="grid gap-3 md:grid-cols-3 xl:grid-cols-5"
           aria-label="Сводка self-hosted ops"
         >
           <MetricTile
@@ -223,6 +258,11 @@ export default function SysSelfHostedOpsPage() {
             label="Audit"
             value={opsStatus?.audit.mode ?? "append-only"}
             hint="metadata-only export"
+          />
+          <MetricTile
+            label="Runtime checks"
+            value={runtimeChecks ? statusLabel(runtimeChecks.status) : "Ожидает"}
+            hint={`${runtimeChecks?.checks.length ?? 0} checks`}
           />
         </section>
 
@@ -297,10 +337,125 @@ export default function SysSelfHostedOpsPage() {
                 label="Path logging"
                 value={opsStatus?.observability.requestPathLogging ?? "path-only"}
               />
+              <StatusLine
+                icon={<Database className="h-4 w-4" aria-hidden />}
+                label="Runtime checks"
+                value={runtimeChecks ? statusLabel(runtimeChecks.status) : "ожидает статуса"}
+              />
+              <StatusLine
+                icon={<FileText className="h-4 w-4" aria-hidden />}
+                label="OpenAPI"
+                value="/openapi.stage4p.json"
+              />
               <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px] text-muted-foreground">
                 Не выводим тела запросов, bearer-токены, пароли, ФИО пациентов,
                 object keys, storage paths и raw env values.
               </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <section className="surface-card overflow-hidden" aria-label="Self-hosted runtime checks">
+            <div className="section-bar">
+              <div>
+                <h2 className="h-section">Runtime operations checks</h2>
+                <p className="h-section-hint">
+                  Server-owned проверки БД, object storage, миграций и deploy-пакета.
+                </p>
+              </div>
+              <Badge variant={runtimeChecks?.ready ? "default" : "secondary"}>
+                {runtimeChecks?.ready ? "ready" : statusLabel(runtimeChecks?.status ?? "unknown")}
+              </Badge>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Проверка</th>
+                    <th scope="col">Статус</th>
+                    <th scope="col">Деталь</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(runtimeChecks?.checks ?? []).map((item) => (
+                    <tr key={item.key}>
+                      <td className="font-medium text-foreground">{item.label}</td>
+                      <td>
+                        <Badge variant={item.status === "ready" ? "default" : "secondary"}>
+                          {statusLabel(item.status)}
+                        </Badge>
+                      </td>
+                      <td className="text-meta">
+                        <span>{item.detail}</span>
+                        {item.key === "migration_bundle" && item.latest ? (
+                          <span className="ml-2 font-mono text-[11px]">
+                            latest: {item.latest}
+                          </span>
+                        ) : null}
+                        {typeof item.usedPercent === "number" ? (
+                          <span className="ml-2 font-mono text-[11px]">
+                            used: {item.usedPercent}%
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                  {!runtimeChecks ? (
+                    <tr>
+                      <td colSpan={3} className="text-meta">
+                        Runtime checks появятся после подключения self-hosted session.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="surface-card" aria-label="Self-hosted operations dry-runs">
+            <div className="section-bar">
+              <div>
+                <h2 className="h-section">Operations dry-runs</h2>
+                <p className="h-section-hint">
+                  Команды запускаются оператором сервера, UI показывает безопасный план.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-[12px]"
+                onClick={downloadOperationsPlan}
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden />
+                Скачать план
+              </Button>
+            </div>
+            <div className="space-y-2 p-4">
+              {(runtimeChecks?.commands ?? []).map((command) => (
+                <div
+                  key={command.key}
+                  className="rounded-md border border-border bg-surface-muted p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <PlayCircle className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                      <div className="font-medium text-foreground">{command.label}</div>
+                    </div>
+                    <Badge variant="secondary">dry-run</Badge>
+                  </div>
+                  <code className="mt-2 block break-words rounded border border-border bg-background px-2 py-1 font-mono text-[11px]">
+                    {command.command}
+                  </code>
+                  <p className="mt-2 text-meta">{command.description}</p>
+                </div>
+              ))}
+              {!runtimeChecks ? (
+                <div className="rounded-md border border-border bg-surface-muted p-3 text-meta">
+                  Подключите self-hosted session, чтобы увидеть backup, restore, deploy smoke и audit dry-run.
+                </div>
+              ) : null}
             </div>
           </section>
         </div>

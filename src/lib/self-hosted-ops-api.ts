@@ -44,6 +44,46 @@ export interface SelfHostedOpsStatus {
   correlationId: string;
 }
 
+export interface SelfHostedOpsRuntimeCheck {
+  key: string;
+  label: string;
+  status: "ready" | "degraded" | "failed" | "warning" | string;
+  detail: string;
+  connected?: boolean;
+  mode?: string;
+  count?: number;
+  expectedCount?: number;
+  latest?: string;
+  missing?: string[];
+  totalBytes?: number;
+  availableBytes?: number;
+  usedPercent?: number | null;
+}
+
+export interface SelfHostedOpsCommand {
+  key: string;
+  label: string;
+  command: string;
+  description: string;
+  status: string;
+  dryRunOnly: boolean;
+}
+
+export interface SelfHostedOpsRuntimeChecks {
+  stage: "4P" | string;
+  source: "self-hosted" | string;
+  ready: boolean;
+  status: "ready" | "degraded" | "failed" | string;
+  checks: SelfHostedOpsRuntimeCheck[];
+  commands: SelfHostedOpsCommand[];
+  auth: {
+    userId: string;
+    roles: string[];
+  };
+  generatedAt: string;
+  correlationId: string;
+}
+
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
@@ -111,6 +151,49 @@ function toDependency(input: unknown): SelfHostedOpsDependency | null {
   };
 }
 
+function toRuntimeCheck(input: unknown): SelfHostedOpsRuntimeCheck | null {
+  if (!isRecord(input)) return null;
+  const key = typeof input.key === "string" ? input.key : "";
+  if (!key) return null;
+  const rawUsedPercent = input.usedPercent;
+  let usedPercent: number | null | undefined;
+  if (typeof rawUsedPercent === "number") {
+    usedPercent = rawUsedPercent;
+  } else if (rawUsedPercent === null) {
+    usedPercent = null;
+  }
+  return {
+    key,
+    label: typeof input.label === "string" ? input.label : key,
+    status: typeof input.status === "string" ? input.status : "unknown",
+    detail: typeof input.detail === "string" ? input.detail : "",
+    connected: typeof input.connected === "boolean" ? input.connected : undefined,
+    mode: typeof input.mode === "string" ? input.mode : undefined,
+    count: typeof input.count === "number" ? input.count : undefined,
+    expectedCount: typeof input.expectedCount === "number" ? input.expectedCount : undefined,
+    latest: typeof input.latest === "string" ? input.latest : undefined,
+    missing: Array.isArray(input.missing) ? toStringArray(input.missing) : undefined,
+    totalBytes: typeof input.totalBytes === "number" ? input.totalBytes : undefined,
+    availableBytes: typeof input.availableBytes === "number" ? input.availableBytes : undefined,
+    usedPercent,
+  };
+}
+
+function toCommand(input: unknown): SelfHostedOpsCommand | null {
+  if (!isRecord(input)) return null;
+  const key = typeof input.key === "string" ? input.key : "";
+  const command = typeof input.command === "string" ? input.command : "";
+  if (!key || !command) return null;
+  return {
+    key,
+    label: typeof input.label === "string" ? input.label : key,
+    command,
+    description: typeof input.description === "string" ? input.description : "",
+    status: typeof input.status === "string" ? input.status : "unknown",
+    dryRunOnly: Boolean(input.dryRunOnly),
+  };
+}
+
 export function toSelfHostedOpsStatus(input: unknown): SelfHostedOpsStatus | null {
   if (!isRecord(input)) return null;
   return {
@@ -153,15 +236,39 @@ export function toSelfHostedOpsStatus(input: unknown): SelfHostedOpsStatus | nul
   };
 }
 
-export async function fetchSelfHostedOpsStatus(
+export function toSelfHostedOpsRuntimeChecks(input: unknown): SelfHostedOpsRuntimeChecks | null {
+  if (!isRecord(input)) return null;
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "self-hosted",
+    ready: Boolean(input.ready),
+    status: typeof input.status === "string" ? input.status : "unknown",
+    checks: Array.isArray(input.checks)
+      ? input.checks.map(toRuntimeCheck).filter((item): item is SelfHostedOpsRuntimeCheck => item != null)
+      : [],
+    commands: Array.isArray(input.commands)
+      ? input.commands.map(toCommand).filter((item): item is SelfHostedOpsCommand => item != null)
+      : [],
+    auth: {
+      userId: isRecord(input.auth) && typeof input.auth.userId === "string" ? input.auth.userId : "",
+      roles: isRecord(input.auth) ? toStringArray(input.auth.roles) : [],
+    },
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+  };
+}
+
+async function getJson<T>(
   args: BaseArgs,
-): Promise<SelfHostedApiResult<SelfHostedOpsStatus>> {
+  path: string,
+  normalize: (input: unknown) => T | null,
+): Promise<SelfHostedApiResult<T>> {
   const cfg = ensureConfigured(args);
   if (cfg) return fail(cfg);
 
   let response: Response;
   try {
-    response = await fetch(buildSelfHostedApiUrl(args.apiBaseUrl, "/api/v1/ops/status"), {
+    response = await fetch(buildSelfHostedApiUrl(args.apiBaseUrl, path), {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -178,14 +285,26 @@ export async function fetchSelfHostedOpsStatus(
 
   const body = await parseJsonSafe(response);
   if (!response.ok) return fail(apiErrorFromBody(response, body));
-  const value = toSelfHostedOpsStatus(body);
+  const value = normalize(body);
   return value
     ? ok(value)
     : fail({
         kind: "http",
         code: "empty_response",
-        message: "Backend не вернул ops status.",
+        message: "Backend вернул пустой или неизвестный ответ.",
       });
+}
+
+export async function fetchSelfHostedOpsStatus(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<SelfHostedOpsStatus>> {
+  return getJson(args, "/api/v1/ops/status", toSelfHostedOpsStatus);
+}
+
+export async function fetchSelfHostedOpsRuntimeChecks(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<SelfHostedOpsRuntimeChecks>> {
+  return getJson(args, "/api/v1/ops/runtime-checks", toSelfHostedOpsRuntimeChecks);
 }
 
 export const STAGE4O_AUDIT_EXPORT_COMMAND =
@@ -201,6 +320,42 @@ export function buildStage4OAuditExportPreview(status: SelfHostedOpsStatus | nul
     `- Command: ${STAGE4O_AUDIT_EXPORT_COMMAND}`,
     `- Backend contract: ${status?.audit.safeExport ?? "scripts/stage4n-audit-export.mjs --dry-run"}`,
     `- Safe columns: ${fields.join(", ")}`,
+    "- Excluded: request bodies, tokens, passwords, patient names, object keys, storage paths, raw env values",
+    "",
+  ].join("\n");
+}
+
+export function buildStage4POperationsPreview(runtime: SelfHostedOpsRuntimeChecks | null): string {
+  const commands = runtime?.commands?.length
+    ? runtime.commands
+    : [
+        {
+          label: "Backup dry-run",
+          command: "npm run ops:stage4l:backup:dry-run",
+          description: "Plan backup",
+          dryRunOnly: true,
+        },
+        {
+          label: "Deploy smoke dry-run",
+          command: "npm run smoke:stage4k:dry-run",
+          description: "Plan deploy smoke",
+          dryRunOnly: true,
+        },
+      ];
+  return [
+    "# Stage 4P operations preview",
+    "",
+    `- Runtime status: ${runtime?.status ?? "unknown"}`,
+    "- Scope: self-hosted frontend + backend + PostgreSQL + backend-owned object storage",
+    "- External managed database dependency: none",
+    "",
+    ...commands.flatMap((item) => [
+      `## ${item.label}`,
+      `- Command: ${item.command}`,
+      `- Dry-run only: ${item.dryRunOnly ? "yes" : "no"}`,
+      `- Purpose: ${item.description}`,
+      "",
+    ]),
     "- Excluded: request bodies, tokens, passwords, patient names, object keys, storage paths, raw env values",
     "",
   ].join("\n");

@@ -1,0 +1,94 @@
+name: stage4p-self-hosted-ops-controls
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/ops-runtime-checks.mjs"
+      - "backend/self-hosted/ops-runtime-checks.test.mjs"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "backend/self-hosted/openapi.stage4p.json"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-ops-api.ts"
+      - "src/lib/self-hosted-ops-api.test.ts"
+      - "src/pages/sys/SysSelfHostedOpsPage.tsx"
+      - "src/pages/sys/SysSelfHostedOpsPage.test.tsx"
+      - "e2e/sys-self-hosted-ops.pw.ts"
+      - "scripts/check-stage4p-self-hosted-ops-controls.mjs"
+      - "scripts/check-stage4p-self-hosted-ops-controls.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4p-self-hosted-ops-controls.md"
+      - "package.json"
+      - ".github/workflows/stage4p-self-hosted-ops-controls.yml"
+  push:
+    paths:
+      - "backend/self-hosted/ops-runtime-checks.mjs"
+      - "backend/self-hosted/ops-runtime-checks.test.mjs"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "backend/self-hosted/openapi.stage4p.json"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-ops-api.ts"
+      - "src/lib/self-hosted-ops-api.test.ts"
+      - "src/pages/sys/SysSelfHostedOpsPage.tsx"
+      - "src/pages/sys/SysSelfHostedOpsPage.test.tsx"
+      - "e2e/sys-self-hosted-ops.pw.ts"
+      - "scripts/check-stage4p-self-hosted-ops-controls.mjs"
+      - "scripts/check-stage4p-self-hosted-ops-controls.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4p-self-hosted-ops-controls.md"
+      - "package.json"
+      - ".github/workflows/stage4p-self-hosted-ops-controls.yml"
+  workflow_dispatch:
+
+jobs:
+  self-hosted-ops-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Stage 4P preflight
+        run: npm run preflight:stage4p
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start Vite
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          npm run dev -- --host 127.0.0.1 --port 8080 > test-results/stage4p-vite.log 2>&1 &
+          echo "$!" > /tmp/stage4p-vite.pid
+          for _ in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080 >/dev/null; then
+              echo "Vite is ready on http://127.0.0.1:8080"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat test-results/stage4p-vite.log
+          exit 1
+      - name: Run Stage 4P e2e
+        run: npm run e2e:stage4p
+      - name: Stop Vite
+        if: always()
+        run: |
+          if [ -f /tmp/stage4p-vite.pid ]; then
+            kill "$(cat /tmp/stage4p-vite.pid)" || true
+          fi
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4P self-hosted ops controls"
+            echo ""
+            echo "- Status: ${{ job.status }}"
+            echo "- Checked: /api/v1/ops/runtime-checks, /sys/self-hosted-ops controls, e2e mock, self-hosted boundary guard"
+            echo "- Boundary: server-owned PostgreSQL/object-storage checks only, no third-party managed database runtime"
+          } >> "$GITHUB_STEP_SUMMARY"

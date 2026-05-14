@@ -44,6 +44,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 4M production deployment verification preflight",
     "Stage 4N production observability preflight",
     "Stage 4O self-hosted ops UI preflight",
+    "Stage 4P self-hosted ops controls preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "No deno.lock files",
@@ -68,10 +69,11 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[16], /npm(\.cmd)? run preflight:stage4m/);
   assert.match(commands[17], /npm(\.cmd)? run preflight:stage4n/);
   assert.match(commands[18], /npm(\.cmd)? run preflight:stage4o/);
-  assert.match(commands[19], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[20], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[21], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[22], "git diff --check");
+  assert.match(commands[19], /npm(\.cmd)? run preflight:stage4p/);
+  assert.match(commands[20], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[21], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[22], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[23], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
@@ -112,6 +114,7 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage4m/);
   assert.match(out, /preflight:stage4n/);
   assert.match(out, /preflight:stage4o/);
+  assert.match(out, /preflight:stage4p/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /git diff --check/);
