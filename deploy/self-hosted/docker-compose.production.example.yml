@@ -1,0 +1,26 @@
+name: dermatolog-pro-production
+
+# Stage 4L · production hardening overlay.
+# Use together with the base compose file:
+# docker compose --env-file deploy/self-hosted/.env.production \
+#   -f deploy/self-hosted/docker-compose.stage4a.yml \
+#   -f deploy/self-hosted/docker-compose.production.example.yml up -d --build
+
+services:
+  reverse-proxy:
+    restart: unless-stopped
+
+  backend:
+    restart: unless-stopped
+    env_file:
+      - ./.env.production
+
+  postgres:
+    restart: unless-stopped
+    env_file:
+      - ./.env.production
+
+  object-storage:
+    restart: unless-stopped
+    env_file:
+      - ./.env.production

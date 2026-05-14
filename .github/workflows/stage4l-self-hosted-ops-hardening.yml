@@ -1,0 +1,59 @@
+name: stage4l-self-hosted-ops-hardening
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/.env.production.example"
+      - "deploy/self-hosted/docker-compose.production.example.yml"
+      - "scripts/stage4l-self-hosted-ops.mjs"
+      - "scripts/stage4l-self-hosted-ops.test.mjs"
+      - "scripts/check-stage4l-self-hosted-ops.mjs"
+      - "scripts/check-stage4l-self-hosted-ops.test.mjs"
+      - "docs/backend/stage-4l-self-hosted-ops-hardening.md"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".gitignore"
+      - ".github/workflows/stage4l-self-hosted-ops-hardening.yml"
+  push:
+    paths:
+      - "deploy/self-hosted/.env.production.example"
+      - "deploy/self-hosted/docker-compose.production.example.yml"
+      - "scripts/stage4l-self-hosted-ops.mjs"
+      - "scripts/stage4l-self-hosted-ops.test.mjs"
+      - "scripts/check-stage4l-self-hosted-ops.mjs"
+      - "scripts/check-stage4l-self-hosted-ops.test.mjs"
+      - "docs/backend/stage-4l-self-hosted-ops-hardening.md"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".gitignore"
+      - ".github/workflows/stage4l-self-hosted-ops-hardening.yml"
+  workflow_dispatch:
+
+jobs:
+  ops-hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Stage 4L preflight
+        run: npm run preflight:stage4l
+      - name: Dry-run backup plan
+        run: npm run ops:stage4l:backup:dry-run
+      - name: Dry-run restore plan
+        run: npm run ops:stage4l:restore:dry-run
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4L self-hosted ops hardening"
+            echo ""
+            echo "- Preflight: ${{ job.status }}"
+            echo "- Checked: production env template, compose overlay, backup dry-run, restore dry-run, guard"
+            echo "- No live volumes are modified in CI"
+          } >> "$GITHUB_STEP_SUMMARY"
