@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, RadioTower, ShieldAlert, Search } from "lucide-react";
+import { Activity, Download, RadioTower, ShieldAlert, Search } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { useListPagination } from "@/lib/use-list-pagination";
+import { blobFromParts } from "@/lib/blob-utils";
 import { getDevices } from "@/lib/mock-data";
 import { formatDateTime } from "@/lib/format";
 import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
+  exportSelfHostedDeviceBridgeCommandAudit,
   getSelfHostedDeviceBridgeWorkerStatus,
   getSelfHostedDeviceBridgeWorkerHardening,
   getSelfHostedDeviceBridgeWorkerRecovery,
@@ -120,6 +122,17 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 const NEEDS_CALIB = new Set(["d-004"]);
 const TODAY = "2026-05-14";
 
+function downloadText(filename: string, content: string, mime = "text/csv;charset=utf-8"): void {
+  const url = URL.createObjectURL(blobFromParts(["\ufeff", content], mime));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function bridgeFromDto(dto: SelfHostedDeviceBridgeDTO): BridgeRow {
   return {
     id: dto.id,
@@ -172,6 +185,7 @@ export default function SysDevicesPage() {
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [commandBusyKey, setCommandBusyKey] = useState<string | null>(null);
+  const [auditExportBusy, setAuditExportBusy] = useState(false);
 
   useEffect(() => {
     if (!session.apiToken) {
@@ -445,6 +459,26 @@ export default function SysDevicesPage() {
       return;
     }
     setNote(result.error?.message || "Не удалось выполнить replay команды Device Bridge.");
+  }
+
+  async function exportWorkerAudit() {
+    if (!isLive || !session.apiToken || auditExportBusy) return;
+    setAuditExportBusy(true);
+    setNote("Готовим safe CSV экспорт Device Bridge command audit.");
+    const result = await exportSelfHostedDeviceBridgeCommandAudit({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      action: "all",
+      status: "all",
+      limit: 100,
+    });
+    setAuditExportBusy(false);
+    if (result.ok && result.value) {
+      downloadText(result.value.export.filename, result.value.export.content, result.value.export.mime);
+      setNote(`Экспорт Device Bridge command audit скачан: ${result.value.export.filename}.`);
+      return;
+    }
+    setNote(result.error?.message || "Не удалось экспортировать Device Bridge command audit.");
   }
 
   return (
@@ -788,9 +822,21 @@ export default function SysDevicesPage() {
                 <Activity className="h-3.5 w-3.5" aria-hidden />
                 Command audit & replay
               </h2>
-              <span className="text-[11px] text-muted-foreground">
-                Stage 4X /api/v1/device-bridge-worker/audit
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 min-h-[44px] gap-1.5 sm:min-h-[32px]"
+                  disabled={auditExportBusy || !workerAudit}
+                  onClick={() => void exportWorkerAudit()}
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden />
+                  {auditExportBusy ? "Экспорт..." : "Экспорт audit CSV"}
+                </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  Stage 4Y /api/v1/device-bridge-worker/audit/export
+                </span>
+              </div>
             </div>
             <Card className="p-3">
               {workerAudit ? (

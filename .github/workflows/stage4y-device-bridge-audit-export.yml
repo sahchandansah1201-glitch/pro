@@ -1,0 +1,56 @@
+name: stage4y-device-bridge-audit-export
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/device-bridge-worker-service.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.test.mjs"
+      - "backend/self-hosted/openapi.stage4y.json"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "e2e/sys-devices-stage4q.pw.ts"
+      - "docs/backend/stage-4y-device-bridge-audit-export.md"
+      - "scripts/check-stage4y-device-bridge-audit-export.mjs"
+      - "scripts/check-stage4y-device-bridge-audit-export.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4y-device-bridge-audit-export.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/self-hosted/device-bridge-worker-service.mjs"
+      - "backend/self-hosted/openapi.stage4y.json"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "scripts/check-stage4y-device-bridge-audit-export.mjs"
+      - "package.json"
+      - ".github/workflows/stage4y-device-bridge-audit-export.yml"
+
+jobs:
+  stage4y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run preflight:stage4y
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4Y Device Bridge audit export"
+            echo ""
+            echo "- Backend: /api/v1/device-bridge-worker/audit/export"
+            echo "- Frontend: /sys/devices safe audit CSV export"
+            echo "- Boundary: self-hosted backend/PostgreSQL/local worker only; no browser hardware APIs"
+          } >> "$GITHUB_STEP_SUMMARY"

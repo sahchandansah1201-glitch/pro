@@ -99,6 +99,9 @@ const OPENAPI_4W = JSON.parse(
 const OPENAPI_4X = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4x.json"), "utf8"),
 );
+const OPENAPI_4Y = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4y.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -1327,6 +1330,38 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/device-bridge-worker/audit/export" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.deviceBridgeWorkerService.exportWorkerCommandAudit(
+        authContext,
+        url.searchParams,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4Y",
+          source: result.source,
+          export: result.export,
+          policy: result.policy,
+          filters: result.filters,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   const workerCommandReplayMatch = url.pathname.match(
     /^\/api\/v1\/device-bridge-worker\/commands\/([^/]+)\/replay$/,
   );
@@ -1725,7 +1760,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4X",
+        stage: "4Y",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -1735,13 +1770,13 @@ export async function handleSelfHostedRequest(
           lesions: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
-          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay",
+          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export",
           reports: "rbac-write-postgres",
           observability: "structured-json-logs-redacted-ops-status-runtime-checks",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4x.json",
+          openapi: "/openapi.stage4y.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
@@ -1759,6 +1794,7 @@ export async function handleSelfHostedRequest(
           openapiStage4V: "/openapi.stage4v.json",
           openapiStage4W: "/openapi.stage4w.json",
           openapiStage4X: "/openapi.stage4x.json",
+          openapiStage4Y: "/openapi.stage4y.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -1772,6 +1808,7 @@ export async function handleSelfHostedRequest(
           deviceBridgeWorkerHardening: "/api/v1/device-bridge-worker/hardening",
           deviceBridgeWorkerRecovery: "/api/v1/device-bridge-worker/recovery",
           deviceBridgeWorkerAudit: "/api/v1/device-bridge-worker/audit",
+          deviceBridgeWorkerAuditExport: "/api/v1/device-bridge-worker/audit/export",
           deviceBridgeWorkerReplay: "/api/v1/device-bridge-worker/commands/{commandId}/replay",
           devices: "/api/v1/devices",
           deviceCommands: "/api/v1/devices/{deviceId}/commands",
@@ -1861,6 +1898,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage4x.json") {
     return jsonResponse(200, OPENAPI_4X, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage4y.json") {
+    return jsonResponse(200, OPENAPI_4Y, config, requestOrigin);
   }
 
   return errorResponse({

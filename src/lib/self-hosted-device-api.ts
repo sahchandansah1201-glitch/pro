@@ -288,6 +288,30 @@ export interface SelfHostedDeviceBridgeCommandAuditDTO {
   generatedAt: string;
 }
 
+export interface SelfHostedDeviceBridgeCommandAuditExportDTO {
+  stage: "4Y" | string;
+  source: "postgres" | string;
+  export: {
+    format: "csv";
+    mime: string;
+    filename: string;
+    rowCount: number;
+    content: string;
+    privacy: {
+      payloadVisibility: string;
+      excludedFieldCount: number;
+      exportedFieldSet: string;
+    };
+  };
+  filters: {
+    action: SelfHostedDeviceBridgeCommandAuditAction;
+    status: SelfHostedCommandStatusFilter;
+    limit: number;
+  };
+  correlationId: string;
+  generatedAt: string;
+}
+
 export interface SelfHostedDeviceBridgeWorkerStatusDTO {
   stage: "4U" | string;
   source: "postgres" | string;
@@ -351,6 +375,8 @@ export interface ReplaySelfHostedDeviceBridgeCommandArgs extends BaseArgs {
   commandId: string;
   reason?: string;
 }
+
+export interface ExportSelfHostedDeviceBridgeCommandAuditArgs extends GetSelfHostedDeviceBridgeCommandAuditArgs {}
 
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
@@ -884,6 +910,45 @@ export function toSelfHostedDeviceBridgeCommandAuditDTO(
   };
 }
 
+export function toSelfHostedDeviceBridgeCommandAuditExportDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeCommandAuditExportDTO | null {
+  if (!isRecord(input) || !isRecord(input.export)) return null;
+  const file = input.export;
+  const filters = isRecord(input.filters) ? input.filters : {};
+  const privacy = isRecord(file.privacy) ? file.privacy : {};
+  const filename = typeof file.filename === "string" ? file.filename : "";
+  const content = typeof file.content === "string" ? file.content : "";
+  if (!filename || !content) return null;
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "postgres",
+    export: {
+      format: "csv",
+      mime: typeof file.mime === "string" ? file.mime : "text/csv;charset=utf-8",
+      filename,
+      rowCount: Number(file.rowCount ?? 0),
+      content,
+      privacy: {
+        payloadVisibility: typeof privacy.payloadVisibility === "string"
+          ? privacy.payloadVisibility
+          : "backend-only",
+        excludedFieldCount: Number(privacy.excludedFieldCount ?? 0),
+        exportedFieldSet: typeof privacy.exportedFieldSet === "string"
+          ? privacy.exportedFieldSet
+          : "safe-command-metadata-only",
+      },
+    },
+    filters: {
+      action: normalizeCommandAuditAction(filters.action),
+      status: normalizeCommandStatusFilter(filters.status),
+      limit: Number(filters.limit ?? 25),
+    },
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+  };
+}
+
 function extractItems<T>(body: unknown, mapper: (item: unknown) => T | null): T[] {
   const rawItems = isRecord(body) && Array.isArray(body.items) ? body.items : [];
   return rawItems.map(mapper).filter((item): item is T => item != null);
@@ -1110,6 +1175,30 @@ export async function getSelfHostedDeviceBridgeCommandAudit(
         kind: "http",
         code: "invalid_response",
         message: "Backend вернул некорректный ответ аудита команд Device Bridge.",
+      });
+}
+
+export async function exportSelfHostedDeviceBridgeCommandAudit(
+  args: ExportSelfHostedDeviceBridgeCommandAuditArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeCommandAuditExportDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const params = new URLSearchParams();
+  params.set("limit", String(args.limit ?? 25));
+  if (args.action && args.action !== "all") params.set("action", args.action);
+  if (args.status && args.status !== "all") params.set("status", args.status);
+  const result = await requestJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, `/api/v1/device-bridge-worker/audit/export?${params.toString()}`),
+    args.apiToken as string,
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const exportFile = toSelfHostedDeviceBridgeCommandAuditExportDTO(result.value);
+  return exportFile
+    ? ok(exportFile)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ экспорта аудита команд Device Bridge.",
       });
 }
 

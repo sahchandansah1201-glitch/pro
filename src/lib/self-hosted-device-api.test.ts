@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
+  exportSelfHostedDeviceBridgeCommandAudit,
   getSelfHostedDeviceBridgeWorkerHardening,
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeWorkerStatus,
@@ -11,6 +12,7 @@ import {
   recoverSelfHostedDeviceBridgeWorkerCommand,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
+  toSelfHostedDeviceBridgeCommandAuditExportDTO,
   toSelfHostedDeviceBridgeDTO,
   toSelfHostedDeviceBridgeCommandAuditDTO,
   toSelfHostedDeviceBridgeWorkerHardeningDTO,
@@ -255,6 +257,37 @@ describe("self-hosted-device-api", () => {
     expect(JSON.stringify(audit)).not.toContain("payload_json");
     expect(JSON.stringify(audit)).not.toContain("result_json");
     expect(JSON.stringify(audit)).not.toContain("access_token");
+  });
+
+  it("normalizes worker command audit export DTO without exposing payload internals", () => {
+    const exportFile = toSelfHostedDeviceBridgeCommandAuditExportDTO({
+      stage: "4Y",
+      source: "postgres",
+      export: {
+        format: "csv",
+        mime: "text/csv;charset=utf-8",
+        filename: "device-bridge-command-audit-replay-failed-1-rows.csv",
+        rowCount: 1,
+        content: '# stage,4Y\n"event_id","action"\n"audit-1","replay"',
+        privacy: {
+          payloadVisibility: "backend-only",
+          excludedFieldCount: 3,
+          exportedFieldSet: "safe-command-metadata-only",
+        },
+        payload_json: { raw: true },
+      },
+      filters: { action: "replay", status: "failed", limit: 10 },
+      access_token: "secret",
+    });
+
+    expect(exportFile?.stage).toBe("4Y");
+    expect(exportFile?.export.filename).toContain("audit-replay-failed");
+    expect(exportFile?.export.rowCount).toBe(1);
+    expect(exportFile?.export.privacy.excludedFieldCount).toBe(3);
+    expect(exportFile?.export.privacy.exportedFieldSet).toBe("safe-command-metadata-only");
+    expect(JSON.stringify(exportFile)).not.toContain("access_token");
+    expect(JSON.stringify(exportFile)).not.toContain("payload_json");
+    expect(JSON.stringify(exportFile)).not.toContain("raw");
   });
 
   it("returns not_configured before network calls when token is missing", async () => {
@@ -507,10 +540,32 @@ describe("self-hosted-device-api", () => {
     expect(String(fetchMock.mock.calls[1][0])).toContain("/api/v1/device-bridge-worker/commands/cmd-1/recovery");
   });
 
-  it("fetches Device Bridge command audit and posts replay actions", async () => {
+  it("fetches Device Bridge command audit, export, and posts replay actions", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
       expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
+      if (url.includes("/api/v1/device-bridge-worker/audit/export?")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4Y",
+            source: "postgres",
+            export: {
+              format: "csv",
+              mime: "text/csv;charset=utf-8",
+              filename: "device-bridge-command-audit-replay-queued-1-rows.csv",
+              rowCount: 1,
+              content: '# stage,4Y\n"event_id","action"\n"audit-1","replay"',
+              privacy: {
+                payloadVisibility: "backend-only",
+                excludedFieldCount: 2,
+                exportedFieldSet: "safe-command-metadata-only",
+              },
+            },
+            filters: { action: "replay", status: "queued", limit: 10 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridge-worker/audit?")) {
         return new Response(
           JSON.stringify({
@@ -570,6 +625,13 @@ describe("self-hosted-device-api", () => {
       status: "queued",
       limit: 10,
     });
+    const exportFile = await exportSelfHostedDeviceBridgeCommandAudit({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      action: "replay",
+      status: "queued",
+      limit: 10,
+    });
     const replay = await replaySelfHostedDeviceBridgeCommand({
       apiBaseUrl: "http://localhost:8080",
       apiToken: "jwt",
@@ -579,9 +641,12 @@ describe("self-hosted-device-api", () => {
 
     expect(audit.value?.summary.replayEvents).toBe(1);
     expect(audit.value?.policy.payloadVisibility).toBe("backend-only");
+    expect(exportFile.value?.export.filename).toContain("device-bridge-command-audit");
+    expect(exportFile.value?.export.content).toContain("# stage,4Y");
     expect(replay.value?.status).toBe("queued");
     expect(replay.value?.replayOfCommandId).toBe("cmd-1");
     expect(String(fetchMock.mock.calls[0][0])).toContain("action=replay");
-    expect(String(fetchMock.mock.calls[1][0])).toContain("/api/v1/device-bridge-worker/commands/cmd-1/replay");
+    expect(String(fetchMock.mock.calls[1][0])).toContain("/api/v1/device-bridge-worker/audit/export");
+    expect(String(fetchMock.mock.calls[2][0])).toContain("/api/v1/device-bridge-worker/commands/cmd-1/replay");
   });
 });

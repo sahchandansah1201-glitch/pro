@@ -256,6 +256,30 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
         }),
       });
     });
+    await page.route("http://localhost:8080/api/v1/device-bridge-worker/audit/export?limit=100", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4Y",
+          source: "postgres",
+          export: {
+            format: "csv",
+            mime: "text/csv;charset=utf-8",
+            filename: "device-bridge-command-audit-all-all-1-rows.csv",
+            rowCount: 1,
+            content: '# stage,4Y\n"event_id","action"\n"audit-e2e","replay"',
+            privacy: {
+              payloadVisibility: "backend-only",
+              excludedFieldCount: 3,
+              exportedFieldSet: "safe-command-metadata-only",
+            },
+          },
+          filters: { action: "all", status: "all", limit: 100 },
+        }),
+      });
+    });
     await page.route("http://localhost:8080/api/v1/device-bridge-worker/commands/cmd-replay-e2e/replay", async (route) => {
       expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
       expect(route.request().method()).toBe("POST");
@@ -359,6 +383,8 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     await expect(page.getByText(/cmd-recovery-e2e возвращена в очередь/)).toBeVisible();
     await page.getByRole("button", { name: "Replay" }).click();
     await expect(page.getByText(/cmd-replay-e2e поставлен в очередь Device Bridge: cmd-replayed-e2e/)).toBeVisible();
+    await page.getByRole("button", { name: "Экспорт audit CSV" }).click();
+    await expect(page.getByText(/Экспорт Device Bridge command audit скачан: device-bridge-command-audit-all-all-1-rows.csv/)).toBeVisible();
 
     const html = await page.locator("main").innerHTML();
     expect(html).not.toContain("access_token");

@@ -212,6 +212,28 @@ describe("SysDevicesPage", () => {
           { status: 202, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/audit/export")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4Y",
+            source: "postgres",
+            export: {
+              format: "csv",
+              mime: "text/csv;charset=utf-8",
+              filename: "device-bridge-command-audit-all-all-1-rows.csv",
+              rowCount: 1,
+              content: '# stage,4Y\n"event_id","action"\n"audit-1","replay"',
+              privacy: {
+                payloadVisibility: "backend-only",
+                excludedFieldCount: 3,
+                exportedFieldSet: "safe-command-metadata-only",
+              },
+            },
+            filters: { action: "all", status: "all", limit: 100 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridge-worker/audit")) {
         return new Response(
           JSON.stringify({
@@ -357,6 +379,20 @@ describe("SysDevicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Replay" }));
     expect(await screen.findByText(/Replay команды cmd-audit поставлен в очередь Device Bridge: cmd-replay/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(10);
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:device-audit"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    fireEvent.click(screen.getByRole("button", { name: "Экспорт audit CSV" }));
+    expect(await screen.findByText(/Экспорт Device Bridge command audit скачан: device-bridge-command-audit-all-all-1-rows.csv/)).toBeInTheDocument();
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(11);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {
