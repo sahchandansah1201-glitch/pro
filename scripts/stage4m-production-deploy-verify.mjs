@@ -1,0 +1,341 @@
+#!/usr/bin/env node
+// Stage 4M · Production deployment verification.
+// Plans and optionally runs first-boot, post-deploy, backup-after-deploy,
+// and rollback-drill checks for the self-hosted product.
+
+import { spawnSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const DEFAULT_PROJECT_NAME = "dermatolog-pro-production";
+const DEFAULT_APP_PORT = "8080";
+const DEFAULT_ENV_FILE = "deploy/self-hosted/.env.production";
+const DEFAULT_SUMMARY_PATH = "test-results/stage4m-production-deploy-report.md";
+const BASE_COMPOSE = "deploy/self-hosted/docker-compose.stage4a.yml";
+const PROD_COMPOSE = "deploy/self-hosted/docker-compose.production.example.yml";
+const ROLLBACK_CONFIRM = "ROLLBACK_TO_SELF_HOSTED_BACKUP";
+
+function npmCmd() {
+  return process.platform === "win32" ? "npm.cmd" : "npm";
+}
+
+function redact(value) {
+  return String(value || "")
+    .replace(/(POSTGRES_PASSWORD|JWT_SECRET|MINIO_ROOT_PASSWORD)=([^\s]+)/g, "$1=[redacted]")
+    .replace(/postgres:\/\/([^:]+):([^@]+)@/g, "postgres://$1:[redacted]@")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [redacted-token]")
+    .replace(/--confirm=ROLLBACK_TO_SELF_HOSTED_BACKUP/g, "--confirm=[required]");
+}
+
+function composeArgs(options, args) {
+  return [
+    "compose",
+    "--env-file",
+    options.envFile,
+    "-f",
+    BASE_COMPOSE,
+    "-f",
+    PROD_COMPOSE,
+    "-p",
+    options.projectName,
+    ...args,
+  ];
+}
+
+export function parseStage4MArgs(argv = []) {
+  const parsed = {
+    command: argv[0] || "help",
+    dryRun: false,
+    projectName: DEFAULT_PROJECT_NAME,
+    appPort: DEFAULT_APP_PORT,
+    envFile: DEFAULT_ENV_FILE,
+    backupDir: "backups/self-hosted/latest",
+    summaryPath: DEFAULT_SUMMARY_PATH,
+    confirm: "",
+  };
+
+  for (let index = 1; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--dry-run") {
+      parsed.dryRun = true;
+      continue;
+    }
+    if (arg === "--project-name") {
+      parsed.projectName = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--project-name=")) {
+      parsed.projectName = arg.slice("--project-name=".length).trim();
+      continue;
+    }
+    if (arg === "--app-port") {
+      parsed.appPort = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--app-port=")) {
+      parsed.appPort = arg.slice("--app-port=".length).trim();
+      continue;
+    }
+    if (arg === "--env-file") {
+      parsed.envFile = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--env-file=")) {
+      parsed.envFile = arg.slice("--env-file=".length).trim();
+      continue;
+    }
+    if (arg === "--backup-dir") {
+      parsed.backupDir = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--backup-dir=")) {
+      parsed.backupDir = arg.slice("--backup-dir=".length).trim();
+      continue;
+    }
+    if (arg === "--summary") {
+      parsed.summaryPath = String(argv[++index] || "").trim();
+      continue;
+    }
+    if (arg.startsWith("--summary=")) {
+      parsed.summaryPath = arg.slice("--summary=".length).trim();
+      continue;
+    }
+    if (arg === "--confirm") {
+      parsed.confirm = String(argv[++index] || "");
+      continue;
+    }
+    if (arg.startsWith("--confirm=")) {
+      parsed.confirm = arg.slice("--confirm=".length);
+      continue;
+    }
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  if (!["help", "first-boot", "post-deploy", "backup-after-deploy", "rollback-drill", "all"].includes(parsed.command)) {
+    throw new Error(`Unknown Stage 4M command: ${parsed.command}`);
+  }
+  if (!/^\d{2,5}$/.test(parsed.appPort)) throw new Error("APP port must be numeric.");
+  if (!parsed.projectName) throw new Error("project name is required.");
+  if (!parsed.envFile) throw new Error("env file is required.");
+  if (!parsed.summaryPath) throw new Error("summary path is required.");
+  return parsed;
+}
+
+function firstBootSteps(options) {
+  return [
+    ["Verify production env", npmCmd(), ["run", "ops:stage4l:verify-env", "--", "--env-file", options.envFile]],
+    ["Build frontend", npmCmd(), ["run", "build"]],
+    ["Validate compose config", "docker", composeArgs(options, ["config", "--quiet"])],
+    ["Start production compose stack", "docker", composeArgs(options, ["up", "-d", "--build"])],
+    ["Health check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/healthz`]],
+    ["Readiness check", "curl", ["-fsS", `http://127.0.0.1:${options.appPort}/readyz`]],
+  ];
+}
+
+function postDeploySteps(options) {
+  return [
+    ["Run Stage 4K smoke against production project", npmCmd(), [
+      "run",
+      "smoke:stage4k",
+      "--",
+      "--skip-build",
+      "--app-port",
+      options.appPort,
+      "--project-name",
+      options.projectName,
+      "--summary",
+      "test-results/stage4m-post-deploy-smoke.md",
+    ]],
+    ["Check compose services", "docker", composeArgs(options, ["ps"])],
+    ["Capture safe deployment status", "docker", composeArgs(options, ["logs", "--tail", "80", "--no-color", "backend"])],
+  ];
+}
+
+function backupAfterDeploySteps(options) {
+  return [
+    ["Create deployment backup", "node", [
+      "scripts/stage4l-self-hosted-ops.mjs",
+      "backup",
+      "--project-name",
+      options.projectName,
+      "--compose-file",
+      BASE_COMPOSE,
+      "--compose-file",
+      PROD_COMPOSE,
+      "--compose-env-file",
+      options.envFile,
+      "--backup-root",
+      "backups/self-hosted",
+    ]],
+  ];
+}
+
+function rollbackDrillSteps(options) {
+  return [
+    ["Dry-run rollback restore plan", "node", [
+      "scripts/stage4l-self-hosted-ops.mjs",
+      "restore",
+      "--dry-run",
+      "--project-name",
+      options.projectName,
+      "--compose-file",
+      BASE_COMPOSE,
+      "--compose-file",
+      PROD_COMPOSE,
+      "--compose-env-file",
+      options.envFile,
+      "--backup-dir",
+      options.backupDir,
+    ]],
+    ["Run rollback restore", "node", [
+      "scripts/stage4l-self-hosted-ops.mjs",
+      "restore",
+      "--project-name",
+      options.projectName,
+      "--compose-file",
+      BASE_COMPOSE,
+      "--compose-file",
+      PROD_COMPOSE,
+      "--compose-env-file",
+      options.envFile,
+      "--backup-dir",
+      options.backupDir,
+      `--confirm=${ROLLBACK_CONFIRM}`,
+    ]],
+  ];
+}
+
+export function buildStage4MPlan(options = {}) {
+  const config = { ...parseStage4MArgs(["first-boot"]), ...options };
+  const steps = [];
+  if (config.command === "first-boot" || config.command === "all") steps.push(...firstBootSteps(config));
+  if (config.command === "post-deploy" || config.command === "all") steps.push(...postDeploySteps(config));
+  if (config.command === "backup-after-deploy" || config.command === "all") steps.push(...backupAfterDeploySteps(config));
+  if (config.command === "rollback-drill") steps.push(...rollbackDrillSteps(config));
+  return { config, steps };
+}
+
+export function renderStage4MPlan(options = {}) {
+  const { config, steps } = buildStage4MPlan(options);
+  const lines = [
+    `[stage4m-deploy] ${config.command} plan`,
+    "",
+    `- Project: ${config.projectName}`,
+    `- App port: ${config.appPort}`,
+    `- Env file: ${config.envFile}`,
+    `- Backup dir: ${config.backupDir}`,
+  ];
+  if (config.command === "rollback-drill") {
+    lines.push(`- Rollback confirmation required: ${ROLLBACK_CONFIRM}`);
+  }
+  lines.push("", "## Steps");
+  for (const [label, cmd, args] of steps) {
+    lines.push(`- ${label}: \`${cmd} ${args.join(" ")}\``);
+  }
+  lines.push("", "No raw tokens, passwords, object keys, storage paths, or patient names are printed.");
+  return redact(lines.join("\n"));
+}
+
+function runStep([label, cmd, args], { spawn = spawnSync } = {}) {
+  const result = spawn(cmd, args, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.status !== 0) {
+    throw new Error(redact(`${label} failed: ${result.stderr || result.stdout || `exit ${result.status}`}`));
+  }
+  return {
+    label,
+    ok: true,
+    output: redact(`${result.stdout || ""}${result.stderr || ""}`.trim()).slice(0, 4000),
+  };
+}
+
+function writeSummary(path, payload) {
+  mkdirSync(dirname(path), { recursive: true });
+  const lines = [
+    "## Stage 4M production deployment verification",
+    "",
+    `- Status: \`${payload.status}\``,
+    `- Command: \`${payload.command}\``,
+    `- Project: \`${payload.projectName}\``,
+    `- Env file: \`${payload.envFile}\``,
+    "",
+    "## Results",
+  ];
+  for (const result of payload.results) {
+    lines.push(`- ${result.ok ? "OK" : "FAIL"} — ${result.label}`);
+  }
+  lines.push("", "Secrets and patient data are redacted from this report.");
+  writeFileSync(path, redact(lines.join("\n")));
+}
+
+export function runStage4M(options = {}, io = {}) {
+  const config = { ...parseStage4MArgs(["first-boot"]), ...options };
+  if (config.command === "rollback-drill" && !config.dryRun && config.confirm !== ROLLBACK_CONFIRM) {
+    throw new Error(`rollback-drill requires --confirm=${ROLLBACK_CONFIRM}`);
+  }
+  const { steps } = buildStage4MPlan(config);
+  if (config.dryRun) {
+    return { ok: true, dryRun: true, output: renderStage4MPlan(config), steps };
+  }
+  const results = [];
+  try {
+    for (const step of steps) results.push(runStep(step, io));
+    writeSummary(config.summaryPath, {
+      status: "ok",
+      command: config.command,
+      projectName: config.projectName,
+      envFile: config.envFile,
+      results,
+    });
+    return { ok: true, dryRun: false, results };
+  } catch (error) {
+    results.push({ label: "failure", ok: false });
+    writeSummary(config.summaryPath, {
+      status: "fail",
+      command: config.command,
+      projectName: config.projectName,
+      envFile: config.envFile,
+      results,
+    });
+    throw error;
+  }
+}
+
+function usage() {
+  return [
+    "Usage:",
+    "  node scripts/stage4m-production-deploy-verify.mjs first-boot --dry-run",
+    "  node scripts/stage4m-production-deploy-verify.mjs post-deploy --dry-run",
+    "  node scripts/stage4m-production-deploy-verify.mjs backup-after-deploy --dry-run",
+    "  node scripts/stage4m-production-deploy-verify.mjs rollback-drill --dry-run --backup-dir backups/self-hosted/<timestamp>",
+    "  node scripts/stage4m-production-deploy-verify.mjs rollback-drill --backup-dir <dir> --confirm=ROLLBACK_TO_SELF_HOSTED_BACKUP",
+  ].join("\n");
+}
+
+export function main(argv = process.argv.slice(2)) {
+  try {
+    const options = parseStage4MArgs(argv);
+    if (options.command === "help") {
+      console.log(usage());
+      return 0;
+    }
+    const result = runStage4M(options);
+    if (result.dryRun) {
+      console.log(result.output);
+      return 0;
+    }
+    console.log(`[stage4m-deploy] ${options.command} OK`);
+    return 0;
+  } catch (error) {
+    console.error(`[stage4m-deploy] failed: ${redact(error?.message || error)}`);
+    return 1;
+  }
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  process.exit(main());
+}
