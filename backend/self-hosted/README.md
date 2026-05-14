@@ -21,6 +21,8 @@ PostgreSQL client used by the container image.
   Stage 4G-4H visit, lesion, report and asset metadata read/write boundaries.
 - `clinical-workspace-repository.mjs`, `clinical-workspace-service.mjs` —
   Stage 5H production assessment, conclusion, and report read/write contracts.
+- `doctor-dashboard-repository.mjs`, `doctor-dashboard-service.mjs` —
+  Stage 5I production doctor dashboard aggregations from PostgreSQL.
 - `asset-write-repository.mjs`, `asset-write-service.mjs`, `object-store.mjs` —
   Stage 4I-4J clinical asset metadata, binary storage, and backend-owned
   download contracts.
@@ -49,6 +51,7 @@ PostgreSQL client used by the container image.
   audit export/product-readiness boundaries.
 - `openapi.stage5h.json` — production clinical workspace assessment,
   conclusion, and report contracts.
+- `openapi.stage5i.json` — production doctor dashboard contract.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -166,6 +169,9 @@ npm run preflight:stage5g
 npm run test:stage5h
 npm run check:stage5h
 npm run preflight:stage5h
+npm run test:stage5i
+npm run check:stage5i
+npm run preflight:stage5i
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -271,3 +277,8 @@ assessment and conclusion tables, report read access, RBAC/audit-protected
 GET/PATCH endpoints, frontend adapters, and production UI panels that save only
 through the self-hosted backend. Demo/dev mode keeps mock tabs; production mode
 uses the local server and is gated by `npm run preflight:stage5h`.
+Stage 5I adds the production doctor dashboard contract:
+`GET /api/v1/doctor/dashboard` aggregates KPI, upcoming visits, pending
+conclusions, recent patients, asset metadata issues, and device status from
+operator-owned PostgreSQL. `/desk` in production uses this contract and does
+not fall back to mock dashboard data; demo/dev keeps the historical dashboard.

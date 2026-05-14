@@ -1,0 +1,43 @@
+name: stage5i-production-doctor-dashboard-contracts
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/doctor-dashboard-*.mjs"
+      - "backend/self-hosted/openapi.stage5i.json"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-dashboard-api.ts"
+      - "src/lib/self-hosted-dashboard-api.test.ts"
+      - "src/pages/doctor/DeskPage*.tsx"
+      - "docs/backend/stage-5i-production-doctor-dashboard-contracts.md"
+      - "scripts/check-stage5i-production-doctor-dashboard-contracts.mjs"
+      - "scripts/check-stage5i-production-doctor-dashboard-contracts.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+  workflow_dispatch:
+
+jobs:
+  stage5i:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Stage 5I preflight
+        run: npm run preflight:stage5i
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5I production doctor dashboard contracts"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5i\`"
+            echo "- Boundary: self-hosted backend + local PostgreSQL only"
+            echo "- Production /desk source: \`/api/v1/doctor/dashboard\`"
+          } >> "$GITHUB_STEP_SUMMARY"
