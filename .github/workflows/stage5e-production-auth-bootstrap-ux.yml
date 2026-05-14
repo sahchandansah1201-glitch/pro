@@ -1,0 +1,50 @@
+name: stage5e-production-auth-bootstrap-ux
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/self-hosted-bootstrap-api.ts"
+      - "src/lib/self-hosted-bootstrap-api.test.ts"
+      - "src/pages/SelfHostedLoginPage.tsx"
+      - "src/pages/SelfHostedLoginPage.test.tsx"
+      - "docs/backend/stage-5e-production-auth-bootstrap-ux.md"
+      - "scripts/check-stage5e-production-auth-bootstrap-ux.mjs"
+      - "scripts/check-stage5e-production-auth-bootstrap-ux.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage5e-production-auth-bootstrap-ux.yml"
+  push:
+    paths:
+      - "src/lib/self-hosted-bootstrap-api.ts"
+      - "src/pages/SelfHostedLoginPage.tsx"
+      - "docs/backend/stage-5e-production-auth-bootstrap-ux.md"
+      - "scripts/check-stage5e-production-auth-bootstrap-ux.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage5e-production-auth-bootstrap-ux.yml"
+
+jobs:
+  stage5e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5e
+      - name: Write production auth/bootstrap UX summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5E production auth/bootstrap UX"
+            echo
+            echo "- Preflight: npm run preflight:stage5e"
+            echo "- Login: /self-hosted/login"
+            echo "- Readiness endpoints: /healthz, /readyz, /api/v1/meta"
+            echo "- First admin: Stage 5B server-side admin-sql"
+            echo "- Managed runtime: none"
+            echo "- Managed database: none"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -232,3 +232,7 @@ requires `/self-hosted/login` for protected routes, and derives navigation and
 access checks from self-hosted backend roles. Demo mode remains available for
 local review, but production deployments are driven by the self-hosted session
 and gated by `npm run preflight:stage5d`.
+Stage 5E turns `/self-hosted/login` into the production login and bootstrap UX:
+operators can check `/healthz`, `/readyz`, and `/api/v1/meta` before sign-in,
+see first-`system_admin` guidance tied to Stage 5B/5C, and validate the flow
+through `npm run preflight:stage5e`.
