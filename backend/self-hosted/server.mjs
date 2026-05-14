@@ -3,19 +3,23 @@
 import { createServer } from "node:http";
 
 import { readSelfHostedConfig } from "./config.mjs";
+import { createOpsLogger } from "./ops-logger.mjs";
 import { createNodeHandler } from "./routes.mjs";
 
 const config = readSelfHostedConfig();
-const server = createServer(createNodeHandler(config));
+const logger = createOpsLogger({ service: config.serviceName });
+const server = createServer(createNodeHandler(config, { logger }));
 
 server.listen(config.port, "0.0.0.0", () => {
-  console.log(
-    `[stage4a-backend] ${config.serviceName} listening on 0.0.0.0:${config.port}`,
-  );
+  logger.info("server.listen", {
+    host: "0.0.0.0",
+    port: config.port,
+    deploymentMode: config.deploymentMode,
+  });
 });
 
 function shutdown(signal) {
-  console.log(`[stage4a-backend] ${signal} received, shutting down`);
+  logger.info("server.shutdown", { signal });
   server.close(() => process.exit(0));
 }
 

@@ -1,0 +1,51 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro self-hosted API",
+    "version": "4N-production-observability-audit",
+    "description": "Stage 4N production observability and audit operations for the self-hosted backend."
+  },
+  "paths": {
+    "/api/v1/ops/status": {
+      "get": {
+        "summary": "Return safe production observability status",
+        "description": "System-admin only status endpoint. It returns readiness, structured logging configuration, audit export metadata, and correlation settings without tokens, patient names, object keys, or raw environment values.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe production observability status"
+          },
+          "401": {
+            "description": "Authentication is required"
+          },
+          "403": {
+            "description": "Only system_admin can view operations status"
+          }
+        }
+      }
+    },
+    "/openapi.stage4n.json": {
+      "get": {
+        "summary": "Stage 4N OpenAPI document",
+        "responses": {
+          "200": {
+            "description": "OpenAPI document"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

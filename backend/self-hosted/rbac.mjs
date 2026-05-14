@@ -1,5 +1,6 @@
 export const PATIENT_READ_ROLES = ["system_admin", "clinic_admin", "doctor"];
 export const PATIENT_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
+export const OPS_STATUS_ROLES = ["system_admin"];
 
 export class AuthRequiredError extends Error {
   constructor(message = "Authentication is required.") {
@@ -106,4 +107,9 @@ export function visitWriteScope(authContext) {
     throw new ForbiddenError("The authenticated user has no clinic scope.");
   }
   return { allClinics: false, clinicIds, roles: scoped.roles };
+}
+
+export function opsStatusScope(authContext) {
+  const scoped = requireAnyRole(authContext, OPS_STATUS_ROLES);
+  return { roles: scoped.roles };
 }

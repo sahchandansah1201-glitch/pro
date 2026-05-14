@@ -32,7 +32,8 @@ import {
   normalizeDownloadUrlParams,
 } from "./asset-write-service.mjs";
 import { createLocalObjectStore } from "./object-store.mjs";
-import { patientReadScope, visitReadScope } from "./rbac.mjs";
+import { extractCorrelationId, safeRequestPath } from "./ops-logger.mjs";
+import { opsStatusScope, patientReadScope, visitReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
 import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
 import { createVisitWorkspaceWriteService } from "./visit-workspace-write-service.mjs";
@@ -61,6 +62,9 @@ const OPENAPI_4I = JSON.parse(
 );
 const OPENAPI_4J = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4j.json"), "utf8"),
+);
+const OPENAPI_4N = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4n.json"), "utf8"),
 );
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
@@ -904,7 +908,7 @@ export async function handleSelfHostedRequest(
     return errorResponse({
       status: 405,
       code: "method_not_allowed",
-      message: "This self-hosted backend route does not allow the requested method in Stage 4J.",
+      message: "This self-hosted backend route does not allow the requested method in Stage 4N.",
       correlationId,
       config,
       requestOrigin,
@@ -1002,6 +1006,76 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/ops/status") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = opsStatusScope(authContext);
+      const readiness = await runtimeReadiness(config, runtimeServices.dbClient);
+      await recordAuditBestEffort(
+        runtimeServices.auditRepository,
+        {
+          clinicId: null,
+          actorUserId: authContext.userId,
+          action: "ops.status.read",
+          entityType: "ops_status",
+          correlationId,
+          metadata: {
+            status: readiness.status,
+            dependencyCount: readiness.dependencies.length,
+          },
+        },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4N",
+          source: "self-hosted",
+          ready: readiness.ready,
+          status: readiness.status,
+          dependencies: readiness.dependencies.map((dependency) => ({
+            name: dependency.name,
+            configured: Boolean(dependency.configured),
+            connected: Boolean(dependency.connected),
+            status: dependency.status,
+          })),
+          observability: {
+            structuredJsonLogs: true,
+            correlationHeader: "x-correlation-id",
+            redaction: "enabled",
+            requestPathLogging: "path-only",
+          },
+          audit: {
+            mode: "append-only",
+            safeExport: "scripts/stage4n-audit-export.mjs --dry-run",
+            exportedFields: [
+              "created_at",
+              "action",
+              "entity_type",
+              "entity_id",
+              "correlation_id",
+            ],
+          },
+          auth: {
+            userId: authContext.userId,
+            roles: scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({
+        ...publicError,
+        correlationId,
+        config,
+        requestOrigin,
+      });
+    }
+  }
+
   if (url.pathname === "/healthz") {
     return jsonResponse(
       200,
@@ -1037,7 +1111,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4J",
+        stage: "4N",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -1047,10 +1121,11 @@ export async function handleSelfHostedRequest(
           lesions: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           reports: "rbac-write-postgres",
+          observability: "structured-json-logs-redacted-ops-status",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4j.json",
+          openapi: "/openapi.stage4n.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
@@ -1059,8 +1134,10 @@ export async function handleSelfHostedRequest(
           openapiStage4H: "/openapi.stage4h.json",
           openapiStage4I: "/openapi.stage4i.json",
           openapiStage4J: "/openapi.stage4j.json",
+          openapiStage4N: "/openapi.stage4n.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
+          opsStatus: "/api/v1/ops/status",
           patients: "/api/v1/patients",
           patientVisits: "/api/v1/patients/{patientId}/visits",
           visit: "/api/v1/visits/{visitId}",
@@ -1113,10 +1190,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4J, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4n.json") {
+    return jsonResponse(200, OPENAPI_4N, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4J self-hosted backend route matched the request.",
+    message: "No Stage 4N self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,
@@ -1162,9 +1243,11 @@ function requestBodyLimitFor(req) {
   return 64_000;
 }
 
-export function createNodeHandler(config) {
+export function createNodeHandler(config, { logger = null } = {}) {
   return async (req, res) => {
+    const started = Date.now();
     let response;
+    const fallbackCorrelationId = req.headers?.["x-correlation-id"] || "stage4n-local";
     try {
       const body = await readNodeRequestBody(req, requestBodyLimitFor(req));
       response = await handleSelfHostedRequest(
@@ -1180,8 +1263,17 @@ export function createNodeHandler(config) {
       response = internalErrorResponse(
         config,
         req.headers?.origin || "",
-        req.headers?.["x-correlation-id"] || "stage4i-local",
+        fallbackCorrelationId,
       );
+    }
+    if (logger) {
+      logger.info("http.request", {
+        method: String(req.method || "GET").toUpperCase(),
+        path: safeRequestPath(req.url),
+        status: response.status,
+        durationMs: Date.now() - started,
+        correlationId: extractCorrelationId(response, fallbackCorrelationId),
+      });
     }
     res.writeHead(response.status, response.headers);
     res.end(response.body);

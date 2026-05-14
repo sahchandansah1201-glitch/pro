@@ -22,6 +22,8 @@ PostgreSQL client used by the container image.
 - `asset-write-repository.mjs`, `asset-write-service.mjs`, `object-store.mjs` —
   Stage 4I-4J clinical asset metadata, binary storage, and backend-owned
   download contracts.
+- `ops-logger.mjs` — Stage 4N structured JSON logs, correlation helpers, and
+  redaction for production observability.
 - `openapi.stage4a.json` — contract-first API boundary for auth, patients,
   visits, assets, and audit.
 - `openapi.stage4b.json` — first runtime API boundary with `GET /api/v1/patients`.
@@ -30,6 +32,7 @@ PostgreSQL client used by the container image.
 - `openapi.stage4g.json`, `openapi.stage4h.json`, `openapi.stage4i.json`,
   `openapi.stage4j.json` — visit workspace read/write and clinical asset
   write/binary boundaries.
+- `openapi.stage4n.json` — production observability status contract.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -74,6 +77,10 @@ npm run preflight:stage4l
 npm run test:stage4m
 npm run check:stage4m
 npm run preflight:stage4m
+npm run test:stage4n
+npm run check:stage4n
+npm run preflight:stage4n
+npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
 npm run smoke:stage4k
 npm run ops:stage4l:backup:dry-run
@@ -103,3 +110,6 @@ dry-runs, restore verification guidance, and CI guardrails for operating the
 self-hosted stack on a server.
 Stage 4M adds first-boot, post-deploy smoke, backup-after-deploy, and rollback
 drill verification plans for production deployment.
+Stage 4N adds structured JSON logs, `x-correlation-id` propagation, a
+system-admin-only `/api/v1/ops/status` endpoint, metadata-only audit export
+dry-run, and privacy guardrails for production observability.
