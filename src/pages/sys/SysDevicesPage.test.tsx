@@ -112,6 +112,39 @@ describe("SysDevicesPage", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/hardening")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4V",
+            source: "postgres",
+            summary: {
+              staleWorkers: 1,
+              retryingCommands: 2,
+              rateLimitedCommands: 1,
+              maxQueueAgeSeconds: 120,
+              cleanupCandidates: 3,
+            },
+            policy: { staleAfterMinutes: 10, retentionDays: 30, pollBackoff: "linear-capped", maxPollLimit: 50 },
+            items: [
+              {
+                id: "br-uuid",
+                clinicId: "clinic-1",
+                bridgeCode: "br-live-01",
+                hostName: "live-bridge",
+                workerStatus: "degraded",
+                workerVersion: "stage4t-local-worker",
+                stale: true,
+                activeCommandCount: 3,
+                retryingCommandCount: 2,
+                rateLimitedCommandCount: 1,
+                maxQueueAgeSeconds: 120,
+              },
+            ],
+            filters: { staleAfterMinutes: 10, retentionDays: 30, limit: 25 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -168,7 +201,16 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("note", { name: "Device Bridge worker privacy boundary" })).toHaveTextContent(
       "lifecycle-метаданные",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(screen.getByRole("region", { name: "Device Bridge worker production hardening" })).toHaveTextContent(
+      "Cleanup candidates",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge worker hardening policy" })).toHaveTextContent(
+      "linear-capped",
+    );
+    expect(screen.getByRole("note", { name: "Device Bridge worker hardening privacy boundary" })).toHaveTextContent(
+      "retention cleanup candidates",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(4);
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
@@ -178,7 +220,7 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
     expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

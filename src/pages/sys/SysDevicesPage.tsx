@@ -13,8 +13,10 @@ import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
   getSelfHostedDeviceBridgeWorkerStatus,
+  getSelfHostedDeviceBridgeWorkerHardening,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
+  type SelfHostedDeviceBridgeWorkerHardeningDTO,
   type SelfHostedDeviceBridgeWorkerStatusDTO,
   type SelfHostedDeviceBridgeDTO,
   type SelfHostedDeviceDTO,
@@ -154,6 +156,8 @@ export default function SysDevicesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [workerStatus, setWorkerStatus] = useState<SelfHostedDeviceBridgeWorkerStatusDTO | null>(null);
   const [workerStatusError, setWorkerStatusError] = useState<string | null>(null);
+  const [workerHardening, setWorkerHardening] = useState<SelfHostedDeviceBridgeWorkerHardeningDTO | null>(null);
+  const [workerHardeningError, setWorkerHardeningError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -165,6 +169,8 @@ export default function SysDevicesPage() {
       setLiveBridges(null);
       setWorkerStatus(null);
       setWorkerStatusError(null);
+      setWorkerHardening(null);
+      setWorkerHardeningError(null);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -174,6 +180,7 @@ export default function SysDevicesPage() {
     setLoadStatus("loading");
     setLoadError(null);
     setWorkerStatusError(null);
+    setWorkerHardeningError(null);
     Promise.all([
       listSelfHostedDeviceBridges({
         apiBaseUrl: session.apiBaseUrl,
@@ -191,7 +198,14 @@ export default function SysDevicesPage() {
         commandStatus: "all",
         limit: 25,
       }),
-    ]).then(([bridgeResult, deviceResult, workerResult]) => {
+      getSelfHostedDeviceBridgeWorkerHardening({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+        staleAfterMinutes: 10,
+        retentionDays: 30,
+        limit: 25,
+      }),
+    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult]) => {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
@@ -199,6 +213,7 @@ export default function SysDevicesPage() {
         setLiveDevices(null);
         setLiveBridges(null);
         setWorkerStatus(null);
+        setWorkerHardening(null);
         return;
       }
       setLiveBridges((bridgeResult.value ?? []).map(bridgeFromDto));
@@ -208,6 +223,14 @@ export default function SysDevicesPage() {
       } else {
         setWorkerStatus(null);
         setWorkerStatusError(workerResult?.error?.message || "Не удалось загрузить Device Bridge worker status.");
+      }
+      if (hardeningResult?.ok) {
+        setWorkerHardening(hardeningResult.value ?? null);
+      } else {
+        setWorkerHardening(null);
+        setWorkerHardeningError(
+          hardeningResult?.error?.message || "Не удалось загрузить Device Bridge worker hardening.",
+        );
       }
       setLoadStatus("ready");
     });
@@ -449,6 +472,93 @@ export default function SysDevicesPage() {
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
                   {workerStatusError || "Device Bridge worker observability ожидает ответ backend."}
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+
+        {isLive && (
+          <section
+            className="space-y-2"
+            aria-label="Device Bridge worker production hardening"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Activity className="h-3.5 w-3.5" aria-hidden />
+                Production hardening
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                Stage 4V /api/v1/device-bridge-worker/hardening
+              </span>
+            </div>
+            <Card className="p-3">
+              {workerHardening ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    <WorkerMetric label="Stale workers" value={workerHardening.summary.staleWorkers} />
+                    <WorkerMetric label="Retrying commands" value={workerHardening.summary.retryingCommands} />
+                    <WorkerMetric label="Backoff delayed" value={workerHardening.summary.rateLimitedCommands} />
+                    <WorkerMetric label="Max queue age sec" value={workerHardening.summary.maxQueueAgeSeconds} />
+                    <WorkerMetric label="Cleanup candidates" value={workerHardening.summary.cleanupCandidates} />
+                  </div>
+                  <div
+                    role="region"
+                    aria-label="Device Bridge worker hardening policy"
+                    className="rounded-md border border-border px-3 py-2 text-[12px] text-muted-foreground"
+                  >
+                    <div className="font-semibold text-foreground">Hardening policy</div>
+                    <div className="mt-1">
+                      stale after {workerHardening.policy.staleAfterMinutes} min · retention {workerHardening.policy.retentionDays} days · backoff {workerHardening.policy.pollBackoff} · max poll {workerHardening.policy.maxPollLimit}
+                    </div>
+                  </div>
+                  <div
+                    role="region"
+                    aria-label="Device Bridge worker hardening bridge list"
+                    className="rounded-md border border-border"
+                  >
+                    <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Bridge hardening status
+                    </div>
+                    <div className="divide-y divide-border/70">
+                      {workerHardening.items.length > 0 ? workerHardening.items.slice(0, 5).map((bridge) => (
+                        <div key={bridge.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
+                          <div className="min-w-0">
+                            <div className="truncate font-mono text-[11px] font-semibold">{bridge.bridgeCode}</div>
+                            <div className="truncate text-[11px] text-muted-foreground">
+                              {bridge.hostName || "host не указан"} · {bridge.workerVersion || "version unknown"}
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {bridge.stale ? "stale" : "fresh"}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            retry {bridge.retryingCommandCount} / delayed {bridge.rateLimitedCommandCount}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            queue age {bridge.maxQueueAgeSeconds}s
+                          </span>
+                        </div>
+                      )) : (
+                        <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
+                          Hardening telemetry пока не поступала.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    role="note"
+                    aria-label="Device Bridge worker hardening privacy boundary"
+                    className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+                  >
+                    Stage 4V показывает только агрегированные production-сигналы: stale workers, queue age,
+                    retry/backoff pressure и retention cleanup candidates. Секреты worker runtime,
+                    драйверные payloads, storage paths, patient names и browser hardware APIs не выводятся.
+                  </div>
+                </div>
+              ) : (
+                <div role="status" className="text-[12px] text-muted-foreground">
+                  {workerHardeningError || "Device Bridge worker hardening ожидает ответ backend."}
                 </div>
               )}
             </Card>
