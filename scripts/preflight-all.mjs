@@ -34,6 +34,7 @@ const DEFAULT_STEPS = [
   ["Stage 4O self-hosted ops UI preflight", npmCmd, ["run", "preflight:stage4o"]],
   ["Stage 4P self-hosted ops controls preflight", npmCmd, ["run", "preflight:stage4p"]],
   ["Stage 4Q self-hosted device registry preflight", npmCmd, ["run", "preflight:stage4q"]],
+  ["Stage 4R Device Bridge commands preflight", npmCmd, ["run", "preflight:stage4r"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],

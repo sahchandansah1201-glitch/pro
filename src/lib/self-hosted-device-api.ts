@@ -64,6 +64,34 @@ export interface ListSelfHostedDeviceBridgesArgs extends BaseArgs {
   bridgeStatus?: "all" | "online" | "degraded" | "offline";
 }
 
+export type SelfHostedDeviceCommandType =
+  | "bridge_health_check"
+  | "device_calibration_request"
+  | "device_stream_open_request";
+
+export interface SelfHostedDeviceCommandDTO {
+  id: string;
+  clinicId: string;
+  bridgeId: string | null;
+  deviceId: string | null;
+  commandType: SelfHostedDeviceCommandType;
+  status: "queued" | "acknowledged" | "completed" | "failed" | "cancelled";
+  reason: string | null;
+  createdAt: string | null;
+}
+
+export interface RequestSelfHostedBridgeCommandArgs extends BaseArgs {
+  bridgeId: string;
+  commandType: "bridge_health_check";
+  reason?: string;
+}
+
+export interface RequestSelfHostedDeviceCommandArgs extends BaseArgs {
+  deviceId: string;
+  commandType: "device_calibration_request" | "device_stream_open_request";
+  reason?: string;
+}
+
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
@@ -139,6 +167,29 @@ async function requestJson(url: string, token: string): Promise<SelfHostedApiRes
   return ok(body);
 }
 
+async function postJson(url: string, token: string, body: unknown): Promise<SelfHostedApiResult<unknown>> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...authHeaders(token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при обращении к self-hosted backend.",
+    });
+  }
+  const parsed = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, parsed));
+  return ok(parsed);
+}
+
 function normalizeLanStatus(input: unknown): SelfHostedDeviceBridgeDTO["lanStatus"] {
   if (input === "online" || input === "degraded" || input === "offline") return input;
   return "offline";
@@ -211,6 +262,47 @@ export function toSelfHostedDeviceDTO(input: unknown): SelfHostedDeviceDTO | nul
   };
 }
 
+function normalizeCommandType(input: unknown): SelfHostedDeviceCommandType | null {
+  if (
+    input === "bridge_health_check" ||
+    input === "device_calibration_request" ||
+    input === "device_stream_open_request"
+  ) {
+    return input;
+  }
+  return null;
+}
+
+function normalizeCommandStatus(input: unknown): SelfHostedDeviceCommandDTO["status"] {
+  if (
+    input === "queued" ||
+    input === "acknowledged" ||
+    input === "completed" ||
+    input === "failed" ||
+    input === "cancelled"
+  ) {
+    return input;
+  }
+  return "queued";
+}
+
+export function toSelfHostedDeviceCommandDTO(input: unknown): SelfHostedDeviceCommandDTO | null {
+  if (!isRecord(input)) return null;
+  const id = String(input.id ?? "");
+  const commandType = normalizeCommandType(input.commandType);
+  if (!id || !commandType) return null;
+  return {
+    id,
+    clinicId: String(input.clinicId ?? ""),
+    bridgeId: input.bridgeId ? String(input.bridgeId) : null,
+    deviceId: input.deviceId ? String(input.deviceId) : null,
+    commandType,
+    status: normalizeCommandStatus(input.status),
+    reason: input.reason ? String(input.reason) : null,
+    createdAt: input.createdAt ? String(input.createdAt) : null,
+  };
+}
+
 function extractItems<T>(body: unknown, mapper: (item: unknown) => T | null): T[] {
   const rawItems = isRecord(body) && Array.isArray(body.items) ? body.items : [];
   return rawItems.map(mapper).filter((item): item is T => item != null);
@@ -249,4 +341,64 @@ export async function listSelfHostedDevices(
   );
   if (!result.ok) return fail(result.error as SelfHostedApiError);
   return ok(extractItems(result.value, toSelfHostedDeviceDTO));
+}
+
+function extractCommand(body: unknown): SelfHostedDeviceCommandDTO | null {
+  return isRecord(body) ? toSelfHostedDeviceCommandDTO(body.command) : null;
+}
+
+export async function requestSelfHostedBridgeCommand(
+  args: RequestSelfHostedBridgeCommandArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceCommandDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  if (!args.bridgeId) {
+    return fail({
+      kind: "validation",
+      code: "bridge_id_required",
+      message: "Не выбран Device Bridge.",
+    });
+  }
+  const result = await postJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, `/api/v1/device-bridges/${encodeURIComponent(args.bridgeId)}/commands`),
+    args.apiToken as string,
+    { commandType: args.commandType, reason: args.reason },
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const command = extractCommand(result.value);
+  return command
+    ? ok(command)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ команды.",
+      });
+}
+
+export async function requestSelfHostedDeviceCommand(
+  args: RequestSelfHostedDeviceCommandArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceCommandDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  if (!args.deviceId) {
+    return fail({
+      kind: "validation",
+      code: "device_id_required",
+      message: "Не выбрано устройство.",
+    });
+  }
+  const result = await postJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, `/api/v1/devices/${encodeURIComponent(args.deviceId)}/commands`),
+    args.apiToken as string,
+    { commandType: args.commandType, reason: args.reason },
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const command = extractCommand(result.value);
+  return command
+    ? ok(command)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ команды.",
+      });
 }

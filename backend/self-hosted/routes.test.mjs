@@ -15,6 +15,8 @@ function createRuntime({
   bridges = [],
   devices = [],
   deviceError = null,
+  deviceCommandResult = null,
+  deviceCommandError = null,
   patientDetail = null,
   createdPatient = null,
   updatedPatient = null,
@@ -129,6 +131,49 @@ function createRuntime({
         };
       },
     },
+    deviceBridgeCommandService: {
+      async requestBridgeCommand() {
+        if (deviceCommandError) throw deviceCommandError;
+        return deviceCommandResult || {
+          command: {
+            id: "10000000-0000-4000-8000-000000000901",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            bridgeId: "10000000-0000-4000-8000-000000000301",
+            deviceId: null,
+            commandType: "bridge_health_check",
+            status: "queued",
+          },
+          bridge: {
+            id: "10000000-0000-4000-8000-000000000301",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            bridgeCode: "br-live-01",
+          },
+          scope: { allClinics: false, clinicIds: ["10000000-0000-4000-8000-000000000001"], roles: authContext.roles },
+          mode: "bridge_health_check",
+        };
+      },
+      async requestDeviceCommand() {
+        if (deviceCommandError) throw deviceCommandError;
+        return deviceCommandResult || {
+          command: {
+            id: "10000000-0000-4000-8000-000000000902",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            bridgeId: "10000000-0000-4000-8000-000000000301",
+            deviceId: "10000000-0000-4000-8000-000000000401",
+            commandType: "device_calibration_request",
+            status: "queued",
+          },
+          device: {
+            id: "10000000-0000-4000-8000-000000000401",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            serial: "DL5-AX-1042",
+            bridgeId: "10000000-0000-4000-8000-000000000301",
+          },
+          scope: { allClinics: false, clinicIds: ["10000000-0000-4000-8000-000000000001"], roles: authContext.roles },
+          mode: "calibration_request",
+        };
+      },
+    },
   };
 }
 
@@ -212,12 +257,12 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4Q");
+  assert.equal(meta.json.stage, "4R");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
-  assert.equal(meta.json.capabilities.devices, "rbac-read-postgres-device-bridge-registry");
+  assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
-  assert.equal(meta.json.links.openapi, "/openapi.stage4q.json");
+  assert.equal(meta.json.links.openapi, "/openapi.stage4r.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
   assert.equal(meta.json.links.openapiStage4B, "/openapi.stage4b.json");
   assert.equal(meta.json.links.openapiStage4C, "/openapi.stage4c.json");
@@ -227,10 +272,13 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage4N, "/openapi.stage4n.json");
   assert.equal(meta.json.links.openapiStage4P, "/openapi.stage4p.json");
   assert.equal(meta.json.links.openapiStage4Q, "/openapi.stage4q.json");
+  assert.equal(meta.json.links.openapiStage4R, "/openapi.stage4r.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.deviceBridges, "/api/v1/device-bridges");
+  assert.equal(meta.json.links.deviceBridgeCommands, "/api/v1/device-bridges/{bridgeId}/commands");
   assert.equal(meta.json.links.devices, "/api/v1/devices");
+  assert.equal(meta.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
   assert.equal(meta.json.links.assetDownload, "/api/v1/assets/{assetId}/download");
   assert.equal(meta.json.service.objectStorageBucket, "medical-assets");
@@ -286,6 +334,10 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   const openapi4q = await request("/openapi.stage4q.json");
   assert.equal(openapi4q.status, 200);
   assert.equal(openapi4q.json.info.version, "4Q-device-registry");
+
+  const openapi4r = await request("/openapi.stage4r.json");
+  assert.equal(openapi4r.status, 200);
+  assert.equal(openapi4r.json.info.version, "4R-device-bridge-commands");
   assert.ok(openapi4q.json.paths["/api/v1/devices"].get);
   assert.ok(openapi4q.json.paths["/api/v1/device-bridges"].get);
 });
@@ -478,6 +530,67 @@ test("Stage 4Q · device registry endpoints are RBAC-scoped, audited, and safe",
   );
   assert.equal(denied.status, 403);
   assert.equal(denied.json.error.code, "forbidden");
+});
+
+test("Stage 4R · Device Bridge command endpoints queue safe backend-owned commands", async () => {
+  const clinicAdminRuntime = createRuntime({
+    authContext: {
+      userId: "10000000-0000-4000-8000-000000000102",
+      displayName: "Clinic Admin",
+      roles: ["clinic_admin"],
+      clinicIds: ["10000000-0000-4000-8000-000000000001"],
+      roleBindings: [{ role: "clinic_admin", clinicId: "10000000-0000-4000-8000-000000000001" }],
+      token: {},
+    },
+  });
+
+  const bridgeCommand = await request(
+    "/api/v1/device-bridges/10000000-0000-4000-8000-000000000301/commands",
+    configuredEnv,
+    clinicAdminRuntime,
+    "POST",
+    JSON.stringify({ commandType: "bridge_health_check", reason: "Проверка LAN" }),
+  );
+  assert.equal(bridgeCommand.status, 202);
+  assert.equal(bridgeCommand.json.stage, "4R");
+  assert.equal(bridgeCommand.json.command.commandType, "bridge_health_check");
+  assert.equal(bridgeCommand.json.execution.worker, "local_device_bridge");
+  assert.equal(bridgeCommand.json.execution.browserHardwareAccess, false);
+  assert.doesNotMatch(bridgeCommand.body, /secret|password|Bearer|object_key|storage_object_path|metadata_json|navigator\./i);
+
+  const deviceCommand = await request(
+    "/api/v1/devices/10000000-0000-4000-8000-000000000401/commands",
+    configuredEnv,
+    clinicAdminRuntime,
+    "POST",
+    JSON.stringify({ commandType: "device_calibration_request" }),
+  );
+  assert.equal(deviceCommand.status, 202);
+  assert.equal(deviceCommand.json.command.deviceId, "10000000-0000-4000-8000-000000000401");
+  assert.equal(deviceCommand.json.mode, "calibration_request");
+});
+
+test("Stage 4R · Device Bridge command endpoints map RBAC and validation errors safely", async () => {
+  const denied = await request(
+    "/api/v1/device-bridges/10000000-0000-4000-8000-000000000301/commands",
+    configuredEnv,
+    createRuntime({ deviceCommandError: new ForbiddenError() }),
+    "POST",
+    JSON.stringify({ commandType: "bridge_health_check" }),
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
+
+  const invalid = await request(
+    "/api/v1/devices/10000000-0000-4000-8000-000000000401/commands",
+    configuredEnv,
+    createRuntime(),
+    "POST",
+    "{bad-json",
+  );
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.json.error.code, "invalid_json");
+  assert.doesNotMatch(invalid.body, /postgres:\/\/|SUPABASE_|navigator\.usb/i);
 });
 
 test("auth login returns a bearer token without leaking password material", async () => {
@@ -1049,7 +1162,7 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4Q");
+  assert.equal(response.json.stage, "4R");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
@@ -1061,10 +1174,13 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage4N, "/openapi.stage4n.json");
   assert.equal(response.json.links.openapiStage4P, "/openapi.stage4p.json");
   assert.equal(response.json.links.openapiStage4Q, "/openapi.stage4q.json");
+  assert.equal(response.json.links.openapiStage4R, "/openapi.stage4r.json");
   assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(response.json.links.deviceBridges, "/api/v1/device-bridges");
+  assert.equal(response.json.links.deviceBridgeCommands, "/api/v1/device-bridges/{bridgeId}/commands");
   assert.equal(response.json.links.devices, "/api/v1/devices");
+  assert.equal(response.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");
   assert.equal(response.json.links.visitReport, "/api/v1/visits/{visitId}/report");
   assert.equal(response.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");

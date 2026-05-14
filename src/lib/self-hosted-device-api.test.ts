@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
+  requestSelfHostedBridgeCommand,
+  requestSelfHostedDeviceCommand,
   toSelfHostedDeviceBridgeDTO,
+  toSelfHostedDeviceCommandDTO,
   toSelfHostedDeviceDTO,
 } from "./self-hosted-device-api";
 
@@ -44,6 +47,23 @@ describe("self-hosted-device-api", () => {
     expect(device?.serial).toBe("DL5-AX-1042");
     expect(JSON.stringify({ bridge, device })).not.toContain("metadata_json");
     expect(JSON.stringify({ bridge, device })).not.toContain("storage_object_path");
+  });
+
+  it("normalizes command DTOs without exposing payload internals", () => {
+    const command = toSelfHostedDeviceCommandDTO({
+      id: "cmd-1",
+      clinicId: "clinic-1",
+      bridgeId: "bridge-1",
+      deviceId: "device-1",
+      commandType: "device_calibration_request",
+      status: "queued",
+      reason: "Проверка",
+      payload_json: { rawDriver: "hidden" },
+    });
+
+    expect(command?.commandType).toBe("device_calibration_request");
+    expect(JSON.stringify(command)).not.toContain("payload_json");
+    expect(JSON.stringify(command)).not.toContain("rawDriver");
   });
 
   it("returns not_configured before network calls when token is missing", async () => {
@@ -97,5 +117,52 @@ describe("self-hosted-device-api", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/device-bridges?bridgeStatus=online");
     expect(String(fetchMock.mock.calls[1][0])).toContain("needsCalibration=true");
     expect((fetchMock.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
+  });
+
+  it("queues bridge and device commands through backend POST endpoints", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      expect(init?.method).toBe("POST");
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
+      expect((init?.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+      if (url.includes("/api/v1/device-bridges/br-1/commands")) {
+        expect(init?.body).toBe(JSON.stringify({ commandType: "bridge_health_check", reason: "Проверка" }));
+        return new Response(
+          JSON.stringify({
+            command: { id: "cmd-bridge", commandType: "bridge_health_check", status: "queued" },
+          }),
+          { status: 202, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          command: {
+            id: "cmd-device",
+            commandType: "device_stream_open_request",
+            status: "queued",
+            deviceId: "device-1",
+          },
+        }),
+        { status: 202, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    const bridge = await requestSelfHostedBridgeCommand({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      bridgeId: "br-1",
+      commandType: "bridge_health_check",
+      reason: "Проверка",
+    });
+    const device = await requestSelfHostedDeviceCommand({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      deviceId: "device-1",
+      commandType: "device_stream_open_request",
+    });
+
+    expect(bridge.value?.commandType).toBe("bridge_health_check");
+    expect(device.value?.deviceId).toBe("device-1");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
