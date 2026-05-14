@@ -20,6 +20,8 @@ import {
 import { createPostgresClient, DatabaseConfigError } from "./db-client.mjs";
 import { createDeviceBridgeCommandRepository } from "./device-bridge-command-repository.mjs";
 import { createDeviceBridgeCommandService } from "./device-bridge-command-service.mjs";
+import { createDeviceBridgeWorkerRepository } from "./device-bridge-worker-repository.mjs";
+import { createDeviceBridgeWorkerService } from "./device-bridge-worker-service.mjs";
 import {
   createDeviceRegistryRepository,
   parseDeviceRegistryParams,
@@ -82,6 +84,9 @@ const OPENAPI_4Q = JSON.parse(
 const OPENAPI_4R = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4r.json"), "utf8"),
 );
+const OPENAPI_4S = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4s.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -106,6 +111,15 @@ function getRuntime(config, runtime = {}) {
     runtime.deviceBridgeCommandService ||
     createDeviceBridgeCommandService({
       deviceBridgeCommandRepository,
+      auditRepository,
+    });
+  const deviceBridgeWorkerRepository =
+    runtime.deviceBridgeWorkerRepository || createDeviceBridgeWorkerRepository(dbClient);
+  const deviceBridgeWorkerService =
+    runtime.deviceBridgeWorkerService ||
+    createDeviceBridgeWorkerService({
+      config,
+      deviceBridgeWorkerRepository,
       auditRepository,
     });
   const patientWriteService =
@@ -146,6 +160,8 @@ function getRuntime(config, runtime = {}) {
     dbClient,
     deviceBridgeCommandRepository,
     deviceBridgeCommandService,
+    deviceBridgeWorkerRepository,
+    deviceBridgeWorkerService,
     deviceRegistryRepository,
     patientRepository,
     patientWriteService,
@@ -198,12 +214,16 @@ function publicErrorFor(error) {
     forbidden: "The authenticated user does not have access to this resource.",
     invalid_credentials: "Invalid credentials.",
     invalid_token: "Invalid or expired authorization token.",
+    worker_auth_required: "Device Bridge worker authentication is required.",
+    worker_token_invalid: "Device Bridge worker token is invalid.",
+    worker_token_not_configured: "Device Bridge worker token is not configured for this backend.",
     asset_binary_not_found: "Asset binary was not found in the self-hosted object store.",
     asset_not_found: "Asset was not found in the allowed clinic scope.",
     object_storage_unavailable: "Object storage is unavailable for the self-hosted backend.",
     patient_not_found: "Patient was not found in the allowed clinic scope.",
     visit_not_found: "Visit was not found in the allowed clinic scope.",
     lesion_not_found: "Lesion was not found in the allowed clinic scope.",
+    command_not_found: "Device Bridge command was not found for this worker bridge.",
     not_found: "Resource was not found in the allowed clinic scope.",
     invalid_uuid: "The supplied identifier is not a valid UUID.",
     validation_error: "Request payload failed validation.",
@@ -1014,11 +1034,117 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Stage 4S · local Device Bridge worker contract endpoints.
+  if (url.pathname === "/api/v1/device-bridge-worker/heartbeat" && method === "POST") {
+    try {
+      const result = await runtimeServices.deviceBridgeWorkerService.recordHeartbeat(
+        request.headers,
+        parseJsonBody(request.body),
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4S",
+          source: "postgres",
+          bridge: result.bridge,
+          worker: {
+            authenticated: true,
+            id: result.worker.workerId,
+            authType: result.worker.authType,
+          },
+          heartbeat: {
+            bridgeCode: result.heartbeat.bridgeCode,
+            lanStatus: result.heartbeat.lanStatus,
+            workerStatus: result.heartbeat.workerStatus,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (url.pathname === "/api/v1/device-bridge-worker/commands" && method === "GET") {
+    try {
+      const result = await runtimeServices.deviceBridgeWorkerService.listCommands(
+        request.headers,
+        url.searchParams,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4S",
+          source: "postgres",
+          items: result.commands,
+          count: result.commands.length,
+          bridgeCode: result.query.bridgeCode,
+          worker: {
+            authenticated: true,
+            id: result.worker.workerId,
+            authType: result.worker.authType,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const workerCommandMatch = url.pathname.match(
+    /^\/api\/v1\/device-bridge-worker\/commands\/([^/]+)$/,
+  );
+  if (workerCommandMatch && method === "PATCH") {
+    try {
+      const result = await runtimeServices.deviceBridgeWorkerService.updateCommandStatus(
+        decodeURIComponent(workerCommandMatch[1]),
+        request.headers,
+        parseJsonBody(request.body),
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4S",
+          source: "postgres",
+          command: result.command,
+          lifecycle: {
+            status: result.status,
+            persisted: true,
+          },
+          worker: {
+            authenticated: true,
+            id: result.worker.workerId,
+            authType: result.worker.authType,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (method !== "GET") {
     return errorResponse({
       status: 405,
       code: "method_not_allowed",
-      message: "This self-hosted backend route does not allow the requested method in Stage 4R.",
+      message: "This self-hosted backend route does not allow the requested method in Stage 4S.",
       correlationId,
       config,
       requestOrigin,
@@ -1373,7 +1499,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4R",
+        stage: "4S",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -1382,13 +1508,14 @@ export async function handleSelfHostedRequest(
           visits: "rbac-read-write-postgres",
           lesions: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
-          devices: "rbac-read-command-postgres-device-bridge-registry",
+          devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
+          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete",
           reports: "rbac-write-postgres",
           observability: "structured-json-logs-redacted-ops-status-runtime-checks",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4r.json",
+          openapi: "/openapi.stage4s.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
@@ -1401,12 +1528,16 @@ export async function handleSelfHostedRequest(
           openapiStage4P: "/openapi.stage4p.json",
           openapiStage4Q: "/openapi.stage4q.json",
           openapiStage4R: "/openapi.stage4r.json",
+          openapiStage4S: "/openapi.stage4s.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
           opsRuntimeChecks: "/api/v1/ops/runtime-checks",
           deviceBridges: "/api/v1/device-bridges",
           deviceBridgeCommands: "/api/v1/device-bridges/{bridgeId}/commands",
+          deviceBridgeWorkerHeartbeat: "/api/v1/device-bridge-worker/heartbeat",
+          deviceBridgeWorkerCommands: "/api/v1/device-bridge-worker/commands",
+          deviceBridgeWorkerCommand: "/api/v1/device-bridge-worker/commands/{commandId}",
           devices: "/api/v1/devices",
           deviceCommands: "/api/v1/devices/{deviceId}/commands",
           patients: "/api/v1/patients",
@@ -1477,10 +1608,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4R, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4s.json") {
+    return jsonResponse(200, OPENAPI_4S, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4R self-hosted backend route matched the request.",
+    message: "No Stage 4S self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,

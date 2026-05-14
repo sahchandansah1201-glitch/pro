@@ -1,0 +1,311 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "4S-device-bridge-worker-contract",
+    "description": "Stage 4S adds a self-hosted Device Bridge worker contract for heartbeat, command polling, acknowledgement, and completion."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Self-hosted backend"
+    }
+  ],
+  "security": [
+    {
+      "workerBearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/device-bridge-worker/heartbeat": {
+      "post": {
+        "summary": "Record Device Bridge worker heartbeat",
+        "security": [
+          {
+            "workerBearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerHeartbeatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Heartbeat recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerHeartbeatResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/WorkerUnauthorized"
+          },
+          "503": {
+            "$ref": "#/components/responses/WorkerTokenMissing"
+          }
+        }
+      }
+    },
+    "/api/v1/device-bridge-worker/commands": {
+      "get": {
+        "summary": "Poll queued Device Bridge commands",
+        "security": [
+          {
+            "workerBearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clinicId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "bridgeCode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queued commands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerCommandListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/WorkerUnauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/device-bridge-worker/commands/{commandId}": {
+      "patch": {
+        "summary": "Acknowledge or complete a worker command",
+        "security": [
+          {
+            "workerBearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "commandId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerCommandUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command lifecycle updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerCommandUpdateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/WorkerUnauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/CommandNotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "workerBearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Deployment-local DEVICE_BRIDGE_WORKER_TOKEN. Do not expose in frontend code."
+      }
+    },
+    "responses": {
+      "WorkerUnauthorized": {
+        "description": "Worker token missing or invalid"
+      },
+      "WorkerTokenMissing": {
+        "description": "DEVICE_BRIDGE_WORKER_TOKEN is not configured on the backend"
+      },
+      "CommandNotFound": {
+        "description": "Command was not found for the worker bridge"
+      }
+    },
+    "schemas": {
+      "WorkerHeartbeatRequest": {
+        "type": "object",
+        "required": ["clinicId", "bridgeCode"],
+        "properties": {
+          "clinicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bridgeCode": {
+            "type": "string"
+          },
+          "hostName": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "lanStatus": {
+            "type": "string",
+            "enum": ["online", "degraded", "offline"]
+          },
+          "workerStatus": {
+            "type": "string",
+            "enum": ["online", "degraded", "offline"]
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "WorkerCommandUpdateRequest": {
+        "type": "object",
+        "required": ["clinicId", "bridgeCode", "status"],
+        "properties": {
+          "clinicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bridgeCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["acknowledged", "completed", "failed"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "WorkerCommand": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commandType": {
+            "type": "string",
+            "enum": ["bridge_health_check", "device_calibration_request", "device_stream_open_request"]
+          },
+          "status": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "WorkerHeartbeatResponse": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "example": "4S"
+          },
+          "bridge": {
+            "type": "object"
+          },
+          "worker": {
+            "type": "object"
+          },
+          "correlationId": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkerCommandListResponse": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "example": "4S"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerCommand"
+            }
+          },
+          "count": {
+            "type": "integer"
+          }
+        }
+      },
+      "WorkerCommandUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "example": "4S"
+          },
+          "command": {
+            "$ref": "#/components/schemas/WorkerCommand"
+          },
+          "correlationId": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

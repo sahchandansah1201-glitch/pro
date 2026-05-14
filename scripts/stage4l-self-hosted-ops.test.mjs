@@ -36,7 +36,7 @@ test("Stage 4L backup dry-run includes database, object storage, and manifest wi
   assert.match(out, /pg_dump/);
   assert.match(out, /backend-object-storage/);
   assert.match(out, /stage4l-backup-manifest\.json/);
-  assert.doesNotMatch(out, /POSTGRES_PASSWORD=|JWT_SECRET=|MINIO_ROOT_PASSWORD=/);
+  assert.doesNotMatch(out, /POSTGRES_PASSWORD=|JWT_SECRET=|DEVICE_BRIDGE_WORKER_TOKEN=|MINIO_ROOT_PASSWORD=/);
 });
 
 test("Stage 4L restore plan is explicit, destructive, and requires confirmation outside dry-run", () => {
@@ -93,6 +93,7 @@ test("Stage 4L env verifier checks required keys and warns on placeholders", () 
 APP_PORT=8080
 POSTGRES_PASSWORD=replace-me-postgres
 JWT_SECRET=replace-me-jwt-secret
+DEVICE_BRIDGE_WORKER_TOKEN=replace-me-worker-token
 JWT_EXPIRES_IN_SECONDS=3600
 OBJECT_STORAGE_BUCKET=clinical-assets
 MINIO_ROOT_USER=dermatolog_minio
@@ -103,6 +104,7 @@ BACKUP_RETENTION_DAYS=14
   assert.equal(ok.ok, true);
   assert.ok(ok.warnings.some((item) => item.includes("POSTGRES_PASSWORD")));
   assert.ok(ok.warnings.some((item) => item.includes("JWT_SECRET")));
+  assert.ok(ok.warnings.some((item) => item.includes("DEVICE_BRIDGE_WORKER_TOKEN")));
 
   const missing = verifyEnvText("APP_PORT=8080");
   assert.equal(missing.ok, false);

@@ -28,6 +28,7 @@ function writeMigrations(dir) {
     "0007_stage4k_deploy_smoke_seed.sql",
     "0008_stage4q_device_registry.sql",
     "0009_stage4r_device_bridge_commands.sql",
+    "0010_stage4s_device_bridge_worker_contract.sql",
   ]) {
     writeFileSync(join(dir, name), "-- migration");
   }

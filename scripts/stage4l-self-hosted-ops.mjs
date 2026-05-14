@@ -22,6 +22,7 @@ const REQUIRED_ENV_KEYS = [
   "APP_PORT",
   "POSTGRES_PASSWORD",
   "JWT_SECRET",
+  "DEVICE_BRIDGE_WORKER_TOKEN",
   "JWT_EXPIRES_IN_SECONDS",
   "OBJECT_STORAGE_BUCKET",
   "MINIO_ROOT_USER",
@@ -50,7 +51,7 @@ function dockerComposeArgs(composeFiles, projectName, args, composeEnvFile = "")
 
 function redact(value) {
   return String(value || "")
-    .replace(/(POSTGRES_PASSWORD|JWT_SECRET|MINIO_ROOT_PASSWORD)=([^\s]+)/g, "$1=[redacted]")
+    .replace(/(POSTGRES_PASSWORD|JWT_SECRET|DEVICE_BRIDGE_WORKER_TOKEN|MINIO_ROOT_PASSWORD)=([^\s]+)/g, "$1=[redacted]")
     .replace(/postgres:\/\/([^:]+):([^@]+)@/g, "postgres://$1:[redacted]@")
     .replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [redacted-token]");
 }
@@ -337,12 +338,16 @@ export function verifyEnvText(text = "") {
     if (!entries.has(key)) errors.push(`Missing required key: ${key}`);
   }
   for (const [key, value] of entries) {
-    if (["POSTGRES_PASSWORD", "JWT_SECRET", "MINIO_ROOT_PASSWORD"].includes(key) && PLACEHOLDER_PATTERN.test(value)) {
+    if (["POSTGRES_PASSWORD", "JWT_SECRET", "DEVICE_BRIDGE_WORKER_TOKEN", "MINIO_ROOT_PASSWORD"].includes(key) && PLACEHOLDER_PATTERN.test(value)) {
       warnings.push(`${key} still looks like a placeholder.`);
     }
   }
   const jwtSecret = entries.get("JWT_SECRET") || "";
   if (jwtSecret && jwtSecret.length < 32) warnings.push("JWT_SECRET should be at least 32 characters in production.");
+  const workerToken = entries.get("DEVICE_BRIDGE_WORKER_TOKEN") || "";
+  if (workerToken && workerToken.length < 32) {
+    warnings.push("DEVICE_BRIDGE_WORKER_TOKEN should be at least 32 characters in production.");
+  }
   return { ok: errors.length === 0, errors, warnings, keys: [...entries.keys()] };
 }
 

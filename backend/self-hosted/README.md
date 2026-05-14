@@ -22,6 +22,10 @@ PostgreSQL client used by the container image.
 - `asset-write-repository.mjs`, `asset-write-service.mjs`, `object-store.mjs` —
   Stage 4I-4J clinical asset metadata, binary storage, and backend-owned
   download contracts.
+- `device-registry-repository.mjs`, `device-bridge-command-service.mjs`,
+  `device-bridge-worker-service.mjs` — Stage 4Q-4S Device Bridge registry,
+  backend-owned command queue, and local worker heartbeat/poll/ack/complete
+  contract.
 - `ops-logger.mjs` — Stage 4N structured JSON logs, correlation helpers, and
   redaction for production observability.
 - `openapi.stage4a.json` — contract-first API boundary for auth, patients,
@@ -33,6 +37,8 @@ PostgreSQL client used by the container image.
   `openapi.stage4j.json` — visit workspace read/write and clinical asset
   write/binary boundaries.
 - `openapi.stage4n.json` — production observability status contract.
+- `openapi.stage4q.json`, `openapi.stage4r.json`, `openapi.stage4s.json` —
+  Device Bridge registry, command queue, and worker contract boundaries.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -45,6 +51,12 @@ PostgreSQL client used by the container image.
 - `db/migrations/0006_stage4i_asset_write_contract.sql` — asset lookup indexes.
 - `db/migrations/0007_stage4k_deploy_smoke_seed.sql` — harmless visit/lesion
   seed rows for full compose smoke verification.
+- `db/migrations/0008_stage4q_device_registry.sql` — Device Bridge and medical
+  device registry.
+- `db/migrations/0009_stage4r_device_bridge_commands.sql` — backend-owned
+  Device Bridge command queue.
+- `db/migrations/0010_stage4s_device_bridge_worker_contract.sql` — worker
+  heartbeat/lifecycle metadata and command queue indexes.
 - `Dockerfile` — backend container used by the self-hosted compose stack.
 
 ## Local commands
@@ -80,6 +92,15 @@ npm run preflight:stage4m
 npm run test:stage4n
 npm run check:stage4n
 npm run preflight:stage4n
+npm run test:stage4q
+npm run check:stage4q
+npm run preflight:stage4q
+npm run test:stage4r
+npm run check:stage4r
+npm run preflight:stage4r
+npm run test:stage4s
+npm run check:stage4s
+npm run preflight:stage4s
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
 npm run smoke:stage4k
@@ -113,3 +134,5 @@ drill verification plans for production deployment.
 Stage 4N adds structured JSON logs, `x-correlation-id` propagation, a
 system-admin-only `/api/v1/ops/status` endpoint, metadata-only audit export
 dry-run, and privacy guardrails for production observability.
+Stage 4Q-4S add a Device Bridge registry, safe backend-owned command enqueueing,
+and a deployment-local worker contract using `DEVICE_BRIDGE_WORKER_TOKEN`.

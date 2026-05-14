@@ -1,0 +1,52 @@
+name: stage4s-device-bridge-worker-contract
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "src/pages/sys/SysSelfHostedOpsPage.test.tsx"
+      - "e2e/sys-self-hosted-ops.pw.ts"
+      - "scripts/check-stage4s-device-bridge-worker-contract.mjs"
+      - "scripts/check-stage4s-device-bridge-worker-contract.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4s-device-bridge-worker-contract.md"
+      - "package.json"
+      - ".github/workflows/stage4s-device-bridge-worker-contract.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "src/pages/sys/SysSelfHostedOpsPage.test.tsx"
+      - "e2e/sys-self-hosted-ops.pw.ts"
+      - "scripts/check-stage4s-device-bridge-worker-contract.mjs"
+      - "scripts/check-stage4s-device-bridge-worker-contract.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4s-device-bridge-worker-contract.md"
+      - "package.json"
+      - ".github/workflows/stage4s-device-bridge-worker-contract.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4s-device-bridge-worker-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage4s
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4S Device Bridge worker contract"
+            echo ""
+            echo "- Worker auth: deployment-local DEVICE_BRIDGE_WORKER_TOKEN"
+            echo "- Worker endpoints: heartbeat, command polling, ack/complete lifecycle"
+            echo "- Boundary: PostgreSQL-backed queue only; no Supabase or browser hardware APIs"
+          } >> "$GITHUB_STEP_SUMMARY"

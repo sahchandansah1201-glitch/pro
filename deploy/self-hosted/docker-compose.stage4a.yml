@@ -24,6 +24,7 @@ services:
       JWT_ISSUER: "dermatolog-pro-self-hosted"
       JWT_SECRET: "${JWT_SECRET:-change-me-local-jwt-secret-stage4c}"
       JWT_EXPIRES_IN_SECONDS: "${JWT_EXPIRES_IN_SECONDS:-3600}"
+      DEVICE_BRIDGE_WORKER_TOKEN: "${DEVICE_BRIDGE_WORKER_TOKEN:-change-me-local-device-bridge-worker-token-stage4s}"
       CORS_ORIGINS: "http://localhost:${APP_PORT:-8080},http://127.0.0.1:${APP_PORT:-8080}"
     depends_on:
       - postgres
