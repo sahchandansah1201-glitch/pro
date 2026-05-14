@@ -1,0 +1,48 @@
+name: stage4t-device-bridge-worker-runtime
+
+on:
+  pull_request:
+    paths:
+      - "worker/device-bridge/**"
+      - "deploy/self-hosted/device-bridge-worker.stage4t.*"
+      - "scripts/check-stage4t-device-bridge-worker-runtime.mjs"
+      - "scripts/check-stage4t-device-bridge-worker-runtime.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4t-device-bridge-worker-runtime.md"
+      - "package.json"
+      - ".github/workflows/stage4t-device-bridge-worker-runtime.yml"
+  push:
+    paths:
+      - "worker/device-bridge/**"
+      - "deploy/self-hosted/device-bridge-worker.stage4t.*"
+      - "scripts/check-stage4t-device-bridge-worker-runtime.mjs"
+      - "scripts/check-stage4t-device-bridge-worker-runtime.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/backend/stage-4t-device-bridge-worker-runtime.md"
+      - "package.json"
+      - ".github/workflows/stage4t-device-bridge-worker-runtime.yml"
+  workflow_dispatch:
+
+jobs:
+  stage4t-device-bridge-worker-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage4t
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4T Device Bridge worker runtime"
+            echo ""
+            echo "- Worker CLI: worker/device-bridge/worker.mjs"
+            echo "- Runtime modes: dry-run, once, loop"
+            echo "- Boundary: self-hosted backend only, no browser hardware APIs"
+          } >> "$GITHUB_STEP_SUMMARY"

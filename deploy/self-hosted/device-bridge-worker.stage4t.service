@@ -1,0 +1,17 @@
+[Unit]
+Description=Dermatolog Pro Device Bridge Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/dermatolog-pro
+EnvironmentFile=/etc/dermatolog-pro/device-bridge-worker.env
+ExecStart=/usr/bin/env node worker/device-bridge/worker.mjs --loop
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
