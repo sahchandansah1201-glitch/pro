@@ -1,0 +1,57 @@
+name: stage4m-production-deployment-verification
+
+on:
+  pull_request:
+    paths:
+      - "scripts/stage4m-production-deploy-verify.mjs"
+      - "scripts/stage4m-production-deploy-verify.test.mjs"
+      - "scripts/check-stage4m-production-deploy.mjs"
+      - "scripts/check-stage4m-production-deploy.test.mjs"
+      - "docs/backend/stage-4m-production-deployment-verification.md"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4m-production-deployment-verification.yml"
+  push:
+    paths:
+      - "scripts/stage4m-production-deploy-verify.mjs"
+      - "scripts/stage4m-production-deploy-verify.test.mjs"
+      - "scripts/check-stage4m-production-deploy.mjs"
+      - "scripts/check-stage4m-production-deploy.test.mjs"
+      - "docs/backend/stage-4m-production-deployment-verification.md"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage4m-production-deployment-verification.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Stage 4M preflight
+        run: npm run preflight:stage4m
+      - name: First boot dry-run
+        run: npm run deploy:stage4m:first-boot:dry-run
+      - name: Post deploy dry-run
+        run: npm run deploy:stage4m:post-deploy:dry-run
+      - name: Backup after deploy dry-run
+        run: npm run deploy:stage4m:backup-after-deploy:dry-run
+      - name: Rollback drill dry-run
+        run: npm run deploy:stage4m:rollback-drill:dry-run
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4M production deployment verification"
+            echo ""
+            echo "- Preflight: ${{ job.status }}"
+            echo "- Checked: first boot, post-deploy smoke, backup-after-deploy, rollback-drill dry-runs"
+            echo "- CI does not mutate live server volumes"
+          } >> "$GITHUB_STEP_SUMMARY"

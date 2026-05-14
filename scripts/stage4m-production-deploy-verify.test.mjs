@@ -1,0 +1,108 @@
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { test } from "node:test";
+
+import {
+  buildStage4MPlan,
+  parseStage4MArgs,
+  renderStage4MPlan,
+  runStage4M,
+} from "./stage4m-production-deploy-verify.mjs";
+
+test("Stage 4M parser supports deployment commands and validates app port", () => {
+  const parsed = parseStage4MArgs([
+    "rollback-drill",
+    "--dry-run",
+    "--project-name=prod",
+    "--app-port",
+    "18080",
+    "--backup-dir",
+    "backups/self-hosted/20260514",
+  ]);
+  assert.equal(parsed.command, "rollback-drill");
+  assert.equal(parsed.projectName, "prod");
+  assert.equal(parsed.appPort, "18080");
+  assert.throws(() => parseStage4MArgs(["first-boot", "--app-port=abc"]), /numeric/);
+});
+
+test("Stage 4M first-boot plan includes env, build, compose config, start, health and readiness", () => {
+  const out = renderStage4MPlan({
+    command: "first-boot",
+    dryRun: true,
+    projectName: "prod",
+    appPort: "8080",
+  });
+  assert.match(out, /ops:stage4l:verify-env/);
+  assert.match(out, /npm run build/);
+  assert.match(out, /docker compose --env-file deploy\/self-hosted\/\.env\.production/);
+  assert.match(out, /config --quiet/);
+  assert.match(out, /up -d --build/);
+  assert.match(out, /\/healthz/);
+  assert.match(out, /\/readyz/);
+  assert.doesNotMatch(out, /POSTGRES_PASSWORD=|JWT_SECRET=|Bearer\s+[A-Za-z0-9]/);
+});
+
+test("Stage 4M all plan includes post-deploy smoke and backup after deploy", () => {
+  const plan = buildStage4MPlan({ command: "all", projectName: "prod" });
+  const labels = plan.steps.map(([label]) => label);
+  assert.ok(labels.includes("Run Stage 4K smoke against production project"));
+  assert.ok(labels.includes("Create deployment backup"));
+  assert.ok(labels.includes("Capture safe deployment status"));
+});
+
+test("Stage 4M rollback drill is dry-run first and requires confirmation to execute", () => {
+  const out = renderStage4MPlan({
+    command: "rollback-drill",
+    dryRun: true,
+    backupDir: "backups/self-hosted/latest",
+  });
+  assert.match(out, /restore --dry-run/);
+  assert.match(out, /ROLLBACK_TO_SELF_HOSTED_BACKUP/);
+  assert.throws(
+    () => runStage4M({ command: "rollback-drill", backupDir: "backups/self-hosted/latest" }),
+    /requires --confirm=ROLLBACK_TO_SELF_HOSTED_BACKUP/,
+  );
+});
+
+test("Stage 4M runner writes a sanitized summary on success", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage4m-"));
+  try {
+    const summaryPath = join(root, "summary.md");
+    const calls = [];
+    const result = runStage4M(
+      {
+        command: "post-deploy",
+        summaryPath,
+        projectName: "prod",
+        appPort: "8080",
+      },
+      {
+        spawn(cmd, args) {
+          calls.push(`${cmd} ${args.join(" ")}`);
+          return { status: 0, stdout: "ok", stderr: "" };
+        },
+      },
+    );
+    assert.equal(result.ok, true);
+    assert.ok(calls.some((cmd) => cmd.includes("smoke:stage4k")));
+    const summary = readFileSync(summaryPath, "utf8");
+    assert.match(summary, /Status: `ok`/);
+    assert.doesNotMatch(summary, /access_token|Authorization|Cookie|patient_full_name|storage_object_path/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Stage 4M CLI dry-run exits zero", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["scripts/stage4m-production-deploy-verify.mjs", "all", "--dry-run"],
+    { cwd: process.cwd(), encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /all plan/);
+  assert.match(result.stdout, /smoke:stage4k/);
+});

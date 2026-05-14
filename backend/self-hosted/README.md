@@ -71,10 +71,17 @@ npm run preflight:stage4k
 npm run test:stage4l
 npm run check:stage4l
 npm run preflight:stage4l
+npm run test:stage4m
+npm run check:stage4m
+npm run preflight:stage4m
 npm run smoke:stage4k:dry-run
 npm run smoke:stage4k
 npm run ops:stage4l:backup:dry-run
 npm run ops:stage4l:restore:dry-run
+npm run deploy:stage4m:first-boot:dry-run
+npm run deploy:stage4m:post-deploy:dry-run
+npm run deploy:stage4m:backup-after-deploy:dry-run
+npm run deploy:stage4m:rollback-drill:dry-run
 node backend/self-hosted/server.mjs
 ```
 
@@ -94,3 +101,5 @@ backend, PostgreSQL, login, patients, visits, and asset upload/download.
 Stage 4L adds production env templates, compose hardening, backup/restore
 dry-runs, restore verification guidance, and CI guardrails for operating the
 self-hosted stack on a server.
+Stage 4M adds first-boot, post-deploy smoke, backup-after-deploy, and rollback
+drill verification plans for production deployment.
