@@ -47,6 +47,7 @@ const DEFAULT_STEPS = [
   ["Stage 5B production server bootstrap preflight", npmCmd, ["run", "preflight:stage5b"]],
   ["Stage 5C production migration hardening preflight", npmCmd, ["run", "preflight:stage5c"]],
   ["Stage 5D production mode cutover preflight", npmCmd, ["run", "preflight:stage5d"]],
+  ["Stage 5E production auth/bootstrap UX preflight", npmCmd, ["run", "preflight:stage5e"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],
