@@ -317,6 +317,7 @@ export default function VisitWorkspacePage() {
             patient={patient}
             visit={visit}
             lesions={lesions}
+            productionMode={productionMode}
             initialLesionId={lesionParam}
             onOpenImaging={(lesionId) => updateNav("imaging", lesionId)}
           />
@@ -335,22 +336,34 @@ export default function VisitWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="assessment" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <VisitAssessmentTab
-            visit={visit}
-            lesions={lesions}
-            selectedLesionId={lesionParam}
-            onSelectLesion={(lesionId) => updateNav("assessment", lesionId)}
-            onOpenImaging={(lesionId) => updateNav("imaging", lesionId)}
-            onOpenConclusion={(lesionId) => updateNav("conclusion", lesionId)}
-          />
+          {productionMode ? (
+            <ProductionClinicalWorkspaceEmptyState kind="assessment" />
+          ) : (
+            <VisitAssessmentTab
+              visit={visit}
+              lesions={lesions}
+              selectedLesionId={lesionParam}
+              onSelectLesion={(lesionId) => updateNav("assessment", lesionId)}
+              onOpenImaging={(lesionId) => updateNav("imaging", lesionId)}
+              onOpenConclusion={(lesionId) => updateNav("conclusion", lesionId)}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="conclusion" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <VisitConclusionTab patient={patient} visit={visit} lesions={lesions} />
+          {productionMode ? (
+            <ProductionClinicalWorkspaceEmptyState kind="conclusion" />
+          ) : (
+            <VisitConclusionTab patient={patient} visit={visit} lesions={lesions} />
+          )}
         </TabsContent>
 
         <TabsContent value="report" className="m-0 min-h-0 flex-1 overflow-auto p-4">
-          <VisitReportTab patient={patient} visit={visit} lesions={lesions} />
+          {productionMode ? (
+            <ProductionClinicalWorkspaceEmptyState kind="report" />
+          ) : (
+            <VisitReportTab patient={patient} visit={visit} lesions={lesions} />
+          )}
         </TabsContent>
       </Tabs>
     </div>
@@ -367,6 +380,39 @@ function ProductionWorkspaceState({ title, text }: { title: string; text: string
         </Button>
       </div>
     </div>
+  );
+}
+
+function ProductionClinicalWorkspaceEmptyState({
+  kind,
+}: {
+  kind: "assessment" | "conclusion" | "report";
+}) {
+  const copy = {
+    assessment: {
+      title: "Оценка ждёт self-hosted assessment API",
+      text: "Production clinical workspace: mock assessment/report data hidden. Клиническая оценка будет доступна после подключения production-контракта self-hosted backend.",
+    },
+    conclusion: {
+      title: "Заключение ждёт self-hosted conclusion API",
+      text: "Production clinical workspace: mock assessment/report data hidden. Заключение не собирается из demo/mock данных в production-режиме.",
+    },
+    report: {
+      title: "Отчёт ждёт self-hosted report API",
+      text: "Production clinical workspace: mock assessment/report data hidden. Production-отчёт будет собираться только из operator-owned backend данных.",
+    },
+  }[kind];
+
+  return (
+    <Section title={copy.title}>
+      <div role="note" className="space-y-2 text-[13px] text-muted-foreground">
+        <p>{copy.text}</p>
+        <p>
+          Self-hosted product boundary: frontend показывает только live patient/visit/lesion данные и не делает
+          fallback на демо-клинические оценки.
+        </p>
+      </div>
+    </Section>
   );
 }
 
@@ -448,12 +494,14 @@ function BodyMapTab({
   patient,
   visit,
   lesions,
+  productionMode = false,
   initialLesionId,
   onOpenImaging,
 }: {
   patient: Patient;
   visit: Visit;
   lesions: Lesion[];
+  productionMode?: boolean;
   initialLesionId?: string | null;
   onOpenImaging: (lesionId: string) => void;
 }) {
@@ -479,6 +527,7 @@ function BodyMapTab({
   const [draftNote, setDraftNote] = useState("");
   const [zoneDraft, setZoneDraft] = useState("");
   const [localDrafts, setLocalDrafts] = useState<LocalLesionDraft[]>([]);
+  const [productionPlacementNotice, setProductionPlacementNotice] = useState("");
 
   const isLocalId = (id: string | null) => !!id && id.startsWith("local-lesion-");
   const selectedDraft = selected && isLocalId(selected) ? localDrafts.find((d) => d.id === selected) ?? null : null;
@@ -510,8 +559,8 @@ function BodyMapTab({
 
   const visiblePoints = placedLesions.filter((p) => p.point.view === view);
   const selectedLesion = selected && !isLocalId(selected) ? lesions.find((l) => l.id === selected) ?? null : null;
-  const visitAssessments = getAssessmentsByVisitId(visit.id);
-  const selImages = selectedLesion ? getImagesByLesionId(selectedLesion.id) : [];
+  const visitAssessments = productionMode ? [] : getAssessmentsByVisitId(visit.id);
+  const selImages = selectedLesion && !productionMode ? getImagesByLesionId(selectedLesion.id) : [];
   const selImageCount = selImages.length;
   const selAssessment = selectedLesion ? visitAssessments.find((a) => a.lesionId === selectedLesion.id) : undefined;
   const selKinds = Array.from(new Set(selImages.map((i) => i.kind)));
@@ -521,6 +570,12 @@ function BodyMapTab({
     : null;
 
   const handlePlace = (np: { view: View; x: number; y: number }) => {
+    if (productionMode) {
+      setProductionPlacementNotice(
+        "Production-режим: локальное демо-добавление очага отключено. Используйте self-hosted запись визита.",
+      );
+      return;
+    }
     const zone = suggestBodyZone(np.view, np.x, np.y);
     setPending({ view: np.view, x: np.x, y: np.y, zone });
     setZoneDraft(zone);
@@ -635,13 +690,22 @@ function BodyMapTab({
         <div className="border-b border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
           Образований у пациента: {lesions.length} · видно на проекции «{bodyMapViewLabel(view)}»: {visiblePoints.length}
         </div>
+        {productionPlacementNotice && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="border-b border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground"
+          >
+            {productionPlacementNotice}
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-auto">
           {lesions.length === 0 ? (
             <div className="p-6 text-[13px] text-muted-foreground">Образования у пациента не зарегистрированы.</div>
           ) : (
             <ul className="divide-y divide-border">
               {placedLesions.map(({ lesion, num, point }) => {
-                const lImages = getImagesByLesionId(lesion.id);
+                const lImages = productionMode ? [] : getImagesByLesionId(lesion.id);
                 const imageCount = lImages.length;
                 const a = visitAssessments.find((x) => x.lesionId === lesion.id);
                 const lNeedsReview = lImages.some((i) => i.quality.score < 0.8 || i.quality.issues.length > 0);
@@ -677,7 +741,7 @@ function BodyMapTab({
                       <Stat term="ABCD" value={a ? a.abcd.total.toFixed(1) : "—"} />
                       <Stat term="7-point" value={a ? a.sevenPoint.total : "—"} />
                     </dl>
-                    {(imageCount === 0 || !a || lNeedsReview) && (
+                    {!productionMode && (imageCount === 0 || !a || lNeedsReview) && (
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {imageCount === 0 && (
                           <span className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
@@ -913,9 +977,16 @@ function BodyMapTab({
                 Локальная навигация по визиту. Без обращений к хранилищу и без диагноза.
               </p>
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Клинические значения ABCD и 7-point — данные из существующих мок-оценок этого визита, без AI-диагноза.
-            </p>
+            {productionMode ? (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Production clinical workspace: mock assessment/report data hidden. Body Map показывает только
+                self-hosted lesion placement; клинические оценки и отчёты ждут production backend contracts.
+              </p>
+            ) : (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Клинические значения ABCD и 7-point — данные из существующих мок-оценок этого визита, без AI-диагноза.
+              </p>
+            )}
           </div>
         )}
       </div>

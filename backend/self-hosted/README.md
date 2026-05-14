@@ -145,6 +145,18 @@ npm run preflight:stage5c
 npm run migrate:stage5c:dry-run
 npm run migrate:stage5c:schema-sql
 npm run migrate:stage5c:seed-policy
+npm run test:stage5d
+npm run check:stage5d
+npm run preflight:stage5d
+npm run test:stage5e
+npm run check:stage5e
+npm run preflight:stage5e
+npm run test:stage5f
+npm run check:stage5f
+npm run preflight:stage5f
+npm run test:stage5g
+npm run check:stage5g
+npm run preflight:stage5g
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -240,3 +252,8 @@ Stage 5F completes the production patient/workspace cutover: `/patients`,
 `/patients/:id`, and `/patients/:id/visits/:visitId` use self-hosted backend
 patient/visit endpoints in `VITE_APP_MODE=production`; demo/mock fallback stays
 demo/dev-only and is guarded by `npm run preflight:stage5f`.
+Stage 5G completes the production clinical workspace guardrails: assessment,
+conclusion, and report tabs no longer render mock-derived clinical content in
+production, Body Map disables local demo lesion creation, and the remaining
+live workspace surface stays within the self-hosted product boundary through
+`npm run preflight:stage5g`.
