@@ -1,0 +1,56 @@
+name: stage5b-production-server-bootstrap
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-5b-production-server-bootstrap.md"
+      - "scripts/stage5b-server-bootstrap.mjs"
+      - "scripts/stage5b-server-bootstrap.test.mjs"
+      - "scripts/check-stage5b-production-server-bootstrap.mjs"
+      - "scripts/check-stage5b-production-server-bootstrap.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage5b-production-server-bootstrap.yml"
+  push:
+    paths:
+      - "deploy/self-hosted/bootstrap-system-admin.stage5b.sql.example"
+      - "docs/backend/stage-5b-production-server-bootstrap.md"
+      - "scripts/stage5b-server-bootstrap.mjs"
+      - "scripts/check-stage5b-production-server-bootstrap.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage5b-production-server-bootstrap.yml"
+
+jobs:
+  stage5b:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5b
+      - name: Write bootstrap summary
+        if: always()
+        run: |
+          mkdir -p test-results
+          npm run bootstrap:stage5b:dry-run -- --summary test-results/stage5b-server-bootstrap.md
+          {
+            echo "## Stage 5B production server bootstrap"
+            echo
+            echo "- Preflight: npm run preflight:stage5b"
+            echo "- Bootstrap plan: test-results/stage5b-server-bootstrap.md"
+            echo "- Boundary: frontend + backend + operator-owned PostgreSQL/object storage/worker"
+            echo "- Managed runtime: none"
+            echo "- Managed database: none"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5b-server-bootstrap
+          path: test-results/stage5b-server-bootstrap.md
+          if-no-files-found: error

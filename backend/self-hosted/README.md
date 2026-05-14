@@ -134,6 +134,11 @@ npm run test:stage5a
 npm run check:stage5a
 npm run preflight:stage5a
 npm run release:stage5a:dry-run
+npm run test:stage5b
+npm run check:stage5b
+npm run preflight:stage5b
+npm run bootstrap:stage5b:dry-run
+npm run bootstrap:stage5b:verify-env:example
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -206,3 +211,7 @@ Stage 5A packages that boundary as a release candidate: the
 `deploy/self-hosted/release-candidate.stage5a.env.example` inventory template,
 safe release-candidate manifest, PostgreSQL migration order, server install
 outline, and `npm run preflight:stage5a` gate for promoting a self-hosted build.
+Stage 5B adds the production server bootstrap flow: host/env checks, port and
+directory planning, first `system_admin` SQL generation through
+`deploy/self-hosted/bootstrap-system-admin.stage5b.sql.example`, and
+`npm run preflight:stage5b` before first server install.
