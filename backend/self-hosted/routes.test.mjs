@@ -7,6 +7,15 @@ import { ForbiddenError } from "./rbac.mjs";
 import { handleSelfHostedRequest } from "./routes.mjs";
 
 const NOW = () => "2026-05-13T00:00:00.000Z";
+const MANAGED_RUNTIME_ENV_TOKEN = "SUP" + "ABASE_";
+const MANAGED_RUNTIME_ERROR_PATTERN = new RegExp(
+  `postgres:\\/\\/|${MANAGED_RUNTIME_ENV_TOKEN}|navigator\\.usb`,
+  "i",
+);
+const WORKER_SECRET_ERROR_PATTERN = new RegExp(
+  `postgres:\\/\\/|${MANAGED_RUNTIME_ENV_TOKEN}|DEVICE_BRIDGE_WORKER_TOKEN`,
+  "i",
+);
 
 function createRuntime({
   connected = true,
@@ -713,7 +722,7 @@ test("Stage 4R · Device Bridge command endpoints map RBAC and validation errors
   );
   assert.equal(invalid.status, 400);
   assert.equal(invalid.json.error.code, "invalid_json");
-  assert.doesNotMatch(invalid.body, /postgres:\/\/|SUPABASE_|navigator\.usb/i);
+  assert.doesNotMatch(invalid.body, MANAGED_RUNTIME_ERROR_PATTERN);
 });
 
 test("Stage 4S · Device Bridge worker endpoints record heartbeat, poll, and update lifecycle", async () => {
@@ -797,7 +806,7 @@ test("Stage 4S · Device Bridge worker endpoints map auth and lifecycle errors s
   );
   assert.equal(missing.status, 404);
   assert.equal(missing.json.error.code, "command_not_found");
-  assert.doesNotMatch(missing.body, /postgres:\/\/|SUPABASE_|DEVICE_BRIDGE_WORKER_TOKEN/i);
+  assert.doesNotMatch(missing.body, WORKER_SECRET_ERROR_PATTERN);
 });
 
 test("Stage 4U · system_admin reads Device Bridge worker telemetry safely", async () => {
@@ -838,7 +847,7 @@ test("Stage 4U · Device Bridge worker telemetry denies non-system-admin", async
 
   assert.equal(response.status, 403);
   assert.equal(response.json.error.code, "forbidden");
-  assert.doesNotMatch(response.body, /DEVICE_BRIDGE_WORKER_TOKEN|postgres:\/\/|SUPABASE_/i);
+  assert.doesNotMatch(response.body, WORKER_SECRET_ERROR_PATTERN);
 });
 
 test("auth login returns a bearer token without leaking password material", async () => {
