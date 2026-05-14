@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listSelfHostedDeviceBridges,
   listSelfHostedDevices,
+  getSelfHostedDeviceBridgeWorkerHardening,
   getSelfHostedDeviceBridgeWorkerStatus,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   toSelfHostedDeviceBridgeDTO,
+  toSelfHostedDeviceBridgeWorkerHardeningDTO,
   toSelfHostedDeviceBridgeWorkerStatusDTO,
   toSelfHostedDeviceCommandDTO,
   toSelfHostedDeviceDTO,
@@ -111,6 +113,48 @@ describe("self-hosted-device-api", () => {
     expect(JSON.stringify(status)).not.toContain("payload_json");
     expect(JSON.stringify(status)).not.toContain("result_json");
     expect(JSON.stringify(status)).not.toContain("access_token");
+  });
+
+  it("normalizes worker hardening DTO without exposing worker internals", () => {
+    const hardening = toSelfHostedDeviceBridgeWorkerHardeningDTO({
+      stage: "4V",
+      source: "postgres",
+      summary: {
+        staleWorkers: 1,
+        retryingCommands: 2,
+        rateLimitedCommands: 3,
+        maxQueueAgeSeconds: 90,
+        cleanupCandidates: 4,
+      },
+      policy: { staleAfterMinutes: 10, retentionDays: 30, pollBackoff: "linear-capped", maxPollLimit: 50 },
+      items: [
+        {
+          id: "br-1",
+          clinicId: "clinic-1",
+          bridgeCode: "br-msk-01",
+          hostName: "host",
+          workerStatus: "degraded",
+          workerVersion: "stage4t-local-worker",
+          stale: true,
+          retryingCommandCount: 2,
+          rateLimitedCommandCount: 1,
+          maxQueueAgeSeconds: 90,
+          worker_metadata_json: { secret: true },
+        },
+      ],
+      payload_json: { hidden: true },
+      result_json: { hidden: true },
+      access_token: "secret",
+      storage_object_path: "hidden",
+    });
+
+    expect(hardening?.stage).toBe("4V");
+    expect(hardening?.summary.staleWorkers).toBe(1);
+    expect(hardening?.items[0].stale).toBe(true);
+    expect(JSON.stringify(hardening)).not.toContain("worker_metadata_json");
+    expect(JSON.stringify(hardening)).not.toContain("payload_json");
+    expect(JSON.stringify(hardening)).not.toContain("result_json");
+    expect(JSON.stringify(hardening)).not.toContain("access_token");
   });
 
   it("returns not_configured before network calls when token is missing", async () => {
@@ -241,6 +285,44 @@ describe("self-hosted-device-api", () => {
     expect(result.value?.commands[0].status).toBe("queued");
     expect(String(fetchMock.mock.calls[0][0])).toBe(
       "http://localhost:8080/api/v1/device-bridge-worker/status?limit=10&workerStatus=online&commandStatus=queued",
+    );
+    expect((fetchMock.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
+  });
+
+  it("fetches Device Bridge worker hardening with policy filters and bearer auth", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          stage: "4V",
+          source: "postgres",
+          summary: {
+            staleWorkers: 1,
+            retryingCommands: 2,
+            rateLimitedCommands: 1,
+            maxQueueAgeSeconds: 120,
+            cleanupCandidates: 3,
+          },
+          policy: { staleAfterMinutes: 15, retentionDays: 45, pollBackoff: "linear-capped", maxPollLimit: 50 },
+          items: [{ id: "br-1", bridgeCode: "br-msk-01", workerStatus: "degraded", stale: true }],
+          filters: { staleAfterMinutes: 15, retentionDays: 45, limit: 20 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const result = await getSelfHostedDeviceBridgeWorkerHardening({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      staleAfterMinutes: 15,
+      retentionDays: 45,
+      limit: 20,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.summary.cleanupCandidates).toBe(3);
+    expect(result.value?.items[0].bridgeCode).toBe("br-msk-01");
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "http://localhost:8080/api/v1/device-bridge-worker/hardening?limit=20&staleAfterMinutes=15&retentionDays=45",
     );
     expect((fetchMock.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
   });

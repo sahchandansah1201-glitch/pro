@@ -62,6 +62,18 @@ function normalizeCommandStatusFilter(value) {
   return normalizeStatus(value, ["queued", "acknowledged", "completed", "failed", "cancelled"], "all");
 }
 
+function normalizeRetentionDays(value) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 30;
+  return Math.min(parsed, 365);
+}
+
+function normalizeStaleAfterMinutes(value) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+  return Math.min(parsed, 1440);
+}
+
 export function buildWorkerHeartbeatSql({
   clinicId,
   bridgeCode,
@@ -150,6 +162,8 @@ target as (
   from device_bridge_commands c
   join bridge b on b.id = c.bridge_id
   where c.status in ('queued', 'acknowledged')
+    and (c.next_attempt_at is null or c.next_attempt_at <= now())
+    and (c.expires_at is null or c.expires_at > now())
   order by c.created_at asc
   limit ${safeLimit(limit)}
   for update skip locked
@@ -157,6 +171,9 @@ target as (
 touched as (
   update device_bridge_commands c
   set dispatched_at = coalesce(c.dispatched_at, now()),
+      last_polled_at = now(),
+      attempt_count = coalesce(c.attempt_count, 0) + 1,
+      next_attempt_at = now() + make_interval(secs => least(300, greatest(10, (coalesce(c.attempt_count, 0) + 1) * 15))),
       updated_at = now()
   from target
   where c.id = target.id
@@ -173,8 +190,11 @@ from (
     c.status as "status",
     c.reason as "reason",
     c.payload_json as "payload",
+    coalesce(c.attempt_count, 0)::int as "attemptCount",
     c.created_at as "createdAt",
     c.dispatched_at as "dispatchedAt",
+    c.last_polled_at as "lastPolledAt",
+    c.next_attempt_at as "nextAttemptAt",
     c.acknowledged_at as "acknowledgedAt"
   from touched c
 ) result;
@@ -203,6 +223,14 @@ with bridge as (
     and bridge_code = ${sqlLiteral(bridgeCode)}
   limit 1
 ),
+target as (
+  select c.*
+  from device_bridge_commands c
+  join bridge b on b.id = c.bridge_id
+  where c.id = ${sqlUuid(safeCommandId)}
+    and c.bridge_id = b.id
+  limit 1
+),
 updated as (
   update device_bridge_commands c
   set
@@ -219,12 +247,25 @@ updated as (
       when ${sqlLiteral(safeStatus)} in ('completed', 'failed') then ${sqlJson(result)}
       else c.result_json
     end,
+    next_attempt_at = null,
+    last_worker_error = case
+      when ${sqlLiteral(safeStatus)} = 'failed' then left(coalesce(${sqlLiteral(result?.message || "")}, c.last_worker_error, ''), 500)
+      else c.last_worker_error
+    end,
+    lifecycle_revision = coalesce(c.lifecycle_revision, 0) + 1,
     updated_at = now()
-  from bridge b
-  where c.id = ${sqlUuid(safeCommandId)}
-    and c.bridge_id = b.id
+  from target t
+  where c.id = t.id
     ${statusTransition}
   returning c.*
+),
+resolved as (
+  select * from updated
+  union all
+  select t.*
+  from target t
+  where not exists (select 1 from updated)
+    and t.status in ('acknowledged', 'completed', 'failed')
 )
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
@@ -235,11 +276,15 @@ from (
     c.device_id::text as "deviceId",
     c.command_type as "commandType",
     c.status as "status",
+    coalesce(c.attempt_count, 0)::int as "attemptCount",
+    coalesce(c.lifecycle_revision, 0)::int as "lifecycleRevision",
     c.created_at as "createdAt",
     c.dispatched_at as "dispatchedAt",
+    c.last_polled_at as "lastPolledAt",
+    c.next_attempt_at as "nextAttemptAt",
     c.acknowledged_at as "acknowledgedAt",
     c.completed_at as "completedAt"
-  from updated c
+  from resolved c
 ) result;
 `.trim();
 }
@@ -353,6 +398,90 @@ select jsonb_build_object(
 `.trim();
 }
 
+export function buildListWorkerHardeningSql({
+  clinicIds = [],
+  allClinics = false,
+  staleAfterMinutes = 10,
+  retentionDays = 30,
+  limit = 25,
+} = {}) {
+  const safeLimitValue = safeLimit(limit, 25, 100);
+  const safeStaleAfterMinutes = normalizeStaleAfterMinutes(staleAfterMinutes);
+  const safeRetentionDays = normalizeRetentionDays(retentionDays);
+  return `
+with scoped_bridges as (
+  select b.*
+  from device_bridges b
+  where true
+    ${clinicScopeWhere("b", { clinicIds, allClinics })}
+  order by b.worker_last_seen_at desc nulls last, b.updated_at desc, b.bridge_code asc
+  limit ${safeLimitValue}
+),
+command_scope as (
+  select c.*
+  from device_bridge_commands c
+  join scoped_bridges b on b.id = c.bridge_id
+),
+summary as (
+  select
+    count(*) filter (
+      where b.worker_last_seen_at is null
+         or b.worker_last_seen_at < now() - (${safeStaleAfterMinutes}::text || ' minutes')::interval
+    )::int as stale_workers,
+    coalesce(max(extract(epoch from (now() - c.created_at))) filter (where c.status in ('queued', 'acknowledged')), 0)::int as max_queue_age_seconds,
+    count(c.*) filter (where c.status in ('queued', 'acknowledged') and coalesce(c.attempt_count, 0) > 1)::int as retrying_commands,
+    count(c.*) filter (where c.status in ('queued', 'acknowledged') and c.next_attempt_at > now())::int as rate_limited_commands,
+    count(c.*) filter (
+      where c.status in ('completed', 'failed', 'cancelled')
+        and coalesce(c.completed_at, c.updated_at) < now() - (${safeRetentionDays}::text || ' days')::interval
+    )::int as cleanup_candidates
+  from scoped_bridges b
+  left join command_scope c on c.bridge_id = b.id
+),
+bridge_hardening as (
+  select
+    b.id::text as "id",
+    b.clinic_id::text as "clinicId",
+    b.bridge_code as "bridgeCode",
+    b.host_name as "hostName",
+    b.worker_status as "workerStatus",
+    b.worker_version as "workerVersion",
+    b.worker_last_seen_at as "workerLastSeenAt",
+    (
+      b.worker_last_seen_at is null
+      or b.worker_last_seen_at < now() - (${safeStaleAfterMinutes}::text || ' minutes')::interval
+    ) as "stale",
+    count(c.*) filter (where c.status in ('queued', 'acknowledged'))::int as "activeCommandCount",
+    count(c.*) filter (where c.status in ('queued', 'acknowledged') and coalesce(c.attempt_count, 0) > 1)::int as "retryingCommandCount",
+    count(c.*) filter (where c.status in ('queued', 'acknowledged') and c.next_attempt_at > now())::int as "rateLimitedCommandCount",
+    coalesce(max(extract(epoch from (now() - c.created_at))) filter (where c.status in ('queued', 'acknowledged')), 0)::int as "maxQueueAgeSeconds"
+  from scoped_bridges b
+  left join command_scope c on c.bridge_id = b.id
+  group by b.id
+)
+select jsonb_build_object(
+  'summary', jsonb_build_object(
+    'staleWorkers', coalesce((select stale_workers from summary), 0),
+    'retryingCommands', coalesce((select retrying_commands from summary), 0),
+    'rateLimitedCommands', coalesce((select rate_limited_commands from summary), 0),
+    'maxQueueAgeSeconds', coalesce((select max_queue_age_seconds from summary), 0),
+    'cleanupCandidates', coalesce((select cleanup_candidates from summary), 0)
+  ),
+  'policy', jsonb_build_object(
+    'staleAfterMinutes', ${safeStaleAfterMinutes},
+    'retentionDays', ${safeRetentionDays},
+    'pollBackoff', 'linear-capped',
+    'maxPollLimit', 50
+  ),
+  'bridges',
+  coalesce((
+    select jsonb_agg(row_to_json(result) order by result."stale" desc, result."maxQueueAgeSeconds" desc, result."bridgeCode")
+    from (select * from bridge_hardening) result
+  ), '[]'::jsonb)
+)::text;
+`.trim();
+}
+
 function normalizeBridge(row = {}) {
   return {
     id: String(row.id || ""),
@@ -378,8 +507,12 @@ function normalizeCommand(row = {}) {
     status: normalizeStatus(row.status, ["queued", "acknowledged", "completed", "failed", "cancelled"], "queued"),
     reason: row.reason ? String(row.reason) : null,
     payload: row.payload && typeof row.payload === "object" ? row.payload : {},
+    attemptCount: Number(row.attemptCount || 0),
+    lifecycleRevision: Number(row.lifecycleRevision || 0),
     createdAt: row.createdAt ? String(row.createdAt) : null,
     dispatchedAt: row.dispatchedAt ? String(row.dispatchedAt) : null,
+    lastPolledAt: row.lastPolledAt ? String(row.lastPolledAt) : null,
+    nextAttemptAt: row.nextAttemptAt ? String(row.nextAttemptAt) : null,
     acknowledgedAt: row.acknowledgedAt ? String(row.acknowledgedAt) : null,
     completedAt: row.completedAt ? String(row.completedAt) : null,
   };
@@ -427,6 +560,53 @@ function normalizeTelemetryCommand(row = {}) {
     acknowledgedAt: row.acknowledgedAt ? String(row.acknowledgedAt) : null,
     completedAt: row.completedAt ? String(row.completedAt) : null,
     updatedAt: row.updatedAt ? String(row.updatedAt) : null,
+  };
+}
+
+function normalizeHardeningBridge(row = {}) {
+  return {
+    id: String(row.id || ""),
+    clinicId: String(row.clinicId || ""),
+    bridgeCode: String(row.bridgeCode || ""),
+    hostName: String(row.hostName || ""),
+    workerStatus: normalizeStatus(row.workerStatus, ["unknown", "online", "degraded", "offline"], "unknown"),
+    workerVersion: String(row.workerVersion || ""),
+    workerLastSeenAt: row.workerLastSeenAt ? String(row.workerLastSeenAt) : null,
+    stale: Boolean(row.stale),
+    activeCommandCount: Number(row.activeCommandCount || 0),
+    retryingCommandCount: Number(row.retryingCommandCount || 0),
+    rateLimitedCommandCount: Number(row.rateLimitedCommandCount || 0),
+    maxQueueAgeSeconds: Number(row.maxQueueAgeSeconds || 0),
+  };
+}
+
+function normalizeHardeningPayload(payload = {}, params = {}) {
+  const summary = payload.summary && typeof payload.summary === "object" ? payload.summary : {};
+  const policy = payload.policy && typeof payload.policy === "object" ? payload.policy : {};
+  const bridges = Array.isArray(payload.bridges) ? payload.bridges.map(normalizeHardeningBridge) : [];
+  return {
+    source: "postgres",
+    summary: {
+      staleWorkers: Number(summary.staleWorkers || 0),
+      retryingCommands: Number(summary.retryingCommands || 0),
+      rateLimitedCommands: Number(summary.rateLimitedCommands || 0),
+      maxQueueAgeSeconds: Number(summary.maxQueueAgeSeconds || 0),
+      cleanupCandidates: Number(summary.cleanupCandidates || 0),
+    },
+    policy: {
+      staleAfterMinutes: Number(policy.staleAfterMinutes || normalizeStaleAfterMinutes(params.staleAfterMinutes)),
+      retentionDays: Number(policy.retentionDays || normalizeRetentionDays(params.retentionDays)),
+      pollBackoff: String(policy.pollBackoff || "linear-capped"),
+      maxPollLimit: Number(policy.maxPollLimit || 50),
+    },
+    bridges,
+    filters: {
+      limit: safeLimit(params.limit, 25, 100),
+      staleAfterMinutes: normalizeStaleAfterMinutes(params.staleAfterMinutes),
+      retentionDays: normalizeRetentionDays(params.retentionDays),
+    },
+    clinicIds: safeClinicIds(params.clinicIds),
+    allClinics: Boolean(params.allClinics),
   };
 }
 
@@ -480,6 +660,12 @@ export function createDeviceBridgeWorkerRepository(dbClient) {
         clinicIds: safeClinicIds(params.clinicIds),
         allClinics: Boolean(params.allClinics),
       };
+    },
+
+    async listWorkerHardening(params = {}) {
+      const rows = await dbClient.queryJson(buildListWorkerHardeningSql(params));
+      const payload = Array.isArray(rows) ? first(rows) || {} : rows || {};
+      return normalizeHardeningPayload(payload, params);
     },
   };
 }

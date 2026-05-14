@@ -38,6 +38,7 @@ const DEFAULT_STEPS = [
   ["Stage 4S Device Bridge worker contract preflight", npmCmd, ["run", "preflight:stage4s"]],
   ["Stage 4T Device Bridge worker runtime preflight", npmCmd, ["run", "preflight:stage4t"]],
   ["Stage 4U Device Bridge worker observability preflight", npmCmd, ["run", "preflight:stage4u"]],
+  ["Stage 4V Device Bridge production hardening preflight", npmCmd, ["run", "preflight:stage4v"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],

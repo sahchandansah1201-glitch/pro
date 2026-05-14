@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildListWorkerCommandsSql,
+  buildListWorkerHardeningSql,
   buildListWorkerTelemetrySql,
   buildUpdateWorkerCommandStatusSql,
   buildWorkerHeartbeatSql,
@@ -38,9 +39,13 @@ test("worker SQL upserts heartbeat, polls queued commands, and updates lifecycle
   assert.match(heartbeatSql, /worker_last_seen_at/);
   assert.match(listSql, /for update skip locked/);
   assert.match(listSql, /dispatched_at = coalesce/);
+  assert.match(listSql, /next_attempt_at/);
+  assert.match(listSql, /attempt_count/);
   assert.match(updateSql, /acknowledged_at/);
   assert.match(updateSql, /completed_at/);
   assert.match(updateSql, /result_json/);
+  assert.match(updateSql, /lifecycle_revision/);
+  assert.match(updateSql, /resolved as/);
   assert.doesNotMatch(`${heartbeatSql}\n${listSql}\n${updateSql}`, /\bsupabase\b|api-read|api-write|edge function/i);
 });
 
@@ -163,4 +168,67 @@ test("repository normalizes worker telemetry projection", async () => {
   assert.equal(result.bridges[0].workerVersion, "stage4t-local-worker");
   assert.equal(result.commands[0].status, "failed");
   assert.equal(result.commands[0].bridgeCode, "bridge-01");
+});
+
+test("worker hardening SQL reports backoff, stale worker, and retention metrics safely", () => {
+  const sql = buildListWorkerHardeningSql({
+    clinicIds: [CLINIC_ID],
+    staleAfterMinutes: 15,
+    retentionDays: 45,
+    limit: 20,
+  });
+
+  assert.match(sql, /stale_workers/);
+  assert.match(sql, /retrying_commands/);
+  assert.match(sql, /rate_limited_commands/);
+  assert.match(sql, /cleanup_candidates/);
+  assert.match(sql, /staleAfterMinutes/);
+  assert.doesNotMatch(sql, /payload_json|result_json|worker_metadata_json|token|secret|supabase|api-read|api-write|edge function/i);
+});
+
+test("repository normalizes worker hardening projection", async () => {
+  const repository = createDeviceBridgeWorkerRepository({
+    async queryJson(sql) {
+      assert.match(sql, /cleanup_candidates/);
+      return {
+        summary: {
+          staleWorkers: 1,
+          retryingCommands: 2,
+          rateLimitedCommands: 1,
+          maxQueueAgeSeconds: 120,
+          cleanupCandidates: 3,
+        },
+        policy: { staleAfterMinutes: 15, retentionDays: 45, pollBackoff: "linear-capped", maxPollLimit: 50 },
+        bridges: [
+          {
+            id: BRIDGE_ID,
+            clinicId: CLINIC_ID,
+            bridgeCode: "bridge-01",
+            hostName: "bridge-host",
+            workerStatus: "degraded",
+            workerVersion: "stage4t-local-worker",
+            workerLastSeenAt: "2026-05-14T09:40:00.000Z",
+            stale: true,
+            activeCommandCount: 3,
+            retryingCommandCount: 2,
+            rateLimitedCommandCount: 1,
+            maxQueueAgeSeconds: 120,
+          },
+        ],
+      };
+    },
+  });
+
+  const result = await repository.listWorkerHardening({
+    clinicIds: [CLINIC_ID],
+    staleAfterMinutes: 15,
+    retentionDays: 45,
+    limit: 20,
+  });
+
+  assert.equal(result.summary.staleWorkers, 1);
+  assert.equal(result.summary.cleanupCandidates, 3);
+  assert.equal(result.policy.retentionDays, 45);
+  assert.equal(result.bridges[0].stale, true);
+  assert.equal(result.bridges[0].retryingCommandCount, 2);
 });

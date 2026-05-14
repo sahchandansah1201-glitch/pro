@@ -1,0 +1,61 @@
+name: stage4v-device-bridge-production-hardening
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/db/migrations/0011_stage4v_device_bridge_production_hardening.sql"
+      - "backend/self-hosted/device-bridge-worker-repository.mjs"
+      - "backend/self-hosted/device-bridge-worker-repository.test.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.test.mjs"
+      - "backend/self-hosted/openapi.stage4v.json"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "e2e/sys-devices-stage4q.pw.ts"
+      - "docs/backend/stage-4v-device-bridge-production-hardening.md"
+      - "scripts/check-stage4v-device-bridge-production-hardening.mjs"
+      - "scripts/check-stage4v-device-bridge-production-hardening.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage4v-device-bridge-production-hardening.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/self-hosted/db/migrations/0011_stage4v_device_bridge_production_hardening.sql"
+      - "backend/self-hosted/device-bridge-worker-repository.mjs"
+      - "backend/self-hosted/device-bridge-worker-service.mjs"
+      - "backend/self-hosted/openapi.stage4v.json"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "scripts/check-stage4v-device-bridge-production-hardening.mjs"
+      - "package.json"
+      - ".github/workflows/stage4v-device-bridge-production-hardening.yml"
+
+jobs:
+  stage4v:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run preflight:stage4v
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 4V Device Bridge production hardening"
+            echo ""
+            echo "- Backend: /api/v1/device-bridge-worker/hardening"
+            echo "- Frontend: /sys/devices production hardening panel"
+            echo "- Boundary: self-hosted backend/PostgreSQL only; no browser hardware APIs"
+          } >> "$GITHUB_STEP_SUMMARY"

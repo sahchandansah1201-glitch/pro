@@ -110,6 +110,9 @@ npm run preflight:stage4t
 npm run test:stage4u
 npm run check:stage4u
 npm run preflight:stage4u
+npm run test:stage4v
+npm run check:stage4v
+npm run preflight:stage4v
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -153,3 +156,7 @@ Stage 4U adds a system-admin worker observability projection at
 `/api/v1/device-bridge-worker/status` and shows safe heartbeat/command lifecycle
 metadata on `/sys/devices` without exposing worker tokens, payloads, storage
 paths, patient names, or browser hardware APIs.
+Stage 4V hardens the Device Bridge worker queue with idempotent lifecycle
+updates, poll backoff metadata, stale-worker and queue-age metrics, and
+retention cleanup planning exposed through
+`/api/v1/device-bridge-worker/hardening`.

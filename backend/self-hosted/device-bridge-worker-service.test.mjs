@@ -5,6 +5,7 @@ import {
   DeviceBridgeWorkerValidationError,
   createDeviceBridgeWorkerService,
   normalizeWorkerCommandUpdate,
+  normalizeWorkerHardeningQuery,
   normalizeWorkerHeartbeat,
   normalizeWorkerTelemetryQuery,
 } from "./device-bridge-worker-service.mjs";
@@ -83,6 +84,39 @@ function createService({ auditEvents = [], command = {} } = {}) {
           allClinics: true,
         };
       },
+      async listWorkerHardening(params) {
+        return {
+          source: "postgres",
+          summary: {
+            staleWorkers: 1,
+            retryingCommands: 2,
+            rateLimitedCommands: 1,
+            maxQueueAgeSeconds: 120,
+            cleanupCandidates: 3,
+          },
+          policy: {
+            staleAfterMinutes: params.staleAfterMinutes,
+            retentionDays: params.retentionDays,
+            pollBackoff: "linear-capped",
+            maxPollLimit: 50,
+          },
+          bridges: [{
+            id: BRIDGE_ID,
+            clinicId: CLINIC_ID,
+            bridgeCode: "bridge-01",
+            workerStatus: "degraded",
+            stale: true,
+            retryingCommandCount: 2,
+          }],
+          filters: {
+            limit: params.limit,
+            staleAfterMinutes: params.staleAfterMinutes,
+            retentionDays: params.retentionDays,
+          },
+          clinicIds: [],
+          allClinics: true,
+        };
+      },
     },
     auditRepository: {
       async recordEvent(event) {
@@ -134,6 +168,26 @@ test("normalizes worker telemetry query for system-admin monitoring", () => {
   assert.deepEqual(fallback, {
     workerStatus: "all",
     commandStatus: "all",
+    limit: 25,
+  });
+});
+
+test("normalizes worker hardening query for production metrics", () => {
+  const query = normalizeWorkerHardeningQuery(
+    new URLSearchParams({ staleAfterMinutes: "15", retentionDays: "45", limit: "500" }),
+  );
+  const fallback = normalizeWorkerHardeningQuery(
+    new URLSearchParams({ staleAfterMinutes: "0", retentionDays: "-2", limit: "raw" }),
+  );
+
+  assert.deepEqual(query, {
+    staleAfterMinutes: 15,
+    retentionDays: 45,
+    limit: 100,
+  });
+  assert.deepEqual(fallback, {
+    staleAfterMinutes: 10,
+    retentionDays: 30,
     limit: 25,
   });
 });
@@ -197,6 +251,44 @@ test("lists worker telemetry through system_admin RBAC and audits safe metadata"
   assert.deepEqual(result.scope.roles, ["system_admin"]);
   assert.equal(auditEvents.at(-1).action, "device_bridge.worker.telemetry.read");
   assert.equal(auditEvents.at(-1).metadata.bridgeCount, 1);
+});
+
+test("lists worker hardening through system_admin RBAC and audits safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.listWorkerHardening(
+    {
+      userId: "10000000-0000-4000-8000-000000000999",
+      roles: ["system_admin"],
+      clinicIds: [],
+    },
+    new URLSearchParams({ staleAfterMinutes: "15", retentionDays: "45", limit: "20" }),
+    { correlationId: "corr-worker-hardening" },
+  );
+
+  assert.equal(result.summary.staleWorkers, 1);
+  assert.equal(result.summary.retryingCommands, 2);
+  assert.equal(result.policy.retentionDays, 45);
+  assert.deepEqual(result.scope.roles, ["system_admin"]);
+  assert.equal(auditEvents.at(-1).action, "device_bridge.worker.hardening.read");
+  assert.equal(auditEvents.at(-1).metadata.cleanupCandidates, 3);
+});
+
+test("denies worker hardening to non-system-admin roles", async () => {
+  const service = createService();
+
+  await assert.rejects(
+    () => service.listWorkerHardening(
+      {
+        userId: "10000000-0000-4000-8000-000000000777",
+        roles: ["clinic_admin"],
+        clinicIds: [CLINIC_ID],
+      },
+      new URLSearchParams(),
+    ),
+    (error) => error.publicCode === "forbidden" && error.publicStatus === 403,
+  );
 });
 
 test("denies worker telemetry to non-system-admin roles", async () => {

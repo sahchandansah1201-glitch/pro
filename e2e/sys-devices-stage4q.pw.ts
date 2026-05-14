@@ -117,6 +117,44 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
         }),
       });
     });
+    await page.route("http://localhost:8080/api/v1/device-bridge-worker/hardening?limit=25&staleAfterMinutes=10&retentionDays=30", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4V",
+          source: "postgres",
+          summary: {
+            staleWorkers: 1,
+            retryingCommands: 2,
+            rateLimitedCommands: 1,
+            maxQueueAgeSeconds: 180,
+            cleanupCandidates: 3,
+          },
+          policy: { staleAfterMinutes: 10, retentionDays: 30, pollBackoff: "linear-capped", maxPollLimit: 50 },
+          items: [
+            {
+              id: "br-uuid",
+              clinicId: "clinic-1",
+              bridgeCode: "br-live-01",
+              hostName: "live-bridge",
+              workerStatus: "degraded",
+              workerVersion: "stage4t-local-worker",
+              workerLastSeenAt: "2026-05-14T07:42:00Z",
+              stale: true,
+              activeCommandCount: 3,
+              retryingCommandCount: 2,
+              rateLimitedCommandCount: 1,
+              maxQueueAgeSeconds: 180,
+              payload_json: { secret: true },
+              result_json: { token: "hidden" },
+            },
+          ],
+          filters: { staleAfterMinutes: 10, retentionDays: 30, limit: 25 },
+        }),
+      });
+    });
     await page.route("http://localhost:8080/api/v1/device-bridges/br-uuid/commands", async (route) => {
       expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
       expect(route.request().method()).toBe("POST");
@@ -164,6 +202,12 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     );
     await expect(page.getByRole("region", { name: "Device Bridge worker command lifecycle" })).toContainText(
       "bridge_health_check",
+    );
+    await expect(page.getByRole("region", { name: "Device Bridge worker production hardening" })).toContainText(
+      "Cleanup candidates",
+    );
+    await expect(page.getByRole("region", { name: "Device Bridge worker hardening policy" })).toContainText(
+      "linear-capped",
     );
     await expect(page.getByText("Реестр устройств загружен из backend.")).toBeVisible();
     await expect(page.getByText("Браузер не подключается к драйверу напрямую")).toBeVisible();

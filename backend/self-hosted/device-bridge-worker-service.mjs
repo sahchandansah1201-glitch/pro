@@ -74,6 +74,18 @@ function normalizeTelemetryLimit(value) {
   return Math.min(parsed, 100);
 }
 
+function normalizeRetentionDays(value) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 30;
+  return Math.min(parsed, 365);
+}
+
+function normalizeStaleAfterMinutes(value) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+  return Math.min(parsed, 1440);
+}
+
 function normalizeTelemetryStatus(value, allowed, fallback = "all") {
   const raw = String(value || "all");
   return raw === "all" || allowed.includes(raw) ? raw : fallback;
@@ -134,6 +146,14 @@ export function normalizeWorkerTelemetryQuery(searchParams = new URLSearchParams
       ["queued", "acknowledged", "completed", "failed", "cancelled"],
     ),
     limit: normalizeTelemetryLimit(searchParams.get("limit")),
+  };
+}
+
+export function normalizeWorkerHardeningQuery(searchParams = new URLSearchParams()) {
+  return {
+    limit: normalizeTelemetryLimit(searchParams.get("limit")),
+    staleAfterMinutes: normalizeStaleAfterMinutes(searchParams.get("staleAfterMinutes")),
+    retentionDays: normalizeRetentionDays(searchParams.get("retentionDays")),
   };
 }
 
@@ -238,6 +258,9 @@ export function createDeviceBridgeWorkerService({
           bridgeCode: payload.bridgeCode,
           workerId: worker.workerId,
           status: payload.status,
+          idempotent: command.status === payload.status,
+          attemptCount: command.attemptCount || 0,
+          lifecycleRevision: command.lifecycleRevision || 0,
         },
       });
       return { worker, command, status: payload.status };
@@ -262,6 +285,35 @@ export function createDeviceBridgeWorkerService({
           commandCount: result.commands.length,
           workerStatus: query.workerStatus,
           commandStatus: query.commandStatus,
+        },
+      });
+      return {
+        ...result,
+        scope,
+        query,
+      };
+    },
+
+    async listWorkerHardening(authContext, searchParams, { correlationId } = {}) {
+      const scope = opsStatusScope(authContext);
+      const query = normalizeWorkerHardeningQuery(searchParams);
+      const result = await deviceBridgeWorkerRepository.listWorkerHardening({
+        ...query,
+        clinicIds: [],
+        allClinics: true,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "device_bridge.worker.hardening.read",
+        entityType: "device_bridge_worker",
+        correlationId,
+        metadata: {
+          staleWorkers: result.summary.staleWorkers,
+          retryingCommands: result.summary.retryingCommands,
+          rateLimitedCommands: result.summary.rateLimitedCommands,
+          cleanupCandidates: result.summary.cleanupCandidates,
+          retentionDays: result.policy.retentionDays,
         },
       });
       return {
