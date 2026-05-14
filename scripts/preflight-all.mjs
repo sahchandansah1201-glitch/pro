@@ -43,6 +43,7 @@ const DEFAULT_STEPS = [
   ["Stage 4X Device Bridge audit replay preflight", npmCmd, ["run", "preflight:stage4x"]],
   ["Stage 4Y Device Bridge audit export preflight", npmCmd, ["run", "preflight:stage4y"]],
   ["Stage 4Z self-hosted product readiness preflight", npmCmd, ["run", "preflight:stage4z"]],
+  ["Stage 5A self-hosted release candidate preflight", npmCmd, ["run", "preflight:stage5a"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],

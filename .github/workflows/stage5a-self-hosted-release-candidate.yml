@@ -1,0 +1,57 @@
+name: stage5a-self-hosted-release-candidate
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-5a-self-hosted-release-candidate.md"
+      - "scripts/stage5a-release-candidate.mjs"
+      - "scripts/stage5a-release-candidate.test.mjs"
+      - "scripts/check-stage5a-self-hosted-release-candidate.mjs"
+      - "scripts/check-stage5a-self-hosted-release-candidate.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage5a-self-hosted-release-candidate.yml"
+  push:
+    paths:
+      - "deploy/self-hosted/release-candidate.stage5a.env.example"
+      - "docs/backend/stage-5a-self-hosted-release-candidate.md"
+      - "scripts/stage5a-release-candidate.mjs"
+      - "scripts/check-stage5a-self-hosted-release-candidate.mjs"
+      - "scripts/preflight-all.mjs"
+      - "package.json"
+      - ".github/workflows/stage5a-self-hosted-release-candidate.yml"
+
+jobs:
+  stage5a:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5a
+      - name: Write release candidate summary
+        if: always()
+        run: |
+          mkdir -p test-results
+          npm run release:stage5a:dry-run -- --summary test-results/stage5a-release-candidate.md
+          {
+            echo "## Stage 5A self-hosted release candidate"
+            echo
+            echo "- Preflight: npm run preflight:stage5a"
+            echo "- Manifest: test-results/stage5a-release-candidate.md"
+            echo "- Boundary: frontend + backend + operator-owned PostgreSQL/object storage/worker"
+            echo "- Managed runtime: none"
+            echo "- Managed database: none"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5a-release-candidate
+          path: test-results/stage5a-release-candidate.md
+          if-no-files-found: error

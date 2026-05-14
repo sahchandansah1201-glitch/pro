@@ -130,6 +130,10 @@ npm run preflight:stage4y
 npm run test:stage4z
 npm run check:stage4z
 npm run preflight:stage4z
+npm run test:stage5a
+npm run check:stage5a
+npm run preflight:stage5a
+npm run release:stage5a:dry-run
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -198,3 +202,7 @@ backend, PostgreSQL, object storage, auth/RBAC, clinical workflows, Device
 Bridge, backup/restore, deploy smoke, observability, and release gates into one
 self-hosted product boundary with no managed runtime or managed database
 dependency.
+Stage 5A packages that boundary as a release candidate: the
+`deploy/self-hosted/release-candidate.stage5a.env.example` inventory template,
+safe release-candidate manifest, PostgreSQL migration order, server install
+outline, and `npm run preflight:stage5a` gate for promoting a self-hosted build.
