@@ -62,6 +62,17 @@ function normalizeCommandStatusFilter(value) {
   return normalizeStatus(value, ["queued", "acknowledged", "completed", "failed", "cancelled"], "all");
 }
 
+function normalizeAuditActionFilter(value) {
+  return normalizeStatus(value, [
+    "poll",
+    "ack",
+    "complete",
+    "reschedule",
+    "cancel",
+    "replay",
+  ], "all");
+}
+
 function normalizeRetentionDays(value) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return 30;
@@ -666,6 +677,182 @@ from (
 `.trim();
 }
 
+export function buildListWorkerCommandAuditSql({
+  clinicIds = [],
+  allClinics = false,
+  action = "all",
+  status = "all",
+  limit = 25,
+} = {}) {
+  const safeLimitValue = safeLimit(limit, 25, 100);
+  const safeAction = normalizeAuditActionFilter(action);
+  const safeStatus = normalizeCommandStatusFilter(status);
+  const actionWhere = safeAction !== "all"
+    ? `and a.action = ${sqlLiteral(`device_bridge.command.${safeAction}`)}`
+    : "";
+  const statusWhere = safeStatus !== "all"
+    ? `and c.status = ${sqlLiteral(safeStatus)}`
+    : "";
+  return `
+with scoped_audit as (
+  select
+    a.id,
+    a.clinic_id,
+    a.actor_user_id,
+    a.action,
+    a.entity_id,
+    a.correlation_id,
+    a.created_at,
+    c.bridge_id,
+    c.device_id,
+    c.command_type,
+    c.status,
+    c.reason,
+    coalesce(c.attempt_count, 0)::int as attempt_count,
+    coalesce(c.lifecycle_revision, 0)::int as lifecycle_revision,
+    c.replay_of_command_id,
+    c.replay_requested_at,
+    c.replay_policy,
+    b.bridge_code,
+    d.serial as device_serial
+  from audit_log a
+  left join device_bridge_commands c on c.id = a.entity_id and a.entity_type = 'device_bridge_command'
+  left join device_bridges b on b.id = c.bridge_id
+  left join medical_devices d on d.id = c.device_id
+  where a.entity_type = 'device_bridge_command'
+    and a.action like 'device_bridge.command.%'
+    ${clinicScopeWhere("a", { clinicIds, allClinics })}
+    ${actionWhere}
+    ${statusWhere}
+  order by a.created_at desc
+  limit ${safeLimitValue}
+),
+summary as (
+  select
+    count(*)::int as total_events,
+    count(*) filter (where action = 'device_bridge.command.replay')::int as replay_events,
+    count(*) filter (where action in ('device_bridge.command.cancel', 'device_bridge.command.reschedule'))::int as recovery_events,
+    count(distinct entity_id)::int as affected_commands
+  from scoped_audit
+)
+select jsonb_build_object(
+  'summary', jsonb_build_object(
+    'totalEvents', coalesce((select total_events from summary), 0),
+    'replayEvents', coalesce((select replay_events from summary), 0),
+    'recoveryEvents', coalesce((select recovery_events from summary), 0),
+    'affectedCommands', coalesce((select affected_commands from summary), 0)
+  ),
+  'policy', jsonb_build_object(
+    'replayPolicy', 'manual_system_admin',
+    'allowedReplayStatuses', jsonb_build_array('completed', 'failed', 'cancelled'),
+    'allowedReplayCommandTypes', jsonb_build_array('bridge_health_check', 'device_calibration_request'),
+    'payloadVisibility', 'backend-only'
+  ),
+  'events',
+  coalesce((
+    select jsonb_agg(row_to_json(result) order by result."createdAt" desc)
+    from (
+      select
+        a.id::text as "id",
+        a.clinic_id::text as "clinicId",
+        a.actor_user_id::text as "actorUserId",
+        replace(a.action, 'device_bridge.command.', '') as "action",
+        a.entity_id::text as "commandId",
+        a.correlation_id as "correlationId",
+        a.created_at as "createdAt",
+        a.bridge_id::text as "bridgeId",
+        a.device_id::text as "deviceId",
+        a.bridge_code as "bridgeCode",
+        a.device_serial as "deviceSerial",
+        a.command_type as "commandType",
+        a.status as "status",
+        a.reason as "reason",
+        a.attempt_count as "attemptCount",
+        a.lifecycle_revision as "lifecycleRevision",
+        a.replay_of_command_id::text as "replayOfCommandId",
+        a.replay_requested_at as "replayRequestedAt",
+        a.replay_policy as "replayPolicy"
+      from scoped_audit a
+    ) result
+  ), '[]'::jsonb)
+)::text;
+`.trim();
+}
+
+export function buildReplayWorkerCommandSql({
+  commandId,
+  actorUserId = null,
+  reason = null,
+} = {}) {
+  const safeCommandId = assertUuid(commandId, "commandId");
+  return `
+with source as (
+  select c.*
+  from device_bridge_commands c
+  where c.id = ${sqlUuid(safeCommandId)}
+    and c.status in ('completed', 'failed', 'cancelled')
+    and c.command_type in ('bridge_health_check', 'device_calibration_request')
+  limit 1
+),
+inserted as (
+  insert into device_bridge_commands (
+    clinic_id,
+    bridge_id,
+    device_id,
+    command_type,
+    payload_json,
+    status,
+    reason,
+    requested_by,
+    replay_of_command_id,
+    replay_requested_at,
+    replay_requested_by,
+    replay_policy,
+    metadata_json
+  )
+  select
+    s.clinic_id,
+    s.bridge_id,
+    s.device_id,
+    s.command_type,
+    s.payload_json,
+    'queued',
+    left(coalesce(${sqlLiteral(reason || "")}, s.reason, 'Manual system_admin replay'), 240),
+    ${nullableUuid(actorUserId)},
+    s.id,
+    now(),
+    ${nullableUuid(actorUserId)},
+    'manual_system_admin',
+    jsonb_build_object('stage', '4X', 'sourceCommandId', s.id::text)
+  from source s
+  returning *
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    c.id::text as "id",
+    c.clinic_id::text as "clinicId",
+    c.bridge_id::text as "bridgeId",
+    c.device_id::text as "deviceId",
+    b.bridge_code as "bridgeCode",
+    d.serial as "deviceSerial",
+    c.command_type as "commandType",
+    c.status as "status",
+    c.reason as "reason",
+    coalesce(c.attempt_count, 0)::int as "attemptCount",
+    coalesce(c.lifecycle_revision, 0)::int as "lifecycleRevision",
+    c.created_at as "createdAt",
+    c.next_attempt_at as "nextAttemptAt",
+    c.replay_of_command_id::text as "replayOfCommandId",
+    c.replay_requested_at as "replayRequestedAt",
+    c.replay_policy as "replayPolicy"
+  from inserted c
+  left join device_bridges b on b.id = c.bridge_id
+  left join medical_devices d on d.id = c.device_id
+) result;
+`.trim();
+}
+
 function normalizeBridge(row = {}) {
   return {
     id: String(row.id || ""),
@@ -706,6 +893,33 @@ function normalizeCommand(row = {}) {
     recoveryReason: row.recoveryReason ? String(row.recoveryReason) : null,
     recoveryRequestedAt: row.recoveryRequestedAt ? String(row.recoveryRequestedAt) : null,
     recoveryState: row.recoveryState ? String(row.recoveryState) : null,
+    replayOfCommandId: row.replayOfCommandId ? String(row.replayOfCommandId) : null,
+    replayRequestedAt: row.replayRequestedAt ? String(row.replayRequestedAt) : null,
+    replayPolicy: row.replayPolicy ? String(row.replayPolicy) : null,
+  };
+}
+
+function normalizeCommandAuditEvent(row = {}) {
+  return {
+    id: String(row.id || ""),
+    clinicId: String(row.clinicId || ""),
+    actorUserId: row.actorUserId ? String(row.actorUserId) : null,
+    action: normalizeAuditActionFilter(row.action),
+    commandId: row.commandId ? String(row.commandId) : null,
+    correlationId: row.correlationId ? String(row.correlationId) : null,
+    createdAt: row.createdAt ? String(row.createdAt) : null,
+    bridgeId: row.bridgeId ? String(row.bridgeId) : null,
+    deviceId: row.deviceId ? String(row.deviceId) : null,
+    bridgeCode: row.bridgeCode ? String(row.bridgeCode) : null,
+    deviceSerial: row.deviceSerial ? String(row.deviceSerial) : null,
+    commandType: String(row.commandType || ""),
+    status: normalizeStatus(row.status, ["queued", "acknowledged", "completed", "failed", "cancelled"], "queued"),
+    reason: row.reason ? String(row.reason) : null,
+    attemptCount: Number(row.attemptCount || 0),
+    lifecycleRevision: Number(row.lifecycleRevision || 0),
+    replayOfCommandId: row.replayOfCommandId ? String(row.replayOfCommandId) : null,
+    replayRequestedAt: row.replayRequestedAt ? String(row.replayRequestedAt) : null,
+    replayPolicy: row.replayPolicy ? String(row.replayPolicy) : null,
   };
 }
 
@@ -833,6 +1047,39 @@ function normalizeRecoveryPayload(payload = {}, params = {}) {
   };
 }
 
+function normalizeCommandAuditPayload(payload = {}, params = {}) {
+  const summary = payload.summary && typeof payload.summary === "object" ? payload.summary : {};
+  const policy = payload.policy && typeof payload.policy === "object" ? payload.policy : {};
+  const events = Array.isArray(payload.events) ? payload.events.map(normalizeCommandAuditEvent) : [];
+  return {
+    source: "postgres",
+    summary: {
+      totalEvents: Number(summary.totalEvents || 0),
+      replayEvents: Number(summary.replayEvents || 0),
+      recoveryEvents: Number(summary.recoveryEvents || 0),
+      affectedCommands: Number(summary.affectedCommands || 0),
+    },
+    policy: {
+      replayPolicy: String(policy.replayPolicy || "manual_system_admin"),
+      allowedReplayStatuses: Array.isArray(policy.allowedReplayStatuses)
+        ? policy.allowedReplayStatuses.map(String)
+        : ["completed", "failed", "cancelled"],
+      allowedReplayCommandTypes: Array.isArray(policy.allowedReplayCommandTypes)
+        ? policy.allowedReplayCommandTypes.map(String)
+        : ["bridge_health_check", "device_calibration_request"],
+      payloadVisibility: String(policy.payloadVisibility || "backend-only"),
+    },
+    events,
+    filters: {
+      action: normalizeAuditActionFilter(params.action),
+      status: normalizeCommandStatusFilter(params.status),
+      limit: safeLimit(params.limit, 25, 100),
+    },
+    clinicIds: safeClinicIds(params.clinicIds),
+    allClinics: Boolean(params.allClinics),
+  };
+}
+
 function first(value) {
   return Array.isArray(value) && value.length > 0 ? value[0] : null;
 }
@@ -899,6 +1146,17 @@ export function createDeviceBridgeWorkerRepository(dbClient) {
 
     async recoverCommand(params = {}) {
       const row = first(await dbClient.queryJson(buildRecoverWorkerCommandSql(params)));
+      return row ? normalizeCommand(row) : null;
+    },
+
+    async listWorkerCommandAudit(params = {}) {
+      const rows = await dbClient.queryJson(buildListWorkerCommandAuditSql(params));
+      const payload = Array.isArray(rows) ? first(rows) || {} : rows || {};
+      return normalizeCommandAuditPayload(payload, params);
+    },
+
+    async replayCommand(params = {}) {
+      const row = first(await dbClient.queryJson(buildReplayWorkerCommandSql(params)));
       return row ? normalizeCommand(row) : null;
     },
   };

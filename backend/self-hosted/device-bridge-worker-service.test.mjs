@@ -5,10 +5,12 @@ import {
   DeviceBridgeWorkerValidationError,
   createDeviceBridgeWorkerService,
   normalizeWorkerCommandUpdate,
+  normalizeWorkerCommandAuditQuery,
   normalizeWorkerHardeningQuery,
   normalizeWorkerHeartbeat,
   normalizeWorkerRecoveryAction,
   normalizeWorkerRecoveryQuery,
+  normalizeWorkerReplayAction,
   normalizeWorkerTelemetryQuery,
 } from "./device-bridge-worker-service.mjs";
 
@@ -168,6 +170,54 @@ function createService({ auditEvents = [], command = {} } = {}) {
           ...command,
         };
       },
+      async listWorkerCommandAudit(params) {
+        return {
+          source: "postgres",
+          summary: {
+            totalEvents: 2,
+            replayEvents: 1,
+            recoveryEvents: 1,
+            affectedCommands: 2,
+          },
+          policy: {
+            replayPolicy: "manual_system_admin",
+            allowedReplayStatuses: ["completed", "failed", "cancelled"],
+            allowedReplayCommandTypes: ["bridge_health_check"],
+            payloadVisibility: "backend-only",
+          },
+          events: [{
+            id: "audit-1",
+            clinicId: CLINIC_ID,
+            action: params.action === "all" ? "replay" : params.action,
+            commandId: COMMAND_ID,
+            bridgeCode: "bridge-01",
+            commandType: "bridge_health_check",
+            status: params.status === "all" ? "queued" : params.status,
+            lifecycleRevision: 4,
+            replayPolicy: "manual_system_admin",
+          }],
+          filters: {
+            action: params.action,
+            status: params.status,
+            limit: params.limit,
+          },
+          clinicIds: [],
+          allClinics: true,
+        };
+      },
+      async replayCommand(params) {
+        if (command === null) return null;
+        return {
+          id: "10000000-0000-4000-8000-000000000902",
+          clinicId: CLINIC_ID,
+          bridgeId: BRIDGE_ID,
+          commandType: "bridge_health_check",
+          status: "queued",
+          replayOfCommandId: params.commandId,
+          replayPolicy: "manual_system_admin",
+          ...command,
+        };
+      },
     },
     auditRepository: {
       async recordEvent(event) {
@@ -271,6 +321,30 @@ test("normalizes worker recovery query and action payloads", () => {
     () => normalizeWorkerRecoveryAction({ action: "delete" }),
     DeviceBridgeWorkerValidationError,
   );
+});
+
+test("normalizes worker command audit query and replay payloads", () => {
+  const query = normalizeWorkerCommandAuditQuery(
+    new URLSearchParams({ action: "replay", status: "cancelled", limit: "500" }),
+  );
+  const fallback = normalizeWorkerCommandAuditQuery(
+    new URLSearchParams({ action: "raw", status: "secret", limit: "-1" }),
+  );
+  const replay = normalizeWorkerReplayAction({
+    reason: "  Повторить   safe command  ",
+  });
+
+  assert.deepEqual(query, {
+    action: "replay",
+    status: "cancelled",
+    limit: 100,
+  });
+  assert.deepEqual(fallback, {
+    action: "all",
+    status: "all",
+    limit: 25,
+  });
+  assert.equal(replay.reason, "Повторить safe command");
 });
 
 test("records heartbeat, polls commands, and audits command lifecycle", async () => {
@@ -399,6 +473,69 @@ test("runs worker command recovery actions through system_admin RBAC", async () 
   assert.deepEqual(result.scope.roles, ["system_admin"]);
   assert.equal(auditEvents.at(-1).action, "device_bridge.command.cancel");
   assert.equal(auditEvents.at(-1).metadata.lifecycleRevision, 4);
+});
+
+test("lists command audit and replays commands through system_admin RBAC", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const audit = await service.listWorkerCommandAudit(
+    {
+      userId: "10000000-0000-4000-8000-000000000999",
+      roles: ["system_admin"],
+      clinicIds: [],
+    },
+    new URLSearchParams({ action: "replay", status: "queued", limit: "10" }),
+    { correlationId: "corr-worker-audit" },
+  );
+  const replay = await service.replayCommand(
+    COMMAND_ID,
+    {
+      userId: "10000000-0000-4000-8000-000000000999",
+      roles: ["system_admin"],
+      clinicIds: [],
+    },
+    { reason: "Replay safe command" },
+    { correlationId: "corr-worker-replay" },
+  );
+
+  assert.equal(audit.summary.replayEvents, 1);
+  assert.equal(audit.policy.payloadVisibility, "backend-only");
+  assert.equal(audit.events[0].action, "replay");
+  assert.equal(replay.command.status, "queued");
+  assert.equal(replay.command.replayOfCommandId, COMMAND_ID);
+  assert.deepEqual(replay.scope.roles, ["system_admin"]);
+  assert.equal(auditEvents.at(-2).action, "device_bridge.command.audit.read");
+  assert.equal(auditEvents.at(-1).action, "device_bridge.command.replay");
+});
+
+test("denies command audit and replay to non-system-admin roles", async () => {
+  const service = createService();
+
+  await assert.rejects(
+    () => service.listWorkerCommandAudit(
+      {
+        userId: "10000000-0000-4000-8000-000000000777",
+        roles: ["clinic_admin"],
+        clinicIds: [CLINIC_ID],
+      },
+      new URLSearchParams(),
+    ),
+    (error) => error.publicCode === "forbidden" && error.publicStatus === 403,
+  );
+
+  await assert.rejects(
+    () => service.replayCommand(
+      COMMAND_ID,
+      {
+        userId: "10000000-0000-4000-8000-000000000777",
+        roles: ["clinic_admin"],
+        clinicIds: [CLINIC_ID],
+      },
+      { reason: "Replay" },
+    ),
+    (error) => error.publicCode === "forbidden" && error.publicStatus === 403,
+  );
 });
 
 test("denies worker hardening to non-system-admin roles", async () => {

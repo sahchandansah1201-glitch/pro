@@ -390,6 +390,69 @@ function createRuntime({
           },
         };
       },
+      async listWorkerCommandAudit(authContext, searchParams) {
+        if (deviceWorkerError) throw deviceWorkerError;
+        if (!authContext.roles.includes("system_admin")) throw new ForbiddenError();
+        return {
+          source: "postgres",
+          summary: {
+            totalEvents: 2,
+            replayEvents: 1,
+            recoveryEvents: 1,
+            affectedCommands: 2,
+          },
+          policy: {
+            replayPolicy: "manual_system_admin",
+            allowedReplayStatuses: ["completed", "failed", "cancelled"],
+            allowedReplayCommandTypes: ["bridge_health_check", "device_calibration_request"],
+            payloadVisibility: "backend-only",
+          },
+          events: [{
+            id: "audit-1",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            actorUserId: authContext.userId,
+            action: searchParams?.get?.("action") || "replay",
+            commandId: "10000000-0000-4000-8000-000000000901",
+            correlationId: "corr-audit",
+            createdAt: "2026-05-14T09:50:00.000Z",
+            bridgeId: "10000000-0000-4000-8000-000000000301",
+            deviceId: null,
+            bridgeCode: "br-live-01",
+            commandType: "bridge_health_check",
+            status: searchParams?.get?.("status") || "queued",
+            reason: "safe reason",
+            attemptCount: 3,
+            lifecycleRevision: 4,
+            replayPolicy: "manual_system_admin",
+          }],
+          filters: {
+            action: searchParams?.get?.("action") || "all",
+            status: searchParams?.get?.("status") || "all",
+            limit: Number(searchParams?.get?.("limit") || 25),
+          },
+          scope: { roles: ["system_admin"] },
+        };
+      },
+      async replayCommand(commandId, authContext, body) {
+        if (deviceWorkerError) throw deviceWorkerError;
+        if (!authContext.roles.includes("system_admin")) throw new ForbiddenError();
+        return {
+          scope: { roles: ["system_admin"] },
+          command: {
+            id: "10000000-0000-4000-8000-000000000902",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            bridgeId: "10000000-0000-4000-8000-000000000301",
+            deviceId: null,
+            commandType: "bridge_health_check",
+            status: "queued",
+            reason: body?.reason || "Replay",
+            attemptCount: 0,
+            lifecycleRevision: 0,
+            replayOfCommandId: commandId,
+            replayPolicy: "manual_system_admin",
+          },
+        };
+      },
     },
   };
 }
@@ -476,13 +539,13 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4W");
+  assert.equal(meta.json.stage, "4X");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
-  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery");
+  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
-  assert.equal(meta.json.links.openapi, "/openapi.stage4w.json");
+  assert.equal(meta.json.links.openapi, "/openapi.stage4x.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
   assert.equal(meta.json.links.openapiStage4B, "/openapi.stage4b.json");
   assert.equal(meta.json.links.openapiStage4C, "/openapi.stage4c.json");
@@ -497,6 +560,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage4U, "/openapi.stage4u.json");
   assert.equal(meta.json.links.openapiStage4V, "/openapi.stage4v.json");
   assert.equal(meta.json.links.openapiStage4W, "/openapi.stage4w.json");
+  assert.equal(meta.json.links.openapiStage4X, "/openapi.stage4x.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.deviceBridges, "/api/v1/device-bridges");
@@ -507,6 +571,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.deviceBridgeWorkerStatus, "/api/v1/device-bridge-worker/status");
   assert.equal(meta.json.links.deviceBridgeWorkerHardening, "/api/v1/device-bridge-worker/hardening");
   assert.equal(meta.json.links.deviceBridgeWorkerRecovery, "/api/v1/device-bridge-worker/recovery");
+  assert.equal(meta.json.links.deviceBridgeWorkerAudit, "/api/v1/device-bridge-worker/audit");
+  assert.equal(meta.json.links.deviceBridgeWorkerReplay, "/api/v1/device-bridge-worker/commands/{commandId}/replay");
   assert.equal(meta.json.links.devices, "/api/v1/devices");
   assert.equal(meta.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
@@ -586,6 +652,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi4w.json.info.version, "4W-device-bridge-command-safety");
   assert.ok(openapi4w.json.paths["/api/v1/device-bridge-worker/recovery"].get);
   assert.ok(openapi4w.json.paths["/api/v1/device-bridge-worker/commands/{commandId}/recovery"].post);
+  const openapi4x = await request("/openapi.stage4x.json");
+  assert.equal(openapi4x.status, 200);
+  assert.equal(openapi4x.json.info.version, "4X-device-bridge-audit-replay");
+  assert.ok(openapi4x.json.paths["/api/v1/device-bridge-worker/audit"].get);
+  assert.ok(openapi4x.json.paths["/api/v1/device-bridge-worker/commands/{commandId}/replay"].post);
   assert.ok(openapi4q.json.paths["/api/v1/devices"].get);
   assert.ok(openapi4q.json.paths["/api/v1/device-bridges"].get);
 });
@@ -1090,6 +1161,82 @@ test("Stage 4W · Device Bridge recovery denies non-system-admin", async () => {
     createRuntime(),
     "POST",
     JSON.stringify({ action: "reschedule" }),
+  );
+  assert.equal(action.status, 403);
+  assert.equal(action.json.error.code, "forbidden");
+  assert.doesNotMatch(`${list.body}\n${action.body}`, WORKER_SECRET_ERROR_PATTERN);
+});
+
+test("Stage 4X · system_admin reads Device Bridge command audit safely", async () => {
+  const runtime = createRuntime({
+    authContext: {
+      userId: "10000000-0000-4000-8000-000000000999",
+      displayName: "System Admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+      roleBindings: [{ role: "system_admin", clinicId: null, clinicSlug: null }],
+      token: {},
+    },
+  });
+  const response = await request(
+    "/api/v1/device-bridge-worker/audit?action=replay&status=queued&limit=10",
+    configuredEnv,
+    runtime,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "4X");
+  assert.equal(response.json.summary.replayEvents, 1);
+  assert.equal(response.json.policy.payloadVisibility, "backend-only");
+  assert.equal(response.json.filters.action, "replay");
+  assert.equal(response.json.items[0].action, "replay");
+  assert.deepEqual(response.json.auth.roles, ["system_admin"]);
+  assert.doesNotMatch(response.body, /stage4s-worker-token|metadata_json|payload_json|result_json|access_token|storage_object_path|patient_full_name|navigator\./i);
+});
+
+test("Stage 4X · system_admin replays a safe command through backend policy", async () => {
+  const runtime = createRuntime({
+    authContext: {
+      userId: "10000000-0000-4000-8000-000000000999",
+      displayName: "System Admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+      roleBindings: [{ role: "system_admin", clinicId: null, clinicSlug: null }],
+      token: {},
+    },
+  });
+  const response = await request(
+    "/api/v1/device-bridge-worker/commands/10000000-0000-4000-8000-000000000901/replay",
+    configuredEnv,
+    runtime,
+    "POST",
+    JSON.stringify({ reason: "Replay safe command" }),
+  );
+
+  assert.equal(response.status, 201);
+  assert.equal(response.json.stage, "4X");
+  assert.equal(response.json.replay.persisted, true);
+  assert.equal(response.json.replay.sourceCommandId, "10000000-0000-4000-8000-000000000901");
+  assert.equal(response.json.command.status, "queued");
+  assert.deepEqual(response.json.auth.roles, ["system_admin"]);
+  assert.doesNotMatch(response.body, WORKER_SECRET_ERROR_PATTERN);
+});
+
+test("Stage 4X · Device Bridge audit and replay deny non-system-admin", async () => {
+  const list = await request(
+    "/api/v1/device-bridge-worker/audit",
+    configuredEnv,
+    createRuntime(),
+  );
+  assert.equal(list.status, 403);
+  assert.equal(list.json.error.code, "forbidden");
+
+  const action = await request(
+    "/api/v1/device-bridge-worker/commands/10000000-0000-4000-8000-000000000901/replay",
+    configuredEnv,
+    createRuntime(),
+    "POST",
+    JSON.stringify({ reason: "Replay" }),
   );
   assert.equal(action.status, 403);
   assert.equal(action.json.error.code, "forbidden");
@@ -1665,7 +1812,7 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4W");
+  assert.equal(response.json.stage, "4X");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
@@ -1682,6 +1829,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage4U, "/openapi.stage4u.json");
   assert.equal(response.json.links.openapiStage4V, "/openapi.stage4v.json");
   assert.equal(response.json.links.openapiStage4W, "/openapi.stage4w.json");
+  assert.equal(response.json.links.openapiStage4X, "/openapi.stage4x.json");
   assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(response.json.links.deviceBridges, "/api/v1/device-bridges");
@@ -1691,6 +1839,8 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.deviceBridgeWorkerStatus, "/api/v1/device-bridge-worker/status");
   assert.equal(response.json.links.deviceBridgeWorkerHardening, "/api/v1/device-bridge-worker/hardening");
   assert.equal(response.json.links.deviceBridgeWorkerRecovery, "/api/v1/device-bridge-worker/recovery");
+  assert.equal(response.json.links.deviceBridgeWorkerAudit, "/api/v1/device-bridge-worker/audit");
+  assert.equal(response.json.links.deviceBridgeWorkerReplay, "/api/v1/device-bridge-worker/commands/{commandId}/replay");
   assert.equal(response.json.links.devices, "/api/v1/devices");
   assert.equal(response.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");

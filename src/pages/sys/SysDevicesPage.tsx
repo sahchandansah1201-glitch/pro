@@ -15,9 +15,12 @@ import {
   getSelfHostedDeviceBridgeWorkerStatus,
   getSelfHostedDeviceBridgeWorkerHardening,
   getSelfHostedDeviceBridgeWorkerRecovery,
+  getSelfHostedDeviceBridgeCommandAudit,
   recoverSelfHostedDeviceBridgeWorkerCommand,
+  replaySelfHostedDeviceBridgeCommand,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
+  type SelfHostedDeviceBridgeCommandAuditDTO,
   type SelfHostedDeviceBridgeWorkerHardeningDTO,
   type SelfHostedDeviceBridgeWorkerRecoveryDTO,
   type SelfHostedDeviceBridgeWorkerStatusDTO,
@@ -163,6 +166,8 @@ export default function SysDevicesPage() {
   const [workerHardeningError, setWorkerHardeningError] = useState<string | null>(null);
   const [workerRecovery, setWorkerRecovery] = useState<SelfHostedDeviceBridgeWorkerRecoveryDTO | null>(null);
   const [workerRecoveryError, setWorkerRecoveryError] = useState<string | null>(null);
+  const [workerAudit, setWorkerAudit] = useState<SelfHostedDeviceBridgeCommandAuditDTO | null>(null);
+  const [workerAuditError, setWorkerAuditError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -178,6 +183,8 @@ export default function SysDevicesPage() {
       setWorkerHardeningError(null);
       setWorkerRecovery(null);
       setWorkerRecoveryError(null);
+      setWorkerAudit(null);
+      setWorkerAuditError(null);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -189,6 +196,7 @@ export default function SysDevicesPage() {
     setWorkerStatusError(null);
     setWorkerHardeningError(null);
     setWorkerRecoveryError(null);
+    setWorkerAuditError(null);
     Promise.all([
       listSelfHostedDeviceBridges({
         apiBaseUrl: session.apiBaseUrl,
@@ -220,7 +228,14 @@ export default function SysDevicesPage() {
         leaseTtlSeconds: 90,
         limit: 25,
       }),
-    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult]) => {
+      getSelfHostedDeviceBridgeCommandAudit({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+        action: "all",
+        status: "all",
+        limit: 25,
+      }),
+    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult]) => {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
@@ -230,6 +245,7 @@ export default function SysDevicesPage() {
         setWorkerStatus(null);
         setWorkerHardening(null);
         setWorkerRecovery(null);
+        setWorkerAudit(null);
         return;
       }
       setLiveBridges((bridgeResult.value ?? []).map(bridgeFromDto));
@@ -254,6 +270,14 @@ export default function SysDevicesPage() {
         setWorkerRecovery(null);
         setWorkerRecoveryError(
           recoveryResult?.error?.message || "Не удалось загрузить Device Bridge worker recovery.",
+        );
+      }
+      if (auditResult?.ok) {
+        setWorkerAudit(auditResult.value ?? null);
+      } else {
+        setWorkerAudit(null);
+        setWorkerAuditError(
+          auditResult?.error?.message || "Не удалось загрузить Device Bridge command audit.",
         );
       }
       setLoadStatus("ready");
@@ -393,6 +417,34 @@ export default function SysDevicesPage() {
       return;
     }
     setNote(result.error?.message || "Не удалось выполнить recovery action для Device Bridge command.");
+  }
+
+  async function replayWorkerCommand(commandId: string) {
+    if (!isLive || !session.apiToken) return;
+    const key = `replay:${commandId}`;
+    setCommandBusyKey(key);
+    setNote("Replay команды Device Bridge создаётся backend-side без раскрытия payload в UI.");
+    const result = await replaySelfHostedDeviceBridgeCommand({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      commandId,
+      reason: "Manual replay из Stage 4X command audit панели.",
+    });
+    setCommandBusyKey(null);
+    if (result.ok && result.value) {
+      setWorkerAudit((current) => current
+        ? {
+            ...current,
+            summary: {
+              ...current.summary,
+              replayEvents: current.summary.replayEvents + 1,
+            },
+          }
+        : current);
+      setNote(`Replay команды ${commandId} поставлен в очередь Device Bridge: ${result.value.id}.`);
+      return;
+    }
+    setNote(result.error?.message || "Не удалось выполнить replay команды Device Bridge.");
   }
 
   return (
@@ -720,6 +772,98 @@ export default function SysDevicesPage() {
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
                   {workerRecoveryError || "Device Bridge command recovery ожидает ответ backend."}
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+
+        {isLive && (
+          <section
+            className="space-y-2"
+            aria-label="Device Bridge command audit and replay"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Activity className="h-3.5 w-3.5" aria-hidden />
+                Command audit & replay
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                Stage 4X /api/v1/device-bridge-worker/audit
+              </span>
+            </div>
+            <Card className="p-3">
+              {workerAudit ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <WorkerMetric label="Audit events" value={workerAudit.summary.totalEvents} />
+                    <WorkerMetric label="Replay events" value={workerAudit.summary.replayEvents} />
+                    <WorkerMetric label="Recovery events" value={workerAudit.summary.recoveryEvents} />
+                    <WorkerMetric label="Affected commands" value={workerAudit.summary.affectedCommands} />
+                  </div>
+                  <div
+                    role="region"
+                    aria-label="Device Bridge replay policy"
+                    className="rounded-md border border-border px-3 py-2 text-[12px] text-muted-foreground"
+                  >
+                    <div className="font-semibold text-foreground">Replay policy</div>
+                    <div className="mt-1">
+                      {workerAudit.policy.replayPolicy} · payload {workerAudit.policy.payloadVisibility} · command types{" "}
+                      {workerAudit.policy.allowedReplayCommandTypes.join(", ")}
+                    </div>
+                  </div>
+                  <div
+                    role="region"
+                    aria-label="Device Bridge command audit log"
+                    className="rounded-md border border-border"
+                  >
+                    <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Safe command audit
+                    </div>
+                    <div className="divide-y divide-border/70">
+                      {workerAudit.items.length > 0 ? workerAudit.items.slice(0, 5).map((event) => (
+                        <div key={event.id} className="grid gap-2 px-3 py-2 text-[12px] lg:grid-cols-[1fr_auto_auto] lg:items-center">
+                          <div className="min-w-0">
+                            <div className="truncate font-mono text-[11px] font-semibold">
+                              {event.action} · {event.commandType ?? "command"}
+                            </div>
+                            <div className="truncate text-[11px] text-muted-foreground">
+                              {event.bridgeCode ?? "bridge"} · {event.status} · rev {event.lifecycleRevision}
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {event.replayPolicy ?? "audit"}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 min-h-[44px] sm:min-h-[32px]"
+                            disabled={!event.commandId || commandBusyKey === `replay:${event.commandId}`}
+                            onClick={() => event.commandId ? void replayWorkerCommand(event.commandId) : undefined}
+                          >
+                            {event.commandId && commandBusyKey === `replay:${event.commandId}` ? "Создаём..." : "Replay"}
+                          </Button>
+                        </div>
+                      )) : (
+                        <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
+                          Command audit пока пуст.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    role="note"
+                    aria-label="Device Bridge command audit privacy boundary"
+                    className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+                  >
+                    Stage 4X показывает только append-only audit projection и backend-owned replay policy.
+                    Raw audit metadata, command payloads, worker secrets, storage paths, patient names и
+                    browser hardware APIs не выводятся в UI.
+                  </div>
+                </div>
+              ) : (
+                <div role="status" className="text-[12px] text-muted-foreground">
+                  {workerAuditError || "Device Bridge command audit ожидает ответ backend."}
                 </div>
               )}
             </Card>

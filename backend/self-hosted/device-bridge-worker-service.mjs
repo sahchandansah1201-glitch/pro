@@ -172,6 +172,23 @@ export function normalizeWorkerRecoveryQuery(searchParams = new URLSearchParams(
   };
 }
 
+export function normalizeWorkerCommandAuditQuery(searchParams = new URLSearchParams()) {
+  const action = normalizeStatus(
+    searchParams.get("action"),
+    ["poll", "ack", "complete", "reschedule", "cancel", "replay"],
+    "all",
+  );
+  const status = normalizeTelemetryStatus(
+    searchParams.get("status"),
+    ["queued", "acknowledged", "completed", "failed", "cancelled"],
+  );
+  return {
+    action,
+    status,
+    limit: normalizeTelemetryLimit(searchParams.get("limit")),
+  };
+}
+
 export function normalizeWorkerCommandUpdate(input = {}) {
   if (!isPlainObject(input)) {
     throw new DeviceBridgeWorkerValidationError([{ field: "body", message: "JSON object is required." }]);
@@ -207,6 +224,17 @@ export function normalizeWorkerRecoveryAction(input = {}) {
   return {
     action,
     reason: input.reason ? cleanText(input.reason, "", MAX_REASON_LENGTH) : null,
+  };
+}
+
+export function normalizeWorkerReplayAction(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new DeviceBridgeWorkerValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  return {
+    reason: input.reason
+      ? cleanText(input.reason, "", MAX_REASON_LENGTH)
+      : "Manual system_admin replay",
   };
 }
 
@@ -409,6 +437,62 @@ export function createDeviceBridgeWorkerService({
         },
       });
       return { command, action: payload.action, scope };
+    },
+
+    async listWorkerCommandAudit(authContext, searchParams, { correlationId } = {}) {
+      const scope = opsStatusScope(authContext);
+      const query = normalizeWorkerCommandAuditQuery(searchParams);
+      const result = await deviceBridgeWorkerRepository.listWorkerCommandAudit({
+        ...query,
+        clinicIds: [],
+        allClinics: true,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "device_bridge.command.audit.read",
+        entityType: "device_bridge_command",
+        correlationId,
+        metadata: {
+          totalEvents: result.summary.totalEvents,
+          replayEvents: result.summary.replayEvents,
+          recoveryEvents: result.summary.recoveryEvents,
+          action: query.action,
+          status: query.status,
+          limit: query.limit,
+        },
+      });
+      return {
+        ...result,
+        scope,
+        query,
+      };
+    },
+
+    async replayCommand(commandId, authContext, input, { correlationId } = {}) {
+      const scope = opsStatusScope(authContext);
+      const payload = normalizeWorkerReplayAction(input);
+      const command = requireCommand(await deviceBridgeWorkerRepository.replayCommand({
+        commandId: assertUuid(commandId, "commandId"),
+        actorUserId: authContext.userId,
+        reason: payload.reason,
+      }));
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: command.clinicId,
+        actorUserId: authContext.userId,
+        action: "device_bridge.command.replay",
+        entityType: "device_bridge_command",
+        entityId: command.id,
+        correlationId,
+        metadata: {
+          replayOfCommandId: command.replayOfCommandId,
+          replayPolicy: command.replayPolicy || "manual_system_admin",
+          status: command.status,
+          commandType: command.commandType,
+          roles: scope.roles,
+        },
+      });
+      return { command, scope };
     },
   };
 }

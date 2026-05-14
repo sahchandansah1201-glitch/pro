@@ -214,6 +214,71 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
         }),
       });
     });
+    await page.route("http://localhost:8080/api/v1/device-bridge-worker/audit?limit=25", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4X",
+          source: "postgres",
+          summary: {
+            totalEvents: 4,
+            replayEvents: 1,
+            recoveryEvents: 1,
+            affectedCommands: 2,
+          },
+          policy: {
+            replayPolicy: "manual_system_admin",
+            allowedReplayStatuses: ["completed", "failed", "cancelled"],
+            allowedReplayCommandTypes: ["bridge_health_check", "device_calibration_request"],
+            payloadVisibility: "backend_only",
+          },
+          items: [
+            {
+              id: "audit-e2e",
+              clinicId: "clinic-1",
+              action: "replay",
+              commandId: "cmd-replay-e2e",
+              bridgeId: "br-uuid",
+              bridgeCode: "br-live-01",
+              commandType: "bridge_health_check",
+              status: "failed",
+              attemptCount: 3,
+              lifecycleRevision: 4,
+              replayPolicy: "manual_system_admin",
+              createdAt: "2026-05-14T08:05:00Z",
+              payload_json: { token: "hidden" },
+              metadata_json: { secret: true },
+            },
+          ],
+          filters: { action: "all", status: "all", limit: 25 },
+        }),
+      });
+    });
+    await page.route("http://localhost:8080/api/v1/device-bridge-worker/commands/cmd-replay-e2e/replay", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
+      expect(route.request().method()).toBe("POST");
+      const body = route.request().postDataJSON();
+      expect(body.reason).toContain("Stage 4X");
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({
+          stage: "4X",
+          command: {
+            id: "cmd-replayed-e2e",
+            clinicId: "clinic-1",
+            bridgeId: "br-uuid",
+            bridgeCode: "br-live-01",
+            commandType: "bridge_health_check",
+            status: "queued",
+            replayOfCommandId: "cmd-replay-e2e",
+            replayPolicy: "manual_system_admin",
+          },
+        }),
+      });
+    });
     await page.route("http://localhost:8080/api/v1/device-bridges/br-uuid/commands", async (route) => {
       expect(route.request().headers().authorization).toBe("Bearer jwt-device-e2e");
       expect(route.request().method()).toBe("POST");
@@ -274,6 +339,15 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     await expect(page.getByRole("region", { name: "Device Bridge command recovery queue" })).toContainText(
       "retryable_failed",
     );
+    await expect(page.getByRole("region", { name: "Device Bridge command audit and replay" })).toContainText(
+      "Audit events",
+    );
+    await expect(page.getByRole("region", { name: "Device Bridge replay policy" })).toContainText(
+      "backend_only",
+    );
+    await expect(page.getByRole("region", { name: "Device Bridge command audit log" })).toContainText(
+      "manual_system_admin",
+    );
     await expect(page.getByText("Реестр устройств загружен из backend.")).toBeVisible();
     await expect(page.getByText("Браузер не подключается к драйверу напрямую")).toBeVisible();
 
@@ -283,6 +357,8 @@ test.describe("Stage 4Q/4R · /sys/devices self-hosted registry and commands", (
     await expect(page.getByText(/cmd-device-e2e/)).toBeVisible();
     await page.getByRole("button", { name: "Повторить" }).click();
     await expect(page.getByText(/cmd-recovery-e2e возвращена в очередь/)).toBeVisible();
+    await page.getByRole("button", { name: "Replay" }).click();
+    await expect(page.getByText(/cmd-replay-e2e поставлен в очередь Device Bridge: cmd-replayed-e2e/)).toBeVisible();
 
     const html = await page.locator("main").innerHTML();
     expect(html).not.toContain("access_token");

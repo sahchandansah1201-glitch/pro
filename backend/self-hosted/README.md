@@ -40,9 +40,10 @@ PostgreSQL client used by the container image.
   write/binary boundaries.
 - `openapi.stage4n.json` — production observability status contract.
 - `openapi.stage4q.json`, `openapi.stage4r.json`, `openapi.stage4s.json`,
-  `openapi.stage4u.json`, `openapi.stage4v.json`, `openapi.stage4w.json` —
+  `openapi.stage4u.json`, `openapi.stage4v.json`, `openapi.stage4w.json`,
+  `openapi.stage4x.json` —
   Device Bridge registry, command queue, worker contract, worker observability,
-  production hardening, and command recovery boundaries.
+  production hardening, command recovery, and command audit/replay boundaries.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -61,6 +62,8 @@ PostgreSQL client used by the container image.
   Device Bridge command queue.
 - `db/migrations/0010_stage4s_device_bridge_worker_contract.sql` — worker
   heartbeat/lifecycle metadata and command queue indexes.
+- `db/migrations/0013_stage4x_device_bridge_audit_replay.sql` — command
+  replay metadata and command-audit lookup indexes.
 - `Dockerfile` — backend container used by the self-hosted compose stack.
 
 ## Local commands
@@ -117,6 +120,9 @@ npm run preflight:stage4v
 npm run test:stage4w
 npm run check:stage4w
 npm run preflight:stage4w
+npm run test:stage4x
+npm run check:stage4x
+npm run preflight:stage4x
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -168,3 +174,9 @@ Stage 4W adds worker command leases, stuck-command recovery metadata, and
 system-admin recovery actions at `/api/v1/device-bridge-worker/recovery`
 without exposing raw command payloads, worker tokens, patient identifiers,
 storage paths, or browser hardware APIs.
+Stage 4X adds a safe append-only command audit projection and backend-owned
+manual replay endpoint at `/api/v1/device-bridge-worker/audit` and
+`/api/v1/device-bridge-worker/commands/{commandId}/replay`; replay clones raw
+payload server-side in PostgreSQL, but the API/UI return only safe command
+metadata and never expose worker tokens, raw payloads, storage paths, patient
+identifiers, or browser hardware APIs.

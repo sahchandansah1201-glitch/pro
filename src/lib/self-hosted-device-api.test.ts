@@ -6,10 +6,13 @@ import {
   getSelfHostedDeviceBridgeWorkerHardening,
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeWorkerStatus,
+  getSelfHostedDeviceBridgeCommandAudit,
+  replaySelfHostedDeviceBridgeCommand,
   recoverSelfHostedDeviceBridgeWorkerCommand,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   toSelfHostedDeviceBridgeDTO,
+  toSelfHostedDeviceBridgeCommandAuditDTO,
   toSelfHostedDeviceBridgeWorkerHardeningDTO,
   toSelfHostedDeviceBridgeWorkerRecoveryDTO,
   toSelfHostedDeviceBridgeWorkerStatusDTO,
@@ -205,6 +208,53 @@ describe("self-hosted-device-api", () => {
     expect(JSON.stringify(recovery)).not.toContain("payload_json");
     expect(JSON.stringify(recovery)).not.toContain("result_json");
     expect(JSON.stringify(recovery)).not.toContain("access_token");
+  });
+
+  it("normalizes worker command audit DTO without exposing audit or payload internals", () => {
+    const audit = toSelfHostedDeviceBridgeCommandAuditDTO({
+      stage: "4X",
+      source: "postgres",
+      summary: {
+        totalEvents: 2,
+        replayEvents: 1,
+        recoveryEvents: 1,
+        affectedCommands: 2,
+      },
+      policy: {
+        replayPolicy: "manual_system_admin",
+        allowedReplayStatuses: ["completed", "failed", "cancelled"],
+        allowedReplayCommandTypes: ["bridge_health_check"],
+        payloadVisibility: "backend-only",
+      },
+      items: [
+        {
+          id: "audit-1",
+          clinicId: "clinic-1",
+          actorUserId: "user-1",
+          action: "replay",
+          commandId: "cmd-1",
+          bridgeCode: "br-msk-01",
+          commandType: "bridge_health_check",
+          status: "queued",
+          attemptCount: 1,
+          lifecycleRevision: 2,
+          metadata_json: { token: "hidden" },
+          payload_json: { rawDriver: "hidden" },
+          result_json: { signedUrl: "hidden" },
+        },
+      ],
+      access_token: "secret",
+      storage_object_path: "hidden",
+    });
+
+    expect(audit?.stage).toBe("4X");
+    expect(audit?.summary.replayEvents).toBe(1);
+    expect(audit?.policy.payloadVisibility).toBe("backend-only");
+    expect(audit?.items[0].action).toBe("replay");
+    expect(JSON.stringify(audit)).not.toContain("metadata_json");
+    expect(JSON.stringify(audit)).not.toContain("payload_json");
+    expect(JSON.stringify(audit)).not.toContain("result_json");
+    expect(JSON.stringify(audit)).not.toContain("access_token");
   });
 
   it("returns not_configured before network calls when token is missing", async () => {
@@ -455,5 +505,83 @@ describe("self-hosted-device-api", () => {
     expect(action.value?.recoveryAction).toBe("reschedule");
     expect(String(fetchMock.mock.calls[0][0])).toContain("leaseTtlSeconds=120");
     expect(String(fetchMock.mock.calls[1][0])).toContain("/api/v1/device-bridge-worker/commands/cmd-1/recovery");
+  });
+
+  it("fetches Device Bridge command audit and posts replay actions", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer jwt");
+      if (url.includes("/api/v1/device-bridge-worker/audit?")) {
+        return new Response(
+          JSON.stringify({
+            stage: "4X",
+            source: "postgres",
+            summary: {
+              totalEvents: 2,
+              replayEvents: 1,
+              recoveryEvents: 1,
+              affectedCommands: 2,
+            },
+            policy: {
+              replayPolicy: "manual_system_admin",
+              allowedReplayStatuses: ["completed", "failed", "cancelled"],
+              allowedReplayCommandTypes: ["bridge_health_check"],
+              payloadVisibility: "backend-only",
+            },
+            items: [
+              {
+                id: "audit-1",
+                clinicId: "clinic-1",
+                action: "replay",
+                commandId: "cmd-1",
+                bridgeCode: "br-msk-01",
+                commandType: "bridge_health_check",
+                status: "queued",
+                replayPolicy: "manual_system_admin",
+              },
+            ],
+            filters: { action: "replay", status: "queued", limit: 10 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toBe(JSON.stringify({ reason: "Replay" }));
+      return new Response(
+        JSON.stringify({
+          command: {
+            id: "cmd-2",
+            clinicId: "clinic-1",
+            bridgeId: "br-1",
+            commandType: "bridge_health_check",
+            status: "queued",
+            replayOfCommandId: "cmd-1",
+            replayPolicy: "manual_system_admin",
+          },
+        }),
+        { status: 201, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    const audit = await getSelfHostedDeviceBridgeCommandAudit({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      action: "replay",
+      status: "queued",
+      limit: 10,
+    });
+    const replay = await replaySelfHostedDeviceBridgeCommand({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+      commandId: "cmd-1",
+      reason: "Replay",
+    });
+
+    expect(audit.value?.summary.replayEvents).toBe(1);
+    expect(audit.value?.policy.payloadVisibility).toBe("backend-only");
+    expect(replay.value?.status).toBe("queued");
+    expect(replay.value?.replayOfCommandId).toBe("cmd-1");
+    expect(String(fetchMock.mock.calls[0][0])).toContain("action=replay");
+    expect(String(fetchMock.mock.calls[1][0])).toContain("/api/v1/device-bridge-worker/commands/cmd-1/replay");
   });
 });
