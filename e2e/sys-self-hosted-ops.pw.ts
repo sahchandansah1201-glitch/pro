@@ -33,6 +33,52 @@ const OPS_STATUS = {
   correlationId: "corr-e2e",
 };
 
+const RUNTIME_CHECKS = {
+  stage: "4P",
+  source: "self-hosted",
+  ready: true,
+  status: "ready",
+  checks: [
+    {
+      key: "postgres_connectivity",
+      label: "PostgreSQL connectivity",
+      status: "ready",
+      detail: "PostgreSQL connection verified",
+      connected: true,
+    },
+    {
+      key: "migration_bundle",
+      label: "Migration bundle",
+      status: "ready",
+      detail: "Self-hosted PostgreSQL migration bundle is present",
+      count: 7,
+      expectedCount: 7,
+      latest: "0007_stage4k_deploy_smoke_seed.sql",
+    },
+  ],
+  commands: [
+    {
+      key: "backup_dry_run",
+      label: "Backup dry-run",
+      command: "npm run ops:stage4l:backup:dry-run",
+      description: "Plan backup",
+      status: "ready",
+      dryRunOnly: true,
+    },
+    {
+      key: "deploy_smoke_dry_run",
+      label: "Deploy smoke dry-run",
+      command: "npm run smoke:stage4k:dry-run",
+      description: "Plan smoke",
+      status: "ready",
+      dryRunOnly: true,
+    },
+  ],
+  auth: { userId: "u-1", roles: ["system_admin"] },
+  generatedAt: "2026-05-14T00:00:00.000Z",
+  correlationId: "corr-e2e-runtime",
+};
+
 test.describe("/sys/self-hosted-ops", () => {
   test("system_admin sees ops status and safe audit export preview", async ({ page }) => {
     await setDemoRole(page, "system_admin");
@@ -57,12 +103,31 @@ test.describe("/sys/self-hosted-ops", () => {
         }),
       });
     });
+    await page.route("http://localhost:8080/api/v1/ops/runtime-checks", async (route) => {
+      expect(route.request().headers().authorization).toBe("Bearer jwt-e2e");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...RUNTIME_CHECKS,
+          access_token: "secret",
+          patient_full_name: "Ivanova Natalia",
+          storage_object_path: "bucket/key",
+        }),
+      });
+    });
 
     await page.goto("/sys/self-hosted-ops", { waitUntil: "networkidle" });
 
     await expect(page.getByRole("heading", { name: "Self-hosted ops" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Backend" })).toContainText("Готов");
     await expect(page.getByRole("region", { name: "Self-hosted dependencies" })).toContainText("postgres");
+    await expect(page.getByRole("region", { name: "Self-hosted runtime checks" })).toContainText(
+      "PostgreSQL connectivity",
+    );
+    await expect(page.getByRole("region", { name: "Self-hosted operations dry-runs" })).toContainText(
+      "npm run ops:stage4l:backup:dry-run",
+    );
     await expect(page.getByRole("region", { name: "Self-hosted observability contract" })).toContainText(
       "Structured JSON logs",
     );
@@ -83,6 +148,17 @@ test.describe("/sys/self-hosted-ops", () => {
     const text = await readFile(path!, "utf8");
     expect(text).toContain("Stage 4O audit export preview");
     expect(text).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
+
+    const operationsDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Скачать план" }).click();
+    const operations = await operationsDownload;
+    expect(operations.suggestedFilename()).toBe("stage4p-operations-preview.md");
+    const operationsPath = await operations.path();
+    expect(operationsPath).not.toBeNull();
+    const operationsText = await readFile(operationsPath!, "utf8");
+    expect(operationsText).toContain("Stage 4P operations preview");
+    expect(operationsText).toContain("npm run smoke:stage4k:dry-run");
+    expect(operationsText).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
   });
 
   test("clinic_admin demo role is blocked by route guard", async ({ page }) => {

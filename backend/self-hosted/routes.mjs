@@ -33,6 +33,7 @@ import {
 } from "./asset-write-service.mjs";
 import { createLocalObjectStore } from "./object-store.mjs";
 import { extractCorrelationId, safeRequestPath } from "./ops-logger.mjs";
+import { collectSelfHostedOpsRuntimeChecks } from "./ops-runtime-checks.mjs";
 import { opsStatusScope, patientReadScope, visitReadScope } from "./rbac.mjs";
 import { createVisitWorkspaceRepository } from "./visit-workspace-repository.mjs";
 import { createVisitWorkspaceWriteRepository } from "./visit-workspace-write-repository.mjs";
@@ -65,6 +66,9 @@ const OPENAPI_4J = JSON.parse(
 );
 const OPENAPI_4N = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4n.json"), "utf8"),
+);
+const OPENAPI_4P = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4p.json"), "utf8"),
 );
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
@@ -1076,6 +1080,54 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/ops/runtime-checks") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const scope = opsStatusScope(authContext);
+      const runtimeChecks = await collectSelfHostedOpsRuntimeChecks({
+        config,
+        dbClient: runtimeServices.dbClient,
+        now,
+        correlationId,
+      });
+      await recordAuditBestEffort(
+        runtimeServices.auditRepository,
+        {
+          clinicId: null,
+          actorUserId: authContext.userId,
+          action: "ops.runtime_checks.read",
+          entityType: "ops_runtime_checks",
+          correlationId,
+          metadata: {
+            status: runtimeChecks.status,
+            checkCount: runtimeChecks.checks.length,
+            commandCount: runtimeChecks.commands.length,
+          },
+        },
+      );
+      return jsonResponse(
+        200,
+        {
+          ...runtimeChecks,
+          auth: {
+            userId: authContext.userId,
+            roles: scope.roles,
+          },
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({
+        ...publicError,
+        correlationId,
+        config,
+        requestOrigin,
+      });
+    }
+  }
+
   if (url.pathname === "/healthz") {
     return jsonResponse(
       200,
@@ -1111,7 +1163,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4N",
+        stage: "4P",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -1121,11 +1173,11 @@ export async function handleSelfHostedRequest(
           lesions: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           reports: "rbac-write-postgres",
-          observability: "structured-json-logs-redacted-ops-status",
+          observability: "structured-json-logs-redacted-ops-status-runtime-checks",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4n.json",
+          openapi: "/openapi.stage4p.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
@@ -1135,9 +1187,11 @@ export async function handleSelfHostedRequest(
           openapiStage4I: "/openapi.stage4i.json",
           openapiStage4J: "/openapi.stage4j.json",
           openapiStage4N: "/openapi.stage4n.json",
+          openapiStage4P: "/openapi.stage4p.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
+          opsRuntimeChecks: "/api/v1/ops/runtime-checks",
           patients: "/api/v1/patients",
           patientVisits: "/api/v1/patients/{patientId}/visits",
           visit: "/api/v1/visits/{visitId}",
@@ -1194,10 +1248,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_4N, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage4p.json") {
+    return jsonResponse(200, OPENAPI_4P, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4N self-hosted backend route matched the request.",
+    message: "No Stage 4P self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,

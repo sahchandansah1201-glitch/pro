@@ -1,9 +1,12 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 
 import {
+  buildStage4POperationsPreview,
   buildStage4OAuditExportPreview,
+  fetchSelfHostedOpsRuntimeChecks,
   fetchSelfHostedOpsStatus,
   STAGE4O_AUDIT_EXPORT_COMMAND,
+  toSelfHostedOpsRuntimeChecks,
   toSelfHostedOpsStatus,
 } from "@/lib/self-hosted-ops-api";
 
@@ -36,6 +39,52 @@ const OPS_STATUS_BODY = {
   auth: { userId: "u-1", roles: ["system_admin"] },
   generatedAt: "2026-05-14T00:00:00.000Z",
   correlationId: "corr-1",
+};
+
+const RUNTIME_CHECKS_BODY = {
+  stage: "4P",
+  source: "self-hosted",
+  ready: true,
+  status: "ready",
+  checks: [
+    {
+      key: "postgres_connectivity",
+      label: "PostgreSQL connectivity",
+      status: "ready",
+      detail: "PostgreSQL connection verified",
+      connected: true,
+    },
+    {
+      key: "migration_bundle",
+      label: "Migration bundle",
+      status: "ready",
+      detail: "Self-hosted PostgreSQL migration bundle is present",
+      count: 7,
+      expectedCount: 7,
+      latest: "0007_stage4k_deploy_smoke_seed.sql",
+    },
+  ],
+  commands: [
+    {
+      key: "backup_dry_run",
+      label: "Backup dry-run",
+      command: "npm run ops:stage4l:backup:dry-run",
+      description: "Plan backup",
+      status: "ready",
+      dryRunOnly: true,
+    },
+    {
+      key: "deploy_smoke_dry_run",
+      label: "Deploy smoke dry-run",
+      command: "npm run smoke:stage4k:dry-run",
+      description: "Plan smoke",
+      status: "ready",
+      dryRunOnly: true,
+    },
+  ],
+  auth: { userId: "u-1", roles: ["system_admin"] },
+  generatedAt: "2026-05-14T00:00:00.000Z",
+  correlationId: "corr-4p",
 };
 
 describe("self-hosted-ops-api", () => {
@@ -78,6 +127,36 @@ describe("self-hosted-ops-api", () => {
     );
   });
 
+  it("normalizes and fetches /api/v1/ops/runtime-checks safely", async () => {
+    const normalized = toSelfHostedOpsRuntimeChecks({
+      ...RUNTIME_CHECKS_BODY,
+      patient_full_name: "Ivanova Natalia",
+      storage_object_path: "bucket/key",
+    });
+    expect(normalized?.stage).toBe("4P");
+    expect(normalized?.checks[0].key).toBe("postgres_connectivity");
+    expect(JSON.stringify(normalized)).not.toContain("Ivanova Natalia");
+    expect(JSON.stringify(normalized)).not.toContain("bucket/key");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(RUNTIME_CHECKS_BODY));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await fetchSelfHostedOpsRuntimeChecks({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.commands[0].command).toBe("npm run ops:stage4l:backup:dry-run");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/api/v1/ops/runtime-checks",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt-1",
+        }),
+      }),
+    );
+  });
+
   it("returns not_configured without token", async () => {
     const result = await fetchSelfHostedOpsStatus({
       apiBaseUrl: "http://localhost:8080",
@@ -93,5 +172,15 @@ describe("self-hosted-ops-api", () => {
     expect(preview).toContain(STAGE4O_AUDIT_EXPORT_COMMAND);
     expect(preview).toContain("created_at");
     expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
+  });
+
+  it("builds safe operations preview for server-owned dry runs", () => {
+    const preview = buildStage4POperationsPreview(
+      toSelfHostedOpsRuntimeChecks(RUNTIME_CHECKS_BODY),
+    );
+    expect(preview).toContain("Stage 4P operations preview");
+    expect(preview).toContain("npm run ops:stage4l:backup:dry-run");
+    expect(preview).toContain("npm run smoke:stage4k:dry-run");
+    expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=|patient_full_name/i);
   });
 });

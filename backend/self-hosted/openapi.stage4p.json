@@ -1,0 +1,51 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro self-hosted API",
+    "version": "4P-ops-runtime-checks",
+    "description": "Stage 4P self-hosted operations runtime checks for the full frontend/backend/PostgreSQL/object-storage product."
+  },
+  "paths": {
+    "/api/v1/ops/runtime-checks": {
+      "get": {
+        "summary": "Return safe self-hosted runtime operations checks",
+        "description": "System-admin only endpoint. Returns database connectivity, backend-owned object storage status, migration bundle status, and dry-run operations commands without tokens, patient names, object keys, storage paths, or raw environment values.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe self-hosted runtime operations checks"
+          },
+          "401": {
+            "description": "Authentication is required"
+          },
+          "403": {
+            "description": "Only system_admin can view operations runtime checks"
+          }
+        }
+      }
+    },
+    "/openapi.stage4p.json": {
+      "get": {
+        "summary": "Stage 4P OpenAPI document",
+        "responses": {
+          "200": {
+            "description": "OpenAPI document"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

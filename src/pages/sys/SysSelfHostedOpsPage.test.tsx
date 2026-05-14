@@ -43,6 +43,52 @@ const OPS_STATUS_BODY = {
   correlationId: "corr-4o",
 };
 
+const RUNTIME_CHECKS_BODY = {
+  stage: "4P",
+  source: "self-hosted",
+  ready: true,
+  status: "ready",
+  checks: [
+    {
+      key: "postgres_connectivity",
+      label: "PostgreSQL connectivity",
+      status: "ready",
+      detail: "PostgreSQL connection verified",
+      connected: true,
+    },
+    {
+      key: "migration_bundle",
+      label: "Migration bundle",
+      status: "ready",
+      detail: "Self-hosted PostgreSQL migration bundle is present",
+      count: 7,
+      expectedCount: 7,
+      latest: "0007_stage4k_deploy_smoke_seed.sql",
+    },
+  ],
+  commands: [
+    {
+      key: "backup_dry_run",
+      label: "Backup dry-run",
+      command: "npm run ops:stage4l:backup:dry-run",
+      description: "Plan backup",
+      status: "ready",
+      dryRunOnly: true,
+    },
+    {
+      key: "deploy_smoke_dry_run",
+      label: "Deploy smoke dry-run",
+      command: "npm run smoke:stage4k:dry-run",
+      description: "Plan smoke",
+      status: "ready",
+      dryRunOnly: true,
+    },
+  ],
+  auth: { userId: "u-1", roles: ["system_admin"] },
+  generatedAt: "2026-05-14T00:00:00.000Z",
+  correlationId: "corr-4p",
+};
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -108,7 +154,12 @@ describe("SysSelfHostedOpsPage", () => {
         patient_full_name: "Ivanova Natalia",
         storage_object_path: "bucket/key",
       }),
-    );
+    ).mockResolvedValueOnce(jsonResponse({
+      ...RUNTIME_CHECKS_BODY,
+      access_token: "secret",
+      patient_full_name: "Ivanova Natalia",
+      storage_object_path: "bucket/key",
+    }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { container } = renderPage();
@@ -123,7 +174,20 @@ describe("SysSelfHostedOpsPage", () => {
         headers: expect.objectContaining({ Authorization: "Bearer jwt-ops" }),
       }),
     );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/api/v1/ops/runtime-checks",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt-ops" }),
+      }),
+    );
     expect(screen.getByRole("region", { name: "Self-hosted dependencies" })).toHaveTextContent("postgres");
+    expect(screen.getByRole("region", { name: "Self-hosted runtime checks" })).toHaveTextContent(
+      "PostgreSQL connectivity",
+    );
+    expect(screen.getByRole("region", { name: "Self-hosted operations dry-runs" })).toHaveTextContent(
+      "npm run ops:stage4l:backup:dry-run",
+    );
     expect(screen.getByRole("region", { name: "Self-hosted observability contract" })).toHaveTextContent(
       "Structured JSON logs",
     );
@@ -140,6 +204,17 @@ describe("SysSelfHostedOpsPage", () => {
   it("shows role warning and backend 403 message for non-system-admin session", async () => {
     seedSession(["doctor"]);
     const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            code: "forbidden",
+            message: "The authenticated user does not have access to this resource.",
+          },
+          correlationId: "corr-denied",
+        },
+        { status: 403 },
+      ),
+    ).mockResolvedValueOnce(
       jsonResponse(
         {
           error: {
@@ -167,7 +242,12 @@ describe("SysSelfHostedOpsPage", () => {
 
   it("downloads a safe audit export preview", async () => {
     seedSession();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(jsonResponse(OPS_STATUS_BODY)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse(OPS_STATUS_BODY))
+        .mockResolvedValueOnce(jsonResponse(RUNTIME_CHECKS_BODY)),
+    );
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     renderPage();
@@ -179,6 +259,30 @@ describe("SysSelfHostedOpsPage", () => {
     expect(click).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("status", { name: "Статус self-hosted ops" })).toHaveTextContent(
       /Audit export dry-run preview скачан/,
+    );
+  });
+
+  it("downloads a safe operations dry-run preview", async () => {
+    seedSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse(OPS_STATUS_BODY))
+        .mockResolvedValueOnce(jsonResponse(RUNTIME_CHECKS_BODY)),
+    );
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: "Self-hosted runtime checks" })).toHaveTextContent(
+        "Migration bundle",
+      );
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Скачать план" }));
+
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status", { name: "Статус self-hosted ops" })).toHaveTextContent(
+      /Operations dry-run preview скачан/,
     );
   });
 });
