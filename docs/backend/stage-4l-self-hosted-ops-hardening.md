@@ -27,6 +27,7 @@ Replace every `replace-me-*` value before starting the stack. In production:
 
 - `POSTGRES_PASSWORD` is generated and unique to the server.
 - `JWT_SECRET` is at least 32 random characters.
+- `DEVICE_BRIDGE_WORKER_TOKEN` is generated, at least 32 random characters, and only shared with the local Device Bridge worker.
 - `MINIO_ROOT_PASSWORD` is generated even if MinIO is only used for inspection.
 - `.env.production` is never committed.
 

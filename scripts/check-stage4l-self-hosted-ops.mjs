@@ -21,6 +21,7 @@ const REQUIRED_TEXT = {
   "deploy/self-hosted/.env.production.example": [
     "POSTGRES_PASSWORD=replace-me-postgres-password",
     "JWT_SECRET=replace-me-with-64-random-characters",
+    "DEVICE_BRIDGE_WORKER_TOKEN=replace-me-with-64-random-characters-worker-token",
     "MINIO_ROOT_PASSWORD=replace-me-minio-password",
     "BACKUP_RETENTION_DAYS=14",
   ],
@@ -38,6 +39,7 @@ const REQUIRED_TEXT = {
     "stage4l-backup-manifest.json",
     "smoke:stage4k",
     "verifyEnvText",
+    "DEVICE_BRIDGE_WORKER_TOKEN",
   ],
   "docs/backend/stage-4l-self-hosted-ops-hardening.md": [
     "Stage 4L",

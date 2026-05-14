@@ -33,6 +33,7 @@ export function readSelfHostedConfig(env = process.env) {
     objectStorageEndpoint: env.OBJECT_STORAGE_ENDPOINT || "",
     objectStorageBucket: env.OBJECT_STORAGE_BUCKET || "clinical-assets",
     objectStorageLocalDir: env.OBJECT_STORAGE_LOCAL_DIR || ".self-hosted/object-storage",
+    deviceBridgeWorkerToken: env.DEVICE_BRIDGE_WORKER_TOKEN || "",
     jwtIssuer: env.JWT_ISSUER || "dermatolog-pro",
     jwtSecret: env.JWT_SECRET || "",
     jwtExpiresInSeconds: parsePositiveInteger(
