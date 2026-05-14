@@ -93,6 +93,9 @@ const OPENAPI_4U = JSON.parse(
 const OPENAPI_4V = JSON.parse(
   readFileSync(join(HERE, "openapi.stage4v.json"), "utf8"),
 );
+const OPENAPI_4W = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage4w.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -1215,6 +1218,78 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/device-bridge-worker/recovery" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.deviceBridgeWorkerService.listWorkerRecovery(
+        authContext,
+        url.searchParams,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4W",
+          source: result.source,
+          summary: result.summary,
+          policy: result.policy,
+          items: result.commands,
+          count: result.commands.length,
+          filters: result.filters,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const workerCommandRecoveryMatch = url.pathname.match(
+    /^\/api\/v1\/device-bridge-worker\/commands\/([^/]+)\/recovery$/,
+  );
+  if (workerCommandRecoveryMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.deviceBridgeWorkerService.recoverCommand(
+        decodeURIComponent(workerCommandRecoveryMatch[1]),
+        authContext,
+        parseJsonBody(request.body),
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "4W",
+          source: "postgres",
+          command: result.command,
+          recovery: {
+            action: result.action,
+            persisted: true,
+          },
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (method !== "GET") {
     return errorResponse({
       status: 405,
@@ -1574,7 +1649,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4V",
+        stage: "4W",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -1584,13 +1659,13 @@ export async function handleSelfHostedRequest(
           lesions: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
-          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening",
+          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery",
           reports: "rbac-write-postgres",
           observability: "structured-json-logs-redacted-ops-status-runtime-checks",
           audit: "append-only-contract",
         },
         links: {
-          openapi: "/openapi.stage4v.json",
+          openapi: "/openapi.stage4w.json",
           openapiStage4A: "/openapi.stage4a.json",
           openapiStage4B: "/openapi.stage4b.json",
           openapiStage4C: "/openapi.stage4c.json",
@@ -1606,6 +1681,7 @@ export async function handleSelfHostedRequest(
           openapiStage4S: "/openapi.stage4s.json",
           openapiStage4U: "/openapi.stage4u.json",
           openapiStage4V: "/openapi.stage4v.json",
+          openapiStage4W: "/openapi.stage4w.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -1617,6 +1693,7 @@ export async function handleSelfHostedRequest(
           deviceBridgeWorkerCommand: "/api/v1/device-bridge-worker/commands/{commandId}",
           deviceBridgeWorkerStatus: "/api/v1/device-bridge-worker/status",
           deviceBridgeWorkerHardening: "/api/v1/device-bridge-worker/hardening",
+          deviceBridgeWorkerRecovery: "/api/v1/device-bridge-worker/recovery",
           devices: "/api/v1/devices",
           deviceCommands: "/api/v1/devices/{deviceId}/commands",
           patients: "/api/v1/patients",
@@ -1697,6 +1774,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage4v.json") {
     return jsonResponse(200, OPENAPI_4V, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage4w.json") {
+    return jsonResponse(200, OPENAPI_4W, config, requestOrigin);
   }
 
   return errorResponse({

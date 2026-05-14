@@ -74,6 +74,12 @@ function normalizeStaleAfterMinutes(value) {
   return Math.min(parsed, 1440);
 }
 
+function normalizeLeaseTtlSeconds(value) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 90;
+  return Math.min(parsed, 3600);
+}
+
 export function buildWorkerHeartbeatSql({
   clinicId,
   bridgeCode,
@@ -174,6 +180,8 @@ touched as (
       last_polled_at = now(),
       attempt_count = coalesce(c.attempt_count, 0) + 1,
       next_attempt_at = now() + make_interval(secs => least(300, greatest(10, (coalesce(c.attempt_count, 0) + 1) * 15))),
+      lease_owner = ${sqlLiteral(bridgeCode)},
+      lease_expires_at = now() + interval '90 seconds',
       updated_at = now()
   from target
   where c.id = target.id
@@ -195,6 +203,8 @@ from (
     c.dispatched_at as "dispatchedAt",
     c.last_polled_at as "lastPolledAt",
     c.next_attempt_at as "nextAttemptAt",
+    c.lease_owner as "leaseOwner",
+    c.lease_expires_at as "leaseExpiresAt",
     c.acknowledged_at as "acknowledgedAt"
   from touched c
 ) result;
@@ -248,6 +258,8 @@ updated as (
       else c.result_json
     end,
     next_attempt_at = null,
+    lease_owner = null,
+    lease_expires_at = null,
     last_worker_error = case
       when ${sqlLiteral(safeStatus)} = 'failed' then left(coalesce(${sqlLiteral(result?.message || "")}, c.last_worker_error, ''), 500)
       else c.last_worker_error
@@ -282,6 +294,8 @@ from (
     c.dispatched_at as "dispatchedAt",
     c.last_polled_at as "lastPolledAt",
     c.next_attempt_at as "nextAttemptAt",
+    c.lease_owner as "leaseOwner",
+    c.lease_expires_at as "leaseExpiresAt",
     c.acknowledged_at as "acknowledgedAt",
     c.completed_at as "completedAt"
   from resolved c
@@ -482,6 +496,176 @@ select jsonb_build_object(
 `.trim();
 }
 
+export function buildListWorkerRecoverySql({
+  clinicIds = [],
+  allClinics = false,
+  staleAfterMinutes = 10,
+  leaseTtlSeconds = 90,
+  limit = 25,
+} = {}) {
+  const safeLimitValue = safeLimit(limit, 25, 100);
+  const safeStaleAfterMinutes = normalizeStaleAfterMinutes(staleAfterMinutes);
+  const safeLeaseTtlSeconds = normalizeLeaseTtlSeconds(leaseTtlSeconds);
+  return `
+with scoped_commands as (
+  select
+    c.*,
+    b.bridge_code,
+    d.serial as device_serial,
+    case
+      when c.status in ('queued', 'acknowledged') and c.expires_at <= now() then 'expired'
+      when c.status in ('queued', 'acknowledged') and c.lease_expires_at <= now() then 'lease_expired'
+      when c.status in ('queued', 'acknowledged')
+        and c.last_polled_at < now() - (${safeStaleAfterMinutes}::text || ' minutes')::interval then 'stuck'
+      when c.status = 'failed' then 'retryable_failed'
+      when c.status in ('queued', 'acknowledged') and c.next_attempt_at > now() then 'backoff_wait'
+      else 'active'
+    end as recovery_state
+  from device_bridge_commands c
+  left join device_bridges b on b.id = c.bridge_id
+  left join medical_devices d on d.id = c.device_id
+  where c.status in ('queued', 'acknowledged', 'failed')
+    ${clinicScopeWhere("c", { clinicIds, allClinics })}
+),
+summary as (
+  select
+    count(*) filter (where recovery_state in ('stuck', 'lease_expired'))::int as stuck_commands,
+    count(*) filter (where recovery_state = 'expired')::int as expired_commands,
+    count(*) filter (where recovery_state = 'lease_expired')::int as lease_expired_commands,
+    count(*) filter (where status = 'failed')::int as retryable_commands,
+    count(*) filter (where status in ('queued', 'acknowledged', 'failed'))::int as cancellable_commands
+  from scoped_commands
+),
+ranked as (
+  select *
+  from scoped_commands
+  order by
+    case recovery_state
+      when 'expired' then 1
+      when 'lease_expired' then 2
+      when 'stuck' then 3
+      when 'retryable_failed' then 4
+      when 'backoff_wait' then 5
+      else 6
+    end,
+    created_at asc
+  limit ${safeLimitValue}
+)
+select jsonb_build_object(
+  'summary', jsonb_build_object(
+    'stuckCommands', coalesce((select stuck_commands from summary), 0),
+    'expiredCommands', coalesce((select expired_commands from summary), 0),
+    'leaseExpiredCommands', coalesce((select lease_expired_commands from summary), 0),
+    'retryableCommands', coalesce((select retryable_commands from summary), 0),
+    'cancellableCommands', coalesce((select cancellable_commands from summary), 0)
+  ),
+  'policy', jsonb_build_object(
+    'staleAfterMinutes', ${safeStaleAfterMinutes},
+    'leaseTtlSeconds', ${safeLeaseTtlSeconds},
+    'maxRecoveryBatch', 100,
+    'allowedActions', jsonb_build_array('reschedule', 'cancel')
+  ),
+  'commands',
+  coalesce((
+    select jsonb_agg(row_to_json(result) order by result."recoveryState", result."createdAt")
+    from (
+      select
+        c.id::text as "id",
+        c.clinic_id::text as "clinicId",
+        c.bridge_id::text as "bridgeId",
+        c.device_id::text as "deviceId",
+        c.bridge_code as "bridgeCode",
+        c.device_serial as "deviceSerial",
+        c.command_type as "commandType",
+        c.status as "status",
+        c.reason as "reason",
+        coalesce(c.attempt_count, 0)::int as "attemptCount",
+        coalesce(c.lifecycle_revision, 0)::int as "lifecycleRevision",
+        c.created_at as "createdAt",
+        c.dispatched_at as "dispatchedAt",
+        c.last_polled_at as "lastPolledAt",
+        c.next_attempt_at as "nextAttemptAt",
+        c.lease_owner as "leaseOwner",
+        c.lease_expires_at as "leaseExpiresAt",
+        c.expires_at as "expiresAt",
+        c.recovery_action as "recoveryAction",
+        c.recovery_reason as "recoveryReason",
+        c.recovery_requested_at as "recoveryRequestedAt",
+        c.recovery_state as "recoveryState"
+      from ranked c
+    ) result
+  ), '[]'::jsonb)
+)::text;
+`.trim();
+}
+
+export function buildRecoverWorkerCommandSql({
+  commandId,
+  action,
+  reason = null,
+  actorUserId = null,
+} = {}) {
+  const safeCommandId = assertUuid(commandId, "commandId");
+  const safeAction = normalizeStatus(action, ["reschedule", "cancel"], "reschedule");
+  const statusSql = safeAction === "cancel" ? "'cancelled'" : "'queued'";
+  const completedSql = safeAction === "cancel" ? "coalesce(c.completed_at, now())" : "null";
+  const nextAttemptSql = safeAction === "cancel" ? "null" : "now()";
+  const lastErrorSql = safeAction === "cancel" ? "c.last_worker_error" : "null";
+  return `
+with target as (
+  select c.*
+  from device_bridge_commands c
+  where c.id = ${sqlUuid(safeCommandId)}
+    and c.status in ('queued', 'acknowledged', 'failed')
+  limit 1
+),
+updated as (
+  update device_bridge_commands c
+  set
+    status = ${statusSql},
+    next_attempt_at = ${nextAttemptSql},
+    lease_owner = null,
+    lease_expires_at = null,
+    completed_at = ${completedSql},
+    last_worker_error = ${lastErrorSql},
+    recovery_action = ${sqlLiteral(safeAction)},
+    recovery_reason = left(coalesce(${sqlLiteral(reason || "")}, ''), 240),
+    recovery_requested_at = now(),
+    recovered_by = ${nullableUuid(actorUserId)},
+    lifecycle_revision = coalesce(c.lifecycle_revision, 0) + 1,
+    updated_at = now()
+  from target t
+  where c.id = t.id
+  returning c.*
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    c.id::text as "id",
+    c.clinic_id::text as "clinicId",
+    c.bridge_id::text as "bridgeId",
+    c.device_id::text as "deviceId",
+    c.command_type as "commandType",
+    c.status as "status",
+    c.reason as "reason",
+    coalesce(c.attempt_count, 0)::int as "attemptCount",
+    coalesce(c.lifecycle_revision, 0)::int as "lifecycleRevision",
+    c.created_at as "createdAt",
+    c.dispatched_at as "dispatchedAt",
+    c.last_polled_at as "lastPolledAt",
+    c.next_attempt_at as "nextAttemptAt",
+    c.lease_owner as "leaseOwner",
+    c.lease_expires_at as "leaseExpiresAt",
+    c.expires_at as "expiresAt",
+    c.recovery_action as "recoveryAction",
+    c.recovery_reason as "recoveryReason",
+    c.recovery_requested_at as "recoveryRequestedAt",
+    c.completed_at as "completedAt"
+  from updated c
+) result;
+`.trim();
+}
+
 function normalizeBridge(row = {}) {
   return {
     id: String(row.id || ""),
@@ -513,8 +697,15 @@ function normalizeCommand(row = {}) {
     dispatchedAt: row.dispatchedAt ? String(row.dispatchedAt) : null,
     lastPolledAt: row.lastPolledAt ? String(row.lastPolledAt) : null,
     nextAttemptAt: row.nextAttemptAt ? String(row.nextAttemptAt) : null,
+    leaseOwner: row.leaseOwner ? String(row.leaseOwner) : null,
+    leaseExpiresAt: row.leaseExpiresAt ? String(row.leaseExpiresAt) : null,
     acknowledgedAt: row.acknowledgedAt ? String(row.acknowledgedAt) : null,
     completedAt: row.completedAt ? String(row.completedAt) : null,
+    expiresAt: row.expiresAt ? String(row.expiresAt) : null,
+    recoveryAction: row.recoveryAction ? String(row.recoveryAction) : null,
+    recoveryReason: row.recoveryReason ? String(row.recoveryReason) : null,
+    recoveryRequestedAt: row.recoveryRequestedAt ? String(row.recoveryRequestedAt) : null,
+    recoveryState: row.recoveryState ? String(row.recoveryState) : null,
   };
 }
 
@@ -610,6 +801,38 @@ function normalizeHardeningPayload(payload = {}, params = {}) {
   };
 }
 
+function normalizeRecoveryPayload(payload = {}, params = {}) {
+  const summary = payload.summary && typeof payload.summary === "object" ? payload.summary : {};
+  const policy = payload.policy && typeof payload.policy === "object" ? payload.policy : {};
+  const commands = Array.isArray(payload.commands) ? payload.commands.map(normalizeCommand) : [];
+  return {
+    source: "postgres",
+    summary: {
+      stuckCommands: Number(summary.stuckCommands || 0),
+      expiredCommands: Number(summary.expiredCommands || 0),
+      leaseExpiredCommands: Number(summary.leaseExpiredCommands || 0),
+      retryableCommands: Number(summary.retryableCommands || 0),
+      cancellableCommands: Number(summary.cancellableCommands || 0),
+    },
+    policy: {
+      staleAfterMinutes: Number(policy.staleAfterMinutes || normalizeStaleAfterMinutes(params.staleAfterMinutes)),
+      leaseTtlSeconds: Number(policy.leaseTtlSeconds || normalizeLeaseTtlSeconds(params.leaseTtlSeconds)),
+      maxRecoveryBatch: Number(policy.maxRecoveryBatch || 100),
+      allowedActions: Array.isArray(policy.allowedActions)
+        ? policy.allowedActions.map(String).filter((item) => ["reschedule", "cancel"].includes(item))
+        : ["reschedule", "cancel"],
+    },
+    commands,
+    filters: {
+      limit: safeLimit(params.limit, 25, 100),
+      staleAfterMinutes: normalizeStaleAfterMinutes(params.staleAfterMinutes),
+      leaseTtlSeconds: normalizeLeaseTtlSeconds(params.leaseTtlSeconds),
+    },
+    clinicIds: safeClinicIds(params.clinicIds),
+    allClinics: Boolean(params.allClinics),
+  };
+}
+
 function first(value) {
   return Array.isArray(value) && value.length > 0 ? value[0] : null;
 }
@@ -666,6 +889,17 @@ export function createDeviceBridgeWorkerRepository(dbClient) {
       const rows = await dbClient.queryJson(buildListWorkerHardeningSql(params));
       const payload = Array.isArray(rows) ? first(rows) || {} : rows || {};
       return normalizeHardeningPayload(payload, params);
+    },
+
+    async listWorkerRecovery(params = {}) {
+      const rows = await dbClient.queryJson(buildListWorkerRecoverySql(params));
+      const payload = Array.isArray(rows) ? first(rows) || {} : rows || {};
+      return normalizeRecoveryPayload(payload, params);
+    },
+
+    async recoverCommand(params = {}) {
+      const row = first(await dbClient.queryJson(buildRecoverWorkerCommandSql(params)));
+      return row ? normalizeCommand(row) : null;
     },
   };
 }

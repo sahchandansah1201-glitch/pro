@@ -10,6 +10,7 @@ const MAX_BRIDGE_CODE_LENGTH = 80;
 const MAX_HOST_LENGTH = 120;
 const MAX_VERSION_LENGTH = 48;
 const MAX_MESSAGE_LENGTH = 500;
+const MAX_REASON_LENGTH = 240;
 const MAX_RESULT_KEYS = 20;
 const SENSITIVE_KEY_PATTERN = /(token|secret|password|cookie|signed|signature|object[_-]?key|storage[_-]?path|patient[_-]?name|email)/i;
 
@@ -86,6 +87,12 @@ function normalizeStaleAfterMinutes(value) {
   return Math.min(parsed, 1440);
 }
 
+function normalizeLeaseTtlSeconds(value) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 90;
+  return Math.min(parsed, 3600);
+}
+
 function normalizeTelemetryStatus(value, allowed, fallback = "all") {
   const raw = String(value || "all");
   return raw === "all" || allowed.includes(raw) ? raw : fallback;
@@ -157,6 +164,14 @@ export function normalizeWorkerHardeningQuery(searchParams = new URLSearchParams
   };
 }
 
+export function normalizeWorkerRecoveryQuery(searchParams = new URLSearchParams()) {
+  return {
+    limit: normalizeTelemetryLimit(searchParams.get("limit")),
+    staleAfterMinutes: normalizeStaleAfterMinutes(searchParams.get("staleAfterMinutes")),
+    leaseTtlSeconds: normalizeLeaseTtlSeconds(searchParams.get("leaseTtlSeconds")),
+  };
+}
+
 export function normalizeWorkerCommandUpdate(input = {}) {
   if (!isPlainObject(input)) {
     throw new DeviceBridgeWorkerValidationError([{ field: "body", message: "JSON object is required." }]);
@@ -176,6 +191,22 @@ export function normalizeWorkerCommandUpdate(input = {}) {
       message: input.message ? cleanText(input.message, "", MAX_MESSAGE_LENGTH) : null,
       payload: sanitizeWorkerResult(input.result || {}),
     },
+  };
+}
+
+export function normalizeWorkerRecoveryAction(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new DeviceBridgeWorkerValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  const action = normalizeStatus(input.action, ["reschedule", "cancel"], "");
+  if (!action) {
+    throw new DeviceBridgeWorkerValidationError([
+      { field: "action", message: "action must be reschedule or cancel." },
+    ]);
+  }
+  return {
+    action,
+    reason: input.reason ? cleanText(input.reason, "", MAX_REASON_LENGTH) : null,
   };
 }
 
@@ -321,6 +352,63 @@ export function createDeviceBridgeWorkerService({
         scope,
         query,
       };
+    },
+
+    async listWorkerRecovery(authContext, searchParams, { correlationId } = {}) {
+      const scope = opsStatusScope(authContext);
+      const query = normalizeWorkerRecoveryQuery(searchParams);
+      const result = await deviceBridgeWorkerRepository.listWorkerRecovery({
+        ...query,
+        clinicIds: [],
+        allClinics: true,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "device_bridge.worker.recovery.read",
+        entityType: "device_bridge_command",
+        correlationId,
+        metadata: {
+          stuckCommands: result.summary.stuckCommands,
+          expiredCommands: result.summary.expiredCommands,
+          leaseExpiredCommands: result.summary.leaseExpiredCommands,
+          retryableCommands: result.summary.retryableCommands,
+          limit: query.limit,
+        },
+      });
+      return {
+        ...result,
+        scope,
+        query,
+      };
+    },
+
+    async recoverCommand(commandId, authContext, input, { correlationId } = {}) {
+      const scope = opsStatusScope(authContext);
+      const payload = normalizeWorkerRecoveryAction(input);
+      const command = requireCommand(await deviceBridgeWorkerRepository.recoverCommand({
+        commandId: assertUuid(commandId, "commandId"),
+        action: payload.action,
+        reason: payload.reason,
+        actorUserId: authContext.userId,
+      }));
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: command.clinicId,
+        actorUserId: authContext.userId,
+        action: `device_bridge.command.${payload.action}`,
+        entityType: "device_bridge_command",
+        entityId: command.id,
+        correlationId,
+        metadata: {
+          action: payload.action,
+          reason: payload.reason,
+          status: command.status,
+          lifecycleRevision: command.lifecycleRevision || 0,
+          attemptCount: command.attemptCount || 0,
+          roles: scope.roles,
+        },
+      });
+      return { command, action: payload.action, scope };
     },
   };
 }

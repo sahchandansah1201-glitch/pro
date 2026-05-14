@@ -145,6 +145,54 @@ describe("SysDevicesPage", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/recovery") || url.includes("/api/v1/device-bridge-worker/commands/cmd-retry/recovery")) {
+        if (init?.method === "POST") {
+          expect(init.body).toBe(JSON.stringify({ action: "reschedule", reason: "Повторная постановка из production recovery панели." }));
+          return new Response(
+            JSON.stringify({
+              command: {
+                id: "cmd-retry",
+                clinicId: "clinic-1",
+                bridgeId: "br-uuid",
+                bridgeCode: "br-live-01",
+                commandType: "bridge_health_check",
+                status: "queued",
+                attemptCount: 3,
+                recoveryAction: "reschedule",
+              },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            stage: "4W",
+            source: "postgres",
+            summary: {
+              stuckCommands: 1,
+              expiredCommands: 0,
+              leaseExpiredCommands: 1,
+              retryableCommands: 1,
+              cancellableCommands: 2,
+            },
+            policy: { staleAfterMinutes: 10, leaseTtlSeconds: 90, maxRecoveryBatch: 100, allowedActions: ["reschedule", "cancel"] },
+            items: [
+              {
+                id: "cmd-retry",
+                clinicId: "clinic-1",
+                bridgeId: "br-uuid",
+                bridgeCode: "br-live-01",
+                commandType: "bridge_health_check",
+                status: "failed",
+                attemptCount: 3,
+                recoveryState: "retryable_failed",
+              },
+            ],
+            filters: { staleAfterMinutes: 10, leaseTtlSeconds: 90, limit: 25 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -210,7 +258,16 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("note", { name: "Device Bridge worker hardening privacy boundary" })).toHaveTextContent(
       "retention cleanup candidates",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(screen.getByRole("region", { name: "Device Bridge command recovery" })).toHaveTextContent(
+      "Retryable failed",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge command recovery queue" })).toHaveTextContent(
+      "retryable_failed",
+    );
+    expect(screen.getByRole("note", { name: "Device Bridge command recovery privacy boundary" })).toHaveTextContent(
+      "recovery audit",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(5);
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
@@ -220,7 +277,11 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
     expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+
+    fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
+    expect(await screen.findByText(/Команда cmd-retry возвращена в очередь Device Bridge/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

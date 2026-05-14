@@ -40,8 +40,9 @@ PostgreSQL client used by the container image.
   write/binary boundaries.
 - `openapi.stage4n.json` — production observability status contract.
 - `openapi.stage4q.json`, `openapi.stage4r.json`, `openapi.stage4s.json`,
-  `openapi.stage4u.json` — Device Bridge registry, command queue, worker
-  contract, and worker observability boundaries.
+  `openapi.stage4u.json`, `openapi.stage4v.json`, `openapi.stage4w.json` —
+  Device Bridge registry, command queue, worker contract, worker observability,
+  production hardening, and command recovery boundaries.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -113,6 +114,9 @@ npm run preflight:stage4u
 npm run test:stage4v
 npm run check:stage4v
 npm run preflight:stage4v
+npm run test:stage4w
+npm run check:stage4w
+npm run preflight:stage4w
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -160,3 +164,7 @@ Stage 4V hardens the Device Bridge worker queue with idempotent lifecycle
 updates, poll backoff metadata, stale-worker and queue-age metrics, and
 retention cleanup planning exposed through
 `/api/v1/device-bridge-worker/hardening`.
+Stage 4W adds worker command leases, stuck-command recovery metadata, and
+system-admin recovery actions at `/api/v1/device-bridge-worker/recovery`
+without exposing raw command payloads, worker tokens, patient identifiers,
+storage paths, or browser hardware APIs.

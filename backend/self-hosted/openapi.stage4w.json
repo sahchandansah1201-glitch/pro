@@ -1,0 +1,138 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Device Bridge command safety",
+    "version": "4W-device-bridge-command-safety",
+    "description": "Stage 4W exposes safe system-admin Device Bridge command recovery controls for stuck, expired, leased, or failed commands. It keeps execution self-hosted and does not expose worker tokens, raw command payloads, raw command results, storage paths, patient names, signed URLs, or browser hardware APIs."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/device-bridge-worker/recovery": {
+      "get": {
+        "summary": "Read Device Bridge command recovery queue",
+        "description": "Returns safe command lifecycle metadata for stale, lease-expired, expired, backoff-delayed, and retryable failed commands.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "staleAfterMinutes",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "default": 10
+            }
+          },
+          {
+            "name": "leaseTtlSeconds",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600,
+              "default": 90
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safe Device Bridge worker recovery projection"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only system_admin can read command recovery data"
+          }
+        }
+      }
+    },
+    "/api/v1/device-bridge-worker/commands/{commandId}/recovery": {
+      "post": {
+        "summary": "Reschedule or cancel a stuck Device Bridge command",
+        "description": "System-admin command recovery action. The backend only updates PostgreSQL lifecycle metadata; hardware execution remains inside the local Device Bridge worker.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "commandId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["reschedule", "cancel"]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 240
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command recovery action persisted"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only system_admin can run command recovery actions"
+          },
+          "404": {
+            "description": "Recoverable command not found"
+          },
+          "422": {
+            "description": "Invalid recovery action"
+          }
+        }
+      }
+    }
+  }
+}

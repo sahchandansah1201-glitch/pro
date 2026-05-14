@@ -14,9 +14,12 @@ import {
   listSelfHostedDevices,
   getSelfHostedDeviceBridgeWorkerStatus,
   getSelfHostedDeviceBridgeWorkerHardening,
+  getSelfHostedDeviceBridgeWorkerRecovery,
+  recoverSelfHostedDeviceBridgeWorkerCommand,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   type SelfHostedDeviceBridgeWorkerHardeningDTO,
+  type SelfHostedDeviceBridgeWorkerRecoveryDTO,
   type SelfHostedDeviceBridgeWorkerStatusDTO,
   type SelfHostedDeviceBridgeDTO,
   type SelfHostedDeviceDTO,
@@ -158,6 +161,8 @@ export default function SysDevicesPage() {
   const [workerStatusError, setWorkerStatusError] = useState<string | null>(null);
   const [workerHardening, setWorkerHardening] = useState<SelfHostedDeviceBridgeWorkerHardeningDTO | null>(null);
   const [workerHardeningError, setWorkerHardeningError] = useState<string | null>(null);
+  const [workerRecovery, setWorkerRecovery] = useState<SelfHostedDeviceBridgeWorkerRecoveryDTO | null>(null);
+  const [workerRecoveryError, setWorkerRecoveryError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -171,6 +176,8 @@ export default function SysDevicesPage() {
       setWorkerStatusError(null);
       setWorkerHardening(null);
       setWorkerHardeningError(null);
+      setWorkerRecovery(null);
+      setWorkerRecoveryError(null);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -181,6 +188,7 @@ export default function SysDevicesPage() {
     setLoadError(null);
     setWorkerStatusError(null);
     setWorkerHardeningError(null);
+    setWorkerRecoveryError(null);
     Promise.all([
       listSelfHostedDeviceBridges({
         apiBaseUrl: session.apiBaseUrl,
@@ -205,7 +213,14 @@ export default function SysDevicesPage() {
         retentionDays: 30,
         limit: 25,
       }),
-    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult]) => {
+      getSelfHostedDeviceBridgeWorkerRecovery({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+        staleAfterMinutes: 10,
+        leaseTtlSeconds: 90,
+        limit: 25,
+      }),
+    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult]) => {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
@@ -214,6 +229,7 @@ export default function SysDevicesPage() {
         setLiveBridges(null);
         setWorkerStatus(null);
         setWorkerHardening(null);
+        setWorkerRecovery(null);
         return;
       }
       setLiveBridges((bridgeResult.value ?? []).map(bridgeFromDto));
@@ -230,6 +246,14 @@ export default function SysDevicesPage() {
         setWorkerHardening(null);
         setWorkerHardeningError(
           hardeningResult?.error?.message || "Не удалось загрузить Device Bridge worker hardening.",
+        );
+      }
+      if (recoveryResult?.ok) {
+        setWorkerRecovery(recoveryResult.value ?? null);
+      } else {
+        setWorkerRecovery(null);
+        setWorkerRecoveryError(
+          recoveryResult?.error?.message || "Не удалось загрузить Device Bridge worker recovery.",
         );
       }
       setLoadStatus("ready");
@@ -333,6 +357,42 @@ export default function SysDevicesPage() {
           )
         : result.error?.message || `Не удалось поставить команду ${device.serial} в очередь.`,
     );
+  }
+
+  async function recoverWorkerCommand(commandId: string, action: "reschedule" | "cancel") {
+    if (!isLive || !session.apiToken) return;
+    const key = `recovery:${action}:${commandId}`;
+    setCommandBusyKey(key);
+    setNote(
+      action === "reschedule"
+        ? "Команда Device Bridge отправляется на повторную постановку в очередь."
+        : "Команда Device Bridge отменяется через backend recovery.",
+    );
+    const result = await recoverSelfHostedDeviceBridgeWorkerCommand({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      commandId,
+      action,
+      reason: action === "reschedule"
+        ? "Повторная постановка из production recovery панели."
+        : "Отмена из production recovery панели.",
+    });
+    setCommandBusyKey(null);
+    if (result.ok && result.value) {
+      setWorkerRecovery((current) => current
+        ? {
+            ...current,
+            items: current.items.map((item) => item.id === commandId ? result.value : item),
+          }
+        : current);
+      setNote(
+        action === "reschedule"
+          ? `Команда ${commandId} возвращена в очередь Device Bridge.`
+          : `Команда ${commandId} отменена через Device Bridge recovery.`,
+      );
+      return;
+    }
+    setNote(result.error?.message || "Не удалось выполнить recovery action для Device Bridge command.");
   }
 
   return (
@@ -559,6 +619,107 @@ export default function SysDevicesPage() {
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
                   {workerHardeningError || "Device Bridge worker hardening ожидает ответ backend."}
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+
+        {isLive && (
+          <section
+            className="space-y-2"
+            aria-label="Device Bridge command recovery"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Activity className="h-3.5 w-3.5" aria-hidden />
+                Command recovery
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                Stage 4W /api/v1/device-bridge-worker/recovery
+              </span>
+            </div>
+            <Card className="p-3">
+              {workerRecovery ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    <WorkerMetric label="Stuck commands" value={workerRecovery.summary.stuckCommands} />
+                    <WorkerMetric label="Expired commands" value={workerRecovery.summary.expiredCommands} />
+                    <WorkerMetric label="Lease expired" value={workerRecovery.summary.leaseExpiredCommands} />
+                    <WorkerMetric label="Retryable failed" value={workerRecovery.summary.retryableCommands} />
+                    <WorkerMetric label="Cancellable" value={workerRecovery.summary.cancellableCommands} />
+                  </div>
+                  <div
+                    role="region"
+                    aria-label="Device Bridge command recovery policy"
+                    className="rounded-md border border-border px-3 py-2 text-[12px] text-muted-foreground"
+                  >
+                    <div className="font-semibold text-foreground">Recovery policy</div>
+                    <div className="mt-1">
+                      stale after {workerRecovery.policy.staleAfterMinutes} min · lease TTL {workerRecovery.policy.leaseTtlSeconds}s · max batch {workerRecovery.policy.maxRecoveryBatch}
+                    </div>
+                  </div>
+                  <div
+                    role="region"
+                    aria-label="Device Bridge command recovery queue"
+                    className="rounded-md border border-border"
+                  >
+                    <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Recoverable commands
+                    </div>
+                    <div className="divide-y divide-border/70">
+                      {workerRecovery.items.length > 0 ? workerRecovery.items.slice(0, 5).map((command) => (
+                        <div key={command.id} className="grid gap-2 px-3 py-2 text-[12px] lg:grid-cols-[1fr_auto_auto] lg:items-center">
+                          <div className="min-w-0">
+                            <div className="truncate font-mono text-[11px] font-semibold">{command.commandType}</div>
+                            <div className="truncate text-[11px] text-muted-foreground">
+                              {command.bridgeCode ?? "bridge"} · {command.recoveryState ?? "active"} · attempts {command.attemptCount}
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {COMMAND_STATUS_LABEL[command.status] ?? command.status}
+                          </span>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-9 min-h-[44px] sm:min-h-[32px]"
+                              disabled={commandBusyKey === `recovery:reschedule:${command.id}`}
+                              onClick={() => void recoverWorkerCommand(command.id, "reschedule")}
+                            >
+                              {commandBusyKey === `recovery:reschedule:${command.id}` ? "Ставим..." : "Повторить"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-9 min-h-[44px] sm:min-h-[32px]"
+                              disabled={commandBusyKey === `recovery:cancel:${command.id}`}
+                              onClick={() => void recoverWorkerCommand(command.id, "cancel")}
+                            >
+                              {commandBusyKey === `recovery:cancel:${command.id}` ? "Отменяем..." : "Отменить"}
+                            </Button>
+                          </div>
+                        </div>
+                      )) : (
+                        <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
+                          Команд для recovery пока нет.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    role="note"
+                    aria-label="Device Bridge command recovery privacy boundary"
+                    className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+                  >
+                    Stage 4W управляет только backend-owned lifecycle metadata: leases, retry state,
+                    cancellation и recovery audit. Worker secrets, raw command payloads, storage paths,
+                    patient names и browser hardware APIs не выводятся в UI.
+                  </div>
+                </div>
+              ) : (
+                <div role="status" className="text-[12px] text-muted-foreground">
+                  {workerRecoveryError || "Device Bridge command recovery ожидает ответ backend."}
                 </div>
               )}
             </Card>

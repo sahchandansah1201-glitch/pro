@@ -4,6 +4,8 @@ import { test } from "node:test";
 import {
   buildListWorkerCommandsSql,
   buildListWorkerHardeningSql,
+  buildListWorkerRecoverySql,
+  buildRecoverWorkerCommandSql,
   buildListWorkerTelemetrySql,
   buildUpdateWorkerCommandStatusSql,
   buildWorkerHeartbeatSql,
@@ -41,12 +43,38 @@ test("worker SQL upserts heartbeat, polls queued commands, and updates lifecycle
   assert.match(listSql, /dispatched_at = coalesce/);
   assert.match(listSql, /next_attempt_at/);
   assert.match(listSql, /attempt_count/);
+  assert.match(listSql, /lease_owner/);
+  assert.match(listSql, /lease_expires_at/);
   assert.match(updateSql, /acknowledged_at/);
   assert.match(updateSql, /completed_at/);
   assert.match(updateSql, /result_json/);
   assert.match(updateSql, /lifecycle_revision/);
   assert.match(updateSql, /resolved as/);
   assert.doesNotMatch(`${heartbeatSql}\n${listSql}\n${updateSql}`, /\bsupabase\b|api-read|api-write|edge function/i);
+});
+
+test("worker recovery SQL reports recoverable commands and writes safe actions", () => {
+  const listSql = buildListWorkerRecoverySql({
+    clinicIds: [CLINIC_ID],
+    staleAfterMinutes: 20,
+    leaseTtlSeconds: 120,
+    limit: 10,
+  });
+  const recoverSql = buildRecoverWorkerCommandSql({
+    commandId: COMMAND_ID,
+    actorUserId: "10000000-0000-4000-8000-000000000999",
+    action: "reschedule",
+    reason: "retry safe command",
+  });
+
+  assert.match(listSql, /recovery_state/);
+  assert.match(listSql, /lease_expired_commands/);
+  assert.match(listSql, /retryable_commands/);
+  assert.match(listSql, /allowedActions/);
+  assert.match(recoverSql, /recovery_action/);
+  assert.match(recoverSql, /recovered_by/);
+  assert.match(recoverSql, /lifecycle_revision/);
+  assert.doesNotMatch(`${listSql}\n${recoverSql}`, /payload_json|result_json|worker_metadata_json|token|secret|supabase|api-read|api-write|edge function/i);
 });
 
 test("worker telemetry SQL returns safe bridge status and command lifecycle only", () => {
@@ -231,4 +259,66 @@ test("repository normalizes worker hardening projection", async () => {
   assert.equal(result.policy.retentionDays, 45);
   assert.equal(result.bridges[0].stale, true);
   assert.equal(result.bridges[0].retryingCommandCount, 2);
+});
+
+test("repository normalizes worker recovery projection and recovered commands", async () => {
+  const repository = createDeviceBridgeWorkerRepository({
+    async queryJson(sql) {
+      if (sql.includes("update device_bridge_commands c")) {
+        return [{
+          id: COMMAND_ID,
+          clinicId: CLINIC_ID,
+          bridgeId: BRIDGE_ID,
+          commandType: "bridge_health_check",
+          status: sql.includes("'cancelled'") ? "cancelled" : "queued",
+          attemptCount: 3,
+          lifecycleRevision: 4,
+          recoveryAction: sql.includes("'cancelled'") ? "cancel" : "reschedule",
+          recoveryReason: "safe",
+        }];
+      }
+      assert.match(sql, /recovery_state/);
+      return {
+        summary: {
+          stuckCommands: 1,
+          expiredCommands: 1,
+          leaseExpiredCommands: 1,
+          retryableCommands: 1,
+          cancellableCommands: 2,
+        },
+        policy: { staleAfterMinutes: 20, leaseTtlSeconds: 120, maxRecoveryBatch: 100, allowedActions: ["reschedule", "cancel"] },
+        commands: [
+          {
+            id: COMMAND_ID,
+            clinicId: CLINIC_ID,
+            bridgeId: BRIDGE_ID,
+            bridgeCode: "bridge-01",
+            commandType: "bridge_health_check",
+            status: "failed",
+            attemptCount: 3,
+            lifecycleRevision: 2,
+            recoveryState: "retryable_failed",
+          },
+        ],
+      };
+    },
+  });
+
+  const recovery = await repository.listWorkerRecovery({
+    clinicIds: [CLINIC_ID],
+    staleAfterMinutes: 20,
+    leaseTtlSeconds: 120,
+  });
+  const command = await repository.recoverCommand({
+    commandId: COMMAND_ID,
+    actorUserId: "10000000-0000-4000-8000-000000000999",
+    action: "cancel",
+    reason: "safe",
+  });
+
+  assert.equal(recovery.summary.stuckCommands, 1);
+  assert.equal(recovery.policy.leaseTtlSeconds, 120);
+  assert.equal(recovery.commands[0].recoveryState, "retryable_failed");
+  assert.equal(command.status, "cancelled");
+  assert.equal(command.recoveryAction, "cancel");
 });
