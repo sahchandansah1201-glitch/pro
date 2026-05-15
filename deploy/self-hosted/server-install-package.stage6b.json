@@ -1,0 +1,186 @@
+{
+  "stage": "6B",
+  "packageId": "stage6b-server-install-package",
+  "generatedAt": "2026-05-15T11:30:00.000Z",
+  "baselineManifest": "deploy/self-hosted/acceptance-baseline.stage6a.json",
+  "productBoundary": {
+    "deployment": "single self-hosted server install package",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false
+  },
+  "packageInputs": [
+    {
+      "key": "stage6a_acceptance_baseline",
+      "label": "Stage 6A accepted product baseline",
+      "kind": "file",
+      "path": "deploy/self-hosted/acceptance-baseline.stage6a.json",
+      "required": true
+    },
+    {
+      "key": "compose_base",
+      "label": "Base Docker Compose stack",
+      "kind": "file",
+      "path": "deploy/self-hosted/docker-compose.stage4a.yml",
+      "required": true
+    },
+    {
+      "key": "compose_production_overlay",
+      "label": "Production Compose overlay",
+      "kind": "file",
+      "path": "deploy/self-hosted/docker-compose.production.example.yml",
+      "required": true
+    },
+    {
+      "key": "nginx_gateway",
+      "label": "Nginx gateway configuration",
+      "kind": "file",
+      "path": "deploy/self-hosted/nginx.stage4a.conf",
+      "required": true
+    },
+    {
+      "key": "production_env_template",
+      "label": "Production environment template",
+      "kind": "file",
+      "path": "deploy/self-hosted/.env.production.example",
+      "required": true
+    },
+    {
+      "key": "backend_container",
+      "label": "Backend container definition",
+      "kind": "file",
+      "path": "backend/self-hosted/Dockerfile",
+      "required": true
+    },
+    {
+      "key": "backend_server",
+      "label": "Self-hosted API entrypoint",
+      "kind": "file",
+      "path": "backend/self-hosted/server.mjs",
+      "required": true
+    },
+    {
+      "key": "postgres_migrations",
+      "label": "PostgreSQL migration set",
+      "kind": "directory",
+      "path": "backend/self-hosted/db/migrations",
+      "required": true
+    },
+    {
+      "key": "prestart_schema_check",
+      "label": "Production schema prestart check",
+      "kind": "file",
+      "path": "deploy/self-hosted/prestart-schema-check.stage5c.sql",
+      "required": true
+    },
+    {
+      "key": "device_bridge_worker",
+      "label": "Device Bridge worker runtime",
+      "kind": "file",
+      "path": "worker/device-bridge/worker.mjs",
+      "required": true
+    },
+    {
+      "key": "device_bridge_systemd_unit",
+      "label": "Device Bridge systemd unit template",
+      "kind": "file",
+      "path": "deploy/self-hosted/device-bridge-worker.stage4t.service",
+      "required": true
+    },
+    {
+      "key": "device_bridge_env_template",
+      "label": "Device Bridge environment template",
+      "kind": "file",
+      "path": "deploy/self-hosted/device-bridge-worker.stage4t.env.example",
+      "required": true
+    },
+    {
+      "key": "system_admin_bootstrap_template",
+      "label": "First system admin bootstrap SQL template",
+      "kind": "file",
+      "path": "deploy/self-hosted/bootstrap-system-admin.stage5b.sql.example",
+      "required": true
+    }
+  ],
+  "installSteps": [
+    {
+      "key": "verify_acceptance_baseline",
+      "label": "Verify accepted product baseline",
+      "command": "npm run preflight:stage6a",
+      "required": true
+    },
+    {
+      "key": "copy_env_template",
+      "label": "Copy and complete production environment",
+      "command": "cp deploy/self-hosted/.env.production.example deploy/self-hosted/.env.production",
+      "required": true
+    },
+    {
+      "key": "verify_env",
+      "label": "Validate production environment",
+      "command": "node scripts/stage5b-server-bootstrap.mjs verify-env --env-file deploy/self-hosted/.env.production",
+      "required": true
+    },
+    {
+      "key": "build_frontend",
+      "label": "Build frontend assets",
+      "command": "npm run build",
+      "required": true
+    },
+    {
+      "key": "compose_config",
+      "label": "Validate Compose configuration",
+      "command": "docker compose --env-file deploy/self-hosted/.env.production -f deploy/self-hosted/docker-compose.stage4a.yml -f deploy/self-hosted/docker-compose.production.example.yml config --quiet",
+      "required": true
+    },
+    {
+      "key": "start_stack",
+      "label": "Start production stack",
+      "command": "docker compose --env-file deploy/self-hosted/.env.production -f deploy/self-hosted/docker-compose.stage4a.yml -f deploy/self-hosted/docker-compose.production.example.yml up -d --build",
+      "required": true
+    },
+    {
+      "key": "bootstrap_system_admin",
+      "label": "Create first system admin SQL outside git",
+      "command": "node scripts/stage5b-server-bootstrap.mjs admin-sql --email <admin-email> --password <admin-password> --output <secure-sql-path>",
+      "required": true
+    },
+    {
+      "key": "first_boot_checks",
+      "label": "Run first boot verification",
+      "command": "npm run deploy:stage4m:first-boot:dry-run",
+      "required": true
+    },
+    {
+      "key": "compose_smoke",
+      "label": "Run compose smoke",
+      "command": "npm run smoke:stage4k",
+      "required": true
+    },
+    {
+      "key": "backup_and_rollback_plan",
+      "label": "Verify backup and rollback plans",
+      "command": "npm run deploy:stage4m:backup-after-deploy:dry-run && npm run deploy:stage4m:rollback-drill:dry-run",
+      "required": true
+    }
+  ],
+  "operatorOutputs": [
+    "server-install-plan",
+    "package-inventory",
+    "first-boot-checklist"
+  ],
+  "safetyAssertions": {
+    "noSecretsInPackage": true,
+    "noPatientDataInPackage": true,
+    "noManagedRuntimeDependency": true,
+    "noManagedDatabaseDependency": true,
+    "productionEnvMustBeCompletedOnServer": true,
+    "systemAdminSqlMustStayOutsideGit": true
+  }
+}
