@@ -6,6 +6,7 @@ import {
   ForbiddenError,
   deviceCommandScope,
   deviceReadScope,
+  leadsAppointmentsReadScope,
   opsStatusScope,
   patientReadScope,
   patientWriteScope,
@@ -171,6 +172,39 @@ test("deviceReadScope allows system admins globally and clinic admins by clinic"
   );
   assert.throws(
     () => deviceReadScope({ userId: "clinic-admin", roles: ["clinic_admin"], clinicIds: [] }),
+    ForbiddenError,
+  );
+});
+
+test("leadsAppointmentsReadScope allows clinic intake roles and rejects assistants", () => {
+  assert.deepEqual(
+    leadsAppointmentsReadScope({
+      userId: "operator",
+      roles: ["operator"],
+      clinicIds: ["clinic-1"],
+    }),
+    {
+      allClinics: false,
+      clinicIds: ["clinic-1"],
+      roles: ["operator"],
+    },
+  );
+
+  assert.deepEqual(
+    leadsAppointmentsReadScope({
+      userId: "admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+    }),
+    {
+      allClinics: true,
+      clinicIds: [],
+      roles: ["system_admin"],
+    },
+  );
+
+  assert.throws(
+    () => leadsAppointmentsReadScope({ userId: "assistant", roles: ["assistant"], clinicIds: ["clinic-1"] }),
     ForbiddenError,
   );
 });

@@ -24,59 +24,101 @@ describe("DeskPage · Stage 5I production dashboard", () => {
   });
 
   it("loads production dashboard from self-hosted backend without mock fallback", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          stage: "5I",
-          source: "postgres",
-          dashboard: {
-            kpis: {
-              visitsToday: 2,
-              activeVisits: 3,
-              awaitingConclusion: 1,
-              patientsInScope: 8,
-              assetsNeedReview: 4,
-              devicesTotal: 2,
-              devicesActive30d: 1,
-            },
-            upcoming: [
-              {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.endsWith("/api/v1/leads/appointments?limit=5")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              stage: "5K",
+              source: "postgres",
+              kpis: {
+                leadsTotal: 2,
+                newLeads: 1,
+                qualifiedLeads: 1,
+                bookedLeads: 0,
+                plannedAppointments: 3,
+                completedAppointments: 1,
+              },
+              leads: [{
+                id: "lead-live-1",
+                source: "site",
+                status: "new",
+                safeSummary: "Live lead from site",
+                createdAt: "2026-05-15T08:00:00.000Z",
+                clinic: { name: "Live Clinic" },
+                patient: {},
+              }],
+              appointments: [{
                 id: "10000000-0000-4000-8000-000000000301",
-                patientId: "10000000-0000-4000-8000-000000000201",
-                patientFullName: "Live Patient",
-                patientCode: "DP-LIVE-1",
-                clinicName: "Live Clinic",
-                status: "in_progress",
-                startedAt: "2026-05-15T09:00:00.000Z",
-                chiefComplaint: "Контроль",
-              },
-            ],
-            awaitingConclusions: [],
-            recentPatients: [
-              {
-                id: "10000000-0000-4000-8000-000000000201",
-                fullName: "Live Patient",
-                code: "DP-LIVE-1",
-                sex: "female",
-                lastVisitAt: "2026-05-15T09:00:00.000Z",
-              },
-            ],
-            assetIssues: [
-              {
-                id: "asset-live-1",
                 visitId: "10000000-0000-4000-8000-000000000301",
                 patientId: "10000000-0000-4000-8000-000000000201",
-                patientFullName: "Live Patient",
-                kind: "dermoscopy",
-                issue: "checksum_missing",
+                status: "planned",
+                channel: "self_hosted",
+                slotAt: "2026-05-15T09:00:00.000Z",
+                patient: { id: "10000000-0000-4000-8000-000000000201", fullName: "Live Patient", code: "DP-LIVE-1" },
+                clinic: { name: "Live Clinic" },
+              }],
+              filters: { leadStatus: "all", appointmentStatus: "all", dateFrom: null, dateTo: null, search: null },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            stage: "5I",
+            source: "postgres",
+            dashboard: {
+              kpis: {
+                visitsToday: 2,
+                activeVisits: 3,
+                awaitingConclusion: 1,
+                patientsInScope: 8,
+                assetsNeedReview: 4,
+                devicesTotal: 2,
+                devicesActive30d: 1,
               },
-            ],
-            devices: [{ id: "d-1", model: "DermLite Live", serial: "DL-LIVE", status: "active" }],
-          },
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
-    );
+              upcoming: [
+                {
+                  id: "10000000-0000-4000-8000-000000000301",
+                  patientId: "10000000-0000-4000-8000-000000000201",
+                  patientFullName: "Live Patient",
+                  patientCode: "DP-LIVE-1",
+                  clinicName: "Live Clinic",
+                  status: "in_progress",
+                  startedAt: "2026-05-15T09:00:00.000Z",
+                  chiefComplaint: "Контроль",
+                },
+              ],
+              awaitingConclusions: [],
+              recentPatients: [
+                {
+                  id: "10000000-0000-4000-8000-000000000201",
+                  fullName: "Live Patient",
+                  code: "DP-LIVE-1",
+                  sex: "female",
+                  lastVisitAt: "2026-05-15T09:00:00.000Z",
+                },
+              ],
+              assetIssues: [
+                {
+                  id: "asset-live-1",
+                  visitId: "10000000-0000-4000-8000-000000000301",
+                  patientId: "10000000-0000-4000-8000-000000000201",
+                  patientFullName: "Live Patient",
+                  kind: "dermoscopy",
+                  issue: "checksum_missing",
+                },
+              ],
+              devices: [{ id: "d-1", model: "DermLite Live", serial: "DL-LIVE", status: "active" }],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(
@@ -85,12 +127,22 @@ describe("DeskPage · Stage 5I production dashboard", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findAllByText("Live Patient")).toHaveLength(3);
-    expect(screen.getByText(/Источник данных: self-hosted backend/)).toBeInTheDocument();
+    expect(await screen.findAllByText("Live Patient")).toHaveLength(4);
+    expect(screen.getByText(/Источник данных: self-hosted backend \/api\/v1\/doctor\/dashboard/)).toBeInTheDocument();
+    expect(await screen.findByText("Live lead from site")).toBeInTheDocument();
+    expect(screen.getByText(/self-hosted backend \/api\/v1\/leads\/appointments/)).toBeInTheDocument();
+    expect(screen.getByText("1/1")).toBeInTheDocument();
     expect(screen.getByText("DermLite Live")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Иванова Наталья Олеговна");
     expect(document.body.textContent).not.toContain("Демо-режим");
     expect(fetchMock).toHaveBeenCalledWith("https://clinic.local/api/v1/doctor/dashboard", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer token-5i",
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith("https://clinic.local/api/v1/leads/appointments?limit=5", {
       method: "GET",
       headers: {
         Accept: "application/json",
