@@ -1,90 +1,105 @@
-## Stage 1F — Frontend API Session Wiring
+## Stage 5P — Production patient booking requests intake (operator/clinic)
 
-Goal: when (and only when) a real Supabase access token is available, pass `apiToken` and `apiBaseUrl` into the existing `VisitImagingTab` so its API panel can list, upload, and open signed download URLs against the live Stage 1E endpoints. When no token is available, behavior stays exactly as today (demo mode, muted "not configured" status).
+Логическое продолжение Stage 5O: пациент уже умеет создавать `patient_portal_booking_requests` через `POST /api/v1/me/booking-requests`. Сейчас на стороне клиники (оператор/администратор) нет production-контракта, чтобы видеть эти запросы и переводить их в реальные записи. Stage 5P закрывает эту «вторую половину» — строго в self-hosted PostgreSQL, без managed runtime.
 
-### Constraints honored
+### Цель
 
-- No DB / migrations / Edge Functions changes.
-- No new npm dependencies (no `@supabase/supabase-js`).
-- No delete UI, no raw storage path / EXIF exposure, no service role.
-- No `fetch` / `localStorage` / `sessionStorage` / `mediaDevices` introduced inside `src/pages/doctor/**`. The new helper lives in `src/lib/`, which is outside the doctor hygiene scan target.
-- No backend live tests run from this slice.
+- Оператор/администратор в production-режиме видит входящие пациентские запросы на запись и меняет их статус (`reviewing` → `booked`/`cancelled`), при `booked` — связывает с уже существующей `appointment` (создаваемой через Stage 5L `/api/v1/leads/{id}/book-appointment`).
+- Demo/dev режим продолжает использовать существующий мок-консоль оператора без изменений.
+- Никакого Supabase / `api-read` / `api-write` / Edge Functions / browser hardware / signed URL / storage path / mock-data / external CRM в защищённых runtime-файлах.
 
-### Current state recap
+### Контракт API (self-hosted)
 
-- `src/lib/clinical-assets-api.ts` already implements list / upload / download-url calls and safe DTO mapping.
-- `VisitImagingTab` already accepts optional `apiToken` and `apiBaseUrl` props and renders a non-blocking "не настроено" status when either is missing.
-- `VisitWorkspacePage` mounts `<VisitImagingTab>` without these two props.
-- No Supabase JS client exists in the repo. The demo `Login` page only flips a role in `localStorage` via `RoleContext`. There is no real session yet.
+- `GET  /api/v1/clinic/booking-requests` — список запросов клиники с фильтром по статусу и пагинацией.
+- `GET  /api/v1/clinic/booking-requests/{id}` — детали одного запроса (включая связку `patient_user_links`).
+- `PATCH /api/v1/clinic/booking-requests/{id}` — смена статуса оператором: `reviewing`, `cancelled`, либо `booked` с обязательным `appointmentId` (FK в `appointments` из Stage 5L).
+- `GET  /openapi.stage5p.json` — OpenAPI 3.0.3.
 
-### Approach
+Доступ ограничен ролями `operator`, `clinic_admin`, `system_admin`. Аудит — через существующий `audit-repository.mjs`. Никаких physician-only данных в ответах.
 
-Introduce a tiny, dependency-free session helper in `src/lib/` that:
+### Данные
 
-1. Reads `import.meta.env.VITE_SUPABASE_URL` for `apiBaseUrl` (or returns `null` if unset / empty).
-2. Reads the current Supabase access token from the standard browser storage key used by `@supabase/supabase-js` v2: `sb-<projectRef>-auth-token` in `localStorage`. The project ref is derived from `VITE_SUPABASE_URL` (`https://<ref>.supabase.co`). If the key is missing, malformed, or the token is expired (`expires_at` in the parsed JSON is in the past), the helper returns `null`.
-3. Exposes a React hook `useApiSession()` that returns `{ apiToken: string | null, apiBaseUrl: string | null }` and re-evaluates on:
-   - mount,
-   - the `storage` window event (cross-tab token changes),
-   - a custom `dermpro:auth-changed` window event (so a future in-app login can notify without reload).
-4. Never throws; on any parse / env error it falls back to `{ null, null }` so the UI keeps demo behavior.
+Миграция `0019_stage5p_clinic_booking_requests_intake.sql`:
 
-Then wire it in `VisitWorkspacePage` only:
+- Колонки в `patient_portal_booking_requests`:
+  - `assigned_appointment_id uuid null references appointments(id) on delete set null`
+  - `reviewed_by_user_id uuid null references app_users(id) on delete set null`
+  - `reviewed_at timestamptz null`
+  - `clinic_note text null` (внутренняя пометка, не пациентская)
+- Индекс `patient_portal_booking_requests_clinic_status_idx (clinic_id, status, created_at desc)`.
+- Триггер `touch_updated_at` уже есть.
 
-- Import `useApiSession` from `@/lib/api-session`.
-- Call it once in the page component.
-- Pass `apiToken={session.apiToken}` and `apiBaseUrl={session.apiBaseUrl}` to `<VisitImagingTab>`.
+### Фронтенд
 
-No other doctor page is touched. The hygiene scan stays clean because the helper itself lives in `src/lib/api-session.ts`, and `VisitWorkspacePage` only imports a hook (no new forbidden tokens).
+- Новая страница: `src/pages/operator/OperatorBookingRequestsPageLive.tsx` — production-only, монтируется через `isProductionAppMode()` в существующий operator router. Показывает таблицу: пациент, окно, причина, статус, действия.
+- `src/pages/operator/OperatorBookingRequestsPage.tsx` — диспетчер Live vs Demo.
+- `src/pages/operator/OperatorBookingRequestsPageDemo.tsx` — мок-данные (исторический формат), demo/dev only.
+- В `PRODUCTION_NAV_BY_ROLE.operator` (`AppSidebar.tsx`) добавляется пункт «Запросы на запись» рядом с «Лиды».
+- `src/lib/self-hosted-clinic-booking-api.ts` — клиент: `fetchSelfHostedClinicBookingRequests`, `fetchSelfHostedClinicBookingRequest`, `updateSelfHostedClinicBookingRequest`. Без `fetch`/`localStorage` в страницах operator — только через `self-hosted-api-session` и helper.
 
-### Files
+Production-страницы делают только запросы к `/api/v1/clinic/booking-requests*`. Demo-страница не подключается к сети.
+
+### Backend
+
+- `backend/self-hosted/clinic-booking-requests-repository.mjs` + `*.test.mjs`
+- `backend/self-hosted/clinic-booking-requests-service.mjs` + `*.test.mjs` — нормализация payload, события `clinic_booking_requests.list`, `clinic_booking_requests.update`, проверка перехода статусов и FK на `appointments`.
+- `routes.mjs` — три эндпоинта + `OPENAPI_5P` + `stage: "5P"`.
+- `openapi.stage5p.json`.
+
+### Ограничения / boundary
+
+Защищённые runtime-файлы (guard сканирует):
+```
+backend/self-hosted/clinic-booking-requests-repository.mjs
+backend/self-hosted/clinic-booking-requests-service.mjs
+backend/self-hosted/openapi.stage5p.json
+src/lib/self-hosted-clinic-booking-api.ts
+src/pages/operator/OperatorBookingRequestsPage.tsx
+src/pages/operator/OperatorBookingRequestsPageLive.tsx
+src/components/shell/AppSidebar.tsx
+```
+Запрещённые паттерны: `api-read`, `api-write`, `edge function`, `SUPABASE_`, `navigator.usb|bluetooth|serial`, `signed_url`, `storage_object_path`, `mock-data`, `physician_text|physicianText|doctorVersionText`, `crm`, `external notification provider`.
+
+### Скрипты и CI
+
+- `scripts/check-stage5p-production-clinic-booking-requests-intake.mjs` + `*.test.mjs` (паттерн как в 5O).
+- `package.json`: `test:stage5p`, `check:stage5p`, `preflight:stage5p`.
+- `scripts/preflight-all.mjs`: добавить «Stage 5P production clinic booking requests intake preflight».
+- `.github/workflows/stage5p-production-clinic-booking-requests-intake.yml` — копия из 5O.
+- `docs/backend/stage-5p-production-clinic-booking-requests-intake.md` — runbook.
+
+### Файлы
 
 ```text
-NEW   src/lib/api-session.ts                # readSupabaseSession(), useApiSession()
-NEW   src/lib/api-session.test.ts           # unit tests for parser + null/expired/missing paths
-EDIT  src/pages/doctor/VisitWorkspacePage.tsx
-        - import useApiSession
-        - pass apiToken, apiBaseUrl into <VisitImagingTab/>
-EDIT  src/pages/doctor/VisitWorkspacePage.test.tsx (if needed)
-        - assert that, given a stubbed session, props are forwarded;
-          and that with no session the panel stays in demo mode.
+NEW backend/self-hosted/db/migrations/0019_stage5p_clinic_booking_requests_intake.sql
+NEW backend/self-hosted/clinic-booking-requests-repository.mjs (+ .test.mjs)
+NEW backend/self-hosted/clinic-booking-requests-service.mjs (+ .test.mjs)
+NEW backend/self-hosted/openapi.stage5p.json
+EDIT backend/self-hosted/routes.mjs                  # добавить 3 эндпоинта + OPENAPI_5P
+NEW src/lib/self-hosted-clinic-booking-api.ts (+ .test.ts)
+NEW src/pages/operator/OperatorBookingRequestsPage.tsx
+NEW src/pages/operator/OperatorBookingRequestsPageLive.tsx
+NEW src/pages/operator/OperatorBookingRequestsPageDemo.tsx
+NEW src/pages/operator/OperatorBookingRequestsPages.production.test.tsx
+EDIT src/components/shell/AppSidebar.tsx              # пункт «Запросы на запись» в operator production nav
+EDIT src/App.tsx                                      # маршрут /operator/booking-requests
+NEW scripts/check-stage5p-production-clinic-booking-requests-intake.mjs (+ .test.mjs)
+EDIT scripts/preflight-all.mjs                        # +Stage 5P
+EDIT package.json                                     # test/check/preflight:stage5p
+NEW .github/workflows/stage5p-production-clinic-booking-requests-intake.yml
+NEW docs/backend/stage-5p-production-clinic-booking-requests-intake.md
 ```
 
-No edits to `clinical-assets-api.ts`, `VisitImagingTab.tsx`, backend, migrations, CI, or `package.json`.
+`package-lock.json` не меняется. `deno.lock` не появляется.
 
-### Tests
+### Верификация
 
-1. `src/lib/api-session.test.ts`
-   - returns `{null,null}` when `VITE_SUPABASE_URL` is empty.
-   - returns `{null,null}` when no `sb-*-auth-token` entry exists.
-   - returns `{null,null}` when JSON is malformed or `access_token` missing.
-   - returns `{null,null}` when `expires_at` is in the past.
-   - returns `{ apiToken, apiBaseUrl }` when a well-formed unexpired token exists.
-   - hook re-reads on `storage` and `dermpro:auth-changed` events.
-
-2. `src/pages/doctor/VisitWorkspacePage.test.tsx`
-   - With no session: existing assertions hold; imaging tab still renders demo state (no behavior regression).
-   - With a stubbed session (mock `useApiSession`): `VisitImagingTab` receives non-null `apiToken` / `apiBaseUrl`. Use vi.mock on `@/lib/api-session`.
-
-3. Existing `VisitImagingTab.hygiene.test.ts`, `scripts/scan-doctor-forbidden.mjs`, and full vitest suite must remain green.
-
-### Verification commands
-
-```text
-npm test -- --run src/lib/api-session.test.ts
-npm test -- --run src/pages/doctor/VisitWorkspacePage.test.tsx
-npm test -- --run src/pages/doctor/VisitImagingTab.hygiene.test.ts
-node scripts/scan-doctor-forbidden.mjs
-npm run build
+```bash
+npm run preflight:stage5p
+npm run preflight:stage5o
+npm run preflight:all -- --dry-run
 node scripts/check-no-deno-locks.mjs
 git status --short
 ```
 
-Done when all of the above pass and `git status` is clean.
-
-### Out of scope (explicitly deferred)
-
-- Building a real login page / sign-up / password reset.
-- Adding `@supabase/supabase-js` (would be a dep change).
-- Delete endpoint or delete UI.
-- Operator / patient / admin pages — only doctor visit workspace consumes the helper in this slice.
+Ожидаемо: все preflight зелёные, дерево чистое, lock-файл не тронут, граница production сохранена.
