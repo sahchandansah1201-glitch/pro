@@ -1,0 +1,74 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatologist Pro self-hosted API",
+    "version": "5N-patient-portal",
+    "description": "Stage 5N production patient portal read contracts. The backend is self-hosted, PostgreSQL-owned, and has no managed runtime/database dependency."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/me/portal": {
+      "get": {
+        "summary": "Read the linked patient portal overview",
+        "description": "Returns the authenticated patient user's own safe portal overview: profile, next appointment, patient-safe reports, and reminders.",
+        "responses": {
+          "200": {
+            "description": "Patient portal overview"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only patient role may read this endpoint"
+          }
+        }
+      }
+    },
+    "/api/v1/me/reports/{reportId}": {
+      "get": {
+        "summary": "Read one patient-safe report",
+        "description": "Returns only patient_safe_text for a report linked to the authenticated patient account. Physician-only report fields are not exposed.",
+        "parameters": [
+          {
+            "name": "reportId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient-safe report"
+          },
+          "400": {
+            "description": "Invalid report identifier"
+          },
+          "404": {
+            "description": "Report not found in linked patient scope"
+          }
+        }
+      }
+    }
+  }
+}

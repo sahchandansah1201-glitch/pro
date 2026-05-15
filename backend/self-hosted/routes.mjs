@@ -43,6 +43,8 @@ import {
   assertUuid,
   createPatientWriteService,
 } from "./patient-write-service.mjs";
+import { createPatientPortalRepository } from "./patient-portal-repository.mjs";
+import { createPatientPortalService } from "./patient-portal-service.mjs";
 import { createAssetWriteRepository } from "./asset-write-repository.mjs";
 import {
   createAssetWriteService,
@@ -137,6 +139,9 @@ const OPENAPI_5K = JSON.parse(
 const OPENAPI_5L = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5l.json"), "utf8"),
 );
+const OPENAPI_5N = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5n.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -210,6 +215,14 @@ function getRuntime(config, runtime = {}) {
       patientRepository,
       auditRepository,
     });
+  const patientPortalRepository =
+    runtime.patientPortalRepository || createPatientPortalRepository(dbClient);
+  const patientPortalService =
+    runtime.patientPortalService ||
+    createPatientPortalService({
+      patientPortalRepository,
+      auditRepository,
+    });
   const visitWorkspaceRepository =
     runtime.visitWorkspaceRepository || createVisitWorkspaceRepository(dbClient);
   const visitWorkspaceWriteRepository =
@@ -265,6 +278,8 @@ function getRuntime(config, runtime = {}) {
     visitScheduleService,
     deviceRegistryRepository,
     patientRepository,
+    patientPortalRepository,
+    patientPortalService,
     patientWriteService,
     visitWorkspaceRepository,
     visitWorkspaceWriteRepository,
@@ -1775,11 +1790,71 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Stage 5N · production patient portal read contracts.
+  if (url.pathname === "/api/v1/me/portal" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientPortalService.getOverview(authContext, {
+        correlationId,
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "5N",
+          source: "postgres",
+          portal: result.overview,
+          auth: {
+            userId: result.scope.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const patientPortalReportMatch = url.pathname.match(/^\/api\/v1\/me\/reports\/([^/]+)$/);
+  if (patientPortalReportMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientPortalService.getReport(
+        decodeURIComponent(patientPortalReportMatch[1]),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5N",
+          source: "postgres",
+          item: result.report,
+          auth: {
+            userId: result.scope.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (method !== "GET") {
     return errorResponse({
       status: 405,
       code: "method_not_allowed",
-      message: "This self-hosted backend route does not allow the requested method in Stage 4S.",
+      message: "This self-hosted backend route does not allow the requested method in Stage 5N.",
       correlationId,
       config,
       requestOrigin,
@@ -2181,7 +2256,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "5L",
+        stage: "5N",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -2193,6 +2268,7 @@ export async function handleSelfHostedRequest(
           doctorDashboard: "rbac-read-postgres",
           visitSchedule: "rbac-read-postgres",
           leadsAppointments: "rbac-read-write-postgres",
+          patientPortal: "patient-owned-read-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness",
@@ -2226,6 +2302,7 @@ export async function handleSelfHostedRequest(
           openapiStage5J: "/openapi.stage5j.json",
           openapiStage5K: "/openapi.stage5k.json",
           openapiStage5L: "/openapi.stage5l.json",
+          openapiStage5N: "/openapi.stage5n.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2252,6 +2329,8 @@ export async function handleSelfHostedRequest(
           createLead: "/api/v1/leads",
           updateLeadStatus: "/api/v1/leads/{leadId}",
           bookLeadAppointment: "/api/v1/leads/{leadId}/book-appointment",
+          patientPortal: "/api/v1/me/portal",
+          patientPortalReport: "/api/v1/me/reports/{reportId}",
           visit: "/api/v1/visits/{visitId}",
           visitLesions: "/api/v1/visits/{visitId}/lesions",
           visitAssets: "/api/v1/visits/{visitId}/assets",
@@ -2368,10 +2447,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_5L, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage5n.json") {
+    return jsonResponse(200, OPENAPI_5N, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 4Z self-hosted backend route matched the request.",
+    message: "No Stage 5N self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,

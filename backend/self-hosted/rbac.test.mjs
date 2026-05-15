@@ -9,6 +9,7 @@ import {
   leadsAppointmentsReadScope,
   leadsAppointmentsWriteScope,
   opsStatusScope,
+  patientPortalScope,
   patientReadScope,
   patientWriteScope,
   requireAnyRole,
@@ -82,6 +83,26 @@ test("patientReadScope scopes clinic roles and allows system_admin globally", ()
       roles: ["system_admin"],
     },
   );
+});
+
+test("patientPortalScope allows only linked patient role identity", () => {
+  assert.deepEqual(
+    patientPortalScope({
+      userId: "patient-user",
+      roles: ["patient"],
+      clinicIds: [],
+    }),
+    {
+      userId: "patient-user",
+      roles: ["patient"],
+    },
+  );
+
+  assert.throws(
+    () => patientPortalScope({ userId: "doctor", roles: ["doctor"], clinicIds: ["clinic-1"] }),
+    ForbiddenError,
+  );
+  assert.throws(() => patientPortalScope(null), AuthRequiredError);
 });
 
 test("visitWriteScope allows doctors/system admins and rejects clinic admins/operators", () => {
