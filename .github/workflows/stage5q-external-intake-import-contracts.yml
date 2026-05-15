@@ -1,0 +1,59 @@
+name: stage5q-external-intake-import-contracts
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/external-intake-import-*.mjs"
+      - "backend/self-hosted/db/migrations/0020_stage5q_external_intake_import_contracts.sql"
+      - "backend/self-hosted/openapi.stage5q.json"
+      - "backend/self-hosted/routes.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-external-intake-api.ts"
+      - "src/lib/self-hosted-external-intake-api.test.ts"
+      - "src/pages/operator/OperatorBookingRequestsPageLive.tsx"
+      - "src/pages/operator/OperatorBookingRequestsPage.production.test.tsx"
+      - "scripts/check-stage5q-external-intake-import-contracts.mjs"
+      - "scripts/check-stage5q-external-intake-import-contracts.test.mjs"
+      - "docs/backend/stage-5q-external-intake-import-contracts.md"
+      - ".github/workflows/stage5q-external-intake-import-contracts.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "backend/self-hosted/external-intake-import-*.mjs"
+      - "backend/self-hosted/db/migrations/0020_stage5q_external_intake_import_contracts.sql"
+      - "backend/self-hosted/openapi.stage5q.json"
+      - "backend/self-hosted/routes.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-external-intake-api.ts"
+      - "src/lib/self-hosted-external-intake-api.test.ts"
+      - "src/pages/operator/OperatorBookingRequestsPageLive.tsx"
+      - "src/pages/operator/OperatorBookingRequestsPage.production.test.tsx"
+      - "scripts/check-stage5q-external-intake-import-contracts.mjs"
+      - "scripts/check-stage5q-external-intake-import-contracts.test.mjs"
+      - "docs/backend/stage-5q-external-intake-import-contracts.md"
+      - ".github/workflows/stage5q-external-intake-import-contracts.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+
+jobs:
+  stage5q:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5q
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5Q external intake import contracts"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5q\`"
+            echo "- Self-hosted boundary: inbound CRM/ad imports only, no managed runtime dependency"
+          } >> "$GITHUB_STEP_SUMMARY"

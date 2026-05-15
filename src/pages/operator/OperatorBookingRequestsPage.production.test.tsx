@@ -69,6 +69,23 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
   it("loads clinic booking requests from self-hosted backend and updates status", async () => {
     const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
       const href = String(url);
+      if (href.endsWith("/api/v1/integrations/booking-imports?limit=5")) {
+        return json({
+          items: [{
+            id: "batch-live-1",
+            sourceSystem: "clinic_crm",
+            status: "completed",
+            itemCount: 2,
+            acceptedBookingCount: 1,
+            acceptedSlotCount: 1,
+            rejectedCount: 0,
+          }],
+          count: 1,
+          limit: 5,
+          offset: 0,
+          filters: { sourceSystem: "all" },
+        });
+      }
       if (href.endsWith("/api/v1/clinic/booking-requests/request-live-1") && init?.method === "PATCH") {
         const payload = JSON.parse(String(init.body ?? "{}")) as { status?: string; clinicNote?: string };
         return json({ item: { ...request, status: payload.status || "reviewing", clinicNote: payload.clinicNote || null } });
@@ -80,6 +97,8 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
     renderPage();
 
     expect(await screen.findByText("Production booking requests")).toBeInTheDocument();
+    expect(await screen.findByText("Импорт CRM и рекламных источников")).toBeInTheDocument();
+    expect(screen.getByText(/CRM клиники · completed/i)).toBeInTheDocument();
     expect(screen.getByText("Live Booking Patient · DP-LIVE-BOOK")).toBeInTheDocument();
     expect(screen.getByText(/self-hosted backend \/api\/v1\/clinic\/booking-requests/i)).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Демо-режим");

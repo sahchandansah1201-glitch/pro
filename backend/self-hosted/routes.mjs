@@ -57,6 +57,11 @@ import {
   normalizeClinicBookingRequestParams,
 } from "./clinic-booking-requests-repository.mjs";
 import { createClinicBookingRequestsService } from "./clinic-booking-requests-service.mjs";
+import {
+  createExternalIntakeImportRepository,
+  normalizeExternalIntakeImportParams,
+} from "./external-intake-import-repository.mjs";
+import { createExternalIntakeImportService } from "./external-intake-import-service.mjs";
 import { createLocalObjectStore } from "./object-store.mjs";
 import { extractCorrelationId, safeRequestPath } from "./ops-logger.mjs";
 import { collectSelfHostedOpsRuntimeChecks } from "./ops-runtime-checks.mjs";
@@ -153,6 +158,9 @@ const OPENAPI_5O = JSON.parse(
 const OPENAPI_5P = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5p.json"), "utf8"),
 );
+const OPENAPI_5Q = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5q.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -228,6 +236,14 @@ function getRuntime(config, runtime = {}) {
       clinicBookingRequestsRepository,
       auditRepository,
     });
+  const externalIntakeImportRepository =
+    runtime.externalIntakeImportRepository || createExternalIntakeImportRepository(dbClient);
+  const externalIntakeImportService =
+    runtime.externalIntakeImportService ||
+    createExternalIntakeImportService({
+      externalIntakeImportRepository,
+      auditRepository,
+    });
   const patientWriteService =
     runtime.patientWriteService ||
     createPatientWriteService({
@@ -291,6 +307,8 @@ function getRuntime(config, runtime = {}) {
     deviceBridgeWorkerService,
     doctorDashboardRepository,
     doctorDashboardService,
+    externalIntakeImportRepository,
+    externalIntakeImportService,
     leadsAppointmentsRepository,
     leadsAppointmentsService,
     leadsAppointmentsWriteRepository,
@@ -893,6 +911,63 @@ export async function handleSelfHostedRequest(
           generatedAt: now(),
           correlationId,
         },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  // Stage 5Q · external intake import contracts. CRM/ad adapters may push
+  // sanitized booking requests and availability slots into this backend; the
+  // product never calls those external systems from the browser or API runtime.
+  if (url.pathname === "/api/v1/integrations/booking-imports" && (method === "GET" || method === "POST")) {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = method === "GET"
+        ? await runtimeServices.externalIntakeImportService.listImportBatches(
+            authContext,
+            normalizeExternalIntakeImportParams(url.searchParams),
+            { correlationId },
+          )
+        : await runtimeServices.externalIntakeImportService.importExternalIntake(
+            parseJsonBody(request.body),
+            authContext,
+            { correlationId },
+          );
+      return jsonResponse(
+        method === "POST" ? 201 : 200,
+        method === "POST"
+          ? {
+              stage: "5Q",
+              source: "postgres",
+              item: result.batch,
+              auth: {
+                userId: authContext.userId,
+                roles: authContext.roles,
+                allClinics: result.scope.allClinics,
+              },
+              generatedAt: now(),
+              correlationId,
+            }
+          : {
+              stage: "5Q",
+              source: "postgres",
+              items: result.batches.items,
+              count: result.batches.count,
+              limit: result.batches.limit,
+              offset: result.batches.offset,
+              filters: result.batches.filters,
+              auth: {
+                userId: authContext.userId,
+                roles: authContext.roles,
+                allClinics: result.scope.allClinics,
+              },
+              generatedAt: now(),
+              correlationId,
+            },
         config,
         requestOrigin,
       );
@@ -2415,7 +2490,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "5P",
+        stage: "5Q",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -2428,6 +2503,7 @@ export async function handleSelfHostedRequest(
           visitSchedule: "rbac-read-postgres",
           leadsAppointments: "rbac-read-write-postgres",
           clinicBookingRequests: "rbac-read-write-postgres",
+          externalIntakeImports: "rbac-read-write-postgres-inbound-only",
           patientPortal: "patient-owned-read-postgres",
           patientPortalWrites: "patient-owned-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
@@ -2466,6 +2542,7 @@ export async function handleSelfHostedRequest(
           openapiStage5N: "/openapi.stage5n.json",
           openapiStage5O: "/openapi.stage5o.json",
           openapiStage5P: "/openapi.stage5p.json",
+          openapiStage5Q: "/openapi.stage5q.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2494,6 +2571,7 @@ export async function handleSelfHostedRequest(
           bookLeadAppointment: "/api/v1/leads/{leadId}/book-appointment",
           clinicBookingRequests: "/api/v1/clinic/booking-requests",
           clinicBookingRequest: "/api/v1/clinic/booking-requests/{requestId}",
+          externalBookingImports: "/api/v1/integrations/booking-imports",
           patientPortal: "/api/v1/me/portal",
           patientPortalReport: "/api/v1/me/reports/{reportId}",
           patientPortalBookingRequests: "/api/v1/me/booking-requests",
@@ -2626,10 +2704,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_5P, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage5q.json") {
+    return jsonResponse(200, OPENAPI_5Q, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 5P self-hosted backend route matched the request.",
+    message: "No Stage 5Q self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,
