@@ -83,6 +83,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 5Z external adapter production handoff preflight",
     "Stage 6A production acceptance baseline preflight",
     "Stage 6B server install package preflight",
+    "Stage 6C production install verification preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "No deno.lock files",
@@ -146,10 +147,11 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[55], /npm(\.cmd)? run preflight:stage5z/);
   assert.match(commands[56], /npm(\.cmd)? run preflight:stage6a/);
   assert.match(commands[57], /npm(\.cmd)? run preflight:stage6b/);
-  assert.match(commands[58], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[59], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[60], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[61], "git diff --check");
+  assert.match(commands[58], /npm(\.cmd)? run preflight:stage6c/);
+  assert.match(commands[59], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[60], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[61], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[62], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
@@ -229,6 +231,7 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage5z/);
   assert.match(out, /preflight:stage6a/);
   assert.match(out, /preflight:stage6b/);
+  assert.match(out, /preflight:stage6c/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /git diff --check/);
