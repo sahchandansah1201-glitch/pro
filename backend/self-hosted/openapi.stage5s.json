@@ -1,0 +1,118 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro self-hosted booking slot confirmation API",
+    "version": "5S-booking-slot-confirmation",
+    "description": "Stage 5S confirms clinic booking requests by creating a visit from a locally cached clinic_available_slots row. The backend reads and writes PostgreSQL only and never calls the source CRM or advertising platform at confirmation time."
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "BookClinicBookingRequestFromSlot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slotId"],
+        "properties": {
+          "slotId": { "type": "string", "format": "uuid" },
+          "clinicNote": { "type": ["string", "null"], "maxLength": 1000 }
+        }
+      },
+      "ClinicBookingRequest": {
+        "type": "object",
+        "required": ["id", "status", "assignedVisitId", "patient", "clinic"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["requested", "reviewing", "booked", "cancelled"] },
+          "preferredFrom": { "type": ["string", "null"], "format": "date-time" },
+          "preferredTo": { "type": ["string", "null"], "format": "date-time" },
+          "reason": { "type": ["string", "null"] },
+          "clinicNote": { "type": ["string", "null"] },
+          "assignedVisitId": { "type": "string", "format": "uuid" },
+          "assignedVisit": {
+            "type": ["object", "null"],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "startedAt": { "type": ["string", "null"], "format": "date-time" },
+              "status": { "type": ["string", "null"] }
+            }
+          },
+          "patient": {
+            "type": "object",
+            "properties": {
+              "id": { "type": ["string", "null"], "format": "uuid" },
+              "fullName": { "type": ["string", "null"] },
+              "code": { "type": ["string", "null"] }
+            }
+          },
+          "clinic": {
+            "type": "object",
+            "properties": {
+              "id": { "type": ["string", "null"], "format": "uuid" },
+              "slug": { "type": ["string", "null"] },
+              "name": { "type": ["string", "null"] }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "type": "array" }
+            }
+          },
+          "correlationId": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/clinic/booking-requests/{requestId}/book-from-slot": {
+      "post": {
+        "summary": "Confirm a booking request from a local available slot",
+        "description": "Creates a visit, marks the local slot booked, and marks the booking request booked in one PostgreSQL operation. No CRM/ad runtime call is made.",
+        "parameters": [
+          { "name": "requestId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BookClinicBookingRequestFromSlot" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking request confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "const": "5S" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/ClinicBookingRequest" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Request or available slot not found in scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    }
+  }
+}

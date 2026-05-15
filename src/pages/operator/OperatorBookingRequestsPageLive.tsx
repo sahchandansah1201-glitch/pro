@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/lib/format";
 import {
+  bookSelfHostedClinicBookingRequestFromSlot,
   listSelfHostedClinicBookingRequests,
   updateSelfHostedClinicBookingRequest,
   type SelfHostedApiError,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/self-hosted-external-intake-api";
 import {
   listSelfHostedClinicAvailableSlots,
+  type SelfHostedClinicAvailableSlotDTO,
   type SelfHostedClinicAvailableSlotsPage,
 } from "@/lib/self-hosted-clinic-availability-api";
 
@@ -79,7 +81,7 @@ export default function OperatorBookingRequestsPageLive() {
   const [error, setError] = useState<SelfHostedApiError | null>(null);
   const [selected, setSelected] = useState<SelfHostedClinicBookingRequestDTO | null>(null);
   const [clinicNote, setClinicNote] = useState("");
-  const [assignedVisitId, setAssignedVisitId] = useState("");
+  const [selectedSlotId, setSelectedSlotId] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [importBatches, setImportBatches] = useState<SelfHostedExternalIntakeImportBatchesPage>(EMPTY_IMPORTS);
   const [availableSlots, setAvailableSlots] = useState<SelfHostedClinicAvailableSlotsPage>(EMPTY_SLOTS);
@@ -141,12 +143,12 @@ export default function OperatorBookingRequestsPageLive() {
   function chooseRequest(request: SelfHostedClinicBookingRequestDTO) {
     setSelected(request);
     setClinicNote(request.clinicNote || "");
-    setAssignedVisitId(request.assignedVisitId || "");
+    setSelectedSlotId("");
   }
 
   async function updateRequest(
     request: SelfHostedClinicBookingRequestDTO,
-    status: "reviewing" | "cancelled" | "booked",
+    status: "reviewing" | "cancelled",
     extra: { clinicNote?: string | null; assignedVisitId?: string | null } = {},
   ) {
     setBusyKey(`${status}:${request.id}`);
@@ -163,7 +165,6 @@ export default function OperatorBookingRequestsPageLive() {
       setActionMessage(`Запрос ${result.value.id}: статус ${STATUS_LABEL[result.value.status] || result.value.status}.`);
       setSelected(result.value);
       setClinicNote(result.value.clinicNote || "");
-      setAssignedVisitId(result.value.assignedVisitId || "");
       await loadRequests();
     } else {
       setActionMessage(publicBookingMessage(result.error));
@@ -173,18 +174,32 @@ export default function OperatorBookingRequestsPageLive() {
   async function submitDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected) return;
-    await updateRequest(selected, selected.status === "booked" ? "booked" : "reviewing", {
+    await updateRequest(selected, "reviewing", {
       clinicNote,
-      assignedVisitId: assignedVisitId || null,
     });
   }
 
   async function bookSelected() {
-    if (!selected) return;
-    await updateRequest(selected, "booked", {
-      clinicNote,
-      assignedVisitId: assignedVisitId || null,
+    if (!selected || !selectedSlotId) return;
+    setBusyKey(`booked:${selected.id}`);
+    const result = await bookSelfHostedClinicBookingRequestFromSlot({
+      ...baseArgs,
+      requestId: selected.id,
+      payload: {
+        slotId: selectedSlotId,
+        clinicNote,
+      },
     });
+    setBusyKey(null);
+    if (result.ok && result.value) {
+      setActionMessage(`Запрос ${result.value.id}: создан визит ${result.value.assignedVisitId}.`);
+      setSelected(result.value);
+      setClinicNote(result.value.clinicNote || "");
+      setSelectedSlotId("");
+      await loadRequests();
+    } else {
+      setActionMessage(publicBookingMessage(result.error));
+    }
   }
 
   const subtitle = session.user?.displayName
@@ -295,11 +310,18 @@ export default function OperatorBookingRequestsPageLive() {
                 {availableSlots.items.map((slot) => (
                   <li key={slot.id} className="flex flex-wrap items-center justify-between gap-2">
                     <span>
-                      {formatDateTime(slot.startedAt)} · {slot.durationMinutes} мин · {SOURCE_SYSTEM_LABEL[slot.sourceSystem] || slot.sourceSystem}
+                      {slotLabel(slot)}
                     </span>
-                    <span className="tabular-nums">
-                      {slot.doctor.displayName || "врач не указан"} · {slot.status}
-                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={selectedSlotId === slot.id ? "default" : "outline"}
+                      className="h-8 text-[12px]"
+                      onClick={() => setSelectedSlotId(slot.id)}
+                      aria-label={`Выбрать окно ${slotLabel(slot)}`}
+                    >
+                      {selectedSlotId === slot.id ? "Выбрано" : "Выбрать"}
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -417,16 +439,28 @@ export default function OperatorBookingRequestsPageLive() {
                 <div className="rounded-md border border-border bg-muted/30 p-3 text-[13px] text-muted-foreground">
                   {selected.reason || "Причина не указана"}
                 </div>
-                <label className="grid gap-1 text-[12px] font-medium">
-                  ID визита для подтверждённой записи
-                  <Input
-                    aria-label="ID визита для заявки"
-                    value={assignedVisitId}
-                    onChange={(event) => setAssignedVisitId(event.target.value)}
-                    placeholder="uuid визита"
-                    className="h-9"
-                  />
-                </label>
+                {selected.assignedVisitId ? (
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-[13px] text-muted-foreground">
+                    Назначенный визит: {selected.assignedVisitId}
+                  </div>
+                ) : (
+                  <label className="grid gap-1 text-[12px] font-medium">
+                    Свободное окно для записи
+                    <select
+                      aria-label="Свободное окно для записи"
+                      value={selectedSlotId}
+                      onChange={(event) => setSelectedSlotId(event.target.value)}
+                      className="h-9 rounded-md border border-input bg-background px-3 text-[13px]"
+                    >
+                      <option value="">Выберите локально кэшированное окно</option>
+                      {availableSlots.items.map((slot) => (
+                        <option key={slot.id} value={slot.id}>
+                          {slotLabel(slot)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label className="grid gap-1 text-[12px] font-medium">
                   Заметка клиники
                   <Textarea
@@ -445,7 +479,7 @@ export default function OperatorBookingRequestsPageLive() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    disabled={!assignedVisitId || busyKey === `booked:${selected.id}`}
+                    disabled={Boolean(selected.assignedVisitId) || !selectedSlotId || busyKey === `booked:${selected.id}`}
                     onClick={() => void bookSelected()}
                   >
                     Подтвердить запись
@@ -472,9 +506,13 @@ function Kpi({ label, value }: { label: string; value: number }) {
   );
 }
 
+function slotLabel(slot: SelfHostedClinicAvailableSlotDTO): string {
+  return `${formatDateTime(slot.startedAt)} · ${slot.durationMinutes} мин · ${slot.doctor.displayName || "врач не указан"} · ${SOURCE_SYSTEM_LABEL[slot.sourceSystem] || slot.sourceSystem}`;
+}
+
 function publicBookingMessage(error: SelfHostedApiError | null): string {
   if (!error) return "Неизвестная ошибка self-hosted backend.";
-  if (error.code === "validation_error") return "Проверьте статус, ID визита и заметку клиники.";
+  if (error.code === "validation_error") return "Проверьте статус, выбранное окно и заметку клиники.";
   if (error.code === "forbidden") return "У роли нет доступа к очереди заявок.";
   return error.message;
 }

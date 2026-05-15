@@ -107,6 +107,20 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
         const payload = JSON.parse(String(init.body ?? "{}")) as { status?: string; clinicNote?: string };
         return json({ item: { ...request, status: payload.status || "reviewing", clinicNote: payload.clinicNote || null } });
       }
+      if (href.endsWith("/api/v1/clinic/booking-requests/request-live-1/book-from-slot") && init?.method === "POST") {
+        return json({
+          item: {
+            ...request,
+            status: "booked",
+            assignedVisitId: "visit-live-1",
+            assignedVisit: {
+              id: "visit-live-1",
+              startedAt: "2026-05-16T11:00:00.000Z",
+              status: "draft",
+            },
+          },
+        });
+      }
       return json({ items: [request], count: 1, limit: 25, offset: 0, filters: { status: "all", search: null } });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -117,7 +131,7 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
     expect(await screen.findByText("Импорт CRM и рекламных источников")).toBeInTheDocument();
     expect(screen.getByText(/CRM клиники · completed/i)).toBeInTheDocument();
     expect(await screen.findByText("Свободные окна клиники")).toBeInTheDocument();
-    expect(screen.getByText(/Доктор Live · available/i)).toBeInTheDocument();
+    expect(screen.getByText(/Доктор Live · CRM клиники/i)).toBeInTheDocument();
     expect(screen.getByText("Live Booking Patient · DP-LIVE-BOOK")).toBeInTheDocument();
     expect(screen.getByText(/self-hosted backend \/api\/v1\/clinic\/booking-requests/i)).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Демо-режим");
@@ -150,11 +164,33 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
           body: JSON.stringify({
             status: "reviewing",
             clinicNote: "Позвонить пациенту",
-            assignedVisitId: null,
           }),
         }),
       );
     });
     expect(await screen.findByText(/Запрос request-live-1: статус В работе/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Свободное окно для записи"), {
+      target: { value: "slot-live-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Подтвердить запись" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://clinic.local/api/v1/clinic/booking-requests/request-live-1/book-from-slot",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            Authorization: "Bearer stage5p-token",
+            "Content-Type": "application/json",
+          }),
+          body: JSON.stringify({
+            slotId: "slot-live-1",
+            clinicNote: "Позвонить пациенту",
+          }),
+        }),
+      );
+    });
+    expect(await screen.findByText(/создан визит visit-live-1/i)).toBeInTheDocument();
   });
 });

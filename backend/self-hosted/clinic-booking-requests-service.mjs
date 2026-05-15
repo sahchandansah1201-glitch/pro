@@ -102,6 +102,32 @@ export function normalizeClinicBookingRequestUpdatePayload(input = {}) {
   return payload;
 }
 
+export function normalizeClinicBookingRequestSlotBookingPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new ClinicBookingRequestValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  const details = [];
+  const slotId = cleanString(input.slotId);
+  if (!slotId) {
+    details.push({ field: "slotId", message: "slotId is required." });
+  } else {
+    validateUuid(slotId, "slotId", details);
+  }
+
+  const payload = { slotId };
+  if (hasOwn(input, "clinicNote")) {
+    const clinicNote = cleanString(input.clinicNote);
+    if (clinicNote && clinicNote.length > MAX_NOTE_LENGTH) {
+      details.push({ field: "clinicNote", message: "Clinic note is too long." });
+    } else {
+      payload.clinicNote = clinicNote;
+    }
+  }
+
+  if (details.length > 0) throw new ClinicBookingRequestValidationError(details);
+  return payload;
+}
+
 function requireRequest(row) {
   if (!row) throw new ClinicBookingRequestNotFoundError();
   return row;
@@ -193,6 +219,38 @@ export function createClinicBookingRequestsService({
           status: bookingRequest.status,
           assignedVisitId: bookingRequest.assignedVisitId,
           hasClinicNote: Boolean(bookingRequest.clinicNote),
+        },
+      });
+      return { bookingRequest, scope };
+    },
+
+    async bookBookingRequestFromSlot(requestId, input, authContext, { correlationId } = {}) {
+      const safeRequestId = assertClinicBookingRequestUuid(requestId);
+      const scope = leadsAppointmentsWriteScope(authContext);
+      ensureClinicOperatorScope(scope);
+      const payload = normalizeClinicBookingRequestSlotBookingPayload(input);
+      const bookingRequest = requireRequest(
+        await clinicBookingRequestsRepository.bookBookingRequestFromSlot({
+          requestId: safeRequestId,
+          slotId: payload.slotId,
+          clinicNote: payload.clinicNote,
+          reviewedByUserId: authContext.userId,
+          clinicIds: scope.clinicIds,
+          allClinics: scope.allClinics,
+        }),
+      );
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: bookingRequest.clinic.id || null,
+        actorUserId: authContext.userId,
+        action: "clinic_booking_request.book_from_slot",
+        entityType: "patient_portal_booking_request",
+        entityId: bookingRequest.id,
+        correlationId,
+        metadata: {
+          slotId: payload.slotId,
+          assignedVisitId: bookingRequest.assignedVisitId,
+          hasClinicNote: Boolean(bookingRequest.clinicNote),
+          source: "local_slot_cache",
         },
       });
       return { bookingRequest, scope };

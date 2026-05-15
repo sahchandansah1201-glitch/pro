@@ -284,6 +284,115 @@ ${selectJsonRow()}
 `.trim();
 }
 
+export function buildBookClinicBookingRequestFromSlotSql({
+  requestId,
+  slotId,
+  clinicNote = null,
+  reviewedByUserId,
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  return `
+with selected_request as (
+  select br.*
+  from patient_portal_booking_requests br
+  join patients p on p.id = br.patient_id and p.deleted_at is null
+  where br.id = ${sqlUuid(requestId)}
+    and br.status in ('requested', 'reviewing')
+    and br.assigned_visit_id is null
+    ${clinicScopeWhere({ alias: "br", clinicIds, allClinics })}
+  limit 1
+),
+selected_slot as (
+  select s.*
+  from clinic_available_slots s
+  join selected_request br on br.clinic_id = s.clinic_id
+  where s.id = ${sqlUuid(slotId)}
+    and s.status = 'available'
+  limit 1
+),
+booked_slot as (
+  update clinic_available_slots s
+  set status = 'booked',
+      updated_at = now()
+  from selected_slot ss
+  where s.id = ss.id
+  returning s.*
+),
+inserted_visit as (
+  insert into visits (
+    clinic_id,
+    patient_id,
+    doctor_user_id,
+    status,
+    started_at,
+    chief_complaint
+  )
+  select
+    br.clinic_id,
+    br.patient_id,
+    bs.doctor_user_id,
+    'draft'::visit_status,
+    bs.started_at,
+    coalesce(nullif(br.reason, ''), ${sqlNullableText(clinicNote)})
+  from selected_request br
+  join booked_slot bs on true
+  returning *
+),
+updated as (
+  update patient_portal_booking_requests br
+  set status = 'booked',
+      assigned_visit_id = iv.id,
+      reviewed_by_user_id = ${sqlUuid(reviewedByUserId)},
+      reviewed_at = now(),
+      clinic_note = coalesce(${sqlNullableText(clinicNote)}, br.clinic_note),
+      updated_at = now()
+  from inserted_visit iv
+  where br.id = (select id from selected_request)
+  returning br.*
+),
+scoped_requests as (
+  select
+    br.id,
+    br.clinic_id,
+    br.patient_id,
+    br.requested_by_user_id,
+    br.preferred_from,
+    br.preferred_to,
+    br.reason,
+    br.status,
+    br.assigned_visit_id,
+    br.reviewed_by_user_id,
+    br.reviewed_at,
+    br.clinic_note,
+    br.created_at,
+    br.updated_at,
+    p.full_name as patient_full_name,
+    p.code as patient_code,
+    c.slug as clinic_slug,
+    c.name as clinic_name,
+    requester.display_name as requested_by_display_name,
+    reviewer.display_name as reviewed_by_display_name,
+    v.started_at as assigned_visit_started_at,
+    v.status as assigned_visit_status
+  from updated br
+  join patients p on p.id = br.patient_id and p.deleted_at is null
+  join clinics c on c.id = br.clinic_id
+  left join app_users requester on requester.id = br.requested_by_user_id
+  left join app_users reviewer on reviewer.id = br.reviewed_by_user_id
+  left join visits v on v.id = br.assigned_visit_id
+)
+select coalesce((
+  select row_to_json(item)
+  from (
+${selectJsonRow()}
+    from scoped_requests row
+    limit 1
+  ) item
+), 'null'::json)::text;
+`.trim();
+}
+
 function textOrNull(value) {
   return value == null ? null : String(value);
 }
@@ -372,6 +481,10 @@ export function createClinicBookingRequestsRepository(dbClient) {
     },
     async updateBookingRequest(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicBookingRequestSql(params));
+      return normalizeClinicBookingRequest(firstJson(rows));
+    },
+    async bookBookingRequestFromSlot(params) {
+      const rows = await dbClient.queryJson(buildBookClinicBookingRequestFromSlotSql(params));
       return normalizeClinicBookingRequest(firstJson(rows));
     },
   };
