@@ -1,0 +1,49 @@
+name: stage5y-external-adapter-reconciliation-package
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/integrations/adapter-reconciliation-manifest.stage5y.example.json"
+      - "scripts/stage5y-external-adapter-reconciliation-package.mjs"
+      - "scripts/stage5y-external-adapter-reconciliation-package.test.mjs"
+      - "scripts/check-stage5y-external-adapter-reconciliation-package.mjs"
+      - "scripts/check-stage5y-external-adapter-reconciliation-package.test.mjs"
+      - "docs/backend/stage-5y-external-adapter-reconciliation-package.md"
+      - ".github/workflows/stage5y-external-adapter-reconciliation-package.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/integrations/adapter-reconciliation-manifest.stage5y.example.json"
+      - "scripts/stage5y-external-adapter-reconciliation-package.mjs"
+      - "scripts/stage5y-external-adapter-reconciliation-package.test.mjs"
+      - "scripts/check-stage5y-external-adapter-reconciliation-package.mjs"
+      - "scripts/check-stage5y-external-adapter-reconciliation-package.test.mjs"
+      - "docs/backend/stage-5y-external-adapter-reconciliation-package.md"
+      - ".github/workflows/stage5y-external-adapter-reconciliation-package.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage5y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5y
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5Y external adapter reconciliation package"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5y\`"
+            echo "- Boundary: self-hosted product, no external CRM/ad runtime calls"
+          } >> "$GITHUB_STEP_SUMMARY"
