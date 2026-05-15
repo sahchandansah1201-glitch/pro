@@ -66,6 +66,7 @@ const DEFAULT_STEPS = [
   ["Stage 5U external adapter delivery pack preflight", npmCmd, ["run", "preflight:stage5u"]],
   ["Stage 5V external adapter operations preflight", npmCmd, ["run", "preflight:stage5v"]],
   ["Stage 5W external adapter incident runbook preflight", npmCmd, ["run", "preflight:stage5w"]],
+  ["Stage 5X external adapter audit package preflight", npmCmd, ["run", "preflight:stage5x"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],

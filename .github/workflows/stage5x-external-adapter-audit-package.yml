@@ -1,0 +1,49 @@
+name: stage5x-external-adapter-audit-package
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/integrations/adapter-audit-manifest.stage5x.example.json"
+      - "scripts/stage5x-external-adapter-audit-package.mjs"
+      - "scripts/stage5x-external-adapter-audit-package.test.mjs"
+      - "scripts/check-stage5x-external-adapter-audit-package.mjs"
+      - "scripts/check-stage5x-external-adapter-audit-package.test.mjs"
+      - "docs/backend/stage-5x-external-adapter-audit-package.md"
+      - ".github/workflows/stage5x-external-adapter-audit-package.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/integrations/adapter-audit-manifest.stage5x.example.json"
+      - "scripts/stage5x-external-adapter-audit-package.mjs"
+      - "scripts/stage5x-external-adapter-audit-package.test.mjs"
+      - "scripts/check-stage5x-external-adapter-audit-package.mjs"
+      - "scripts/check-stage5x-external-adapter-audit-package.test.mjs"
+      - "docs/backend/stage-5x-external-adapter-audit-package.md"
+      - ".github/workflows/stage5x-external-adapter-audit-package.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage5x:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5x
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5X external adapter audit package"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5x\`"
+            echo "- Boundary: self-hosted product, no external CRM/ad runtime calls"
+          } >> "$GITHUB_STEP_SUMMARY"
