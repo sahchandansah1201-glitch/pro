@@ -3,6 +3,7 @@ export const PATIENT_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
 export const OPS_STATUS_ROLES = ["system_admin"];
 export const DEVICE_READ_ROLES = ["system_admin", "clinic_admin"];
 export const DEVICE_COMMAND_ROLES = ["system_admin", "clinic_admin"];
+export const LEADS_APPOINTMENTS_READ_ROLES = ["system_admin", "clinic_admin", "doctor", "operator"];
 
 export class AuthRequiredError extends Error {
   constructor(message = "Authentication is required.") {
@@ -92,6 +93,18 @@ export const VISIT_READ_ROLES = PATIENT_READ_ROLES;
 
 export function visitReadScope(authContext) {
   return patientReadScope(authContext);
+}
+
+export function leadsAppointmentsReadScope(authContext) {
+  const scoped = requireAnyRole(authContext, LEADS_APPOINTMENTS_READ_ROLES);
+  if (scoped.roles.includes("system_admin")) {
+    return { allClinics: true, clinicIds: [], roles: scoped.roles };
+  }
+  const clinicIds = normalizeRoles(scoped.clinicIds);
+  if (clinicIds.length === 0) {
+    throw new ForbiddenError("The authenticated user has no clinic scope.");
+  }
+  return { allClinics: false, clinicIds, roles: scoped.roles };
 }
 
 // Stage 4H · Visit workspace write scope. Only doctors and system admins may

@@ -6,6 +6,12 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, sexShort } from "@/lib/format";
 import {
+  listSelfHostedLeadsAppointments,
+  type SelfHostedAppointmentOverviewDTO,
+  type SelfHostedLeadOverviewDTO,
+  type SelfHostedLeadsAppointmentsOverview,
+} from "@/lib/self-hosted-leads-appointments-api";
+import {
   getSelfHostedDoctorDashboard,
   type SelfHostedApiError,
   type SelfHostedDashboardAssetIssue,
@@ -50,9 +56,26 @@ const EMPTY_DASHBOARD: SelfHostedDoctorDashboard = {
   devices: [],
 };
 
+const EMPTY_LEADS_APPOINTMENTS: SelfHostedLeadsAppointmentsOverview = {
+  kpis: {
+    leadsTotal: 0,
+    newLeads: 0,
+    qualifiedLeads: 0,
+    bookedLeads: 0,
+    plannedAppointments: 0,
+    completedAppointments: 0,
+  },
+  leads: [],
+  appointments: [],
+  filters: { leadStatus: "all", appointmentStatus: "all", dateFrom: null, dateTo: null, search: null },
+};
+
 export default function DeskPageLive() {
   const session = useSelfHostedApiSession();
   const [dashboard, setDashboard] = useState<SelfHostedDoctorDashboard>(EMPTY_DASHBOARD);
+  const [leadsAppointments, setLeadsAppointments] =
+    useState<SelfHostedLeadsAppointmentsOverview>(EMPTY_LEADS_APPOINTMENTS);
+  const [leadsAppointmentsError, setLeadsAppointmentsError] = useState<SelfHostedApiError | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState<SelfHostedApiError | null>(null);
 
@@ -69,10 +92,17 @@ export default function DeskPageLive() {
         return;
       }
       setStatus("loading");
-      const result = await getSelfHostedDoctorDashboard({
-        apiBaseUrl: session.apiBaseUrl,
-        apiToken: session.apiToken,
-      });
+      const [result, leadsResult] = await Promise.all([
+        getSelfHostedDoctorDashboard({
+          apiBaseUrl: session.apiBaseUrl,
+          apiToken: session.apiToken,
+        }),
+        listSelfHostedLeadsAppointments({
+          apiBaseUrl: session.apiBaseUrl,
+          apiToken: session.apiToken,
+          limit: 5,
+        }),
+      ]);
       if (cancelled) return;
       if (!result.ok || !result.value) {
         setStatus("error");
@@ -80,6 +110,13 @@ export default function DeskPageLive() {
         return;
       }
       setDashboard(result.value);
+      if (leadsResult.ok && leadsResult.value) {
+        setLeadsAppointments(leadsResult.value);
+        setLeadsAppointmentsError(null);
+      } else {
+        setLeadsAppointments(EMPTY_LEADS_APPOINTMENTS);
+        setLeadsAppointmentsError(leadsResult.error);
+      }
       setStatus("ready");
       setError(null);
     }
@@ -203,13 +240,41 @@ export default function DeskPageLive() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <Card className="lg:col-span-6" title="Операционная сводка" hint="без demo лидов">
+          <Card className="lg:col-span-6" title="Лиды и записи" hint="self-hosted backend">
+            <div className="border-b border-border px-4 py-2 text-meta">
+              Источник данных: self-hosted backend /api/v1/leads/appointments.
+            </div>
+            {leadsAppointmentsError && (
+              <div role="alert" className="px-4 py-3 text-row text-destructive">
+                Не удалось загрузить лиды и записи из self-hosted backend.
+              </div>
+            )}
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 py-3 text-row">
-              <Stat term="Пациентов в доступе" value={dashboard.kpis.patientsInScope} />
-              <Stat term="Активных визитов" value={dashboard.kpis.activeVisits} />
-              <Stat term="Снимков к проверке" value={dashboard.kpis.assetsNeedReview} />
-              <Stat term="Ждут заключения" value={dashboard.kpis.awaitingConclusion} />
+              <Stat term="Лиды всего" value={leadsAppointments.kpis.leadsTotal} />
+              <Stat term="Новые/квалиф." value={`${leadsAppointments.kpis.newLeads}/${leadsAppointments.kpis.qualifiedLeads}`} />
+              <Stat term="Записи запланированы" value={leadsAppointments.kpis.plannedAppointments} />
+              <Stat term="Записи выполнены" value={leadsAppointments.kpis.completedAppointments} />
             </dl>
+            {(leadsAppointments.leads.length > 0 || leadsAppointments.appointments.length > 0) && (
+              <div className="grid grid-cols-1 border-t border-border md:grid-cols-2">
+                <div className="min-w-0 border-b border-border md:border-b-0 md:border-r">
+                  <div className="px-4 py-2 text-[12px] font-medium text-muted-foreground">Последние лиды</div>
+                  <ul className="divide-y divide-border">
+                    {leadsAppointments.leads.slice(0, 3).map((lead) => (
+                      <LeadRow key={lead.id} lead={lead} />
+                    ))}
+                  </ul>
+                </div>
+                <div className="min-w-0">
+                  <div className="px-4 py-2 text-[12px] font-medium text-muted-foreground">Ближайшие записи</div>
+                  <ul className="divide-y divide-border">
+                    {leadsAppointments.appointments.slice(0, 3).map((appointment) => (
+                      <AppointmentRow key={appointment.id} appointment={appointment} />
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card className="lg:col-span-6" title="Устройства" hint="self-hosted registry">
@@ -287,6 +352,46 @@ function AssetIssueRow({ issue }: { issue: SelfHostedDashboardAssetIssue }) {
       </span>
       {issue.patientId && issue.visitId ? (
         <RowLink to={`/patients/${issue.patientId}/visits/${issue.visitId}`} label={`Открыть визит ${issue.visitId}`} />
+      ) : (
+        <span />
+      )}
+    </li>
+  );
+}
+
+function LeadRow({ lead }: { lead: SelfHostedLeadOverviewDTO }) {
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2">
+      <div className="min-w-0">
+        <div className="truncate text-row font-medium">
+          {lead.patient.fullName || lead.safeSummary || "Лид"}
+        </div>
+        <div className="truncate text-meta">
+          {lead.source} · {lead.status} · {lead.clinic.name || "Клиника"}
+        </div>
+      </div>
+      <span className="text-meta tabular-nums">{formatMaybeDate(lead.createdAt)}</span>
+    </li>
+  );
+}
+
+function AppointmentRow({ appointment }: { appointment: SelfHostedAppointmentOverviewDTO }) {
+  const patientId = appointment.patient.id || appointment.patientId;
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2">
+      <div className="min-w-0">
+        <div className="truncate text-row font-medium">
+          {appointment.patient.fullName || "Пациент"}
+        </div>
+        <div className="truncate text-meta">
+          {formatMaybeDate(appointment.slotAt)} · {appointment.status}
+        </div>
+      </div>
+      {patientId ? (
+        <RowLink
+          to={`/patients/${patientId}/visits/${appointment.visitId}`}
+          label={`Открыть запись ${appointment.id}`}
+        />
       ) : (
         <span />
       )}

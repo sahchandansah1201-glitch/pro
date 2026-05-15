@@ -25,6 +25,8 @@ PostgreSQL client used by the container image.
   Stage 5I production doctor dashboard aggregations from PostgreSQL.
 - `visit-schedule-repository.mjs`, `visit-schedule-service.mjs` — Stage 5J
   production visit schedule contract from operator-owned PostgreSQL.
+- `leads-appointments-repository.mjs`, `leads-appointments-service.mjs` —
+  Stage 5K production lead intake and visit-derived appointment overview.
 - `asset-write-repository.mjs`, `asset-write-service.mjs`, `object-store.mjs` —
   Stage 4I-4J clinical asset metadata, binary storage, and backend-owned
   download contracts.
@@ -55,6 +57,7 @@ PostgreSQL client used by the container image.
   conclusion, and report contracts.
 - `openapi.stage5i.json` — production doctor dashboard contract.
 - `openapi.stage5j.json` — production visit schedule contract.
+- `openapi.stage5k.json` — production leads/appointments contract.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -77,6 +80,8 @@ PostgreSQL client used by the container image.
   replay metadata and command-audit lookup indexes.
 - `db/migrations/0014_stage5h_clinical_workspace_contracts.sql` — production
   clinical assessment/conclusion tables and report lookup contract.
+- `db/migrations/0015_stage5k_leads_appointments_contract.sql` — production
+  lead intake table for local PostgreSQL.
 - `Dockerfile` — backend container used by the self-hosted compose stack.
 
 ## Local commands
@@ -178,6 +183,9 @@ npm run preflight:stage5i
 npm run test:stage5j
 npm run check:stage5j
 npm run preflight:stage5j
+npm run test:stage5k
+npm run check:stage5k
+npm run preflight:stage5k
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -293,3 +301,8 @@ Stage 5J adds the production visit schedule contract:
 with RBAC scope, date/status/search filters, and safe patient/clinic labels.
 The `/visits` route in production reads only this self-hosted contract; demo/dev
 keeps the historical mock schedule and is guarded by `npm run preflight:stage5j`.
+Stage 5K adds the production leads/appointments contract:
+`GET /api/v1/leads/appointments` reads local lead intake rows and derives
+appointments from `visits`, under local RBAC and audit. `/desk` in production
+uses this self-hosted overview for the "Лиды и записи" block; demo/dev keeps
+historical mock dashboard data and is guarded by `npm run preflight:stage5k`.

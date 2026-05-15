@@ -29,6 +29,11 @@ import {
 import { createDoctorDashboardRepository } from "./doctor-dashboard-repository.mjs";
 import { createDoctorDashboardService } from "./doctor-dashboard-service.mjs";
 import {
+  createLeadsAppointmentsRepository,
+  normalizeLeadsAppointmentsParams,
+} from "./leads-appointments-repository.mjs";
+import { createLeadsAppointmentsService } from "./leads-appointments-service.mjs";
+import {
   createPatientRepository,
   parsePatientListParams,
 } from "./patients-repository.mjs";
@@ -124,6 +129,9 @@ const OPENAPI_5I = JSON.parse(
 const OPENAPI_5J = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5j.json"), "utf8"),
 );
+const OPENAPI_5K = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5k.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -173,6 +181,14 @@ function getRuntime(config, runtime = {}) {
     runtime.visitScheduleService ||
     createVisitScheduleService({
       visitScheduleRepository,
+      auditRepository,
+    });
+  const leadsAppointmentsRepository =
+    runtime.leadsAppointmentsRepository || createLeadsAppointmentsRepository(dbClient);
+  const leadsAppointmentsService =
+    runtime.leadsAppointmentsService ||
+    createLeadsAppointmentsService({
+      leadsAppointmentsRepository,
       auditRepository,
     });
   const patientWriteService =
@@ -228,6 +244,8 @@ function getRuntime(config, runtime = {}) {
     deviceBridgeWorkerService,
     doctorDashboardRepository,
     doctorDashboardService,
+    leadsAppointmentsRepository,
+    leadsAppointmentsService,
     visitScheduleRepository,
     visitScheduleService,
     deviceRegistryRepository,
@@ -603,6 +621,41 @@ export async function handleSelfHostedRequest(
           limit: result.schedule.limit,
           offset: result.schedule.offset,
           filters: result.schedule.filters,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  // Stage 5K · production leads/appointments contract.
+  if (url.pathname === "/api/v1/leads/appointments" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.leadsAppointmentsService.getOverview(
+        authContext,
+        normalizeLeadsAppointmentsParams(url.searchParams),
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5K",
+          source: "postgres",
+          kpis: result.overview.kpis,
+          leads: result.overview.leads,
+          appointments: result.overview.appointments,
+          filters: result.overview.filters,
           auth: {
             userId: authContext.userId,
             roles: authContext.roles,
@@ -2013,7 +2066,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "5J",
+        stage: "5K",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -2024,6 +2077,7 @@ export async function handleSelfHostedRequest(
           clinicalWorkspace: "rbac-read-write-postgres",
           doctorDashboard: "rbac-read-postgres",
           visitSchedule: "rbac-read-postgres",
+          leadsAppointments: "rbac-read-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness",
@@ -2055,6 +2109,7 @@ export async function handleSelfHostedRequest(
           openapiStage5H: "/openapi.stage5h.json",
           openapiStage5I: "/openapi.stage5i.json",
           openapiStage5J: "/openapi.stage5j.json",
+          openapiStage5K: "/openapi.stage5k.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2077,6 +2132,7 @@ export async function handleSelfHostedRequest(
           visits: "/api/v1/visits",
           patientVisits: "/api/v1/patients/{patientId}/visits",
           doctorDashboard: "/api/v1/doctor/dashboard",
+          leadsAppointments: "/api/v1/leads/appointments",
           visit: "/api/v1/visits/{visitId}",
           visitLesions: "/api/v1/visits/{visitId}/lesions",
           visitAssets: "/api/v1/visits/{visitId}/assets",
@@ -2183,6 +2239,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage5j.json") {
     return jsonResponse(200, OPENAPI_5J, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage5k.json") {
+    return jsonResponse(200, OPENAPI_5K, config, requestOrigin);
   }
 
   return errorResponse({
