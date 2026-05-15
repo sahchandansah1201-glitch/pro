@@ -1,0 +1,23 @@
+{
+  "clinicId": "10000000-0000-4000-8000-000000000001",
+  "sourceSystem": "clinic_crm",
+  "sourceReference": "clinic-crm-safe-export",
+  "idempotencyKey": "clinic-crm-2026-05-15T0900Z",
+  "items": [
+    {
+      "kind": "booking_request",
+      "externalId": "crm-request-0001",
+      "patientCode": "DP-2026-0001",
+      "preferredFrom": "2026-06-01T09:00:00.000Z",
+      "preferredTo": "2026-06-01T10:00:00.000Z",
+      "reason": "Плановый контроль"
+    },
+    {
+      "kind": "available_slot",
+      "externalId": "crm-slot-0001",
+      "doctorUserId": "10000000-0000-4000-8000-000000000101",
+      "startedAt": "2026-06-01T11:00:00.000Z",
+      "durationMinutes": 30
+    }
+  ]
+}
