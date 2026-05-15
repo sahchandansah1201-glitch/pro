@@ -1,0 +1,119 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API · Stage 5I",
+    "version": "5I-doctor-dashboard-contracts",
+    "description": "Production doctor dashboard contracts served by the operator-owned self-hosted backend."
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "DoctorDashboardResponse": {
+        "type": "object",
+        "required": ["stage", "source", "dashboard", "generatedAt", "correlationId"],
+        "properties": {
+          "stage": { "const": "5I" },
+          "source": { "const": "postgres" },
+          "dashboard": {
+            "type": "object",
+            "required": ["kpis", "upcoming", "awaitingConclusions", "recentPatients", "assetIssues", "devices"],
+            "properties": {
+              "kpis": {
+                "type": "object",
+                "properties": {
+                  "visitsToday": { "type": "integer" },
+                  "activeVisits": { "type": "integer" },
+                  "awaitingConclusion": { "type": "integer" },
+                  "patientsInScope": { "type": "integer" },
+                  "assetsNeedReview": { "type": "integer" },
+                  "devicesTotal": { "type": "integer" },
+                  "devicesActive30d": { "type": "integer" }
+                }
+              },
+              "upcoming": { "type": "array", "items": { "$ref": "#/components/schemas/DashboardVisit" } },
+              "awaitingConclusions": { "type": "array", "items": { "$ref": "#/components/schemas/DashboardVisit" } },
+              "recentPatients": { "type": "array", "items": { "$ref": "#/components/schemas/DashboardPatient" } },
+              "assetIssues": { "type": "array", "items": { "$ref": "#/components/schemas/DashboardAssetIssue" } },
+              "devices": { "type": "array", "items": { "$ref": "#/components/schemas/DashboardDevice" } }
+            }
+          },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "DashboardVisit": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "patientId": { "type": "string", "nullable": true },
+          "patientFullName": { "type": "string", "nullable": true },
+          "patientCode": { "type": "string", "nullable": true },
+          "clinicId": { "type": "string", "nullable": true },
+          "clinicName": { "type": "string", "nullable": true },
+          "status": { "type": "string" },
+          "startedAt": { "type": "string", "nullable": true },
+          "signedAt": { "type": "string", "nullable": true },
+          "chiefComplaint": { "type": "string", "nullable": true }
+        }
+      },
+      "DashboardPatient": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "fullName": { "type": "string" },
+          "code": { "type": "string" },
+          "birthDate": { "type": "string", "nullable": true },
+          "sex": { "type": "string", "nullable": true },
+          "lastVisitAt": { "type": "string", "nullable": true }
+        }
+      },
+      "DashboardAssetIssue": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string", "nullable": true },
+          "patientId": { "type": "string", "nullable": true },
+          "patientFullName": { "type": "string", "nullable": true },
+          "kind": { "type": "string" },
+          "contentType": { "type": "string", "nullable": true },
+          "byteSize": { "type": "integer", "nullable": true },
+          "capturedAt": { "type": "string", "nullable": true },
+          "issue": { "type": "string" }
+        }
+      },
+      "DashboardDevice": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "model": { "type": "string" },
+          "serial": { "type": "string" },
+          "status": { "type": "string" },
+          "lastSeenAt": { "type": "string", "nullable": true }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/doctor/dashboard": {
+      "get": {
+        "summary": "Read the production doctor dashboard from PostgreSQL",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Dashboard payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DoctorDashboardResponse" }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role denied" }
+        }
+      }
+    }
+  }
+}

@@ -26,6 +26,8 @@ import {
   createDeviceRegistryRepository,
   parseDeviceRegistryParams,
 } from "./device-registry-repository.mjs";
+import { createDoctorDashboardRepository } from "./doctor-dashboard-repository.mjs";
+import { createDoctorDashboardService } from "./doctor-dashboard-service.mjs";
 import {
   createPatientRepository,
   parsePatientListParams,
@@ -111,6 +113,9 @@ const OPENAPI_4Z = JSON.parse(
 const OPENAPI_5H = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5h.json"), "utf8"),
 );
+const OPENAPI_5I = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5i.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -144,6 +149,14 @@ function getRuntime(config, runtime = {}) {
     createDeviceBridgeWorkerService({
       config,
       deviceBridgeWorkerRepository,
+      auditRepository,
+    });
+  const doctorDashboardRepository =
+    runtime.doctorDashboardRepository || createDoctorDashboardRepository(dbClient);
+  const doctorDashboardService =
+    runtime.doctorDashboardService ||
+    createDoctorDashboardService({
+      doctorDashboardRepository,
       auditRepository,
     });
   const patientWriteService =
@@ -197,6 +210,8 @@ function getRuntime(config, runtime = {}) {
     deviceBridgeCommandService,
     deviceBridgeWorkerRepository,
     deviceBridgeWorkerService,
+    doctorDashboardRepository,
+    doctorDashboardService,
     deviceRegistryRepository,
     patientRepository,
     patientWriteService,
@@ -1509,6 +1524,35 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/doctor/dashboard" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.doctorDashboardService.getDashboard(authContext, {
+        correlationId,
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "5I",
+          source: "postgres",
+          dashboard: result.dashboard,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (method !== "GET") {
     return errorResponse({
       status: 405,
@@ -1915,7 +1959,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "4Z",
+        stage: "5I",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -1924,6 +1968,7 @@ export async function handleSelfHostedRequest(
           visits: "rbac-read-write-postgres",
           lesions: "rbac-read-write-postgres",
           clinicalWorkspace: "rbac-read-write-postgres",
+          doctorDashboard: "rbac-read-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness",
@@ -1953,6 +1998,7 @@ export async function handleSelfHostedRequest(
           openapiStage4Y: "/openapi.stage4y.json",
           openapiStage4Z: "/openapi.stage4z.json",
           openapiStage5H: "/openapi.stage5h.json",
+          openapiStage5I: "/openapi.stage5i.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -1973,6 +2019,7 @@ export async function handleSelfHostedRequest(
           deviceCommands: "/api/v1/devices/{deviceId}/commands",
           patients: "/api/v1/patients",
           patientVisits: "/api/v1/patients/{patientId}/visits",
+          doctorDashboard: "/api/v1/doctor/dashboard",
           visit: "/api/v1/visits/{visitId}",
           visitLesions: "/api/v1/visits/{visitId}/lesions",
           visitAssets: "/api/v1/visits/{visitId}/assets",
@@ -2071,6 +2118,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage5h.json") {
     return jsonResponse(200, OPENAPI_5H, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage5i.json") {
+    return jsonResponse(200, OPENAPI_5I, config, requestOrigin);
   }
 
   return errorResponse({

@@ -26,6 +26,8 @@ function createRuntime({
   deviceError = null,
   deviceCommandResult = null,
   deviceCommandError = null,
+  doctorDashboard = null,
+  doctorDashboardError = null,
   deviceWorkerError = null,
   deviceWorkerCommand = null,
   patientDetail = null,
@@ -139,6 +141,34 @@ function createRuntime({
           clinicIds: params.clinicIds,
           allClinics: params.allClinics,
           source: "postgres",
+        };
+      },
+    },
+    doctorDashboardService: {
+      async getDashboard() {
+        if (doctorDashboardError) throw doctorDashboardError;
+        return {
+          dashboard: doctorDashboard || {
+            kpis: {
+              visitsToday: 0,
+              activeVisits: 0,
+              awaitingConclusion: 0,
+              patientsInScope: patients.length,
+              assetsNeedReview: 0,
+              devicesTotal: devices.length,
+              devicesActive30d: 0,
+            },
+            upcoming: [],
+            awaitingConclusions: [],
+            recentPatients: [],
+            assetIssues: [],
+            devices: [],
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
         };
       },
     },
@@ -570,9 +600,10 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "4Z");
+  assert.equal(meta.json.stage, "5I");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
+  assert.equal(meta.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -594,6 +625,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage4X, "/openapi.stage4x.json");
   assert.equal(meta.json.links.openapiStage4Y, "/openapi.stage4y.json");
   assert.equal(meta.json.links.openapiStage4Z, "/openapi.stage4z.json");
+  assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.productReadiness, "/api/v1/product/readiness");
@@ -610,6 +642,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.deviceBridgeWorkerReplay, "/api/v1/device-bridge-worker/commands/{commandId}/replay");
   assert.equal(meta.json.links.devices, "/api/v1/devices");
   assert.equal(meta.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
+  assert.equal(meta.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
   assert.equal(meta.json.links.assetDownload, "/api/v1/assets/{assetId}/download");
   assert.equal(meta.json.service.objectStorageBucket, "medical-assets");
@@ -646,6 +679,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi5h.status, 200);
   assert.equal(openapi5h.json.info.version, "5H-clinical-workspace-contracts");
   assert.ok(openapi5h.json.paths["/api/v1/visits/{visitId}/assessment"].patch);
+
+  const openapi5i = await request("/openapi.stage5i.json");
+  assert.equal(openapi5i.status, 200);
+  assert.equal(openapi5i.json.info.version, "5I-doctor-dashboard-contracts");
+  assert.ok(openapi5i.json.paths["/api/v1/doctor/dashboard"].get);
 
   const openapi4i = await request("/openapi.stage4i.json");
   assert.equal(openapi4i.status, 200);
@@ -1971,7 +2009,8 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "4Z");
+  assert.equal(response.json.stage, "5I");
+  assert.equal(response.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
@@ -1991,6 +2030,8 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage4X, "/openapi.stage4x.json");
   assert.equal(response.json.links.openapiStage4Y, "/openapi.stage4y.json");
   assert.equal(response.json.links.openapiStage4Z, "/openapi.stage4z.json");
+  assert.equal(response.json.links.openapiStage5I, "/openapi.stage5i.json");
+  assert.equal(response.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(response.json.links.productReadiness, "/api/v1/product/readiness");
@@ -2322,4 +2363,60 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assessment"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/conclusion"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].get);
+});
+
+// =====================================================================
+// Stage 5I · production doctor dashboard contracts
+// =====================================================================
+
+test("Stage 5I · GET /api/v1/doctor/dashboard returns PostgreSQL dashboard safely", async () => {
+  const response = await request(
+    "/api/v1/doctor/dashboard",
+    configuredEnv,
+    createRuntime({
+      doctorDashboard: {
+        kpis: {
+          visitsToday: 2,
+          activeVisits: 3,
+          awaitingConclusion: 1,
+          patientsInScope: 8,
+          assetsNeedReview: 4,
+          devicesTotal: 2,
+          devicesActive30d: 1,
+        },
+        upcoming: [{
+          id: STAGE4G_VISIT_ID,
+          patientId: STAGE4G_PATIENT_ID,
+          patientFullName: "Live Patient",
+          patientCode: "DP-LIVE-1",
+          status: "in_progress",
+        }],
+        awaitingConclusions: [],
+        recentPatients: [],
+        assetIssues: [{
+          id: "asset-live-1",
+          visitId: STAGE4G_VISIT_ID,
+          patientId: STAGE4G_PATIENT_ID,
+          patientFullName: "Live Patient",
+          kind: "dermoscopy",
+          issue: "checksum_missing",
+        }],
+        devices: [{ id: "device-live-1", model: "DermLite", serial: "DL-LIVE", status: "active" }],
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5I");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.dashboard.kpis.visitsToday, 2);
+  assert.equal(response.json.dashboard.upcoming[0].patientFullName, "Live Patient");
+  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|postgres:\/\/|secret/i);
+});
+
+test("Stage 5I · /openapi.stage5i.json documents doctor dashboard contract", async () => {
+  const response = await request("/openapi.stage5i.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "5I-doctor-dashboard-contracts");
+  assert.ok(response.json.paths["/api/v1/doctor/dashboard"].get);
 });
