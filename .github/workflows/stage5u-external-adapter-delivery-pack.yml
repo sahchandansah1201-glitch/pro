@@ -1,0 +1,42 @@
+name: stage5u-external-adapter-delivery-pack
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/integrations/booking-import.stage5u.example.json"
+      - "scripts/stage5u-external-adapter-pack.mjs"
+      - "scripts/stage5u-external-adapter-pack.test.mjs"
+      - "scripts/check-stage5u-external-adapter-delivery-pack.mjs"
+      - "scripts/check-stage5u-external-adapter-delivery-pack.test.mjs"
+      - "docs/backend/stage-5u-external-adapter-delivery-pack.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  workflow_dispatch:
+
+jobs:
+  stage5u:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 5U preflight
+        run: npm run preflight:stage5u
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5U external adapter delivery pack"
+            echo
+            echo "- Command: \`npm run preflight:stage5u\`"
+            echo "- Boundary: self-hosted inbound push only; no CRM/ad runtime calls"
+            echo "- Delivery: sanitized JSON example + offline validator/dry-run"
+          } >> "$GITHUB_STEP_SUMMARY"
