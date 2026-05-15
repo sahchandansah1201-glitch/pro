@@ -1,0 +1,32 @@
+{
+  "sourceSystem": "clinic_crm",
+  "caseId": "stage5z-clinic-crm-2026-05-15",
+  "generatedAt": "2026-05-15T10:45:00.000Z",
+  "payloadFile": "deploy/self-hosted/integrations/booking-import.stage5u.example.json",
+  "statusFile": "deploy/self-hosted/integrations/booking-import-status.stage5v.example.json",
+  "policyFile": "deploy/self-hosted/integrations/adapter-incident-policy.stage5w.example.json",
+  "auditManifestFile": "deploy/self-hosted/integrations/adapter-audit-manifest.stage5x.example.json",
+  "reconciliationManifestFile": "deploy/self-hosted/integrations/adapter-reconciliation-manifest.stage5y.example.json",
+  "outputDir": "test-results/stage5z-handoff",
+  "requiredPackages": [
+    "delivery-pack",
+    "operations-report",
+    "incident-runbook",
+    "audit-package",
+    "reconciliation-package"
+  ],
+  "operatorSignoff": {
+    "owner": "operator-desk",
+    "handoffTo": "clinic-admin",
+    "checklist": [
+      "payload validated",
+      "operations report clean",
+      "incident state running",
+      "audit bundle clean",
+      "reconciliation signed off"
+    ]
+  },
+  "productRuntimeCallsExternalSystems": false,
+  "managedRuntimeDependency": "none",
+  "managedDatabaseDependency": "none"
+}

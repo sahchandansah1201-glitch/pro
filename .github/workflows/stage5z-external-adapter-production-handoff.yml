@@ -1,0 +1,49 @@
+name: stage5z-external-adapter-production-handoff
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/integrations/adapter-handoff-manifest.stage5z.example.json"
+      - "scripts/stage5z-external-adapter-production-handoff.mjs"
+      - "scripts/stage5z-external-adapter-production-handoff.test.mjs"
+      - "scripts/check-stage5z-external-adapter-production-handoff.mjs"
+      - "scripts/check-stage5z-external-adapter-production-handoff.test.mjs"
+      - "docs/backend/stage-5z-external-adapter-production-handoff.md"
+      - ".github/workflows/stage5z-external-adapter-production-handoff.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/integrations/adapter-handoff-manifest.stage5z.example.json"
+      - "scripts/stage5z-external-adapter-production-handoff.mjs"
+      - "scripts/stage5z-external-adapter-production-handoff.test.mjs"
+      - "scripts/check-stage5z-external-adapter-production-handoff.mjs"
+      - "scripts/check-stage5z-external-adapter-production-handoff.test.mjs"
+      - "docs/backend/stage-5z-external-adapter-production-handoff.md"
+      - ".github/workflows/stage5z-external-adapter-production-handoff.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage5z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5z
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5Z external adapter production handoff"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5z\`"
+            echo "- Boundary: self-hosted product, no external CRM/ad runtime calls"
+          } >> "$GITHUB_STEP_SUMMARY"
