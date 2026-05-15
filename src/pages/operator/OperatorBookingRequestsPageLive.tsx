@@ -19,6 +19,10 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
+import {
+  listSelfHostedExternalIntakeImports,
+  type SelfHostedExternalIntakeImportBatchesPage,
+} from "@/lib/self-hosted-external-intake-api";
 
 const STATUS_LABEL: Record<string, string> = {
   all: "Все",
@@ -28,12 +32,28 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Отменены",
 };
 
+const SOURCE_SYSTEM_LABEL: Record<string, string> = {
+  clinic_crm: "CRM клиники",
+  ads: "Рекламный источник",
+  site: "Сайт",
+  manual: "Ручной импорт",
+  other: "Другой источник",
+};
+
 const EMPTY_PAGE: SelfHostedClinicBookingRequestsPage = {
   items: [],
   count: 0,
   limit: 25,
   offset: 0,
   filters: { status: "all", search: null },
+};
+
+const EMPTY_IMPORTS: SelfHostedExternalIntakeImportBatchesPage = {
+  items: [],
+  count: 0,
+  limit: 5,
+  offset: 0,
+  filters: { sourceSystem: "all" },
 };
 
 type StatusFilter = "all" | "requested" | "reviewing" | "booked" | "cancelled";
@@ -49,6 +69,7 @@ export default function OperatorBookingRequestsPageLive() {
   const [clinicNote, setClinicNote] = useState("");
   const [assignedVisitId, setAssignedVisitId] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [importBatches, setImportBatches] = useState<SelfHostedExternalIntakeImportBatchesPage>(EMPTY_IMPORTS);
   const [actionMessage, setActionMessage] = useState("Очередь заявок работает только через self-hosted backend.");
 
   const baseArgs = useMemo(
@@ -79,6 +100,11 @@ export default function OperatorBookingRequestsPageLive() {
     });
     if (result.ok && result.value) {
       setPage(result.value);
+      const imports = await listSelfHostedExternalIntakeImports({
+        ...baseArgs,
+        limit: 5,
+      });
+      if (imports.ok && imports.value) setImportBatches(imports.value);
       setError(null);
       setLoadStatus("ready");
       setSelected((current) => current ? result.value.items.find((item) => item.id === current.id) ?? null : null);
@@ -184,6 +210,46 @@ export default function OperatorBookingRequestsPageLive() {
             {error.message}
           </section>
         )}
+
+        <section className="surface-card overflow-hidden" aria-label="Статус импорта CRM и рекламных источников">
+          <header className="section-bar">
+            <h2 className="h-section">Импорт CRM и рекламных источников</h2>
+            <span className="h-section-hint">локальный backend contract</span>
+          </header>
+          <div className="grid grid-cols-2 divide-x divide-border lg:grid-cols-4">
+            <Kpi label="Батчей" value={importBatches.count} />
+            <Kpi
+              label="Заявок принято"
+              value={importBatches.items.reduce((sum, item) => sum + item.acceptedBookingCount, 0)}
+            />
+            <Kpi
+              label="Окон принято"
+              value={importBatches.items.reduce((sum, item) => sum + item.acceptedSlotCount, 0)}
+            />
+            <Kpi
+              label="Отклонено"
+              value={importBatches.items.reduce((sum, item) => sum + item.rejectedCount, 0)}
+            />
+          </div>
+          <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+            {importBatches.items.length === 0 ? (
+              "Импортов пока нет. CRM и рекламные источники подключаются через входящий self-hosted API, без прямых вызовов из UI."
+            ) : (
+              <ul className="space-y-2">
+                {importBatches.items.map((batch) => (
+                  <li key={batch.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      {SOURCE_SYSTEM_LABEL[batch.sourceSystem] || batch.sourceSystem} · {batch.status}
+                    </span>
+                    <span className="tabular-nums">
+                      {batch.acceptedBookingCount} заявок / {batch.acceptedSlotCount} окон / {batch.rejectedCount} отклонено
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
 
         <section className="surface-card grid grid-cols-2 divide-x divide-border lg:grid-cols-4">
           <Kpi label="Всего" value={page.count} />

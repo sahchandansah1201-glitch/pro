@@ -40,6 +40,9 @@ function createRuntime({
   clinicBookingRequests = null,
   clinicBookingRequest = null,
   clinicBookingRequestsError = null,
+  externalIntakeImportBatch = null,
+  externalIntakeImportBatches = null,
+  externalIntakeImportError = null,
   createdLead = null,
   updatedLead = null,
   bookedLead = null,
@@ -448,6 +451,60 @@ function createRuntime({
               code: "DP-LIVE",
             },
             clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+    },
+    externalIntakeImportService: {
+      async importExternalIntake(_body) {
+        if (externalIntakeImportError) throw externalIntakeImportError;
+        return {
+          batch: externalIntakeImportBatch || {
+            id: "10000000-0000-4000-8000-000000000601",
+            sourceSystem: "clinic_crm",
+            sourceReference: "daily-sync",
+            status: "completed",
+            itemCount: 2,
+            acceptedBookingCount: 1,
+            acceptedSlotCount: 1,
+            rejectedCount: 0,
+            summary: { storedRawPayload: false },
+            clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async listImportBatches() {
+        if (externalIntakeImportError) throw externalIntakeImportError;
+        return {
+          batches: externalIntakeImportBatches || {
+            items: [
+              externalIntakeImportBatch || {
+                id: "10000000-0000-4000-8000-000000000601",
+                sourceSystem: "clinic_crm",
+                sourceReference: "daily-sync",
+                status: "completed",
+                itemCount: 2,
+                acceptedBookingCount: 1,
+                acceptedSlotCount: 1,
+                rejectedCount: 0,
+                summary: { storedRawPayload: false },
+                clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+              },
+            ],
+            count: 1,
+            limit: 10,
+            offset: 0,
+            filters: { sourceSystem: "clinic_crm" },
           },
           scope: {
             allClinics: false,
@@ -885,7 +942,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "5P");
+  assert.equal(meta.json.stage, "5Q");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.doctorDashboard, "rbac-read-postgres");
@@ -922,6 +979,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage5N, "/openapi.stage5n.json");
   assert.equal(meta.json.links.openapiStage5O, "/openapi.stage5o.json");
   assert.equal(meta.json.links.openapiStage5P, "/openapi.stage5p.json");
+  assert.equal(meta.json.links.openapiStage5Q, "/openapi.stage5q.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.productReadiness, "/api/v1/product/readiness");
@@ -945,6 +1003,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.bookLeadAppointment, "/api/v1/leads/{leadId}/book-appointment");
   assert.equal(meta.json.links.clinicBookingRequests, "/api/v1/clinic/booking-requests");
   assert.equal(meta.json.links.clinicBookingRequest, "/api/v1/clinic/booking-requests/{requestId}");
+  assert.equal(meta.json.links.externalBookingImports, "/api/v1/integrations/booking-imports");
   assert.equal(meta.json.links.patientPortal, "/api/v1/me/portal");
   assert.equal(meta.json.links.patientPortalReport, "/api/v1/me/reports/{reportId}");
   assert.equal(meta.json.links.patientPortalBookingRequests, "/api/v1/me/booking-requests");
@@ -1016,6 +1075,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi5p.status, 200);
   assert.equal(openapi5p.json.info.version, "5P-clinic-booking-requests-intake");
   assert.ok(openapi5p.json.paths["/api/v1/clinic/booking-requests"].get);
+
+  const openapi5q = await request("/openapi.stage5q.json");
+  assert.equal(openapi5q.status, 200);
+  assert.equal(openapi5q.json.info.version, "5Q-external-intake-import-contracts");
+  assert.ok(openapi5q.json.paths["/api/v1/integrations/booking-imports"].post);
 
   const openapi4i = await request("/openapi.stage4i.json");
   assert.equal(openapi4i.status, 200);
@@ -2341,7 +2405,7 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "5P");
+  assert.equal(response.json.stage, "5Q");
   assert.equal(response.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(response.json.capabilities.visitSchedule, "rbac-read-postgres");
   assert.equal(response.json.capabilities.leadsAppointments, "rbac-read-write-postgres");
@@ -2374,6 +2438,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage5N, "/openapi.stage5n.json");
   assert.equal(response.json.links.openapiStage5O, "/openapi.stage5o.json");
   assert.equal(response.json.links.openapiStage5P, "/openapi.stage5p.json");
+  assert.equal(response.json.links.openapiStage5Q, "/openapi.stage5q.json");
   assert.equal(response.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(response.json.links.leadsAppointments, "/api/v1/leads/appointments");
   assert.equal(response.json.links.createLead, "/api/v1/leads");
@@ -2381,6 +2446,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.bookLeadAppointment, "/api/v1/leads/{leadId}/book-appointment");
   assert.equal(response.json.links.clinicBookingRequests, "/api/v1/clinic/booking-requests");
   assert.equal(response.json.links.clinicBookingRequest, "/api/v1/clinic/booking-requests/{requestId}");
+  assert.equal(response.json.links.externalBookingImports, "/api/v1/integrations/booking-imports");
   assert.equal(response.json.links.patientPortal, "/api/v1/me/portal");
   assert.equal(response.json.links.patientPortalReport, "/api/v1/me/reports/{reportId}");
   assert.equal(response.json.links.patientPortalBookingRequests, "/api/v1/me/booking-requests");
@@ -3191,4 +3257,79 @@ test("Stage 5P · /openapi.stage5p.json documents clinic booking request intake"
   assert.ok(response.json.paths["/api/v1/clinic/booking-requests"].get);
   assert.ok(response.json.paths["/api/v1/clinic/booking-requests/{requestId}"].get);
   assert.ok(response.json.paths["/api/v1/clinic/booking-requests/{requestId}"].patch);
+});
+
+test("Stage 5Q · external intake import endpoints create and list local batches", async () => {
+  const authContext = {
+    userId: "10000000-0000-4000-8000-000000000101",
+    roles: ["operator"],
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+    roleBindings: [{ role: "operator", clinicId: "10000000-0000-4000-8000-000000000001" }],
+  };
+  const runtime = createRuntime({ authContext });
+
+  const created = await request(
+    "/api/v1/integrations/booking-imports",
+    configuredEnv,
+    runtime,
+    "POST",
+    {
+      sourceSystem: "clinic_crm",
+      items: [
+        {
+          kind: "booking_request",
+          externalId: "crm-1",
+          patientCode: "DP-LIVE",
+          preferredFrom: "2026-06-15T10:00:00.000Z",
+        },
+        {
+          kind: "available_slot",
+          externalId: "slot-1",
+          startedAt: "2026-06-15T11:00:00.000Z",
+        },
+      ],
+    },
+  );
+  assert.equal(created.status, 201);
+  assert.equal(created.json.stage, "5Q");
+  assert.equal(created.json.item.sourceSystem, "clinic_crm");
+  assert.equal(created.json.item.acceptedBookingCount, 1);
+  assert.equal(created.json.item.acceptedSlotCount, 1);
+  assert.doesNotMatch(created.body, /api-read|api-write|edge function|SUPABASE_|signed_url|storage_object_path|https:\/\//i);
+
+  const list = await request(
+    "/api/v1/integrations/booking-imports?sourceSystem=clinic_crm",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(list.status, 200);
+  assert.equal(list.json.stage, "5Q");
+  assert.equal(list.json.items.length, 1);
+  assert.equal(list.json.filters.sourceSystem, "clinic_crm");
+});
+
+test("Stage 5Q · external intake imports map forbidden access safely", async () => {
+  const denied = await request(
+    "/api/v1/integrations/booking-imports",
+    configuredEnv,
+    createRuntime({
+      authContext: {
+        userId: "10000000-0000-4000-8000-000000000101",
+        roles: ["doctor"],
+        clinicIds: ["10000000-0000-4000-8000-000000000001"],
+        roleBindings: [],
+      },
+      externalIntakeImportError: new ForbiddenError("External intake denied."),
+    }),
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
+});
+
+test("Stage 5Q · /openapi.stage5q.json documents external intake imports", async () => {
+  const response = await request("/openapi.stage5q.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "5Q-external-intake-import-contracts");
+  assert.ok(response.json.paths["/api/v1/integrations/booking-imports"].get);
+  assert.ok(response.json.paths["/api/v1/integrations/booking-imports"].post);
 });
