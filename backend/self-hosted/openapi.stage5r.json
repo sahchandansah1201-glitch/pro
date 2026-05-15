@@ -1,0 +1,122 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted clinic availability API",
+    "version": "5R-clinic-available-slots-contract",
+    "description": "Stage 5R production contract for reading locally cached appointment windows imported from clinic CRM/ad systems. The backend reads PostgreSQL only and makes no outbound third-party runtime calls."
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "ClinicAvailableSlot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "clinicId": { "type": "string", "nullable": true },
+          "doctorUserId": { "type": "string", "nullable": true },
+          "sourceSystem": { "type": "string", "enum": ["clinic_crm", "ads", "site", "manual", "other"] },
+          "externalSlotId": { "type": "string" },
+          "startedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "durationMinutes": { "type": "integer" },
+          "status": { "type": "string", "enum": ["available", "held", "booked", "cancelled"] },
+          "importedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "updatedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "clinic": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "nullable": true },
+              "slug": { "type": "string", "nullable": true },
+              "name": { "type": "string", "nullable": true }
+            }
+          },
+          "doctor": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "nullable": true },
+              "displayName": { "type": "string", "nullable": true }
+            }
+          }
+        }
+      },
+      "ClinicAvailableSlotsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "stage": { "type": "string", "example": "5R" },
+          "source": { "type": "string", "example": "postgres" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ClinicAvailableSlot" }
+          },
+          "count": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "filters": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "sourceSystem": { "type": "string" },
+              "status": { "type": "string" },
+              "dateFrom": { "type": "string", "nullable": true },
+              "dateTo": { "type": "string", "nullable": true }
+            }
+          },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" }
+            }
+          },
+          "correlationId": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/clinic/available-slots": {
+      "get": {
+        "summary": "List locally cached clinic availability slots",
+        "description": "Returns appointment windows imported into local PostgreSQL. The endpoint never calls the source CRM or advertising platform.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "sourceSystem", "in": "query", "schema": { "type": "string", "enum": ["all", "clinic_crm", "ads", "site", "manual", "other"] } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["available", "held", "booked", "cancelled"] } },
+          { "name": "dateFrom", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "dateTo", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local slot list",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicAvailableSlotsResponse" } } }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        }
+      }
+    }
+  }
+}
+

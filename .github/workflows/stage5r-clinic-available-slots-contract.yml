@@ -1,0 +1,60 @@
+name: stage5r-clinic-available-slots-contract
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/clinic-available-slots-*.mjs"
+      - "backend/self-hosted/db/migrations/0021_stage5r_clinic_available_slots_contract.sql"
+      - "backend/self-hosted/openapi.stage5r.json"
+      - "backend/self-hosted/routes.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-clinic-availability-api.ts"
+      - "src/lib/self-hosted-clinic-availability-api.test.ts"
+      - "src/pages/operator/OperatorBookingRequestsPageLive.tsx"
+      - "src/pages/operator/OperatorBookingRequestsPage.production.test.tsx"
+      - "scripts/check-stage5r-clinic-available-slots-contract.mjs"
+      - "scripts/check-stage5r-clinic-available-slots-contract.test.mjs"
+      - "docs/backend/stage-5r-clinic-available-slots-contract.md"
+      - ".github/workflows/stage5r-clinic-available-slots-contract.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "backend/self-hosted/clinic-available-slots-*.mjs"
+      - "backend/self-hosted/db/migrations/0021_stage5r_clinic_available_slots_contract.sql"
+      - "backend/self-hosted/openapi.stage5r.json"
+      - "backend/self-hosted/routes.mjs"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "src/lib/self-hosted-clinic-availability-api.ts"
+      - "src/lib/self-hosted-clinic-availability-api.test.ts"
+      - "src/pages/operator/OperatorBookingRequestsPageLive.tsx"
+      - "src/pages/operator/OperatorBookingRequestsPage.production.test.tsx"
+      - "scripts/check-stage5r-clinic-available-slots-contract.mjs"
+      - "scripts/check-stage5r-clinic-available-slots-contract.test.mjs"
+      - "docs/backend/stage-5r-clinic-available-slots-contract.md"
+      - ".github/workflows/stage5r-clinic-available-slots-contract.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+
+jobs:
+  stage5r:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5r
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5R clinic available slots contract"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5r\`"
+            echo "- Boundary: local PostgreSQL availability cache only; no CRM/ad/network managed runtime calls."
+          } >> "$GITHUB_STEP_SUMMARY"
+

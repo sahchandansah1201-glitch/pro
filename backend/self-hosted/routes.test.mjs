@@ -40,6 +40,8 @@ function createRuntime({
   clinicBookingRequests = null,
   clinicBookingRequest = null,
   clinicBookingRequestsError = null,
+  clinicAvailableSlots = null,
+  clinicAvailableSlotsError = null,
   externalIntakeImportBatch = null,
   externalIntakeImportBatches = null,
   externalIntakeImportError = null,
@@ -514,6 +516,36 @@ function createRuntime({
         };
       },
     },
+    clinicAvailableSlotsService: {
+      async listAvailableSlots() {
+        if (clinicAvailableSlotsError) throw clinicAvailableSlotsError;
+        return {
+          slots: clinicAvailableSlots || {
+            items: [{
+              id: "10000000-0000-4000-8000-000000000801",
+              clinicId: "10000000-0000-4000-8000-000000000001",
+              doctorUserId: "10000000-0000-4000-8000-000000000101",
+              sourceSystem: "clinic_crm",
+              externalSlotId: "crm-slot-1",
+              startedAt: "2026-06-15T11:00:00.000Z",
+              durationMinutes: 30,
+              status: "available",
+              clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+              doctor: { id: "10000000-0000-4000-8000-000000000101", displayName: "Demo Doctor" },
+            }],
+            count: 1,
+            limit: 20,
+            offset: 0,
+            filters: { sourceSystem: "clinic_crm", status: "available", dateFrom: null, dateTo: null },
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+    },
     deviceBridgeCommandService: {
       async requestBridgeCommand() {
         if (deviceCommandError) throw deviceCommandError;
@@ -942,13 +974,14 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "5Q");
+  assert.equal(meta.json.stage, "5R");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(meta.json.capabilities.visitSchedule, "rbac-read-postgres");
   assert.equal(meta.json.capabilities.leadsAppointments, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.clinicBookingRequests, "rbac-read-write-postgres");
+  assert.equal(meta.json.capabilities.clinicAvailableSlots, "rbac-read-postgres-local-import-cache");
   assert.equal(meta.json.capabilities.patientPortal, "patient-owned-read-postgres");
   assert.equal(meta.json.capabilities.patientPortalWrites, "patient-owned-write-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
@@ -980,6 +1013,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage5O, "/openapi.stage5o.json");
   assert.equal(meta.json.links.openapiStage5P, "/openapi.stage5p.json");
   assert.equal(meta.json.links.openapiStage5Q, "/openapi.stage5q.json");
+  assert.equal(meta.json.links.openapiStage5R, "/openapi.stage5r.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.productReadiness, "/api/v1/product/readiness");
@@ -1004,6 +1038,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.clinicBookingRequests, "/api/v1/clinic/booking-requests");
   assert.equal(meta.json.links.clinicBookingRequest, "/api/v1/clinic/booking-requests/{requestId}");
   assert.equal(meta.json.links.externalBookingImports, "/api/v1/integrations/booking-imports");
+  assert.equal(meta.json.links.clinicAvailableSlots, "/api/v1/clinic/available-slots");
   assert.equal(meta.json.links.patientPortal, "/api/v1/me/portal");
   assert.equal(meta.json.links.patientPortalReport, "/api/v1/me/reports/{reportId}");
   assert.equal(meta.json.links.patientPortalBookingRequests, "/api/v1/me/booking-requests");
@@ -1080,6 +1115,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi5q.status, 200);
   assert.equal(openapi5q.json.info.version, "5Q-external-intake-import-contracts");
   assert.ok(openapi5q.json.paths["/api/v1/integrations/booking-imports"].post);
+
+  const openapi5r = await request("/openapi.stage5r.json");
+  assert.equal(openapi5r.status, 200);
+  assert.equal(openapi5r.json.info.version, "5R-clinic-available-slots-contract");
+  assert.ok(openapi5r.json.paths["/api/v1/clinic/available-slots"].get);
 
   const openapi4i = await request("/openapi.stage4i.json");
   assert.equal(openapi4i.status, 200);
@@ -2405,11 +2445,12 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "5Q");
+  assert.equal(response.json.stage, "5R");
   assert.equal(response.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(response.json.capabilities.visitSchedule, "rbac-read-postgres");
   assert.equal(response.json.capabilities.leadsAppointments, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.clinicBookingRequests, "rbac-read-write-postgres");
+  assert.equal(response.json.capabilities.clinicAvailableSlots, "rbac-read-postgres-local-import-cache");
   assert.equal(response.json.capabilities.patientPortal, "patient-owned-read-postgres");
   assert.equal(response.json.capabilities.patientPortalWrites, "patient-owned-write-postgres");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
@@ -2439,6 +2480,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage5O, "/openapi.stage5o.json");
   assert.equal(response.json.links.openapiStage5P, "/openapi.stage5p.json");
   assert.equal(response.json.links.openapiStage5Q, "/openapi.stage5q.json");
+  assert.equal(response.json.links.openapiStage5R, "/openapi.stage5r.json");
   assert.equal(response.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(response.json.links.leadsAppointments, "/api/v1/leads/appointments");
   assert.equal(response.json.links.createLead, "/api/v1/leads");
@@ -2447,6 +2489,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.clinicBookingRequests, "/api/v1/clinic/booking-requests");
   assert.equal(response.json.links.clinicBookingRequest, "/api/v1/clinic/booking-requests/{requestId}");
   assert.equal(response.json.links.externalBookingImports, "/api/v1/integrations/booking-imports");
+  assert.equal(response.json.links.clinicAvailableSlots, "/api/v1/clinic/available-slots");
   assert.equal(response.json.links.patientPortal, "/api/v1/me/portal");
   assert.equal(response.json.links.patientPortalReport, "/api/v1/me/reports/{reportId}");
   assert.equal(response.json.links.patientPortalBookingRequests, "/api/v1/me/booking-requests");
@@ -3332,4 +3375,52 @@ test("Stage 5Q · /openapi.stage5q.json documents external intake imports", asyn
   assert.equal(response.json.info.version, "5Q-external-intake-import-contracts");
   assert.ok(response.json.paths["/api/v1/integrations/booking-imports"].get);
   assert.ok(response.json.paths["/api/v1/integrations/booking-imports"].post);
+});
+
+test("Stage 5R · clinic available slots endpoint returns local cached windows", async () => {
+  const authContext = {
+    userId: "10000000-0000-4000-8000-000000000101",
+    roles: ["operator"],
+    clinicIds: ["10000000-0000-4000-8000-000000000001"],
+    roleBindings: [{ role: "operator", clinicId: "10000000-0000-4000-8000-000000000001" }],
+  };
+  const response = await request(
+    "/api/v1/clinic/available-slots?sourceSystem=clinic_crm&status=available&limit=5",
+    configuredEnv,
+    createRuntime({ authContext }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5R");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.items.length, 1);
+  assert.equal(response.json.items[0].sourceSystem, "clinic_crm");
+  assert.equal(response.json.items[0].status, "available");
+  assert.equal(response.json.filters.sourceSystem, "clinic_crm");
+  assert.doesNotMatch(response.body, /api-read|api-write|edge function|SUPABASE_|signed_url|storage_object_path|https:\/\//i);
+});
+
+test("Stage 5R · clinic available slots map forbidden access safely", async () => {
+  const denied = await request(
+    "/api/v1/clinic/available-slots",
+    configuredEnv,
+    createRuntime({
+      authContext: {
+        userId: "10000000-0000-4000-8000-000000000101",
+        roles: ["doctor"],
+        clinicIds: ["10000000-0000-4000-8000-000000000001"],
+        roleBindings: [],
+      },
+      clinicAvailableSlotsError: new ForbiddenError("Slot access denied."),
+    }),
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
+});
+
+test("Stage 5R · /openapi.stage5r.json documents local availability contract", async () => {
+  const response = await request("/openapi.stage5r.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "5R-clinic-available-slots-contract");
+  assert.ok(response.json.paths["/api/v1/clinic/available-slots"].get);
 });
