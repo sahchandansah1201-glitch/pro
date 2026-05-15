@@ -1,0 +1,59 @@
+name: stage6b-server-install-package
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/server-install-package.stage6b.json"
+      - "scripts/stage6b-server-install-package.mjs"
+      - "scripts/stage6b-server-install-package.test.mjs"
+      - "scripts/check-stage6b-server-install-package.mjs"
+      - "scripts/check-stage6b-server-install-package.test.mjs"
+      - "docs/backend/stage-6b-server-install-package.md"
+      - ".github/workflows/stage6b-server-install-package.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/server-install-package.stage6b.json"
+      - "scripts/stage6b-server-install-package.mjs"
+      - "scripts/stage6b-server-install-package.test.mjs"
+      - "scripts/check-stage6b-server-install-package.mjs"
+      - "scripts/check-stage6b-server-install-package.test.mjs"
+      - "docs/backend/stage-6b-server-install-package.md"
+      - ".github/workflows/stage6b-server-install-package.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage6b:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage6b
+      - name: Upload Stage 6B server install package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6b-server-install-package
+          path: |
+            test-results/stage6b-server-install-package.md
+            test-results/stage6b-server-install-package.json
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6B server install package"
+            echo ""
+            echo "- Command: \`npm run preflight:stage6b\`"
+            echo "- Boundary: server install package, no managed runtime/database dependency"
+            echo "- Output: \`test-results/stage6b-server-install-package.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
