@@ -31,7 +31,8 @@ const REQUIRED_TEXT = {
     "SELF_HOSTED_API_USER_KEY",
   ],
   "src/pages/SelfHostedLoginPage.tsx": [
-    "Вход в self-hosted backend",
+    "SELF_HOSTED_LOGIN_HEADING",
+    "Дерматолог Pro — production вход",
     "loginToSelfHostedBackend",
     "writeSelfHostedApiSession",
     "/patients",

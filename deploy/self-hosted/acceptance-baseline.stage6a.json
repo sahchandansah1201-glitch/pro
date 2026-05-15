@@ -1,0 +1,168 @@
+{
+  "stage": "6A",
+  "caseId": "stage6a-production-acceptance-baseline",
+  "generatedAt": "2026-05-15T11:00:00.000Z",
+  "productBoundary": {
+    "deployment": "single self-hosted product",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntime": "none",
+    "managedDatabase": "none",
+    "runtimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "browserHardwareApis": false
+  },
+  "releaseGates": [
+    "npm run preflight:stage6a",
+    "npm run preflight:all -- --dry-run",
+    "npm run build",
+    "npm run smoke:stage4k:dry-run",
+    "npm run deploy:stage4m:post-deploy:dry-run",
+    "npm run deploy:stage4m:backup-after-deploy:dry-run",
+    "npm run deploy:stage4m:rollback-drill:dry-run",
+    "node scripts/check-no-deno-locks.mjs",
+    "git diff --check"
+  ],
+  "acceptanceDomains": [
+    {
+      "key": "deployable_stack",
+      "label": "Deployable self-hosted stack",
+      "stage": "4A-5A",
+      "status": "ready",
+      "evidenceFiles": [
+        "deploy/self-hosted/docker-compose.stage4a.yml",
+        "deploy/self-hosted/docker-compose.production.example.yml",
+        "deploy/self-hosted/nginx.stage4a.conf",
+        "deploy/self-hosted/.env.production.example",
+        "backend/self-hosted/Dockerfile",
+        "backend/self-hosted/server.mjs"
+      ]
+    },
+    {
+      "key": "production_mode",
+      "label": "Production mode without demo fallback",
+      "stage": "5D-5G",
+      "status": "ready",
+      "evidenceFiles": [
+        "src/lib/app-mode.ts",
+        "src/lib/self-hosted-role.ts",
+        "src/components/shell/AppLayout.tsx",
+        "src/components/shell/RoleGuard.tsx",
+        "src/components/shell/RoleHome.tsx"
+      ]
+    },
+    {
+      "key": "auth_rbac",
+      "label": "Self-hosted auth and RBAC",
+      "stage": "4C-5E",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/auth-service.mjs",
+        "backend/self-hosted/auth-tokens.mjs",
+        "backend/self-hosted/rbac.mjs",
+        "src/pages/SelfHostedLoginPage.tsx"
+      ]
+    },
+    {
+      "key": "patient_clinical_workspace",
+      "label": "Patient, visit, lesion, assessment, conclusion, report",
+      "stage": "4D-5H",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/patients-repository.mjs",
+        "backend/self-hosted/clinical-workspace-service.mjs",
+        "src/lib/self-hosted-clinical-adapter.ts",
+        "src/lib/self-hosted-clinical-workspace-api.ts",
+        "src/pages/doctor/VisitWorkspacePage.tsx"
+      ]
+    },
+    {
+      "key": "clinical_assets",
+      "label": "Clinical asset metadata and binary storage",
+      "stage": "4I-4J",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/asset-write-service.mjs",
+        "backend/self-hosted/object-store.mjs",
+        "src/lib/self-hosted-asset-api.ts"
+      ]
+    },
+    {
+      "key": "doctor_schedule_dashboard",
+      "label": "Doctor dashboard and visit schedule",
+      "stage": "5I-5J",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/doctor-dashboard-service.mjs",
+        "backend/self-hosted/visit-schedule-service.mjs",
+        "src/lib/self-hosted-dashboard-api.ts",
+        "src/pages/doctor/DeskPageLive.tsx",
+        "src/pages/doctor/VisitsPageLive.tsx"
+      ]
+    },
+    {
+      "key": "leads_appointments",
+      "label": "Leads, appointments, operator intake",
+      "stage": "5K-5M",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/leads-appointments-service.mjs",
+        "backend/self-hosted/leads-appointments-write-service.mjs",
+        "src/lib/self-hosted-leads-appointments-api.ts",
+        "src/pages/operator/OperatorConsolePageLive.tsx"
+      ]
+    },
+    {
+      "key": "patient_portal",
+      "label": "Patient portal contracts and writes",
+      "stage": "5N-5O",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/patient-portal-service.mjs",
+        "src/lib/self-hosted-patient-portal-api.ts",
+        "src/pages/patient/MeHomePageLive.tsx",
+        "src/pages/patient/MeBookingPageLive.tsx",
+        "src/pages/patient/MeReportsPageLive.tsx"
+      ]
+    },
+    {
+      "key": "external_adapter_flow",
+      "label": "External CRM/ad adapter intake, slots, reconciliation, handoff",
+      "stage": "5P-5Z",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/external-intake-import-service.mjs",
+        "backend/self-hosted/clinic-available-slots-service.mjs",
+        "scripts/stage5z-external-adapter-production-handoff.mjs",
+        "deploy/self-hosted/integrations/adapter-handoff-manifest.stage5z.example.json"
+      ]
+    },
+    {
+      "key": "ops_readiness",
+      "label": "Ops, readiness, backup, restore, observability",
+      "stage": "4L-4Z",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/product-readiness.mjs",
+        "backend/self-hosted/ops-runtime-checks.mjs",
+        "src/lib/self-hosted-ops-api.ts",
+        "src/pages/sys/SysSelfHostedOpsPage.tsx"
+      ]
+    },
+    {
+      "key": "device_bridge",
+      "label": "Device Bridge registry, commands, worker, audit",
+      "stage": "4Q-4Y",
+      "status": "ready",
+      "evidenceFiles": [
+        "backend/self-hosted/device-registry-repository.mjs",
+        "backend/self-hosted/device-bridge-command-service.mjs",
+        "backend/self-hosted/device-bridge-worker-service.mjs",
+        "worker/device-bridge/worker.mjs"
+      ]
+    }
+  ]
+}

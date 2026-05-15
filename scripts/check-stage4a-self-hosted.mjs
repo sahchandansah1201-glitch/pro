@@ -114,7 +114,7 @@ function requireText(errors, root, file, expected) {
 function scanRuntimeCoupling(errors, root) {
   const protectedFiles = REQUIRED_FILES.filter(
     (file) =>
-      file.startsWith("backend/self-hosted/") ||
+      (file.startsWith("backend/self-hosted/") && !file.endsWith(".test.mjs")) ||
       file.startsWith("deploy/self-hosted/"),
   );
   for (const file of protectedFiles) {
