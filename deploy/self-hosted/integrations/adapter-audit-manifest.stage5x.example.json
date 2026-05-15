@@ -1,0 +1,19 @@
+{
+  "sourceSystem": "clinic_crm",
+  "caseId": "stage5x-clinic-crm-2026-05-15",
+  "generatedAt": "2026-05-15T10:15:00.000Z",
+  "payloadFile": "deploy/self-hosted/integrations/booking-import.stage5u.example.json",
+  "statusFile": "deploy/self-hosted/integrations/booking-import-status.stage5v.example.json",
+  "policyFile": "deploy/self-hosted/integrations/adapter-incident-policy.stage5w.example.json",
+  "outputDir": "test-results/stage5x-audit",
+  "requiredEvidence": [
+    "payload-summary",
+    "status-snapshot",
+    "ops-report",
+    "incident-runbook",
+    "adapter-control-manifest"
+  ],
+  "productRuntimeCallsExternalSystems": false,
+  "managedRuntimeDependency": "none",
+  "managedDatabaseDependency": "none"
+}
