@@ -32,6 +32,11 @@ function createRuntime({
   visitScheduleError = null,
   leadsAppointments = null,
   leadsAppointmentsError = null,
+  createdLead = null,
+  updatedLead = null,
+  bookedLead = null,
+  bookedAppointment = null,
+  leadsAppointmentsWriteError = null,
   deviceWorkerError = null,
   deviceWorkerCommand = null,
   patientDetail = null,
@@ -211,6 +216,78 @@ function createRuntime({
             leads: [],
             appointments: [],
             filters: { leadStatus: "all", appointmentStatus: "all", dateFrom: null, dateTo: null, search: null },
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+    },
+    leadsAppointmentsWriteService: {
+      async createLead() {
+        if (leadsAppointmentsWriteError) throw leadsAppointmentsWriteError;
+        return {
+          lead: createdLead || {
+            id: "10000000-0000-4000-8000-000000000701",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            patientId: null,
+            source: "operator",
+            status: "new",
+            safeSummary: "Live lead",
+            patient: { id: null, fullName: null, code: null },
+            clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateLeadStatus() {
+        if (leadsAppointmentsWriteError) throw leadsAppointmentsWriteError;
+        return {
+          lead: updatedLead || {
+            id: "10000000-0000-4000-8000-000000000701",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            patientId: null,
+            source: "operator",
+            status: "qualified",
+            safeSummary: "Live lead",
+            patient: { id: null, fullName: null, code: null },
+            clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async bookLeadAppointment() {
+        if (leadsAppointmentsWriteError) throw leadsAppointmentsWriteError;
+        return {
+          lead: bookedLead || {
+            id: "10000000-0000-4000-8000-000000000701",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            patientId: "10000000-0000-4000-8000-000000000201",
+            source: "site",
+            status: "booked",
+            safeSummary: "Live lead",
+            patient: { id: "10000000-0000-4000-8000-000000000201", fullName: "Live Patient", code: "DP-LIVE" },
+            clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+          },
+          appointment: bookedAppointment || {
+            id: "10000000-0000-4000-8000-000000000301",
+            visitId: "10000000-0000-4000-8000-000000000301",
+            patientId: "10000000-0000-4000-8000-000000000201",
+            doctorUserId: "10000000-0000-4000-8000-000000000101",
+            status: "planned",
+            slotAt: "2026-05-20T09:00:00.000Z",
+            patient: { id: "10000000-0000-4000-8000-000000000201", fullName: "Live Patient", code: "DP-LIVE" },
+            clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
           },
           scope: {
             allClinics: false,
@@ -648,12 +725,12 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "5K");
+  assert.equal(meta.json.stage, "5L");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(meta.json.capabilities.visitSchedule, "rbac-read-postgres");
-  assert.equal(meta.json.capabilities.leadsAppointments, "rbac-read-postgres");
+  assert.equal(meta.json.capabilities.leadsAppointments, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -678,6 +755,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
+  assert.equal(meta.json.links.openapiStage5L, "/openapi.stage5l.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.productReadiness, "/api/v1/product/readiness");
@@ -696,6 +774,9 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(meta.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(meta.json.links.leadsAppointments, "/api/v1/leads/appointments");
+  assert.equal(meta.json.links.createLead, "/api/v1/leads");
+  assert.equal(meta.json.links.updateLeadStatus, "/api/v1/leads/{leadId}");
+  assert.equal(meta.json.links.bookLeadAppointment, "/api/v1/leads/{leadId}/book-appointment");
   assert.equal(meta.json.links.visits, "/api/v1/visits");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
   assert.equal(meta.json.links.assetDownload, "/api/v1/assets/{assetId}/download");
@@ -748,6 +829,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi5k.status, 200);
   assert.equal(openapi5k.json.info.version, "5K-leads-appointments-contracts");
   assert.ok(openapi5k.json.paths["/api/v1/leads/appointments"].get);
+
+  const openapi5l = await request("/openapi.stage5l.json");
+  assert.equal(openapi5l.status, 200);
+  assert.equal(openapi5l.json.info.version, "5L-leads-appointments-writes");
+  assert.ok(openapi5l.json.paths["/api/v1/leads"].post);
 
   const openapi4i = await request("/openapi.stage4i.json");
   assert.equal(openapi4i.status, 200);
@@ -2073,10 +2159,10 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "5K");
+  assert.equal(response.json.stage, "5L");
   assert.equal(response.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(response.json.capabilities.visitSchedule, "rbac-read-postgres");
-  assert.equal(response.json.capabilities.leadsAppointments, "rbac-read-postgres");
+  assert.equal(response.json.capabilities.leadsAppointments, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
@@ -2099,8 +2185,12 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(response.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(response.json.links.openapiStage5K, "/openapi.stage5k.json");
+  assert.equal(response.json.links.openapiStage5L, "/openapi.stage5l.json");
   assert.equal(response.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(response.json.links.leadsAppointments, "/api/v1/leads/appointments");
+  assert.equal(response.json.links.createLead, "/api/v1/leads");
+  assert.equal(response.json.links.updateLeadStatus, "/api/v1/leads/{leadId}");
+  assert.equal(response.json.links.bookLeadAppointment, "/api/v1/leads/{leadId}/book-appointment");
   assert.equal(response.json.links.visits, "/api/v1/visits");
   assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
@@ -2588,4 +2678,92 @@ test("Stage 5K · /openapi.stage5k.json documents leads appointments contract", 
   assert.equal(response.status, 200);
   assert.equal(response.json.info.version, "5K-leads-appointments-contracts");
   assert.ok(response.json.paths["/api/v1/leads/appointments"].get);
+});
+
+test("Stage 5L · lead write endpoints create, qualify and book safely", async () => {
+  const runtime = createRuntime();
+  const leadId = "10000000-0000-4000-8000-000000000701";
+
+  const create = await request(
+    "/api/v1/leads",
+    configuredEnv,
+    runtime,
+    "POST",
+    { source: "site", safeSummary: "Live intake lead" },
+  );
+  assert.equal(create.status, 201);
+  assert.equal(create.json.stage, "5L");
+  assert.equal(create.json.item.status, "new");
+
+  const qualify = await request(
+    `/api/v1/leads/${leadId}`,
+    configuredEnv,
+    runtime,
+    "PATCH",
+    { status: "qualified" },
+  );
+  assert.equal(qualify.status, 200);
+  assert.equal(qualify.json.item.status, "qualified");
+
+  const book = await request(
+    `/api/v1/leads/${leadId}/book-appointment`,
+    configuredEnv,
+    runtime,
+    "POST",
+    {
+      patientId: "10000000-0000-4000-8000-000000000201",
+      doctorUserId: "10000000-0000-4000-8000-000000000101",
+      startedAt: "2026-05-20T09:00:00.000Z",
+      chiefComplaint: "Screening visit",
+    },
+  );
+  assert.equal(book.status, 201);
+  assert.equal(book.json.item.status, "booked");
+  assert.equal(book.json.appointment.status, "planned");
+  assert.doesNotMatch(book.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|postgres:\/\/|secret/i);
+});
+
+test("Stage 5L · lead write endpoints map validation and RBAC errors safely", async () => {
+  const validation = await request(
+    "/api/v1/leads",
+    configuredEnv,
+    createRuntime({
+      leadsAppointmentsWriteError: Object.assign(new Error("validation"), {
+        publicCode: "validation_error",
+        publicStatus: 422,
+        publicDetails: [{ field: "safeSummary", message: "Safe summary is required." }],
+      }),
+    }),
+    "POST",
+    { source: "unsupported", safeSummary: "" },
+  );
+  assert.equal(validation.status, 422);
+  assert.equal(validation.json.error.code, "validation_error");
+
+  const denied = await request(
+    "/api/v1/leads",
+    configuredEnv,
+    createRuntime({
+      authContext: {
+        userId: "10000000-0000-4000-8000-000000000601",
+        roles: ["assistant"],
+        clinicIds: ["10000000-0000-4000-8000-000000000001"],
+        roleBindings: [],
+      },
+      leadsAppointmentsWriteError: new ForbiddenError("Lead write access denied."),
+    }),
+    "POST",
+    { source: "operator", safeSummary: "Assistant should not write" },
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
+});
+
+test("Stage 5L · /openapi.stage5l.json documents lead write contracts", async () => {
+  const response = await request("/openapi.stage5l.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "5L-leads-appointments-writes");
+  assert.ok(response.json.paths["/api/v1/leads"].post);
+  assert.ok(response.json.paths["/api/v1/leads/{leadId}"].patch);
+  assert.ok(response.json.paths["/api/v1/leads/{leadId}/book-appointment"].post);
 });

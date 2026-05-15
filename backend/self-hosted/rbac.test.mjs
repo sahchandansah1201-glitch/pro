@@ -7,6 +7,7 @@ import {
   deviceCommandScope,
   deviceReadScope,
   leadsAppointmentsReadScope,
+  leadsAppointmentsWriteScope,
   opsStatusScope,
   patientReadScope,
   patientWriteScope,
@@ -205,6 +206,39 @@ test("leadsAppointmentsReadScope allows clinic intake roles and rejects assistan
 
   assert.throws(
     () => leadsAppointmentsReadScope({ userId: "assistant", roles: ["assistant"], clinicIds: ["clinic-1"] }),
+    ForbiddenError,
+  );
+});
+
+test("leadsAppointmentsWriteScope allows intake writes and rejects assistants", () => {
+  assert.deepEqual(
+    leadsAppointmentsWriteScope({
+      userId: "operator",
+      roles: ["operator"],
+      clinicIds: ["clinic-1"],
+    }),
+    {
+      allClinics: false,
+      clinicIds: ["clinic-1"],
+      roles: ["operator"],
+    },
+  );
+
+  assert.deepEqual(
+    leadsAppointmentsWriteScope({
+      userId: "admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+    }),
+    {
+      allClinics: true,
+      clinicIds: [],
+      roles: ["system_admin"],
+    },
+  );
+
+  assert.throws(
+    () => leadsAppointmentsWriteScope({ userId: "assistant", roles: ["assistant"], clinicIds: ["clinic-1"] }),
     ForbiddenError,
   );
 });

@@ -1,15 +1,20 @@
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Camera, ChevronRight, ServerCog } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime, sexShort } from "@/lib/format";
 import {
+  bookSelfHostedLeadAppointment,
+  buildDefaultSelfHostedLeadAppointmentStartedAt,
+  createSelfHostedLead,
   listSelfHostedLeadsAppointments,
   type SelfHostedAppointmentOverviewDTO,
   type SelfHostedLeadOverviewDTO,
   type SelfHostedLeadsAppointmentsOverview,
+  updateSelfHostedLeadStatus,
 } from "@/lib/self-hosted-leads-appointments-api";
 import {
   getSelfHostedDoctorDashboard,
@@ -37,6 +42,23 @@ const ISSUE_LABEL: Record<string, string> = {
   size_missing: "не указан размер",
   checksum_missing: "нет контрольной суммы",
   review: "нужен пересмотр",
+};
+
+const LEAD_SOURCE_LABEL: Record<string, string> = {
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+  site: "Сайт",
+  operator: "Оператор",
+  phone: "Телефон",
+  portal: "Портал",
+  other: "Другое",
+};
+
+const LEAD_STATUS_LABEL: Record<string, string> = {
+  new: "Новый",
+  qualified: "Квалифицирован",
+  booked: "Записан",
+  lost: "Потерян",
 };
 
 const EMPTY_DASHBOARD: SelfHostedDoctorDashboard = {
@@ -76,6 +98,10 @@ export default function DeskPageLive() {
   const [leadsAppointments, setLeadsAppointments] =
     useState<SelfHostedLeadsAppointmentsOverview>(EMPTY_LEADS_APPOINTMENTS);
   const [leadsAppointmentsError, setLeadsAppointmentsError] = useState<SelfHostedApiError | null>(null);
+  const [leadBusy, setLeadBusy] = useState<string | null>(null);
+  const [leadStatus, setLeadStatus] = useState("Live-лиды сохраняются в self-hosted backend.");
+  const [newLeadSummary, setNewLeadSummary] = useState("");
+  const [newLeadSource, setNewLeadSource] = useState("operator");
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState<SelfHostedApiError | null>(null);
 
@@ -125,6 +151,82 @@ export default function DeskPageLive() {
       cancelled = true;
     };
   }, [session.apiBaseUrl, session.apiToken, session.status]);
+
+  const baseArgs = {
+    apiBaseUrl: session.apiBaseUrl,
+    apiToken: session.apiToken,
+  };
+
+  async function refreshLeadsAppointments() {
+    const result = await listSelfHostedLeadsAppointments({
+      ...baseArgs,
+      limit: 5,
+    });
+    if (result.ok && result.value) {
+      setLeadsAppointments(result.value);
+      setLeadsAppointmentsError(null);
+    } else {
+      setLeadsAppointmentsError(result.error);
+    }
+  }
+
+  async function submitCreateLead(event: FormEvent) {
+    event.preventDefault();
+    setLeadBusy("create");
+    const result = await createSelfHostedLead({
+      ...baseArgs,
+      payload: {
+        source: newLeadSource,
+        safeSummary: newLeadSummary,
+      },
+    });
+    setLeadBusy(null);
+    if (result.ok) {
+      setNewLeadSummary("");
+      setLeadStatus(`Лид ${result.value?.safeSummary ?? ""} создан в self-hosted backend.`);
+      await refreshLeadsAppointments();
+    } else {
+      setLeadStatus(publicLeadMessage(result.error));
+    }
+  }
+
+  async function qualifyLead(lead: SelfHostedLeadOverviewDTO) {
+    setLeadBusy(`qualify:${lead.id}`);
+    const result = await updateSelfHostedLeadStatus({
+      ...baseArgs,
+      leadId: lead.id,
+      status: "qualified",
+    });
+    setLeadBusy(null);
+    setLeadStatus(
+      result.ok
+        ? `Лид ${result.value?.safeSummary ?? lead.id} квалифицирован.`
+        : publicLeadMessage(result.error),
+    );
+    if (result.ok) await refreshLeadsAppointments();
+  }
+
+  async function bookLead(lead: SelfHostedLeadOverviewDTO) {
+    if (!lead.patient.id) return;
+    const startedAt = buildDefaultSelfHostedLeadAppointmentStartedAt();
+    setLeadBusy(`book:${lead.id}`);
+    const result = await bookSelfHostedLeadAppointment({
+      ...baseArgs,
+      leadId: lead.id,
+      payload: {
+        patientId: lead.patient.id,
+        startedAt,
+        chiefComplaint: lead.safeSummary,
+      },
+    });
+    setLeadBusy(null);
+    setLeadStatus(
+      result.ok
+        ? `Лид ${result.value?.lead.safeSummary ?? lead.id} записан на визит.`
+        : publicLeadMessage(result.error),
+    );
+    if (result.ok) await refreshLeadsAppointments();
+  }
 
   const subtitle = session.user?.displayName
     ? `${session.user.displayName} · production dashboard из self-hosted backend`
@@ -244,6 +346,48 @@ export default function DeskPageLive() {
             <div className="border-b border-border px-4 py-2 text-meta">
               Источник данных: self-hosted backend /api/v1/leads/appointments.
             </div>
+            <form onSubmit={submitCreateLead} className="border-b border-border px-4 py-3">
+              <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1">
+                  <label className="mb-1 block text-[12px] font-medium" htmlFor="stage5l-lead-summary">
+                    Краткое описание лида
+                  </label>
+                  <Textarea
+                    id="stage5l-lead-summary"
+                    value={newLeadSummary}
+                    onChange={(event) => setNewLeadSummary(event.target.value)}
+                    className="min-h-16 text-[13px]"
+                    placeholder="Запрос на первичный осмотр, источник и безопасный контекст"
+                  />
+                </div>
+                <div className="w-full sm:w-36">
+                  <label className="mb-1 block text-[12px] font-medium" htmlFor="stage5l-lead-source">
+                    Источник
+                  </label>
+                  <select
+                    id="stage5l-lead-source"
+                    value={newLeadSource}
+                    onChange={(event) => setNewLeadSource(event.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                  >
+                    {Object.entries(LEAD_SOURCE_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={leadBusy === "create" || newLeadSummary.trim().length === 0}
+                  className="h-9 text-[12px]"
+                >
+                  {leadBusy === "create" ? "Создаём…" : "Добавить лид"}
+                </Button>
+              </div>
+              <div role="status" aria-live="polite" aria-atomic="true" className="text-meta">
+                {leadStatus}
+              </div>
+            </form>
             {leadsAppointmentsError && (
               <div role="alert" className="px-4 py-3 text-row text-destructive">
                 Не удалось загрузить лиды и записи из self-hosted backend.
@@ -261,7 +405,13 @@ export default function DeskPageLive() {
                   <div className="px-4 py-2 text-[12px] font-medium text-muted-foreground">Последние лиды</div>
                   <ul className="divide-y divide-border">
                     {leadsAppointments.leads.slice(0, 3).map((lead) => (
-                      <LeadRow key={lead.id} lead={lead} />
+                      <LeadRow
+                        key={lead.id}
+                        lead={lead}
+                        busy={leadBusy}
+                        onQualify={qualifyLead}
+                        onBook={bookLead}
+                      />
                     ))}
                   </ul>
                 </div>
@@ -359,7 +509,26 @@ function AssetIssueRow({ issue }: { issue: SelfHostedDashboardAssetIssue }) {
   );
 }
 
-function LeadRow({ lead }: { lead: SelfHostedLeadOverviewDTO }) {
+function publicLeadMessage(error: { code?: string; message?: string } | null | undefined): string {
+  if (!error) return "Не удалось сохранить лид.";
+  if (error.code === "forbidden") return "Недостаточно прав для изменения лидов.";
+  if (error.code === "validation_error") return "Проверьте поля лида: backend вернул ошибку валидации.";
+  return error.message || "Не удалось сохранить лид.";
+}
+
+function LeadRow({
+  lead,
+  busy,
+  onQualify,
+  onBook,
+}: {
+  lead: SelfHostedLeadOverviewDTO;
+  busy: string | null;
+  onQualify: (lead: SelfHostedLeadOverviewDTO) => void | Promise<void>;
+  onBook: (lead: SelfHostedLeadOverviewDTO) => void | Promise<void>;
+}) {
+  const canQualify = lead.status === "new";
+  const canBook = Boolean(lead.patient.id) && lead.status !== "booked" && lead.status !== "lost";
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2">
       <div className="min-w-0">
@@ -367,10 +536,42 @@ function LeadRow({ lead }: { lead: SelfHostedLeadOverviewDTO }) {
           {lead.patient.fullName || lead.safeSummary || "Лид"}
         </div>
         <div className="truncate text-meta">
-          {lead.source} · {lead.status} · {lead.clinic.name || "Клиника"}
+          {LEAD_SOURCE_LABEL[lead.source] ?? lead.source} · {LEAD_STATUS_LABEL[lead.status] ?? lead.status} · {lead.clinic.name || "Клиника"}
         </div>
       </div>
-      <span className="text-meta tabular-nums">{formatMaybeDate(lead.createdAt)}</span>
+      <div className="flex flex-wrap justify-end gap-1">
+        {canQualify && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px]"
+            aria-label={`Квалифицировать лид ${lead.id}`}
+            disabled={busy === `qualify:${lead.id}`}
+            onClick={() => {
+              void onQualify(lead);
+            }}
+          >
+            {busy === `qualify:${lead.id}` ? "..." : "Квалифицировать"}
+          </Button>
+        )}
+        {canBook && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px]"
+            aria-label={`Создать запись из лида ${lead.id}`}
+            disabled={busy === `book:${lead.id}`}
+            onClick={() => {
+              void onBook(lead);
+            }}
+          >
+            {busy === `book:${lead.id}` ? "..." : "Записать"}
+          </Button>
+        )}
+        <span className="self-center text-meta tabular-nums">{formatMaybeDate(lead.createdAt)}</span>
+      </div>
     </li>
   );
 }
