@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  bookSelfHostedClinicBookingRequestFromSlot,
   getSelfHostedClinicBookingRequest,
   listSelfHostedClinicBookingRequests,
   toSelfHostedClinicBookingRequestsPage,
@@ -34,9 +35,22 @@ describe("self-hosted-clinic-booking-api · Stage 5P", () => {
     expect(page.filters.search).toBe("Live");
   });
 
-  it("lists, reads and updates booking requests with bearer token", async () => {
+  it("lists, reads, updates and books requests from local slot with bearer token", async () => {
     const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
       const href = String(url);
+      if (href.includes("/api/v1/clinic/booking-requests/request-1/book-from-slot") && init?.method === "POST") {
+        return Promise.resolve(new Response(
+          JSON.stringify({
+            item: {
+              id: "request-1",
+              status: "booked",
+              assignedVisitId: "visit-2",
+              assignedVisit: { id: "visit-2", status: "draft" },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ));
+      }
       if (href.includes("/api/v1/clinic/booking-requests/request-1") && init?.method === "PATCH") {
         return Promise.resolve(new Response(
           JSON.stringify({ item: { id: "request-1", status: "reviewing", clinicNote: "Позвонить" } }),
@@ -69,10 +83,16 @@ describe("self-hosted-clinic-booking-api · Stage 5P", () => {
       requestId: "request-1",
       payload: { status: "reviewing", clinicNote: "Позвонить" },
     });
+    const booked = await bookSelfHostedClinicBookingRequestFromSlot({
+      ...base,
+      requestId: "request-1",
+      payload: { slotId: "slot-1", clinicNote: "Подтвердить" },
+    });
 
     expect(list.value?.items[0].id).toBe("request-1");
     expect(detail.value?.status).toBe("requested");
     expect(update.value?.clinicNote).toBe("Позвонить");
+    expect(booked.value?.assignedVisitId).toBe("visit-2");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/clinic/booking-requests?status=requested&search=%D0%BA%D0%BE%D0%BD%D1%82%D1%80%D0%BE%D0%BB%D1%8C&limit=10",
       {
@@ -86,6 +106,13 @@ describe("self-hosted-clinic-booking-api · Stage 5P", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/clinic/booking-requests/request-1",
       expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/clinic/booking-requests/request-1/book-from-slot",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ slotId: "slot-1", clinicNote: "Подтвердить" }),
+      }),
     );
   });
 

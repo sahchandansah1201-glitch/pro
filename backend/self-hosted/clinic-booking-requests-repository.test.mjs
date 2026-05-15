@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   buildClinicBookingRequestDetailSql,
   buildClinicBookingRequestsSql,
+  buildBookClinicBookingRequestFromSlotSql,
   buildUpdateClinicBookingRequestSql,
   createClinicBookingRequestsRepository,
   normalizeClinicBookingRequest,
@@ -14,6 +15,7 @@ const CLINIC_ID = "10000000-0000-4000-8000-000000000001";
 const REQUEST_ID = "10000000-0000-4000-8000-000000000501";
 const USER_ID = "10000000-0000-4000-8000-000000000101";
 const VISIT_ID = "10000000-0000-4000-8000-000000000301";
+const SLOT_ID = "10000000-0000-4000-8000-000000000701";
 
 test("Stage 5P repository builds scoped list SQL with filters and pagination", () => {
   const sql = buildClinicBookingRequestsSql({
@@ -80,7 +82,28 @@ test("Stage 5P repository normalizes query params and DTOs", () => {
   assert.equal(dto.assignedVisit.id, VISIT_ID);
 });
 
-test("Stage 5P repository executes list/detail/update through queryJson", async () => {
+test("Stage 5S repository builds atomic slot confirmation SQL", () => {
+  const sql = buildBookClinicBookingRequestFromSlotSql({
+    requestId: REQUEST_ID,
+    slotId: SLOT_ID,
+    clinicNote: "Подтверждено из локального окна",
+    reviewedByUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /selected_request/);
+  assert.match(sql, /clinic_available_slots/);
+  assert.match(sql, /s\.status = 'available'/);
+  assert.match(sql, /set status = 'booked'/);
+  assert.match(sql, /insert into visits/);
+  assert.match(sql, /'draft'::visit_status/);
+  assert.match(sql, /update patient_portal_booking_requests/);
+  assert.match(sql, /assigned_visit_id = iv\.id/);
+  assert.match(sql, new RegExp(SLOT_ID));
+  assert.doesNotMatch(sql, /\bdelete\s+from\b|supabase|api-read|api-write|edge function|SUPABASE_/i);
+});
+
+test("Stage 5P/5S repository executes list/detail/update/book through queryJson", async () => {
   const calls = [];
   const repository = createClinicBookingRequestsRepository({
     async queryJson(sql) {
@@ -106,9 +129,16 @@ test("Stage 5P repository executes list/detail/update through queryJson", async 
     reviewedByUserId: USER_ID,
     allClinics: true,
   });
+  const booked = await repository.bookBookingRequestFromSlot({
+    requestId: REQUEST_ID,
+    slotId: SLOT_ID,
+    reviewedByUserId: USER_ID,
+    allClinics: true,
+  });
 
   assert.equal(list.count, 1);
   assert.equal(detail.status, "reviewing");
   assert.equal(updated.id, REQUEST_ID);
-  assert.equal(calls.length, 3);
+  assert.equal(booked.id, REQUEST_ID);
+  assert.equal(calls.length, 4);
 });

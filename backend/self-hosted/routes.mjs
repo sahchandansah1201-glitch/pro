@@ -169,6 +169,9 @@ const OPENAPI_5Q = JSON.parse(
 const OPENAPI_5R = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5r.json"), "utf8"),
 );
+const OPENAPI_5S = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5s.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -881,6 +884,40 @@ export async function handleSelfHostedRequest(
           limit: result.queue.limit,
           offset: result.queue.offset,
           filters: result.queue.filters,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const clinicBookingSlotMatch = url.pathname.match(/^\/api\/v1\/clinic\/booking-requests\/([^/]+)\/book-from-slot$/);
+  if (clinicBookingSlotMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const requestId = decodeURIComponent(clinicBookingSlotMatch[1]);
+      const result = await runtimeServices.clinicBookingRequestsService.bookBookingRequestFromSlot(
+        requestId,
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5S",
+          source: "postgres",
+          item: result.bookingRequest,
           auth: {
             userId: authContext.userId,
             roles: authContext.roles,
@@ -2545,7 +2582,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "5R",
+        stage: "5S",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -2558,6 +2595,7 @@ export async function handleSelfHostedRequest(
           visitSchedule: "rbac-read-postgres",
           leadsAppointments: "rbac-read-write-postgres",
           clinicBookingRequests: "rbac-read-write-postgres",
+          clinicBookingSlotConfirmation: "rbac-write-postgres-local-slot-cache",
           externalIntakeImports: "rbac-read-write-postgres-inbound-only",
           clinicAvailableSlots: "rbac-read-postgres-local-import-cache",
           patientPortal: "patient-owned-read-postgres",
@@ -2600,6 +2638,7 @@ export async function handleSelfHostedRequest(
           openapiStage5P: "/openapi.stage5p.json",
           openapiStage5Q: "/openapi.stage5q.json",
           openapiStage5R: "/openapi.stage5r.json",
+          openapiStage5S: "/openapi.stage5s.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2628,6 +2667,7 @@ export async function handleSelfHostedRequest(
           bookLeadAppointment: "/api/v1/leads/{leadId}/book-appointment",
           clinicBookingRequests: "/api/v1/clinic/booking-requests",
           clinicBookingRequest: "/api/v1/clinic/booking-requests/{requestId}",
+          bookClinicBookingRequestFromSlot: "/api/v1/clinic/booking-requests/{requestId}/book-from-slot",
           externalBookingImports: "/api/v1/integrations/booking-imports",
           clinicAvailableSlots: "/api/v1/clinic/available-slots",
           patientPortal: "/api/v1/me/portal",
@@ -2770,10 +2810,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_5R, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage5s.json") {
+    return jsonResponse(200, OPENAPI_5S, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 5R self-hosted backend route matched the request.",
+    message: "No Stage 5S self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,

@@ -31,6 +31,14 @@ export interface UpdateSelfHostedClinicBookingRequestArgs extends BaseArgs {
   };
 }
 
+export interface BookSelfHostedClinicBookingRequestFromSlotArgs extends BaseArgs {
+  requestId: string;
+  payload: {
+    slotId: string;
+    clinicNote?: string | null;
+  };
+}
+
 export interface SelfHostedClinicBookingRequestDTO {
   id: string;
   clinicId: string | null;
@@ -130,7 +138,7 @@ function apiErrorFromBody(response: Response, body: unknown): SelfHostedApiError
 async function requestJson(
   args: BaseArgs,
   path: string,
-  init: { method?: "GET" | "PATCH"; body?: unknown } = {},
+  init: { method?: "GET" | "PATCH" | "POST"; body?: unknown } = {},
 ): Promise<SelfHostedApiResult<unknown>> {
   const configError = ensureConfigured(args);
   if (configError) return fail(configError);
@@ -266,6 +274,19 @@ export async function updateSelfHostedClinicBookingRequest(
     args,
     `/api/v1/clinic/booking-requests/${encodeURIComponent(args.requestId)}`,
     { method: "PATCH", body: args.payload },
+  );
+  return result.ok
+    ? ok(toSelfHostedClinicBookingRequest(isRecord(result.value) ? result.value.item : result.value))
+    : fail(result.error);
+}
+
+export async function bookSelfHostedClinicBookingRequestFromSlot(
+  args: BookSelfHostedClinicBookingRequestFromSlotArgs,
+): Promise<SelfHostedApiResult<SelfHostedClinicBookingRequestDTO>> {
+  const result = await requestJson(
+    args,
+    `/api/v1/clinic/booking-requests/${encodeURIComponent(args.requestId)}/book-from-slot`,
+    { method: "POST", body: args.payload },
   );
   return result.ok
     ? ok(toSelfHostedClinicBookingRequest(isRecord(result.value) ? result.value.item : result.value))
