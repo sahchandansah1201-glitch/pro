@@ -55,6 +55,7 @@ const DEFAULT_STEPS = [
   ["Stage 5J production visit schedule contracts preflight", npmCmd, ["run", "preflight:stage5j"]],
   ["Stage 5K production leads/appointments contracts preflight", npmCmd, ["run", "preflight:stage5k"]],
   ["Stage 5L production leads/appointments writes preflight", npmCmd, ["run", "preflight:stage5l"]],
+  ["Stage 5M production intake operator workspace preflight", npmCmd, ["run", "preflight:stage5m"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],

@@ -1,0 +1,36 @@
+name: stage5m-production-intake-operator-workspace
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/self-hosted-leads-appointments-api.ts"
+      - "src/lib/self-hosted-leads-appointments-api.test.ts"
+      - "src/pages/operator/**"
+      - "src/components/shell/AppSidebar.tsx"
+      - "scripts/check-stage5m-production-intake-operator-workspace.mjs"
+      - "scripts/check-stage5m-production-intake-operator-workspace.test.mjs"
+      - "docs/backend/stage-5m-production-intake-operator-workspace.md"
+      - "package.json"
+      - ".github/workflows/stage5m-production-intake-operator-workspace.yml"
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5m
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5M production intake operator workspace"
+            echo
+            echo "- Command: \`npm run preflight:stage5m\`"
+            echo "- Boundary: self-hosted backend + local PostgreSQL only"
+          } >> "$GITHUB_STEP_SUMMARY"
