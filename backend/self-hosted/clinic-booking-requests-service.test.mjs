@@ -1,69 +1,43 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ForbiddenError } from "./rbac.mjs";
 import {
-  ClinicBookingRequestNotFoundError,
-  ClinicBookingRequestValidationError,
+  assertClinicBookingRequestUuid,
   createClinicBookingRequestsService,
-  normalizeListClinicBookingRequestsParams,
-  normalizeUpdateClinicBookingRequestPayload,
+  normalizeClinicBookingRequestUpdatePayload,
 } from "./clinic-booking-requests-service.mjs";
 
 const CLINIC_ID = "10000000-0000-4000-8000-000000000001";
-const REQ_ID = "10000000-0000-4000-8000-000000000711";
+const USER_ID = "10000000-0000-4000-8000-000000000101";
+const REQUEST_ID = "10000000-0000-4000-8000-000000000501";
 const VISIT_ID = "10000000-0000-4000-8000-000000000301";
-const OPERATOR_ID = "10000000-0000-4000-8000-000000000111";
 
-const operatorAuth = {
-  userId: OPERATOR_ID,
-  roles: ["operator"],
-  clinicIds: [CLINIC_ID],
-};
-
-function bookingRequest(overrides = {}) {
-  return {
-    id: REQ_ID,
-    clinicId: CLINIC_ID,
-    patientId: "10000000-0000-4000-8000-000000000201",
-    status: "requested",
-    preferredFrom: "2026-06-01T10:00:00.000Z",
-    preferredTo: null,
-    reason: "Контроль родинки",
-    clinicNote: null,
-    assignedVisitId: null,
-    reviewedByUserId: null,
-    reviewedAt: null,
-    createdAt: "2026-05-15T07:00:00.000Z",
-    updatedAt: "2026-05-15T07:00:00.000Z",
-    patient: { id: "10000000-0000-4000-8000-000000000201", fullName: "Live Patient", code: "DP-001" },
-    clinic: { id: CLINIC_ID, slug: "live", name: "Live Clinic" },
-    reviewer: { id: null, displayName: null },
-    ...overrides,
-  };
+function auth(roles = ["operator"]) {
+  return { userId: USER_ID, roles, clinicIds: [CLINIC_ID] };
 }
 
-function createService({ overrides = {}, audit = [] } = {}) {
+function createService({ row = null, queue = null, calls = [], audit = [] } = {}) {
+  const item = row || {
+    id: REQUEST_ID,
+    status: "reviewing",
+    assignedVisitId: null,
+    clinicNote: "ok",
+    clinic: { id: CLINIC_ID, name: "Clinic" },
+  };
   return createClinicBookingRequestsService({
     clinicBookingRequestsRepository: {
-      async listBookingRequests() {
-        return [bookingRequest()];
+      async listBookingRequests(params) {
+        calls.push(["list", params]);
+        return queue || { items: [item], count: 1, limit: 25, offset: 0, filters: { status: "all" } };
       },
-      async countBookingRequests() {
-        return { total: 1, requested: 1, reviewing: 0, booked: 0, cancelled: 0 };
+      async getBookingRequest(params) {
+        calls.push(["get", params]);
+        return item;
       },
-      async getBookingRequest() {
-        return bookingRequest();
+      async updateBookingRequest(params) {
+        calls.push(["update", params]);
+        return { ...item, status: params.status || item.status, assignedVisitId: params.assignedVisitId || null };
       },
-      async updateBookingRequest({ status, assignedVisitId }) {
-        return bookingRequest({
-          status,
-          assignedVisitId: assignedVisitId || null,
-          reviewedByUserId: OPERATOR_ID,
-          reviewedAt: "2026-05-15T08:00:00.000Z",
-        });
-      },
-      ...overrides,
     },
     auditRepository: {
       async recordEvent(event) {
@@ -74,98 +48,76 @@ function createService({ overrides = {}, audit = [] } = {}) {
   });
 }
 
-test("Stage 5P normalizes list params and rejects invalid status", () => {
-  const params = new URLSearchParams("status=requested&limit=300&offset=10");
-  const normalized = normalizeListClinicBookingRequestsParams(params);
-  assert.equal(normalized.status, "requested");
-  assert.equal(normalized.limit, 200);
-  assert.equal(normalized.offset, 10);
-
-  assert.throws(
-    () => normalizeListClinicBookingRequestsParams(new URLSearchParams("status=garbage")),
-    ClinicBookingRequestValidationError,
-  );
-});
-
-test("Stage 5P normalizes update payload and enforces visit on booked", () => {
-  const payload = normalizeUpdateClinicBookingRequestPayload({
-    status: "booked",
-    assignedVisitId: VISIT_ID,
-    clinicNote: "Согласовано",
-  });
-  assert.equal(payload.status, "booked");
-  assert.equal(payload.assignedVisitId, VISIT_ID);
-
-  assert.throws(
-    () => normalizeUpdateClinicBookingRequestPayload({ status: "booked" }),
-    ClinicBookingRequestValidationError,
-  );
-  assert.throws(
-    () => normalizeUpdateClinicBookingRequestPayload({ status: "garbage" }),
-    ClinicBookingRequestValidationError,
-  );
-});
-
-test("Stage 5P service lists, reads and updates booking requests with audit", async () => {
-  const audit = [];
-  const service = createService({ audit });
-  const list = await service.listBookingRequests(operatorAuth, new URLSearchParams("status=requested"), {
-    correlationId: "corr-5p",
-  });
-  assert.equal(list.items.length, 1);
-  assert.equal(list.counts.total, 1);
-
-  const detail = await service.getBookingRequest(REQ_ID, operatorAuth, { correlationId: "corr-5p" });
-  assert.equal(detail.item.id, REQ_ID);
-
-  const updated = await service.updateBookingRequest(
-    REQ_ID,
-    { status: "booked", assignedVisitId: VISIT_ID },
-    operatorAuth,
-    { correlationId: "corr-5p" },
-  );
-  assert.equal(updated.item.status, "booked");
-  assert.equal(updated.item.assignedVisitId, VISIT_ID);
+test("Stage 5P service validates update payload and UUIDs", () => {
+  assert.equal(assertClinicBookingRequestUuid(REQUEST_ID), REQUEST_ID);
+  assert.throws(() => assertClinicBookingRequestUuid("bad"), /requestId/);
 
   assert.deepEqual(
-    audit.map((event) => event.action),
-    [
-      "clinic_booking_requests.list",
-      "clinic_booking_requests.read",
-      "clinic_booking_requests.update",
-    ],
+    normalizeClinicBookingRequestUpdatePayload({
+      status: "booked",
+      assignedVisitId: VISIT_ID,
+      clinicNote: "Подтверждено",
+    }),
+    {
+      status: "booked",
+      assignedVisitId: VISIT_ID,
+      clinicNote: "Подтверждено",
+    },
+  );
+  assert.throws(() => normalizeClinicBookingRequestUpdatePayload({ status: "booked" }), (error) =>
+    error.publicDetails?.some?.((detail) => /Booked requests/.test(detail.message)),
+  );
+  assert.throws(() => normalizeClinicBookingRequestUpdatePayload({ clinicNote: "x".repeat(1001) }), (error) =>
+    error.publicDetails?.some?.((detail) => /too long/.test(detail.message)),
   );
 });
 
-test("Stage 5P service rejects roles outside operator/clinic_admin/system_admin", async () => {
+test("Stage 5P service lists, reads, updates, and audits clinic-scoped requests", async () => {
+  const calls = [];
+  const audit = [];
+  const service = createService({ calls, audit });
+
+  const list = await service.listBookingRequests(auth(), { status: "requested" }, { correlationId: "corr-1" });
+  const detail = await service.getBookingRequest(REQUEST_ID, auth(), { correlationId: "corr-2" });
+  const updated = await service.updateBookingRequest(
+    REQUEST_ID,
+    { status: "reviewing", clinicNote: "Позвонить пациенту" },
+    auth(),
+    { correlationId: "corr-3" },
+  );
+
+  assert.equal(list.queue.count, 1);
+  assert.equal(detail.bookingRequest.id, REQUEST_ID);
+  assert.equal(updated.bookingRequest.status, "reviewing");
+  assert.equal(calls[0][1].clinicIds[0], CLINIC_ID);
+  assert.deepEqual(audit.map((event) => event.action), [
+    "clinic_booking_request.list",
+    "clinic_booking_request.read",
+    "clinic_booking_request.update",
+  ]);
+});
+
+test("Stage 5P service denies doctor-only access and maps not found", async () => {
   const service = createService();
   await assert.rejects(
-    () => service.listBookingRequests(
-      { userId: "x", roles: ["doctor"], clinicIds: [CLINIC_ID] },
-      new URLSearchParams(),
-    ),
-    ForbiddenError,
+    () => service.listBookingRequests(auth(["doctor"]), {}, {}),
+    /reserved for operators/,
   );
-  await assert.rejects(
-    () => service.updateBookingRequest(
-      REQ_ID,
-      { status: "reviewing" },
-      { userId: "x", roles: ["doctor"], clinicIds: [CLINIC_ID] },
-    ),
-    ForbiddenError,
-  );
-});
 
-test("Stage 5P service translates missing booking request to 404", async () => {
-  const service = createService({
-    overrides: {
+  const missing = createClinicBookingRequestsService({
+    clinicBookingRequestsRepository: {
+      async listBookingRequests() {
+        return { items: [], count: 0, limit: 25, offset: 0, filters: { status: "all" } };
+      },
       async getBookingRequest() {
         return null;
       },
+      async updateBookingRequest() {
+        return null;
+      },
     },
+    auditRepository: { async recordEvent() {} },
   });
-  await assert.rejects(
-    () => service.getBookingRequest(REQ_ID, operatorAuth),
-    ClinicBookingRequestNotFoundError,
-  );
+  await assert.rejects(() => missing.getBookingRequest(REQUEST_ID, auth(), {}), /not found/i);
+  await assert.rejects(() => missing.updateBookingRequest(REQUEST_ID, { status: "reviewing" }, auth(), {}), /not found/i);
 });

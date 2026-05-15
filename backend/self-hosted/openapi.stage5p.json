@@ -1,0 +1,132 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro self-hosted clinic booking requests intake",
+    "version": "5P-clinic-booking-requests-intake"
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "ClinicBookingRequest": {
+        "type": "object",
+        "required": ["id", "status", "patient", "clinic"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["requested", "reviewing", "booked", "cancelled"] },
+          "preferredFrom": { "type": ["string", "null"], "format": "date-time" },
+          "preferredTo": { "type": ["string", "null"], "format": "date-time" },
+          "reason": { "type": ["string", "null"] },
+          "clinicNote": { "type": ["string", "null"] },
+          "assignedVisitId": { "type": ["string", "null"], "format": "uuid" },
+          "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+          "createdAt": { "type": ["string", "null"], "format": "date-time" },
+          "patient": {
+            "type": "object",
+            "properties": {
+              "id": { "type": ["string", "null"], "format": "uuid" },
+              "fullName": { "type": ["string", "null"] },
+              "code": { "type": ["string", "null"] }
+            }
+          },
+          "clinic": {
+            "type": "object",
+            "properties": {
+              "id": { "type": ["string", "null"], "format": "uuid" },
+              "slug": { "type": ["string", "null"] },
+              "name": { "type": ["string", "null"] }
+            }
+          }
+        }
+      },
+      "UpdateClinicBookingRequest": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["requested", "reviewing", "booked", "cancelled"] },
+          "clinicNote": { "type": ["string", "null"], "maxLength": 1000 },
+          "assignedVisitId": { "type": ["string", "null"], "format": "uuid" }
+        },
+        "additionalProperties": false
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "type": "array" }
+            }
+          },
+          "correlationId": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/clinic/booking-requests": {
+      "get": {
+        "summary": "List clinic booking requests",
+        "description": "Returns patient portal booking requests scoped to operator/clinic-admin access. External CRM/ad feeds are not called by this contract.",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["all", "requested", "reviewing", "booked", "cancelled"] } },
+          { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 160 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clinic booking request queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "const": "5P" },
+                    "source": { "const": "postgres" },
+                    "items": { "type": "array", "items": { "$ref": "#/components/schemas/ClinicBookingRequest" } },
+                    "count": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "offset": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinic/booking-requests/{requestId}": {
+      "get": {
+        "summary": "Read clinic booking request",
+        "parameters": [{ "name": "requestId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": {
+            "description": "Booking request detail",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicBookingRequest" } } }
+          },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "patch": {
+        "summary": "Review or assign clinic booking request",
+        "parameters": [{ "name": "requestId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateClinicBookingRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated booking request",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicBookingRequest" } } }
+          },
+          "422": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    }
+  }
+}

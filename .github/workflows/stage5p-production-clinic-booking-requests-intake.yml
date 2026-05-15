@@ -1,0 +1,57 @@
+name: stage5p-production-clinic-booking-requests-intake
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/clinic-booking-requests-*.mjs"
+      - "backend/self-hosted/db/migrations/0019_stage5p_clinic_booking_requests_intake.sql"
+      - "backend/self-hosted/openapi.stage5p.json"
+      - "backend/self-hosted/routes.mjs"
+      - "src/lib/self-hosted-clinic-booking-api.ts"
+      - "src/lib/self-hosted-clinic-booking-api.test.ts"
+      - "src/pages/operator/OperatorBookingRequestsPage*.tsx"
+      - "src/App.tsx"
+      - "src/components/shell/AppSidebar.tsx"
+      - "scripts/check-stage5p-production-clinic-booking-requests-intake.mjs"
+      - "scripts/check-stage5p-production-clinic-booking-requests-intake.test.mjs"
+      - "docs/backend/stage-5p-production-clinic-booking-requests-intake.md"
+      - ".github/workflows/stage5p-production-clinic-booking-requests-intake.yml"
+      - "package.json"
+  push:
+    branches: [main]
+    paths:
+      - "backend/self-hosted/clinic-booking-requests-*.mjs"
+      - "backend/self-hosted/db/migrations/0019_stage5p_clinic_booking_requests_intake.sql"
+      - "backend/self-hosted/openapi.stage5p.json"
+      - "backend/self-hosted/routes.mjs"
+      - "src/lib/self-hosted-clinic-booking-api.ts"
+      - "src/lib/self-hosted-clinic-booking-api.test.ts"
+      - "src/pages/operator/OperatorBookingRequestsPage*.tsx"
+      - "src/App.tsx"
+      - "src/components/shell/AppSidebar.tsx"
+      - "scripts/check-stage5p-production-clinic-booking-requests-intake.mjs"
+      - "scripts/check-stage5p-production-clinic-booking-requests-intake.test.mjs"
+      - "docs/backend/stage-5p-production-clinic-booking-requests-intake.md"
+      - ".github/workflows/stage5p-production-clinic-booking-requests-intake.yml"
+      - "package.json"
+
+jobs:
+  stage5p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5p
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5P production clinic booking requests intake"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5p\`"
+            echo "- Boundary: self-hosted backend + frontend, local PostgreSQL, no managed runtime/database coupling."
+          } >> "$GITHUB_STEP_SUMMARY"

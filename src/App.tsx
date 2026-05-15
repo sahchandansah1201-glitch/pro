@@ -24,6 +24,7 @@ import LesionDetailPage from "./pages/doctor/LesionDetailPage";
 import BotSimPage from "./pages/bot/BotSimPage";
 import BotMiniAppBookingPage from "./pages/bot/BotMiniAppBookingPage";
 import OperatorConsolePage from "./pages/operator/OperatorConsolePage";
+import OperatorBookingRequestsPage from "./pages/operator/OperatorBookingRequestsPage";
 import OperatorDialogPage from "./pages/operator/OperatorDialogPage";
 import AdminIntegrationsPage from "./pages/admin/AdminIntegrationsPage";
 import AdminIntegrationDetailPage from "./pages/admin/AdminIntegrationDetailPage";
@@ -91,6 +92,7 @@ const App = () => (
 
               {/* Operator */}
               <Route path="/operator" element={<G><OperatorConsolePage /></G>} />
+              <Route path="/operator/booking-requests" element={<G><OperatorBookingRequestsPage /></G>} />
               <Route path="/operator/dialogs/:id" element={<G><OperatorDialogPage /></G>} />
 
               {/* System admin */}
