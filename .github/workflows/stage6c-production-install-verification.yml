@@ -1,0 +1,59 @@
+name: stage6c-production-install-verification
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/install-verification.stage6c.json"
+      - "scripts/stage6c-production-install-verification.mjs"
+      - "scripts/stage6c-production-install-verification.test.mjs"
+      - "scripts/check-stage6c-production-install-verification.mjs"
+      - "scripts/check-stage6c-production-install-verification.test.mjs"
+      - "docs/backend/stage-6c-production-install-verification.md"
+      - ".github/workflows/stage6c-production-install-verification.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/install-verification.stage6c.json"
+      - "scripts/stage6c-production-install-verification.mjs"
+      - "scripts/stage6c-production-install-verification.test.mjs"
+      - "scripts/check-stage6c-production-install-verification.mjs"
+      - "scripts/check-stage6c-production-install-verification.test.mjs"
+      - "docs/backend/stage-6c-production-install-verification.md"
+      - ".github/workflows/stage6c-production-install-verification.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage6c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage6c
+      - name: Upload Stage 6C production install verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6c-production-install-verification
+          path: |
+            test-results/stage6c-production-install-verification.md
+            test-results/stage6c-production-install-verification.json
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6C production install verification"
+            echo ""
+            echo "- Command: \`npm run preflight:stage6c\`"
+            echo "- Boundary: offline install verification package, no managed runtime/database dependency"
+            echo "- Output: \`test-results/stage6c-production-install-verification.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"

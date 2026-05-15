@@ -71,6 +71,7 @@ const DEFAULT_STEPS = [
   ["Stage 5Z external adapter production handoff preflight", npmCmd, ["run", "preflight:stage5z"]],
   ["Stage 6A production acceptance baseline preflight", npmCmd, ["run", "preflight:stage6a"]],
   ["Stage 6B server install package preflight", npmCmd, ["run", "preflight:stage6b"]],
+  ["Stage 6C production install verification preflight", npmCmd, ["run", "preflight:stage6c"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],

@@ -1,0 +1,202 @@
+{
+  "stage": "6C",
+  "packageId": "stage6c-production-install-verification",
+  "generatedAt": "2026-05-15T12:00:00.000Z",
+  "serverInstallManifest": "deploy/self-hosted/server-install-package.stage6b.json",
+  "productBoundary": {
+    "deployment": "single self-hosted production install verification",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "liveServerEvidenceRequired": true
+  },
+  "verificationInputs": [
+    {
+      "key": "stage6b_server_install_package",
+      "label": "Stage 6B server install package",
+      "kind": "file",
+      "path": "deploy/self-hosted/server-install-package.stage6b.json",
+      "required": true
+    },
+    {
+      "key": "stage6a_acceptance_baseline",
+      "label": "Stage 6A accepted product baseline",
+      "kind": "file",
+      "path": "deploy/self-hosted/acceptance-baseline.stage6a.json",
+      "required": true
+    },
+    {
+      "key": "server_install_generator",
+      "label": "Stage 6B install generator",
+      "kind": "file",
+      "path": "scripts/stage6b-server-install-package.mjs",
+      "required": true
+    },
+    {
+      "key": "bootstrap_planner",
+      "label": "Production server bootstrap planner",
+      "kind": "file",
+      "path": "scripts/stage5b-server-bootstrap.mjs",
+      "required": true
+    },
+    {
+      "key": "deploy_verifier",
+      "label": "Production deploy verifier",
+      "kind": "file",
+      "path": "scripts/stage4m-production-deploy-verify.mjs",
+      "required": true
+    },
+    {
+      "key": "compose_smoke",
+      "label": "Self-hosted compose smoke",
+      "kind": "file",
+      "path": "scripts/stage4k-self-hosted-compose-smoke.mjs",
+      "required": true
+    },
+    {
+      "key": "ops_backup_restore",
+      "label": "Backup and restore operations",
+      "kind": "file",
+      "path": "scripts/stage4l-self-hosted-ops.mjs",
+      "required": true
+    },
+    {
+      "key": "production_env_template",
+      "label": "Production environment template",
+      "kind": "file",
+      "path": "deploy/self-hosted/.env.production.example",
+      "required": true
+    },
+    {
+      "key": "compose_base",
+      "label": "Base Docker Compose stack",
+      "kind": "file",
+      "path": "deploy/self-hosted/docker-compose.stage4a.yml",
+      "required": true
+    },
+    {
+      "key": "compose_production_overlay",
+      "label": "Production Compose overlay",
+      "kind": "file",
+      "path": "deploy/self-hosted/docker-compose.production.example.yml",
+      "required": true
+    },
+    {
+      "key": "prestart_schema_check",
+      "label": "Production schema prestart check",
+      "kind": "file",
+      "path": "deploy/self-hosted/prestart-schema-check.stage5c.sql",
+      "required": true
+    },
+    {
+      "key": "postgres_migrations",
+      "label": "PostgreSQL migration set",
+      "kind": "directory",
+      "path": "backend/self-hosted/db/migrations",
+      "required": true
+    }
+  ],
+  "verificationGates": [
+    {
+      "key": "stage6b_ready",
+      "label": "Verify server install package readiness",
+      "command": "npm run preflight:stage6b",
+      "required": true
+    },
+    {
+      "key": "env_template_validation",
+      "label": "Validate production environment template",
+      "command": "npm run bootstrap:stage5b:verify-env:example",
+      "required": true
+    },
+    {
+      "key": "first_boot_plan",
+      "label": "Generate first boot verification plan",
+      "command": "npm run deploy:stage4m:first-boot:dry-run",
+      "required": true
+    },
+    {
+      "key": "post_deploy_plan",
+      "label": "Generate post-deploy verification plan",
+      "command": "npm run deploy:stage4m:post-deploy:dry-run",
+      "required": true
+    },
+    {
+      "key": "compose_smoke_plan",
+      "label": "Generate compose smoke plan",
+      "command": "npm run smoke:stage4k:dry-run",
+      "required": true
+    },
+    {
+      "key": "backup_after_deploy_plan",
+      "label": "Generate backup-after-deploy plan",
+      "command": "npm run deploy:stage4m:backup-after-deploy:dry-run",
+      "required": true
+    },
+    {
+      "key": "rollback_drill_plan",
+      "label": "Generate rollback drill plan",
+      "command": "npm run deploy:stage4m:rollback-drill:dry-run",
+      "required": true
+    },
+    {
+      "key": "stage6c_report",
+      "label": "Generate Stage 6C install verification package",
+      "command": "npm run verify:stage6c:report",
+      "required": true
+    }
+  ],
+  "operatorEvidenceChecklist": [
+    {
+      "key": "env_validated_on_target",
+      "label": "Production env validated on the target server"
+    },
+    {
+      "key": "compose_config_captured",
+      "label": "Production compose config captured without secrets"
+    },
+    {
+      "key": "health_ready_captured",
+      "label": "Health and readiness checks captured"
+    },
+    {
+      "key": "product_readiness_captured",
+      "label": "Product readiness endpoint captured"
+    },
+    {
+      "key": "compose_smoke_passed",
+      "label": "Stage 4K smoke passed against the installed stack"
+    },
+    {
+      "key": "backup_manifest_captured",
+      "label": "Post-install backup manifest captured"
+    },
+    {
+      "key": "rollback_drill_reviewed",
+      "label": "Rollback drill plan reviewed before live restore"
+    }
+  ],
+  "liveEvidencePolicy": {
+    "liveInstallEvidenceRequired": true,
+    "liveEvidenceStoredOutsideGit": true,
+    "repositoryContainsLiveSecrets": false,
+    "repositoryContainsPatientData": false,
+    "redactedSummariesAllowedInTestResults": true
+  },
+  "safetyAssertions": {
+    "stage6bRequired": true,
+    "noSecretsInPackage": true,
+    "noPatientDataInPackage": true,
+    "noRuntimeApiChanges": true,
+    "noDatabaseSchemaChanges": true,
+    "noManagedRuntimeDependency": true,
+    "noManagedDatabaseDependency": true,
+    "liveEvidenceNotBundled": true
+  }
+}
