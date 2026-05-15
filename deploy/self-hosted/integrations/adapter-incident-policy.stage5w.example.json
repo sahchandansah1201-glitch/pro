@@ -1,0 +1,18 @@
+{
+  "sourceSystem": "clinic_crm",
+  "rejectedItemLimit": 0,
+  "duplicateItemLimit": 20,
+  "staleAfterMinutes": 180,
+  "pauseOnRejectedItems": true,
+  "pauseOnStaleImport": true,
+  "controlFilePath": "var/self-hosted/integrations/clinic-crm.adapter-control.json",
+  "escalation": {
+    "owner": "operator-desk",
+    "handoff": "clinic-admin",
+    "requiredEvidence": [
+      "stage5v-operator-report",
+      "validated-payload-summary",
+      "booking-import-status-snapshot"
+    ]
+  }
+}

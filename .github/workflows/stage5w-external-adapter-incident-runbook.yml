@@ -1,0 +1,42 @@
+name: stage5w-external-adapter-incident-runbook
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/integrations/adapter-incident-policy.stage5w.example.json"
+      - "scripts/stage5w-external-adapter-incident-runbook.mjs"
+      - "scripts/stage5w-external-adapter-incident-runbook.test.mjs"
+      - "scripts/check-stage5w-external-adapter-incident-runbook.mjs"
+      - "scripts/check-stage5w-external-adapter-incident-runbook.test.mjs"
+      - "docs/backend/stage-5w-external-adapter-incident-runbook.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  workflow_dispatch:
+
+jobs:
+  stage5w:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 5W preflight
+        run: npm run preflight:stage5w
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5W external adapter incident runbook"
+            echo
+            echo "- Command: \`npm run preflight:stage5w\`"
+            echo "- Boundary: operator-owned adapter pause/resume; no CRM/ad runtime calls"
+            echo "- Delivery: incident policy, classifier, runbook, and adapter-control manifest"
+          } >> "$GITHUB_STEP_SUMMARY"
