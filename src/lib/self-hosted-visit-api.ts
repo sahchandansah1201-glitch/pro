@@ -6,6 +6,8 @@
 import type { SelfHostedApiError, SelfHostedApiResult } from "@/lib/self-hosted-patient-api";
 import { buildSelfHostedApiUrl } from "@/lib/self-hosted-patient-api";
 
+export type { SelfHostedApiError } from "@/lib/self-hosted-patient-api";
+
 export interface SelfHostedVisitDTO {
   id: string;
   clinicId: string | null;
@@ -17,6 +19,32 @@ export interface SelfHostedVisitDTO {
   chiefComplaint: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+}
+
+export interface SelfHostedVisitScheduleItemDTO extends SelfHostedVisitDTO {
+  patient: {
+    id: string | null;
+    fullName: string | null;
+    code: string | null;
+  };
+  clinic: {
+    id: string | null;
+    slug: string | null;
+    name: string | null;
+  };
+}
+
+export interface SelfHostedVisitScheduleResult {
+  items: SelfHostedVisitScheduleItemDTO[];
+  count: number;
+  limit: number;
+  offset: number;
+  filters: {
+    status: string;
+    dateFrom: string | null;
+    dateTo: string | null;
+    search: string | null;
+  };
 }
 
 export interface SelfHostedVisitDetailDTO extends SelfHostedVisitDTO {
@@ -71,6 +99,15 @@ export interface VisitWorkspaceListVisitsArgs extends BaseArgs {
 
 export interface VisitWorkspaceVisitArgs extends BaseArgs {
   visitId: string;
+}
+
+export interface ListSelfHostedVisitsArgs extends BaseArgs {
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -184,6 +221,24 @@ function toVisitDetail(input: Record<string, unknown>): SelfHostedVisitDetailDTO
   };
 }
 
+function toScheduleVisit(input: Record<string, unknown>): SelfHostedVisitScheduleItemDTO {
+  const patient = isRecord(input.patient) ? input.patient : {};
+  const clinic = isRecord(input.clinic) ? input.clinic : {};
+  return {
+    ...toVisit(input),
+    patient: {
+      id: patient.id == null ? null : String(patient.id),
+      fullName: patient.fullName == null ? null : String(patient.fullName),
+      code: patient.code == null ? null : String(patient.code),
+    },
+    clinic: {
+      id: clinic.id == null ? null : String(clinic.id),
+      slug: clinic.slug == null ? null : String(clinic.slug),
+      name: clinic.name == null ? null : String(clinic.name),
+    },
+  };
+}
+
 function toLesion(input: Record<string, unknown>): SelfHostedVisitLesionDTO {
   const risk = input.riskLevel;
   const riskLevel =
@@ -243,6 +298,38 @@ export async function listSelfHostedVisitsByPatient(
   const result = await getJson(url, args.apiToken as string);
   if (!result.ok) return fail(result.error as SelfHostedApiError);
   return ok(extractItems(result.value).map(toVisit).filter((v) => v.id));
+}
+
+export async function listSelfHostedVisits(
+  args: ListSelfHostedVisitsArgs,
+): Promise<SelfHostedApiResult<SelfHostedVisitScheduleResult>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const params = new URLSearchParams();
+  if (args.status && args.status !== "all") params.set("status", args.status);
+  if (args.dateFrom) params.set("dateFrom", args.dateFrom);
+  if (args.dateTo) params.set("dateTo", args.dateTo);
+  if (args.search) params.set("search", args.search);
+  if (args.limit) params.set("limit", String(args.limit));
+  if (args.offset) params.set("offset", String(args.offset));
+  const query = params.toString();
+  const url = buildSelfHostedApiUrl(args.apiBaseUrl, `/api/v1/visits${query ? `?${query}` : ""}`);
+  const result = await getJson(url, args.apiToken as string);
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const body = isRecord(result.value) ? result.value : {};
+  const filters = isRecord(body.filters) ? body.filters : {};
+  return ok({
+    items: extractItems(result.value).map(toScheduleVisit).filter((v) => v.id),
+    count: Number(body.count ?? 0) || 0,
+    limit: Number(body.limit ?? args.limit ?? 50) || 50,
+    offset: Number(body.offset ?? args.offset ?? 0) || 0,
+    filters: {
+      status: String(filters.status ?? "all"),
+      dateFrom: filters.dateFrom == null ? null : String(filters.dateFrom),
+      dateTo: filters.dateTo == null ? null : String(filters.dateTo),
+      search: filters.search == null ? null : String(filters.search),
+    },
+  });
 }
 
 export async function getSelfHostedVisit(

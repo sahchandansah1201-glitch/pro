@@ -28,6 +28,8 @@ function createRuntime({
   deviceCommandError = null,
   doctorDashboard = null,
   doctorDashboardError = null,
+  visitSchedule = null,
+  visitScheduleError = null,
   deviceWorkerError = null,
   deviceWorkerCommand = null,
   patientDetail = null,
@@ -163,6 +165,25 @@ function createRuntime({
             recentPatients: [],
             assetIssues: [],
             devices: [],
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+    },
+    visitScheduleService: {
+      async listVisits() {
+        if (visitScheduleError) throw visitScheduleError;
+        return {
+          schedule: visitSchedule || {
+            items: [],
+            count: 0,
+            limit: 50,
+            offset: 0,
+            filters: { status: "all", dateFrom: null, dateTo: null, search: null },
           },
           scope: {
             allClinics: false,
@@ -600,10 +621,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "5I");
+  assert.equal(meta.json.stage, "5J");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.doctorDashboard, "rbac-read-postgres");
+  assert.equal(meta.json.capabilities.visitSchedule, "rbac-read-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -626,6 +648,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage4Y, "/openapi.stage4y.json");
   assert.equal(meta.json.links.openapiStage4Z, "/openapi.stage4z.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
+  assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.productReadiness, "/api/v1/product/readiness");
@@ -643,6 +666,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.devices, "/api/v1/devices");
   assert.equal(meta.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(meta.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
+  assert.equal(meta.json.links.visits, "/api/v1/visits");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
   assert.equal(meta.json.links.assetDownload, "/api/v1/assets/{assetId}/download");
   assert.equal(meta.json.service.objectStorageBucket, "medical-assets");
@@ -684,6 +708,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi5i.status, 200);
   assert.equal(openapi5i.json.info.version, "5I-doctor-dashboard-contracts");
   assert.ok(openapi5i.json.paths["/api/v1/doctor/dashboard"].get);
+
+  const openapi5j = await request("/openapi.stage5j.json");
+  assert.equal(openapi5j.status, 200);
+  assert.equal(openapi5j.json.info.version, "5J-visit-schedule-contracts");
+  assert.ok(openapi5j.json.paths["/api/v1/visits"].get);
 
   const openapi4i = await request("/openapi.stage4i.json");
   assert.equal(openapi4i.status, 200);
@@ -2009,8 +2038,9 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "5I");
+  assert.equal(response.json.stage, "5J");
   assert.equal(response.json.capabilities.doctorDashboard, "rbac-read-postgres");
+  assert.equal(response.json.capabilities.visitSchedule, "rbac-read-postgres");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
@@ -2031,7 +2061,9 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage4Y, "/openapi.stage4y.json");
   assert.equal(response.json.links.openapiStage4Z, "/openapi.stage4z.json");
   assert.equal(response.json.links.openapiStage5I, "/openapi.stage5i.json");
+  assert.equal(response.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(response.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
+  assert.equal(response.json.links.visits, "/api/v1/visits");
   assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(response.json.links.productReadiness, "/api/v1/product/readiness");
@@ -2419,4 +2451,45 @@ test("Stage 5I · /openapi.stage5i.json documents doctor dashboard contract", as
   assert.equal(response.status, 200);
   assert.equal(response.json.info.version, "5I-doctor-dashboard-contracts");
   assert.ok(response.json.paths["/api/v1/doctor/dashboard"].get);
+});
+
+test("Stage 5J · GET /api/v1/visits returns PostgreSQL schedule safely", async () => {
+  const response = await request(
+    "/api/v1/visits?status=draft&dateFrom=2026-05-01&dateTo=2026-05-31&search=Live",
+    configuredEnv,
+    createRuntime({
+      visitSchedule: {
+        items: [{
+          id: "10000000-0000-4000-8000-000000000301",
+          clinicId: STAGE4G_CLINIC_ID,
+          patientId: STAGE4G_PATIENT_ID,
+          doctorUserId: "10000000-0000-4000-8000-000000000101",
+          status: "draft",
+          startedAt: "2026-05-15T09:00:00.000Z",
+          signedAt: null,
+          chiefComplaint: "Live schedule",
+          patient: { id: STAGE4G_PATIENT_ID, fullName: "Live Patient", code: "DP-LIVE" },
+          clinic: { id: STAGE4G_CLINIC_ID, slug: "main", name: "Live Clinic" },
+        }],
+        count: 1,
+        limit: 50,
+        offset: 0,
+        filters: { status: "draft", dateFrom: "2026-05-01", dateTo: "2026-05-31", search: "Live" },
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5J");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.items[0].patient.fullName, "Live Patient");
+  assert.equal(response.json.filters.status, "draft");
+  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|postgres:\/\/|secret/i);
+});
+
+test("Stage 5J · /openapi.stage5j.json documents visit schedule contract", async () => {
+  const response = await request("/openapi.stage5j.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "5J-visit-schedule-contracts");
+  assert.ok(response.json.paths["/api/v1/visits"].get);
 });

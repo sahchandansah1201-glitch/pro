@@ -64,7 +64,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
         { title: "Пациенты", url: "/patients", icon: Users },
-        { title: "Визиты", url: "/patients/demo/visits/demo", icon: ClipboardList },
+        { title: "Визиты", url: "/visits", icon: ClipboardList },
         { title: "Образования", url: "/patients/demo/lesions/demo", icon: ScanSearch },
         { title: "Съёмка", url: "/capture", icon: Camera },
       ],
@@ -76,6 +76,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
         { title: "Пациенты", url: "/patients", icon: Users },
+        { title: "Визиты", url: "/visits", icon: ClipboardList },
         { title: "Съёмка", url: "/capture", icon: Camera },
       ],
     },

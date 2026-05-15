@@ -1,0 +1,47 @@
+name: stage5j-production-visit-schedule-contracts
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-visit-api.ts"
+      - "src/lib/self-hosted-visit-api.test.ts"
+      - "src/pages/doctor/VisitsPage*.tsx"
+      - "scripts/check-stage5j-production-visit-schedule-contracts.mjs"
+      - "scripts/check-stage5j-production-visit-schedule-contracts.test.mjs"
+      - "docs/backend/stage-5j-production-visit-schedule-contracts.md"
+      - "package.json"
+      - ".github/workflows/stage5j-production-visit-schedule-contracts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-visit-api.ts"
+      - "src/lib/self-hosted-visit-api.test.ts"
+      - "src/pages/doctor/VisitsPage*.tsx"
+      - "scripts/check-stage5j-production-visit-schedule-contracts.mjs"
+      - "scripts/check-stage5j-production-visit-schedule-contracts.test.mjs"
+      - "docs/backend/stage-5j-production-visit-schedule-contracts.md"
+      - "package.json"
+      - ".github/workflows/stage5j-production-visit-schedule-contracts.yml"
+
+jobs:
+  stage5j:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5j
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5J production visit schedule contracts"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5j\`"
+            echo "- Boundary: self-hosted backend + PostgreSQL only"
+          } >> "$GITHUB_STEP_SUMMARY"
