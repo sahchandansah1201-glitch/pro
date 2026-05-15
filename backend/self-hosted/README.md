@@ -313,3 +313,9 @@ status, and convert patient-linked leads into local visit appointments through
 operator-owned PostgreSQL. `/desk` in production writes only through these
 self-hosted contracts; demo/dev keeps historical mock dashboard data and is
 guarded by `npm run preflight:stage5l`.
+Stage 5M cuts `/operator` over to the same self-hosted intake contracts in
+production mode. The production operator workspace reads
+`GET /api/v1/leads/appointments`, creates safe lead summaries, qualifies or
+loses leads, and books patient-linked leads through the self-hosted backend.
+Demo/dev keeps the historical dialog simulator and is guarded by
+`npm run preflight:stage5m`.

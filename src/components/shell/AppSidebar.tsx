@@ -155,6 +155,15 @@ const SHARED: NavGroup = {
   items: [{ title: "Справка", url: "/help", icon: HelpCircle }],
 };
 
+const PRODUCTION_NAV_BY_ROLE: Partial<Record<Role, NavGroup[]>> = {
+  operator: [
+    {
+      label: "Поддержка",
+      items: [{ title: "Лиды", url: "/operator", icon: Headphones }],
+    },
+  ],
+};
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -168,7 +177,7 @@ export function AppSidebar() {
 
   const productionRoles = selfHostedRoles(session);
   const roleGroups = productionMode
-    ? productionRoles.flatMap((r) => NAV_BY_ROLE[r])
+    ? productionRoles.flatMap((r) => PRODUCTION_NAV_BY_ROLE[r] ?? NAV_BY_ROLE[r])
     : NAV_BY_ROLE[role];
   const uniqueGroups = roleGroups.filter(
     (group, index, all) => all.findIndex((candidate) => candidate.label === group.label) === index,
