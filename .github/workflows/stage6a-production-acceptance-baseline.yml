@@ -1,0 +1,59 @@
+name: stage6a-production-acceptance-baseline
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/acceptance-baseline.stage6a.json"
+      - "scripts/stage6a-production-acceptance-baseline.mjs"
+      - "scripts/stage6a-production-acceptance-baseline.test.mjs"
+      - "scripts/check-stage6a-production-acceptance-baseline.mjs"
+      - "scripts/check-stage6a-production-acceptance-baseline.test.mjs"
+      - "docs/backend/stage-6a-production-acceptance-baseline.md"
+      - ".github/workflows/stage6a-production-acceptance-baseline.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/acceptance-baseline.stage6a.json"
+      - "scripts/stage6a-production-acceptance-baseline.mjs"
+      - "scripts/stage6a-production-acceptance-baseline.test.mjs"
+      - "scripts/check-stage6a-production-acceptance-baseline.mjs"
+      - "scripts/check-stage6a-production-acceptance-baseline.test.mjs"
+      - "docs/backend/stage-6a-production-acceptance-baseline.md"
+      - ".github/workflows/stage6a-production-acceptance-baseline.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage6a:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage6a
+      - name: Upload Stage 6A acceptance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6a-production-acceptance-baseline
+          path: |
+            test-results/stage6a-production-acceptance-baseline.md
+            test-results/stage6a-production-acceptance-baseline.json
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6A production acceptance baseline"
+            echo ""
+            echo "- Command: \`npm run preflight:stage6a\`"
+            echo "- Boundary: single self-hosted product, no managed runtime/database dependency"
+            echo "- Output: \`test-results/stage6a-production-acceptance-baseline.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
