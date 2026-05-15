@@ -5,8 +5,8 @@
 -- CRM, no notification provider.
 
 alter table patient_portal_booking_requests
-  add column if not exists assigned_appointment_id uuid
-    references appointments(id) on delete set null,
+  add column if not exists assigned_visit_id uuid
+    references visits(id) on delete set null,
   add column if not exists reviewed_by_user_id uuid
     references app_users(id) on delete set null,
   add column if not exists reviewed_at timestamptz,
