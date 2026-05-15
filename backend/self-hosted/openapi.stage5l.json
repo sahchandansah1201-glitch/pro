@@ -1,0 +1,170 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted API",
+    "version": "5L-leads-appointments-writes",
+    "description": "Stage 5L production lead intake write and appointment booking contracts. PostgreSQL-owned, no managed runtime dependency."
+  },
+  "paths": {
+    "/api/v1/leads": {
+      "post": {
+        "summary": "Create a local intake lead",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateLeadRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lead created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LeadMutationResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leads/{leadId}": {
+      "patch": {
+        "summary": "Update lead status",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "leadId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateLeadStatusRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lead status updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LeadMutationResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leads/{leadId}/book-appointment": {
+      "post": {
+        "summary": "Convert a lead into a visit appointment",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "leadId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BookLeadAppointmentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lead booked as a visit appointment",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LeadBookingResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "CreateLeadRequest": {
+        "type": "object",
+        "required": ["safeSummary"],
+        "properties": {
+          "clinicId": { "type": "string", "format": "uuid", "nullable": true },
+          "patientId": { "type": "string", "format": "uuid", "nullable": true },
+          "source": {
+            "type": "string",
+            "enum": ["telegram", "whatsapp", "site", "operator", "phone", "portal", "other"],
+            "default": "operator"
+          },
+          "safeSummary": { "type": "string", "maxLength": 500 }
+        }
+      },
+      "UpdateLeadStatusRequest": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string", "enum": ["new", "qualified", "lost"] }
+        }
+      },
+      "BookLeadAppointmentRequest": {
+        "type": "object",
+        "required": ["startedAt"],
+        "properties": {
+          "patientId": { "type": "string", "format": "uuid", "nullable": true },
+          "doctorUserId": { "type": "string", "format": "uuid", "nullable": true },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "chiefComplaint": { "type": "string", "nullable": true, "maxLength": 500 }
+        }
+      },
+      "LeadOverviewItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "clinicId": { "type": "string", "nullable": true },
+          "patientId": { "type": "string", "nullable": true },
+          "source": { "type": "string" },
+          "status": { "type": "string" },
+          "safeSummary": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "nullable": true },
+          "updatedAt": { "type": "string", "nullable": true }
+        }
+      },
+      "AppointmentOverviewItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string" },
+          "patientId": { "type": "string", "nullable": true },
+          "doctorUserId": { "type": "string", "nullable": true },
+          "status": { "type": "string" },
+          "slotAt": { "type": "string", "nullable": true },
+          "chiefComplaint": { "type": "string", "nullable": true }
+        }
+      },
+      "LeadMutationResponse": {
+        "type": "object",
+        "properties": {
+          "stage": { "type": "string", "enum": ["5L"] },
+          "source": { "type": "string", "enum": ["postgres"] },
+          "item": { "$ref": "#/components/schemas/LeadOverviewItem" },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "LeadBookingResponse": {
+        "type": "object",
+        "properties": {
+          "stage": { "type": "string", "enum": ["5L"] },
+          "source": { "type": "string", "enum": ["postgres"] },
+          "item": { "$ref": "#/components/schemas/LeadOverviewItem" },
+          "appointment": { "$ref": "#/components/schemas/AppointmentOverviewItem" },
+          "correlationId": { "type": "string" }
+        }
+      }
+    }
+  }
+}

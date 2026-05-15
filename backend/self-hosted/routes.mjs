@@ -33,6 +33,8 @@ import {
   normalizeLeadsAppointmentsParams,
 } from "./leads-appointments-repository.mjs";
 import { createLeadsAppointmentsService } from "./leads-appointments-service.mjs";
+import { createLeadsAppointmentsWriteRepository } from "./leads-appointments-write-repository.mjs";
+import { createLeadsAppointmentsWriteService } from "./leads-appointments-write-service.mjs";
 import {
   createPatientRepository,
   parsePatientListParams,
@@ -132,6 +134,9 @@ const OPENAPI_5J = JSON.parse(
 const OPENAPI_5K = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5k.json"), "utf8"),
 );
+const OPENAPI_5L = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5l.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -191,6 +196,14 @@ function getRuntime(config, runtime = {}) {
       leadsAppointmentsRepository,
       auditRepository,
     });
+  const leadsAppointmentsWriteRepository =
+    runtime.leadsAppointmentsWriteRepository || createLeadsAppointmentsWriteRepository(dbClient);
+  const leadsAppointmentsWriteService =
+    runtime.leadsAppointmentsWriteService ||
+    createLeadsAppointmentsWriteService({
+      leadsAppointmentsWriteRepository,
+      auditRepository,
+    });
   const patientWriteService =
     runtime.patientWriteService ||
     createPatientWriteService({
@@ -246,6 +259,8 @@ function getRuntime(config, runtime = {}) {
     doctorDashboardService,
     leadsAppointmentsRepository,
     leadsAppointmentsService,
+    leadsAppointmentsWriteRepository,
+    leadsAppointmentsWriteService,
     visitScheduleRepository,
     visitScheduleService,
     deviceRegistryRepository,
@@ -307,6 +322,7 @@ function publicErrorFor(error) {
     asset_not_found: "Asset was not found in the allowed clinic scope.",
     object_storage_unavailable: "Object storage is unavailable for the self-hosted backend.",
     patient_not_found: "Patient was not found in the allowed clinic scope.",
+    lead_not_found: "Lead was not found in the allowed clinic scope.",
     visit_not_found: "Visit was not found in the allowed clinic scope.",
     lesion_not_found: "Lesion was not found in the allowed clinic scope.",
     command_not_found: "Device Bridge command was not found for this worker bridge.",
@@ -656,6 +672,105 @@ export async function handleSelfHostedRequest(
           leads: result.overview.leads,
           appointments: result.overview.appointments,
           filters: result.overview.filters,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  // Stage 5L · production leads/appointments write contract.
+  if (url.pathname === "/api/v1/leads" && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.leadsAppointmentsWriteService.createLead(
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        201,
+        {
+          stage: "5L",
+          source: "postgres",
+          item: result.lead,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const leadMatch = url.pathname.match(/^\/api\/v1\/leads\/([^/]+)$/);
+  if (leadMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.leadsAppointmentsWriteService.updateLeadStatus(
+        decodeURIComponent(leadMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5L",
+          source: "postgres",
+          item: result.lead,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const leadBookMatch = url.pathname.match(/^\/api\/v1\/leads\/([^/]+)\/book-appointment$/);
+  if (leadBookMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.leadsAppointmentsWriteService.bookLeadAppointment(
+        decodeURIComponent(leadBookMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        201,
+        {
+          stage: "5L",
+          source: "postgres",
+          item: result.lead,
+          appointment: result.appointment,
           auth: {
             userId: authContext.userId,
             roles: authContext.roles,
@@ -2066,7 +2181,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "5K",
+        stage: "5L",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -2077,7 +2192,7 @@ export async function handleSelfHostedRequest(
           clinicalWorkspace: "rbac-read-write-postgres",
           doctorDashboard: "rbac-read-postgres",
           visitSchedule: "rbac-read-postgres",
-          leadsAppointments: "rbac-read-postgres",
+          leadsAppointments: "rbac-read-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness",
@@ -2110,6 +2225,7 @@ export async function handleSelfHostedRequest(
           openapiStage5I: "/openapi.stage5i.json",
           openapiStage5J: "/openapi.stage5j.json",
           openapiStage5K: "/openapi.stage5k.json",
+          openapiStage5L: "/openapi.stage5l.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2133,6 +2249,9 @@ export async function handleSelfHostedRequest(
           patientVisits: "/api/v1/patients/{patientId}/visits",
           doctorDashboard: "/api/v1/doctor/dashboard",
           leadsAppointments: "/api/v1/leads/appointments",
+          createLead: "/api/v1/leads",
+          updateLeadStatus: "/api/v1/leads/{leadId}",
+          bookLeadAppointment: "/api/v1/leads/{leadId}/book-appointment",
           visit: "/api/v1/visits/{visitId}",
           visitLesions: "/api/v1/visits/{visitId}/lesions",
           visitAssets: "/api/v1/visits/{visitId}/assets",
@@ -2243,6 +2362,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage5k.json") {
     return jsonResponse(200, OPENAPI_5K, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage5l.json") {
+    return jsonResponse(200, OPENAPI_5L, config, requestOrigin);
   }
 
   return errorResponse({

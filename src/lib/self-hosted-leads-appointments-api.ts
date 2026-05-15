@@ -20,6 +20,30 @@ export interface ListSelfHostedLeadsAppointmentsArgs extends BaseArgs {
   limit?: number;
 }
 
+export interface CreateSelfHostedLeadArgs extends BaseArgs {
+  payload: {
+    clinicId?: string | null;
+    patientId?: string | null;
+    source?: string;
+    safeSummary: string;
+  };
+}
+
+export interface UpdateSelfHostedLeadStatusArgs extends BaseArgs {
+  leadId: string;
+  status: "new" | "qualified" | "lost";
+}
+
+export interface BookSelfHostedLeadAppointmentArgs extends BaseArgs {
+  leadId: string;
+  payload: {
+    patientId?: string | null;
+    doctorUserId?: string | null;
+    startedAt: string;
+    chiefComplaint?: string | null;
+  };
+}
+
 export interface SelfHostedLeadsAppointmentsKpis {
   leadsTotal: number;
   newLeads: number;
@@ -122,6 +146,10 @@ function authHeaders(token: string): HeadersInit {
   return { Accept: "application/json", Authorization: `Bearer ${token}` };
 }
 
+function jsonHeaders(token: string): HeadersInit {
+  return { ...authHeaders(token), "Content-Type": "application/json" };
+}
+
 async function parseJsonSafe(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -147,6 +175,29 @@ function apiErrorFromBody(response: Response, body: unknown): SelfHostedApiError
     message: String(error?.message ?? `HTTP ${response.status}`),
     correlationId: errorBody?.correlationId ? String(errorBody.correlationId) : undefined,
   };
+}
+
+async function requestJson(
+  args: BaseArgs,
+  path: string,
+  init: RequestInit,
+): Promise<SelfHostedApiResult<unknown>> {
+  const configError = ensureConfigured(args);
+  if (configError) return fail(configError);
+  const url = buildSelfHostedApiUrl(args.apiBaseUrl, path);
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при обращении к self-hosted backend.",
+    });
+  }
+  const body = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, body));
+  return ok(body);
 }
 
 function asNumber(value: unknown): number {
@@ -243,6 +294,12 @@ export function toSelfHostedLeadsAppointmentsOverview(input: unknown): SelfHoste
   };
 }
 
+export function buildDefaultSelfHostedLeadAppointmentStartedAt(base = new Date()): string {
+  const nextDay = new Date(base.getTime());
+  nextDay.setDate(nextDay.getDate() + 1);
+  return nextDay.toISOString();
+}
+
 export async function listSelfHostedLeadsAppointments(
   args: ListSelfHostedLeadsAppointmentsArgs,
 ): Promise<SelfHostedApiResult<SelfHostedLeadsAppointmentsOverview>> {
@@ -272,4 +329,67 @@ export async function listSelfHostedLeadsAppointments(
   const body = await parseJsonSafe(response);
   if (!response.ok) return fail(apiErrorFromBody(response, body));
   return ok(toSelfHostedLeadsAppointmentsOverview(isRecord(body) ? body : EMPTY_OVERVIEW));
+}
+
+function extractLead(body: unknown): SelfHostedLeadOverviewDTO | null {
+  const item = isRecord(body) && isRecord(body.item) ? body.item : null;
+  return item ? normalizeLead(item) : null;
+}
+
+function extractBooking(body: unknown): {
+  lead: SelfHostedLeadOverviewDTO;
+  appointment: SelfHostedAppointmentOverviewDTO;
+} | null {
+  if (!isRecord(body) || !isRecord(body.item) || !isRecord(body.appointment)) return null;
+  const lead = normalizeLead(body.item);
+  const appointment = normalizeAppointment(body.appointment);
+  return lead.id && appointment.id ? { lead, appointment } : null;
+}
+
+export async function createSelfHostedLead(
+  args: CreateSelfHostedLeadArgs,
+): Promise<SelfHostedApiResult<SelfHostedLeadOverviewDTO>> {
+  const result = await requestJson(args, "/api/v1/leads", {
+    method: "POST",
+    headers: jsonHeaders(args.apiToken || ""),
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return fail(result.error || NOT_CONFIGURED);
+  const lead = extractLead(result.value);
+  return lead
+    ? ok(lead)
+    : fail({ kind: "http", code: "invalid_response", message: "Self-hosted backend вернул некорректный лид." });
+}
+
+export async function updateSelfHostedLeadStatus(
+  args: UpdateSelfHostedLeadStatusArgs,
+): Promise<SelfHostedApiResult<SelfHostedLeadOverviewDTO>> {
+  const result = await requestJson(args, `/api/v1/leads/${encodeURIComponent(args.leadId)}`, {
+    method: "PATCH",
+    headers: jsonHeaders(args.apiToken || ""),
+    body: JSON.stringify({ status: args.status }),
+  });
+  if (!result.ok) return fail(result.error || NOT_CONFIGURED);
+  const lead = extractLead(result.value);
+  return lead
+    ? ok(lead)
+    : fail({ kind: "http", code: "invalid_response", message: "Self-hosted backend вернул некорректный лид." });
+}
+
+export async function bookSelfHostedLeadAppointment(
+  args: BookSelfHostedLeadAppointmentArgs,
+): Promise<SelfHostedApiResult<{
+  lead: SelfHostedLeadOverviewDTO;
+  appointment: SelfHostedAppointmentOverviewDTO;
+}>> {
+  const result = await requestJson(args, `/api/v1/leads/${encodeURIComponent(args.leadId)}/book-appointment`, {
+    method: "POST",
+    headers: jsonHeaders(args.apiToken || ""),
+    body: JSON.stringify(args.payload),
+  });
+  if (!result.ok) return fail(result.error || NOT_CONFIGURED);
+  const booking = extractBooking(result.value);
+  return booking
+    ? ok(booking)
+    : fail({ kind: "http", code: "invalid_response", message: "Self-hosted backend вернул некорректную запись." });
 }

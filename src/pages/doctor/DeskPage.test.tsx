@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import DeskPage from "@/pages/doctor/DeskPage";
@@ -24,7 +24,63 @@ describe("DeskPage · Stage 5I production dashboard", () => {
   });
 
   it("loads production dashboard from self-hosted backend without mock fallback", async () => {
-    const fetchMock = vi.fn((url: string) => {
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith("/api/v1/leads") && init?.method === "POST") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              stage: "5L",
+              item: {
+                id: "lead-created-1",
+                source: "operator",
+                status: "new",
+                safeSummary: "Новый лид self-hosted",
+              },
+            }),
+            { status: 201, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+
+      if (url.endsWith("/api/v1/leads/lead-live-1") && init?.method === "PATCH") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              stage: "5L",
+              item: {
+                id: "lead-live-1",
+                source: "site",
+                status: "qualified",
+                safeSummary: "Live lead from site",
+              },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+
+      if (url.endsWith("/api/v1/leads/lead-live-1/book-appointment") && init?.method === "POST") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              stage: "5L",
+              item: {
+                id: "lead-live-1",
+                source: "site",
+                status: "booked",
+                safeSummary: "Live lead from site",
+              },
+              appointment: {
+                id: "visit-booked-1",
+                visitId: "visit-booked-1",
+                status: "planned",
+              },
+            }),
+            { status: 201, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+
       if (url.endsWith("/api/v1/leads/appointments?limit=5")) {
         return Promise.resolve(
           new Response(
@@ -46,7 +102,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                 safeSummary: "Live lead from site",
                 createdAt: "2026-05-15T08:00:00.000Z",
                 clinic: { name: "Live Clinic" },
-                patient: {},
+                patient: { id: "10000000-0000-4000-8000-000000000201", fullName: "Live Patient", code: "DP-LIVE-1" },
               }],
               appointments: [{
                 id: "10000000-0000-4000-8000-000000000301",
@@ -127,9 +183,9 @@ describe("DeskPage · Stage 5I production dashboard", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findAllByText("Live Patient")).toHaveLength(4);
+    expect(await screen.findAllByText("Live Patient")).toHaveLength(5);
     expect(screen.getByText(/Источник данных: self-hosted backend \/api\/v1\/doctor\/dashboard/)).toBeInTheDocument();
-    expect(await screen.findByText("Live lead from site")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Квалифицировать лид lead-live-1" })).toBeInTheDocument();
     expect(screen.getByText(/self-hosted backend \/api\/v1\/leads\/appointments/)).toBeInTheDocument();
     expect(screen.getByText("1/1")).toBeInTheDocument();
     expect(screen.getByText("DermLite Live")).toBeInTheDocument();
@@ -149,5 +205,28 @@ describe("DeskPage · Stage 5I production dashboard", () => {
         Authorization: "Bearer token-5i",
       },
     });
+
+    fireEvent.change(screen.getByLabelText("Краткое описание лида"), {
+      target: { value: "Новый лид self-hosted" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Добавить лид" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("https://clinic.local/api/v1/leads", expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({
+        Authorization: "Bearer token-5i",
+        "Content-Type": "application/json",
+      }),
+    })));
+    expect(await screen.findByText(/создан в self-hosted backend/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Квалифицировать лид lead-live-1" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("https://clinic.local/api/v1/leads/lead-live-1", expect.objectContaining({
+      method: "PATCH",
+    })));
+
+    fireEvent.click(screen.getByRole("button", { name: "Создать запись из лида lead-live-1" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("https://clinic.local/api/v1/leads/lead-live-1/book-appointment", expect.objectContaining({
+      method: "POST",
+    })));
   });
 });

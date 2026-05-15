@@ -1,0 +1,37 @@
+name: stage5l-production-leads-appointments-writes
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-leads-appointments-api.ts"
+      - "src/lib/self-hosted-leads-appointments-api.test.ts"
+      - "src/pages/doctor/DeskPageLive.tsx"
+      - "src/pages/doctor/DeskPage.test.tsx"
+      - "scripts/check-stage5l-production-leads-appointments-writes.mjs"
+      - "scripts/check-stage5l-production-leads-appointments-writes.test.mjs"
+      - "docs/backend/stage-5l-production-leads-appointments-writes.md"
+      - "package.json"
+      - ".github/workflows/stage5l-production-leads-appointments-writes.yml"
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5l
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5L production leads/appointments writes"
+            echo
+            echo "- Command: \`npm run preflight:stage5l\`"
+            echo "- Boundary: self-hosted backend + local PostgreSQL only"
+          } >> "$GITHUB_STEP_SUMMARY"

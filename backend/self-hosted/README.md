@@ -306,3 +306,10 @@ Stage 5K adds the production leads/appointments contract:
 appointments from `visits`, under local RBAC and audit. `/desk` in production
 uses this self-hosted overview for the "Лиды и записи" block; demo/dev keeps
 historical mock dashboard data and is guarded by `npm run preflight:stage5k`.
+Stage 5L adds the production leads/appointments write contract:
+`POST /api/v1/leads`, `PATCH /api/v1/leads/{leadId}`, and
+`POST /api/v1/leads/{leadId}/book-appointment` create local leads, update lead
+status, and convert patient-linked leads into local visit appointments through
+operator-owned PostgreSQL. `/desk` in production writes only through these
+self-hosted contracts; demo/dev keeps historical mock dashboard data and is
+guarded by `npm run preflight:stage5l`.
