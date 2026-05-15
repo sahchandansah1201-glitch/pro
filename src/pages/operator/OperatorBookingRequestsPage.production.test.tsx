@@ -79,11 +79,30 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
             acceptedBookingCount: 1,
             acceptedSlotCount: 1,
             rejectedCount: 0,
+            duplicateCount: 0,
+            hardeningVersion: "stage5t",
           }],
           count: 1,
           limit: 5,
           offset: 0,
           filters: { sourceSystem: "all" },
+        });
+      }
+      if (href.endsWith("/api/v1/integrations/booking-imports/status")) {
+        return json({
+          item: {
+            sourceSystem: "all",
+            recentBatchCount: 1,
+            rejectedLast24h: 0,
+            duplicateLast24h: 1,
+            latestImportAt: "2026-05-15T10:00:00.000Z",
+            openBookingRequestCount: 1,
+            availableSlotCount: 1,
+            storedRawPayload: false,
+            runtimeCallsExternalSystems: false,
+            hardeningVersion: "stage5t",
+            latestBySource: [],
+          },
         });
       }
       if (href.endsWith("/api/v1/clinic/available-slots?status=available&limit=5")) {
@@ -130,6 +149,9 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
     expect(await screen.findByText("Production booking requests")).toBeInTheDocument();
     expect(await screen.findByText("Импорт CRM и рекламных источников")).toBeInTheDocument();
     expect(screen.getByText(/CRM клиники · completed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hardening: stage5t/i)).toBeInTheDocument();
+    expect(screen.getByText(/runtime calls: disabled/i)).toBeInTheDocument();
+    expect(screen.getByText("Дубликаты 24ч")).toBeInTheDocument();
     expect(await screen.findByText("Свободные окна клиники")).toBeInTheDocument();
     expect(screen.getByText(/Доктор Live · CRM клиники/i)).toBeInTheDocument();
     expect(screen.getByText("Live Booking Patient · DP-LIVE-BOOK")).toBeInTheDocument();

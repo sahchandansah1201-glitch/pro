@@ -65,6 +65,7 @@ import { createClinicAvailableSlotsService } from "./clinic-available-slots-serv
 import {
   createExternalIntakeImportRepository,
   normalizeExternalIntakeImportParams,
+  normalizeExternalIntakeStatusParams,
 } from "./external-intake-import-repository.mjs";
 import { createExternalIntakeImportService } from "./external-intake-import-service.mjs";
 import { createLocalObjectStore } from "./object-store.mjs";
@@ -171,6 +172,9 @@ const OPENAPI_5R = JSON.parse(
 );
 const OPENAPI_5S = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5s.json"), "utf8"),
+);
+const OPENAPI_5T = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5t.json"), "utf8"),
 );
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
@@ -978,6 +982,37 @@ export async function handleSelfHostedRequest(
   // Stage 5Q · external intake import contracts. CRM/ad adapters may push
   // sanitized booking requests and availability slots into this backend; the
   // product never calls those external systems from the browser or API runtime.
+  if (url.pathname === "/api/v1/integrations/booking-imports/status" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.externalIntakeImportService.getImportStatus(
+        authContext,
+        normalizeExternalIntakeStatusParams(url.searchParams),
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5T",
+          source: "postgres",
+          item: result.status,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (url.pathname === "/api/v1/integrations/booking-imports" && (method === "GET" || method === "POST")) {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -2582,7 +2617,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "5S",
+        stage: "5T",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -2596,7 +2631,7 @@ export async function handleSelfHostedRequest(
           leadsAppointments: "rbac-read-write-postgres",
           clinicBookingRequests: "rbac-read-write-postgres",
           clinicBookingSlotConfirmation: "rbac-write-postgres-local-slot-cache",
-          externalIntakeImports: "rbac-read-write-postgres-inbound-only",
+          externalIntakeImports: "rbac-read-write-postgres-inbound-only-idempotent-redacted-status",
           clinicAvailableSlots: "rbac-read-postgres-local-import-cache",
           patientPortal: "patient-owned-read-postgres",
           patientPortalWrites: "patient-owned-write-postgres",
@@ -2639,6 +2674,7 @@ export async function handleSelfHostedRequest(
           openapiStage5Q: "/openapi.stage5q.json",
           openapiStage5R: "/openapi.stage5r.json",
           openapiStage5S: "/openapi.stage5s.json",
+          openapiStage5T: "/openapi.stage5t.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2669,6 +2705,7 @@ export async function handleSelfHostedRequest(
           clinicBookingRequest: "/api/v1/clinic/booking-requests/{requestId}",
           bookClinicBookingRequestFromSlot: "/api/v1/clinic/booking-requests/{requestId}/book-from-slot",
           externalBookingImports: "/api/v1/integrations/booking-imports",
+          externalBookingImportStatus: "/api/v1/integrations/booking-imports/status",
           clinicAvailableSlots: "/api/v1/clinic/available-slots",
           patientPortal: "/api/v1/me/portal",
           patientPortalReport: "/api/v1/me/reports/{reportId}",
@@ -2814,10 +2851,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_5S, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage5t.json") {
+    return jsonResponse(200, OPENAPI_5T, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 5S self-hosted backend route matched the request.",
+    message: "No Stage 5T self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,

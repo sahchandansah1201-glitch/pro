@@ -69,6 +69,12 @@ export function normalizeExternalIntakeImportParams(searchParams = new URLSearch
   };
 }
 
+export function normalizeExternalIntakeStatusParams(searchParams = new URLSearchParams()) {
+  return {
+    sourceSystem: safeSourceSystem(searchParams.get?.("sourceSystem")),
+  };
+}
+
 function batchSelect(alias = "b") {
   return `
     ${alias}.id::text as "id",
@@ -81,6 +87,9 @@ function batchSelect(alias = "b") {
     ${alias}.accepted_booking_count as "acceptedBookingCount",
     ${alias}.accepted_slot_count as "acceptedSlotCount",
     ${alias}.rejected_count as "rejectedCount",
+    ${alias}.duplicate_count as "duplicateCount",
+    ${alias}.idempotency_key as "idempotencyKey",
+    ${alias}.hardening_version as "hardeningVersion",
     ${alias}.summary_json as "summary",
     ${alias}.created_at as "createdAt",
     c.slug as "clinicSlug",
@@ -94,6 +103,7 @@ export function buildImportExternalIntakeSql({
   actorUserId,
   sourceSystem,
   sourceReference = null,
+  idempotencyKey = null,
   items = [],
 } = {}) {
   return `
@@ -132,6 +142,17 @@ booking_items as (
    and p.deleted_at is null
   where raw.kind = 'booking_request'
 ),
+existing_bookings as (
+  select item.external_id
+  from booking_items item
+  join patient_portal_booking_requests existing
+    on existing.clinic_id = ${sqlUuid(clinicId)}
+   and existing.source_system = ${sqlLiteral(sourceSystem)}
+   and existing.external_request_id = item.external_id
+  where item.patient_id is not null
+    and item.external_id is not null
+    and item.external_id <> ''
+),
 inserted_bookings as (
   insert into patient_portal_booking_requests (
     clinic_id,
@@ -140,7 +161,9 @@ inserted_bookings as (
     preferred_from,
     preferred_to,
     reason,
-    status
+    status,
+    source_system,
+    external_request_id
   )
   select
     ${sqlUuid(clinicId)},
@@ -149,9 +172,16 @@ inserted_bookings as (
     item.preferred_from::timestamptz,
     nullif(item.preferred_to, '')::timestamptz,
     nullif(item.reason, ''),
-    'requested'
+    'requested',
+    ${sqlLiteral(sourceSystem)},
+    item.external_id
   from booking_items item
   where item.patient_id is not null
+    and item.external_id is not null
+    and item.external_id <> ''
+  on conflict (clinic_id, source_system, external_request_id)
+  where external_request_id is not null
+  do nothing
   returning id
 ),
 slot_items as (
@@ -196,10 +226,12 @@ counts as (
     (select count(*)::int from raw_items) as item_count,
     (select count(*)::int from inserted_bookings) as accepted_booking_count,
     (select count(*)::int from upserted_slots) as accepted_slot_count,
+    (select count(*)::int from existing_bookings) as duplicate_count,
     (
       (select count(*)::int from raw_items)
       - (select count(*)::int from inserted_bookings)
       - (select count(*)::int from upserted_slots)
+      - (select count(*)::int from existing_bookings)
     ) as rejected_count
 ),
 inserted_batch as (
@@ -208,11 +240,14 @@ inserted_batch as (
     imported_by_user_id,
     source_system,
     source_reference,
+    idempotency_key,
     status,
     item_count,
     accepted_booking_count,
     accepted_slot_count,
     rejected_count,
+    duplicate_count,
+    hardening_version,
     summary_json
   )
   select
@@ -220,22 +255,33 @@ inserted_batch as (
     ${sqlUuid(actorUserId)},
     ${sqlLiteral(sourceSystem)},
     ${sqlNullableText(sourceReference)},
+    ${sqlNullableText(idempotencyKey)},
     case
       when counts.item_count = 0 then 'rejected'
-      when counts.rejected_count > 0 then 'completed_with_rejections'
+      when counts.rejected_count > 0 or counts.duplicate_count > 0 then 'completed_with_rejections'
       else 'completed'
     end,
     counts.item_count,
     counts.accepted_booking_count,
     counts.accepted_slot_count,
     counts.rejected_count,
+    counts.duplicate_count,
+    'stage5t',
     jsonb_build_object(
       'acceptedBookingCount', counts.accepted_booking_count,
       'acceptedSlotCount', counts.accepted_slot_count,
       'rejectedCount', counts.rejected_count,
+      'duplicateCount', counts.duplicate_count,
+      'idempotencyKeyProvided', ${idempotencyKey ? "true" : "false"},
       'storedRawPayload', false
     )
   from counts
+  on conflict (clinic_id, source_system, idempotency_key)
+  where idempotency_key is not null
+  do update set
+    summary_json = external_booking_import_batches.summary_json
+      || jsonb_build_object('duplicateBatch', true, 'storedRawPayload', false),
+    hardening_version = 'stage5t'
   returning *
 )
 select row_to_json(result)::text
@@ -247,6 +293,82 @@ from (
   left join app_users u on u.id = b.imported_by_user_id
   limit 1
 ) result;
+`.trim();
+}
+
+export function buildExternalIntakeStatusSql({
+  clinicIds = [],
+  allClinics = false,
+  sourceSystem = "all",
+} = {}) {
+  const params = { sourceSystem: safeSourceSystem(sourceSystem) };
+  const sourceFilter = params.sourceSystem === "all" ? "" : `and b.source_system = ${sqlLiteral(params.sourceSystem)}`;
+  const slotSourceFilter = params.sourceSystem === "all" ? "" : `and s.source_system = ${sqlLiteral(params.sourceSystem)}`;
+  return `
+with scoped_batches as (
+  select b.*
+  from external_booking_import_batches b
+  where true
+    ${clinicScopeWhere({ alias: "b", clinicIds, allClinics })}
+    ${sourceFilter}
+),
+latest_by_source as (
+  select distinct on (b.source_system)
+    b.source_system,
+    b.status,
+    b.created_at,
+    b.item_count,
+    b.accepted_booking_count,
+    b.accepted_slot_count,
+    b.rejected_count,
+    b.duplicate_count,
+    b.hardening_version
+  from scoped_batches b
+  order by b.source_system, b.created_at desc, b.id desc
+),
+open_requests as (
+  select count(*)::int as count
+  from patient_portal_booking_requests br
+  where br.status in ('requested', 'reviewing')
+    ${clinicScopeWhere({ alias: "br", clinicIds, allClinics })}
+),
+available_slots as (
+  select count(*)::int as count
+  from clinic_available_slots s
+  where s.status = 'available'
+    ${clinicScopeWhere({ alias: "s", clinicIds, allClinics })}
+    ${slotSourceFilter}
+)
+select jsonb_build_object(
+  'sourceSystem', ${sqlLiteral(params.sourceSystem)},
+  'recentBatchCount', (select count(*)::int from scoped_batches),
+  'rejectedLast24h', coalesce((
+    select sum(rejected_count)::int from scoped_batches where created_at >= now() - interval '24 hours'
+  ), 0),
+  'duplicateLast24h', coalesce((
+    select sum(duplicate_count)::int from scoped_batches where created_at >= now() - interval '24 hours'
+  ), 0),
+  'latestImportAt', (select max(created_at) from scoped_batches),
+  'openBookingRequestCount', (select count from open_requests),
+  'availableSlotCount', (select count from available_slots),
+  'storedRawPayload', false,
+  'runtimeCallsExternalSystems', false,
+  'hardeningVersion', 'stage5t',
+  'latestBySource', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'sourceSystem', source_system,
+      'status', status,
+      'createdAt', created_at,
+      'itemCount', item_count,
+      'acceptedBookingCount', accepted_booking_count,
+      'acceptedSlotCount', accepted_slot_count,
+      'rejectedCount', rejected_count,
+      'duplicateCount', duplicate_count,
+      'hardeningVersion', hardening_version
+    ) order by created_at desc)
+    from latest_by_source
+  ), '[]'::jsonb)
+)::text;
 `.trim();
 }
 
@@ -319,6 +441,9 @@ export function normalizeExternalIntakeImportBatch(input) {
     acceptedBookingCount: asNumber(input.acceptedBookingCount),
     acceptedSlotCount: asNumber(input.acceptedSlotCount),
     rejectedCount: asNumber(input.rejectedCount),
+    duplicateCount: asNumber(input.duplicateCount),
+    idempotencyKey: textOrNull(input.idempotencyKey),
+    hardeningVersion: textOrNull(input.hardeningVersion) || "stage5q",
     summary: input.summary && typeof input.summary === "object" ? input.summary : {},
     createdAt: textOrNull(input.createdAt),
     clinic: {
@@ -330,6 +455,35 @@ export function normalizeExternalIntakeImportBatch(input) {
       id: textOrNull(input.importedByUserId),
       displayName: textOrNull(input.importedByDisplayName),
     },
+  };
+}
+
+export function normalizeExternalIntakeStatus(input) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    sourceSystem: String(source.sourceSystem ?? "all"),
+    recentBatchCount: asNumber(source.recentBatchCount),
+    rejectedLast24h: asNumber(source.rejectedLast24h),
+    duplicateLast24h: asNumber(source.duplicateLast24h),
+    latestImportAt: textOrNull(source.latestImportAt),
+    openBookingRequestCount: asNumber(source.openBookingRequestCount),
+    availableSlotCount: asNumber(source.availableSlotCount),
+    storedRawPayload: source.storedRawPayload === true ? true : false,
+    runtimeCallsExternalSystems: source.runtimeCallsExternalSystems === true ? true : false,
+    hardeningVersion: String(source.hardeningVersion ?? "stage5t"),
+    latestBySource: Array.isArray(source.latestBySource)
+      ? source.latestBySource.map((item) => ({
+          sourceSystem: String(item?.sourceSystem ?? "other"),
+          status: String(item?.status ?? "unknown"),
+          createdAt: textOrNull(item?.createdAt),
+          itemCount: asNumber(item?.itemCount),
+          acceptedBookingCount: asNumber(item?.acceptedBookingCount),
+          acceptedSlotCount: asNumber(item?.acceptedSlotCount),
+          rejectedCount: asNumber(item?.rejectedCount),
+          duplicateCount: asNumber(item?.duplicateCount),
+          hardeningVersion: String(item?.hardeningVersion ?? "stage5t"),
+        }))
+      : [],
   };
 }
 
@@ -362,6 +516,10 @@ export function createExternalIntakeImportRepository(dbClient) {
     async listImportBatches(params) {
       const rows = await dbClient.queryJson(buildExternalIntakeImportBatchesSql(params));
       return normalizeExternalIntakeImportBatches(firstJson(rows));
+    },
+    async getImportStatus(params) {
+      const rows = await dbClient.queryJson(buildExternalIntakeStatusSql(params));
+      return normalizeExternalIntakeStatus(firstJson(rows));
     },
   };
 }

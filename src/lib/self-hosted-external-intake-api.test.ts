@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  getSelfHostedExternalIntakeStatus,
   listSelfHostedExternalIntakeImports,
   toSelfHostedExternalIntakeImportBatchesPage,
+  toSelfHostedExternalIntakeStatus,
 } from "@/lib/self-hosted-external-intake-api";
 
 describe("self-hosted-external-intake-api · Stage 5Q", () => {
@@ -20,6 +22,8 @@ describe("self-hosted-external-intake-api · Stage 5Q", () => {
         acceptedBookingCount: 1,
         acceptedSlotCount: "1",
         rejectedCount: "0",
+        duplicateCount: "1",
+        hardeningVersion: "stage5t",
         clinic: { id: "clinic-1", name: "Clinic" },
       }],
       count: "1",
@@ -30,7 +34,57 @@ describe("self-hosted-external-intake-api · Stage 5Q", () => {
 
     expect(page.items[0].sourceSystem).toBe("clinic_crm");
     expect(page.items[0].itemCount).toBe(2);
+    expect(page.items[0].duplicateCount).toBe(1);
+    expect(page.items[0].hardeningVersion).toBe("stage5t");
     expect(page.filters.sourceSystem).toBe("clinic_crm");
+  });
+
+  it("normalizes and fetches external intake hardening status", async () => {
+    const status = toSelfHostedExternalIntakeStatus({
+      sourceSystem: "all",
+      recentBatchCount: "3",
+      rejectedLast24h: "1",
+      duplicateLast24h: "2",
+      openBookingRequestCount: "4",
+      availableSlotCount: "5",
+      storedRawPayload: false,
+      runtimeCallsExternalSystems: false,
+      hardeningVersion: "stage5t",
+      latestBySource: [{ sourceSystem: "ads", duplicateCount: "2" }],
+    });
+    expect(status.recentBatchCount).toBe(3);
+    expect(status.duplicateLast24h).toBe(2);
+    expect(status.runtimeCallsExternalSystems).toBe(false);
+    expect(status.latestBySource[0].duplicateCount).toBe(2);
+
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ item: status }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getSelfHostedExternalIntakeStatus({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "stage5t-token",
+      sourceSystem: "ads",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.hardeningVersion).toBe("stage5t");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/integrations/booking-imports/status?sourceSystem=ads",
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: "Bearer stage5t-token",
+        },
+      },
+    );
   });
 
   it("calls /api/v1/integrations/booking-imports with bearer token and filters", async () => {

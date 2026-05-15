@@ -21,8 +21,10 @@ import {
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 import {
+  getSelfHostedExternalIntakeStatus,
   listSelfHostedExternalIntakeImports,
   type SelfHostedExternalIntakeImportBatchesPage,
+  type SelfHostedExternalIntakeStatusDTO,
 } from "@/lib/self-hosted-external-intake-api";
 import {
   listSelfHostedClinicAvailableSlots,
@@ -62,6 +64,20 @@ const EMPTY_IMPORTS: SelfHostedExternalIntakeImportBatchesPage = {
   filters: { sourceSystem: "all" },
 };
 
+const EMPTY_IMPORT_STATUS: SelfHostedExternalIntakeStatusDTO = {
+  sourceSystem: "all",
+  recentBatchCount: 0,
+  rejectedLast24h: 0,
+  duplicateLast24h: 0,
+  latestImportAt: null,
+  openBookingRequestCount: 0,
+  availableSlotCount: 0,
+  storedRawPayload: false,
+  runtimeCallsExternalSystems: false,
+  hardeningVersion: "stage5t",
+  latestBySource: [],
+};
+
 const EMPTY_SLOTS: SelfHostedClinicAvailableSlotsPage = {
   items: [],
   count: 0,
@@ -84,6 +100,7 @@ export default function OperatorBookingRequestsPageLive() {
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [importBatches, setImportBatches] = useState<SelfHostedExternalIntakeImportBatchesPage>(EMPTY_IMPORTS);
+  const [importStatus, setImportStatus] = useState<SelfHostedExternalIntakeStatusDTO>(EMPTY_IMPORT_STATUS);
   const [availableSlots, setAvailableSlots] = useState<SelfHostedClinicAvailableSlotsPage>(EMPTY_SLOTS);
   const [actionMessage, setActionMessage] = useState("Очередь заявок работает только через self-hosted backend.");
 
@@ -120,6 +137,10 @@ export default function OperatorBookingRequestsPageLive() {
         limit: 5,
       });
       if (imports.ok && imports.value) setImportBatches(imports.value);
+      const importStatusResult = await getSelfHostedExternalIntakeStatus({
+        ...baseArgs,
+      });
+      if (importStatusResult.ok && importStatusResult.value) setImportStatus(importStatusResult.value);
       const slots = await listSelfHostedClinicAvailableSlots({
         ...baseArgs,
         status: "available",
@@ -265,6 +286,23 @@ export default function OperatorBookingRequestsPageLive() {
               value={importBatches.items.reduce((sum, item) => sum + item.rejectedCount, 0)}
             />
           </div>
+          <div className="grid grid-cols-2 divide-x divide-y divide-border border-t border-border lg:grid-cols-4 lg:divide-y-0">
+            <Kpi label="Дубликаты 24ч" value={importStatus.duplicateLast24h} />
+            <Kpi label="Ошибки 24ч" value={importStatus.rejectedLast24h} />
+            <Kpi label="Открытые заявки" value={importStatus.openBookingRequestCount} />
+            <Kpi label="Окна в кэше" value={importStatus.availableSlotCount} />
+          </div>
+          <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                Hardening: {importStatus.hardeningVersion}; raw payload: {importStatus.storedRawPayload ? "stored" : "not stored"};
+                runtime calls: {importStatus.runtimeCallsExternalSystems ? "enabled" : "disabled"}
+              </span>
+              <span className="tabular-nums">
+                Последний импорт: {importStatus.latestImportAt ? formatDateTime(importStatus.latestImportAt) : "нет данных"}
+              </span>
+            </div>
+          </div>
           <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
             {importBatches.items.length === 0 ? (
               "Импортов пока нет. CRM и рекламные источники подключаются через входящий self-hosted API, без прямых вызовов из UI."
@@ -277,6 +315,7 @@ export default function OperatorBookingRequestsPageLive() {
                     </span>
                     <span className="tabular-nums">
                       {batch.acceptedBookingCount} заявок / {batch.acceptedSlotCount} окон / {batch.rejectedCount} отклонено
+                      {batch.duplicateCount > 0 ? ` / ${batch.duplicateCount} дубликатов` : ""}
                     </span>
                   </li>
                 ))}

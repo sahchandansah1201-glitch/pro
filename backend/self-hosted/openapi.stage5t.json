@@ -1,0 +1,130 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted external intake hardening API",
+    "version": "5T-external-intake-hardening",
+    "description": "Stage 5T hardens inbound CRM/ad imports with local idempotency, duplicate accounting, privacy validation, and a read-only status endpoint. The backend stores sanitized PostgreSQL metadata only and performs no outbound CRM/ad runtime calls."
+  },
+  "paths": {
+    "/api/v1/integrations/booking-imports": {
+      "post": {
+        "summary": "Import sanitized booking requests and available slots with local idempotency",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/HardenedImportRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Import batch recorded or replayed idempotently" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role or clinic scope is not allowed" },
+          "422": { "description": "Payload failed validation or privacy hardening checks" }
+        }
+      },
+      "get": {
+        "summary": "List hardened external intake import batches",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Import batch history with duplicate counts and hardening version" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role is not allowed to inspect imports" }
+        }
+      }
+    },
+    "/api/v1/integrations/booking-imports/status": {
+      "get": {
+        "summary": "Read local external intake connector status",
+        "description": "Returns local PostgreSQL counters for recent import batches, rejected items, duplicates, open booking requests, and available slots. It never calls the source CRM, ad platform, or scheduling system.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "sourceSystem", "in": "query", "schema": { "type": "string", "enum": ["all", "clinic_crm", "ads", "site", "manual", "other"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local connector status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ImportStatusResponse" }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role is not allowed to inspect import status" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "HardenedImportRequest": {
+        "type": "object",
+        "required": ["sourceSystem", "items"],
+        "properties": {
+          "clinicId": { "type": "string", "format": "uuid" },
+          "sourceSystem": { "type": "string", "enum": ["clinic_crm", "ads", "site", "manual", "other"] },
+          "sourceReference": { "type": "string", "maxLength": 120 },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 160,
+            "description": "Operator-owned replay key. Must not contain raw URLs, tokens, or managed runtime IDs."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": { "type": "object" }
+          }
+        }
+      },
+      "ImportStatus": {
+        "type": "object",
+        "properties": {
+          "sourceSystem": { "type": "string" },
+          "recentBatchCount": { "type": "integer" },
+          "rejectedLast24h": { "type": "integer" },
+          "duplicateLast24h": { "type": "integer" },
+          "latestImportAt": { "type": "string", "format": "date-time", "nullable": true },
+          "openBookingRequestCount": { "type": "integer" },
+          "availableSlotCount": { "type": "integer" },
+          "storedRawPayload": { "type": "boolean", "enum": [false] },
+          "runtimeCallsExternalSystems": { "type": "boolean", "enum": [false] },
+          "hardeningVersion": { "type": "string", "enum": ["stage5t"] },
+          "latestBySource": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceSystem": { "type": "string" },
+                "status": { "type": "string" },
+                "createdAt": { "type": "string", "format": "date-time", "nullable": true },
+                "itemCount": { "type": "integer" },
+                "acceptedBookingCount": { "type": "integer" },
+                "acceptedSlotCount": { "type": "integer" },
+                "rejectedCount": { "type": "integer" },
+                "duplicateCount": { "type": "integer" },
+                "hardeningVersion": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "ImportStatusResponse": {
+        "type": "object",
+        "properties": {
+          "stage": { "type": "string", "enum": ["5T"] },
+          "source": { "type": "string", "enum": ["postgres"] },
+          "item": { "$ref": "#/components/schemas/ImportStatus" },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "correlationId": { "type": "string" }
+        }
+      }
+    }
+  }
+}
