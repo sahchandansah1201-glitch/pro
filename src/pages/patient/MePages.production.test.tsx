@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import MeHomePage from "./MeHomePage";
 import MeReportPage from "./MeReportPage";
@@ -48,6 +48,18 @@ const portal = {
       doctor: { id: "doctor-1", displayName: "Доктор" },
     }],
     reminders: [{ id: "rem-1", source: "appointment", title: "Ближайший приём", dueAt: "2026-06-01T10:00:00.000Z" }],
+    reminderPreferences: {
+      appointmentRemindersEnabled: true,
+      reportNotificationsEnabled: true,
+      preferredChannel: "email",
+    },
+    bookingRequests: [{
+      id: "booking-live-1",
+      status: "requested",
+      preferredFrom: "2026-06-15T10:00:00.000Z",
+      reason: "Плановый контроль",
+      clinic: { id: "clinic-1", name: "Live Clinic" },
+    }],
   },
 };
 
@@ -67,6 +79,25 @@ function mockFetch() {
         item: {
           ...portal.portal.reports[0],
           physicianText: "Скрытый врачебный текст",
+        },
+      });
+    }
+    if (href.endsWith("/api/v1/me/booking-requests")) {
+      return response({
+        item: {
+          id: "booking-live-2",
+          status: "requested",
+          preferredFrom: "2026-06-20T10:00:00.000Z",
+          reason: "Контроль после лечения",
+        },
+      }, 201);
+    }
+    if (href.endsWith("/api/v1/me/reminder-preferences")) {
+      return response({
+        item: {
+          appointmentRemindersEnabled: false,
+          reportNotificationsEnabled: true,
+          preferredChannel: "none",
         },
       });
     }
@@ -123,14 +154,50 @@ describe("Patient portal · Stage 5N production", () => {
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
   });
 
-  it("shows production booking and reminders as read-only backend state", async () => {
-    mockFetch();
+  it("shows production booking state and creates a self-hosted booking request", async () => {
+    const fetchMock = mockFetch();
     const booking = renderRoute("/me/booking");
+
     expect(await screen.findByText("Самозапись пациента")).toBeInTheDocument();
-    expect(screen.getByText(/отдельным write-контрактом/i)).toBeInTheDocument();
+    expect(screen.getByText("Плановый контроль")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Предпочтительное начало записи"), {
+      target: { value: "2026-06-20T10:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Причина запроса на запись"), {
+      target: { value: "Контроль после лечения" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Отправить запрос" }));
+
+    expect(await screen.findByText("Запрос на запись отправлен в клинику.")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/booking-requests",
+      expect.objectContaining({ method: "POST" }),
+    );
     expect(document.body).not.toHaveTextContent("Подтвердить (демо)");
     booking.unmount();
+  });
 
+  it("shows reminders and updates reminder preferences through self-hosted backend", async () => {
+    const fetchMock = mockFetch();
+    renderRoute("/me/reminders");
+
+    expect(await screen.findByText("Ближайший приём")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Напоминать о ближайшем приёме"));
+    fireEvent.change(screen.getByLabelText("Канал уведомлений пациента"), {
+      target: { value: "none" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить настройки" }));
+
+    expect(await screen.findByText("Настройки напоминаний сохранены.")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/reminder-preferences",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(document.body).not.toHaveTextContent("Отметить выполнено");
+  });
+
+  it("keeps production reminders visible without demo actions", async () => {
+    mockFetch();
     renderRoute("/me/reminders");
     expect(await screen.findByText("Ближайший приём")).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Отметить выполнено");

@@ -326,3 +326,9 @@ contracts. The backend links local `app_users` to local `patients` through
 The frontend patient portal reads these self-hosted endpoints in production;
 demo/dev keeps the historical mock portal and is guarded by
 `npm run preflight:stage5n`.
+Stage 5O adds the patient-facing write boundary without opening clinical
+write access. Linked patient accounts can create booking requests through
+`POST /api/v1/me/booking-requests` and update reminder preferences through
+`PATCH /api/v1/me/reminder-preferences`; clinic staff still confirm slots and
+create visits through operator/clinic workflows. All data stays in local
+PostgreSQL and is guarded by `npm run preflight:stage5o`.
