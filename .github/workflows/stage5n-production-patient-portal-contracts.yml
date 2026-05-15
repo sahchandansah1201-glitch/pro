@@ -1,0 +1,47 @@
+name: stage5n-production-patient-portal-contracts
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-patient-portal-api.ts"
+      - "src/lib/self-hosted-patient-portal-api.test.ts"
+      - "src/pages/patient/**"
+      - "scripts/check-stage5n-production-patient-portal-contracts.mjs"
+      - "scripts/check-stage5n-production-patient-portal-contracts.test.mjs"
+      - "docs/backend/stage-5n-production-patient-portal-contracts.md"
+      - "package.json"
+      - ".github/workflows/stage5n-production-patient-portal-contracts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-patient-portal-api.ts"
+      - "src/lib/self-hosted-patient-portal-api.test.ts"
+      - "src/pages/patient/**"
+      - "scripts/check-stage5n-production-patient-portal-contracts.mjs"
+      - "scripts/check-stage5n-production-patient-portal-contracts.test.mjs"
+      - "docs/backend/stage-5n-production-patient-portal-contracts.md"
+      - "package.json"
+      - ".github/workflows/stage5n-production-patient-portal-contracts.yml"
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage5n
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5N production patient portal contracts"
+            echo ""
+            echo "- Command: \`npm run preflight:stage5n\`"
+            echo "- Product boundary: self-hosted Node.js + PostgreSQL; no managed runtime/database coupling"
+          } >> "$GITHUB_STEP_SUMMARY"

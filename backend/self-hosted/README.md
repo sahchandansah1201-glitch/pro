@@ -319,3 +319,10 @@ production mode. The production operator workspace reads
 loses leads, and books patient-linked leads through the self-hosted backend.
 Demo/dev keeps the historical dialog simulator and is guarded by
 `npm run preflight:stage5m`.
+Stage 5N cuts the patient-facing `/me` portal over to production read
+contracts. The backend links local `app_users` to local `patients` through
+`patient_user_links`, exposes `GET /api/v1/me/portal` and
+`GET /api/v1/me/reports/{reportId}`, and returns only patient-safe report text.
+The frontend patient portal reads these self-hosted endpoints in production;
+demo/dev keeps the historical mock portal and is guarded by
+`npm run preflight:stage5n`.

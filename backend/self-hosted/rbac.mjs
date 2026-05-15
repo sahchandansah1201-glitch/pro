@@ -1,5 +1,6 @@
 export const PATIENT_READ_ROLES = ["system_admin", "clinic_admin", "doctor"];
 export const PATIENT_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
+export const PATIENT_PORTAL_ROLES = ["patient"];
 export const OPS_STATUS_ROLES = ["system_admin"];
 export const DEVICE_READ_ROLES = ["system_admin", "clinic_admin"];
 export const DEVICE_COMMAND_ROLES = ["system_admin", "clinic_admin"];
@@ -83,6 +84,14 @@ export function patientWriteScope(authContext) {
   return {
     allClinics: false,
     clinicIds,
+    roles: scoped.roles,
+  };
+}
+
+export function patientPortalScope(authContext) {
+  const scoped = requireAnyRole(authContext, PATIENT_PORTAL_ROLES);
+  return {
+    userId: scoped.userId,
     roles: scoped.roles,
   };
 }

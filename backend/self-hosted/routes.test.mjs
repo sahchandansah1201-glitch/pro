@@ -32,6 +32,9 @@ function createRuntime({
   visitScheduleError = null,
   leadsAppointments = null,
   leadsAppointmentsError = null,
+  patientPortalOverview = null,
+  patientPortalReport = null,
+  patientPortalError = null,
   createdLead = null,
   updatedLead = null,
   bookedLead = null,
@@ -292,6 +295,44 @@ function createRuntime({
           scope: {
             allClinics: false,
             clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+    },
+    patientPortalService: {
+      async getOverview() {
+        if (patientPortalError) throw patientPortalError;
+        return {
+          overview: patientPortalOverview || {
+            patient: {
+              id: "10000000-0000-4000-8000-000000000201",
+              code: "DP-LIVE",
+              fullName: "Live Patient",
+              clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+            },
+            nextAppointment: null,
+            reports: [],
+            reminders: [],
+          },
+          scope: {
+            userId: authContext?.userId,
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async getReport(reportId) {
+        if (patientPortalError) throw patientPortalError;
+        return {
+          report: patientPortalReport || {
+            id: reportId,
+            visitId: "10000000-0000-4000-8000-000000000301",
+            status: "signed",
+            patientSafeText: "Patient-safe report text",
+            clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+          },
+          scope: {
+            userId: authContext?.userId,
             roles: authContext?.roles || [],
           },
         };
@@ -725,12 +766,13 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
     OBJECT_STORAGE_BUCKET: "medical-assets",
   });
   assert.equal(meta.status, 200);
-  assert.equal(meta.json.stage, "5L");
+  assert.equal(meta.json.stage, "5N");
   assert.equal(meta.json.capabilities.auth, "local-jwt");
   assert.equal(meta.json.capabilities.patients, "rbac-read-write-postgres");
   assert.equal(meta.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(meta.json.capabilities.visitSchedule, "rbac-read-postgres");
   assert.equal(meta.json.capabilities.leadsAppointments, "rbac-read-write-postgres");
+  assert.equal(meta.json.capabilities.patientPortal, "patient-owned-read-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -756,6 +798,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
   assert.equal(meta.json.links.openapiStage5L, "/openapi.stage5l.json");
+  assert.equal(meta.json.links.openapiStage5N, "/openapi.stage5n.json");
   assert.equal(meta.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(meta.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
   assert.equal(meta.json.links.productReadiness, "/api/v1/product/readiness");
@@ -777,6 +820,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.createLead, "/api/v1/leads");
   assert.equal(meta.json.links.updateLeadStatus, "/api/v1/leads/{leadId}");
   assert.equal(meta.json.links.bookLeadAppointment, "/api/v1/leads/{leadId}/book-appointment");
+  assert.equal(meta.json.links.patientPortal, "/api/v1/me/portal");
+  assert.equal(meta.json.links.patientPortalReport, "/api/v1/me/reports/{reportId}");
   assert.equal(meta.json.links.visits, "/api/v1/visits");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
   assert.equal(meta.json.links.assetDownload, "/api/v1/assets/{assetId}/download");
@@ -834,6 +879,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(openapi5l.status, 200);
   assert.equal(openapi5l.json.info.version, "5L-leads-appointments-writes");
   assert.ok(openapi5l.json.paths["/api/v1/leads"].post);
+
+  const openapi5n = await request("/openapi.stage5n.json");
+  assert.equal(openapi5n.status, 200);
+  assert.equal(openapi5n.json.info.version, "5N-patient-portal");
+  assert.ok(openapi5n.json.paths["/api/v1/me/portal"].get);
 
   const openapi4i = await request("/openapi.stage4i.json");
   assert.equal(openapi4i.status, 200);
@@ -2159,10 +2209,11 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
-  assert.equal(response.json.stage, "5L");
+  assert.equal(response.json.stage, "5N");
   assert.equal(response.json.capabilities.doctorDashboard, "rbac-read-postgres");
   assert.equal(response.json.capabilities.visitSchedule, "rbac-read-postgres");
   assert.equal(response.json.capabilities.leadsAppointments, "rbac-read-write-postgres");
+  assert.equal(response.json.capabilities.patientPortal, "patient-owned-read-postgres");
   assert.equal(response.json.capabilities.visits, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.lesions, "rbac-read-write-postgres");
   assert.equal(response.json.capabilities.assets, "rbac-read-write-postgres-backend-url-local-object-store");
@@ -2186,11 +2237,14 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(response.json.links.openapiStage5K, "/openapi.stage5k.json");
   assert.equal(response.json.links.openapiStage5L, "/openapi.stage5l.json");
+  assert.equal(response.json.links.openapiStage5N, "/openapi.stage5n.json");
   assert.equal(response.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(response.json.links.leadsAppointments, "/api/v1/leads/appointments");
   assert.equal(response.json.links.createLead, "/api/v1/leads");
   assert.equal(response.json.links.updateLeadStatus, "/api/v1/leads/{leadId}");
   assert.equal(response.json.links.bookLeadAppointment, "/api/v1/leads/{leadId}/book-appointment");
+  assert.equal(response.json.links.patientPortal, "/api/v1/me/portal");
+  assert.equal(response.json.links.patientPortalReport, "/api/v1/me/reports/{reportId}");
   assert.equal(response.json.links.visits, "/api/v1/visits");
   assert.equal(response.json.links.opsStatus, "/api/v1/ops/status");
   assert.equal(response.json.links.opsRuntimeChecks, "/api/v1/ops/runtime-checks");
@@ -2766,4 +2820,76 @@ test("Stage 5L · /openapi.stage5l.json documents lead write contracts", async (
   assert.ok(response.json.paths["/api/v1/leads"].post);
   assert.ok(response.json.paths["/api/v1/leads/{leadId}"].patch);
   assert.ok(response.json.paths["/api/v1/leads/{leadId}/book-appointment"].post);
+});
+
+test("Stage 5N · patient portal overview/report endpoints return patient-safe data", async () => {
+  const authContext = {
+    userId: "10000000-0000-4000-8000-000000000901",
+    roles: ["patient"],
+    clinicIds: [],
+    roleBindings: [{ role: "patient", clinicId: null, clinicSlug: null }],
+  };
+  const runtime = createRuntime({
+    authContext,
+    patientPortalOverview: {
+      patient: {
+        id: "10000000-0000-4000-8000-000000000201",
+        fullName: "Live Patient",
+        clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+      },
+      nextAppointment: { id: "10000000-0000-4000-8000-000000000301", startedAt: "2026-06-01T10:00:00.000Z" },
+      reports: [{
+        id: "10000000-0000-4000-8000-000000000401",
+        patientSafeText: "Patient-safe text",
+      }],
+      reminders: [{ id: "rem-1", title: "Ближайший приём" }],
+    },
+    patientPortalReport: {
+      id: "10000000-0000-4000-8000-000000000401",
+      patientSafeText: "Patient-safe text",
+      clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+    },
+  });
+
+  const overview = await request("/api/v1/me/portal", configuredEnv, runtime);
+  assert.equal(overview.status, 200);
+  assert.equal(overview.json.stage, "5N");
+  assert.equal(overview.json.portal.patient.fullName, "Live Patient");
+  assert.equal(overview.json.portal.reports[0].patientSafeText, "Patient-safe text");
+  assert.doesNotMatch(overview.body, /physicianText|physician_text|storage_object_path|signed_url|access_token/i);
+
+  const report = await request(
+    "/api/v1/me/reports/10000000-0000-4000-8000-000000000401",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(report.status, 200);
+  assert.equal(report.json.item.patientSafeText, "Patient-safe text");
+  assert.doesNotMatch(report.body, /physicianText|physician_text|storage_object_path|signed_url|access_token/i);
+});
+
+test("Stage 5N · patient portal endpoint maps forbidden access safely", async () => {
+  const denied = await request(
+    "/api/v1/me/portal",
+    configuredEnv,
+    createRuntime({
+      authContext: {
+        userId: "10000000-0000-4000-8000-000000000101",
+        roles: ["doctor"],
+        clinicIds: ["10000000-0000-4000-8000-000000000001"],
+        roleBindings: [],
+      },
+      patientPortalError: new ForbiddenError("Patient portal access denied."),
+    }),
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "forbidden");
+});
+
+test("Stage 5N · /openapi.stage5n.json documents patient portal contracts", async () => {
+  const response = await request("/openapi.stage5n.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "5N-patient-portal");
+  assert.ok(response.json.paths["/api/v1/me/portal"].get);
+  assert.ok(response.json.paths["/api/v1/me/reports/{reportId}"].get);
 });
