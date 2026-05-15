@@ -1,5 +1,5 @@
-// Stage 5N · self-hosted patient portal API client.
-// Production patient pages read only /api/v1/me/* from the self-hosted backend.
+// Stage 5N/5O · self-hosted patient portal API client.
+// Production patient pages use only /api/v1/me/* from the self-hosted backend.
 
 import type { SelfHostedApiError, SelfHostedApiResult } from "@/lib/self-hosted-patient-api";
 import { buildSelfHostedApiUrl } from "@/lib/self-hosted-patient-api";
@@ -65,11 +65,46 @@ export interface SelfHostedPatientPortalReminder {
   status: string;
 }
 
+export interface SelfHostedPatientPortalReminderPreferences {
+  appointmentRemindersEnabled: boolean;
+  reportNotificationsEnabled: boolean;
+  preferredChannel: "email" | "phone" | "none";
+  updatedAt: string | null;
+}
+
+export interface SelfHostedPatientPortalBookingRequest {
+  id: string;
+  status: string;
+  preferredFrom: string | null;
+  preferredTo: string | null;
+  reason: string | null;
+  createdAt: string | null;
+  clinic: {
+    id: string | null;
+    slug: string | null;
+    name: string | null;
+  };
+}
+
 export interface SelfHostedPatientPortalOverview {
   patient: SelfHostedPatientPortalPatient;
   nextAppointment: SelfHostedPatientPortalAppointment | null;
   reports: SelfHostedPatientPortalReport[];
   reminders: SelfHostedPatientPortalReminder[];
+  reminderPreferences: SelfHostedPatientPortalReminderPreferences;
+  bookingRequests: SelfHostedPatientPortalBookingRequest[];
+}
+
+export interface CreatePatientPortalBookingRequestPayload {
+  preferredFrom: string;
+  preferredTo?: string | null;
+  reason: string;
+}
+
+export interface UpdatePatientPortalReminderPreferencesPayload {
+  appointmentRemindersEnabled?: boolean;
+  reportNotificationsEnabled?: boolean;
+  preferredChannel?: "email" | "phone" | "none";
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -92,6 +127,13 @@ function ensureConfigured(args: BaseArgs): SelfHostedApiError | null {
 
 function authHeaders(token: string): HeadersInit {
   return { Accept: "application/json", Authorization: `Bearer ${token}` };
+}
+
+function jsonHeaders(token: string): HeadersInit {
+  return {
+    ...authHeaders(token),
+    "Content-Type": "application/json",
+  };
 }
 
 async function parseJsonSafe(response: Response): Promise<unknown> {
@@ -124,15 +166,18 @@ function apiErrorFromBody(response: Response, body: unknown): SelfHostedApiError
 async function requestJson(
   args: BaseArgs,
   path: string,
+  init: { method?: "GET" | "POST" | "PATCH"; body?: unknown } = {},
 ): Promise<SelfHostedApiResult<unknown>> {
   const configError = ensureConfigured(args);
   if (configError) return fail(configError);
   const url = buildSelfHostedApiUrl(args.apiBaseUrl, path);
+  const method = init.method ?? "GET";
   let response: Response;
   try {
     response = await fetch(url, {
-      method: "GET",
-      headers: authHeaders(String(args.apiToken)),
+      method,
+      headers: method === "GET" ? authHeaders(String(args.apiToken)) : jsonHeaders(String(args.apiToken)),
+      ...(method === "GET" ? {} : { body: JSON.stringify(init.body ?? {}) }),
     });
   } catch {
     return fail({
@@ -227,6 +272,40 @@ function toReminder(input: unknown): SelfHostedPatientPortalReminder {
   };
 }
 
+function toReminderPreferences(input: unknown): SelfHostedPatientPortalReminderPreferences {
+  const row = isRecord(input) ? input : {};
+  const preferredChannel =
+    row.preferredChannel === "phone" || row.preferredChannel === "none" ? row.preferredChannel : "email";
+  return {
+    appointmentRemindersEnabled: row.appointmentRemindersEnabled == null
+      ? true
+      : Boolean(row.appointmentRemindersEnabled),
+    reportNotificationsEnabled: row.reportNotificationsEnabled == null
+      ? true
+      : Boolean(row.reportNotificationsEnabled),
+    preferredChannel,
+    updatedAt: textOrNull(row.updatedAt),
+  };
+}
+
+export function toSelfHostedPatientPortalBookingRequest(input: unknown): SelfHostedPatientPortalBookingRequest {
+  const row = isRecord(input) ? input : {};
+  const clinic = nested(row, "clinic");
+  return {
+    id: String(row.id ?? ""),
+    status: String(row.status ?? "requested"),
+    preferredFrom: textOrNull(row.preferredFrom),
+    preferredTo: textOrNull(row.preferredTo),
+    reason: textOrNull(row.reason),
+    createdAt: textOrNull(row.createdAt),
+    clinic: {
+      id: textOrNull(clinic.id),
+      slug: textOrNull(clinic.slug),
+      name: textOrNull(clinic.name),
+    },
+  };
+}
+
 export function toSelfHostedPatientPortalOverview(input: unknown): SelfHostedPatientPortalOverview {
   const source = isRecord(input) ? input : {};
   return {
@@ -237,6 +316,10 @@ export function toSelfHostedPatientPortalOverview(input: unknown): SelfHostedPat
       : [],
     reminders: Array.isArray(source.reminders)
       ? source.reminders.map(toReminder).filter((item) => item.id)
+      : [],
+    reminderPreferences: toReminderPreferences(source.reminderPreferences),
+    bookingRequests: Array.isArray(source.bookingRequests)
+      ? source.bookingRequests.map(toSelfHostedPatientPortalBookingRequest).filter((item) => item.id)
       : [],
   };
 }
@@ -257,4 +340,28 @@ export async function fetchSelfHostedPatientPortalReport(
   if (!response.ok) return fail(response.error);
   const body = isRecord(response.value) ? response.value : {};
   return ok(toSelfHostedPatientPortalReport(body.item));
+}
+
+export async function createSelfHostedPatientPortalBookingRequest(
+  args: BaseArgs & { payload: CreatePatientPortalBookingRequestPayload },
+): Promise<SelfHostedApiResult<SelfHostedPatientPortalBookingRequest>> {
+  const response = await requestJson(args, "/api/v1/me/booking-requests", {
+    method: "POST",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedPatientPortalBookingRequest(body.item));
+}
+
+export async function updateSelfHostedPatientPortalReminderPreferences(
+  args: BaseArgs & { payload: UpdatePatientPortalReminderPreferencesPayload },
+): Promise<SelfHostedApiResult<SelfHostedPatientPortalReminderPreferences>> {
+  const response = await requestJson(args, "/api/v1/me/reminder-preferences", {
+    method: "PATCH",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toReminderPreferences(body.item));
 }

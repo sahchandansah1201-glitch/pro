@@ -1,0 +1,77 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API",
+    "version": "5O-patient-portal-writes",
+    "description": "Stage 5O production patient portal write boundary. Patient-owned booking requests and reminder preferences stay in the operator-owned PostgreSQL deployment."
+  },
+  "servers": [{ "url": "/" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/me/booking-requests": {
+      "post": {
+        "summary": "Create a patient-owned booking request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["preferredFrom", "reason"],
+                "properties": {
+                  "preferredFrom": { "type": "string", "format": "date-time" },
+                  "preferredTo": { "type": "string", "format": "date-time", "nullable": true },
+                  "reason": { "type": "string", "maxLength": 500 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Booking request created" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Only linked patient accounts may write" },
+          "422": { "description": "Validation error" }
+        }
+      }
+    },
+    "/api/v1/me/reminder-preferences": {
+      "patch": {
+        "summary": "Update patient-owned reminder preferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "appointmentRemindersEnabled": { "type": "boolean" },
+                  "reportNotificationsEnabled": { "type": "boolean" },
+                  "preferredChannel": {
+                    "type": "string",
+                    "enum": ["email", "phone", "none"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Reminder preferences updated" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Only linked patient accounts may write" },
+          "422": { "description": "Validation error" }
+        }
+      }
+    }
+  }
+}

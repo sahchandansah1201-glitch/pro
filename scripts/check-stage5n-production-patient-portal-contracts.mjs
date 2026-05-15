@@ -91,10 +91,10 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/patient/MeBookingPageLive.tsx": [
     "Самозапись пациента",
-    "отдельным write-контрактом",
+    "Отправить запрос",
   ],
   "src/pages/patient/MeRemindersPageLive.tsx": [
-    "read-only patient reminders",
+    "self-hosted reminder preferences",
     "usePatientPortalOverview",
   ],
   "docs/backend/stage-5n-production-patient-portal-contracts.md": [

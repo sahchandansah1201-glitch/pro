@@ -1,6 +1,6 @@
-// Stage 5N · Self-hosted patient portal repository.
-// Patient-facing reads are scoped by patient_user_links and expose only
-// patient-safe report text. Physician-only report text is intentionally absent.
+// Stage 5N/5O · Self-hosted patient portal repository.
+// Patient-facing reads and writes are scoped by patient_user_links. Reports
+// expose only patient-safe text; physician-only report text is intentionally absent.
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -10,6 +10,14 @@ function sqlLiteral(value) {
 
 function sqlUuid(value) {
   return `${sqlLiteral(value)}::uuid`;
+}
+
+function sqlNullableText(value) {
+  return value == null || value === "" ? "null" : sqlLiteral(value);
+}
+
+function sqlNullableTimestamp(value) {
+  return value == null || value === "" ? "null" : `${sqlLiteral(value)}::timestamptz`;
 }
 
 function safeUuid(value) {
@@ -98,6 +106,38 @@ function normalizeReminder(input = {}) {
   };
 }
 
+function normalizeReminderPreferences(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    appointmentRemindersEnabled: source.appointmentRemindersEnabled == null
+      ? true
+      : Boolean(source.appointmentRemindersEnabled),
+    reportNotificationsEnabled: source.reportNotificationsEnabled == null
+      ? true
+      : Boolean(source.reportNotificationsEnabled),
+    preferredChannel: String(source.preferredChannel ?? "email"),
+    updatedAt: textOrNull(source.updatedAt),
+  };
+}
+
+function normalizeBookingRequest(input = {}) {
+  if (!input || typeof input !== "object" || !input.id) return null;
+  const clinic = safeNested(input, "clinic");
+  return {
+    id: String(input.id),
+    status: String(input.status ?? "requested"),
+    preferredFrom: textOrNull(input.preferredFrom),
+    preferredTo: textOrNull(input.preferredTo),
+    reason: textOrNull(input.reason),
+    createdAt: textOrNull(input.createdAt),
+    clinic: {
+      id: textOrNull(clinic.id),
+      slug: textOrNull(clinic.slug),
+      name: textOrNull(clinic.name),
+    },
+  };
+}
+
 export function normalizePatientPortalOverview(input) {
   const source = input && typeof input === "object" ? input : {};
   return {
@@ -108,6 +148,10 @@ export function normalizePatientPortalOverview(input) {
       : [],
     reminders: Array.isArray(source.reminders)
       ? source.reminders.map(normalizeReminder).filter((item) => item.id)
+      : [],
+    reminderPreferences: normalizeReminderPreferences(source.reminderPreferences || {}),
+    bookingRequests: Array.isArray(source.bookingRequests)
+      ? source.bookingRequests.map(normalizeBookingRequest).filter(Boolean)
       : [],
   };
 }
@@ -180,6 +224,34 @@ safe_reports as (
     and r.patient_safe_text is not null
   order by coalesce(r.signed_at, r.updated_at, r.created_at) desc
   limit 20
+),
+reminder_preferences as (
+  select
+    pref.appointment_reminders_enabled,
+    pref.report_notifications_enabled,
+    pref.preferred_channel,
+    pref.updated_at
+  from patient_portal_reminder_preferences pref
+  join portal_patient pp on pp.id = pref.patient_id
+  where pref.user_id = ${sqlUuid(safeUserId)}
+  limit 1
+),
+booking_requests as (
+  select
+    br.id,
+    br.status,
+    br.preferred_from,
+    br.preferred_to,
+    br.reason,
+    br.created_at,
+    c.id as clinic_id,
+    c.slug as clinic_slug,
+    c.name as clinic_name
+  from patient_portal_booking_requests br
+  join portal_patient pp on pp.id = br.patient_id
+  join clinics c on c.id = br.clinic_id
+  order by br.created_at desc
+  limit 10
 )
 select jsonb_build_object(
   'patient', coalesce((
@@ -259,6 +331,36 @@ select jsonb_build_object(
       where sr.signed_at is not null
       limit 5
     ) reminders
+  ), '[]'::jsonb),
+  'reminderPreferences', coalesce((
+    select jsonb_build_object(
+      'appointmentRemindersEnabled', rp.appointment_reminders_enabled,
+      'reportNotificationsEnabled', rp.report_notifications_enabled,
+      'preferredChannel', rp.preferred_channel,
+      'updatedAt', rp.updated_at
+    )
+    from reminder_preferences rp
+  ), jsonb_build_object(
+    'appointmentRemindersEnabled', true,
+    'reportNotificationsEnabled', true,
+    'preferredChannel', 'email',
+    'updatedAt', null
+  )),
+  'bookingRequests', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', br.id::text,
+      'status', br.status,
+      'preferredFrom', br.preferred_from,
+      'preferredTo', br.preferred_to,
+      'reason', br.reason,
+      'createdAt', br.created_at,
+      'clinic', jsonb_build_object(
+        'id', br.clinic_id::text,
+        'slug', br.clinic_slug,
+        'name', br.clinic_name
+      )
+    ) order by br.created_at desc)
+    from booking_requests br
   ), '[]'::jsonb)
 )::text;
 `.trim();
@@ -301,6 +403,115 @@ from (
 `.trim();
 }
 
+export function buildCreatePatientPortalBookingRequestSql({
+  userId,
+  preferredFrom,
+  preferredTo = null,
+  reason = null,
+} = {}) {
+  const safeUserId = safeUuid(userId);
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with portal_patient as (
+    select
+      p.id as patient_id,
+      p.clinic_id
+    from patient_user_links pul
+    join patients p on p.id = pul.patient_id and p.deleted_at is null
+    where pul.user_id = ${sqlUuid(safeUserId)}
+    order by pul.created_at asc
+    limit 1
+  ),
+  inserted as (
+    insert into patient_portal_booking_requests (
+      clinic_id,
+      patient_id,
+      requested_by_user_id,
+      preferred_from,
+      preferred_to,
+      reason
+    )
+    select
+      pp.clinic_id,
+      pp.patient_id,
+      ${sqlUuid(safeUserId)},
+      ${sqlLiteral(preferredFrom)}::timestamptz,
+      ${sqlNullableTimestamp(preferredTo)},
+      ${sqlNullableText(reason)}
+    from portal_patient pp
+    returning *
+  )
+  select
+    br.id::text as "id",
+    br.status as "status",
+    br.preferred_from as "preferredFrom",
+    br.preferred_to as "preferredTo",
+    br.reason as "reason",
+    br.created_at as "createdAt",
+    jsonb_build_object(
+      'id', c.id::text,
+      'slug', c.slug,
+      'name', c.name
+    ) as "clinic"
+  from inserted br
+  join clinics c on c.id = br.clinic_id
+) result;
+`.trim();
+}
+
+export function buildUpdatePatientPortalReminderPreferencesSql({
+  userId,
+  appointmentRemindersEnabled,
+  reportNotificationsEnabled,
+  preferredChannel,
+} = {}) {
+  const safeUserId = safeUuid(userId);
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with portal_patient as (
+    select p.id as patient_id
+    from patient_user_links pul
+    join patients p on p.id = pul.patient_id and p.deleted_at is null
+    where pul.user_id = ${sqlUuid(safeUserId)}
+    order by pul.created_at asc
+    limit 1
+  ),
+  upserted as (
+    insert into patient_portal_reminder_preferences (
+      user_id,
+      patient_id,
+      appointment_reminders_enabled,
+      report_notifications_enabled,
+      preferred_channel,
+      updated_at
+    )
+    select
+      ${sqlUuid(safeUserId)},
+      pp.patient_id,
+      ${appointmentRemindersEnabled ? "true" : "false"},
+      ${reportNotificationsEnabled ? "true" : "false"},
+      ${sqlLiteral(preferredChannel)},
+      now()
+    from portal_patient pp
+    on conflict (user_id) do update
+    set appointment_reminders_enabled = excluded.appointment_reminders_enabled,
+        report_notifications_enabled = excluded.report_notifications_enabled,
+        preferred_channel = excluded.preferred_channel,
+        updated_at = now()
+    returning *
+  )
+  select
+    pref.appointment_reminders_enabled as "appointmentRemindersEnabled",
+    pref.report_notifications_enabled as "reportNotificationsEnabled",
+    pref.preferred_channel as "preferredChannel",
+    pref.updated_at as "updatedAt"
+  from upserted pref
+) result;
+`.trim();
+}
+
 export function createPatientPortalRepository(dbClient) {
   return {
     async getOverview({ userId }) {
@@ -311,6 +522,14 @@ export function createPatientPortalRepository(dbClient) {
       const rows = await dbClient.queryJson(buildPatientPortalReportSql({ userId, reportId }));
       const first = Array.isArray(rows) ? rows[0] : rows;
       return normalizePatientPortalReport(first);
+    },
+    async createBookingRequest(input) {
+      const rows = await dbClient.queryJson(buildCreatePatientPortalBookingRequestSql(input));
+      return normalizeBookingRequest(Array.isArray(rows) ? rows[0] : rows);
+    },
+    async updateReminderPreferences(input) {
+      const rows = await dbClient.queryJson(buildUpdatePatientPortalReminderPreferencesSql(input));
+      return normalizeReminderPreferences(Array.isArray(rows) ? rows[0] : rows);
     },
   };
 }

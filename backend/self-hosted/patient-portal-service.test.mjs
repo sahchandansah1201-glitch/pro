@@ -28,6 +28,26 @@ function createService(overrides = {}) {
               clinic: { id: "c-1" },
             };
       },
+      async createBookingRequest() {
+        return overrides.bookingRequest === null
+          ? null
+          : overrides.bookingRequest || {
+              id: "br-1",
+              status: "requested",
+              preferredFrom: "2026-06-15T10:00:00.000Z",
+              reason: "Плановый контроль",
+              clinic: { id: "c-1" },
+            };
+      },
+      async updateReminderPreferences() {
+        return overrides.reminderPreferences === null
+          ? null
+          : overrides.reminderPreferences || {
+              appointmentRemindersEnabled: false,
+              reportNotificationsEnabled: true,
+              preferredChannel: "phone",
+            };
+      },
     },
     auditRepository: {
       async recordEvent(event) {
@@ -51,6 +71,50 @@ test("Stage 5N service allows patient role and audits overview/report reads", as
     "patient_portal.overview.read",
     "patient_portal.report.read",
   ]);
+});
+
+test("Stage 5O service allows patient-owned booking requests and reminder preferences", async () => {
+  const { service, auditEvents } = createService();
+  const authContext = { userId: USER_ID, roles: ["patient"] };
+
+  const booking = await service.createBookingRequest(
+    {
+      preferredFrom: "2026-06-15T10:00:00.000Z",
+      reason: "Плановый контроль",
+    },
+    authContext,
+    { correlationId: "corr-3" },
+  );
+  const preferences = await service.updateReminderPreferences(
+    {
+      appointmentRemindersEnabled: false,
+      reportNotificationsEnabled: true,
+      preferredChannel: "phone",
+    },
+    authContext,
+    { correlationId: "corr-4" },
+  );
+
+  assert.equal(booking.bookingRequest.status, "requested");
+  assert.equal(preferences.reminderPreferences.preferredChannel, "phone");
+  assert.deepEqual(auditEvents.map((event) => event.action), [
+    "patient_portal.booking_request.create",
+    "patient_portal.reminder_preferences.update",
+  ]);
+});
+
+test("Stage 5O service validates booking requests and reminder preferences", async () => {
+  const { service } = createService();
+  const authContext = { userId: USER_ID, roles: ["patient"] };
+
+  await assert.rejects(
+    () => service.createBookingRequest({ preferredFrom: "bad", reason: "" }, authContext),
+    (error) => error.publicCode === "validation_error" && error.publicStatus === 422,
+  );
+  await assert.rejects(
+    () => service.updateReminderPreferences({ preferredChannel: "sms" }, authContext),
+    (error) => error.publicCode === "validation_error" && error.publicStatus === 422,
+  );
 });
 
 test("Stage 5N service denies non-patient roles", async () => {
