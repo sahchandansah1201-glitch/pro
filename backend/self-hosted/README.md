@@ -23,6 +23,8 @@ PostgreSQL client used by the container image.
   Stage 5H production assessment, conclusion, and report read/write contracts.
 - `doctor-dashboard-repository.mjs`, `doctor-dashboard-service.mjs` —
   Stage 5I production doctor dashboard aggregations from PostgreSQL.
+- `visit-schedule-repository.mjs`, `visit-schedule-service.mjs` — Stage 5J
+  production visit schedule contract from operator-owned PostgreSQL.
 - `asset-write-repository.mjs`, `asset-write-service.mjs`, `object-store.mjs` —
   Stage 4I-4J clinical asset metadata, binary storage, and backend-owned
   download contracts.
@@ -52,6 +54,7 @@ PostgreSQL client used by the container image.
 - `openapi.stage5h.json` — production clinical workspace assessment,
   conclusion, and report contracts.
 - `openapi.stage5i.json` — production doctor dashboard contract.
+- `openapi.stage5j.json` — production visit schedule contract.
 - `db/migrations/0001_stage4a_core.sql` — PostgreSQL schema foundation with
   users, separate roles, patients, visits, lesions, assets, reports, and
   append-only audit.
@@ -172,6 +175,9 @@ npm run preflight:stage5h
 npm run test:stage5i
 npm run check:stage5i
 npm run preflight:stage5i
+npm run test:stage5j
+npm run check:stage5j
+npm run preflight:stage5j
 npm run worker:stage4t:dry-run
 npm run ops:stage4n:audit-export:dry-run
 npm run smoke:stage4k:dry-run
@@ -282,3 +288,8 @@ Stage 5I adds the production doctor dashboard contract:
 conclusions, recent patients, asset metadata issues, and device status from
 operator-owned PostgreSQL. `/desk` in production uses this contract and does
 not fall back to mock dashboard data; demo/dev keeps the historical dashboard.
+Stage 5J adds the production visit schedule contract:
+`GET /api/v1/visits` lists scheduled visits from operator-owned PostgreSQL
+with RBAC scope, date/status/search filters, and safe patient/clinic labels.
+The `/visits` route in production reads only this self-hosted contract; demo/dev
+keeps the historical mock schedule and is guarded by `npm run preflight:stage5j`.

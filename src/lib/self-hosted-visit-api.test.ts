@@ -4,6 +4,7 @@ import {
   getSelfHostedVisit,
   listSelfHostedVisitAssets,
   listSelfHostedVisitLesions,
+  listSelfHostedVisits,
   listSelfHostedVisitsByPatient,
 } from "@/lib/self-hosted-visit-api";
 
@@ -70,6 +71,49 @@ describe("self-hosted visit api client", () => {
     expect(res.value?.[0]?.id).toBe(VISIT_ID);
     const [url, init] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe(`${BASE}/api/v1/patients/${PATIENT_ID}/visits`);
+    expect((init as RequestInit).headers).toMatchObject({
+      Authorization: `Bearer ${TOKEN}`,
+    });
+  });
+
+  it("lists production schedule with filters and forwards bearer token", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, {
+        stage: "5J",
+        items: [
+          {
+            id: VISIT_ID,
+            clinicId: "c",
+            patientId: PATIENT_ID,
+            doctorUserId: null,
+            status: "draft",
+            startedAt: "2026-05-15T09:00:00.000Z",
+            patient: { id: PATIENT_ID, fullName: "Live Patient", code: "DP-LIVE" },
+            clinic: { id: "c", slug: "main", name: "Live Clinic" },
+          },
+        ],
+        count: 1,
+        limit: 25,
+        offset: 0,
+        filters: { status: "draft", dateFrom: "2026-05-01", dateTo: "2026-05-31", search: "Live" },
+      }),
+    );
+
+    const res = await listSelfHostedVisits({
+      apiBaseUrl: BASE,
+      apiToken: TOKEN,
+      status: "draft",
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-31",
+      search: "Live",
+      limit: 25,
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.value?.items[0]?.patient.fullName).toBe("Live Patient");
+    expect(res.value?.count).toBe(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(`${BASE}/api/v1/visits?status=draft&dateFrom=2026-05-01&dateTo=2026-05-31&search=Live&limit=25`);
     expect((init as RequestInit).headers).toMatchObject({
       Authorization: `Bearer ${TOKEN}`,
     });

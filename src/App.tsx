@@ -17,6 +17,7 @@ import AnalysisPublicPage from "./pages/public/AnalysisPublicPage";
 import DeskPage from "./pages/doctor/DeskPage";
 import PatientsPage from "./pages/doctor/PatientsPage";
 import PatientDetailPage from "./pages/doctor/PatientDetailPage";
+import VisitsPage from "./pages/doctor/VisitsPage";
 import VisitWorkspacePage from "./pages/doctor/VisitWorkspacePage";
 import CapturePage from "./pages/doctor/CapturePage";
 import LesionDetailPage from "./pages/doctor/LesionDetailPage";
@@ -72,6 +73,7 @@ const App = () => (
               {/* Doctor / clinical */}
               <Route path="/desk" element={<G><DeskPage /></G>} />
               <Route path="/patients" element={<G><PatientsPage /></G>} />
+              <Route path="/visits" element={<G><VisitsPage /></G>} />
               <Route path="/patients/:id" element={<G><PatientDetailPage /></G>} />
               <Route path="/patients/:id/visits/:visitId" element={<G><VisitWorkspacePage /></G>} />
               <Route path="/patients/:id/lesions/:lesionId" element={<G><LesionDetailPage /></G>} />

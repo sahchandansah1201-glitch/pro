@@ -18,6 +18,7 @@ export const ROUTE_ACCESS: Record<string, Role[]> = {
 
   // Клиническая зона врача / ассистента
   "/desk": ["doctor", "private_doctor"],
+  "/visits": ["doctor", "private_doctor", "clinic_admin"],
   "/patients": [...CLINICAL, "clinic_admin"],
   "/capture": ["assistant", "doctor", "private_doctor"],
 
