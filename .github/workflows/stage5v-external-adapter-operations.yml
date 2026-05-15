@@ -1,0 +1,42 @@
+name: stage5v-external-adapter-operations
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/integrations/booking-import-status.stage5v.example.json"
+      - "scripts/stage5v-external-adapter-ops.mjs"
+      - "scripts/stage5v-external-adapter-ops.test.mjs"
+      - "scripts/check-stage5v-external-adapter-operations.mjs"
+      - "scripts/check-stage5v-external-adapter-operations.test.mjs"
+      - "docs/backend/stage-5v-external-adapter-operations.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  workflow_dispatch:
+
+jobs:
+  stage5v:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 5V preflight
+        run: npm run preflight:stage5v
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5V external adapter operations"
+            echo
+            echo "- Command: \`npm run preflight:stage5v\`"
+            echo "- Boundary: self-hosted inbound push only; no CRM/ad runtime calls"
+            echo "- Delivery: sanitized status fixture + local operator report"
+          } >> "$GITHUB_STEP_SUMMARY"

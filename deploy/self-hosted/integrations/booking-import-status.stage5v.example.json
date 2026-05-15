@@ -1,0 +1,22 @@
+{
+  "sourceSystem": "clinic_crm",
+  "recentBatchCount": 3,
+  "rejectedLast24h": 0,
+  "duplicateLast24h": 1,
+  "openBookingRequestCount": 5,
+  "availableSlotCount": 12,
+  "storedRawPayload": false,
+  "runtimeCallsExternalSystems": false,
+  "hardeningVersion": "stage5t",
+  "latestBySource": [
+    {
+      "sourceSystem": "clinic_crm",
+      "lastImportedAt": "2026-05-15T09:00:00.000Z",
+      "lastStatus": "accepted",
+      "lastItemCount": 2,
+      "lastRejectedCount": 0,
+      "lastDuplicateCount": 1,
+      "hardeningVersion": "stage5t"
+    }
+  ]
+}
