@@ -58,6 +58,11 @@ import {
 } from "./clinic-booking-requests-repository.mjs";
 import { createClinicBookingRequestsService } from "./clinic-booking-requests-service.mjs";
 import {
+  createClinicAvailableSlotsRepository,
+  normalizeClinicAvailableSlotParams,
+} from "./clinic-available-slots-repository.mjs";
+import { createClinicAvailableSlotsService } from "./clinic-available-slots-service.mjs";
+import {
   createExternalIntakeImportRepository,
   normalizeExternalIntakeImportParams,
 } from "./external-intake-import-repository.mjs";
@@ -161,6 +166,9 @@ const OPENAPI_5P = JSON.parse(
 const OPENAPI_5Q = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5q.json"), "utf8"),
 );
+const OPENAPI_5R = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage5r.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -236,6 +244,14 @@ function getRuntime(config, runtime = {}) {
       clinicBookingRequestsRepository,
       auditRepository,
     });
+  const clinicAvailableSlotsRepository =
+    runtime.clinicAvailableSlotsRepository || createClinicAvailableSlotsRepository(dbClient);
+  const clinicAvailableSlotsService =
+    runtime.clinicAvailableSlotsService ||
+    createClinicAvailableSlotsService({
+      clinicAvailableSlotsRepository,
+      auditRepository,
+    });
   const externalIntakeImportRepository =
     runtime.externalIntakeImportRepository || createExternalIntakeImportRepository(dbClient);
   const externalIntakeImportService =
@@ -298,6 +314,8 @@ function getRuntime(config, runtime = {}) {
     authService,
     clinicalWorkspaceRepository,
     clinicalWorkspaceService,
+    clinicAvailableSlotsRepository,
+    clinicAvailableSlotsService,
     clinicBookingRequestsRepository,
     clinicBookingRequestsService,
     dbClient,
@@ -968,6 +986,43 @@ export async function handleSelfHostedRequest(
               generatedAt: now(),
               correlationId,
             },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  // Stage 5R · clinic available slots. Operators read the local PostgreSQL
+  // cache populated by Stage 5Q imports; no CRM/scheduling runtime is called.
+  if (url.pathname === "/api/v1/clinic/available-slots" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicAvailableSlotsService.listAvailableSlots(
+        authContext,
+        normalizeClinicAvailableSlotParams(url.searchParams),
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5R",
+          source: "postgres",
+          items: result.slots.items,
+          count: result.slots.count,
+          limit: result.slots.limit,
+          offset: result.slots.offset,
+          filters: result.slots.filters,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
         config,
         requestOrigin,
       );
@@ -2490,7 +2545,7 @@ export async function handleSelfHostedRequest(
       200,
       {
         apiVersion: "v1",
-        stage: "5Q",
+        stage: "5R",
         deploymentMode: config.deploymentMode,
         service: publicConfig(config),
         capabilities: {
@@ -2504,6 +2559,7 @@ export async function handleSelfHostedRequest(
           leadsAppointments: "rbac-read-write-postgres",
           clinicBookingRequests: "rbac-read-write-postgres",
           externalIntakeImports: "rbac-read-write-postgres-inbound-only",
+          clinicAvailableSlots: "rbac-read-postgres-local-import-cache",
           patientPortal: "patient-owned-read-postgres",
           patientPortalWrites: "patient-owned-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
@@ -2543,6 +2599,7 @@ export async function handleSelfHostedRequest(
           openapiStage5O: "/openapi.stage5o.json",
           openapiStage5P: "/openapi.stage5p.json",
           openapiStage5Q: "/openapi.stage5q.json",
+          openapiStage5R: "/openapi.stage5r.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2572,6 +2629,7 @@ export async function handleSelfHostedRequest(
           clinicBookingRequests: "/api/v1/clinic/booking-requests",
           clinicBookingRequest: "/api/v1/clinic/booking-requests/{requestId}",
           externalBookingImports: "/api/v1/integrations/booking-imports",
+          clinicAvailableSlots: "/api/v1/clinic/available-slots",
           patientPortal: "/api/v1/me/portal",
           patientPortalReport: "/api/v1/me/reports/{reportId}",
           patientPortalBookingRequests: "/api/v1/me/booking-requests",
@@ -2708,10 +2766,14 @@ export async function handleSelfHostedRequest(
     return jsonResponse(200, OPENAPI_5Q, config, requestOrigin);
   }
 
+  if (url.pathname === "/openapi.stage5r.json") {
+    return jsonResponse(200, OPENAPI_5R, config, requestOrigin);
+  }
+
   return errorResponse({
     status: 404,
     code: "not_found",
-    message: "No Stage 5Q self-hosted backend route matched the request.",
+    message: "No Stage 5R self-hosted backend route matched the request.",
     correlationId,
     config,
     requestOrigin,

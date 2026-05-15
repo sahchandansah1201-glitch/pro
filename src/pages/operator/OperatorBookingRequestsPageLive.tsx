@@ -23,6 +23,10 @@ import {
   listSelfHostedExternalIntakeImports,
   type SelfHostedExternalIntakeImportBatchesPage,
 } from "@/lib/self-hosted-external-intake-api";
+import {
+  listSelfHostedClinicAvailableSlots,
+  type SelfHostedClinicAvailableSlotsPage,
+} from "@/lib/self-hosted-clinic-availability-api";
 
 const STATUS_LABEL: Record<string, string> = {
   all: "Все",
@@ -56,6 +60,14 @@ const EMPTY_IMPORTS: SelfHostedExternalIntakeImportBatchesPage = {
   filters: { sourceSystem: "all" },
 };
 
+const EMPTY_SLOTS: SelfHostedClinicAvailableSlotsPage = {
+  items: [],
+  count: 0,
+  limit: 5,
+  offset: 0,
+  filters: { sourceSystem: "all", status: "available", dateFrom: null, dateTo: null },
+};
+
 type StatusFilter = "all" | "requested" | "reviewing" | "booked" | "cancelled";
 
 export default function OperatorBookingRequestsPageLive() {
@@ -70,6 +82,7 @@ export default function OperatorBookingRequestsPageLive() {
   const [assignedVisitId, setAssignedVisitId] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [importBatches, setImportBatches] = useState<SelfHostedExternalIntakeImportBatchesPage>(EMPTY_IMPORTS);
+  const [availableSlots, setAvailableSlots] = useState<SelfHostedClinicAvailableSlotsPage>(EMPTY_SLOTS);
   const [actionMessage, setActionMessage] = useState("Очередь заявок работает только через self-hosted backend.");
 
   const baseArgs = useMemo(
@@ -105,6 +118,12 @@ export default function OperatorBookingRequestsPageLive() {
         limit: 5,
       });
       if (imports.ok && imports.value) setImportBatches(imports.value);
+      const slots = await listSelfHostedClinicAvailableSlots({
+        ...baseArgs,
+        status: "available",
+        limit: 5,
+      });
+      if (slots.ok && slots.value) setAvailableSlots(slots.value);
       setError(null);
       setLoadStatus("ready");
       setSelected((current) => current ? result.value.items.find((item) => item.id === current.id) ?? null : null);
@@ -243,6 +262,43 @@ export default function OperatorBookingRequestsPageLive() {
                     </span>
                     <span className="tabular-nums">
                       {batch.acceptedBookingCount} заявок / {batch.acceptedSlotCount} окон / {batch.rejectedCount} отклонено
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <section className="surface-card overflow-hidden" aria-label="Свободные окна клиники из локального кэша">
+          <header className="section-bar">
+            <h2 className="h-section">Свободные окна клиники</h2>
+            <span className="h-section-hint">локальный PostgreSQL cache</span>
+          </header>
+          <div className="grid grid-cols-2 divide-x divide-border lg:grid-cols-4">
+            <Kpi label="Окон всего" value={availableSlots.count} />
+            <Kpi label="Показано" value={availableSlots.items.length} />
+            <Kpi
+              label="CRM"
+              value={availableSlots.items.filter((slot) => slot.sourceSystem === "clinic_crm").length}
+            />
+            <Kpi
+              label="Минут"
+              value={availableSlots.items.reduce((sum, slot) => sum + slot.durationMinutes, 0)}
+            />
+          </div>
+          <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+            {availableSlots.items.length === 0 ? (
+              "Свободных окон в локальном кэше пока нет. CRM передаёт доступность только через входящий self-hosted import API."
+            ) : (
+              <ul className="space-y-2">
+                {availableSlots.items.map((slot) => (
+                  <li key={slot.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      {formatDateTime(slot.startedAt)} · {slot.durationMinutes} мин · {SOURCE_SYSTEM_LABEL[slot.sourceSystem] || slot.sourceSystem}
+                    </span>
+                    <span className="tabular-nums">
+                      {slot.doctor.displayName || "врач не указан"} · {slot.status}
                     </span>
                   </li>
                 ))}

@@ -86,6 +86,23 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
           filters: { sourceSystem: "all" },
         });
       }
+      if (href.endsWith("/api/v1/clinic/available-slots?status=available&limit=5")) {
+        return json({
+          items: [{
+            id: "slot-live-1",
+            sourceSystem: "clinic_crm",
+            externalSlotId: "crm-slot-1",
+            startedAt: "2026-05-16T11:00:00.000Z",
+            durationMinutes: 30,
+            status: "available",
+            doctor: { displayName: "Доктор Live" },
+          }],
+          count: 1,
+          limit: 5,
+          offset: 0,
+          filters: { sourceSystem: "all", status: "available" },
+        });
+      }
       if (href.endsWith("/api/v1/clinic/booking-requests/request-live-1") && init?.method === "PATCH") {
         const payload = JSON.parse(String(init.body ?? "{}")) as { status?: string; clinicNote?: string };
         return json({ item: { ...request, status: payload.status || "reviewing", clinicNote: payload.clinicNote || null } });
@@ -99,6 +116,8 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
     expect(await screen.findByText("Production booking requests")).toBeInTheDocument();
     expect(await screen.findByText("Импорт CRM и рекламных источников")).toBeInTheDocument();
     expect(screen.getByText(/CRM клиники · completed/i)).toBeInTheDocument();
+    expect(await screen.findByText("Свободные окна клиники")).toBeInTheDocument();
+    expect(screen.getByText(/Доктор Live · available/i)).toBeInTheDocument();
     expect(screen.getByText("Live Booking Patient · DP-LIVE-BOOK")).toBeInTheDocument();
     expect(screen.getByText(/self-hosted backend \/api\/v1\/clinic\/booking-requests/i)).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Демо-режим");
