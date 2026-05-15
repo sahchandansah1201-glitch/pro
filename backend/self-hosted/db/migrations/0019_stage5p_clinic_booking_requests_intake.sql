@@ -16,10 +16,10 @@ create index if not exists patient_portal_booking_requests_clinic_status_idx
   on patient_portal_booking_requests (clinic_id, status, created_at desc);
 
 create index if not exists patient_portal_booking_requests_assigned_idx
-  on patient_portal_booking_requests (assigned_appointment_id);
+  on patient_portal_booking_requests (assigned_visit_id);
 
-comment on column patient_portal_booking_requests.assigned_appointment_id is
-  'Stage 5P: appointment created from Stage 5L /api/v1/leads/{id}/book-appointment when status=booked.';
+comment on column patient_portal_booking_requests.assigned_visit_id is
+  'Stage 5P: visit created from Stage 5L /api/v1/leads/{id}/book-appointment when status=booked.';
 
 comment on column patient_portal_booking_requests.clinic_note is
   'Stage 5P: clinic-internal note. Never exposed to patient portal endpoints.';
