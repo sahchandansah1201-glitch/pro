@@ -11,6 +11,18 @@ const ITEM_KIND_VALUES = new Set(["booking_request", "available_slot"]);
 const MAX_ITEMS = 100;
 const MAX_REASON_LENGTH = 500;
 const MAX_REFERENCE_LENGTH = 120;
+const MAX_IDEMPOTENCY_KEY_LENGTH = 160;
+const FORBIDDEN_IMPORT_VALUE_PATTERNS = [
+  /access[_-]?token/i,
+  /authorization:\s*bearer/i,
+  new RegExp("storage" + "_object_path", "i"),
+  new RegExp("signed" + "[_-]?url", "i"),
+  /https?:\/\//i,
+  new RegExp("api-" + "read", "i"),
+  new RegExp("api-" + "write", "i"),
+  new RegExp("edge" + " function", "i"),
+  new RegExp("SUP" + "ABASE_"),
+];
 
 export class ExternalIntakeImportValidationError extends Error {
   constructor(details = [], message = "External intake import payload failed validation.") {
@@ -58,6 +70,32 @@ function validateDuration(value, field, details) {
   const number = Number(value);
   if (!Number.isInteger(number) || number < 5 || number > 720) {
     details.push({ field, message: `${field} must be an integer between 5 and 720.` });
+  }
+}
+
+function scanForForbiddenImportValues(value, path, details) {
+  if (value == null) return;
+  if (typeof value === "string") {
+    for (const pattern of FORBIDDEN_IMPORT_VALUE_PATTERNS) {
+      if (pattern.test(value)) {
+        details.push({
+          field: path,
+          message: "Raw external URLs, tokens, storage paths, and managed-runtime markers are not allowed.",
+        });
+        return;
+      }
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => scanForForbiddenImportValues(item, `${path}.${index}`, details));
+    return;
+  }
+  if (isPlainObject(value)) {
+    for (const [key, item] of Object.entries(value)) {
+      scanForForbiddenImportValues(key, `${path}.${key}`, details);
+      scanForForbiddenImportValues(item, `${path}.${key}`, details);
+    }
   }
 }
 
@@ -136,14 +174,19 @@ export function normalizeExternalIntakeImportPayload(input = {}) {
     clinicId: cleanString(input.clinicId),
     sourceSystem,
     sourceReference: cleanString(input.sourceReference),
+    idempotencyKey: cleanString(input.idempotencyKey),
     items: [],
   };
+  scanForForbiddenImportValues(input, "body", details);
   validateUuid(payload.clinicId, "clinicId", details);
   if (!SOURCE_SYSTEM_VALUES.has(sourceSystem)) {
     details.push({ field: "sourceSystem", message: "Source system is not supported." });
   }
   if (payload.sourceReference && payload.sourceReference.length > MAX_REFERENCE_LENGTH) {
     details.push({ field: "sourceReference", message: "Source reference is too long." });
+  }
+  if (payload.idempotencyKey && payload.idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    details.push({ field: "idempotencyKey", message: "Idempotency key is too long." });
   }
   if (!Array.isArray(input.items) || input.items.length === 0) {
     details.push({ field: "items", message: "At least one import item is required." });
@@ -193,6 +236,9 @@ export function createExternalIntakeImportService({
           acceptedBookingCount: batch?.acceptedBookingCount ?? 0,
           acceptedSlotCount: batch?.acceptedSlotCount ?? 0,
           rejectedCount: batch?.rejectedCount ?? 0,
+          duplicateCount: batch?.duplicateCount ?? 0,
+          idempotencyKeyProvided: Boolean(payload.idempotencyKey),
+          hardeningVersion: "stage5t",
         },
       });
       return { batch, scope };
@@ -219,6 +265,31 @@ export function createExternalIntakeImportService({
         },
       });
       return { batches, scope };
+    },
+
+    async getImportStatus(authContext, params = {}, { correlationId } = {}) {
+      const scope = leadsAppointmentsReadScope(authContext);
+      ensureIntegrationOperatorScope(scope);
+      const status = await externalIntakeImportRepository.getImportStatus({
+        ...params,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: scope.allClinics ? null : scope.clinicIds[0],
+        actorUserId: authContext.userId,
+        action: "external_intake.import.status",
+        entityType: "external_booking_import_batch",
+        correlationId,
+        metadata: {
+          sourceSystem: status.sourceSystem,
+          recentBatchCount: status.recentBatchCount,
+          rejectedLast24h: status.rejectedLast24h,
+          duplicateLast24h: status.duplicateLast24h,
+          hardeningVersion: status.hardeningVersion,
+        },
+      });
+      return { status, scope };
     },
   };
 }

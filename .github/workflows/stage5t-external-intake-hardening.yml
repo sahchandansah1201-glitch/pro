@@ -1,0 +1,43 @@
+name: stage5t-external-intake-hardening
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-external-intake-api.ts"
+      - "src/lib/self-hosted-external-intake-api.test.ts"
+      - "src/pages/operator/OperatorBookingRequestsPageLive.tsx"
+      - "src/pages/operator/OperatorBookingRequestsPage.production.test.tsx"
+      - "scripts/check-stage5t-external-intake-hardening.mjs"
+      - "scripts/check-stage5t-external-intake-hardening.test.mjs"
+      - "docs/backend/stage-5t-external-intake-hardening.md"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "package.json"
+  workflow_dispatch:
+
+jobs:
+  stage5t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 5T preflight
+        run: npm run preflight:stage5t
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 5T external intake hardening"
+            echo
+            echo "- Command: \`npm run preflight:stage5t\`"
+            echo "- Boundary: self-hosted PostgreSQL only; no CRM/ad runtime calls"
+            echo "- Raw payload policy: URLs/tokens/storage paths/managed-runtime markers rejected"
+          } >> "$GITHUB_STEP_SUMMARY"

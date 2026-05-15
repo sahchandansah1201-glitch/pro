@@ -22,6 +22,7 @@ test("Stage 5Q payload validation accepts booking requests and available slots",
   const payload = normalizeExternalIntakeImportPayload({
     sourceSystem: "clinic_crm",
     sourceReference: "morning-sync",
+    idempotencyKey: "crm-morning-2026-05-15",
     items: [
       {
         kind: "booking_request",
@@ -41,9 +42,43 @@ test("Stage 5Q payload validation accepts booking requests and available slots",
   });
 
   assert.equal(payload.sourceSystem, "clinic_crm");
+  assert.equal(payload.idempotencyKey, "crm-morning-2026-05-15");
   assert.equal(payload.items.length, 2);
   assert.equal(payload.items[0].kind, "booking_request");
   assert.equal(payload.items[1].durationMinutes, 30);
+});
+
+test("Stage 5T payload validation rejects raw URLs, tokens, and managed runtime markers", () => {
+  assert.throws(
+    () => normalizeExternalIntakeImportPayload({
+      sourceSystem: "clinic_crm",
+      sourceReference: "https://crm.example.invalid/raw",
+      items: [{
+        kind: "booking_request",
+        externalId: "crm-1",
+        patientCode: "DP-2026-0001",
+        preferredFrom: "2026-06-01T09:00:00.000Z",
+      }],
+    }),
+    (error) => {
+      assert.ok(error instanceof ExternalIntakeImportValidationError);
+      assert.match(JSON.stringify(error.publicDetails), /Raw external URLs/);
+      return true;
+    },
+  );
+  assert.throws(
+    () => normalizeExternalIntakeImportPayload({
+      sourceSystem: "ads",
+      idempotencyKey: "access_token=secret",
+      items: [{
+        kind: "booking_request",
+        externalId: "ad-1",
+        patientCode: "DP-2026-0001",
+        preferredFrom: "2026-06-01T09:00:00.000Z",
+      }],
+    }),
+    ExternalIntakeImportValidationError,
+  );
 });
 
 test("Stage 5Q payload validation rejects unsafe source, bad dates and huge batches", () => {
@@ -97,6 +132,8 @@ test("Stage 5Q service imports batches, records audit, and exposes history", asy
           acceptedBookingCount: 1,
           acceptedSlotCount: 1,
           rejectedCount: 0,
+          duplicateCount: 0,
+          hardeningVersion: "stage5t",
         };
       },
       async listImportBatches() {
@@ -106,6 +143,20 @@ test("Stage 5Q service imports batches, records audit, and exposes history", asy
           limit: 10,
           offset: 0,
           filters: { sourceSystem: "clinic_crm" },
+        };
+      },
+      async getImportStatus() {
+        return {
+          sourceSystem: "clinic_crm",
+          recentBatchCount: 1,
+          rejectedLast24h: 0,
+          duplicateLast24h: 0,
+          openBookingRequestCount: 1,
+          availableSlotCount: 1,
+          storedRawPayload: false,
+          runtimeCallsExternalSystems: false,
+          hardeningVersion: "stage5t",
+          latestBySource: [],
         };
       },
     },
@@ -137,9 +188,12 @@ test("Stage 5Q service imports batches, records audit, and exposes history", asy
 
   const listed = await service.listImportBatches(operatorAuth, { sourceSystem: "clinic_crm" }, { correlationId: "corr-2" });
   assert.equal(listed.batches.items.length, 1);
+  const status = await service.getImportStatus(operatorAuth, { sourceSystem: "clinic_crm" }, { correlationId: "corr-3" });
+  assert.equal(status.status.hardeningVersion, "stage5t");
   assert.deepEqual(auditEvents.map((event) => event.action), [
     "external_intake.import",
     "external_intake.import.list",
+    "external_intake.import.status",
   ]);
 });
 

@@ -28,6 +28,9 @@ export interface SelfHostedExternalIntakeImportBatchDTO {
   acceptedBookingCount: number;
   acceptedSlotCount: number;
   rejectedCount: number;
+  duplicateCount: number;
+  idempotencyKey: string | null;
+  hardeningVersion: string;
   createdAt: string | null;
   clinic: {
     id: string | null;
@@ -38,6 +41,30 @@ export interface SelfHostedExternalIntakeImportBatchDTO {
     id: string | null;
     displayName: string | null;
   };
+}
+
+export interface SelfHostedExternalIntakeStatusDTO {
+  sourceSystem: string;
+  recentBatchCount: number;
+  rejectedLast24h: number;
+  duplicateLast24h: number;
+  latestImportAt: string | null;
+  openBookingRequestCount: number;
+  availableSlotCount: number;
+  storedRawPayload: boolean;
+  runtimeCallsExternalSystems: boolean;
+  hardeningVersion: string;
+  latestBySource: Array<{
+    sourceSystem: string;
+    status: string;
+    createdAt: string | null;
+    itemCount: number;
+    acceptedBookingCount: number;
+    acceptedSlotCount: number;
+    rejectedCount: number;
+    duplicateCount: number;
+    hardeningVersion: string;
+  }>;
 }
 
 export interface SelfHostedExternalIntakeImportBatchesPage {
@@ -159,6 +186,9 @@ export function toSelfHostedExternalIntakeImportBatch(input: unknown): SelfHoste
     acceptedBookingCount: asNumber(row.acceptedBookingCount),
     acceptedSlotCount: asNumber(row.acceptedSlotCount),
     rejectedCount: asNumber(row.rejectedCount),
+    duplicateCount: asNumber(row.duplicateCount),
+    idempotencyKey: textOrNull(row.idempotencyKey),
+    hardeningVersion: String(row.hardeningVersion ?? "stage5q"),
     createdAt: textOrNull(row.createdAt),
     clinic: {
       id: textOrNull(clinic.id),
@@ -169,6 +199,38 @@ export function toSelfHostedExternalIntakeImportBatch(input: unknown): SelfHoste
       id: textOrNull(importedBy.id),
       displayName: textOrNull(importedBy.displayName),
     },
+  };
+}
+
+export function toSelfHostedExternalIntakeStatus(input: unknown): SelfHostedExternalIntakeStatusDTO {
+  const row = isRecord(input) ? input : {};
+  return {
+    sourceSystem: String(row.sourceSystem ?? "all"),
+    recentBatchCount: asNumber(row.recentBatchCount),
+    rejectedLast24h: asNumber(row.rejectedLast24h),
+    duplicateLast24h: asNumber(row.duplicateLast24h),
+    latestImportAt: textOrNull(row.latestImportAt),
+    openBookingRequestCount: asNumber(row.openBookingRequestCount),
+    availableSlotCount: asNumber(row.availableSlotCount),
+    storedRawPayload: row.storedRawPayload === true,
+    runtimeCallsExternalSystems: row.runtimeCallsExternalSystems === true,
+    hardeningVersion: String(row.hardeningVersion ?? "stage5t"),
+    latestBySource: Array.isArray(row.latestBySource)
+      ? row.latestBySource.map((item) => {
+          const source = isRecord(item) ? item : {};
+          return {
+            sourceSystem: String(source.sourceSystem ?? "other"),
+            status: String(source.status ?? "unknown"),
+            createdAt: textOrNull(source.createdAt),
+            itemCount: asNumber(source.itemCount),
+            acceptedBookingCount: asNumber(source.acceptedBookingCount),
+            acceptedSlotCount: asNumber(source.acceptedSlotCount),
+            rejectedCount: asNumber(source.rejectedCount),
+            duplicateCount: asNumber(source.duplicateCount),
+            hardeningVersion: String(source.hardeningVersion ?? "stage5t"),
+          };
+        })
+      : [],
   };
 }
 
@@ -200,4 +262,17 @@ export async function listSelfHostedExternalIntakeImports(
     })}`,
   );
   return result.ok ? ok(toSelfHostedExternalIntakeImportBatchesPage(result.value)) : fail(result.error);
+}
+
+export async function getSelfHostedExternalIntakeStatus(
+  args: ListSelfHostedExternalIntakeImportsArgs,
+): Promise<SelfHostedApiResult<SelfHostedExternalIntakeStatusDTO>> {
+  const result = await requestJson(
+    args,
+    `/api/v1/integrations/booking-imports/status${query({
+      sourceSystem: args.sourceSystem,
+    })}`,
+  );
+  const source = isRecord(result.value) && isRecord(result.value.item) ? result.value.item : result.value;
+  return result.ok ? ok(toSelfHostedExternalIntakeStatus(source)) : fail(result.error);
 }

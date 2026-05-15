@@ -62,6 +62,7 @@ const DEFAULT_STEPS = [
   ["Stage 5Q external intake import contracts preflight", npmCmd, ["run", "preflight:stage5q"]],
   ["Stage 5R clinic available slots contract preflight", npmCmd, ["run", "preflight:stage5r"]],
   ["Stage 5S booking slot confirmation preflight", npmCmd, ["run", "preflight:stage5s"]],
+  ["Stage 5T external intake hardening preflight", npmCmd, ["run", "preflight:stage5t"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],
