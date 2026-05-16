@@ -1,0 +1,59 @@
+name: stage6d-live-install-evidence-receipt
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/live-install-evidence.stage6d.json"
+      - "scripts/stage6d-live-install-evidence-receipt.mjs"
+      - "scripts/stage6d-live-install-evidence-receipt.test.mjs"
+      - "scripts/check-stage6d-live-install-evidence-receipt.mjs"
+      - "scripts/check-stage6d-live-install-evidence-receipt.test.mjs"
+      - "docs/backend/stage-6d-live-install-evidence-receipt.md"
+      - ".github/workflows/stage6d-live-install-evidence-receipt.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/live-install-evidence.stage6d.json"
+      - "scripts/stage6d-live-install-evidence-receipt.mjs"
+      - "scripts/stage6d-live-install-evidence-receipt.test.mjs"
+      - "scripts/check-stage6d-live-install-evidence-receipt.mjs"
+      - "scripts/check-stage6d-live-install-evidence-receipt.test.mjs"
+      - "docs/backend/stage-6d-live-install-evidence-receipt.md"
+      - ".github/workflows/stage6d-live-install-evidence-receipt.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage6d:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage6d
+      - name: Upload Stage 6D live install evidence receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6d-live-install-evidence-receipt
+          path: |
+            test-results/stage6d-live-install-evidence-receipt.md
+            test-results/stage6d-live-install-evidence-receipt.json
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6D live install evidence receipt"
+            echo ""
+            echo "- Command: \`npm run preflight:stage6d\`"
+            echo "- Boundary: offline redacted evidence receipt, no live evidence in git"
+            echo "- Output: \`test-results/stage6d-live-install-evidence-receipt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
