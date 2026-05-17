@@ -1,0 +1,275 @@
+{
+  "stage": "6D",
+  "packageId": "stage6d-live-install-evidence-receipt",
+  "generatedAt": "2026-05-15T12:30:00.000Z",
+  "installVerificationManifest": "deploy/self-hosted/install-verification.stage6c.json",
+  "productBoundary": {
+    "deployment": "single self-hosted production live install evidence receipt",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "liveServerEvidenceRequired": true,
+    "liveEvidenceBundledInRepository": false
+  },
+  "receiptInputs": [
+    {
+      "key": "stage6c_install_verification_package",
+      "label": "Stage 6C production install verification package",
+      "kind": "file",
+      "path": "deploy/self-hosted/install-verification.stage6c.json",
+      "required": true
+    },
+    {
+      "key": "stage6c_verification_generator",
+      "label": "Stage 6C verification generator",
+      "kind": "file",
+      "path": "scripts/stage6c-production-install-verification.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6b_server_install_package",
+      "label": "Stage 6B server install package",
+      "kind": "file",
+      "path": "deploy/self-hosted/server-install-package.stage6b.json",
+      "required": true
+    },
+    {
+      "key": "stage6a_acceptance_baseline",
+      "label": "Stage 6A accepted product baseline",
+      "kind": "file",
+      "path": "deploy/self-hosted/acceptance-baseline.stage6a.json",
+      "required": true
+    },
+    {
+      "key": "production_deploy_verifier",
+      "label": "Production deploy verifier",
+      "kind": "file",
+      "path": "scripts/stage4m-production-deploy-verify.mjs",
+      "required": true
+    },
+    {
+      "key": "compose_smoke",
+      "label": "Self-hosted compose smoke",
+      "kind": "file",
+      "path": "scripts/stage4k-self-hosted-compose-smoke.mjs",
+      "required": true
+    },
+    {
+      "key": "ops_backup_restore",
+      "label": "Backup and restore operations",
+      "kind": "file",
+      "path": "scripts/stage4l-self-hosted-ops.mjs",
+      "required": true
+    },
+    {
+      "key": "product_readiness_contract",
+      "label": "Self-hosted product readiness contract",
+      "kind": "file",
+      "path": "backend/self-hosted/product-readiness.mjs",
+      "required": true
+    },
+    {
+      "key": "production_observability_export",
+      "label": "Production observability export",
+      "kind": "file",
+      "path": "scripts/stage4n-audit-export.mjs",
+      "required": true
+    },
+    {
+      "key": "production_env_template",
+      "label": "Production environment template",
+      "kind": "file",
+      "path": "deploy/self-hosted/.env.production.example",
+      "required": true
+    }
+  ],
+  "evidenceCategories": [
+    {
+      "key": "target_env_validation",
+      "label": "Target server environment validation",
+      "source": "operator-owned server",
+      "evidenceType": "redacted command summary",
+      "required": true,
+      "redactionRequired": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "compose_config_summary",
+      "label": "Production compose config summary",
+      "source": "operator-owned server",
+      "evidenceType": "redacted configuration summary",
+      "required": true,
+      "redactionRequired": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "health_readiness_snapshot",
+      "label": "Health and readiness snapshot",
+      "source": "installed self-hosted API",
+      "evidenceType": "redacted response status summary",
+      "required": true,
+      "redactionRequired": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "product_readiness_snapshot",
+      "label": "Product readiness snapshot",
+      "source": "installed self-hosted product",
+      "evidenceType": "redacted readiness summary",
+      "required": true,
+      "redactionRequired": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "compose_smoke_result",
+      "label": "Stage 4K smoke result against installed stack",
+      "source": "operator-owned server",
+      "evidenceType": "redacted smoke result summary",
+      "required": true,
+      "redactionRequired": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "post_install_backup_manifest",
+      "label": "Post-install backup manifest receipt",
+      "source": "operator-owned backup storage",
+      "evidenceType": "redacted manifest receipt",
+      "required": true,
+      "redactionRequired": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "rollback_drill_review",
+      "label": "Rollback drill review",
+      "source": "operator runbook",
+      "evidenceType": "redacted review summary",
+      "required": true,
+      "redactionRequired": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "operator_signoff",
+      "label": "Operator evidence signoff",
+      "source": "deployment operator",
+      "evidenceType": "redacted signoff summary",
+      "required": true,
+      "redactionRequired": true,
+      "storeOutsideGit": true
+    }
+  ],
+  "receiptFields": [
+    {
+      "key": "evidence_set_id",
+      "label": "Evidence set identifier",
+      "required": true,
+      "redacted": true
+    },
+    {
+      "key": "install_window_utc",
+      "label": "Install window in UTC",
+      "required": true,
+      "redacted": true
+    },
+    {
+      "key": "target_environment_label",
+      "label": "Target environment label",
+      "required": true,
+      "redacted": true
+    },
+    {
+      "key": "operator_role",
+      "label": "Operator role",
+      "required": true,
+      "redacted": true
+    },
+    {
+      "key": "redacted_evidence_references",
+      "label": "Redacted evidence references",
+      "required": true,
+      "redacted": true
+    },
+    {
+      "key": "external_evidence_store",
+      "label": "External evidence store reference",
+      "required": true,
+      "redacted": true
+    },
+    {
+      "key": "safety_signoff",
+      "label": "Safety signoff",
+      "required": true,
+      "redacted": true
+    }
+  ],
+  "receiptGates": [
+    {
+      "key": "stage6c_ready",
+      "label": "Verify production install verification readiness",
+      "command": "npm run preflight:stage6c",
+      "required": true
+    },
+    {
+      "key": "stage6c_report",
+      "label": "Generate Stage 6C verification report",
+      "command": "npm run verify:stage6c:report",
+      "required": true
+    },
+    {
+      "key": "post_deploy_plan",
+      "label": "Generate post-deploy verification plan",
+      "command": "npm run deploy:stage4m:post-deploy:dry-run",
+      "required": true
+    },
+    {
+      "key": "compose_smoke_plan",
+      "label": "Generate compose smoke plan",
+      "command": "npm run smoke:stage4k:dry-run",
+      "required": true
+    },
+    {
+      "key": "backup_after_deploy_plan",
+      "label": "Generate backup-after-deploy plan",
+      "command": "npm run deploy:stage4m:backup-after-deploy:dry-run",
+      "required": true
+    },
+    {
+      "key": "rollback_drill_plan",
+      "label": "Generate rollback drill plan",
+      "command": "npm run deploy:stage4m:rollback-drill:dry-run",
+      "required": true
+    },
+    {
+      "key": "stage6d_report",
+      "label": "Generate Stage 6D live install evidence receipt package",
+      "command": "npm run evidence:stage6d:report",
+      "required": true
+    }
+  ],
+  "liveEvidencePolicy": {
+    "liveInstallEvidenceRequired": true,
+    "liveEvidenceStoredOutsideGit": true,
+    "repositoryContainsLiveSecrets": false,
+    "repositoryContainsPatientData": false,
+    "repositoryContainsRawLiveEvidence": false,
+    "redactedReceiptAllowedInTestResults": true,
+    "evidenceIdentifiersMayBeStored": true
+  },
+  "safetyAssertions": {
+    "stage6cRequired": true,
+    "noSecretsInReceipt": true,
+    "noPatientDataInReceipt": true,
+    "noRawLiveLogsInReceipt": true,
+    "noRuntimeApiChanges": true,
+    "noDatabaseSchemaChanges": true,
+    "noManagedRuntimeDependency": true,
+    "noManagedDatabaseDependency": true,
+    "liveEvidenceNotBundled": true,
+    "operatorEvidenceStoredOutsideGit": true
+  }
+}
