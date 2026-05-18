@@ -1,0 +1,271 @@
+{
+  "stage": "6E",
+  "packageId": "stage6e-production-go-live-handoff",
+  "generatedAt": "2026-05-15T13:00:00.000Z",
+  "liveInstallEvidenceManifest": "deploy/self-hosted/live-install-evidence.stage6d.json",
+  "productBoundary": {
+    "deployment": "operator-owned self-hosted production go-live handoff",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "goLiveApprovalRequiredOutsideGit": true,
+    "goLiveDecisionBundledInRepository": false
+  },
+  "handoffInputs": [
+    {
+      "key": "stage6d_live_install_evidence_receipt",
+      "label": "Stage 6D live install evidence receipt package",
+      "kind": "file",
+      "path": "deploy/self-hosted/live-install-evidence.stage6d.json",
+      "required": true
+    },
+    {
+      "key": "stage6d_evidence_generator",
+      "label": "Stage 6D evidence receipt generator",
+      "kind": "file",
+      "path": "scripts/stage6d-live-install-evidence-receipt.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6c_install_verification",
+      "label": "Stage 6C production install verification",
+      "kind": "file",
+      "path": "deploy/self-hosted/install-verification.stage6c.json",
+      "required": true
+    },
+    {
+      "key": "stage6b_server_install_package",
+      "label": "Stage 6B server install package",
+      "kind": "file",
+      "path": "deploy/self-hosted/server-install-package.stage6b.json",
+      "required": true
+    },
+    {
+      "key": "stage6a_acceptance_baseline",
+      "label": "Stage 6A accepted product baseline",
+      "kind": "file",
+      "path": "deploy/self-hosted/acceptance-baseline.stage6a.json",
+      "required": true
+    },
+    {
+      "key": "stage5a_release_candidate_env",
+      "label": "Stage 5A release candidate environment template",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-candidate.stage5a.env.example",
+      "required": true
+    },
+    {
+      "key": "stage5b_bootstrap_admin_sql",
+      "label": "Stage 5B bootstrap system admin SQL template",
+      "kind": "file",
+      "path": "deploy/self-hosted/bootstrap-system-admin.stage5b.sql.example",
+      "required": true
+    },
+    {
+      "key": "stage5c_prestart_schema_check",
+      "label": "Stage 5C pre-start schema check",
+      "kind": "file",
+      "path": "deploy/self-hosted/prestart-schema-check.stage5c.sql",
+      "required": true
+    },
+    {
+      "key": "stage5z_external_adapter_handoff",
+      "label": "Stage 5Z external adapter production handoff",
+      "kind": "file",
+      "path": "deploy/self-hosted/integrations/adapter-handoff-manifest.stage5z.example.json",
+      "required": true
+    },
+    {
+      "key": "project_memory_black_box",
+      "label": "Project-memory handoff snapshot",
+      "kind": "file",
+      "path": "docs/project-memory/HANDOFF.md",
+      "required": true
+    }
+  ],
+  "handoffSections": [
+    {
+      "key": "release_scope",
+      "label": "Release scope and accepted baseline",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "install_evidence",
+      "label": "Redacted live install evidence references",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "operator_contacts",
+      "label": "Operator support contacts",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "backup_restore",
+      "label": "Backup and restore readiness",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "rollback_stop_conditions",
+      "label": "Rollback and stop conditions",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "monitoring",
+      "label": "Production monitoring and audit checks",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "external_adapter_handoff",
+      "label": "External adapter handoff",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "post_go_live_observation",
+      "label": "Post go-live observation window",
+      "required": true,
+      "storeOutsideGit": false
+    }
+  ],
+  "decisionFields": [
+    {
+      "key": "decision_id",
+      "label": "Go-live decision identifier",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "decision_window_utc",
+      "label": "Decision window in UTC",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "operator_owner_role",
+      "label": "Operator owner role",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "approved_by_role",
+      "label": "Approver role",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "evidence_set_reference",
+      "label": "External evidence set reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "rollback_owner_role",
+      "label": "Rollback owner role",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "support_window",
+      "label": "Support window",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "final_decision",
+      "label": "Final go-live decision",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    }
+  ],
+  "goLiveGates": [
+    {
+      "key": "stage6d_ready",
+      "label": "Stage 6D evidence receipt is ready",
+      "command": "npm run preflight:stage6d",
+      "required": true
+    },
+    {
+      "key": "stage6d_report",
+      "label": "Generate Stage 6D receipt report",
+      "command": "npm run evidence:stage6d:report",
+      "required": true
+    },
+    {
+      "key": "preflight_all_dry_run",
+      "label": "Review deterministic preflight plan",
+      "command": "npm run preflight:all -- --dry-run",
+      "required": true
+    },
+    {
+      "key": "no_deno_lock",
+      "label": "Confirm no deno.lock files",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    },
+    {
+      "key": "production_mode_confirmed",
+      "label": "Confirm production mode cutover",
+      "command": "npm run preflight:stage5d",
+      "required": true
+    },
+    {
+      "key": "backup_restore_ready",
+      "label": "Confirm backup and restore operations",
+      "command": "npm run preflight:stage4l",
+      "required": true
+    },
+    {
+      "key": "external_adapters_handoff_ready",
+      "label": "Confirm external adapter production handoff",
+      "command": "npm run preflight:stage5z",
+      "required": true
+    },
+    {
+      "key": "operator_approval_required",
+      "label": "Record operator approval outside git",
+      "command": "manual external approval",
+      "required": true
+    }
+  ],
+  "goLivePolicy": {
+    "repositoryContainsLiveSecrets": false,
+    "repositoryContainsPatientData": false,
+    "repositoryContainsRawLiveEvidence": false,
+    "goLiveApprovalStoredOutsideGit": true,
+    "liveEvidenceStoredOutsideGit": true,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false
+  },
+  "safetyAssertions": {
+    "selfHostedRuntimeOnly": true,
+    "operatorOwnedDatabase": true,
+    "operatorOwnedObjectStorage": true,
+    "productionModeHasNoDemoFallback": true,
+    "goLiveDecisionIsExternal": true,
+    "noLiveEvidenceInGit": true,
+    "noPatientDataInGit": true,
+    "noSecretsInGit": true
+  }
+}

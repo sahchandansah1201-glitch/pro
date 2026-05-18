@@ -73,6 +73,7 @@ const DEFAULT_STEPS = [
   ["Stage 6B server install package preflight", npmCmd, ["run", "preflight:stage6b"]],
   ["Stage 6C production install verification preflight", npmCmd, ["run", "preflight:stage6c"]],
   ["Stage 6D live install evidence receipt preflight", npmCmd, ["run", "preflight:stage6d"]],
+  ["Stage 6E production go-live handoff preflight", npmCmd, ["run", "preflight:stage6e"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],
