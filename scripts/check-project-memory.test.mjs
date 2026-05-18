@@ -21,18 +21,21 @@ function makeRoot() {
     "deploy/self-hosted/live-install-evidence.stage6d.json",
     "deploy/self-hosted/go-live-handoff.stage6e.json",
     "deploy/self-hosted/go-live-decision-record.stage6f.json",
+    "deploy/self-hosted/post-go-live-observation.stage6g.json",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
     "docs/backend/stage-6d-live-install-evidence-receipt.md",
     "docs/backend/stage-6e-production-go-live-handoff.md",
     "docs/backend/stage-6f-production-go-live-decision-record.md",
+    "docs/backend/stage-6g-production-post-go-live-observation.md",
     ".github/workflows/stage6a-production-acceptance-baseline.yml",
     ".github/workflows/stage6b-server-install-package.yml",
     ".github/workflows/stage6c-production-install-verification.yml",
     ".github/workflows/stage6d-live-install-evidence-receipt.yml",
     ".github/workflows/stage6e-production-go-live-handoff.yml",
     ".github/workflows/stage6f-production-go-live-decision-record.yml",
+    ".github/workflows/stage6g-production-post-go-live-observation.yml",
   ]) {
     writeFileSync(join(root, file), "ok\n");
   }
@@ -73,6 +76,16 @@ verification:
       stage6f_report_status: "ready"
       final_go_live_outcome_known_to_repository: false
       live_server_go_live_verified_by_report: false
+  stage6g_preflight:
+    command: "npm run preflight:stage6g"
+    status: "ok"
+    key_facts:
+      tests_passed: 12
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6g_report_status: "ready"
+      observation_outcome_known_to_repository: false
+      live_server_go_live_verified_by_report: false
 stage_evidence:
   latest_commits:
     - "ca00a2e Harden Stage 6 handoff path resolution"
@@ -82,7 +95,7 @@ stage_evidence:
   workflows_present:
     - ".github/workflows/stage6e-production-go-live-handoff.yml"
 hypotheses:
-    - "Next logical stage after Stage 6F is Stage 6G."
+    - "Next logical stage after Stage 6G is Stage 6H."
 sources:
   commands:
     - "git status -sb"
@@ -93,11 +106,12 @@ sources:
     - "deploy/self-hosted/live-install-evidence.stage6d.json"
     - "deploy/self-hosted/go-live-handoff.stage6e.json"
     - "deploy/self-hosted/go-live-decision-record.stage6f.json"
+    - "deploy/self-hosted/post-go-live-observation.stage6g.json"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6F confirmed.\n\n## Hypothesis\n\nStage 6G is likely next.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6G confirmed.\n\n## Hypothesis\n\nStage 6H is likely next.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6G scaffold (hypothesis).\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6G is next.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6H scaffold (hypothesis).\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6H is next.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
@@ -148,9 +162,9 @@ test("project memory guard rejects missing required files", () => {
   assert.match(result.errors.join("\n"), /RISKS\.md/);
 });
 
-test("project memory guard requires Stage 6G uncertainty to be marked as hypothesis", () => {
+test("project memory guard requires Stage 6H uncertainty to be marked as hypothesis", () => {
   const root = makeRoot();
-  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6G is next.\n" });
+  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6H is next.\n" });
   const result = collectProjectMemoryChecks({ root });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /without marking it as a hypothesis/);

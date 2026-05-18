@@ -1,0 +1,59 @@
+name: stage6g-production-post-go-live-observation
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/post-go-live-observation.stage6g.json"
+      - "scripts/stage6g-production-post-go-live-observation.mjs"
+      - "scripts/stage6g-production-post-go-live-observation.test.mjs"
+      - "scripts/check-stage6g-production-post-go-live-observation.mjs"
+      - "scripts/check-stage6g-production-post-go-live-observation.test.mjs"
+      - "docs/backend/stage-6g-production-post-go-live-observation.md"
+      - ".github/workflows/stage6g-production-post-go-live-observation.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/post-go-live-observation.stage6g.json"
+      - "scripts/stage6g-production-post-go-live-observation.mjs"
+      - "scripts/stage6g-production-post-go-live-observation.test.mjs"
+      - "scripts/check-stage6g-production-post-go-live-observation.mjs"
+      - "scripts/check-stage6g-production-post-go-live-observation.test.mjs"
+      - "docs/backend/stage-6g-production-post-go-live-observation.md"
+      - ".github/workflows/stage6g-production-post-go-live-observation.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage6g:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage6g
+      - name: Upload Stage 6G production post-go-live observation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6g-production-post-go-live-observation
+          path: |
+            test-results/stage6g-production-post-go-live-observation.md
+            test-results/stage6g-production-post-go-live-observation.json
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6G production post-go-live observation"
+            echo ""
+            echo "- Command: \`npm run preflight:stage6g\`"
+            echo "- Boundary: offline redacted post-go-live observation, live evidence outside git"
+            echo "- Output: \`test-results/stage6g-production-post-go-live-observation.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
