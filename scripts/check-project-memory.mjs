@@ -2,7 +2,7 @@
 // Project memory guard. Keeps the handoff "black box" factual and complete.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const MEMORY_DIR = "docs/project-memory";
@@ -153,6 +153,23 @@ function extractMarkdownLinks(content) {
   return links;
 }
 
+function normalizeArtifactLinkTarget(target) {
+  const cleanTarget = target.replace(/^<|>$/g, "").split("#")[0];
+  const lineSuffix = cleanTarget.match(/^(.+):\d+(?::\d+)?$/);
+  return lineSuffix ? lineSuffix[1] : cleanTarget;
+}
+
+function artifactLinkExists(root, artifactPath, target) {
+  const cleanTarget = normalizeArtifactLinkTarget(target);
+  if (!cleanTarget) return true;
+  if (isAbsolute(cleanTarget)) return existsSync(cleanTarget);
+
+  const artifactRelativePath = join(root, dirname(artifactPath), cleanTarget);
+  if (existsSync(artifactRelativePath)) return true;
+
+  return existsSync(join(root, cleanTarget));
+}
+
 function assertArtifactLinksExist(errors, root) {
   const path = memoryPath("ARTIFACTS.md");
   if (!existsSync(join(root, path))) return;
@@ -160,9 +177,7 @@ function assertArtifactLinksExist(errors, root) {
   const links = extractMarkdownLinks(content).filter((target) => !target.startsWith("http"));
   if (links.length === 0) errors.push(`${path} must contain artifact links`);
   for (const target of links) {
-    const cleanTarget = target.replace(/^<|>$/g, "").split("#")[0].split(":").slice(0, -1).join(":") || target;
-    const candidate = isAbsolute(cleanTarget) ? cleanTarget : join(root, cleanTarget);
-    if (!existsSync(candidate)) errors.push(`${path} links to missing artifact: ${target}`);
+    if (!artifactLinkExists(root, path, target)) errors.push(`${path} links to missing artifact: ${target}`);
   }
 }
 
