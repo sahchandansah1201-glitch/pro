@@ -2,15 +2,18 @@
 
 ## Confirmed risks
 
-1. **Readiness package != live installation proof**
-   - Evidence: `npm run preflight:stage6d` report output includes:
-     - `Live install evidence accepted by this report: false`
-     - `Live install verified by this report: false`
-   - Impact: repository can be green while operational evidence is still pending outside git.
+1. **Readiness package != live go-live approval**
+   - Evidence: Stage 6E report output includes:
+     - `Go-live approved by this report: false`
+     - `Live server go-live verified by this report: false`
+   - Impact: repository can be green while final operator approval and live
+     evidence are still pending outside git.
 
 2. **Operational dependence on external operator-run steps**
-   - Evidence: Stage 6B/6C/6D manifests include required commands for deploy/smoke/backup/rollback.
-   - Impact: success depends on disciplined execution outside code repository.
+   - Evidence: Stage 6B-6E manifests include deploy/smoke/backup/rollback,
+     live evidence, and manual go-live approval gates.
+   - Impact: success depends on disciplined execution outside the code
+     repository.
 
 3. **Potential stale conversation memory**
    - Evidence: user reported previous compaction interruption.
@@ -19,12 +22,14 @@
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - Hypothesis: Stage 6E is next.
-   - Basis: Stage 6A-6D exist; Stage 6E files are absent.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 6E scope.
+   - Hypothesis: Stage 6F is next.
+   - Basis: Stage 6A-6E exist; Stage 6F files are absent.
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 6F
+     scope.
 
 ## Mitigations
 
 1. Keep decision points codified in stage docs before implementation.
 2. Require stage-specific preflight + guard + dry-run report before merge.
-3. Keep live evidence redacted and outside git, but referenced by deterministic receipt fields.
+3. Keep live evidence and final go-live approval outside git, referenced only by
+   deterministic redacted receipt/handoff fields.

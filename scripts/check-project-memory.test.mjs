@@ -19,14 +19,17 @@ function makeRoot() {
     "deploy/self-hosted/server-install-package.stage6b.json",
     "deploy/self-hosted/install-verification.stage6c.json",
     "deploy/self-hosted/live-install-evidence.stage6d.json",
+    "deploy/self-hosted/go-live-handoff.stage6e.json",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
     "docs/backend/stage-6d-live-install-evidence-receipt.md",
+    "docs/backend/stage-6e-production-go-live-handoff.md",
     ".github/workflows/stage6a-production-acceptance-baseline.yml",
     ".github/workflows/stage6b-server-install-package.yml",
     ".github/workflows/stage6c-production-install-verification.yml",
     ".github/workflows/stage6d-live-install-evidence-receipt.yml",
+    ".github/workflows/stage6e-production-go-live-handoff.yml",
   ]) {
     writeFileSync(join(root, file), "ok\n");
   }
@@ -40,32 +43,33 @@ project: "Dermatolog Pro"
 repository:
   path: "${root}/pro"
   branch: "main"
-  head_sha: "b2d255dcc907ea86dbb2610fccb8732849b58f02"
-  head_commit: "Add Stage 6D live install evidence receipt"
+  head_sha: "ca00a2ecc354c645e2e496157437b1a636d14ad1"
+  head_commit: "Harden Stage 6 handoff path resolution"
   working_tree: "clean"
   upstream: "origin/main"
 verification:
   deno_lock_guard:
     command: "node scripts/check-no-deno-locks.mjs"
     status: "ok"
-  stage6d_preflight:
-    command: "npm run preflight:stage6d"
+  stage6e_preflight:
+    command: "npm run preflight:stage6e"
     status: "ok"
     key_facts:
-      tests_passed: 10
+      tests_passed: 12
       guard_files_checked: 7
       leak_findings: 0
-      stage6d_report_status: "ready"
-      live_install_verified_by_report: false
+      stage6e_report_status: "ready"
+      live_server_go_live_verified_by_report: false
 stage_evidence:
   latest_commits:
-    - "b2d255d Add Stage 6D live install evidence receipt"
+    - "ca00a2e Harden Stage 6 handoff path resolution"
+    - "c5417d5 Add Stage 6E production go-live handoff"
   documented_stages_present:
-    - "docs/backend/stage-6a-production-acceptance-baseline.md"
+    - "docs/backend/stage-6e-production-go-live-handoff.md"
   workflows_present:
-    - ".github/workflows/stage6a-production-acceptance-baseline.yml"
+    - ".github/workflows/stage6e-production-go-live-handoff.yml"
 hypotheses:
-  - "Next logical stage after Stage 6D is Stage 6E."
+  - "Next logical stage after Stage 6E is Stage 6F."
 sources:
   commands:
     - "git status -sb"
@@ -74,11 +78,12 @@ sources:
     - "deploy/self-hosted/server-install-package.stage6b.json"
     - "deploy/self-hosted/install-verification.stage6c.json"
     - "deploy/self-hosted/live-install-evidence.stage6d.json"
+    - "deploy/self-hosted/go-live-handoff.stage6e.json"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6D confirmed.\n\n## Hypothesis\n\nStage 6E is likely next.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6E confirmed.\n\n## Hypothesis\n\nStage 6F is likely next.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6E scaffold (hypothesis).\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nLive install evidence is external.\n\n## Hypotheses\n\nStage 6E is next.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6F scaffold (hypothesis).\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6F is next.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
@@ -129,9 +134,9 @@ test("project memory guard rejects missing required files", () => {
   assert.match(result.errors.join("\n"), /RISKS\.md/);
 });
 
-test("project memory guard requires Stage 6E uncertainty to be marked as hypothesis", () => {
+test("project memory guard requires Stage 6F uncertainty to be marked as hypothesis", () => {
   const root = makeRoot();
-  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6E is next.\n" });
+  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6F is next.\n" });
   const result = collectProjectMemoryChecks({ root });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /without marking it as a hypothesis/);

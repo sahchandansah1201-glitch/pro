@@ -35,9 +35,17 @@ jobs:
           deno-version: v2.x
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
+        env:
+          SUPABASE_CLI_VERSION: "2.99.0"
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/supabase-cli.tar.gz
+          mkdir -p /tmp/supabase-cli
+          tar -xzf /tmp/supabase-cli.tar.gz -C /tmp/supabase-cli
+          echo "/tmp/supabase-cli" >> "$GITHUB_PATH"
+          /tmp/supabase-cli/supabase --version
 
       # ── Static guardrails (fast, no infra) ────────────────────────────────
       - name: No generated deno.lock files

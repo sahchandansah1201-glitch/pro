@@ -47,6 +47,12 @@
 1. `git status -sb` -> clean on `main`.
 2. `node scripts/check-no-deno-locks.mjs` -> OK.
 3. `npm run preflight:stage6d` -> PASS:
-   - 10 tests passed.
+   - 11 tests passed.
    - Guard passed (`7 files checked`).
    - Stage 6D report rendered in dry-run mode with zero leak findings.
+4. `npm run preflight:stage6e` -> PASS:
+   - 12 tests passed.
+   - Guard passed (`7 files checked`).
+   - Stage 6E report rendered in dry-run mode with zero leak findings.
+   - `Go-live approved by this report: false`.
+   - `Live server go-live verified by this report: false`.
