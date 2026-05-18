@@ -1,27 +1,17 @@
-generated_at: "2026-05-18T10:45:00+03:00"
+generated_at: "2026-05-18T00:00:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "main"
-  head_sha: "ca00a2ecc354c645e2e496157437b1a636d14ad1"
-  head_commit: "Harden Stage 6 handoff path resolution"
-  working_tree: "clean"
+  branch: "codex/stage6f-go-live-decision-record"
+  head_sha: "0e085c864b6af643044ea4ace8e668f6ec5419cb"
+  head_commit: "Refresh project memory after Stage 6E"
+  working_tree: "modified"
   upstream: "origin/main"
 verification:
   deno_lock_guard:
     command: "node scripts/check-no-deno-locks.mjs"
     status: "ok"
     output: "[check-no-deno-locks] OK (no deno.lock files)."
-  stage6d_preflight:
-    command: "npm run preflight:stage6d"
-    status: "ok"
-    key_facts:
-      tests_passed: 11
-      guard_files_checked: 7
-      leak_findings: 0
-      stage6d_report_status: "ready"
-      live_install_evidence_accepted_by_report: false
-      live_install_verified_by_report: false
   stage6e_preflight:
     command: "npm run preflight:stage6e"
     status: "ok"
@@ -33,42 +23,58 @@ verification:
       ready_for_operator_go_live_decision: true
       go_live_approved_by_report: false
       live_server_go_live_verified_by_report: false
-  project_memory_guard:
-    command: "npm run check:project-memory"
-    status: "ok"
-  preflight_all_plan:
-    command: "npm run preflight:all -- --dry-run"
+  stage6f_preflight:
+    command: "npm run preflight:stage6f"
     status: "ok"
     key_facts:
+      tests_passed: 12
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6f_report_status: "ready"
+      ready_for_external_go_live_decision_record: true
+      final_decision_stored_outside_git: true
+      final_go_live_outcome_known_to_repository: false
+      go_live_approved_by_report: false
+      live_server_go_live_verified_by_report: false
+  project_memory_guard:
+    command: "npm run check:project-memory"
+    status: "pending-after-update"
+  preflight_all_plan:
+    command: "npm run preflight:all -- --dry-run"
+    status: "pending-after-update"
+    key_facts:
       includes_stage6e: true
+      includes_stage6f: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "0e085c8 Refresh project memory after Stage 6E"
     - "ca00a2e Harden Stage 6 handoff path resolution"
     - "c5417d5 Add Stage 6E production go-live handoff"
     - "c958fcb Fix project-memory artifact links for CI"
     - "a2da9c3 Add project-memory black box guard"
-    - "b2d255d Add Stage 6D live install evidence receipt"
   documented_stages_present:
     - "docs/backend/stage-6a-production-acceptance-baseline.md"
     - "docs/backend/stage-6b-server-install-package.md"
     - "docs/backend/stage-6c-production-install-verification.md"
     - "docs/backend/stage-6d-live-install-evidence-receipt.md"
     - "docs/backend/stage-6e-production-go-live-handoff.md"
+    - "docs/backend/stage-6f-production-go-live-decision-record.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
     - ".github/workflows/stage6c-production-install-verification.yml"
     - ".github/workflows/stage6d-live-install-evidence-receipt.yml"
     - ".github/workflows/stage6e-production-go-live-handoff.yml"
+    - ".github/workflows/stage6f-production-go-live-decision-record.yml"
 hypotheses:
-  - "Next logical stage after Stage 6E is Stage 6F, because Stage 6A-6E exist and Stage 6F files/workflows/scripts are not present in the repository scan."
+  - "Next logical stage after Stage 6F is Stage 6G. Scope is not confirmed by repository files yet."
 sources:
   commands:
-    - "git status -sb"
+    - "git status --short"
     - "git branch --show-current"
-    - "git log --oneline -12"
-    - "rg -n \"Stage 6F|stage6f|6F\" docs scripts deploy .github package.json"
+    - "git log --oneline -8"
+    - "npm run preflight:stage6f"
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
   files:
@@ -77,6 +83,9 @@ sources:
     - "deploy/self-hosted/install-verification.stage6c.json"
     - "deploy/self-hosted/live-install-evidence.stage6d.json"
     - "deploy/self-hosted/go-live-handoff.stage6e.json"
+    - "deploy/self-hosted/go-live-decision-record.stage6f.json"
     - "docs/backend/stage-6e-production-go-live-handoff.md"
+    - "docs/backend/stage-6f-production-go-live-decision-record.md"
     - "scripts/stage6e-production-go-live-handoff.mjs"
-    - "scripts/check-stage6e-production-go-live-handoff.mjs"
+    - "scripts/stage6f-production-go-live-decision-record.mjs"
+    - "scripts/check-stage6f-production-go-live-decision-record.mjs"
