@@ -1,0 +1,59 @@
+name: stage6e-production-go-live-handoff
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/go-live-handoff.stage6e.json"
+      - "scripts/stage6e-production-go-live-handoff.mjs"
+      - "scripts/stage6e-production-go-live-handoff.test.mjs"
+      - "scripts/check-stage6e-production-go-live-handoff.mjs"
+      - "scripts/check-stage6e-production-go-live-handoff.test.mjs"
+      - "docs/backend/stage-6e-production-go-live-handoff.md"
+      - ".github/workflows/stage6e-production-go-live-handoff.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/go-live-handoff.stage6e.json"
+      - "scripts/stage6e-production-go-live-handoff.mjs"
+      - "scripts/stage6e-production-go-live-handoff.test.mjs"
+      - "scripts/check-stage6e-production-go-live-handoff.mjs"
+      - "scripts/check-stage6e-production-go-live-handoff.test.mjs"
+      - "docs/backend/stage-6e-production-go-live-handoff.md"
+      - ".github/workflows/stage6e-production-go-live-handoff.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage6e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage6e
+      - name: Upload Stage 6E production go-live handoff
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6e-production-go-live-handoff
+          path: |
+            test-results/stage6e-production-go-live-handoff.md
+            test-results/stage6e-production-go-live-handoff.json
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6E production go-live handoff"
+            echo ""
+            echo "- Command: \`npm run preflight:stage6e\`"
+            echo "- Boundary: offline redacted go-live handoff, final approval outside git"
+            echo "- Output: \`test-results/stage6e-production-go-live-handoff.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
