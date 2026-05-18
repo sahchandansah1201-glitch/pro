@@ -1,0 +1,280 @@
+{
+  "stage": "6I",
+  "packageId": "stage6i-production-release-archive-index",
+  "generatedAt": "2026-05-16T14:00:00.000Z",
+  "releaseMemoryClosureManifest": "deploy/self-hosted/release-memory-closure.stage6h.json",
+  "productBoundary": {
+    "deployment": "operator-owned self-hosted production release archive index",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "archiveIndexBundledInRepository": true,
+    "releaseArchiveContentsStoredOutsideGit": true,
+    "closureEvidenceStoredOutsideGit": true,
+    "liveServerGoLiveVerifiedByRepository": false
+  },
+  "archiveInputs": [
+    {
+      "key": "stage6h_release_memory_closure",
+      "label": "Stage 6H production release memory closure package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-memory-closure.stage6h.json",
+      "required": true
+    },
+    {
+      "key": "stage6h_closure_generator",
+      "label": "Stage 6H release memory closure generator",
+      "kind": "file",
+      "path": "scripts/stage6h-production-release-memory-closure.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6g_post_go_live_observation",
+      "label": "Stage 6G production post-go-live observation package",
+      "kind": "file",
+      "path": "deploy/self-hosted/post-go-live-observation.stage6g.json",
+      "required": true
+    },
+    {
+      "key": "stage6f_go_live_decision_record",
+      "label": "Stage 6F production go-live decision record package",
+      "kind": "file",
+      "path": "deploy/self-hosted/go-live-decision-record.stage6f.json",
+      "required": true
+    },
+    {
+      "key": "stage6e_go_live_handoff",
+      "label": "Stage 6E production go-live handoff package",
+      "kind": "file",
+      "path": "deploy/self-hosted/go-live-handoff.stage6e.json",
+      "required": true
+    },
+    {
+      "key": "stage6d_live_install_evidence_receipt",
+      "label": "Stage 6D live install evidence receipt package",
+      "kind": "file",
+      "path": "deploy/self-hosted/live-install-evidence.stage6d.json",
+      "required": true
+    },
+    {
+      "key": "stage6c_install_verification",
+      "label": "Stage 6C production install verification package",
+      "kind": "file",
+      "path": "deploy/self-hosted/install-verification.stage6c.json",
+      "required": true
+    },
+    {
+      "key": "stage6b_server_install_package",
+      "label": "Stage 6B server install package",
+      "kind": "file",
+      "path": "deploy/self-hosted/server-install-package.stage6b.json",
+      "required": true
+    },
+    {
+      "key": "stage6a_acceptance_baseline",
+      "label": "Stage 6A production acceptance baseline package",
+      "kind": "file",
+      "path": "deploy/self-hosted/acceptance-baseline.stage6a.json",
+      "required": true
+    },
+    {
+      "key": "project_memory_black_box",
+      "label": "Project-memory black box handoff",
+      "kind": "file",
+      "path": "docs/project-memory/HANDOFF.md",
+      "required": true
+    },
+    {
+      "key": "preflight_all_orchestrator",
+      "label": "Deterministic preflight-all orchestrator",
+      "kind": "file",
+      "path": "scripts/preflight-all.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_workflow",
+      "label": "Backend guardrails workflow",
+      "kind": "file",
+      "path": ".github/workflows/backend-guardrails.yml",
+      "required": true
+    },
+    {
+      "key": "release_status_dashboard",
+      "label": "Release status dashboard script",
+      "kind": "file",
+      "path": "scripts/release-status.mjs",
+      "required": true
+    }
+  ],
+  "archiveSections": [
+    {
+      "key": "release_chain_summary",
+      "label": "Stage 6A-6H release chain summary",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "evidence_manifest_index",
+      "label": "Repository evidence manifest index",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "external_records_pointer",
+      "label": "External records pointer set",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "operator_handoff_pointer",
+      "label": "Operator archive owner handoff pointer",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "production_boundary",
+      "label": "Self-hosted product boundary summary",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "verification_commands",
+      "label": "Verification commands and CI references",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "retention_policy",
+      "label": "External archive retention policy pointer",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "next_cycle_entrypoints",
+      "label": "Next-cycle repository entrypoints",
+      "required": true,
+      "storeOutsideGit": false
+    }
+  ],
+  "externalArchiveRecords": [
+    {
+      "key": "live_install_evidence_location",
+      "label": "External live install evidence location",
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "go_live_decision_location",
+      "label": "External go-live decision record location",
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "observation_evidence_location",
+      "label": "External post-go-live observation evidence location",
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "release_memory_closure_location",
+      "label": "External release memory closure location",
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "operator_archive_owner",
+      "label": "External operator archive owner reference",
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_policy_reference",
+      "label": "External archive retention policy reference",
+      "redacted": true,
+      "storeOutsideGit": true
+    }
+  ],
+  "archiveGates": [
+    {
+      "key": "stage6h_ready",
+      "label": "Stage 6H release memory closure is ready",
+      "command": "npm run preflight:stage6h",
+      "required": true
+    },
+    {
+      "key": "stage6h_report",
+      "label": "Stage 6H closure report renders",
+      "command": "npm run closure:stage6h:report",
+      "required": true
+    },
+    {
+      "key": "stage6a_to_6h_manifests_present",
+      "label": "Stage 6A-6H manifests are present",
+      "command": "npm run archive:stage6i:dry-run",
+      "required": true
+    },
+    {
+      "key": "project_memory_updated",
+      "label": "Project-memory black box references Stage 6I",
+      "command": "npm run check:project-memory",
+      "required": true
+    },
+    {
+      "key": "preflight_all_dry_run",
+      "label": "Full preflight plan includes Stage 6I",
+      "command": "npm run preflight:all -- --dry-run",
+      "required": true
+    },
+    {
+      "key": "no_deno_lock",
+      "label": "No deno.lock files exist",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_green",
+      "label": "Backend guardrails remain green",
+      "command": "npm run check:stage6i",
+      "required": true
+    },
+    {
+      "key": "external_archive_owner_recorded",
+      "label": "External archive owner is recorded outside git",
+      "command": "operator-owned external archive step",
+      "required": true
+    }
+  ],
+  "archivePolicy": {
+    "repositoryContainsArchiveIndex": true,
+    "repositoryContainsArchiveContents": false,
+    "repositoryContainsLiveSecrets": false,
+    "repositoryContainsPatientData": false,
+    "repositoryContainsRawLiveEvidence": false,
+    "repositoryContainsFinalApproval": false,
+    "repositoryContainsLiveLogs": false,
+    "repositoryContainsLiveMetrics": false,
+    "externalArchiveRecordsStoredOutsideGit": true,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false
+  },
+  "safetyAssertions": {
+    "selfHostedOnly": true,
+    "noManagedRuntimeDependency": true,
+    "noManagedDatabaseDependency": true,
+    "noLiveLogsInGit": true,
+    "noLiveMetricsInGit": true,
+    "noPatientDataInGit": true,
+    "noSecretsInGit": true,
+    "stage6hClosureIsReady": true,
+    "releaseArchiveContentsAreExternal": true,
+    "archiveIndexIsRepositorySafe": true
+  }
+}

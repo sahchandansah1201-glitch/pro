@@ -1,10 +1,10 @@
-generated_at: "2026-05-18T17:50:00+03:00"
+generated_at: "2026-05-18T20:45:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage6h-release-memory-closure"
-  head_sha: "77a5a8f471e8182d82f7b1b060cfad7c2a95a2a8"
-  head_commit: "Add Stage 6G post-go-live observation package"
+  branch: "codex/stage6i-release-archive-index"
+  head_sha: "b4e3cd866c80477808ee870eb7f98e3ff577c3f8"
+  head_commit: "Add Stage 6H release memory closure"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -51,7 +51,7 @@ verification:
       live_observation_verified_by_report: false
   stage6h_preflight:
     command: "npm run preflight:stage6h"
-    status: "ok"
+    status: "previously-ok"
     key_facts:
       tests_passed: 12
       guard_files_checked: 7
@@ -63,24 +63,38 @@ verification:
       go_live_approved_by_report: false
       live_server_go_live_verified_by_report: false
       live_closure_verified_by_report: false
+  stage6i_preflight:
+    command: "npm run preflight:stage6i"
+    status: "ok"
+    key_facts:
+      tests_passed: 12
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6i_report_status: "ready"
+      ready_for_external_release_archive_index: true
+      release_archive_contents_stored_outside_git: true
+      archive_outcome_known_to_repository: false
+      go_live_approved_by_report: false
+      live_server_go_live_verified_by_report: false
+      live_archive_verified_by_report: false
   project_memory_guard:
     command: "npm run check:project-memory"
-    status: "pending-after-stage6h-refresh"
+    status: "ok"
   preflight_all_plan:
     command: "npm run preflight:all -- --dry-run"
-    status: "pending-after-stage6h-refresh"
+    status: "ok"
     key_facts:
-      includes_stage6f: true
       includes_stage6g: true
       includes_stage6h: true
+      includes_stage6i: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "b4e3cd8 Add Stage 6H release memory closure"
     - "77a5a8f Add Stage 6G post-go-live observation package"
     - "08444ed Add Stage 6F go-live decision record"
     - "0e085c8 Refresh project memory after Stage 6E"
     - "ca00a2e Harden Stage 6 handoff path resolution"
-    - "c5417d5 Add Stage 6E production go-live handoff"
   documented_stages_present:
     - "docs/backend/stage-6a-production-acceptance-baseline.md"
     - "docs/backend/stage-6b-server-install-package.md"
@@ -90,6 +104,7 @@ stage_evidence:
     - "docs/backend/stage-6f-production-go-live-decision-record.md"
     - "docs/backend/stage-6g-production-post-go-live-observation.md"
     - "docs/backend/stage-6h-production-release-memory-closure.md"
+    - "docs/backend/stage-6i-production-release-archive-index.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
@@ -99,17 +114,18 @@ stage_evidence:
     - ".github/workflows/stage6f-production-go-live-decision-record.yml"
     - ".github/workflows/stage6g-production-post-go-live-observation.yml"
     - ".github/workflows/stage6h-production-release-memory-closure.yml"
+    - ".github/workflows/stage6i-production-release-archive-index.yml"
 hypotheses:
-  - "Next logical stage after Stage 6H is Stage 6I. Scope is not confirmed by repository files yet."
+  - "Next logical stage after Stage 6I is Stage 6J. Scope is not confirmed by repository files yet."
 sources:
   commands:
     - "git status --short --branch"
     - "git rev-parse HEAD"
     - "git log --oneline -6"
-    - "npm run test:stage6h"
-    - "npm run check:stage6h"
-    - "npm run closure:stage6h:report"
-    - "npm run preflight:stage6h"
+    - "npm run test:stage6i"
+    - "npm run check:stage6i"
+    - "npm run archive:stage6i:report"
+    - "npm run preflight:stage6i"
     - "node scripts/check-no-deno-locks.mjs"
   files:
     - "deploy/self-hosted/acceptance-baseline.stage6a.json"
@@ -120,8 +136,9 @@ sources:
     - "deploy/self-hosted/go-live-decision-record.stage6f.json"
     - "deploy/self-hosted/post-go-live-observation.stage6g.json"
     - "deploy/self-hosted/release-memory-closure.stage6h.json"
-    - "docs/backend/stage-6g-production-post-go-live-observation.md"
+    - "deploy/self-hosted/release-archive-index.stage6i.json"
     - "docs/backend/stage-6h-production-release-memory-closure.md"
-    - "scripts/stage6g-production-post-go-live-observation.mjs"
+    - "docs/backend/stage-6i-production-release-archive-index.md"
     - "scripts/stage6h-production-release-memory-closure.mjs"
-    - "scripts/check-stage6h-production-release-memory-closure.mjs"
+    - "scripts/stage6i-production-release-archive-index.mjs"
+    - "scripts/check-stage6i-production-release-archive-index.mjs"
