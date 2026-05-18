@@ -15,6 +15,7 @@
    - [go-live-handoff.stage6e.json](../../deploy/self-hosted/go-live-handoff.stage6e.json)
    - [go-live-decision-record.stage6f.json](../../deploy/self-hosted/go-live-decision-record.stage6f.json)
    - [post-go-live-observation.stage6g.json](../../deploy/self-hosted/post-go-live-observation.stage6g.json)
+   - [release-memory-closure.stage6h.json](../../deploy/self-hosted/release-memory-closure.stage6h.json)
 
 3. Stage 6 docs:
    - [stage-6a-production-acceptance-baseline.md](../backend/stage-6a-production-acceptance-baseline.md)
@@ -24,6 +25,7 @@
    - [stage-6e-production-go-live-handoff.md](../backend/stage-6e-production-go-live-handoff.md)
    - [stage-6f-production-go-live-decision-record.md](../backend/stage-6f-production-go-live-decision-record.md)
    - [stage-6g-production-post-go-live-observation.md](../backend/stage-6g-production-post-go-live-observation.md)
+   - [stage-6h-production-release-memory-closure.md](../backend/stage-6h-production-release-memory-closure.md)
 
 4. Stage 6 scripts:
    - [stage6a-production-acceptance-baseline.mjs](../../scripts/stage6a-production-acceptance-baseline.mjs)
@@ -33,6 +35,7 @@
    - [stage6e-production-go-live-handoff.mjs](../../scripts/stage6e-production-go-live-handoff.mjs)
    - [stage6f-production-go-live-decision-record.mjs](../../scripts/stage6f-production-go-live-decision-record.mjs)
    - [stage6g-production-post-go-live-observation.mjs](../../scripts/stage6g-production-post-go-live-observation.mjs)
+   - [stage6h-production-release-memory-closure.mjs](../../scripts/stage6h-production-release-memory-closure.mjs)
 
 5. Stage 6 guards:
    - [check-stage6a-production-acceptance-baseline.mjs](../../scripts/check-stage6a-production-acceptance-baseline.mjs)
@@ -42,6 +45,7 @@
    - [check-stage6e-production-go-live-handoff.mjs](../../scripts/check-stage6e-production-go-live-handoff.mjs)
    - [check-stage6f-production-go-live-decision-record.mjs](../../scripts/check-stage6f-production-go-live-decision-record.mjs)
    - [check-stage6g-production-post-go-live-observation.mjs](../../scripts/check-stage6g-production-post-go-live-observation.mjs)
+   - [check-stage6h-production-release-memory-closure.mjs](../../scripts/check-stage6h-production-release-memory-closure.mjs)
 
 6. Stage 6 workflows:
    - [.github/workflows/stage6a-production-acceptance-baseline.yml](../../.github/workflows/stage6a-production-acceptance-baseline.yml)
@@ -51,6 +55,7 @@
    - [.github/workflows/stage6e-production-go-live-handoff.yml](../../.github/workflows/stage6e-production-go-live-handoff.yml)
    - [.github/workflows/stage6f-production-go-live-decision-record.yml](../../.github/workflows/stage6f-production-go-live-decision-record.yml)
    - [.github/workflows/stage6g-production-post-go-live-observation.yml](../../.github/workflows/stage6g-production-post-go-live-observation.yml)
+   - [.github/workflows/stage6h-production-release-memory-closure.yml](../../.github/workflows/stage6h-production-release-memory-closure.yml)
 
 ## Verification outputs captured during black-box creation
 
@@ -86,3 +91,13 @@
    - `Go-live approved by this report: false`.
    - `Live server go-live verified by this report: false`.
    - `Live observation verified by this report: false`.
+7. `npm run preflight:stage6h` -> PASS:
+   - 12 tests passed.
+   - Guard passed (`7 files checked`).
+   - Stage 6H release-memory closure report rendered in dry-run mode with
+     zero leak findings.
+   - `Closure evidence stored outside git: true`.
+   - `Closure outcome known to repository: false`.
+   - `Go-live approved by this report: false`.
+   - `Live server go-live verified by this report: false`.
+   - `Live closure verified by this report: false`.

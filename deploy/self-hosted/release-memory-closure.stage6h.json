@@ -1,0 +1,299 @@
+{
+  "stage": "6H",
+  "packageId": "stage6h-production-release-memory-closure",
+  "generatedAt": "2026-05-15T14:00:00.000Z",
+  "postGoLiveObservationManifest": "deploy/self-hosted/post-go-live-observation.stage6g.json",
+  "productBoundary": {
+    "deployment": "operator-owned self-hosted production release memory closure package",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "closureEvidenceStoredOutsideGit": true,
+    "releaseMemoryClosureBundledInRepository": false,
+    "liveServerGoLiveVerifiedByRepository": false
+  },
+  "closureInputs": [
+    {
+      "key": "stage6g_post_go_live_observation",
+      "label": "Stage 6G production post-go-live observation package",
+      "kind": "file",
+      "path": "deploy/self-hosted/post-go-live-observation.stage6g.json",
+      "required": true
+    },
+    {
+      "key": "stage6g_observation_generator",
+      "label": "Stage 6G post-go-live observation generator",
+      "kind": "file",
+      "path": "scripts/stage6g-production-post-go-live-observation.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6f_go_live_decision_record",
+      "label": "Stage 6F production go-live decision record package",
+      "kind": "file",
+      "path": "deploy/self-hosted/go-live-decision-record.stage6f.json",
+      "required": true
+    },
+    {
+      "key": "stage6f_decision_record_generator",
+      "label": "Stage 6F decision-record generator",
+      "kind": "file",
+      "path": "scripts/stage6f-production-go-live-decision-record.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6e_go_live_handoff",
+      "label": "Stage 6E production go-live handoff package",
+      "kind": "file",
+      "path": "deploy/self-hosted/go-live-handoff.stage6e.json",
+      "required": true
+    },
+    {
+      "key": "stage6d_live_install_evidence_receipt",
+      "label": "Stage 6D live install evidence receipt package",
+      "kind": "file",
+      "path": "deploy/self-hosted/live-install-evidence.stage6d.json",
+      "required": true
+    },
+    {
+      "key": "stage6c_install_verification",
+      "label": "Stage 6C production install verification package",
+      "kind": "file",
+      "path": "deploy/self-hosted/install-verification.stage6c.json",
+      "required": true
+    },
+    {
+      "key": "project_memory_black_box",
+      "label": "Project-memory handoff snapshot",
+      "kind": "file",
+      "path": "docs/project-memory/HANDOFF.md",
+      "required": true
+    },
+    {
+      "key": "preflight_all_orchestrator",
+      "label": "Deterministic preflight-all orchestrator",
+      "kind": "file",
+      "path": "scripts/preflight-all.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_workflow",
+      "label": "Backend guardrails workflow",
+      "kind": "file",
+      "path": ".github/workflows/backend-guardrails.yml",
+      "required": true
+    }
+  ],
+  "closureSections": [
+    {
+      "key": "closure_scope",
+      "label": "Closure scope and accepted release baseline",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "external_decision_reference",
+      "label": "External go-live decision reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "closure_window_reference",
+      "label": "External release memory closure window",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "health_check_summary_reference",
+      "label": "External health-check summary reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "smoke_summary_reference",
+      "label": "External production smoke summary reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "audit_review_reference",
+      "label": "External audit review reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "rollback_watch",
+      "label": "Rollback watch and escalation owner",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "followup_actions",
+      "label": "Follow-up actions and release-memory update",
+      "required": true,
+      "storeOutsideGit": false
+    }
+  ],
+  "externalClosureFields": [
+    {
+      "key": "closure_record_id",
+      "label": "External closure record identifier",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "closure_window_start_utc",
+      "label": "Closure window start in UTC",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "closure_window_end_utc",
+      "label": "Closure window end in UTC",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "operator_decision_reference",
+      "label": "External operator decision reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "health_check_reference",
+      "label": "External health-check evidence reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "smoke_evidence_reference",
+      "label": "External production smoke evidence reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "audit_review_reference",
+      "label": "External audit review reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "rollback_owner_reference",
+      "label": "Rollback owner reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "closure_owner_reference",
+      "label": "Release memory closure owner reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    }
+  ],
+  "closureGates": [
+    {
+      "key": "stage6g_ready",
+      "label": "Stage 6G post-go-live observation package is ready",
+      "command": "npm run preflight:stage6g",
+      "required": true
+    },
+    {
+      "key": "stage6g_report",
+      "label": "Generate Stage 6G post-go-live observation report",
+      "command": "npm run observation:stage6g:report",
+      "required": true
+    },
+    {
+      "key": "preflight_all_dry_run",
+      "label": "Review deterministic preflight plan",
+      "command": "npm run preflight:all -- --dry-run",
+      "required": true
+    },
+    {
+      "key": "no_deno_lock",
+      "label": "Confirm no deno.lock files",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_green",
+      "label": "Backend guardrails workflow is green on target ref",
+      "command": "GitHub Actions backend-guardrails",
+      "required": true
+    },
+    {
+      "key": "external_decision_record_present",
+      "label": "External go-live decision record exists",
+      "command": "manual external go-live decision record check",
+      "required": true
+    },
+    {
+      "key": "external_closure_window_recorded",
+      "label": "External closure window is recorded",
+      "command": "manual external closure window record",
+      "required": true
+    },
+    {
+      "key": "external_health_smoke_reviewed",
+      "label": "External health and smoke evidence reviewed",
+      "command": "manual external health and smoke review",
+      "required": true
+    },
+    {
+      "key": "external_audit_reviewed",
+      "label": "External audit events reviewed",
+      "command": "manual external audit review",
+      "required": true
+    },
+    {
+      "key": "rollback_watch_recorded",
+      "label": "External rollback watch owner recorded",
+      "command": "manual external rollback watch record",
+      "required": true
+    }
+  ],
+  "closurePolicy": {
+    "repositoryContainsLiveSecrets": false,
+    "repositoryContainsPatientData": false,
+    "repositoryContainsRawLiveEvidence": false,
+    "repositoryContainsFinalApproval": false,
+    "repositoryContainsLiveLogs": false,
+    "repositoryContainsLiveMetrics": false,
+    "closureEvidenceStoredOutsideGit": true,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false
+  },
+  "safetyAssertions": {
+    "selfHostedRuntimeOnly": true,
+    "operatorOwnedDatabase": true,
+    "operatorOwnedObjectStorage": true,
+    "productionModeHasNoDemoFallback": true,
+    "finalDecisionIsExternal": true,
+    "closureEvidenceIsExternal": true,
+    "noFinalApprovalInGit": true,
+    "noLiveEvidenceInGit": true,
+    "noLiveLogsInGit": true,
+    "noLiveMetricsInGit": true,
+    "noPatientDataInGit": true,
+    "noSecretsInGit": true,
+    "stage6gObservationIsExternal": true,
+    "releaseMemoryUpdateIsExternal": true
+  }
+}

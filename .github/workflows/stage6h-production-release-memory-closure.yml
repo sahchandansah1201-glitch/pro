@@ -1,0 +1,59 @@
+name: stage6h-production-release-memory-closure
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-memory-closure.stage6h.json"
+      - "scripts/stage6h-production-release-memory-closure.mjs"
+      - "scripts/stage6h-production-release-memory-closure.test.mjs"
+      - "scripts/check-stage6h-production-release-memory-closure.mjs"
+      - "scripts/check-stage6h-production-release-memory-closure.test.mjs"
+      - "docs/backend/stage-6h-production-release-memory-closure.md"
+      - ".github/workflows/stage6h-production-release-memory-closure.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-memory-closure.stage6h.json"
+      - "scripts/stage6h-production-release-memory-closure.mjs"
+      - "scripts/stage6h-production-release-memory-closure.test.mjs"
+      - "scripts/check-stage6h-production-release-memory-closure.mjs"
+      - "scripts/check-stage6h-production-release-memory-closure.test.mjs"
+      - "docs/backend/stage-6h-production-release-memory-closure.md"
+      - ".github/workflows/stage6h-production-release-memory-closure.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage6h:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage6h
+      - name: Upload Stage 6H production release memory closure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6h-production-release-memory-closure
+          path: |
+            test-results/stage6h-production-release-memory-closure.md
+            test-results/stage6h-production-release-memory-closure.json
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6H production release memory closure"
+            echo ""
+            echo "- Command: \`npm run preflight:stage6h\`"
+            echo "- Boundary: offline redacted release memory closure, live evidence outside git"
+            echo "- Output: \`test-results/stage6h-production-release-memory-closure.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"

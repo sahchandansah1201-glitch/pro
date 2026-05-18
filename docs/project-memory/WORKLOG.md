@@ -2,6 +2,12 @@
 
 ## 2026-05-18
 
+- Создан Stage 6H production release memory closure: manifest, generator,
+  guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
+- Подтверждено локально: `npm run preflight:stage6h`,
+  `npm run check:stage6h`, `npm run closure:stage6h:report`.
+- Updated project-memory so Stage 6H is confirmed in the current branch and
+  Stage 6I remains an explicit hypothesis until repository files define it.
 - Создан Stage 6G production post-go-live observation: manifest, generator,
   guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
 - Подтверждено локально: `npm run test:stage6g`,
