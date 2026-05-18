@@ -1,10 +1,10 @@
-generated_at: "2026-05-18T20:45:00+03:00"
+generated_at: "2026-05-18T20:58:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage6i-release-archive-index"
-  head_sha: "b4e3cd866c80477808ee870eb7f98e3ff577c3f8"
-  head_commit: "Add Stage 6H release memory closure"
+  branch: "codex/stage6j-release-archive-handoff-receipt"
+  head_sha: "fd098b040a6b3fe6c3fd3e76b530451c3f089679"
+  head_commit: "Add Stage 6I release archive index"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -77,6 +77,20 @@ verification:
       go_live_approved_by_report: false
       live_server_go_live_verified_by_report: false
       live_archive_verified_by_report: false
+  stage6j_preflight:
+    command: "npm run preflight:stage6j"
+    status: "ok"
+    key_facts:
+      tests_passed: 12
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6j_report_status: "ready"
+      ready_for_external_release_archive_handoff_receipt: true
+      external_archive_receipt_stored_outside_git: true
+      archive_receipt_outcome_known_to_repository: false
+      go_live_approved_by_report: false
+      live_server_go_live_verified_by_report: false
+      live_archive_verified_by_report: false
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -87,9 +101,11 @@ verification:
       includes_stage6g: true
       includes_stage6h: true
       includes_stage6i: true
+      includes_stage6j: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "fd098b0 Add Stage 6I release archive index"
     - "b4e3cd8 Add Stage 6H release memory closure"
     - "77a5a8f Add Stage 6G post-go-live observation package"
     - "08444ed Add Stage 6F go-live decision record"
@@ -105,6 +121,7 @@ stage_evidence:
     - "docs/backend/stage-6g-production-post-go-live-observation.md"
     - "docs/backend/stage-6h-production-release-memory-closure.md"
     - "docs/backend/stage-6i-production-release-archive-index.md"
+    - "docs/backend/stage-6j-production-release-archive-handoff-receipt.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
@@ -115,8 +132,9 @@ stage_evidence:
     - ".github/workflows/stage6g-production-post-go-live-observation.yml"
     - ".github/workflows/stage6h-production-release-memory-closure.yml"
     - ".github/workflows/stage6i-production-release-archive-index.yml"
+    - ".github/workflows/stage6j-production-release-archive-handoff-receipt.yml"
 hypotheses:
-  - "Next logical stage after Stage 6I is Stage 6J. Scope is not confirmed by repository files yet."
+  - "Next logical stage after Stage 6J is Stage 6K. Scope is not confirmed by repository files yet."
 sources:
   commands:
     - "git status --short --branch"
@@ -126,6 +144,10 @@ sources:
     - "npm run check:stage6i"
     - "npm run archive:stage6i:report"
     - "npm run preflight:stage6i"
+    - "npm run test:stage6j"
+    - "npm run check:stage6j"
+    - "npm run receipt:stage6j:report"
+    - "npm run preflight:stage6j"
     - "node scripts/check-no-deno-locks.mjs"
   files:
     - "deploy/self-hosted/acceptance-baseline.stage6a.json"
@@ -137,8 +159,12 @@ sources:
     - "deploy/self-hosted/post-go-live-observation.stage6g.json"
     - "deploy/self-hosted/release-memory-closure.stage6h.json"
     - "deploy/self-hosted/release-archive-index.stage6i.json"
+    - "deploy/self-hosted/release-archive-handoff-receipt.stage6j.json"
     - "docs/backend/stage-6h-production-release-memory-closure.md"
     - "docs/backend/stage-6i-production-release-archive-index.md"
+    - "docs/backend/stage-6j-production-release-archive-handoff-receipt.md"
     - "scripts/stage6h-production-release-memory-closure.mjs"
     - "scripts/stage6i-production-release-archive-index.mjs"
     - "scripts/check-stage6i-production-release-archive-index.mjs"
+    - "scripts/stage6j-production-release-archive-handoff-receipt.mjs"
+    - "scripts/check-stage6j-production-release-archive-handoff-receipt.mjs"

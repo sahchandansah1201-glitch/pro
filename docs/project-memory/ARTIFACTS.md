@@ -17,6 +17,7 @@
    - [post-go-live-observation.stage6g.json](../../deploy/self-hosted/post-go-live-observation.stage6g.json)
    - [release-memory-closure.stage6h.json](../../deploy/self-hosted/release-memory-closure.stage6h.json)
    - [release-archive-index.stage6i.json](../../deploy/self-hosted/release-archive-index.stage6i.json)
+   - [release-archive-handoff-receipt.stage6j.json](../../deploy/self-hosted/release-archive-handoff-receipt.stage6j.json)
 
 3. Stage 6 docs:
    - [stage-6a-production-acceptance-baseline.md](../backend/stage-6a-production-acceptance-baseline.md)
@@ -28,6 +29,7 @@
    - [stage-6g-production-post-go-live-observation.md](../backend/stage-6g-production-post-go-live-observation.md)
    - [stage-6h-production-release-memory-closure.md](../backend/stage-6h-production-release-memory-closure.md)
    - [stage-6i-production-release-archive-index.md](../backend/stage-6i-production-release-archive-index.md)
+   - [stage-6j-production-release-archive-handoff-receipt.md](../backend/stage-6j-production-release-archive-handoff-receipt.md)
 
 4. Stage 6 scripts:
    - [stage6a-production-acceptance-baseline.mjs](../../scripts/stage6a-production-acceptance-baseline.mjs)
@@ -39,6 +41,7 @@
    - [stage6g-production-post-go-live-observation.mjs](../../scripts/stage6g-production-post-go-live-observation.mjs)
    - [stage6h-production-release-memory-closure.mjs](../../scripts/stage6h-production-release-memory-closure.mjs)
    - [stage6i-production-release-archive-index.mjs](../../scripts/stage6i-production-release-archive-index.mjs)
+   - [stage6j-production-release-archive-handoff-receipt.mjs](../../scripts/stage6j-production-release-archive-handoff-receipt.mjs)
 
 5. Stage 6 guards:
    - [check-stage6a-production-acceptance-baseline.mjs](../../scripts/check-stage6a-production-acceptance-baseline.mjs)
@@ -50,6 +53,7 @@
    - [check-stage6g-production-post-go-live-observation.mjs](../../scripts/check-stage6g-production-post-go-live-observation.mjs)
    - [check-stage6h-production-release-memory-closure.mjs](../../scripts/check-stage6h-production-release-memory-closure.mjs)
    - [check-stage6i-production-release-archive-index.mjs](../../scripts/check-stage6i-production-release-archive-index.mjs)
+   - [check-stage6j-production-release-archive-handoff-receipt.mjs](../../scripts/check-stage6j-production-release-archive-handoff-receipt.mjs)
 
 6. Stage 6 workflows:
    - [.github/workflows/stage6a-production-acceptance-baseline.yml](../../.github/workflows/stage6a-production-acceptance-baseline.yml)
@@ -61,6 +65,7 @@
    - [.github/workflows/stage6g-production-post-go-live-observation.yml](../../.github/workflows/stage6g-production-post-go-live-observation.yml)
    - [.github/workflows/stage6h-production-release-memory-closure.yml](../../.github/workflows/stage6h-production-release-memory-closure.yml)
    - [.github/workflows/stage6i-production-release-archive-index.yml](../../.github/workflows/stage6i-production-release-archive-index.yml)
+   - [.github/workflows/stage6j-production-release-archive-handoff-receipt.yml](../../.github/workflows/stage6j-production-release-archive-handoff-receipt.yml)
 
 ## Verification outputs captured during black-box creation
 
@@ -114,6 +119,17 @@
    - `Release archive index stored in git: true`.
    - `Release archive contents stored outside git: true`.
    - `Archive outcome known to repository: false`.
+   - `Go-live approved by this report: false`.
+   - `Live server go-live verified by this report: false`.
+   - `Live archive verified by this report: false`.
+9. `npm run preflight:stage6j` -> PASS:
+   - 12 tests passed.
+   - Guard passed (`7 files checked`).
+   - Stage 6J release archive handoff receipt report rendered in dry-run mode
+     with zero leak findings.
+   - `Archive handoff receipt stored in git: true`.
+   - `External archive receipt stored outside git: true`.
+   - `Archive receipt outcome known to repository: false`.
    - `Go-live approved by this report: false`.
    - `Live server go-live verified by this report: false`.
    - `Live archive verified by this report: false`.
