@@ -1,0 +1,46 @@
+name: project-memory
+
+on:
+  pull_request:
+    paths:
+      - "docs/project-memory/**"
+      - "scripts/check-project-memory.mjs"
+      - "scripts/check-project-memory.test.mjs"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/project-memory.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/project-memory/**"
+      - "scripts/check-project-memory.mjs"
+      - "scripts/check-project-memory.test.mjs"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/project-memory.yml"
+
+jobs:
+  project-memory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:project-memory
+      - run: npm run check:project-memory
+      - run: node scripts/check-no-deno-locks.mjs
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Project memory"
+            echo ""
+            echo "- Command: \`npm run test:project-memory\`"
+            echo "- Command: \`npm run check:project-memory\`"
+            echo "- Boundary: repository black box must stay factual; hypotheses must be explicit"
+          } >> "$GITHUB_STEP_SUMMARY"
