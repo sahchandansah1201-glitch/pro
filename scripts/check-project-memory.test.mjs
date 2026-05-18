@@ -83,7 +83,7 @@ sources:
 
 ## Stage 6 manifests
 
-- [acceptance](${join(root, "deploy/self-hosted/acceptance-baseline.stage6a.json")})
+- [acceptance](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
 
 ## Verification outputs
 
@@ -101,6 +101,24 @@ test("project memory guard passes for complete black-box files", () => {
   const result = collectProjectMemoryChecks({ root });
   assert.equal(result.ok, true, result.errors.join("\n"));
   assert.equal(result.checkedFiles, 6);
+});
+
+test("project memory guard accepts absolute artifact links when present", () => {
+  const root = makeRoot();
+  writeMemory(root, {
+    "ARTIFACTS.md": `# ARTIFACTS
+
+## Stage 6 manifests
+
+- [acceptance](${join(root, "deploy/self-hosted/acceptance-baseline.stage6a.json")})
+
+## Verification outputs
+
+- output
+`,
+  });
+  const result = collectProjectMemoryChecks({ root });
+  assert.equal(result.ok, true, result.errors.join("\n"));
 });
 
 test("project memory guard rejects missing required files", () => {
