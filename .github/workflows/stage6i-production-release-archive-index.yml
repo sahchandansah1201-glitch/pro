@@ -1,0 +1,66 @@
+name: stage6i-production-release-archive-index
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-index.stage6i.json"
+      - "scripts/stage6i-production-release-archive-index.mjs"
+      - "scripts/stage6i-production-release-archive-index.test.mjs"
+      - "scripts/check-stage6i-production-release-archive-index.mjs"
+      - "scripts/check-stage6i-production-release-archive-index.test.mjs"
+      - "docs/backend/stage-6i-production-release-archive-index.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6i-production-release-archive-index.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-index.stage6i.json"
+      - "scripts/stage6i-production-release-archive-index.mjs"
+      - "scripts/stage6i-production-release-archive-index.test.mjs"
+      - "scripts/check-stage6i-production-release-archive-index.mjs"
+      - "scripts/check-stage6i-production-release-archive-index.test.mjs"
+      - "docs/backend/stage-6i-production-release-archive-index.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6i-production-release-archive-index.yml"
+
+jobs:
+  stage6i:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6I production release archive index preflight
+        run: npm run preflight:stage6i
+
+      - name: Build Stage 6I production release archive index report
+        run: npm run archive:stage6i:report
+
+      - name: Upload Stage 6I production release archive index
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6i-production-release-archive-index
+          path: |
+            test-results/stage6i-production-release-archive-index.md
+            test-results/stage6i-production-release-archive-index.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6I production release archive index"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6i-production-release-archive-index.md"
+            echo "- Boundary: offline redacted release archive index, live archive contents outside git"
+          } >> "$GITHUB_STEP_SUMMARY"

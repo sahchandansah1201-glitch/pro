@@ -2,6 +2,12 @@
 
 ## 2026-05-18
 
+- Создан Stage 6I production release archive index: manifest, generator,
+  guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
+- Подтверждено локально: `npm run preflight:stage6i`,
+  `npm run check:stage6i`, `npm run archive:stage6i:report`.
+- Updated project-memory so Stage 6I is confirmed in the current branch and
+  Stage 6J remains an explicit hypothesis until repository files define it.
 - Создан Stage 6H production release memory closure: manifest, generator,
   guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
 - Подтверждено локально: `npm run preflight:stage6h`,
