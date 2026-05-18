@@ -6,6 +6,8 @@
 - Создан Stage 6E production go-live handoff: manifest, generator, guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
 - Подтверждено локально: `npm run preflight:stage6e`, `npm run preflight:stage6d`, `npm run check:project-memory`, `npm run test:preflight-all`, `npm run typecheck`, `node scripts/check-no-deno-locks.mjs`.
 - Неподтвержденный следующий этап после Stage 6E помечается как гипотеза, пока в репозитории нет Stage 6F spec-файла.
+- После Lovable sync-проверки Stage 6E выявлена средовая проблема: Stage 6D/6E CLI мог резолвить входные файлы относительно текущего `cwd`.
+- Добавлен script-relative repo root для Stage 6A-6E offline scripts и тесты запуска Stage 6D/6E CLI из временного чужого каталога.
 
 ## 2026-05-17
 

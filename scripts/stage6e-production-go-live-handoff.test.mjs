@@ -117,3 +117,17 @@ test("Stage 6E CLI dry-run exits 0 and prints the handoff package", () => {
   assert.match(result.stdout, /Stage 6E production go-live handoff/);
   assert.match(result.stdout, /Status: `ready`/);
 });
+
+test("Stage 6E CLI resolves repository inputs relative to the script location", () => {
+  const dir = mkdtempSync(join(tmpdir(), "stage6e-cwd-"));
+  try {
+    const result = spawnSync(process.execPath, [SCRIPT, "--dry-run", "--now", "2026-05-15T13:00:00.000Z"], {
+      cwd: dir,
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Status: `ready`/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

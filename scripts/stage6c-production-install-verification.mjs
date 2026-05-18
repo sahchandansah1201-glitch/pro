@@ -25,6 +25,7 @@ const DEFAULT_MANIFEST = "deploy/self-hosted/install-verification.stage6c.json";
 const DEFAULT_SUMMARY_PATH = "test-results/stage6c-production-install-verification.md";
 const DEFAULT_JSON_PATH = "test-results/stage6c-production-install-verification.json";
 const DEFAULT_NOW = "2026-05-15T12:00:00.000Z";
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const REQUIRED_INPUT_KEYS = [
   "stage6b_server_install_package",
@@ -96,7 +97,7 @@ function cleanString(value) {
 }
 
 function readJsonFile(path) {
-  const absolutePath = resolve(path);
+  const absolutePath = resolve(REPO_ROOT, path);
   if (!existsSync(absolutePath)) throw new Error(`File not found: ${path}`);
   try {
     return JSON.parse(readFileSync(absolutePath, "utf8"));
@@ -338,7 +339,7 @@ export function detectInstallVerificationLeaks(text) {
 
 export function buildProductionInstallVerification({
   manifest,
-  root = process.cwd(),
+  root = REPO_ROOT,
   generatedAt,
 } = {}) {
   const normalized = validateInstallVerificationManifest(manifest);
@@ -519,7 +520,7 @@ export function parseStage6CArgs(argv = []) {
 }
 
 export function runStage6CProductionInstallVerification({
-  root = process.cwd(),
+  root = REPO_ROOT,
   manifestPath = DEFAULT_MANIFEST,
   summaryPath = DEFAULT_SUMMARY_PATH,
   jsonOut = DEFAULT_JSON_PATH,
@@ -543,7 +544,7 @@ export function main(argv = process.argv.slice(2)) {
   try {
     const args = parseStage6CArgs(argv);
     const result = runStage6CProductionInstallVerification({
-      root: process.cwd(),
+      root: REPO_ROOT,
       manifestPath: args.manifest,
       summaryPath: args.summaryPath || (args.dryRun ? null : DEFAULT_SUMMARY_PATH),
       jsonOut: args.jsonOut || (args.dryRun ? null : DEFAULT_JSON_PATH),

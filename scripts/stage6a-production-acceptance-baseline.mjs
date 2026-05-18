@@ -19,6 +19,7 @@ const DEFAULT_MANIFEST = "deploy/self-hosted/acceptance-baseline.stage6a.json";
 const DEFAULT_SUMMARY_PATH = "test-results/stage6a-production-acceptance-baseline.md";
 const DEFAULT_JSON_PATH = "test-results/stage6a-production-acceptance-baseline.json";
 const DEFAULT_NOW = "2026-05-15T11:00:00.000Z";
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const REQUIRED_DOMAIN_KEYS = [
   "deployable_stack",
@@ -80,7 +81,7 @@ function cleanString(value) {
 }
 
 function readJsonFile(path) {
-  const absolutePath = resolve(path);
+  const absolutePath = resolve(REPO_ROOT, path);
   if (!existsSync(absolutePath)) throw new Error(`File not found: ${path}`);
   try {
     return JSON.parse(readFileSync(absolutePath, "utf8"));
@@ -260,7 +261,7 @@ export function detectAcceptanceLeaks(text) {
 
 export function buildProductionAcceptanceBaseline({
   manifest,
-  root = process.cwd(),
+  root = REPO_ROOT,
   generatedAt,
 } = {}) {
   const normalized = validateAcceptanceManifest(manifest);
@@ -423,7 +424,7 @@ export function parseStage6AArgs(argv = []) {
 }
 
 export function runStage6AAcceptanceBaseline({
-  root = process.cwd(),
+  root = REPO_ROOT,
   manifestPath = DEFAULT_MANIFEST,
   summaryPath = DEFAULT_SUMMARY_PATH,
   jsonOut = DEFAULT_JSON_PATH,
@@ -447,7 +448,7 @@ export function main(argv = process.argv.slice(2)) {
   try {
     const args = parseStage6AArgs(argv);
     const result = runStage6AAcceptanceBaseline({
-      root: process.cwd(),
+      root: REPO_ROOT,
       manifestPath: args.manifest,
       summaryPath: args.summaryPath || (args.dryRun ? null : DEFAULT_SUMMARY_PATH),
       jsonOut: args.jsonOut || (args.dryRun ? null : DEFAULT_JSON_PATH),

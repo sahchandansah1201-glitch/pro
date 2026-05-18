@@ -24,6 +24,7 @@ const DEFAULT_MANIFEST = "deploy/self-hosted/server-install-package.stage6b.json
 const DEFAULT_SUMMARY_PATH = "test-results/stage6b-server-install-package.md";
 const DEFAULT_JSON_PATH = "test-results/stage6b-server-install-package.json";
 const DEFAULT_NOW = "2026-05-15T11:30:00.000Z";
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const REQUIRED_INPUT_KEYS = [
   "stage6a_acceptance_baseline",
@@ -94,7 +95,7 @@ function cleanString(value) {
 }
 
 function readJsonFile(path) {
-  const absolutePath = resolve(path);
+  const absolutePath = resolve(REPO_ROOT, path);
   if (!existsSync(absolutePath)) throw new Error(`File not found: ${path}`);
   try {
     return JSON.parse(readFileSync(absolutePath, "utf8"));
@@ -298,7 +299,7 @@ export function detectServerInstallLeaks(text) {
 
 export function buildServerInstallPackage({
   manifest,
-  root = process.cwd(),
+  root = REPO_ROOT,
   generatedAt,
 } = {}) {
   const normalized = validateServerInstallManifest(manifest);
@@ -465,7 +466,7 @@ export function parseStage6BArgs(argv = []) {
 }
 
 export function runStage6BServerInstallPackage({
-  root = process.cwd(),
+  root = REPO_ROOT,
   manifestPath = DEFAULT_MANIFEST,
   summaryPath = DEFAULT_SUMMARY_PATH,
   jsonOut = DEFAULT_JSON_PATH,
@@ -489,7 +490,7 @@ export function main(argv = process.argv.slice(2)) {
   try {
     const args = parseStage6BArgs(argv);
     const result = runStage6BServerInstallPackage({
-      root: process.cwd(),
+      root: REPO_ROOT,
       manifestPath: args.manifest,
       summaryPath: args.summaryPath || (args.dryRun ? null : DEFAULT_SUMMARY_PATH),
       jsonOut: args.jsonOut || (args.dryRun ? null : DEFAULT_JSON_PATH),

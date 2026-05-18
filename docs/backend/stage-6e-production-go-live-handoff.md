@@ -84,6 +84,13 @@ inputs exist, sections are present, decision fields are redacted and stored
 outside git, go-live gates are present, policy is safe, safety assertions are
 green, package scripts are wired, and the report has no privacy leak findings.
 
+## Sandbox-safe execution
+
+Stage 6E, and the Stage 6A-6D offline packages it depends on, resolve bundled
+repository inputs from the script location instead of the caller's current
+working directory. This keeps local, CI, and Lovable sandbox runs deterministic
+when a command invokes the script from a different `cwd`.
+
 ## Privacy
 
 Stage 6E must not commit live server logs, final go-live approval records, raw
