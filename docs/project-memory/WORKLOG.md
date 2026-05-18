@@ -2,6 +2,9 @@
 
 ## 2026-05-18
 
+- Refreshed project-memory after Stage 6E and PR #137 landed on `main`.
+- Updated `PROJECT_STATE.yaml`, `HANDOFF.md`, `NEXT_ACTIONS.md`, and `RISKS.md` so Stage 6E is confirmed and Stage 6F remains an explicit hypothesis.
+- Updated the project-memory guard/test fixture from Stage 6D expectations to Stage 6E expectations.
 - Stage 6E выбран как следующий шаг из `NEXT_ACTIONS.md`, где он был помечен как гипотеза.
 - Создан Stage 6E production go-live handoff: manifest, generator, guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
 - Подтверждено локально: `npm run preflight:stage6e`, `npm run preflight:stage6d`, `npm run check:project-memory`, `npm run test:preflight-all`, `npm run typecheck`, `node scripts/check-no-deno-locks.mjs`.

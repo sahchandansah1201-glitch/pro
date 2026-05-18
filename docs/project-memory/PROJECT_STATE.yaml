@@ -1,10 +1,10 @@
-generated_at: "2026-05-17T21:12:48+03:00"
+generated_at: "2026-05-18T10:45:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
   branch: "main"
-  head_sha: "b2d255dcc907ea86dbb2610fccb8732849b58f02"
-  head_commit: "Add Stage 6D live install evidence receipt"
+  head_sha: "ca00a2ecc354c645e2e496157437b1a636d14ad1"
+  head_commit: "Harden Stage 6 handoff path resolution"
   working_tree: "clean"
   upstream: "origin/main"
 verification:
@@ -16,41 +16,67 @@ verification:
     command: "npm run preflight:stage6d"
     status: "ok"
     key_facts:
-      tests_passed: 10
+      tests_passed: 11
       guard_files_checked: 7
       leak_findings: 0
       stage6d_report_status: "ready"
       live_install_evidence_accepted_by_report: false
       live_install_verified_by_report: false
+  stage6e_preflight:
+    command: "npm run preflight:stage6e"
+    status: "ok"
+    key_facts:
+      tests_passed: 12
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6e_report_status: "ready"
+      ready_for_operator_go_live_decision: true
+      go_live_approved_by_report: false
+      live_server_go_live_verified_by_report: false
+  project_memory_guard:
+    command: "npm run check:project-memory"
+    status: "ok"
+  preflight_all_plan:
+    command: "npm run preflight:all -- --dry-run"
+    status: "ok"
+    key_facts:
+      includes_stage6e: true
+      includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "ca00a2e Harden Stage 6 handoff path resolution"
+    - "c5417d5 Add Stage 6E production go-live handoff"
+    - "c958fcb Fix project-memory artifact links for CI"
+    - "a2da9c3 Add project-memory black box guard"
     - "b2d255d Add Stage 6D live install evidence receipt"
-    - "8a89cc3 Add Stage 6C production install verification"
-    - "85ca4ef Add Stage 6B server install package"
-    - "13d5181 Add Stage 6A production acceptance baseline"
-    - "2640d16 Add Stage 5Z external adapter production handoff"
   documented_stages_present:
     - "docs/backend/stage-6a-production-acceptance-baseline.md"
     - "docs/backend/stage-6b-server-install-package.md"
     - "docs/backend/stage-6c-production-install-verification.md"
     - "docs/backend/stage-6d-live-install-evidence-receipt.md"
+    - "docs/backend/stage-6e-production-go-live-handoff.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
     - ".github/workflows/stage6c-production-install-verification.yml"
     - ".github/workflows/stage6d-live-install-evidence-receipt.yml"
+    - ".github/workflows/stage6e-production-go-live-handoff.yml"
 hypotheses:
-  - "Next logical stage after Stage 6D is Stage 6E, because Stage 6E files/workflows/scripts are not present in the repository scan."
+  - "Next logical stage after Stage 6E is Stage 6F, because Stage 6A-6E exist and Stage 6F files/workflows/scripts are not present in the repository scan."
 sources:
   commands:
     - "git status -sb"
     - "git branch --show-current"
     - "git log --oneline -12"
-    - "rg -n \"\\\"preflight:stage6|\\\"test:stage6|\\\"check:stage6\" package.json"
-    - "rg -n \"Stage 6A|Stage 6B|Stage 6C|Stage 6D\" docs/backend scripts/preflight-all.mjs"
-    - "npm run preflight:stage6d"
+    - "rg -n \"Stage 6F|stage6f|6F\" docs scripts deploy .github package.json"
+    - "npm run preflight:all -- --dry-run"
+    - "node scripts/check-no-deno-locks.mjs"
   files:
     - "deploy/self-hosted/acceptance-baseline.stage6a.json"
     - "deploy/self-hosted/server-install-package.stage6b.json"
     - "deploy/self-hosted/install-verification.stage6c.json"
     - "deploy/self-hosted/live-install-evidence.stage6d.json"
+    - "deploy/self-hosted/go-live-handoff.stage6e.json"
+    - "docs/backend/stage-6e-production-go-live-handoff.md"
+    - "scripts/stage6e-production-go-live-handoff.mjs"
+    - "scripts/check-stage6e-production-go-live-handoff.mjs"
