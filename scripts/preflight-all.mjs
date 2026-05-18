@@ -75,6 +75,7 @@ const DEFAULT_STEPS = [
   ["Stage 6D live install evidence receipt preflight", npmCmd, ["run", "preflight:stage6d"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
+  ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],
   ["No deno.lock files", nodeCmd, ["scripts/check-no-deno-locks.mjs"]],
   ["Whitespace diff check", "git", ["diff", "--check"]],
 ];
