@@ -1,0 +1,66 @@
+name: stage6j-production-release-archive-handoff-receipt
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-handoff-receipt.stage6j.json"
+      - "scripts/stage6j-production-release-archive-handoff-receipt.mjs"
+      - "scripts/stage6j-production-release-archive-handoff-receipt.test.mjs"
+      - "scripts/check-stage6j-production-release-archive-handoff-receipt.mjs"
+      - "scripts/check-stage6j-production-release-archive-handoff-receipt.test.mjs"
+      - "docs/backend/stage-6j-production-release-archive-handoff-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6j-production-release-archive-handoff-receipt.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-handoff-receipt.stage6j.json"
+      - "scripts/stage6j-production-release-archive-handoff-receipt.mjs"
+      - "scripts/stage6j-production-release-archive-handoff-receipt.test.mjs"
+      - "scripts/check-stage6j-production-release-archive-handoff-receipt.mjs"
+      - "scripts/check-stage6j-production-release-archive-handoff-receipt.test.mjs"
+      - "docs/backend/stage-6j-production-release-archive-handoff-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6j-production-release-archive-handoff-receipt.yml"
+
+jobs:
+  stage6j:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6J production release archive handoff receipt preflight
+        run: npm run preflight:stage6j
+
+      - name: Build Stage 6J production release archive handoff receipt report
+        run: npm run receipt:stage6j:report
+
+      - name: Upload Stage 6J production release archive handoff receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6j-production-release-archive-handoff-receipt
+          path: |
+            test-results/stage6j-production-release-archive-handoff-receipt.md
+            test-results/stage6j-production-release-archive-handoff-receipt.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6J production release archive handoff receipt"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6j-production-release-archive-handoff-receipt.md"
+            echo "- Boundary: offline redacted archive receipt schema, final archive receipt outside git"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -3,7 +3,7 @@
 ## Confirmed risks
 
 1. **Readiness/decision/observation/closure/archive packages != live go-live approval**
-   - Evidence: Stage 6E/6F/6G/6H/6I report outputs include:
+   - Evidence: Stage 6E/6F/6G/6H/6I/6J report outputs include:
      - `Go-live approved by this report: false`
      - `Live server go-live verified by this report: false`
      - `Final go-live outcome known to repository: false`
@@ -12,13 +12,15 @@
      - `Closure outcome known to repository: false`
      - `Live closure verified by this report: false`
      - `Archive outcome known to repository: false`
+     - `Archive receipt outcome known to repository: false`
      - `Live archive verified by this report: false`
    - Impact: repository can be green while final operator approval, live
-     observation outcome, closure outcome, archive outcome, live evidence, and
-     archive contents are still pending outside git.
+     observation outcome, closure outcome, archive outcome, archive receipt
+     outcome, live evidence, and archive contents are still pending outside
+     git.
 
 2. **Operational dependence on external operator-run steps**
-   - Evidence: Stage 6B-6I manifests include deploy/smoke/backup/rollback,
+   - Evidence: Stage 6B-6J manifests include deploy/smoke/backup/rollback,
      live evidence, handoff, decision-record, observation, closure, and archive
      gates.
    - Impact: success depends on disciplined execution outside the code
@@ -31,10 +33,10 @@
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - Hypothesis: Stage 6J is next.
-   - Basis: Stage 6A-6I exist in the current branch; Stage 6J files are not
+   - Hypothesis: Stage 6K is next.
+   - Basis: Stage 6A-6J exist in the current branch; Stage 6K files are not
      confirmed.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 6J
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 6K
      scope.
 
 ## Mitigations
