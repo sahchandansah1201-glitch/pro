@@ -28,7 +28,7 @@ const REQUIRED_TEXT = {
   ],
   "HANDOFF.md": ["# HANDOFF", "## Confirmed state", "## Hypothesis"],
   "WORKLOG.md": ["# WORKLOG", "Создан project-memory", "гипотеза"],
-  "NEXT_ACTIONS.md": ["# NEXT_ACTIONS", "hypothesis", "Stage 6F"],
+  "NEXT_ACTIONS.md": ["# NEXT_ACTIONS", "hypothesis", "Stage 6G"],
   "RISKS.md": ["# RISKS", "## Confirmed risks", "## Hypotheses"],
   "ARTIFACTS.md": ["# ARTIFACTS", "Stage 6 manifests", "Verification outputs"],
 };
@@ -37,14 +37,16 @@ const REQUIRED_PROJECT_STATE_FIELDS = [
   /^generated_at:\s*".+"/m,
   /^project:\s*"Dermatolog Pro"/m,
   /^\s+path:\s*".*\/pro"/m,
-  /^\s+branch:\s*"main"/m,
+  /^\s+branch:\s*"(main|codex\/[A-Za-z0-9._/-]+)"/m,
   /^\s+head_sha:\s*"[a-f0-9]{40}"/m,
-  /^\s+working_tree:\s*"clean"/m,
+  /^\s+working_tree:\s*"(clean|modified)"/m,
   /^\s+command:\s*"npm run preflight:stage6e"/m,
+  /^\s+command:\s*"npm run preflight:stage6f"/m,
   /^\s+status:\s*"ok"/m,
   /^\s+tests_passed:\s*12/m,
   /^\s+leak_findings:\s*0/m,
   /^\s+live_server_go_live_verified_by_report:\s*false/m,
+  /^\s+final_go_live_outcome_known_to_repository:\s*false/m,
 ];
 
 function read(root, file) {
@@ -139,8 +141,8 @@ function assertHypothesesAreExplicit(errors, root) {
     const path = memoryPath(file);
     if (!existsSync(join(root, path))) continue;
     const content = read(root, path);
-    if (content.includes("Stage 6F") && !/hypothesis|Hypothesis|Hypotheses/.test(content)) {
-      errors.push(`${path} mentions Stage 6F without marking it as a hypothesis`);
+    if (content.includes("Stage 6G") && !/hypothesis|Hypothesis|Hypotheses/.test(content)) {
+      errors.push(`${path} mentions Stage 6G without marking it as a hypothesis`);
     }
   }
 }

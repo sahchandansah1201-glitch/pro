@@ -1,0 +1,59 @@
+name: stage6f-production-go-live-decision-record
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/go-live-decision-record.stage6f.json"
+      - "scripts/stage6f-production-go-live-decision-record.mjs"
+      - "scripts/stage6f-production-go-live-decision-record.test.mjs"
+      - "scripts/check-stage6f-production-go-live-decision-record.mjs"
+      - "scripts/check-stage6f-production-go-live-decision-record.test.mjs"
+      - "docs/backend/stage-6f-production-go-live-decision-record.md"
+      - ".github/workflows/stage6f-production-go-live-decision-record.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/go-live-decision-record.stage6f.json"
+      - "scripts/stage6f-production-go-live-decision-record.mjs"
+      - "scripts/stage6f-production-go-live-decision-record.test.mjs"
+      - "scripts/check-stage6f-production-go-live-decision-record.mjs"
+      - "scripts/check-stage6f-production-go-live-decision-record.test.mjs"
+      - "docs/backend/stage-6f-production-go-live-decision-record.md"
+      - ".github/workflows/stage6f-production-go-live-decision-record.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+
+jobs:
+  stage6f:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage6f
+      - name: Upload Stage 6F production go-live decision record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6f-production-go-live-decision-record
+          path: |
+            test-results/stage6f-production-go-live-decision-record.md
+            test-results/stage6f-production-go-live-decision-record.json
+          if-no-files-found: ignore
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6F production go-live decision record"
+            echo ""
+            echo "- Command: \`npm run preflight:stage6f\`"
+            echo "- Boundary: offline redacted go-live decision record, final approval outside git"
+            echo "- Output: \`test-results/stage6f-production-go-live-decision-record.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -20,16 +20,19 @@ function makeRoot() {
     "deploy/self-hosted/install-verification.stage6c.json",
     "deploy/self-hosted/live-install-evidence.stage6d.json",
     "deploy/self-hosted/go-live-handoff.stage6e.json",
+    "deploy/self-hosted/go-live-decision-record.stage6f.json",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
     "docs/backend/stage-6d-live-install-evidence-receipt.md",
     "docs/backend/stage-6e-production-go-live-handoff.md",
+    "docs/backend/stage-6f-production-go-live-decision-record.md",
     ".github/workflows/stage6a-production-acceptance-baseline.yml",
     ".github/workflows/stage6b-server-install-package.yml",
     ".github/workflows/stage6c-production-install-verification.yml",
     ".github/workflows/stage6d-live-install-evidence-receipt.yml",
     ".github/workflows/stage6e-production-go-live-handoff.yml",
+    ".github/workflows/stage6f-production-go-live-decision-record.yml",
   ]) {
     writeFileSync(join(root, file), "ok\n");
   }
@@ -44,7 +47,7 @@ repository:
   path: "${root}/pro"
   branch: "main"
   head_sha: "ca00a2ecc354c645e2e496157437b1a636d14ad1"
-  head_commit: "Harden Stage 6 handoff path resolution"
+  head_commit: "Refresh project memory after Stage 6E"
   working_tree: "clean"
   upstream: "origin/main"
 verification:
@@ -60,6 +63,16 @@ verification:
       leak_findings: 0
       stage6e_report_status: "ready"
       live_server_go_live_verified_by_report: false
+  stage6f_preflight:
+    command: "npm run preflight:stage6f"
+    status: "ok"
+    key_facts:
+      tests_passed: 12
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6f_report_status: "ready"
+      final_go_live_outcome_known_to_repository: false
+      live_server_go_live_verified_by_report: false
 stage_evidence:
   latest_commits:
     - "ca00a2e Harden Stage 6 handoff path resolution"
@@ -69,7 +82,7 @@ stage_evidence:
   workflows_present:
     - ".github/workflows/stage6e-production-go-live-handoff.yml"
 hypotheses:
-  - "Next logical stage after Stage 6E is Stage 6F."
+    - "Next logical stage after Stage 6F is Stage 6G."
 sources:
   commands:
     - "git status -sb"
@@ -79,11 +92,12 @@ sources:
     - "deploy/self-hosted/install-verification.stage6c.json"
     - "deploy/self-hosted/live-install-evidence.stage6d.json"
     - "deploy/self-hosted/go-live-handoff.stage6e.json"
+    - "deploy/self-hosted/go-live-decision-record.stage6f.json"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6E confirmed.\n\n## Hypothesis\n\nStage 6F is likely next.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6F confirmed.\n\n## Hypothesis\n\nStage 6G is likely next.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6F scaffold (hypothesis).\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6F is next.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6G scaffold (hypothesis).\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6G is next.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
@@ -134,9 +148,9 @@ test("project memory guard rejects missing required files", () => {
   assert.match(result.errors.join("\n"), /RISKS\.md/);
 });
 
-test("project memory guard requires Stage 6F uncertainty to be marked as hypothesis", () => {
+test("project memory guard requires Stage 6G uncertainty to be marked as hypothesis", () => {
   const root = makeRoot();
-  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6F is next.\n" });
+  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6G is next.\n" });
   const result = collectProjectMemoryChecks({ root });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /without marking it as a hypothesis/);

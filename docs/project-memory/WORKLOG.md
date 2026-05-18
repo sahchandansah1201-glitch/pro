@@ -2,6 +2,13 @@
 
 ## 2026-05-18
 
+- Создан Stage 6F production go-live decision record: manifest, generator,
+  guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
+- Подтверждено локально: `npm run preflight:stage6f`,
+  `npm run check:stage6f`, `npm run test:stage6f`,
+  `node scripts/check-no-deno-locks.mjs`.
+- Updated project-memory so Stage 6F is confirmed in the current branch and
+  Stage 6G remains an explicit hypothesis until repository files define it.
 - Refreshed project-memory after Stage 6E and PR #137 landed on `main`.
 - Updated `PROJECT_STATE.yaml`, `HANDOFF.md`, `NEXT_ACTIONS.md`, and `RISKS.md` so Stage 6E is confirmed and Stage 6F remains an explicit hypothesis.
 - Updated the project-memory guard/test fixture from Stage 6D expectations to Stage 6E expectations.

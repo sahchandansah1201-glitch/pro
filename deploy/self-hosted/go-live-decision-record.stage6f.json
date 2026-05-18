@@ -1,0 +1,260 @@
+{
+  "stage": "6F",
+  "packageId": "stage6f-production-go-live-decision-record",
+  "generatedAt": "2026-05-15T13:30:00.000Z",
+  "goLiveHandoffManifest": "deploy/self-hosted/go-live-handoff.stage6e.json",
+  "productBoundary": {
+    "deployment": "operator-owned self-hosted production go-live decision record",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "finalDecisionStoredOutsideGit": true,
+    "goLiveDecisionRecordBundledInRepository": false,
+    "liveServerGoLiveVerifiedByRepository": false
+  },
+  "decisionRecordInputs": [
+    {
+      "key": "stage6e_go_live_handoff",
+      "label": "Stage 6E production go-live handoff package",
+      "kind": "file",
+      "path": "deploy/self-hosted/go-live-handoff.stage6e.json",
+      "required": true
+    },
+    {
+      "key": "stage6e_handoff_generator",
+      "label": "Stage 6E handoff generator",
+      "kind": "file",
+      "path": "scripts/stage6e-production-go-live-handoff.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6d_live_install_evidence_receipt",
+      "label": "Stage 6D live install evidence receipt package",
+      "kind": "file",
+      "path": "deploy/self-hosted/live-install-evidence.stage6d.json",
+      "required": true
+    },
+    {
+      "key": "stage6c_install_verification",
+      "label": "Stage 6C production install verification package",
+      "kind": "file",
+      "path": "deploy/self-hosted/install-verification.stage6c.json",
+      "required": true
+    },
+    {
+      "key": "stage5z_external_adapter_handoff",
+      "label": "Stage 5Z external adapter production handoff",
+      "kind": "file",
+      "path": "deploy/self-hosted/integrations/adapter-handoff-manifest.stage5z.example.json",
+      "required": true
+    },
+    {
+      "key": "project_memory_black_box",
+      "label": "Project-memory handoff snapshot",
+      "kind": "file",
+      "path": "docs/project-memory/HANDOFF.md",
+      "required": true
+    },
+    {
+      "key": "preflight_all_orchestrator",
+      "label": "Deterministic preflight-all orchestrator",
+      "kind": "file",
+      "path": "scripts/preflight-all.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_workflow",
+      "label": "Backend guardrails workflow",
+      "kind": "file",
+      "path": ".github/workflows/backend-guardrails.yml",
+      "required": true
+    }
+  ],
+  "decisionRecordSections": [
+    {
+      "key": "decision_scope",
+      "label": "Decision scope and accepted release baseline",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "operator_decision_reference",
+      "label": "External operator decision reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "evidence_reference",
+      "label": "External evidence bundle reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "go_no_go_conditions",
+      "label": "Go/no-go conditions and stop criteria",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "rollback_authority",
+      "label": "Rollback authority and escalation reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "support_window",
+      "label": "Operator support window",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "observation_window",
+      "label": "Post-decision observation window",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "post_decision_actions",
+      "label": "Post-decision actions and release note updates",
+      "required": true,
+      "storeOutsideGit": false
+    }
+  ],
+  "externalDecisionFields": [
+    {
+      "key": "decision_record_id",
+      "label": "External decision record identifier",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "decision_timestamp_utc",
+      "label": "Decision timestamp in UTC",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "decision_outcome",
+      "label": "Final decision outcome",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "operator_approver_reference",
+      "label": "Operator approver reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "approval_channel_reference",
+      "label": "Approval channel reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "evidence_bundle_reference",
+      "label": "External evidence bundle reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "rollback_owner_reference",
+      "label": "Rollback owner reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "observation_owner_reference",
+      "label": "Post-decision observation owner reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    }
+  ],
+  "decisionGates": [
+    {
+      "key": "stage6e_ready",
+      "label": "Stage 6E handoff package is ready",
+      "command": "npm run preflight:stage6e",
+      "required": true
+    },
+    {
+      "key": "stage6e_report",
+      "label": "Generate Stage 6E handoff report",
+      "command": "npm run handoff:stage6e:report",
+      "required": true
+    },
+    {
+      "key": "preflight_all_dry_run",
+      "label": "Review deterministic preflight plan",
+      "command": "npm run preflight:all -- --dry-run",
+      "required": true
+    },
+    {
+      "key": "no_deno_lock",
+      "label": "Confirm no deno.lock files",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_green",
+      "label": "Backend guardrails workflow is green on target ref",
+      "command": "GitHub Actions backend-guardrails",
+      "required": true
+    },
+    {
+      "key": "operator_final_decision_external",
+      "label": "Record final operator decision outside git",
+      "command": "manual external decision record",
+      "required": true
+    },
+    {
+      "key": "rollback_authority_external",
+      "label": "Record rollback authority outside git",
+      "command": "manual external rollback authority record",
+      "required": true
+    },
+    {
+      "key": "observation_window_external",
+      "label": "Record observation window outside git",
+      "command": "manual external observation window record",
+      "required": true
+    }
+  ],
+  "decisionPolicy": {
+    "repositoryContainsLiveSecrets": false,
+    "repositoryContainsPatientData": false,
+    "repositoryContainsRawLiveEvidence": false,
+    "repositoryContainsFinalApproval": false,
+    "finalDecisionStoredOutsideGit": true,
+    "liveEvidenceStoredOutsideGit": true,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false
+  },
+  "safetyAssertions": {
+    "selfHostedRuntimeOnly": true,
+    "operatorOwnedDatabase": true,
+    "operatorOwnedObjectStorage": true,
+    "productionModeHasNoDemoFallback": true,
+    "finalDecisionIsExternal": true,
+    "noFinalApprovalInGit": true,
+    "noLiveEvidenceInGit": true,
+    "noPatientDataInGit": true,
+    "noSecretsInGit": true
+  }
+}
