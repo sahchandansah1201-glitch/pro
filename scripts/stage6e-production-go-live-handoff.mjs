@@ -24,6 +24,7 @@ const DEFAULT_MANIFEST = "deploy/self-hosted/go-live-handoff.stage6e.json";
 const DEFAULT_SUMMARY_PATH = "test-results/stage6e-production-go-live-handoff.md";
 const DEFAULT_JSON_PATH = "test-results/stage6e-production-go-live-handoff.json";
 const DEFAULT_NOW = "2026-05-15T13:00:00.000Z";
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const REQUIRED_INPUT_KEYS = [
   "stage6d_live_install_evidence_receipt",
@@ -105,7 +106,7 @@ function cleanString(value) {
 }
 
 function readJsonFile(path) {
-  const absolutePath = resolve(path);
+  const absolutePath = resolve(REPO_ROOT, path);
   if (!existsSync(absolutePath)) throw new Error(`File not found: ${path}`);
   try {
     return JSON.parse(readFileSync(absolutePath, "utf8"));
@@ -395,7 +396,7 @@ export function detectGoLiveHandoffLeaks(text) {
 
 export function buildProductionGoLiveHandoff({
   manifest,
-  root = process.cwd(),
+  root = REPO_ROOT,
   generatedAt,
 } = {}) {
   const normalized = validateGoLiveHandoffManifest(manifest);
@@ -570,7 +571,7 @@ export function runStage6EProductionGoLiveHandoff({
   jsonOut = DEFAULT_JSON_PATH,
   generatedAt = DEFAULT_NOW,
   dryRun = false,
-  root = process.cwd(),
+  root = REPO_ROOT,
 } = {}) {
   const report = buildProductionGoLiveHandoff({
     manifest: readGoLiveHandoffManifest(manifestPath),

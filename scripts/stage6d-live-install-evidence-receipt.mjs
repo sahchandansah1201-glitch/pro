@@ -25,6 +25,7 @@ const DEFAULT_MANIFEST = "deploy/self-hosted/live-install-evidence.stage6d.json"
 const DEFAULT_SUMMARY_PATH = "test-results/stage6d-live-install-evidence-receipt.md";
 const DEFAULT_JSON_PATH = "test-results/stage6d-live-install-evidence-receipt.json";
 const DEFAULT_NOW = "2026-05-15T12:30:00.000Z";
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const REQUIRED_INPUT_KEYS = [
   "stage6c_install_verification_package",
@@ -104,7 +105,7 @@ function cleanString(value) {
 }
 
 function readJsonFile(path) {
-  const absolutePath = resolve(path);
+  const absolutePath = resolve(REPO_ROOT, path);
   if (!existsSync(absolutePath)) throw new Error(`File not found: ${path}`);
   try {
     return JSON.parse(readFileSync(absolutePath, "utf8"));
@@ -399,7 +400,7 @@ export function detectLiveInstallEvidenceLeaks(text) {
 
 export function buildLiveInstallEvidenceReceipt({
   manifest,
-  root = process.cwd(),
+  root = REPO_ROOT,
   generatedAt,
 } = {}) {
   const normalized = validateLiveInstallEvidenceManifest(manifest);
@@ -602,7 +603,7 @@ export function parseStage6DArgs(argv = []) {
 }
 
 export function runStage6DLiveInstallEvidenceReceipt({
-  root = process.cwd(),
+  root = REPO_ROOT,
   manifestPath = DEFAULT_MANIFEST,
   summaryPath = DEFAULT_SUMMARY_PATH,
   jsonOut = DEFAULT_JSON_PATH,
@@ -626,7 +627,7 @@ export function main(argv = process.argv.slice(2)) {
   try {
     const args = parseStage6DArgs(argv);
     const result = runStage6DLiveInstallEvidenceReceipt({
-      root: process.cwd(),
+      root: REPO_ROOT,
       manifestPath: args.manifest,
       summaryPath: args.summaryPath || (args.dryRun ? null : DEFAULT_SUMMARY_PATH),
       jsonOut: args.jsonOut || (args.dryRun ? null : DEFAULT_JSON_PATH),
