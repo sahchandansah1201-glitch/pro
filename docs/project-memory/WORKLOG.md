@@ -2,6 +2,12 @@
 
 ## 2026-05-18
 
+- Создан Stage 6G production post-go-live observation: manifest, generator,
+  guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
+- Подтверждено локально: `npm run test:stage6g`,
+  `npm run check:stage6g`, `npm run observation:stage6g:report`.
+- Updated project-memory so Stage 6G is confirmed in the current branch and
+  Stage 6H remains an explicit hypothesis until repository files define it.
 - Создан Stage 6F production go-live decision record: manifest, generator,
   guard, tests, docs, workflow, npm scripts and `preflight-all` wiring.
 - Подтверждено локально: `npm run preflight:stage6f`,
