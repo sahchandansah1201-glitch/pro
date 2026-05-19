@@ -2,6 +2,13 @@
 
 ## 2026-05-19
 
+- Создан Stage 6S production release archive retention cycle closure:
+  manifest, generator, guard, tests, docs, workflow, npm scripts and
+  `preflight-all` wiring.
+- Подтверждено локально: `npm run test:stage6s`,
+  `npm run check:stage6s`, `npm run closure:stage6s:report`.
+- Updated project-memory so Stage 6S is confirmed in the current branch and
+  Stage 6T remains an explicit hypothesis until repository files define it.
 - Hardened Stage 6R readiness after Lovable reported a sandbox mismatch:
   Stage 6R now evaluates Stage 6Q with the Stage 6Q manifest timestamp, and
   Stage 6Q/6P/6O evaluate their previous stage with that previous stage's own

@@ -2,35 +2,38 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 6R is being prepared on
+This handoff captures the repository state while Stage 6S is being prepared on
 the current development branch.
 
 ## Confirmed state
 
 1. Repository work is currently on
-   `codex/stage6r-release-archive-retention-cycle-index-receipt`.
-2. Latest committed base before this Stage 6R branch is:
-   - `60ae711 Document Lovable sync handoff rule`
-3. Stage 6A-6R artifacts, docs, scripts, guards, and workflows are present in
+   `codex/stage6s-release-archive-retention-cycle-closure`.
+2. Latest committed base before this Stage 6S branch is:
+   - `53a4865 Harden Stage 6R receipt readiness`
+3. Stage 6A-6S artifacts, docs, scripts, guards, and workflows are present in
    the working tree:
    - Manifests in `deploy/self-hosted/*.stage6*.json`
    - Docs in `docs/backend/stage-6*.md`
    - Workflows in `.github/workflows/stage6*.yml`
    - Scripts in `scripts/stage6*.mjs` and `scripts/check-stage6*.mjs`
-4. Fresh local verification for Stage 6R:
-   - `npm run test:stage6r` -> pass
-   - `npm run check:stage6r` -> pass (`7 files checked`)
-   - `npm run receipt:stage6r:report` -> pass
-   - Stage 6R report renders in dry-run mode with zero leak findings
+4. Fresh local verification for Stage 6S:
+   - `npm run test:stage6s` -> pass
+   - `npm run check:stage6s` -> pass (`7 files checked`)
+   - `npm run closure:stage6s:report` -> pass
+   - Stage 6S report renders in dry-run mode with zero leak findings
 
 ## Important operational fact
 
-Stage 6R report output explicitly states:
+Stage 6S report output explicitly states:
 
 - `Status: ready`
-- `Ready for external release archive retention cycle index receipt: true`
-- `Stage 6Q retention cycle index status: ready`
-- `Ready for external retention cycle index: true`
+- `Ready for external release archive retention cycle closure: true`
+- `Stage 6R retention cycle index receipt status: ready`
+- `Stage 6R retention cycle index receipt generated at: 2026-05-19T13:30:00.000Z`
+- `Stage 6R missing required inputs: 0`
+- `Stage 6R leak findings: 0`
+- `Release archive retention cycle closure stored in git: true`
 - `Release archive retention cycle index receipt stored in git: true`
 - `Release archive retention cycle index stored in git: true`
 - `Release archive retention register receipt stored in git: true`
@@ -49,6 +52,7 @@ Stage 6R report output explicitly states:
 - `External archive retention register receipt stored outside git: true`
 - `External archive retention cycle records stored outside git: true`
 - `External archive retention cycle index receipt stored outside git: true`
+- `External archive retention cycle closure records stored outside git: true`
 - `Archive receipt outcome known to repository: false`
 - `Archive reconciliation outcome known to repository: false`
 - `Archive final closure outcome known to repository: false`
@@ -57,23 +61,21 @@ Stage 6R report output explicitly states:
 - `Archive retention register receipt outcome known to repository: false`
 - `Archive retention cycle outcome known to repository: false`
 - `Archive retention cycle index receipt outcome known to repository: false`
+- `Archive retention cycle closure outcome known to repository: false`
 - `Go-live approved by this report: false`
 - `Live server go-live verified by this report: false`
 - `Live archive verified by this report: false`
 
-Interpretation: Stage 6R creates a deterministic, redacted retention cycle
-index receipt package on top of Stage 6Q. It still does not approve go-live, does
-not prove that a live production server was observed or archived, and does not
-store live logs, metrics, patient data, backup contents, external archive
-contents, external receipt values, external reconciliation values, final
-  closure values, final closure receipt values, retention receipt values,
-  retention schedules, retention cycle values, retention cycle receipt values,
-  disposal holds, exception registers, retention review evidence, or archive
-  outcomes in git.
+Interpretation: Stage 6S creates a deterministic, redacted retention cycle
+closure package on top of Stage 6R. It still does not approve go-live, does not
+prove that a live production server was observed or archived, and does not store
+live logs, metrics, patient data, backup contents, archive contents, retention
+cycle closure values, retention review evidence, disposal holds, exception
+registers, credentials, object keys, or archive outcomes in git.
 
 ## Hypothesis
 
-- `Stage 6S` is likely next, but its scope is not confirmed by repository
+- `Stage 6T` is likely next, but its scope is not confirmed by repository
   files yet.
 
 ## Lovable sync rule
@@ -86,10 +88,11 @@ the stage files, then send the Lovable sync prompt.
 
 ## Immediate continuation recommendation
 
-1. Send the Stage 6R Lovable sync prompt only after merging the Stage 6R PR and
-   confirming local `main` contains Stage 6R files.
-2. After Stage 6R is confirmed in Lovable, define Stage 6S scope
-   from repository facts.
+1. Send the Stage 6S Lovable sync prompt only after merging the Stage 6S PR and
+   confirming local `main` contains Stage 6S files.
+2. After Stage 6S is confirmed in Lovable, define Stage 6T scope from
+   repository facts.
 3. Keep final go-live approval, raw live evidence, live logs, live metrics,
-   patient data, credentials, object keys, backup contents, external archive
-   contents, and final archive outcomes outside git.
+   patient data, credentials, object keys, backup contents, archive contents,
+   external archive values, retention values, retention closure values, and
+   final archive outcomes outside git.
