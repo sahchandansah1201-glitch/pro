@@ -1,0 +1,66 @@
+name: stage6m-production-release-archive-final-closure
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-final-closure.stage6m.json"
+      - "scripts/stage6m-production-release-archive-final-closure.mjs"
+      - "scripts/stage6m-production-release-archive-final-closure.test.mjs"
+      - "scripts/check-stage6m-production-release-archive-final-closure.mjs"
+      - "scripts/check-stage6m-production-release-archive-final-closure.test.mjs"
+      - "docs/backend/stage-6m-production-release-archive-final-closure.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6m-production-release-archive-final-closure.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-final-closure.stage6m.json"
+      - "scripts/stage6m-production-release-archive-final-closure.mjs"
+      - "scripts/stage6m-production-release-archive-final-closure.test.mjs"
+      - "scripts/check-stage6m-production-release-archive-final-closure.mjs"
+      - "scripts/check-stage6m-production-release-archive-final-closure.test.mjs"
+      - "docs/backend/stage-6m-production-release-archive-final-closure.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6m-production-release-archive-final-closure.yml"
+
+jobs:
+  stage6m:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6M production release archive final closure preflight
+        run: npm run preflight:stage6m
+
+      - name: Build Stage 6M production release archive final closure report
+        run: npm run closure:stage6m:report
+
+      - name: Upload Stage 6M production release archive final closure
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6m-production-release-archive-final-closure
+          path: |
+            test-results/stage6m-production-release-archive-final-closure.md
+            test-results/stage6m-production-release-archive-final-closure.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6M production release archive final closure"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6m-production-release-archive-final-closure.md"
+            echo "- Boundary: offline redacted archive final closure schema, final receipt outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
