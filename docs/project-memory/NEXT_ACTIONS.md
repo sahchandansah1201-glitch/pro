@@ -2,17 +2,18 @@
 
 ## Current decision
 
-Stage 6Q is implemented in the current branch and verified with its focused
-test, guard, report, and preflight commands. Do not infer Stage 6R scope from
-chat memory alone.
+Stage 6Q is merged into `main` and verified with its focused test, guard,
+report, and preflight commands. Do not infer Stage 6R scope from chat memory
+alone.
 
 ## Highest-confidence next step
 
-1. **Complete Stage 6Q PR lifecycle**:
-   - Push the branch.
-   - Create the Pull request.
-   - Run/inspect checks.
-   - Send the Lovable sync prompt after the PR is visible or merged.
+1. **Complete Stage 6Q Lovable sync**:
+   - Confirm Lovable HEAD is at or after `1af3cd3`.
+   - Confirm Stage 6Q files exist in Lovable.
+   - Run or inspect `npm run preflight:stage6q` in the Lovable sandbox.
+   - Treat "open PR only" as not synced unless Lovable branch switching is
+     explicitly enabled.
 2. **Define Stage 6R scaffold (hypothesis)**:
    - Justification: Stage 6A-6Q are present in repo evidence after this branch,
      while no Stage 6R docs/scripts/workflows/package scripts have been
@@ -47,3 +48,9 @@ chat memory alone.
    final approval, final archive outcome, archive contents, archive receipt
    values, reconciliation values, final closure values, final closure receipt
    values, or live-server proof to git.
+
+## Operator workflow rule
+
+For future stages, do not hand off a Lovable sync prompt immediately after PR
+creation. The prompt is only valid after the PR is merged into `main` and local
+`main` is verified to contain the new stage artifacts.
