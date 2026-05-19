@@ -1,0 +1,66 @@
+name: stage6n-production-release-archive-final-closure-receipt
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-final-closure-receipt.stage6n.json"
+      - "scripts/stage6n-production-release-archive-final-closure-receipt.mjs"
+      - "scripts/stage6n-production-release-archive-final-closure-receipt.test.mjs"
+      - "scripts/check-stage6n-production-release-archive-final-closure-receipt.mjs"
+      - "scripts/check-stage6n-production-release-archive-final-closure-receipt.test.mjs"
+      - "docs/backend/stage-6n-production-release-archive-final-closure-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6n-production-release-archive-final-closure-receipt.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-final-closure-receipt.stage6n.json"
+      - "scripts/stage6n-production-release-archive-final-closure-receipt.mjs"
+      - "scripts/stage6n-production-release-archive-final-closure-receipt.test.mjs"
+      - "scripts/check-stage6n-production-release-archive-final-closure-receipt.mjs"
+      - "scripts/check-stage6n-production-release-archive-final-closure-receipt.test.mjs"
+      - "docs/backend/stage-6n-production-release-archive-final-closure-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6n-production-release-archive-final-closure-receipt.yml"
+
+jobs:
+  stage6n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6N production release archive final closure receipt preflight
+        run: npm run preflight:stage6n
+
+      - name: Build Stage 6N production release archive final closure receipt report
+        run: npm run closure:stage6n:report
+
+      - name: Upload Stage 6N production release archive final closure receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6n-production-release-archive-final-closure-receipt
+          path: |
+            test-results/stage6n-production-release-archive-final-closure-receipt.md
+            test-results/stage6n-production-release-archive-final-closure-receipt.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6N production release archive final closure receipt"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6n-production-release-archive-final-closure-receipt.md"
+            echo "- Boundary: offline redacted archive final closure receipt schema, final receipt outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
