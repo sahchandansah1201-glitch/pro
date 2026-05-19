@@ -2,15 +2,14 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 6Q is being prepared on
-the current development branch.
+This handoff captures the repository state after Stage 6Q was merged into
+`main`.
 
 ## Confirmed state
 
-1. Repository work is currently on
-   `codex/stage6q-release-archive-retention-cycle-index`.
-2. Latest committed base before this Stage 6Q branch is:
-   - `ab64c30 Add Stage 6P release archive retention receipt`
+1. Repository work is currently on `main`.
+2. Latest confirmed Stage 6Q merge commit is:
+   - `1af3cd3 Add Stage 6Q release archive retention cycle index`
 3. Stage 6A-6Q artifacts, docs, scripts, guards, and workflows are present in
    the working tree:
    - Manifests in `deploy/self-hosted/*.stage6*.json`
@@ -72,10 +71,19 @@ contents, external receipt values, external reconciliation values, final
 - `Stage 6R` is likely next, but its scope is not confirmed by repository
   files yet.
 
+## Lovable sync rule
+
+Lovable sync checks must run against `main` unless GitHub Branch Switching is
+explicitly enabled for the project. Do not send a Lovable sync prompt for a new
+stage while its Pull request is only open or ready for review. Required order:
+create PR, wait for checks, merge PR into `main`, verify local `main` contains
+the stage files, then send the Lovable sync prompt.
+
 ## Immediate continuation recommendation
 
-1. Finish PR review/sync for Stage 6Q first.
-2. After Stage 6Q is merged and Lovable confirms sync, define Stage 6R scope
+1. Send the Stage 6Q Lovable sync prompt only after confirming `main` is at or
+   after `1af3cd3`.
+2. After Stage 6Q is confirmed in Lovable, define Stage 6R scope
    from repository facts.
 3. Keep final go-live approval, raw live evidence, live logs, live metrics,
    patient data, credentials, object keys, backup contents, external archive

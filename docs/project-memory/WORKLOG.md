@@ -9,6 +9,10 @@
   `npm run check:stage6q`, `npm run cycle:stage6q:report`.
 - Updated project-memory so Stage 6Q is confirmed in the current branch and
   Stage 6R remains an explicit hypothesis until repository files define it.
+- PR #151 was merged into `main` after the first Lovable sync prompt was sent
+  too early. Root cause: Lovable sync tracks `main`, not an open PR branch.
+  Project-memory now records the rule: send Lovable sync prompts only after
+  merge to `main` and local `main` verification.
 - Создан Stage 6P production release archive retention register receipt:
   manifest, generator, guard, tests, docs, workflow, npm scripts and
   `preflight-all` wiring.

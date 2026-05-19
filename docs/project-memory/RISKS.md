@@ -42,6 +42,14 @@
    - Evidence: user reported previous compaction interruption.
    - Impact: chat history may have gaps; repository remains the source of truth.
 
+4. **Lovable sync prompt can be sent before merge**
+   - Evidence: Stage 6Q PR #151 was opened and checked successfully, but the
+     first Lovable sync check still saw Stage 6P because PR #151 was not yet
+     merged into `main`.
+   - Impact: Lovable can correctly report "missing stage" even when a PR exists
+     and is green, because the project sync follows `main` unless branch
+     switching is explicitly enabled.
+
 ## Hypotheses
 
 1. **Next stage ambiguity**
@@ -60,3 +68,5 @@
    closure/final closure receipt outcomes outside git, referenced only by
    deterministic redacted receipt/handoff/decision-record/observation/closure/
    archive/reconciliation/retention/retention receipt/retention cycle fields.
+4. For future stages, merge the checked PR into `main` before sending the
+   Lovable sync prompt; then verify local `main` contains the stage artifacts.
