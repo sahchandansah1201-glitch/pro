@@ -1,0 +1,66 @@
+name: stage6q-production-release-archive-retention-cycle-index
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-index.stage6q.json"
+      - "scripts/stage6q-production-release-archive-retention-cycle-index.mjs"
+      - "scripts/stage6q-production-release-archive-retention-cycle-index.test.mjs"
+      - "scripts/check-stage6q-production-release-archive-retention-cycle-index.mjs"
+      - "scripts/check-stage6q-production-release-archive-retention-cycle-index.test.mjs"
+      - "docs/backend/stage-6q-production-release-archive-retention-cycle-index.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6q-production-release-archive-retention-cycle-index.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-index.stage6q.json"
+      - "scripts/stage6q-production-release-archive-retention-cycle-index.mjs"
+      - "scripts/stage6q-production-release-archive-retention-cycle-index.test.mjs"
+      - "scripts/check-stage6q-production-release-archive-retention-cycle-index.mjs"
+      - "scripts/check-stage6q-production-release-archive-retention-cycle-index.test.mjs"
+      - "docs/backend/stage-6q-production-release-archive-retention-cycle-index.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6q-production-release-archive-retention-cycle-index.yml"
+
+jobs:
+  stage6q:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6Q production release archive retention cycle index preflight
+        run: npm run preflight:stage6q
+
+      - name: Build Stage 6Q production release archive retention cycle index report
+        run: npm run cycle:stage6q:report
+
+      - name: Upload Stage 6Q production release archive retention cycle index
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6q-production-release-archive-retention-cycle-index
+          path: |
+            test-results/stage6q-production-release-archive-retention-cycle-index.md
+            test-results/stage6q-production-release-archive-retention-cycle-index.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6Q production release archive retention cycle index"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6q-production-release-archive-retention-cycle-index.md"
+            echo "- Boundary: offline redacted archive retention cycle index schema, final cycle outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"

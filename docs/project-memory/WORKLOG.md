@@ -2,6 +2,13 @@
 
 ## 2026-05-19
 
+- Создан Stage 6Q production release archive retention cycle index:
+  manifest, generator, guard, tests, docs, workflow, npm scripts and
+  `preflight-all` wiring.
+- Подтверждено локально: `npm run test:stage6q`,
+  `npm run check:stage6q`, `npm run cycle:stage6q:report`.
+- Updated project-memory so Stage 6Q is confirmed in the current branch and
+  Stage 6R remains an explicit hypothesis until repository files define it.
 - Создан Stage 6P production release archive retention register receipt:
   manifest, generator, guard, tests, docs, workflow, npm scripts and
   `preflight-all` wiring.

@@ -31,6 +31,7 @@ function makeRoot() {
     "deploy/self-hosted/release-archive-final-closure-receipt.stage6n.json",
     "deploy/self-hosted/release-archive-retention-register.stage6o.json",
     "deploy/self-hosted/release-archive-retention-register-receipt.stage6p.json",
+    "deploy/self-hosted/release-archive-retention-cycle-index.stage6q.json",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
@@ -47,6 +48,7 @@ function makeRoot() {
     "docs/backend/stage-6n-production-release-archive-final-closure-receipt.md",
     "docs/backend/stage-6o-production-release-archive-retention-register.md",
     "docs/backend/stage-6p-production-release-archive-retention-register-receipt.md",
+    "docs/backend/stage-6q-production-release-archive-retention-cycle-index.md",
     ".github/workflows/stage6a-production-acceptance-baseline.yml",
     ".github/workflows/stage6b-server-install-package.yml",
     ".github/workflows/stage6c-production-install-verification.yml",
@@ -63,6 +65,7 @@ function makeRoot() {
     ".github/workflows/stage6n-production-release-archive-final-closure-receipt.yml",
     ".github/workflows/stage6o-production-release-archive-retention-register.yml",
     ".github/workflows/stage6p-production-release-archive-retention-register-receipt.yml",
+    ".github/workflows/stage6q-production-release-archive-retention-cycle-index.yml",
   ]) {
     writeFileSync(join(root, file), "ok\n");
   }
@@ -203,6 +206,16 @@ verification:
       stage6p_report_status: "ready"
       archive_retention_register_receipt_outcome_known_to_repository: false
       live_server_go_live_verified_by_report: false
+  stage6q_preflight:
+    command: "npm run preflight:stage6q"
+    status: "ok"
+    key_facts:
+      tests_passed: 13
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6q_report_status: "ready"
+      archive_retention_cycle_outcome_known_to_repository: false
+      live_server_go_live_verified_by_report: false
 stage_evidence:
   latest_commits:
     - "ca00a2e Harden Stage 6 handoff path resolution"
@@ -226,7 +239,7 @@ stage_evidence:
     - ".github/workflows/stage6n-production-release-archive-final-closure-receipt.yml"
     - ".github/workflows/stage6o-production-release-archive-retention-register.yml"
 hypotheses:
-    - "Next logical stage after Stage 6P is Stage 6Q."
+    - "Next logical stage after Stage 6Q is Stage 6R."
 sources:
   commands:
     - "git status -sb"
@@ -247,11 +260,12 @@ sources:
     - "deploy/self-hosted/release-archive-final-closure-receipt.stage6n.json"
     - "deploy/self-hosted/release-archive-retention-register.stage6o.json"
     - "deploy/self-hosted/release-archive-retention-register-receipt.stage6p.json"
+    - "deploy/self-hosted/release-archive-retention-cycle-index.stage6q.json"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6P confirmed.\n\n## Hypothesis\n\nStage 6Q is likely next.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6Q confirmed.\n\n## Hypothesis\n\nStage 6R is likely next.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6Q scaffold (hypothesis).\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6Q is next.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6R scaffold (hypothesis).\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6R is next.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
@@ -302,9 +316,9 @@ test("project memory guard rejects missing required files", () => {
   assert.match(result.errors.join("\n"), /RISKS\.md/);
 });
 
-test("project memory guard requires Stage 6Q uncertainty to be marked as hypothesis", () => {
+test("project memory guard requires Stage 6R uncertainty to be marked as hypothesis", () => {
   const root = makeRoot();
-  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6Q is next.\n" });
+  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6R is next.\n" });
   const result = collectProjectMemoryChecks({ root });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /without marking it as a hypothesis/);
