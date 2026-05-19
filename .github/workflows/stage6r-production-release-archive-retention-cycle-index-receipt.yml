@@ -1,0 +1,66 @@
+name: stage6r-production-release-archive-retention-cycle-index-receipt
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-index-receipt.stage6r.json"
+      - "scripts/stage6r-production-release-archive-retention-cycle-index-receipt.mjs"
+      - "scripts/stage6r-production-release-archive-retention-cycle-index-receipt.test.mjs"
+      - "scripts/check-stage6r-production-release-archive-retention-cycle-index-receipt.mjs"
+      - "scripts/check-stage6r-production-release-archive-retention-cycle-index-receipt.test.mjs"
+      - "docs/backend/stage-6r-production-release-archive-retention-cycle-index-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6r-production-release-archive-retention-cycle-index-receipt.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-index-receipt.stage6r.json"
+      - "scripts/stage6r-production-release-archive-retention-cycle-index-receipt.mjs"
+      - "scripts/stage6r-production-release-archive-retention-cycle-index-receipt.test.mjs"
+      - "scripts/check-stage6r-production-release-archive-retention-cycle-index-receipt.mjs"
+      - "scripts/check-stage6r-production-release-archive-retention-cycle-index-receipt.test.mjs"
+      - "docs/backend/stage-6r-production-release-archive-retention-cycle-index-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6r-production-release-archive-retention-cycle-index-receipt.yml"
+
+jobs:
+  stage6r:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6R production release archive retention cycle index receipt preflight
+        run: npm run preflight:stage6r
+
+      - name: Build Stage 6R production release archive retention cycle index receipt report
+        run: npm run receipt:stage6r:report
+
+      - name: Upload Stage 6R production release archive retention cycle index receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6r-production-release-archive-retention-cycle-index-receipt
+          path: |
+            test-results/stage6r-production-release-archive-retention-cycle-index-receipt.md
+            test-results/stage6r-production-release-archive-retention-cycle-index-receipt.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6R production release archive retention cycle index receipt"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6r-production-release-archive-retention-cycle-index-receipt.md"
+            echo "- Boundary: offline redacted archive retention cycle index receipt schema, final receipt outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
