@@ -1,0 +1,66 @@
+name: stage6s-production-release-archive-retention-cycle-closure
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-closure.stage6s.json"
+      - "scripts/stage6s-production-release-archive-retention-cycle-closure.mjs"
+      - "scripts/stage6s-production-release-archive-retention-cycle-closure.test.mjs"
+      - "scripts/check-stage6s-production-release-archive-retention-cycle-closure.mjs"
+      - "scripts/check-stage6s-production-release-archive-retention-cycle-closure.test.mjs"
+      - "docs/backend/stage-6s-production-release-archive-retention-cycle-closure.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6s-production-release-archive-retention-cycle-closure.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-closure.stage6s.json"
+      - "scripts/stage6s-production-release-archive-retention-cycle-closure.mjs"
+      - "scripts/stage6s-production-release-archive-retention-cycle-closure.test.mjs"
+      - "scripts/check-stage6s-production-release-archive-retention-cycle-closure.mjs"
+      - "scripts/check-stage6s-production-release-archive-retention-cycle-closure.test.mjs"
+      - "docs/backend/stage-6s-production-release-archive-retention-cycle-closure.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6s-production-release-archive-retention-cycle-closure.yml"
+
+jobs:
+  stage6s:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6S production release archive retention cycle closure preflight
+        run: npm run preflight:stage6s
+
+      - name: Build Stage 6S production release archive retention cycle closure report
+        run: npm run closure:stage6s:report
+
+      - name: Upload Stage 6S production release archive retention cycle closure
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6s-production-release-archive-retention-cycle-closure
+          path: |
+            test-results/stage6s-production-release-archive-retention-cycle-closure.md
+            test-results/stage6s-production-release-archive-retention-cycle-closure.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6S production release archive retention cycle closure"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6s-production-release-archive-retention-cycle-closure.md"
+            echo "- Boundary: offline redacted archive retention cycle closure schema, final receipt outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"

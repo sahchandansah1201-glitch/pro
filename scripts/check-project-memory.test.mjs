@@ -33,6 +33,7 @@ function makeRoot() {
     "deploy/self-hosted/release-archive-retention-register-receipt.stage6p.json",
     "deploy/self-hosted/release-archive-retention-cycle-index.stage6q.json",
     "deploy/self-hosted/release-archive-retention-cycle-index-receipt.stage6r.json",
+    "deploy/self-hosted/release-archive-retention-cycle-closure.stage6s.json",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
@@ -51,6 +52,7 @@ function makeRoot() {
     "docs/backend/stage-6p-production-release-archive-retention-register-receipt.md",
     "docs/backend/stage-6q-production-release-archive-retention-cycle-index.md",
     "docs/backend/stage-6r-production-release-archive-retention-cycle-index-receipt.md",
+    "docs/backend/stage-6s-production-release-archive-retention-cycle-closure.md",
     ".github/workflows/stage6a-production-acceptance-baseline.yml",
     ".github/workflows/stage6b-server-install-package.yml",
     ".github/workflows/stage6c-production-install-verification.yml",
@@ -69,6 +71,7 @@ function makeRoot() {
     ".github/workflows/stage6p-production-release-archive-retention-register-receipt.yml",
     ".github/workflows/stage6q-production-release-archive-retention-cycle-index.yml",
     ".github/workflows/stage6r-production-release-archive-retention-cycle-index-receipt.yml",
+    ".github/workflows/stage6s-production-release-archive-retention-cycle-closure.yml",
   ]) {
     writeFileSync(join(root, file), "ok\n");
   }
@@ -229,6 +232,16 @@ verification:
       stage6r_report_status: "ready"
       archive_retention_cycle_index_receipt_outcome_known_to_repository: false
       live_server_go_live_verified_by_report: false
+  stage6s_preflight:
+    command: "npm run preflight:stage6s"
+    status: "ok"
+    key_facts:
+      tests_passed: 13
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6s_report_status: "ready"
+      archive_retention_cycle_closure_outcome_known_to_repository: false
+      live_server_go_live_verified_by_report: false
 stage_evidence:
   latest_commits:
     - "ca00a2e Harden Stage 6 handoff path resolution"
@@ -243,6 +256,7 @@ stage_evidence:
     - "docs/backend/stage-6n-production-release-archive-final-closure-receipt.md"
     - "docs/backend/stage-6o-production-release-archive-retention-register.md"
     - "docs/backend/stage-6r-production-release-archive-retention-cycle-index-receipt.md"
+    - "docs/backend/stage-6s-production-release-archive-retention-cycle-closure.md"
   workflows_present:
     - ".github/workflows/stage6e-production-go-live-handoff.yml"
     - ".github/workflows/stage6i-production-release-archive-index.yml"
@@ -253,8 +267,9 @@ stage_evidence:
     - ".github/workflows/stage6n-production-release-archive-final-closure-receipt.yml"
     - ".github/workflows/stage6o-production-release-archive-retention-register.yml"
     - ".github/workflows/stage6r-production-release-archive-retention-cycle-index-receipt.yml"
+    - ".github/workflows/stage6s-production-release-archive-retention-cycle-closure.yml"
 hypotheses:
-    - "Next logical stage after Stage 6R is Stage 6S."
+    - "Next logical stage after Stage 6S is Stage 6T."
 sources:
   commands:
     - "git status -sb"
@@ -277,11 +292,12 @@ sources:
     - "deploy/self-hosted/release-archive-retention-register-receipt.stage6p.json"
     - "deploy/self-hosted/release-archive-retention-cycle-index.stage6q.json"
     - "deploy/self-hosted/release-archive-retention-cycle-index-receipt.stage6r.json"
+    - "deploy/self-hosted/release-archive-retention-cycle-closure.stage6s.json"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6R confirmed.\n\n## Hypothesis\n\nStage 6S is likely next.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 6S confirmed.\n\n## Hypothesis\n\nStage 6T is likely next.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6S scaffold (hypothesis).\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6S is next.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 6T scaffold (hypothesis).\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external.\n\n## Hypotheses\n\nStage 6T is next.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
@@ -332,9 +348,9 @@ test("project memory guard rejects missing required files", () => {
   assert.match(result.errors.join("\n"), /RISKS\.md/);
 });
 
-test("project memory guard requires Stage 6S uncertainty to be marked as hypothesis", () => {
+test("project memory guard requires Stage 6T uncertainty to be marked as hypothesis", () => {
   const root = makeRoot();
-  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6S is next.\n" });
+  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 6T is next.\n" });
   const result = collectProjectMemoryChecks({ root });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /without marking it as a hypothesis/);
