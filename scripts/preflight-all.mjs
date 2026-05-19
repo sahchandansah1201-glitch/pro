@@ -82,6 +82,7 @@ const DEFAULT_STEPS = [
   ["Stage 6K production release archive reconciliation preflight", npmCmd, ["run", "preflight:stage6k"]],
   ["Stage 6L production release archive reconciliation receipt preflight", npmCmd, ["run", "preflight:stage6l"]],
   ["Stage 6M production release archive final closure preflight", npmCmd, ["run", "preflight:stage6m"]],
+  ["Stage 6N production release archive final closure receipt preflight", npmCmd, ["run", "preflight:stage6n"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],
