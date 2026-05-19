@@ -1,0 +1,263 @@
+{
+  "stage": "6O",
+  "packageId": "stage6o-production-release-archive-retention-register",
+  "generatedAt": "2026-05-19T12:00:00.000Z",
+  "releaseArchiveFinalClosureReceiptManifest": "deploy/self-hosted/release-archive-final-closure-receipt.stage6n.json",
+  "productBoundary": {
+    "deployment": "operator-owned self-hosted production release archive retention register package",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "releaseArchiveRetentionRegisterBundledInRepository": true,
+    "releaseArchiveFinalClosureReceiptBundledInRepository": true,
+    "releaseArchiveFinalClosureBundledInRepository": true,
+    "releaseArchiveReconciliationReceiptBundledInRepository": true,
+    "releaseArchiveReconciliationBundledInRepository": true,
+    "archiveHandoffReceiptBundledInRepository": true,
+    "releaseArchiveContentsStoredOutsideGit": true,
+    "externalArchiveReceiptStoredOutsideGit": true,
+    "externalArchiveReconciliationStoredOutsideGit": true,
+    "externalArchiveReconciliationReceiptStoredOutsideGit": true,
+    "externalArchiveFinalClosureStoredOutsideGit": true,
+    "externalArchiveFinalClosureReceiptStoredOutsideGit": true,
+    "externalArchiveRetentionRecordsStoredOutsideGit": true,
+    "archiveReceiptOutcomeKnownToRepository": false,
+    "archiveReconciliationOutcomeKnownToRepository": false,
+    "archiveReconciliationReceiptOutcomeKnownToRepository": false,
+    "archiveFinalClosureOutcomeKnownToRepository": false,
+    "archiveFinalClosureReceiptOutcomeKnownToRepository": false,
+    "archiveRetentionOutcomeKnownToRepository": false,
+    "liveServerGoLiveVerifiedByRepository": false
+  },
+  "registerInputs": [
+    {
+      "key": "stage6n_release_archive_final_closure_receipt",
+      "label": "Stage 6N production release archive final closure receipt package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-archive-final-closure-receipt.stage6n.json",
+      "required": true
+    },
+    {
+      "key": "stage6n_release_archive_final_closure_receipt_generator",
+      "label": "Stage 6N release archive final closure receipt generator",
+      "kind": "file",
+      "path": "scripts/stage6n-production-release-archive-final-closure-receipt.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6m_release_archive_final_closure",
+      "label": "Stage 6M production release archive final closure package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-archive-final-closure.stage6m.json",
+      "required": true
+    },
+    {
+      "key": "stage6i_release_archive_index",
+      "label": "Stage 6I release archive index package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-archive-index.stage6i.json",
+      "required": true
+    },
+    {
+      "key": "project_memory_black_box",
+      "label": "Project-memory handoff snapshot",
+      "kind": "file",
+      "path": "docs/project-memory/HANDOFF.md",
+      "required": true
+    },
+    {
+      "key": "preflight_all_orchestrator",
+      "label": "Deterministic preflight-all orchestrator",
+      "kind": "file",
+      "path": "scripts/preflight-all.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_workflow",
+      "label": "Backend guardrails workflow",
+      "kind": "file",
+      "path": ".github/workflows/backend-guardrails.yml",
+      "required": true
+    },
+    {
+      "key": "stage6n_workflow",
+      "label": "Stage 6N archive final closure receipt workflow",
+      "kind": "file",
+      "path": ".github/workflows/stage6n-production-release-archive-final-closure-receipt.yml",
+      "required": true
+    }
+  ],
+  "registerSections": [
+    {
+      "key": "archive_index_reference",
+      "label": "Repository archive index reference",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "archive_final_closure_receipt_reference",
+      "label": "Repository archive final closure receipt reference",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "archive_retention_policy_reference",
+      "label": "External archive retention policy reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_retention_schedule_reference",
+      "label": "External archive retention schedule reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_retention_owner_reference",
+      "label": "External archive retention owner reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_disposal_hold_reference",
+      "label": "External archive disposal hold reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_review_reference",
+      "label": "External retention review reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "production_boundary",
+      "label": "Self-hosted product boundary summary",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "next_cycle_entrypoints",
+      "label": "Next-cycle repository entrypoints",
+      "required": true,
+      "storeOutsideGit": false
+    }
+  ],
+  "externalRetentionFields": [
+    {
+      "key": "archive_retention_register_id_reference",
+      "label": "External archive retention register identifier reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_retention_schedule_reference",
+      "label": "External archive retention schedule reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_retention_owner_reference",
+      "label": "External archive retention owner reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_disposal_hold_reference",
+      "label": "External archive disposal hold reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_review_receipt_reference",
+      "label": "External retention review receipt reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    }
+  ],
+  "registerGates": [
+    {
+      "key": "stage6n_ready",
+      "label": "Stage 6N release archive final closure receipt is ready",
+      "command": "npm run preflight:stage6n",
+      "required": true
+    },
+    {
+      "key": "stage6n_report",
+      "label": "Stage 6N archive final closure receipt report renders",
+      "command": "npm run closure:stage6n:report",
+      "required": true
+    },
+    {
+      "key": "stage6o_report",
+      "label": "Stage 6O release archive retention register report renders",
+      "command": "npm run retention:stage6o:report",
+      "required": true
+    },
+    {
+      "key": "project_memory_updated",
+      "label": "Project memory references Stage 6O",
+      "command": "npm run check:project-memory",
+      "required": true
+    },
+    {
+      "key": "preflight_all_dry_run",
+      "label": "Preflight-all dry run includes Stage 6O",
+      "command": "npm run preflight:all -- --dry-run",
+      "required": true
+    },
+    {
+      "key": "no_deno_lock",
+      "label": "No deno.lock files are committed",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    },
+    {
+      "key": "external_retention_records_stay_external",
+      "label": "External retention records remain outside git",
+      "command": "npm run check:stage6o",
+      "required": true
+    },
+    {
+      "key": "external_retention_owner_recorded",
+      "label": "External retention owner reference is required outside git",
+      "command": "npm run retention:stage6o:dry-run",
+      "required": true
+    }
+  ],
+  "retentionPolicy": {
+    "repositoryStores": [
+      "release archive retention register schema",
+      "redacted retention field names",
+      "repository evidence pointers",
+      "required verification commands"
+    ],
+    "repositoryMustNotStore": [
+      "external archive retention register values",
+      "external archive retention schedule",
+      "external disposal hold values",
+      "raw live logs or metrics",
+      "credentials or object-storage keys",
+      "backup contents",
+      "archive contents",
+      "patient-identifying content",
+      "final go-live approval",
+      "live-server proof"
+    ],
+    "goLiveDecisionBundledInRepository": false,
+    "liveServerVerifiedByRepository": false,
+    "archiveRetentionOwner": "external operator archive owner record",
+    "nextStageHypothesis": "Stage 6P"
+  }
+}

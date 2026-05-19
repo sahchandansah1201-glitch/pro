@@ -2,6 +2,13 @@
 
 ## 2026-05-19
 
+- Создан Stage 6O production release archive retention register: manifest,
+  generator, guard, tests, docs, workflow, npm scripts and `preflight-all`
+  wiring.
+- Подтверждено локально: `npm run test:stage6o`,
+  `npm run check:stage6o`, `npm run retention:stage6o:report`.
+- Updated project-memory so Stage 6O is confirmed in the current branch and
+  Stage 6P remains an explicit hypothesis until repository files define it.
 - Создан Stage 6N production release archive final closure receipt: manifest,
   generator, guard, tests, docs, workflow, npm scripts and `preflight-all`
   wiring.
