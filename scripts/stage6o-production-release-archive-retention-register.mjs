@@ -359,7 +359,7 @@ export function buildProductionReleaseArchiveRetentionRegister({
   const finalClosureReceipt = buildProductionReleaseArchiveFinalClosureReceipt({
     manifest: receiptManifest,
     root,
-    generatedAt,
+    generatedAt: receiptManifest.generatedAt,
   });
   const inputs = validated.registerInputs.map((input) => statusForInput(root, input));
   const missingRequiredInputs = inputs.filter((input) => input.required && !input.present);

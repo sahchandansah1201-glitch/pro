@@ -1,10 +1,10 @@
-generated_at: "2026-05-19T19:32:09+03:00"
+generated_at: "2026-05-19T20:20:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage6r-release-archive-retention-cycle-index-receipt"
-  head_sha: "60ae711299e84599f8feb0c0c126d0acccc89fe6"
-  head_commit: "Document Lovable sync handoff rule"
+  branch: "codex/stage6r-receipt-readiness-hardening"
+  head_sha: "32b6696fb791c3b3326c9ec4069ca8b8a8d704da"
+  head_commit: "Add Stage 6R release archive retention cycle index receipt"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -207,10 +207,11 @@ verification:
     command: "npm run preflight:stage6r"
     status: "ok"
     key_facts:
-      tests_passed: 12
+      tests_passed: 13
       guard_files_checked: 7
       leak_findings: 0
       stage6r_report_status: "ready"
+      stage6r_readiness_uses_stage6q_manifest_timestamp: true
       ready_for_external_release_archive_retention_cycle_index_receipt: true
       external_archive_retention_cycle_index_receipt_stored_outside_git: true
       archive_retention_outcome_known_to_repository: false

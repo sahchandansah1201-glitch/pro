@@ -375,7 +375,7 @@ export function buildProductionReleaseArchiveRetentionCycleIndexReceipt({
   const cycleIndex = buildProductionReleaseArchiveRetentionCycleIndex({
     manifest: cycleIndexManifest,
     root,
-    generatedAt,
+    generatedAt: cycleIndexManifest.generatedAt,
   });
   const receiptInputs = inputPresence(normalized.receiptInputs, root);
   const missingInputs = receiptInputs.filter((input) => input.required && !input.present);
@@ -394,9 +394,12 @@ export function buildProductionReleaseArchiveRetentionCycleIndexReceipt({
     status: readyForExternalReleaseArchiveRetentionCycleIndexReceipt ? "ready" : "blocked",
     readyForExternalReleaseArchiveRetentionCycleIndexReceipt,
     releaseArchiveRetentionCycleIndex: {
+      generatedAt: cycleIndex.generatedAt,
       status: cycleIndex.status,
       readyForExternalReleaseArchiveRetentionCycleIndex:
         cycleIndex.readyForExternalReleaseArchiveRetentionCycleIndex === true,
+      missingInputs: cycleIndex.missingInputs ?? [],
+      leakFindings: cycleIndex.leakFindings ?? [],
     },
     releaseArchiveRetentionCycleIndexReceiptStoredInGit:
       normalized.productBoundary.releaseArchiveRetentionCycleIndexReceiptBundledInRepository === true,
@@ -454,8 +457,11 @@ export function renderProductionReleaseArchiveRetentionCycleIndexReceiptMarkdown
     `- Generated at: \`${report.generatedAt}\``,
     `- Status: \`${report.status}\``,
     `- Ready for external release archive retention cycle index receipt: \`${report.readyForExternalReleaseArchiveRetentionCycleIndexReceipt}\``,
+    `- Stage 6Q retention cycle index generated at: \`${report.releaseArchiveRetentionCycleIndex.generatedAt}\``,
     `- Stage 6Q retention cycle index status: \`${report.releaseArchiveRetentionCycleIndex.status}\``,
     `- Ready for external retention cycle index: \`${report.releaseArchiveRetentionCycleIndex.readyForExternalReleaseArchiveRetentionCycleIndex}\``,
+    `- Stage 6Q missing required inputs: \`${report.releaseArchiveRetentionCycleIndex.missingInputs.length}\``,
+    `- Stage 6Q leak findings: \`${report.releaseArchiveRetentionCycleIndex.leakFindings.length}\``,
     `- Release archive retention cycle index receipt stored in git: \`${report.releaseArchiveRetentionCycleIndexReceiptStoredInGit}\``,
     `- Release archive retention cycle index stored in git: \`${report.releaseArchiveRetentionCycleIndexStoredInGit}\``,
     `- Release archive retention register receipt stored in git: \`${report.releaseArchiveRetentionRegisterReceiptStoredInGit}\``,

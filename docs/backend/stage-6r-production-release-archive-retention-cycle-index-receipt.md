@@ -35,6 +35,21 @@ Stage 6R creates the repository-safe receipt package that points to the
 external receipt record proving that the operator accepted or recorded that
 cycle index outside git.
 
+Stage 6R may be rendered later than Stage 6Q, so the Stage 6R `--now` value is
+only the receipt generation timestamp. Nested readiness checks keep using the
+referenced stage manifest timestamps:
+
+- Stage 6R evaluates Stage 6Q with the Stage 6Q cycle index manifest timestamp.
+- Stage 6Q evaluates Stage 6P with the Stage 6P retention receipt manifest
+  timestamp.
+- Stage 6P evaluates Stage 6O with the Stage 6O retention register manifest
+  timestamp.
+- Stage 6O evaluates Stage 6N with the Stage 6N final closure receipt manifest
+  timestamp.
+
+This keeps a later Stage 6R receipt render from changing the readiness result
+of already finalized release archive retention stages.
+
 The repository stores:
 
 - retention cycle index receipt schema;

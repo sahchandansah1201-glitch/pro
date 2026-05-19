@@ -265,10 +265,12 @@
    - `Live server go-live verified by this report: false`.
    - `Live archive verified by this report: false`.
 17. `npm run preflight:stage6r` -> PASS:
-   - 12 tests passed.
+   - 13 tests passed.
    - Guard passed (`7 files checked`).
    - Stage 6R release archive retention cycle index receipt report rendered in
      dry-run mode with zero leak findings.
+   - Stage 6R keeps nested Stage 6Q readiness tied to the Stage 6Q manifest
+     timestamp instead of the Stage 6R receipt timestamp.
    - `Release archive retention cycle index receipt stored in git: true`.
    - `External archive retention cycle index receipt stored outside git: true`.
    - `Archive retention outcome known to repository: false`.
