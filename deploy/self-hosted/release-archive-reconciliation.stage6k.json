@@ -1,0 +1,246 @@
+{
+  "stage": "6K",
+  "packageId": "stage6k-production-release-archive-reconciliation",
+  "generatedAt": "2026-05-19T10:00:00.000Z",
+  "releaseArchiveHandoffReceiptManifest": "deploy/self-hosted/release-archive-handoff-receipt.stage6j.json",
+  "productBoundary": {
+    "deployment": "operator-owned self-hosted production release archive reconciliation package",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "releaseArchiveReconciliationBundledInRepository": true,
+    "archiveHandoffReceiptBundledInRepository": true,
+    "externalArchiveReceiptStoredOutsideGit": true,
+    "releaseArchiveContentsStoredOutsideGit": true,
+    "externalArchiveReconciliationStoredOutsideGit": true,
+    "archiveReceiptOutcomeKnownToRepository": false,
+    "archiveReconciliationOutcomeKnownToRepository": false,
+    "liveServerGoLiveVerifiedByRepository": false
+  },
+  "reconciliationInputs": [
+    {
+      "key": "stage6j_release_archive_handoff_receipt",
+      "label": "Stage 6J production release archive handoff receipt package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-archive-handoff-receipt.stage6j.json",
+      "required": true
+    },
+    {
+      "key": "stage6j_archive_handoff_receipt_generator",
+      "label": "Stage 6J archive handoff receipt generator",
+      "kind": "file",
+      "path": "scripts/stage6j-production-release-archive-handoff-receipt.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6i_release_archive_index",
+      "label": "Stage 6I production release archive index package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-archive-index.stage6i.json",
+      "required": true
+    },
+    {
+      "key": "project_memory_black_box",
+      "label": "Project-memory handoff snapshot",
+      "kind": "file",
+      "path": "docs/project-memory/HANDOFF.md",
+      "required": true
+    },
+    {
+      "key": "preflight_all_orchestrator",
+      "label": "Deterministic preflight-all orchestrator",
+      "kind": "file",
+      "path": "scripts/preflight-all.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_workflow",
+      "label": "Backend guardrails workflow",
+      "kind": "file",
+      "path": ".github/workflows/backend-guardrails.yml",
+      "required": true
+    },
+    {
+      "key": "stage6j_workflow",
+      "label": "Stage 6J archive handoff receipt workflow",
+      "kind": "file",
+      "path": ".github/workflows/stage6j-production-release-archive-handoff-receipt.yml",
+      "required": true
+    }
+  ],
+  "reconciliationSections": [
+    {
+      "key": "archive_handoff_receipt_reference",
+      "label": "Repository archive handoff receipt reference",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "external_archive_receipt_reference",
+      "label": "External archive receipt reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "checksum_reconciliation_reference",
+      "label": "External checksum reconciliation reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "restore_drill_reconciliation_reference",
+      "label": "External restore-drill reconciliation reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_policy_reconciliation_reference",
+      "label": "External retention policy reconciliation reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_owner_confirmation_reference",
+      "label": "External archive owner confirmation reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "production_boundary",
+      "label": "Self-hosted product boundary summary",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "next_cycle_entrypoints",
+      "label": "Next-cycle repository entrypoints",
+      "required": true,
+      "storeOutsideGit": false
+    }
+  ],
+  "externalReconciliationFields": [
+    {
+      "key": "archive_receipt_id_reference",
+      "label": "External archive receipt identifier reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "checksum_match_reference",
+      "label": "External checksum match reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "restore_drill_result_reference",
+      "label": "External restore-drill result reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_policy_acknowledgement_reference",
+      "label": "External retention policy acknowledgement reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_owner_confirmation_reference",
+      "label": "External archive owner confirmation reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "reconciliation_owner_reference",
+      "label": "External reconciliation owner reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    }
+  ],
+  "reconciliationGates": [
+    {
+      "key": "stage6j_ready",
+      "label": "Stage 6J release archive handoff receipt is ready",
+      "command": "npm run preflight:stage6j",
+      "required": true
+    },
+    {
+      "key": "stage6j_report",
+      "label": "Stage 6J archive handoff receipt report renders",
+      "command": "npm run receipt:stage6j:report",
+      "required": true
+    },
+    {
+      "key": "stage6k_report",
+      "label": "Stage 6K release archive reconciliation report renders",
+      "command": "npm run reconcile:stage6k:report",
+      "required": true
+    },
+    {
+      "key": "project_memory_updated",
+      "label": "Project memory references Stage 6K",
+      "command": "npm run check:project-memory",
+      "required": true
+    },
+    {
+      "key": "preflight_all_dry_run",
+      "label": "Preflight-all dry run includes Stage 6K",
+      "command": "npm run preflight:all -- --dry-run",
+      "required": true
+    },
+    {
+      "key": "no_deno_lock",
+      "label": "No deno.lock files are committed",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    },
+    {
+      "key": "external_archive_contents_stay_external",
+      "label": "External archive contents remain outside git",
+      "command": "npm run check:stage6k",
+      "required": true
+    },
+    {
+      "key": "external_reconciliation_owner_recorded",
+      "label": "External reconciliation owner reference is required outside git",
+      "command": "npm run reconcile:stage6k:dry-run",
+      "required": true
+    }
+  ],
+  "reconciliationPolicy": {
+    "repositoryStores": [
+      "release archive reconciliation schema",
+      "redacted reconciliation field names",
+      "repository evidence pointers",
+      "required verification commands",
+      "self-hosted product boundary"
+    ],
+    "repositoryMustNotStore": [
+      "external archive contents",
+      "external archive receipt values",
+      "final archive receipt outcome",
+      "final archive reconciliation outcome",
+      "live production logs",
+      "live metrics",
+      "patient-identifying content",
+      "credentials",
+      "object-storage keys",
+      "backup contents",
+      "live-server verification proof"
+    ],
+    "finalReconciliationOwner": "operator-owned external archive process",
+    "goLiveDecisionBundledInRepository": false,
+    "liveServerVerifiedByRepository": false
+  }
+}

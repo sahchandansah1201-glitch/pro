@@ -1,0 +1,66 @@
+name: stage6k-production-release-archive-reconciliation
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-reconciliation.stage6k.json"
+      - "scripts/stage6k-production-release-archive-reconciliation.mjs"
+      - "scripts/stage6k-production-release-archive-reconciliation.test.mjs"
+      - "scripts/check-stage6k-production-release-archive-reconciliation.mjs"
+      - "scripts/check-stage6k-production-release-archive-reconciliation.test.mjs"
+      - "docs/backend/stage-6k-production-release-archive-reconciliation.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6k-production-release-archive-reconciliation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-reconciliation.stage6k.json"
+      - "scripts/stage6k-production-release-archive-reconciliation.mjs"
+      - "scripts/stage6k-production-release-archive-reconciliation.test.mjs"
+      - "scripts/check-stage6k-production-release-archive-reconciliation.mjs"
+      - "scripts/check-stage6k-production-release-archive-reconciliation.test.mjs"
+      - "docs/backend/stage-6k-production-release-archive-reconciliation.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6k-production-release-archive-reconciliation.yml"
+
+jobs:
+  stage6k:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6K production release archive reconciliation preflight
+        run: npm run preflight:stage6k
+
+      - name: Build Stage 6K production release archive reconciliation report
+        run: npm run reconcile:stage6k:report
+
+      - name: Upload Stage 6K production release archive reconciliation
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6k-production-release-archive-reconciliation
+          path: |
+            test-results/stage6k-production-release-archive-reconciliation.md
+            test-results/stage6k-production-release-archive-reconciliation.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6K production release archive reconciliation"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6k-production-release-archive-reconciliation.md"
+            echo "- Boundary: offline redacted archive reconciliation schema, final reconciliation outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
