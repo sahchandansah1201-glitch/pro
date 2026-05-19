@@ -9,6 +9,8 @@
   `npm run check:stage6o`, `npm run retention:stage6o:report`.
 - Updated project-memory so Stage 6O is confirmed in the current branch and
   Stage 6P remains an explicit hypothesis until repository files define it.
+- Added a follow-up GitHub sync trigger note after PR #148 reached `main`
+  while the Lovable working copy still reported the previous Stage 6N SHA.
 - Создан Stage 6N production release archive final closure receipt: manifest,
   generator, guard, tests, docs, workflow, npm scripts and `preflight-all`
   wiring.
