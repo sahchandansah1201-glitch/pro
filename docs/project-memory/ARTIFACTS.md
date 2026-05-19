@@ -23,6 +23,7 @@
    - [release-archive-final-closure.stage6m.json](../../deploy/self-hosted/release-archive-final-closure.stage6m.json)
    - [release-archive-final-closure-receipt.stage6n.json](../../deploy/self-hosted/release-archive-final-closure-receipt.stage6n.json)
    - [release-archive-retention-register.stage6o.json](../../deploy/self-hosted/release-archive-retention-register.stage6o.json)
+   - [release-archive-retention-register-receipt.stage6p.json](../../deploy/self-hosted/release-archive-retention-register-receipt.stage6p.json)
 
 3. Stage 6 docs:
    - [stage-6a-production-acceptance-baseline.md](../backend/stage-6a-production-acceptance-baseline.md)
@@ -40,6 +41,7 @@
    - [stage-6m-production-release-archive-final-closure.md](../backend/stage-6m-production-release-archive-final-closure.md)
    - [stage-6n-production-release-archive-final-closure-receipt.md](../backend/stage-6n-production-release-archive-final-closure-receipt.md)
    - [stage-6o-production-release-archive-retention-register.md](../backend/stage-6o-production-release-archive-retention-register.md)
+   - [stage-6p-production-release-archive-retention-register-receipt.md](../backend/stage-6p-production-release-archive-retention-register-receipt.md)
 
 4. Stage 6 scripts:
    - [stage6a-production-acceptance-baseline.mjs](../../scripts/stage6a-production-acceptance-baseline.mjs)
@@ -57,6 +59,7 @@
    - [stage6m-production-release-archive-final-closure.mjs](../../scripts/stage6m-production-release-archive-final-closure.mjs)
    - [stage6n-production-release-archive-final-closure-receipt.mjs](../../scripts/stage6n-production-release-archive-final-closure-receipt.mjs)
    - [stage6o-production-release-archive-retention-register.mjs](../../scripts/stage6o-production-release-archive-retention-register.mjs)
+   - [stage6p-production-release-archive-retention-register-receipt.mjs](../../scripts/stage6p-production-release-archive-retention-register-receipt.mjs)
 
 5. Stage 6 guards:
    - [check-stage6a-production-acceptance-baseline.mjs](../../scripts/check-stage6a-production-acceptance-baseline.mjs)
@@ -74,6 +77,7 @@
    - [check-stage6m-production-release-archive-final-closure.mjs](../../scripts/check-stage6m-production-release-archive-final-closure.mjs)
    - [check-stage6n-production-release-archive-final-closure-receipt.mjs](../../scripts/check-stage6n-production-release-archive-final-closure-receipt.mjs)
    - [check-stage6o-production-release-archive-retention-register.mjs](../../scripts/check-stage6o-production-release-archive-retention-register.mjs)
+   - [check-stage6p-production-release-archive-retention-register-receipt.mjs](../../scripts/check-stage6p-production-release-archive-retention-register-receipt.mjs)
 
 6. Stage 6 workflows:
    - [.github/workflows/stage6a-production-acceptance-baseline.yml](../../.github/workflows/stage6a-production-acceptance-baseline.yml)
@@ -91,6 +95,7 @@
    - [.github/workflows/stage6m-production-release-archive-final-closure.yml](../../.github/workflows/stage6m-production-release-archive-final-closure.yml)
    - [.github/workflows/stage6n-production-release-archive-final-closure-receipt.yml](../../.github/workflows/stage6n-production-release-archive-final-closure-receipt.yml)
    - [.github/workflows/stage6o-production-release-archive-retention-register.yml](../../.github/workflows/stage6o-production-release-archive-retention-register.yml)
+   - [.github/workflows/stage6p-production-release-archive-retention-register-receipt.yml](../../.github/workflows/stage6p-production-release-archive-retention-register-receipt.yml)
 
 ## Verification outputs captured during black-box creation
 
@@ -221,6 +226,18 @@
    - `External archive retention records stored outside git: true`.
    - `Archive final closure receipt outcome known to repository: false`.
    - `Archive retention outcome known to repository: false`.
+   - `Go-live approved by this report: false`.
+   - `Live server go-live verified by this report: false`.
+   - `Live archive verified by this report: false`.
+15. `npm run preflight:stage6p` -> PASS:
+   - 13 tests passed.
+   - Guard passed (`7 files checked`).
+   - Stage 6P release archive retention register receipt report rendered in
+     dry-run mode with zero leak findings.
+   - `Release archive retention register receipt stored in git: true`.
+   - `External archive retention register receipt stored outside git: true`.
+   - `Archive retention outcome known to repository: false`.
+   - `Archive retention register receipt outcome known to repository: false`.
    - `Go-live approved by this report: false`.
    - `Live server go-live verified by this report: false`.
    - `Live archive verified by this report: false`.

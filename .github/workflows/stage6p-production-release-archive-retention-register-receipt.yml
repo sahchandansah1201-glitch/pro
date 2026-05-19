@@ -1,0 +1,66 @@
+name: stage6p-production-release-archive-retention-register-receipt
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-register-receipt.stage6p.json"
+      - "scripts/stage6p-production-release-archive-retention-register-receipt.mjs"
+      - "scripts/stage6p-production-release-archive-retention-register-receipt.test.mjs"
+      - "scripts/check-stage6p-production-release-archive-retention-register-receipt.mjs"
+      - "scripts/check-stage6p-production-release-archive-retention-register-receipt.test.mjs"
+      - "docs/backend/stage-6p-production-release-archive-retention-register-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6p-production-release-archive-retention-register-receipt.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-register-receipt.stage6p.json"
+      - "scripts/stage6p-production-release-archive-retention-register-receipt.mjs"
+      - "scripts/stage6p-production-release-archive-retention-register-receipt.test.mjs"
+      - "scripts/check-stage6p-production-release-archive-retention-register-receipt.mjs"
+      - "scripts/check-stage6p-production-release-archive-retention-register-receipt.test.mjs"
+      - "docs/backend/stage-6p-production-release-archive-retention-register-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6p-production-release-archive-retention-register-receipt.yml"
+
+jobs:
+  stage6p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6P production release archive retention register receipt preflight
+        run: npm run preflight:stage6p
+
+      - name: Build Stage 6P production release archive retention register receipt report
+        run: npm run receipt:stage6p:report
+
+      - name: Upload Stage 6P production release archive retention register receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6p-production-release-archive-retention-register-receipt
+          path: |
+            test-results/stage6p-production-release-archive-retention-register-receipt.md
+            test-results/stage6p-production-release-archive-retention-register-receipt.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6P production release archive retention register receipt"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6p-production-release-archive-retention-register-receipt.md"
+            echo "- Boundary: offline redacted archive retention register receipt schema, final receipt outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
