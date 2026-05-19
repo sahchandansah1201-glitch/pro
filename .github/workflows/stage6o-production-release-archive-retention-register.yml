@@ -1,0 +1,66 @@
+name: stage6o-production-release-archive-retention-register
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-register.stage6o.json"
+      - "scripts/stage6o-production-release-archive-retention-register.mjs"
+      - "scripts/stage6o-production-release-archive-retention-register.test.mjs"
+      - "scripts/check-stage6o-production-release-archive-retention-register.mjs"
+      - "scripts/check-stage6o-production-release-archive-retention-register.test.mjs"
+      - "docs/backend/stage-6o-production-release-archive-retention-register.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6o-production-release-archive-retention-register.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-register.stage6o.json"
+      - "scripts/stage6o-production-release-archive-retention-register.mjs"
+      - "scripts/stage6o-production-release-archive-retention-register.test.mjs"
+      - "scripts/check-stage6o-production-release-archive-retention-register.mjs"
+      - "scripts/check-stage6o-production-release-archive-retention-register.test.mjs"
+      - "docs/backend/stage-6o-production-release-archive-retention-register.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6o-production-release-archive-retention-register.yml"
+
+jobs:
+  stage6o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6O production release archive retention register preflight
+        run: npm run preflight:stage6o
+
+      - name: Build Stage 6O production release archive retention register report
+        run: npm run retention:stage6o:report
+
+      - name: Upload Stage 6O production release archive retention register
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6o-production-release-archive-retention-register
+          path: |
+            test-results/stage6o-production-release-archive-retention-register.md
+            test-results/stage6o-production-release-archive-retention-register.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6O production release archive retention register"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6o-production-release-archive-retention-register.md"
+            echo "- Boundary: offline redacted archive retention register schema, retention values outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
