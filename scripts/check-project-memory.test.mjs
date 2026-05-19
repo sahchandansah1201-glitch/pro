@@ -223,7 +223,7 @@ verification:
     command: "npm run preflight:stage6r"
     status: "ok"
     key_facts:
-      tests_passed: 12
+      tests_passed: 13
       guard_files_checked: 7
       leak_findings: 0
       stage6r_report_status: "ready"

@@ -45,8 +45,11 @@ test("Stage 6R builds a ready receipt from ready Stage 6Q retention cycle index"
   });
   assert.equal(report.status, "ready");
   assert.equal(report.readyForExternalReleaseArchiveRetentionCycleIndexReceipt, true);
+  assert.equal(report.releaseArchiveRetentionCycleIndex.generatedAt, "2026-05-19T13:00:00.000Z");
   assert.equal(report.releaseArchiveRetentionCycleIndex.status, "ready");
   assert.equal(report.releaseArchiveRetentionCycleIndex.readyForExternalReleaseArchiveRetentionCycleIndex, true);
+  assert.deepEqual(report.releaseArchiveRetentionCycleIndex.missingInputs, []);
+  assert.deepEqual(report.releaseArchiveRetentionCycleIndex.leakFindings, []);
   assert.equal(report.releaseArchiveRetentionCycleIndexReceiptStoredInGit, true);
   assert.equal(report.releaseArchiveRetentionCycleIndexStoredInGit, true);
   assert.equal(report.releaseArchiveRetentionRegisterReceiptStoredInGit, true);
@@ -65,6 +68,18 @@ test("Stage 6R builds a ready receipt from ready Stage 6Q retention cycle index"
   assert.ok(report.receiptInputs.every((item) => item.present));
 });
 
+test("Stage 6R keeps Stage 6Q readiness tied to the Stage 6Q manifest timestamp", () => {
+  const report = buildProductionReleaseArchiveRetentionCycleIndexReceipt({
+    manifest: readReleaseArchiveRetentionCycleIndexReceiptManifest(),
+    root: ROOT,
+    generatedAt: "2036-01-01T00:00:00.000Z",
+  });
+  assert.equal(report.generatedAt, "2036-01-01T00:00:00.000Z");
+  assert.equal(report.releaseArchiveRetentionCycleIndex.generatedAt, "2026-05-19T13:00:00.000Z");
+  assert.equal(report.releaseArchiveRetentionCycleIndex.status, "ready");
+  assert.equal(report.status, "ready");
+});
+
 test("Stage 6R markdown summarizes retention cycle index receipt and privacy boundary", () => {
   const report = buildProductionReleaseArchiveRetentionCycleIndexReceipt({
     manifest: readReleaseArchiveRetentionCycleIndexReceiptManifest(),
@@ -73,7 +88,10 @@ test("Stage 6R markdown summarizes retention cycle index receipt and privacy bou
   const markdown = renderProductionReleaseArchiveRetentionCycleIndexReceiptMarkdown(report);
   assert.match(markdown, /Stage 6R production release archive retention cycle index receipt/);
   assert.match(markdown, /Ready for external release archive retention cycle index receipt: `true`/);
+  assert.match(markdown, /Stage 6Q retention cycle index generated at: `2026-05-19T13:00:00.000Z`/);
   assert.match(markdown, /Stage 6Q retention cycle index status: `ready`/);
+  assert.match(markdown, /Stage 6Q missing required inputs: `0`/);
+  assert.match(markdown, /Stage 6Q leak findings: `0`/);
   assert.match(markdown, /External archive retention cycle index receipt stored outside git: `true`/);
   assert.match(markdown, /Managed runtime\/database dependency: none/);
 });

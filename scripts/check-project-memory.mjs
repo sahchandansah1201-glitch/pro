@@ -55,7 +55,7 @@ const REQUIRED_PROJECT_STATE_FIELDS = [
   /^\s+command:\s*"npm run preflight:stage6q"/m,
   /^\s+command:\s*"npm run preflight:stage6r"/m,
   /^\s+status:\s*"ok"/m,
-  /^\s+tests_passed:\s*(12|13)/m,
+  /^\s+tests_passed:\s*13/m,
   /^\s+leak_findings:\s*0/m,
   /^\s+live_server_go_live_verified_by_report:\s*false/m,
   /^\s+final_go_live_outcome_known_to_repository:\s*false/m,

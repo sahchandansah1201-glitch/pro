@@ -2,6 +2,12 @@
 
 ## 2026-05-19
 
+- Hardened Stage 6R readiness after Lovable reported a sandbox mismatch:
+  Stage 6R now evaluates Stage 6Q with the Stage 6Q manifest timestamp, and
+  Stage 6Q/6P/6O evaluate their previous stage with that previous stage's own
+  manifest timestamp. This prevents the top-level report `--now` from changing
+  readiness of earlier release-archive stages.
+- Added Stage 6R regression coverage for timestamp-independent readiness.
 - Создан Stage 6R production release archive retention cycle index receipt:
   manifest, generator, guard, tests, docs, workflow, npm scripts and
   `preflight-all` wiring.

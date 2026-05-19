@@ -372,7 +372,7 @@ export function buildProductionReleaseArchiveRetentionCycleIndex({
   const retentionRegisterReceipt = buildProductionReleaseArchiveRetentionRegisterReceipt({
     manifest: retentionRegisterReceiptManifest,
     root,
-    generatedAt,
+    generatedAt: retentionRegisterReceiptManifest.generatedAt,
   });
   const cycleInputs = inputPresence(normalized.cycleInputs, root);
   const missingInputs = cycleInputs.filter((input) => input.required && !input.present);
