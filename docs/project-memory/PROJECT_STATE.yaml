@@ -1,10 +1,10 @@
-generated_at: "2026-05-19T12:00:00+03:00"
+generated_at: "2026-05-19T13:00:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage6o-release-archive-retention-register"
-  head_sha: "d142a0a27bdc144748612abeeb4ce88822a0e4d6"
-  head_commit: "Add Stage 6N release archive final closure receipt"
+  branch: "codex/stage6p-release-archive-retention-receipt"
+  head_sha: "e1d8527845dec8e1b94e9d9b622f7514c9ef2cd8"
+  head_commit: "Trigger Lovable sync after Stage 6O"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -172,6 +172,21 @@ verification:
       go_live_approved_by_report: false
       live_server_go_live_verified_by_report: false
       live_archive_verified_by_report: false
+  stage6p_preflight:
+    command: "npm run preflight:stage6p"
+    status: "ok"
+    key_facts:
+      tests_passed: 13
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6p_report_status: "ready"
+      ready_for_external_release_archive_retention_register_receipt: true
+      external_archive_retention_register_receipt_stored_outside_git: true
+      archive_retention_outcome_known_to_repository: false
+      archive_retention_register_receipt_outcome_known_to_repository: false
+      go_live_approved_by_report: false
+      live_server_go_live_verified_by_report: false
+      live_archive_verified_by_report: false
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -188,9 +203,12 @@ verification:
       includes_stage6m: true
       includes_stage6n: true
       includes_stage6o: true
+      includes_stage6p: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "e1d8527 Trigger Lovable sync after Stage 6O"
+    - "6e20363 Add Stage 6O release archive retention register"
     - "d142a0a Add Stage 6N release archive final closure receipt"
     - "52a363e Add Stage 6M release archive final closure"
     - "4b59a93 Add Stage 6L release archive reconciliation receipt"
@@ -218,6 +236,7 @@ stage_evidence:
     - "docs/backend/stage-6m-production-release-archive-final-closure.md"
     - "docs/backend/stage-6n-production-release-archive-final-closure-receipt.md"
     - "docs/backend/stage-6o-production-release-archive-retention-register.md"
+    - "docs/backend/stage-6p-production-release-archive-retention-register-receipt.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
@@ -234,8 +253,9 @@ stage_evidence:
     - ".github/workflows/stage6m-production-release-archive-final-closure.yml"
     - ".github/workflows/stage6n-production-release-archive-final-closure-receipt.yml"
     - ".github/workflows/stage6o-production-release-archive-retention-register.yml"
+    - ".github/workflows/stage6p-production-release-archive-retention-register-receipt.yml"
 hypotheses:
-  - "Next logical stage after Stage 6O is Stage 6P. Scope is not confirmed by repository files yet."
+  - "Next logical stage after Stage 6P is Stage 6Q. Scope is not confirmed by repository files yet."
 sources:
   commands:
     - "git status --short --branch"
@@ -265,10 +285,11 @@ sources:
     - "npm run check:stage6n"
     - "npm run closure:stage6n:report"
     - "npm run preflight:stage6n"
-    - "npm run test:stage6o"
-    - "npm run check:stage6o"
-    - "npm run retention:stage6o:report"
+    - "npm run test:stage6p"
+    - "npm run check:stage6p"
+    - "npm run receipt:stage6p:report"
     - "npm run preflight:stage6o"
+    - "npm run preflight:stage6p"
     - "node scripts/check-no-deno-locks.mjs"
   files:
     - "deploy/self-hosted/acceptance-baseline.stage6a.json"
@@ -286,6 +307,7 @@ sources:
     - "deploy/self-hosted/release-archive-final-closure.stage6m.json"
     - "deploy/self-hosted/release-archive-final-closure-receipt.stage6n.json"
     - "deploy/self-hosted/release-archive-retention-register.stage6o.json"
+    - "deploy/self-hosted/release-archive-retention-register-receipt.stage6p.json"
     - "docs/backend/stage-6h-production-release-memory-closure.md"
     - "docs/backend/stage-6i-production-release-archive-index.md"
     - "docs/backend/stage-6j-production-release-archive-handoff-receipt.md"
@@ -306,3 +328,5 @@ sources:
     - "scripts/check-stage6n-production-release-archive-final-closure-receipt.mjs"
     - "scripts/stage6o-production-release-archive-retention-register.mjs"
     - "scripts/check-stage6o-production-release-archive-retention-register.mjs"
+    - "scripts/stage6p-production-release-archive-retention-register-receipt.mjs"
+    - "scripts/check-stage6p-production-release-archive-retention-register-receipt.mjs"
