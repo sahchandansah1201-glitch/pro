@@ -28,7 +28,7 @@ const REQUIRED_TEXT = {
   ],
   "HANDOFF.md": ["# HANDOFF", "## Confirmed state", "## Hypothesis"],
   "WORKLOG.md": ["# WORKLOG", "Создан project-memory", "гипотеза"],
-  "NEXT_ACTIONS.md": ["# NEXT_ACTIONS", "hypothesis", "Stage 6M"],
+  "NEXT_ACTIONS.md": ["# NEXT_ACTIONS", "hypothesis", "Stage 6N"],
   "RISKS.md": ["# RISKS", "## Confirmed risks", "## Hypotheses"],
   "ARTIFACTS.md": ["# ARTIFACTS", "Stage 6 manifests", "Verification outputs"],
 };
@@ -48,6 +48,7 @@ const REQUIRED_PROJECT_STATE_FIELDS = [
   /^\s+command:\s*"npm run preflight:stage6j"/m,
   /^\s+command:\s*"npm run preflight:stage6k"/m,
   /^\s+command:\s*"npm run preflight:stage6l"/m,
+  /^\s+command:\s*"npm run preflight:stage6m"/m,
   /^\s+status:\s*"ok"/m,
   /^\s+tests_passed:\s*(12|13)/m,
   /^\s+leak_findings:\s*0/m,
@@ -59,6 +60,7 @@ const REQUIRED_PROJECT_STATE_FIELDS = [
   /^\s+archive_receipt_outcome_known_to_repository:\s*false/m,
   /^\s+archive_reconciliation_outcome_known_to_repository:\s*false/m,
   /^\s+archive_reconciliation_receipt_outcome_known_to_repository:\s*false/m,
+  /^\s+archive_final_closure_outcome_known_to_repository:\s*false/m,
 ];
 
 function read(root, file) {
@@ -153,8 +155,8 @@ function assertHypothesesAreExplicit(errors, root) {
     const path = memoryPath(file);
     if (!existsSync(join(root, path))) continue;
     const content = read(root, path);
-    if (content.includes("Stage 6M") && !/hypothesis|Hypothesis|Hypotheses/.test(content)) {
-      errors.push(`${path} mentions Stage 6M without marking it as a hypothesis`);
+    if (content.includes("Stage 6N") && !/hypothesis|Hypothesis|Hypotheses/.test(content)) {
+      errors.push(`${path} mentions Stage 6N without marking it as a hypothesis`);
     }
   }
 }

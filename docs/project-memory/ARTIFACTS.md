@@ -20,6 +20,7 @@
    - [release-archive-handoff-receipt.stage6j.json](../../deploy/self-hosted/release-archive-handoff-receipt.stage6j.json)
    - [release-archive-reconciliation.stage6k.json](../../deploy/self-hosted/release-archive-reconciliation.stage6k.json)
    - [release-archive-reconciliation-receipt.stage6l.json](../../deploy/self-hosted/release-archive-reconciliation-receipt.stage6l.json)
+   - [release-archive-final-closure.stage6m.json](../../deploy/self-hosted/release-archive-final-closure.stage6m.json)
 
 3. Stage 6 docs:
    - [stage-6a-production-acceptance-baseline.md](../backend/stage-6a-production-acceptance-baseline.md)
@@ -34,6 +35,7 @@
    - [stage-6j-production-release-archive-handoff-receipt.md](../backend/stage-6j-production-release-archive-handoff-receipt.md)
    - [stage-6k-production-release-archive-reconciliation.md](../backend/stage-6k-production-release-archive-reconciliation.md)
    - [stage-6l-production-release-archive-reconciliation-receipt.md](../backend/stage-6l-production-release-archive-reconciliation-receipt.md)
+   - [stage-6m-production-release-archive-final-closure.md](../backend/stage-6m-production-release-archive-final-closure.md)
 
 4. Stage 6 scripts:
    - [stage6a-production-acceptance-baseline.mjs](../../scripts/stage6a-production-acceptance-baseline.mjs)
@@ -48,6 +50,7 @@
    - [stage6j-production-release-archive-handoff-receipt.mjs](../../scripts/stage6j-production-release-archive-handoff-receipt.mjs)
    - [stage6k-production-release-archive-reconciliation.mjs](../../scripts/stage6k-production-release-archive-reconciliation.mjs)
    - [stage6l-production-release-archive-reconciliation-receipt.mjs](../../scripts/stage6l-production-release-archive-reconciliation-receipt.mjs)
+   - [stage6m-production-release-archive-final-closure.mjs](../../scripts/stage6m-production-release-archive-final-closure.mjs)
 
 5. Stage 6 guards:
    - [check-stage6a-production-acceptance-baseline.mjs](../../scripts/check-stage6a-production-acceptance-baseline.mjs)
@@ -62,6 +65,7 @@
    - [check-stage6j-production-release-archive-handoff-receipt.mjs](../../scripts/check-stage6j-production-release-archive-handoff-receipt.mjs)
    - [check-stage6k-production-release-archive-reconciliation.mjs](../../scripts/check-stage6k-production-release-archive-reconciliation.mjs)
    - [check-stage6l-production-release-archive-reconciliation-receipt.mjs](../../scripts/check-stage6l-production-release-archive-reconciliation-receipt.mjs)
+   - [check-stage6m-production-release-archive-final-closure.mjs](../../scripts/check-stage6m-production-release-archive-final-closure.mjs)
 
 6. Stage 6 workflows:
    - [.github/workflows/stage6a-production-acceptance-baseline.yml](../../.github/workflows/stage6a-production-acceptance-baseline.yml)
@@ -76,6 +80,7 @@
    - [.github/workflows/stage6j-production-release-archive-handoff-receipt.yml](../../.github/workflows/stage6j-production-release-archive-handoff-receipt.yml)
    - [.github/workflows/stage6k-production-release-archive-reconciliation.yml](../../.github/workflows/stage6k-production-release-archive-reconciliation.yml)
    - [.github/workflows/stage6l-production-release-archive-reconciliation-receipt.yml](../../.github/workflows/stage6l-production-release-archive-reconciliation-receipt.yml)
+   - [.github/workflows/stage6m-production-release-archive-final-closure.yml](../../.github/workflows/stage6m-production-release-archive-final-closure.yml)
 
 ## Verification outputs captured during black-box creation
 
@@ -165,6 +170,20 @@
    - `Archive receipt outcome known to repository: false`.
    - `Archive reconciliation outcome known to repository: false`.
    - `Archive reconciliation receipt outcome known to repository: false`.
+   - `Go-live approved by this report: false`.
+   - `Live server go-live verified by this report: false`.
+   - `Live archive verified by this report: false`.
+12. `npm run preflight:stage6m` -> PASS:
+   - 13 tests passed.
+   - Guard passed (`7 files checked`).
+   - Stage 6M release archive final closure report rendered in dry-run mode
+     with zero leak findings.
+   - `Release archive final closure stored in git: true`.
+   - `External archive final closure stored outside git: true`.
+   - `Archive receipt outcome known to repository: false`.
+   - `Archive reconciliation outcome known to repository: false`.
+   - `Archive reconciliation receipt outcome known to repository: false`.
+   - `Archive final closure outcome known to repository: false`.
    - `Go-live approved by this report: false`.
    - `Live server go-live verified by this report: false`.
    - `Live archive verified by this report: false`.

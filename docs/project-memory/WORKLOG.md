@@ -2,6 +2,13 @@
 
 ## 2026-05-19
 
+- Создан Stage 6M production release archive final closure: manifest,
+  generator, guard, tests, docs, workflow, npm scripts and `preflight-all`
+  wiring.
+- Подтверждено локально: `npm run test:stage6m`,
+  `npm run check:stage6m`, `npm run closure:stage6m:report`.
+- Updated project-memory so Stage 6M is confirmed in the current branch and
+  Stage 6N remains an explicit hypothesis until repository files define it.
 - Создан Stage 6L production release archive reconciliation receipt: manifest,
   generator, guard, tests, docs, workflow, npm scripts and `preflight-all`
   wiring.
