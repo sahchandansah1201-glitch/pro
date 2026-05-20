@@ -45,9 +45,11 @@ function makeRoot() {
     "deploy/self-hosted/development-workflow-contract.stage7a-7c.json",
     "deploy/self-hosted/batch-automation-contract.stage7d-7f.json",
     "deploy/self-hosted/batch-verification-loop.stage7g-7i.json",
+    "deploy/self-hosted/product-roadmap.stage7j-7l.json",
     "docs/backend/stage-7a-7c-development-workflow-contract.md",
     "docs/backend/stage-7d-7f-batch-automation-contract.md",
     "docs/backend/stage-7g-7i-batch-verification-loop.md",
+    "docs/backend/stage-7j-7l-product-roadmap.md",
     "scripts/check-stage7a-7c-development-workflow-contract.mjs",
     "scripts/check-stage7a-7c-development-workflow-contract.test.mjs",
     "scripts/stage7d-7f-batch-handoff.mjs",
@@ -58,9 +60,14 @@ function makeRoot() {
     "scripts/stage7g-7i-batch-readiness.test.mjs",
     "scripts/check-stage7g-7i-batch-verification-loop.mjs",
     "scripts/check-stage7g-7i-batch-verification-loop.test.mjs",
+    "scripts/stage7j-7l-product-roadmap.mjs",
+    "scripts/stage7j-7l-product-roadmap.test.mjs",
+    "scripts/check-stage7j-7l-product-roadmap.mjs",
+    "scripts/check-stage7j-7l-product-roadmap.test.mjs",
     ".github/workflows/stage7a-7c-development-workflow-contract.yml",
     ".github/workflows/stage7d-7f-batch-automation-contract.yml",
     ".github/workflows/stage7g-7i-batch-verification-loop.yml",
+    ".github/workflows/stage7j-7l-product-roadmap.yml",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
@@ -399,6 +406,17 @@ verification:
       lovable_sync_verification_manifest_confirmed: true
       batch_drift_guard_confirmed: true
       minimum_related_stages_per_batch: 3
+  stage7j_7l_preflight:
+    command: "npm run preflight:stage7j-7l"
+    status: "ok"
+    key_facts:
+      tests_passed: 11
+      guard_files_checked: 7
+      leak_findings: 0
+      product_gap_register_confirmed: true
+      next_product_batch_planner_confirmed: true
+      product_roadmap_drift_guard_confirmed: true
+      minimum_related_stages_per_batch: 3
 stage_evidence:
   latest_commits:
     - "ca00a2e Harden Stage 6 handoff path resolution"
@@ -473,19 +491,23 @@ sources:
     - "deploy/self-hosted/development-workflow-contract.stage7a-7c.json"
     - "deploy/self-hosted/batch-automation-contract.stage7d-7f.json"
     - "deploy/self-hosted/batch-verification-loop.stage7g-7i.json"
+    - "deploy/self-hosted/product-roadmap.stage7j-7l.json"
     - "docs/backend/stage-7a-7c-development-workflow-contract.md"
     - "docs/backend/stage-7d-7f-batch-automation-contract.md"
     - "docs/backend/stage-7g-7i-batch-verification-loop.md"
+    - "docs/backend/stage-7j-7l-product-roadmap.md"
     - "scripts/check-stage7a-7c-development-workflow-contract.mjs"
     - "scripts/stage7d-7f-batch-handoff.mjs"
     - "scripts/check-stage7d-7f-batch-automation-contract.mjs"
     - "scripts/stage7g-7i-batch-readiness.mjs"
     - "scripts/check-stage7g-7i-batch-verification-loop.mjs"
+    - "scripts/stage7j-7l-product-roadmap.mjs"
+    - "scripts/check-stage7j-7l-product-roadmap.mjs"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 7D-7F confirmed. Stage 7G-7I confirmed as batch verification loop.\n\n## Hypothesis\n\nStage 7J is likely next.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 7D-7F confirmed. Stage 7G-7I confirmed as batch verification loop. Stage 7J-7L confirmed as product roadmap.\n\n## Hypothesis\n\nStage 8A-8C is likely next.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 7G-7I complete. Future work uses minimum three related stages. Stage 7J is the next hypothesis. Stage 7D-7F remains confirmed.\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external. micro-PR relapse and early Lovable sync prompt remain risks. Stage 7G-7I reduces drift risk.\n\n## Hypotheses\n\nStage 7J is next. Earlier Stage 7G hypothesis is resolved.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 7J-7L complete. Future work uses minimum three related stages. Stage 8A-8C is the next hypothesis. Stage 7D-7F remains confirmed.\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external. micro-PR relapse and early Lovable sync prompt remain risks. Stage 7G-7I reduces drift risk. Stage 7J-7L reduces product-roadmap drift risk.\n\n## Hypotheses\n\nStage 8A-8C is next. Earlier Stage 7G hypothesis is resolved.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
@@ -493,6 +515,7 @@ sources:
 - [acceptance](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
 - [stage7d-7f](../../deploy/self-hosted/batch-automation-contract.stage7d-7f.json)
 - [stage7g-7i](../../deploy/self-hosted/batch-verification-loop.stage7g-7i.json)
+- [stage7j-7l](../../deploy/self-hosted/product-roadmap.stage7j-7l.json)
 
 ## Verification outputs
 

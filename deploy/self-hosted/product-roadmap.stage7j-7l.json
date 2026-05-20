@@ -1,0 +1,293 @@
+{
+  "stage": "7J-7L",
+  "packageId": "stage7j-7l-product-roadmap",
+  "createdAt": "2026-05-21T12:00:00+03:00",
+  "purpose": "Convert the post-Stage-7 process loop into a repository-owned product roadmap control layer: record product gaps, group the next product work into larger related batches, and guard the roadmap against drift from project-memory and the self-hosted product boundary.",
+  "stages": [
+    {
+      "id": "Stage 7J",
+      "title": "Product gap register",
+      "outcome": "A machine-readable register records confirmed product areas, remaining gaps, and evidence paths without claiming external go-live approval."
+    },
+    {
+      "id": "Stage 7K",
+      "title": "Next product batch planner",
+      "outcome": "A dry-run roadmap report groups the next product work into larger related batches with at least three stages each."
+    },
+    {
+      "id": "Stage 7L",
+      "title": "Product roadmap drift guard",
+      "outcome": "A guard fails when the roadmap manifest, reporter, docs, workflow, package scripts, preflight-all entry, and project-memory no longer describe the same next product plan."
+    }
+  ],
+  "batchPlanPolicy": {
+    "manifestRequiredBeforePrompt": true,
+    "minimumRelatedStagesPerBatch": 3,
+    "includedStages": [
+      "Stage 7J",
+      "Stage 7K",
+      "Stage 7L"
+    ],
+    "samePullRequestJustification": "All three stages define the transition from process automation back to product delivery: identify remaining product gaps, plan the next larger product batches, and guard the roadmap against drift.",
+    "microPullRequestRequiresJustification": true
+  },
+  "productGapRegister": {
+    "confirmedProductAreas": [
+      {
+        "id": "self_hosted_backend_core",
+        "status": "confirmed",
+        "evidence": [
+          "backend/self-hosted/routes.mjs",
+          "deploy/self-hosted/docker-compose.stage4a.yml",
+          "docs/backend/stage-4z-self-hosted-product-readiness.md"
+        ],
+        "summary": "Self-hosted backend, PostgreSQL, local object storage, health/readiness, OpenAPI, auth/RBAC, clinical data, ops, and product readiness contracts exist in repository-owned code."
+      },
+      {
+        "id": "production_cutover_ui",
+        "status": "confirmed",
+        "evidence": [
+          "src/lib/app-mode.ts",
+          "src/pages/SelfHostedLoginPage.tsx",
+          "docs/backend/stage-5d-production-mode-cutover.md",
+          "docs/backend/stage-5f-production-patient-workspace-cutover.md"
+        ],
+        "summary": "Production mode routes are wired to self-hosted API contracts while demo/dev keeps mock data separated."
+      },
+      {
+        "id": "external_intake_and_slots_foundation",
+        "status": "confirmed",
+        "evidence": [
+          "docs/backend/stage-5p-production-clinic-booking-requests-intake.md",
+          "docs/backend/stage-5q-external-intake-import-contracts.md",
+          "docs/backend/stage-5r-clinic-available-slots-contract.md",
+          "docs/backend/stage-5s-booking-slot-confirmation.md"
+        ],
+        "summary": "Booking requests, external intake imports, available slots, and slot confirmation contracts are represented as self-hosted product boundaries."
+      },
+      {
+        "id": "operator_owned_release_memory",
+        "status": "confirmed",
+        "evidence": [
+          "docs/backend/stage-6a-production-acceptance-baseline.md",
+          "docs/backend/stage-6z-production-release-archive-retention-next-cycle-register-receipt.md",
+          "docs/project-memory/PROJECT_STATE.yaml"
+        ],
+        "summary": "Release, archive, retention, and project-memory control artifacts are stored in git while live evidence and operator decisions remain outside git."
+      }
+    ],
+    "remainingGaps": [
+      {
+        "id": "crm_adapter_implementation",
+        "priority": 1,
+        "status": "planned",
+        "nextBatch": "Stage 8A-8C",
+        "evidenceBasis": [
+          "docs/backend/stage-5u-external-adapter-delivery-pack.md",
+          "docs/backend/stage-5v-external-adapter-operations.md",
+          "docs/backend/stage-5w-external-adapter-incident-runbook.md"
+        ],
+        "summary": "Adapter delivery/ops packages exist, but concrete clinic CRM connector implementations and scheduler mapping remain future product work."
+      },
+      {
+        "id": "appointment_availability_sync",
+        "priority": 2,
+        "status": "planned",
+        "nextBatch": "Stage 8D-8F",
+        "evidenceBasis": [
+          "docs/backend/stage-5r-clinic-available-slots-contract.md",
+          "docs/backend/stage-5s-booking-slot-confirmation.md"
+        ],
+        "summary": "Available-slot and booking-confirmation contracts exist; continuous production sync, conflict handling, and operator reconciliation need the next product batch."
+      },
+      {
+        "id": "clinical_reporting_completion",
+        "priority": 3,
+        "status": "planned",
+        "nextBatch": "Stage 8G-8I",
+        "evidenceBasis": [
+          "docs/backend/stage-5h-production-clinical-backend-contracts.md",
+          "src/pages/doctor/VisitWorkspacePage.tsx"
+        ],
+        "summary": "Clinical assessment, conclusion, and report contracts exist; final production reporting UX, review workflow, and export hardening remain planned."
+      },
+      {
+        "id": "device_bridge_operational_hardening",
+        "priority": 4,
+        "status": "planned",
+        "nextBatch": "Stage 8J-8L",
+        "evidenceBasis": [
+          "docs/backend/stage-4q-self-hosted-device-registry.md",
+          "docs/backend/stage-4z-self-hosted-product-readiness.md"
+        ],
+        "summary": "Device registry and worker contracts exist; production device onboarding, diagnostics, and operator handoff need a focused product hardening batch."
+      },
+      {
+        "id": "server_operations_handbook",
+        "priority": 5,
+        "status": "planned",
+        "nextBatch": "Stage 8M-8O",
+        "evidenceBasis": [
+          "docs/backend/stage-5b-production-server-bootstrap.md",
+          "docs/backend/stage-5c-production-migration-hardening.md",
+          "docs/backend/stage-6a-production-acceptance-baseline.md"
+        ],
+        "summary": "Server bootstrap and migration hardening exist; a consolidated operator handbook for install, backup, restore, and incident exercises remains planned."
+      }
+    ]
+  },
+  "nextProductBatches": [
+    {
+      "batch": "Stage 8A-8C",
+      "title": "CRM inbound adapter implementation",
+      "includedStages": [
+        "Stage 8A",
+        "Stage 8B",
+        "Stage 8C"
+      ],
+      "focus": "Implement operator-owned CRM/ad-source inbound adapter contracts, normalization, and safe import audit flow.",
+      "minimumRelatedStagesSatisfied": true,
+      "boundary": "Adapter code must run in the self-hosted deployment or an operator-owned connector process; no managed runtime dependency is allowed."
+    },
+    {
+      "batch": "Stage 8D-8F",
+      "title": "Appointment availability sync and booking confirmation",
+      "includedStages": [
+        "Stage 8D",
+        "Stage 8E",
+        "Stage 8F"
+      ],
+      "focus": "Turn cached clinic slots and booking requests into production availability sync, conflict handling, and booking confirmation workflows.",
+      "minimumRelatedStagesSatisfied": true,
+      "boundary": "Source systems may provide data, but Dermatolog Pro keeps its operational database and decision state self-hosted."
+    },
+    {
+      "batch": "Stage 8G-8I",
+      "title": "Clinical reporting completion",
+      "includedStages": [
+        "Stage 8G",
+        "Stage 8H",
+        "Stage 8I"
+      ],
+      "focus": "Complete production clinical reporting UX, report review, and safe report export from self-hosted backend contracts.",
+      "minimumRelatedStagesSatisfied": true,
+      "boundary": "No raw patient names, storage paths, signed URLs, or tokens may appear in generated sync reports."
+    },
+    {
+      "batch": "Stage 8J-8L",
+      "title": "Device Bridge production hardening",
+      "includedStages": [
+        "Stage 8J",
+        "Stage 8K",
+        "Stage 8L"
+      ],
+      "focus": "Harden device onboarding, worker diagnostics, command safety drills, and operator-facing device support runbooks.",
+      "minimumRelatedStagesSatisfied": true,
+      "boundary": "Browser hardware APIs remain out of the web UI unless a future explicit operator-approved bridge design is added."
+    },
+    {
+      "batch": "Stage 8M-8O",
+      "title": "Server operations handbook",
+      "includedStages": [
+        "Stage 8M",
+        "Stage 8N",
+        "Stage 8O"
+      ],
+      "focus": "Create a single operator handbook for install, backup, restore, upgrade, rollback, and incident drills.",
+      "minimumRelatedStagesSatisfied": true,
+      "boundary": "Operational evidence stays outside git; repository artifacts only describe redacted manifests and checklists."
+    }
+  ],
+  "roadmapReporter": {
+    "script": "scripts/stage7j-7l-product-roadmap.mjs",
+    "exports": [
+      "buildStage7J7LProductRoadmap",
+      "buildStage7J7LLovablePrompt",
+      "renderStage7J7LProductRoadmapMarkdown",
+      "runStage7J7LProductRoadmap"
+    ]
+  },
+  "lovableSyncVerification": {
+    "validOnlyAfterMergeToMain": true,
+    "expectedConfirmation": "Confirmed: Stage 7J-7L synced from main, no conflicts.",
+    "requiredFiles": [
+      "deploy/self-hosted/product-roadmap.stage7j-7l.json",
+      "scripts/stage7j-7l-product-roadmap.mjs",
+      "scripts/stage7j-7l-product-roadmap.test.mjs",
+      "scripts/check-stage7j-7l-product-roadmap.mjs",
+      "scripts/check-stage7j-7l-product-roadmap.test.mjs",
+      "docs/backend/stage-7j-7l-product-roadmap.md",
+      ".github/workflows/stage7j-7l-product-roadmap.yml"
+    ],
+    "requiredCommands": [
+      "npm run test:stage7j-7l",
+      "npm run check:stage7j-7l",
+      "npm run roadmap:stage7j-7l:dry-run",
+      "npm run preflight:stage7j-7l",
+      "npm run check:project-memory",
+      "node scripts/check-no-deno-locks.mjs"
+    ],
+    "packageLockMustRemainUnchanged": true,
+    "denoLockMustBeAbsent": true
+  },
+  "driftGuard": {
+    "script": "scripts/check-stage7j-7l-product-roadmap.mjs",
+    "requiresPackageScripts": [
+      "test:stage7j-7l",
+      "check:stage7j-7l",
+      "roadmap:stage7j-7l:dry-run",
+      "preflight:stage7j-7l"
+    ],
+    "requiresPreflightAllLabel": "Stage 7J-7L product roadmap preflight",
+    "requiresProjectMemoryNextHypothesis": "Stage 8A-8C"
+  },
+  "gates": [
+    {
+      "name": "Stage 7J-7L unit tests",
+      "command": "npm run test:stage7j-7l"
+    },
+    {
+      "name": "Stage 7J-7L drift guard",
+      "command": "npm run check:stage7j-7l"
+    },
+    {
+      "name": "Stage 7J-7L roadmap dry-run",
+      "command": "npm run roadmap:stage7j-7l:dry-run"
+    },
+    {
+      "name": "Stage 7J-7L preflight",
+      "command": "npm run preflight:stage7j-7l"
+    },
+    {
+      "name": "Project memory guard",
+      "command": "npm run check:project-memory"
+    },
+    {
+      "name": "No deno lock files",
+      "command": "node scripts/check-no-deno-locks.mjs"
+    }
+  ],
+  "projectMemoryRefresh": {
+    "requiredFiles": [
+      "docs/project-memory/PROJECT_STATE.yaml",
+      "docs/project-memory/HANDOFF.md",
+      "docs/project-memory/WORKLOG.md",
+      "docs/project-memory/NEXT_ACTIONS.md",
+      "docs/project-memory/RISKS.md",
+      "docs/project-memory/ARTIFACTS.md",
+      "docs/project-memory/WORKING_CONTRACT.md",
+      "docs/project-memory/BATCH_TEMPLATE.md"
+    ],
+    "confirmedStage": "Stage 7J-7L",
+    "nextStageHypothesis": "Stage 8A-8C"
+  },
+  "productBoundary": {
+    "runtimeProductChange": false,
+    "backendSchemaChange": false,
+    "frontendRuntimeChange": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false
+  },
+  "nextStageHypothesis": "Stage 8A-8C"
+}

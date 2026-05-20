@@ -174,6 +174,15 @@
    - [check-stage7g-7i-batch-verification-loop.test.mjs](../../scripts/check-stage7g-7i-batch-verification-loop.test.mjs)
    - [stage7g-7i-batch-verification-loop.yml](../../.github/workflows/stage7g-7i-batch-verification-loop.yml)
 
+10. Stage 7J-7L product-roadmap artifacts:
+   - [product-roadmap.stage7j-7l.json](../../deploy/self-hosted/product-roadmap.stage7j-7l.json)
+   - [stage-7j-7l-product-roadmap.md](../backend/stage-7j-7l-product-roadmap.md)
+   - [stage7j-7l-product-roadmap.mjs](../../scripts/stage7j-7l-product-roadmap.mjs)
+   - [stage7j-7l-product-roadmap.test.mjs](../../scripts/stage7j-7l-product-roadmap.test.mjs)
+   - [check-stage7j-7l-product-roadmap.mjs](../../scripts/check-stage7j-7l-product-roadmap.mjs)
+   - [check-stage7j-7l-product-roadmap.test.mjs](../../scripts/check-stage7j-7l-product-roadmap.test.mjs)
+   - [stage7j-7l-product-roadmap.yml](../../.github/workflows/stage7j-7l-product-roadmap.yml)
+
 ## Verification outputs captured during black-box creation
 
 0. Stage 7A-7C planned verification:
@@ -198,6 +207,15 @@
    - `npm run check:stage7g-7i`
    - `npm run readiness:stage7g-7i:dry-run`
    - `npm run preflight:stage7g-7i`
+   - `npm run check:project-memory`
+   - `npm run preflight:all -- --dry-run`
+   - `node scripts/check-no-deno-locks.mjs`
+
+0.3. Stage 7J-7L planned verification:
+   - `npm run test:stage7j-7l`
+   - `npm run check:stage7j-7l`
+   - `npm run roadmap:stage7j-7l:dry-run`
+   - `npm run preflight:stage7j-7l`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`

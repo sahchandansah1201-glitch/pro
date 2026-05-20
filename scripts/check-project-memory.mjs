@@ -28,7 +28,7 @@ const REQUIRED_TEXT = {
   ],
   "HANDOFF.md": ["# HANDOFF", "## Confirmed state", "## Hypothesis"],
   "WORKLOG.md": ["# WORKLOG", "Создан project-memory", "гипотеза"],
-  "NEXT_ACTIONS.md": ["# NEXT_ACTIONS", "Stage 7G-7I", "hypothesis", "Stage 7J"],
+  "NEXT_ACTIONS.md": ["# NEXT_ACTIONS", "Stage 7J-7L", "hypothesis", "Stage 8A-8C"],
   "RISKS.md": ["# RISKS", "## Confirmed risks", "## Hypotheses"],
   "ARTIFACTS.md": ["# ARTIFACTS", "Stage 6 manifests", "Verification outputs"],
 };
@@ -97,6 +97,9 @@ const REQUIRED_PROJECT_STATE_FIELDS = [
   /^\s+batch_readiness_reporter_confirmed:\s*true/m,
   /^\s+lovable_sync_verification_manifest_confirmed:\s*true/m,
   /^\s+batch_drift_guard_confirmed:\s*true/m,
+  /^\s+product_gap_register_confirmed:\s*true/m,
+  /^\s+next_product_batch_planner_confirmed:\s*true/m,
+  /^\s+product_roadmap_drift_guard_confirmed:\s*true/m,
   /^\s+minimum_related_stages_per_batch:\s*3/m,
 ];
 
@@ -195,8 +198,8 @@ function assertHypothesesAreExplicit(errors, root) {
     if (content.includes("Stage 7G") && !/hypothesis|Hypothesis|Hypotheses/.test(content)) {
       errors.push(`${path} mentions Stage 7G without marking it as a hypothesis`);
     }
-    if (content.includes("Stage 7J") && !/hypothesis|Hypothesis|Hypotheses/.test(content)) {
-      errors.push(`${path} mentions Stage 7J without marking it as a hypothesis`);
+    if (content.includes("Stage 8A-8C") && !/hypothesis|Hypothesis|Hypotheses/.test(content)) {
+      errors.push(`${path} mentions Stage 8A-8C without marking it as a hypothesis`);
     }
   }
 }
