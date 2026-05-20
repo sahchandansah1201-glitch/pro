@@ -2,74 +2,47 @@
 
 ## Scope
 
-This handoff captures the repository state after Stage 6Z was implemented on
-branch `codex/stage6z-release-archive-retention-next-cycle-register-receipt` and
-verified locally.
+This handoff captures the repository state while Stage 7A-7C is being
+implemented on branch `codex/stage7a-7c-development-workflow-contract`.
 
 ## Confirmed state
 
-1. Repository work is currently on
-   `codex/stage6z-release-archive-retention-next-cycle-register-receipt`.
+1. Stage 6A-6Z are present on the current branch base.
 2. Current branch base commit:
-   - `bf65dd1 Add Stage 6Y release archive retention next-cycle register`
-3. Stage 6A-6Z artifacts, docs, scripts, guards, and workflows are present in
-   the current branch.
-4. Fresh local verification after Stage 6Z wiring:
-   - `npm run test:stage6z` -> pass
-   - `npm run check:stage6z` -> pass
-   - `npm run receipt:stage6z:report` -> pass
-   - `npm run preflight:stage6z` -> pass
-   - `npm run check:project-memory` -> pass
-   - `node scripts/check-no-deno-locks.mjs` -> pass
-   - `git status --short` -> modified by Stage 6Z files until PR merge
+   - `4b3ffdd Add Stage 6Z release archive retention next-cycle register receipt`
+3. Stage 7A-7C adds a process contract only:
+   - Stage 7A: Codex owns branch, commit, push, Pull request, checks, merge,
+     local main verification, then Lovable sync prompt.
+   - Stage 7B: future work defaults to at least three related stages per Pull
+     request.
+   - Stage 7C: future batches use a reusable planning template.
+4. Stage 7A-7C product boundary:
+   - no backend route changes
+   - no database migrations
+   - no frontend runtime pages
+   - no managed runtime or managed database dependency
 
 ## Important operational fact
 
-Stage 6Z report output is designed to state:
-
-- `Status: ready`
-- `Ready for external release archive retention next-cycle register receipt: true`
-- `Stage 6Y archive retention next-cycle register status: ready`
-- `External archive retention next-cycle records stored outside git: true`
-- `External archive retention next-cycle register receipt stored outside git: true`
-- `External archive retention next-cycle owner receipt stored outside git: true`
-- `External archive retention next-cycle decision receipt stored outside git: true`
-- `Archive retention next-cycle outcome known to repository: false`
-- `Archive retention next-cycle register receipt outcome known to repository: false`
-- `Go-live approved by this report: false`
-- `Live server go-live verified by this report: false`
-- `Live archive verified by this report: false`
-
-Interpretation: Stage 6Z creates a deterministic, redacted next-cycle retention
-register receipt package on top of Stage 6Y. It still does not approve go-live,
-does not prove that a live production server was observed or archived, and does
-not store live logs, metrics, patient data, backup contents, archive contents,
-next-cycle receipt values, owner signoffs, decision receipts, credentials,
-object keys, or archive outcomes in git.
+The Lovable sync prompt is valid only after the Pull request is merged into
+`main` and local `main` is verified. A prompt for an open PR branch is expected
+to produce a false "missing files" result because Lovable follows `main` unless
+branch switching is explicitly enabled.
 
 ## Hypothesis
 
-- `Stage 7A` is likely next, but its scope is not confirmed by repository
-  files yet.
-
-## Lovable sync rule
-
-Lovable sync checks must run against `main` unless GitHub Branch Switching is
-explicitly enabled for the project. Do not send a Lovable sync prompt for a new
-stage while its Pull request is only open or ready for review. Required order:
-create PR, wait for checks, merge PR into `main`, verify local `main` contains
-the stage files, then send the Lovable sync prompt.
+- `Stage 7D` is likely next, but its product or process scope is not confirmed
+  by repository files yet.
 
 ## Immediate continuation recommendation
 
-1. Create, push, and merge the Stage 6Z Pull request into `main`.
-2. Verify local `main` contains Stage 6Z before sending the Lovable sync prompt.
-3. After Stage 6Z is confirmed in Lovable, define Stage 7A scope from
-   repository facts.
-4. Keep final go-live approval, raw live evidence, live logs, live metrics,
-   patient data, credentials, object keys, backup contents, archive contents,
-   external archive values, retention values, retention closure values,
-   retention final closure values, final closure receipt values, final closure
-   reconciliation values, final closure reconciliation receipt values,
-   next-cycle retention values, next-cycle owner records, next-cycle decision
-   records, and final archive outcomes outside git.
+1. Finish Stage 7A-7C in one Pull request.
+2. Run:
+   - `npm run preflight:stage7a-7c`
+   - `npm run check:project-memory`
+   - `npm run preflight:all -- --dry-run`
+   - `node scripts/check-no-deno-locks.mjs`
+3. Create the Pull request, wait for checks, merge into `main`, verify local
+   `main`, then send the Lovable sync prompt.
+4. Future Stage 7 batches should default to at least three related stages per
+   Pull request unless a documented hotfix reason applies.

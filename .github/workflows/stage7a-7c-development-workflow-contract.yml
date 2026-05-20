@@ -1,0 +1,65 @@
+name: stage7a-7c-development-workflow-contract
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/development-workflow-contract.stage7a-7c.json"
+      - "docs/project-memory/WORKING_CONTRACT.md"
+      - "docs/project-memory/BATCH_TEMPLATE.md"
+      - "docs/project-memory/PROJECT_STATE.yaml"
+      - "docs/project-memory/HANDOFF.md"
+      - "docs/project-memory/WORKLOG.md"
+      - "docs/project-memory/NEXT_ACTIONS.md"
+      - "docs/project-memory/RISKS.md"
+      - "docs/project-memory/ARTIFACTS.md"
+      - "docs/backend/stage-7a-7c-development-workflow-contract.md"
+      - "scripts/check-stage7a-7c-development-workflow-contract.mjs"
+      - "scripts/check-stage7a-7c-development-workflow-contract.test.mjs"
+      - "scripts/check-project-memory.mjs"
+      - "scripts/check-project-memory.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage7a-7c-development-workflow-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/development-workflow-contract.stage7a-7c.json"
+      - "docs/project-memory/**"
+      - "docs/backend/stage-7a-7c-development-workflow-contract.md"
+      - "scripts/check-stage7a-7c-development-workflow-contract.mjs"
+      - "scripts/check-stage7a-7c-development-workflow-contract.test.mjs"
+      - "scripts/check-project-memory.mjs"
+      - "scripts/check-project-memory.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage7a-7c-development-workflow-contract.yml"
+
+jobs:
+  stage7a_7c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 7A-7C development workflow contract preflight
+        run: npm run preflight:stage7a-7c
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 7A-7C development workflow contract"
+            echo
+            echo "- Preflight: completed"
+            echo "- Batch rule: minimum three related stages per Pull request"
+            echo "- Lovable prompt rule: after merge to main and local verification"
+            echo "- Boundary: process/docs/CI only, no product runtime change"
+          } >> "$GITHUB_STEP_SUMMARY"

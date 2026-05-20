@@ -67,15 +67,25 @@
      merged into `main`.
    - Impact: Lovable can correctly report "missing stage" even when a PR exists
      and is green, because the project sync follows `main` unless branch
-     switching is explicitly enabled.
+   switching is explicitly enabled.
+
+5. **Small PR relapse after repeated large-batch instruction**
+   - Evidence: the operator explicitly repeated the instruction to increase
+     code volume per batch and asked why it was not converted into a working
+     contract.
+   - Impact: future work can regress into repeated small PRs, increasing sync
+     overhead and Lovable prompt churn.
+   - Mitigation: Stage 7A-7C records a minimum three related stages per Pull
+     request and adds a guard/preflight for the working contract.
+   - Contract term: every micro-PR needs a documented exception reason.
 
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - Hypothesis: Stage 7A is next.
-   - Basis: Stage 6A-6Z exist in the current branch; Stage 7A files are not
-     confirmed.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 7A
+   - Hypothesis: Stage 7D is next.
+   - Basis: Stage 7A-7C define the workflow contract; no repository file yet
+     defines Stage 7D scope.
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 7D
      scope.
 
 ## Mitigations
@@ -96,3 +106,4 @@
    receipt/next-cycle register fields.
 4. For future stages, merge the checked PR into `main` before sending the
    Lovable sync prompt; then verify local `main` contains the stage artifacts.
+5. Use `docs/project-memory/BATCH_TEMPLATE.md` before future multi-stage work.
