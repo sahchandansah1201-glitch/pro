@@ -1,0 +1,338 @@
+{
+  "stage": "6X",
+  "packageId": "stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt",
+  "generatedAt": "2026-05-19T17:00:00.000Z",
+  "productBoundary": {
+    "deployment": "operator-owned self-hosted production release archive retention cycle final closure reconciliation receipt package",
+    "frontend": "static React build served by nginx",
+    "backend": "Node self-hosted API",
+    "database": "operator-owned PostgreSQL",
+    "objectStorage": "operator-owned object storage or local filesystem volume",
+    "worker": "operator-owned Device Bridge worker",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "productRuntimeCallsExternalSystems": false,
+    "demoFallbackInProduction": false,
+    "releaseArchiveRetentionCycleFinalClosureReconciliationReceiptBundledInRepository": true,
+    "releaseArchiveRetentionCycleFinalClosureReceiptBundledInRepository": true,
+    "releaseArchiveRetentionCycleFinalClosureBundledInRepository": true,
+    "releaseArchiveRetentionCycleClosureReceiptBundledInRepository": true,
+    "releaseArchiveRetentionCycleClosureBundledInRepository": true,
+    "releaseArchiveRetentionCycleIndexReceiptBundledInRepository": true,
+    "releaseArchiveRetentionCycleIndexBundledInRepository": true,
+    "releaseArchiveRetentionRegisterReceiptBundledInRepository": true,
+    "releaseArchiveRetentionRegisterBundledInRepository": true,
+    "releaseArchiveReconciliationReceiptBundledInRepository": true,
+    "releaseArchiveReconciliationBundledInRepository": true,
+    "archiveHandoffReceiptBundledInRepository": true,
+    "releaseArchiveContentsStoredOutsideGit": true,
+    "externalArchiveReceiptStoredOutsideGit": true,
+    "externalArchiveReconciliationStoredOutsideGit": true,
+    "externalArchiveReconciliationReceiptStoredOutsideGit": true,
+    "externalArchiveRetentionRecordsStoredOutsideGit": true,
+    "externalArchiveRetentionRegisterReceiptStoredOutsideGit": true,
+    "externalArchiveRetentionCycleRecordsStoredOutsideGit": true,
+    "externalArchiveRetentionCycleIndexReceiptStoredOutsideGit": true,
+    "externalArchiveRetentionCycleClosureRecordsStoredOutsideGit": true,
+    "externalArchiveRetentionCycleClosureReceiptStoredOutsideGit": true,
+    "externalArchiveRetentionCycleFinalClosureRecordsStoredOutsideGit": true,
+    "externalArchiveRetentionCycleFinalClosureReceiptStoredOutsideGit": true,
+    "externalArchiveRetentionCycleFinalClosureReconciliationStoredOutsideGit": true,
+    "archiveReceiptOutcomeKnownToRepository": false,
+    "archiveReconciliationOutcomeKnownToRepository": false,
+    "archiveRetentionOutcomeKnownToRepository": false,
+    "archiveRetentionRegisterReceiptOutcomeKnownToRepository": false,
+    "archiveRetentionCycleOutcomeKnownToRepository": false,
+    "archiveRetentionCycleIndexReceiptOutcomeKnownToRepository": false,
+    "archiveRetentionCycleClosureOutcomeKnownToRepository": false,
+    "archiveRetentionCycleClosureReceiptOutcomeKnownToRepository": false,
+    "archiveRetentionCycleFinalClosureOutcomeKnownToRepository": false,
+    "archiveRetentionCycleFinalClosureReceiptOutcomeKnownToRepository": false,
+    "archiveRetentionCycleFinalClosureReconciliationOutcomeKnownToRepository": false,
+    "liveServerGoLiveVerifiedByRepository": false,
+    "releaseArchiveRetentionCycleFinalClosureReconciliationBundledInRepository": true,
+    "externalArchiveRetentionCycleFinalClosureReconciliationReceiptStoredOutsideGit": true,
+    "archiveRetentionCycleFinalClosureReconciliationReceiptOutcomeKnownToRepository": false
+  },
+  "receiptInputs": [
+    {
+      "key": "stage6w_release_archive_retention_cycle_final_closure_reconciliation",
+      "label": "Stage 6W production release archive retention cycle final closure reconciliation package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation.stage6w.json",
+      "required": true
+    },
+    {
+      "key": "stage6w_release_archive_retention_cycle_final_closure_reconciliation_generator",
+      "label": "Stage 6W release archive retention cycle final closure reconciliation generator",
+      "kind": "file",
+      "path": "scripts/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs",
+      "required": true
+    },
+    {
+      "key": "stage6v_release_archive_retention_cycle_final_closure_receipt",
+      "label": "Stage 6V production release archive retention cycle final closure receipt package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-archive-retention-cycle-final-closure-receipt.stage6v.json",
+      "required": true
+    },
+    {
+      "key": "stage6u_release_archive_retention_cycle_final_closure",
+      "label": "Stage 6U production release archive retention cycle final closure package",
+      "kind": "file",
+      "path": "deploy/self-hosted/release-archive-retention-cycle-final-closure.stage6u.json",
+      "required": true
+    },
+    {
+      "key": "project_memory_black_box",
+      "label": "Project-memory handoff snapshot",
+      "kind": "file",
+      "path": "docs/project-memory/HANDOFF.md",
+      "required": true
+    },
+    {
+      "key": "preflight_all_orchestrator",
+      "label": "Deterministic preflight-all orchestrator",
+      "kind": "file",
+      "path": "scripts/preflight-all.mjs",
+      "required": true
+    },
+    {
+      "key": "backend_guardrails_workflow",
+      "label": "Backend guardrails workflow",
+      "kind": "file",
+      "path": ".github/workflows/backend-guardrails.yml",
+      "required": true
+    },
+    {
+      "key": "stage6w_workflow",
+      "label": "Stage 6W final closure reconciliation workflow",
+      "kind": "file",
+      "path": ".github/workflows/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.yml",
+      "required": true
+    }
+  ],
+  "receiptSections": [
+    {
+      "key": "archive_retention_cycle_final_closure_reconciliation_reference",
+      "label": "Repository archive retention cycle final closure reconciliation reference",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "archive_retention_cycle_final_closure_reconciliation_receipt_reference",
+      "label": "Repository archive retention cycle final closure reconciliation receipt reference",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "archive_retention_cycle_final_closure_reference",
+      "label": "Repository archive retention cycle final closure reference",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "external_archive_retention_cycle_final_closure_receipt_reference",
+      "label": "External archive retention cycle final closure receipt reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "final_closure_receipt_reconciliation_reference",
+      "label": "External final closure receipt reconciliation reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_cycle_final_closure_reconciliation_owner_reference",
+      "label": "External retention cycle final closure reconciliation receipt owner reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_review_window_final_closure_reconciliation_reference",
+      "label": "External retention review window final closure reconciliation receipt reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "disposal_hold_watch_final_closure_reconciliation_reference",
+      "label": "External disposal hold watch final closure reconciliation receipt reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_exception_register_final_closure_reconciliation_reference",
+      "label": "External retention exception register final closure reconciliation receipt reference",
+      "required": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "production_boundary",
+      "label": "Self-hosted product boundary summary",
+      "required": true,
+      "storeOutsideGit": false
+    },
+    {
+      "key": "next_cycle_final_closure_reconciliation_entrypoints",
+      "label": "Next-cycle final closure reconciliation receipt repository entrypoints",
+      "required": true,
+      "storeOutsideGit": false
+    }
+  ],
+  "externalReceiptFields": [
+    {
+      "key": "archive_retention_cycle_final_closure_reconciliation_id_reference",
+      "label": "External archive retention cycle final closure reconciliation receipt identifier reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_retention_cycle_final_closure_receipt_id_reference",
+      "label": "External archive retention cycle final closure receipt identifier reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "archive_retention_cycle_final_closure_id_reference",
+      "label": "External archive retention cycle final closure identifier reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "final_closure_receipt_reconciliation_result_reference",
+      "label": "External final closure receipt reconciliation result reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_cycle_final_closure_reconciliation_owner_reference",
+      "label": "External retention cycle final closure reconciliation receipt owner reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_review_window_final_closure_reconciliation_reference",
+      "label": "External retention review window final closure reconciliation receipt reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "disposal_hold_watch_final_closure_reconciliation_reference",
+      "label": "External disposal hold watch final closure reconciliation receipt reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    },
+    {
+      "key": "retention_exception_register_final_closure_reconciliation_reference",
+      "label": "External retention exception register final closure reconciliation receipt reference",
+      "required": true,
+      "redacted": true,
+      "storeOutsideGit": true
+    }
+  ],
+  "receiptGates": [
+    {
+      "key": "stage6w_ready",
+      "label": "Stage 6W release archive retention cycle final closure reconciliation preflight is green",
+      "command": "npm run preflight:stage6w",
+      "required": true
+    },
+    {
+      "key": "stage6w_report",
+      "label": "Stage 6W release archive retention cycle final closure reconciliation report renders",
+      "command": "npm run reconcile:stage6w:report",
+      "required": true
+    },
+    {
+      "key": "stage6x_report",
+      "label": "Stage 6X release archive retention cycle final closure reconciliation receipt report renders",
+      "command": "npm run receipt:stage6x:report",
+      "required": true
+    },
+    {
+      "key": "project_memory_updated",
+      "label": "Project memory references Stage 6X",
+      "command": "npm run check:project-memory",
+      "required": true
+    },
+    {
+      "key": "preflight_all_dry_run",
+      "label": "Preflight-all dry run includes Stage 6X",
+      "command": "npm run preflight:all -- --dry-run",
+      "required": true
+    },
+    {
+      "key": "no_deno_lock",
+      "label": "Repository contains no deno.lock files",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    },
+    {
+      "key": "external_final_closure_reconciliation_receipt_records_stay_external",
+      "label": "External final closure reconciliation receipt records stay outside git",
+      "command": "npm run check:stage6x",
+      "required": true
+    },
+    {
+      "key": "external_cycle_final_closure_reconciliation_receipt_owner_recorded",
+      "label": "External retention cycle final closure reconciliation receipt owner is recorded outside git",
+      "command": "npm run receipt:stage6x:dry-run",
+      "required": true
+    }
+  ],
+  "receiptPolicy": {
+    "repositoryStores": [
+      "redacted Stage 6X final closure reconciliation receipt schema",
+      "safe field names and repository-relative input paths",
+      "deterministic gates and commands for local/CI verification",
+      "self-hosted product boundary statement"
+    ],
+    "repositoryMustNotStore": [
+      "external archive retention cycle final closure reconciliation receipt IDs or signatures",
+      "external archive retention cycle final closure receipt values",
+      "external archive retention cycle final closure outcome values",
+      "raw archive contents, logs, metrics, credentials, backups, patient identities, or storage paths",
+      "live server go-live approval or live archive verification evidence"
+    ],
+    "goLiveDecisionBundledInRepository": false,
+    "liveServerVerifiedByRepository": false,
+    "nextStageHypothesis": "Stage 6Y",
+    "retentionCycleFinalClosureReconciliationReceiptOwner": "external operator archive retention cycle final closure reconciliation receipt owner record"
+  },
+  "releaseArchiveRetentionCycleFinalClosureReconciliationManifest": "deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation.stage6w.json",
+  "externalReceiptRecordPointers": [
+    {
+      "key": "reconciliation_owner_record",
+      "label": "External final closure reconciliation receipt owner record",
+      "storedOutsideGit": true
+    },
+    {
+      "key": "receipt_reconciliation_result_record",
+      "label": "External final closure receipt reconciliation result record",
+      "storedOutsideGit": true
+    },
+    {
+      "key": "retention_window_record",
+      "label": "External retention review window reconciliation record",
+      "storedOutsideGit": true
+    },
+    {
+      "key": "disposal_hold_record",
+      "label": "External disposal hold watch reconciliation record",
+      "storedOutsideGit": true
+    },
+    {
+      "key": "exception_register_record",
+      "label": "External retention exception register reconciliation record",
+      "storedOutsideGit": true
+    }
+  ]
+}

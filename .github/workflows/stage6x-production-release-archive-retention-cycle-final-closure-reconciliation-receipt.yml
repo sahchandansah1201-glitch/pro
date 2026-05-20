@@ -1,0 +1,66 @@
+name: stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation-receipt.stage6x.json"
+      - "scripts/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.mjs"
+      - "scripts/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.test.mjs"
+      - "scripts/check-stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.mjs"
+      - "scripts/check-stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.test.mjs"
+      - "docs/backend/stage-6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation-receipt.stage6x.json"
+      - "scripts/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.mjs"
+      - "scripts/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.test.mjs"
+      - "scripts/check-stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.mjs"
+      - "scripts/check-stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.test.mjs"
+      - "docs/backend/stage-6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.yml"
+
+jobs:
+  stage6x:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6X production release archive retention cycle final closure reconciliation receipt preflight
+        run: npm run preflight:stage6x
+
+      - name: Build Stage 6X production release archive retention cycle final closure reconciliation receipt report
+        run: npm run receipt:stage6x:report
+
+      - name: Upload Stage 6X production release archive retention cycle final closure reconciliation receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt
+          path: |
+            test-results/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.md
+            test-results/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6X production release archive retention cycle final closure reconciliation receipt"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.md"
+            echo "- Boundary: offline redacted archive retention cycle final closure reconciliation receipt schema, final reconciliation outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
