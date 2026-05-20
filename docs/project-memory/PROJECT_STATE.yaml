@@ -1,11 +1,11 @@
-generated_at: "2026-05-20T07:25:00+03:00"
+generated_at: "2026-05-20T14:35:34+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "main"
-  head_sha: "498aca48590053745cc78f3d55376f4db593bf06"
-  head_commit: "Add Stage 6V release archive retention final closure receipt"
-  working_tree: "clean"
+  branch: "codex/stage6w-release-archive-retention-cycle-final-closure-reconciliation"
+  head_sha: "433c1aa2f07ebd8745e31837e3e0d0d340e61da7"
+  head_commit: "Refresh project memory after Stage 6V merge"
+  working_tree: "modified"
   upstream: "origin/main"
 verification:
   deno_lock_guard:
@@ -304,6 +304,31 @@ verification:
       go_live_approved_by_report: false
       live_server_go_live_verified_by_report: false
       live_archive_verified_by_report: false
+  stage6w_preflight:
+    command: "npm run preflight:stage6w"
+    status: "ok"
+    key_facts:
+      tests_passed: 13
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6w_report_status: "ready"
+      stage6w_readiness_uses_stage6v_manifest_timestamp: true
+      ready_for_external_release_archive_retention_cycle_final_closure_reconciliation: true
+      external_archive_retention_cycle_final_closure_records_stored_outside_git: true
+      external_archive_retention_cycle_final_closure_receipt_stored_outside_git: true
+      external_archive_retention_cycle_final_closure_reconciliation_stored_outside_git: true
+      archive_retention_outcome_known_to_repository: false
+      archive_retention_register_receipt_outcome_known_to_repository: false
+      archive_retention_cycle_outcome_known_to_repository: false
+      archive_retention_cycle_index_receipt_outcome_known_to_repository: false
+      archive_retention_cycle_closure_outcome_known_to_repository: false
+      archive_retention_cycle_closure_receipt_outcome_known_to_repository: false
+      archive_retention_cycle_final_closure_outcome_known_to_repository: false
+      archive_retention_cycle_final_closure_receipt_outcome_known_to_repository: false
+      archive_retention_cycle_final_closure_reconciliation_outcome_known_to_repository: false
+      go_live_approved_by_report: false
+      live_server_go_live_verified_by_report: false
+      live_archive_verified_by_report: false
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -327,9 +352,11 @@ verification:
       includes_stage6t: true
       includes_stage6u: true
       includes_stage6v: true
+      includes_stage6w: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "433c1aa Refresh project memory after Stage 6V merge"
     - "498aca4 Add Stage 6V release archive retention final closure receipt"
     - "e1252ab Add Stage 6U release archive retention cycle final closure"
     - "a5a16e Add Stage 6T release archive retention cycle closure receipt"
@@ -371,6 +398,7 @@ stage_evidence:
     - "docs/backend/stage-6t-production-release-archive-retention-cycle-closure-receipt.md"
     - "docs/backend/stage-6u-production-release-archive-retention-cycle-final-closure.md"
     - "docs/backend/stage-6v-production-release-archive-retention-cycle-final-closure-receipt.md"
+    - "docs/backend/stage-6w-production-release-archive-retention-cycle-final-closure-reconciliation.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
@@ -394,8 +422,9 @@ stage_evidence:
     - ".github/workflows/stage6t-production-release-archive-retention-cycle-closure-receipt.yml"
     - ".github/workflows/stage6u-production-release-archive-retention-cycle-final-closure.yml"
     - ".github/workflows/stage6v-production-release-archive-retention-cycle-final-closure-receipt.yml"
+    - ".github/workflows/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.yml"
 hypotheses:
-  - "Next logical stage after Stage 6V is Stage 6W. Scope is not confirmed by repository files yet."
+  - "Next logical stage after Stage 6W is Stage 6X. Scope is not confirmed by repository files yet."
 sources:
   commands:
     - "git status --short --branch"
@@ -446,6 +475,10 @@ sources:
     - "npm run receipt:stage6v:report"
     - "npm run check:stage6v"
     - "npm run test:stage6v"
+    - "npm run test:stage6w"
+    - "npm run check:stage6w"
+    - "npm run reconcile:stage6w:report"
+    - "npm run preflight:stage6w"
     - "npm run preflight:stage6o"
     - "npm run preflight:stage6p"
     - "npm run preflight:stage6q"
@@ -512,3 +545,6 @@ sources:
     - "scripts/check-stage6v-production-release-archive-retention-cycle-final-closure-receipt.mjs"
     - "scripts/stage6v-production-release-archive-retention-cycle-final-closure-receipt.mjs"
     - "deploy/self-hosted/release-archive-retention-cycle-final-closure-receipt.stage6v.json"
+    - "scripts/check-stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs"
+    - "scripts/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs"
+    - "deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation.stage6w.json"

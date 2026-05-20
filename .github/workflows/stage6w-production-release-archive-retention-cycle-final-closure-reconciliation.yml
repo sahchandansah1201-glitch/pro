@@ -1,0 +1,66 @@
+name: stage6w-production-release-archive-retention-cycle-final-closure-reconciliation
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation.stage6w.json"
+      - "scripts/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs"
+      - "scripts/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.test.mjs"
+      - "scripts/check-stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs"
+      - "scripts/check-stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.test.mjs"
+      - "docs/backend/stage-6w-production-release-archive-retention-cycle-final-closure-reconciliation.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation.stage6w.json"
+      - "scripts/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs"
+      - "scripts/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.test.mjs"
+      - "scripts/check-stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs"
+      - "scripts/check-stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.test.mjs"
+      - "docs/backend/stage-6w-production-release-archive-retention-cycle-final-closure-reconciliation.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.yml"
+
+jobs:
+  stage6w:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6W production release archive retention cycle final closure reconciliation preflight
+        run: npm run preflight:stage6w
+
+      - name: Build Stage 6W production release archive retention cycle final closure reconciliation report
+        run: npm run reconcile:stage6w:report
+
+      - name: Upload Stage 6W production release archive retention cycle final closure reconciliation
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6w-production-release-archive-retention-cycle-final-closure-reconciliation
+          path: |
+            test-results/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.md
+            test-results/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6W production release archive retention cycle final closure reconciliation"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.md"
+            echo "- Boundary: offline redacted archive retention cycle final closure reconciliation schema, final reconciliation outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
