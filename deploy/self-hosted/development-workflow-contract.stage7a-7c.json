@@ -1,0 +1,79 @@
+{
+  "stage": "7A-7C",
+  "packageId": "stage7a-7c-development-workflow-contract",
+  "createdAt": "2026-05-20T15:45:00+03:00",
+  "purpose": "Codify the development workflow after Stage 6Z: one operator-owned Pull request lifecycle, larger related-stage batches, and a reusable batch planning template before further feature work.",
+  "stages": [
+    {
+      "id": "Stage 7A",
+      "title": "Development workflow contract",
+      "outcome": "Repository records the required order: branch, commit, push, Pull request, checks, merge to main, local main verification, then Lovable sync prompt."
+    },
+    {
+      "id": "Stage 7B",
+      "title": "Batch size guard",
+      "outcome": "Future development defaults to at least three related stages per Pull request unless a documented hotfix reason is present."
+    },
+    {
+      "id": "Stage 7C",
+      "title": "Batch planning template",
+      "outcome": "A reusable template exists for planning future multi-stage PRs, expected checks, Lovable prompt timing, and sync recovery."
+    }
+  ],
+  "workingContract": {
+    "codexCreatesBranchCommitPushPullRequest": true,
+    "codexWaitsForChecksBeforeMerge": true,
+    "codexMergesPassingPullRequestIntoMain": true,
+    "verifyLocalMainBeforeLovablePrompt": true,
+    "lovablePromptOnlyAfterMainMerge": true,
+    "pushPromptBeforeMergeForbidden": true,
+    "branchPrefix": "codex/",
+    "baseBranch": "main"
+  },
+  "batchPolicy": {
+    "minimumRelatedStagesPerBatch": 3,
+    "microPullRequestRequiresJustification": true,
+    "allowedMicroPullRequestReasons": [
+      "urgent CI fix",
+      "security fix",
+      "single-file typo",
+      "hotfix"
+    ],
+    "defaultInstruction": "Increase code and documentation volume per batch by grouping related stages into one Pull request."
+  },
+  "gates": [
+    {
+      "name": "Stage 7A-7C unit tests",
+      "command": "npm run test:stage7a-7c"
+    },
+    {
+      "name": "Stage 7A-7C guard",
+      "command": "npm run check:stage7a-7c"
+    },
+    {
+      "name": "Stage 7A-7C preflight",
+      "command": "npm run preflight:stage7a-7c"
+    },
+    {
+      "name": "Project memory guard",
+      "command": "npm run check:project-memory"
+    },
+    {
+      "name": "Full preflight dry-run visibility",
+      "command": "npm run preflight:all -- --dry-run"
+    },
+    {
+      "name": "No deno lock files",
+      "command": "node scripts/check-no-deno-locks.mjs"
+    }
+  ],
+  "productBoundary": {
+    "runtimeProductChange": false,
+    "backendSchemaChange": false,
+    "frontendRuntimeChange": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false
+  },
+  "nextStageHypothesis": "Stage 7D"
+}

@@ -1,0 +1,70 @@
+# BATCH_TEMPLATE
+
+Use this template before starting future multi-stage work.
+
+## Batch Identity
+
+- Batch id:
+- Included stages:
+- Branch:
+- Base branch: `main`
+- Expected Pull request title:
+
+## Why One Pull Request
+
+- Shared product area:
+- Shared files or checks:
+- Reason this should not be split into small PRs:
+- If fewer than three related stages, allowed micro-PR reason:
+
+## Scope
+
+- Backend changes:
+- Frontend changes:
+- Database changes:
+- Deploy or workflow changes:
+- Documentation and project-memory changes:
+
+## Product Boundary
+
+- Managed runtime dependency: `none`
+- Managed database dependency: `none`
+- Browser hardware API dependency:
+- External service dependency:
+- Data that must stay outside git:
+
+## Required Checks
+
+- Stage-specific tests:
+- Stage-specific guard:
+- Stage-specific preflight:
+- Project memory guard:
+- Full preflight dry-run:
+- No lock-file guard:
+
+## Pull Request Lifecycle
+
+- Branch created:
+- Commit created:
+- Branch pushed:
+- Pull request created:
+- Checks passed:
+- Pull request merged:
+- Local `main` verified:
+- Lovable prompt sent after merge:
+
+## Lovable Sync Prompt
+
+Write the exact post-merge prompt here. It must ask Lovable to verify files from
+`main`, not from an open PR branch.
+
+## Sync Mismatch Recovery
+
+If Lovable reports missing files:
+
+1. Verify the Pull request is merged into `main`.
+2. Verify local `main` contains the commit.
+3. Verify the connected Lovable project points at the same GitHub repository and
+   branch.
+4. Trigger Lovable GitHub reconnect or a no-op main commit only after the above
+   checks.

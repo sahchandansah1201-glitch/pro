@@ -147,7 +147,24 @@
    - [.github/workflows/stage6y-production-release-archive-retention-next-cycle-register.yml](../../.github/workflows/stage6y-production-release-archive-retention-next-cycle-register.yml)
    - [.github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml](../../.github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml)
 
+7. Stage 7A-7C workflow-contract artifacts:
+   - [development-workflow-contract.stage7a-7c.json](../../deploy/self-hosted/development-workflow-contract.stage7a-7c.json)
+   - [WORKING_CONTRACT.md](./WORKING_CONTRACT.md)
+   - [BATCH_TEMPLATE.md](./BATCH_TEMPLATE.md)
+   - [stage-7a-7c-development-workflow-contract.md](../backend/stage-7a-7c-development-workflow-contract.md)
+   - [check-stage7a-7c-development-workflow-contract.mjs](../../scripts/check-stage7a-7c-development-workflow-contract.mjs)
+   - [check-stage7a-7c-development-workflow-contract.test.mjs](../../scripts/check-stage7a-7c-development-workflow-contract.test.mjs)
+   - [stage7a-7c-development-workflow-contract.yml](../../.github/workflows/stage7a-7c-development-workflow-contract.yml)
+
 ## Verification outputs captured during black-box creation
+
+0. Stage 7A-7C planned verification:
+   - `npm run test:stage7a-7c`
+   - `npm run check:stage7a-7c`
+   - `npm run preflight:stage7a-7c`
+   - `npm run check:project-memory`
+   - `npm run preflight:all -- --dry-run`
+   - `node scripts/check-no-deno-locks.mjs`
 
 1. `git status -sb` -> clean on `main`.
 2. `node scripts/check-no-deno-locks.mjs` -> OK.

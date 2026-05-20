@@ -1,10 +1,10 @@
-generated_at: "2026-05-20T15:10:00+03:00"
+generated_at: "2026-05-20T15:45:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage6z-release-archive-retention-next-cycle-register-receipt"
-  head_sha: "bf65dd18d5843c5316e1117e3d3498c8bf9b27b5"
-  head_commit: "Add Stage 6Y release archive retention next-cycle register"
+  branch: "codex/stage7a-7c-development-workflow-contract"
+  head_sha: "4b3ffdd7709d3f1c4371f4be865facf6b1666edc"
+  head_commit: "Add Stage 6Z release archive retention next-cycle register receipt"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -404,6 +404,18 @@ verification:
       go_live_approved_by_report: false
       live_server_go_live_verified_by_report: false
       live_archive_verified_by_report: false
+  stage7a_7c_preflight:
+    command: "npm run preflight:stage7a-7c"
+    status: "ok"
+    key_facts:
+      tests_passed: 4
+      guard_files_checked: 7
+      leak_findings: 0
+      development_workflow_contract_confirmed: true
+      lovable_prompt_only_after_main_merge: true
+      minimum_related_stages_per_batch: 3
+      batch_planning_template_present: true
+      product_runtime_change: false
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -431,9 +443,11 @@ verification:
       includes_stage6x: true
       includes_stage6y: true
       includes_stage6z: true
+      includes_stage7a_7c: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "4b3ffdd Add Stage 6Z release archive retention next-cycle register receipt"
     - "bf65dd1 Add Stage 6Y release archive retention next-cycle register"
     - "5ee716d Add Stage 6X release archive retention final closure reconciliation receipt"
     - "9e1c351 Add Stage 6W release archive retention final closure reconciliation"
@@ -482,6 +496,8 @@ stage_evidence:
     - "docs/backend/stage-6w-production-release-archive-retention-cycle-final-closure-reconciliation.md"
     - "docs/backend/stage-6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.md"
     - "docs/backend/stage-6y-production-release-archive-retention-next-cycle-register.md"
+    - "docs/backend/stage-6z-production-release-archive-retention-next-cycle-register-receipt.md"
+    - "docs/backend/stage-7a-7c-development-workflow-contract.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
@@ -509,8 +525,9 @@ stage_evidence:
     - ".github/workflows/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.yml"
     - ".github/workflows/stage6y-production-release-archive-retention-next-cycle-register.yml"
     - ".github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml"
+    - ".github/workflows/stage7a-7c-development-workflow-contract.yml"
 hypotheses:
-  - "Next logical stage after Stage 6Z is Stage 7A. Scope is not confirmed by repository files yet."
+  - "Next logical stage after Stage 7A-7C is Stage 7D. Scope is not confirmed by repository files yet."
 sources:
   commands:
     - "git status --short --branch"
@@ -585,6 +602,11 @@ sources:
     - "npm run preflight:stage6t"
     - "npm run preflight:stage6u"
     - "npm run preflight:stage6v"
+    - "npm run test:stage7a-7c"
+    - "npm run check:stage7a-7c"
+    - "npm run preflight:stage7a-7c"
+    - "npm run check:project-memory"
+    - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
   files:
     - "deploy/self-hosted/acceptance-baseline.stage6a.json"
@@ -659,3 +681,10 @@ sources:
     - "deploy/self-hosted/release-archive-retention-next-cycle-register-receipt.stage6z.json"
     - "docs/backend/stage-6z-production-release-archive-retention-next-cycle-register-receipt.md"
     - ".github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml"
+    - "deploy/self-hosted/development-workflow-contract.stage7a-7c.json"
+    - "docs/backend/stage-7a-7c-development-workflow-contract.md"
+    - "docs/project-memory/WORKING_CONTRACT.md"
+    - "docs/project-memory/BATCH_TEMPLATE.md"
+    - "scripts/check-stage7a-7c-development-workflow-contract.mjs"
+    - "scripts/check-stage7a-7c-development-workflow-contract.test.mjs"
+    - ".github/workflows/stage7a-7c-development-workflow-contract.yml"

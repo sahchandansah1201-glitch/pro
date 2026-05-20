@@ -2,6 +2,17 @@
 
 ## 2026-05-20
 
+- Создан Stage 7A-7C development workflow contract одним батчем:
+  manifest, working contract, batch planning template, guard, tests, docs,
+  workflow, npm scripts and `preflight-all` wiring.
+- Стандарт будущей разработки зафиксирован в репозитории: Codex делает branch,
+  commit, push, Pull request, waits checks, merge to `main`, verifies local
+  `main`, and only then sends the Lovable sync prompt.
+- Batch-size rule recorded: default minimum is three related stages per Pull
+  request; smaller PRs require a documented hotfix/security/CI/typo reason.
+- Stage 7D remains an explicit hypothesis until repository files define its
+  scope.
+
 - Создан Stage 6Z production release archive retention next-cycle register
   receipt: manifest, generator, guard, tests, docs, workflow, npm scripts and
   `preflight-all` wiring.

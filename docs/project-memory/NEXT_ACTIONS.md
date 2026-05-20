@@ -2,41 +2,38 @@
 
 ## Highest-confidence next step
 
-Stage 6Z is implemented in the current branch and awaits the normal PR lifecycle.
-The next action is to complete the PR lifecycle before any Lovable sync prompt.
+Complete Stage 7A-7C as one Pull request, then merge it before sending the
+Lovable sync prompt.
 
 ## Immediate sequence
 
-1. **Merge Stage 6Z to `main` first**:
-   - Create/push the Stage 6Z Pull request.
+1. **Complete Stage 7A-7C implementation**:
+   - Keep the scope limited to workflow contract, batch-size guard, batch
+     planning template, project-memory updates, CI guard, and preflight wiring.
+   - Do not change product runtime behavior in this stage.
+
+2. **Verify before commit**:
+   - `npm run test:stage7a-7c`
+   - `npm run check:stage7a-7c`
+   - `npm run preflight:stage7a-7c`
+   - `npm run check:project-memory`
+   - `npm run preflight:all -- --dry-run`
+   - `node scripts/check-no-deno-locks.mjs`
+
+3. **Complete the Pull request lifecycle**:
+   - Commit and push the branch.
+   - Create the Pull request.
    - Wait for checks.
    - Merge into `main`.
-   - Verify local `main` contains Stage 6Z files and `npm run preflight:stage6z`
-     passes.
+   - Verify local `main`.
+   - Only then send Lovable the sync prompt.
 
-2. **Confirm Stage 6Z in Lovable**:
-   - Ask Lovable to verify Stage 6Z files from `main`.
-   - Treat "Stage 6Z missing" as a sync issue only after checking that Lovable
-     is pointed at `main`.
+4. **Apply the batch-size rule going forward**:
+   - minimum three related stages per Pull request.
+   - Smaller PRs require a documented reason: urgent CI fix, security fix,
+     single-file typo, or hotfix.
 
-3. **Define Stage 7A scaffold (hypothesis)**:
-   - Hypothesis: Stage 7A follows Stage 6Z.
-   - Basis: Stage 6A-6Z exist in the current branch; Stage 7A files are not
-     confirmed.
-   - Do not implement Stage 7A until Stage 6Z is merged and confirmed in
-     Lovable.
+## Stage 7D hypothesis
 
-## Verification commands to keep using
-
-- `npm run preflight:stage6w`
-- `npm run preflight:stage6x`
-- `npm run preflight:stage6y`
-- `npm run preflight:stage6z`
-- `npm run check:project-memory`
-- `npm run preflight:all -- --dry-run`
-- `node scripts/check-no-deno-locks.mjs`
-
-## Alternatives if Stage 7A is not the intended target
-
-Treat any Stage 7A scope as unconfirmed until repository files or an explicit
-user instruction define it.
+Stage 7D is the next likely stage after Stage 7A-7C, but its scope is not
+confirmed by repository files yet.
