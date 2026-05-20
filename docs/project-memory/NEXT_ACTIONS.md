@@ -2,29 +2,39 @@
 
 ## Highest-confidence next step
 
-Stage 6V is merged into `main` and verified locally. The next action is to run
-the Lovable sync confirmation against `main`.
+Stage 6W is implemented in the current branch and verified locally. The next
+action is to complete the PR lifecycle before any Lovable sync prompt.
 
 ## Immediate sequence
 
-1. **Confirm Stage 6V in Lovable**:
-   - Ask Lovable to verify Stage 6V files from `main`.
-   - Treat "Stage 6V missing" as a sync issue only after checking that Lovable
+1. **Merge Stage 6W to `main` first**:
+   - Create/push the Stage 6W Pull request.
+   - Wait for checks.
+   - Merge into `main`.
+   - Verify local `main` contains Stage 6W files and `npm run preflight:stage6w`
+     passes.
+
+2. **Confirm Stage 6W in Lovable**:
+   - Ask Lovable to verify Stage 6W files from `main`.
+   - Treat "Stage 6W missing" as a sync issue only after checking that Lovable
      is pointed at `main`.
 
-2. **Define Stage 6W scaffold (hypothesis)**:
-   - Hypothesis: Stage 6W follows Stage 6V.
-   - Basis: Stage 6A-6V exist on `main`; Stage 6W files are not confirmed.
-   - Do not implement Stage 6W until Stage 6V is confirmed in Lovable.
+3. **Define Stage 6X scaffold (hypothesis)**:
+   - Hypothesis: Stage 6X follows Stage 6W.
+   - Basis: Stage 6A-6W exist in the current branch; Stage 6X files are not
+     confirmed.
+   - Do not implement Stage 6X until Stage 6W is merged and confirmed in
+     Lovable.
 
 ## Verification commands to keep using
 
 - `npm run preflight:stage6v`
+- `npm run preflight:stage6w`
 - `npm run check:project-memory`
 - `npm run preflight:all -- --dry-run`
 - `node scripts/check-no-deno-locks.mjs`
 
-## Alternatives if Stage 6W is not the intended target
+## Alternatives if Stage 6X is not the intended target
 
-Treat any Stage 6W scope as unconfirmed until repository files or an explicit
+Treat any Stage 6X scope as unconfirmed until repository files or an explicit
 user instruction define it.
