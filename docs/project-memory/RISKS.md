@@ -23,6 +23,8 @@
      - `Archive retention cycle index receipt outcome known to repository: false`
      - `Archive retention cycle closure outcome known to repository: false`
      - `Archive retention cycle closure receipt outcome known to repository: false`
+     - `Archive retention cycle final closure outcome known to repository: false`
+     - `Archive retention cycle final closure receipt outcome known to repository: false`
      - `Live archive verified by this report: false`
    - Impact: repository can be green while final operator approval, live
      observation outcome, closure outcome, archive outcome, archive receipt
@@ -59,10 +61,10 @@
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - Hypothesis: Stage 6V is next.
-   - Basis: Stage 6A-6U exist in the current branch; Stage 6V files are not
+   - Hypothesis: Stage 6W is next.
+   - Basis: Stage 6A-6V exist in the current branch; Stage 6W files are not
      confirmed.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 6V
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 6W
      scope.
 
 ## Mitigations

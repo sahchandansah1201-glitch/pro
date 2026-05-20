@@ -2,49 +2,49 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 6U is being prepared on
+This handoff captures the repository state while Stage 6V is being prepared on
 the current development branch.
 
 ## Confirmed state
 
 1. Repository work is currently on
-   `codex/stage6u-release-archive-retention-cycle-final-closure`.
-2. Latest committed base before this Stage 6U branch is:
-   - `a5a16e3 Add Stage 6T release archive retention cycle closure receipt`
-3. Stage 6A-6U artifacts, docs, scripts, guards, and workflows are present in
+   `codex/stage6v-release-archive-retention-cycle-final-closure-receipt`.
+2. Latest committed base before this Stage 6V branch is:
+   - `e1252ab Add Stage 6U release archive retention cycle final closure`
+3. Stage 6A-6V artifacts, docs, scripts, guards, and workflows are present in
    the working tree.
-4. Fresh local verification for Stage 6U:
-   - `npm run test:stage6u` -> pass
-   - `npm run check:stage6u` -> pass (`7 files checked`)
-   - `npm run closure:stage6u:report` -> pass
-   - `npm run preflight:stage6u` -> pass
+4. Fresh local verification for Stage 6V:
+   - `npm run test:stage6v` -> pass
+   - `npm run check:stage6v` -> pass (`7 files checked`)
+   - `npm run receipt:stage6v:report` -> pass
 
 ## Important operational fact
 
-Stage 6U report output explicitly states:
+Stage 6V report output explicitly states:
 
 - `Status: ready`
-- `Ready for external release archive retention cycle final closure: true`
-- `Stage 6T retention cycle closure receipt generated at: 2026-05-19T14:30:00.000Z`
-- `Stage 6T retention cycle closure receipt status: ready`
-- `Stage 6T missing required inputs: 0`
-- `Stage 6T leak findings: 0`
+- `Ready for external release archive retention cycle final closure receipt: true`
+- `Stage 6U archive retention cycle final closure status: ready`
+- `Ready for external archive retention cycle final closure: true`
 - `External archive retention cycle final closure records stored outside git: true`
+- `External archive retention cycle final closure receipt stored outside git: true`
 - `Archive retention cycle final closure outcome known to repository: false`
+- `Archive retention cycle final closure receipt outcome known to repository: false`
 - `Go-live approved by this report: false`
 - `Live server go-live verified by this report: false`
 - `Live archive verified by this report: false`
 
-Interpretation: Stage 6U creates a deterministic, redacted retention cycle final
-closure package on top of Stage 6T. It still does not approve go-live, does not
-prove that a live production server was observed or archived, and does not store
-live logs, metrics, patient data, backup contents, archive contents, retention
-cycle final closure values, retention review evidence, disposal holds,
-exception registers, credentials, object keys, or archive outcomes in git.
+Interpretation: Stage 6V creates a deterministic, redacted retention cycle final
+closure receipt package on top of Stage 6U. It still does not approve go-live,
+does not prove that a live production server was observed or archived, and does
+not store live logs, metrics, patient data, backup contents, archive contents,
+retention cycle final closure values, retention cycle final closure receipt
+values, retention review evidence, disposal holds, exception registers,
+credentials, object keys, or archive outcomes in git.
 
 ## Hypothesis
 
-- `Stage 6V` is likely next, but its scope is not confirmed by repository
+- `Stage 6W` is likely next, but its scope is not confirmed by repository
   files yet.
 
 ## Lovable sync rule
@@ -57,11 +57,12 @@ the stage files, then send the Lovable sync prompt.
 
 ## Immediate continuation recommendation
 
-1. Send the Stage 6U Lovable sync prompt only after merging the Stage 6U PR and
-   confirming local `main` contains Stage 6U files.
-2. After Stage 6U is confirmed in Lovable, define Stage 6V scope from
+1. Create, check, and merge the Stage 6V Pull request before sending any
+   Lovable sync prompt.
+2. After Stage 6V is confirmed in Lovable, define Stage 6W scope from
    repository facts.
 3. Keep final go-live approval, raw live evidence, live logs, live metrics,
    patient data, credentials, object keys, backup contents, archive contents,
    external archive values, retention values, retention closure values,
-   retention final closure values, and final archive outcomes outside git.
+   retention final closure values, final closure receipt values, and final
+   archive outcomes outside git.
