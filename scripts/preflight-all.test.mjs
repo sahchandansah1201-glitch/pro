@@ -102,6 +102,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 6S production release archive retention cycle closure preflight",
     "Stage 6T production release archive retention cycle closure receipt preflight",
     "Stage 6U production release archive retention cycle final closure preflight",
+    "Stage 6V production release archive retention cycle final closure receipt preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "project-memory black box guard",
@@ -185,11 +186,12 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[74], /npm(\.cmd)? run preflight:stage6s/);
   assert.match(commands[75], /npm(\.cmd)? run preflight:stage6t/);
   assert.match(commands[76], /npm(\.cmd)? run preflight:stage6u/);
-  assert.match(commands[77], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[78], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[79], /npm(\.cmd)? run check:project-memory/);
-  assert.match(commands[80], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[81], "git diff --check");
+  assert.match(commands[77], /npm(\.cmd)? run preflight:stage6v/);
+  assert.match(commands[78], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[79], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[80], /npm(\.cmd)? run check:project-memory/);
+  assert.match(commands[81], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[82], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
@@ -288,6 +290,7 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage6s/);
   assert.match(out, /preflight:stage6t/);
   assert.match(out, /preflight:stage6u/);
+  assert.match(out, /preflight:stage6v/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /check:project-memory/);

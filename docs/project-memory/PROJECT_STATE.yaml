@@ -2,9 +2,9 @@ generated_at: "2026-05-20T06:55:07+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage6u-release-archive-retention-cycle-final-closure"
-  head_sha: "a5a16e395310658a63b7db7ab459748bc72a7420"
-  head_commit: "Add Stage 6T release archive retention cycle closure receipt"
+  branch: "codex/stage6v-release-archive-retention-cycle-final-closure-receipt"
+  head_sha: "e1252abf6af53a7066f367b90f247691ece8a075"
+  head_commit: "Add Stage 6U release archive retention cycle final closure"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -281,6 +281,29 @@ verification:
       go_live_approved_by_report: false
       live_server_go_live_verified_by_report: false
       live_archive_verified_by_report: false
+  stage6v_preflight:
+    command: "npm run preflight:stage6v"
+    status: "ok"
+    key_facts:
+      tests_passed: 14
+      guard_files_checked: 7
+      leak_findings: 0
+      stage6v_report_status: "ready"
+      stage6v_readiness_uses_stage6u_manifest_timestamp: true
+      ready_for_external_release_archive_retention_cycle_final_closure_receipt: true
+      external_archive_retention_cycle_final_closure_records_stored_outside_git: true
+      external_archive_retention_cycle_final_closure_receipt_stored_outside_git: true
+      archive_retention_outcome_known_to_repository: false
+      archive_retention_register_receipt_outcome_known_to_repository: false
+      archive_retention_cycle_outcome_known_to_repository: false
+      archive_retention_cycle_index_receipt_outcome_known_to_repository: false
+      archive_retention_cycle_closure_outcome_known_to_repository: false
+      archive_retention_cycle_closure_receipt_outcome_known_to_repository: false
+      archive_retention_cycle_final_closure_outcome_known_to_repository: false
+      archive_retention_cycle_final_closure_receipt_outcome_known_to_repository: false
+      go_live_approved_by_report: false
+      live_server_go_live_verified_by_report: false
+      live_archive_verified_by_report: false
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -303,9 +326,11 @@ verification:
       includes_stage6s: true
       includes_stage6t: true
       includes_stage6u: true
+      includes_stage6v: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "e1252ab Add Stage 6U release archive retention cycle final closure"
     - "a5a16e Add Stage 6T release archive retention cycle closure receipt"
     - "c725a50 Add Stage 6S release archive retention cycle closure"
     - "ab64c30 Add Stage 6P release archive retention receipt"
@@ -344,6 +369,7 @@ stage_evidence:
     - "docs/backend/stage-6s-production-release-archive-retention-cycle-closure.md"
     - "docs/backend/stage-6t-production-release-archive-retention-cycle-closure-receipt.md"
     - "docs/backend/stage-6u-production-release-archive-retention-cycle-final-closure.md"
+    - "docs/backend/stage-6v-production-release-archive-retention-cycle-final-closure-receipt.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
@@ -366,8 +392,9 @@ stage_evidence:
     - ".github/workflows/stage6s-production-release-archive-retention-cycle-closure.yml"
     - ".github/workflows/stage6t-production-release-archive-retention-cycle-closure-receipt.yml"
     - ".github/workflows/stage6u-production-release-archive-retention-cycle-final-closure.yml"
+    - ".github/workflows/stage6v-production-release-archive-retention-cycle-final-closure-receipt.yml"
 hypotheses:
-  - "Next logical stage after Stage 6U is Stage 6V. Scope is not confirmed by repository files yet."
+  - "Next logical stage after Stage 6V is Stage 6W. Scope is not confirmed by repository files yet."
 sources:
   commands:
     - "git status --short --branch"
@@ -415,6 +442,9 @@ sources:
     - "npm run test:stage6u"
     - "npm run check:stage6u"
     - "npm run closure:stage6u:report"
+    - "npm run receipt:stage6v:report"
+    - "npm run check:stage6v"
+    - "npm run test:stage6v"
     - "npm run preflight:stage6o"
     - "npm run preflight:stage6p"
     - "npm run preflight:stage6q"
@@ -422,6 +452,7 @@ sources:
     - "npm run preflight:stage6s"
     - "npm run preflight:stage6t"
     - "npm run preflight:stage6u"
+    - "npm run preflight:stage6v"
     - "node scripts/check-no-deno-locks.mjs"
   files:
     - "deploy/self-hosted/acceptance-baseline.stage6a.json"
@@ -477,3 +508,6 @@ sources:
     - "scripts/check-stage6t-production-release-archive-retention-cycle-closure-receipt.mjs"
     - "scripts/stage6u-production-release-archive-retention-cycle-final-closure.mjs"
     - "scripts/check-stage6u-production-release-archive-retention-cycle-final-closure.mjs"
+    - "scripts/check-stage6v-production-release-archive-retention-cycle-final-closure-receipt.mjs"
+    - "scripts/stage6v-production-release-archive-retention-cycle-final-closure-receipt.mjs"
+    - "deploy/self-hosted/release-archive-retention-cycle-final-closure-receipt.stage6v.json"
