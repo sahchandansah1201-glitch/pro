@@ -2,6 +2,15 @@
 
 ## 2026-05-19
 
+- Создан Stage 6U production release archive retention cycle final closure:
+  manifest, generator, guard, tests, docs, workflow, npm scripts and
+  `preflight-all` wiring.
+- Подтверждено локально: `npm run test:stage6u`,
+  `npm run check:stage6u`, `npm run closure:stage6u:report`,
+  `npm run preflight:stage6u`.
+- Updated project-memory so Stage 6U is confirmed in the current branch and
+  Stage 6V remains an explicit hypothesis until repository files define it.
+
 - Создан Stage 6T production release archive retention cycle closure receipt:
   manifest, generator, guard, tests, docs, workflow, npm scripts and
   `preflight-all` wiring.
