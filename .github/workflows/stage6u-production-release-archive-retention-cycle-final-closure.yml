@@ -1,0 +1,66 @@
+name: stage6u-production-release-archive-retention-cycle-final-closure
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-final-closure.stage6u.json"
+      - "scripts/stage6u-production-release-archive-retention-cycle-final-closure.mjs"
+      - "scripts/stage6u-production-release-archive-retention-cycle-final-closure.test.mjs"
+      - "scripts/check-stage6u-production-release-archive-retention-cycle-final-closure.mjs"
+      - "scripts/check-stage6u-production-release-archive-retention-cycle-final-closure.test.mjs"
+      - "docs/backend/stage-6u-production-release-archive-retention-cycle-final-closure.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6u-production-release-archive-retention-cycle-final-closure.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-cycle-final-closure.stage6u.json"
+      - "scripts/stage6u-production-release-archive-retention-cycle-final-closure.mjs"
+      - "scripts/stage6u-production-release-archive-retention-cycle-final-closure.test.mjs"
+      - "scripts/check-stage6u-production-release-archive-retention-cycle-final-closure.mjs"
+      - "scripts/check-stage6u-production-release-archive-retention-cycle-final-closure.test.mjs"
+      - "docs/backend/stage-6u-production-release-archive-retention-cycle-final-closure.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6u-production-release-archive-retention-cycle-final-closure.yml"
+
+jobs:
+  stage6u:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6U production release archive retention cycle final closure preflight
+        run: npm run preflight:stage6u
+
+      - name: Build Stage 6U production release archive retention cycle final closure report
+        run: npm run closure:stage6u:report
+
+      - name: Upload Stage 6U production release archive retention cycle final closure
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6u-production-release-archive-retention-cycle-final-closure
+          path: |
+            test-results/stage6u-production-release-archive-retention-cycle-final-closure.md
+            test-results/stage6u-production-release-archive-retention-cycle-final-closure.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6U production release archive retention cycle final closure"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6u-production-release-archive-retention-cycle-final-closure.md"
+            echo "- Boundary: offline redacted archive retention cycle final closure schema, external final closure outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"

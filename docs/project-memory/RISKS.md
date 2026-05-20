@@ -59,10 +59,10 @@
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - Hypothesis: Stage 6U is next.
-   - Basis: Stage 6A-6T exist in the current branch; Stage 6U files are not
+   - Hypothesis: Stage 6V is next.
+   - Basis: Stage 6A-6U exist in the current branch; Stage 6V files are not
      confirmed.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 6U
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 6V
      scope.
 
 ## Mitigations
