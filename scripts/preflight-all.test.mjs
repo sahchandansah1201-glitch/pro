@@ -106,6 +106,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 6W production release archive retention cycle final closure reconciliation preflight",
     "Stage 6X production release archive retention cycle final closure reconciliation receipt preflight",
     "Stage 6Y production release archive retention next-cycle register preflight",
+    "Stage 6Z production release archive retention next-cycle register receipt preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "project-memory black box guard",
@@ -193,11 +194,12 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[78], /npm(\.cmd)? run preflight:stage6w/);
   assert.match(commands[79], /npm(\.cmd)? run preflight:stage6x/);
   assert.match(commands[80], /npm(\.cmd)? run preflight:stage6y/);
-  assert.match(commands[81], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[82], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[83], /npm(\.cmd)? run check:project-memory/);
-  assert.match(commands[84], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[85], "git diff --check");
+  assert.match(commands[81], /npm(\.cmd)? run preflight:stage6z/);
+  assert.match(commands[82], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[83], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[84], /npm(\.cmd)? run check:project-memory/);
+  assert.match(commands[85], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[86], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
