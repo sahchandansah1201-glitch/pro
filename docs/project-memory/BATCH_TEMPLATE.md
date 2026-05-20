@@ -10,6 +10,13 @@ Use this template before starting future multi-stage work.
 - Base branch: `main`
 - Expected Pull request title:
 
+## Batch Manifest
+
+- Manifest path:
+- Package id:
+- Same-PR justification:
+- Next-stage hypothesis:
+
 ## Why One Pull Request
 
 - Shared product area:
@@ -57,6 +64,24 @@ Use this template before starting future multi-stage work.
 
 Write the exact post-merge prompt here. It must ask Lovable to verify files from
 `main`, not from an open PR branch.
+
+## Post-Merge Handoff Gate
+
+- PR merged into `main`:
+- Local branch is `main`:
+- Stage preflight passed:
+- Project-memory guard passed:
+- Deno-lock guard passed:
+- Lovable prompt allowed:
+
+## Project Memory Refresh
+
+- `PROJECT_STATE.yaml` updated:
+- `HANDOFF.md` updated:
+- `WORKLOG.md` updated:
+- `NEXT_ACTIONS.md` updated:
+- `RISKS.md` updated:
+- `ARTIFACTS.md` updated:
 
 ## Sync Mismatch Recovery
 

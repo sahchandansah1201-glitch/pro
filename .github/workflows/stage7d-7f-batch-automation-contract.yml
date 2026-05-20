@@ -1,0 +1,62 @@
+name: stage7d-7f-batch-automation-contract
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/batch-automation-contract.stage7d-7f.json"
+      - "docs/backend/stage-7d-7f-batch-automation-contract.md"
+      - "docs/project-memory/**"
+      - "scripts/stage7d-7f-batch-handoff.mjs"
+      - "scripts/stage7d-7f-batch-handoff.test.mjs"
+      - "scripts/check-stage7d-7f-batch-automation-contract.mjs"
+      - "scripts/check-stage7d-7f-batch-automation-contract.test.mjs"
+      - "scripts/check-project-memory.mjs"
+      - "scripts/check-project-memory.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+  push:
+    branches:
+      - main
+    paths:
+      - "deploy/self-hosted/batch-automation-contract.stage7d-7f.json"
+      - "docs/backend/stage-7d-7f-batch-automation-contract.md"
+      - "docs/project-memory/**"
+      - "scripts/stage7d-7f-batch-handoff.mjs"
+      - "scripts/stage7d-7f-batch-handoff.test.mjs"
+      - "scripts/check-stage7d-7f-batch-automation-contract.mjs"
+      - "scripts/check-stage7d-7f-batch-automation-contract.test.mjs"
+      - "scripts/check-project-memory.mjs"
+      - "scripts/check-project-memory.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+
+jobs:
+  stage7d_7f:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Stage 7D-7F preflight
+        run: npm run preflight:stage7d-7f
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 7D-7F batch automation contract"
+            echo
+            echo "- Command: \`npm run preflight:stage7d-7f\`"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

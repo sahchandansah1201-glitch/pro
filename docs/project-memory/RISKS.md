@@ -79,13 +79,21 @@
      request and adds a guard/preflight for the working contract.
    - Contract term: every micro-PR needs a documented exception reason.
 
+6. **Project-memory can become stale after a completed batch**
+   - Evidence: after Stage 7A-7C merged, `NEXT_ACTIONS.md` still described
+     completing Stage 7A-7C until Stage 7D-7F refreshed it.
+   - Impact: future work may follow old instructions even when the repository
+     already contains the completed stage.
+   - Mitigation: Stage 7D-7F requires project-memory refresh as part of the
+     batch automation contract.
+
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - Hypothesis: Stage 7D is next.
-   - Basis: Stage 7A-7C define the workflow contract; no repository file yet
-     defines Stage 7D scope.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 7D
+   - hypothesis: Stage 7G is next.
+   - Basis: Stage 7D-7F define the batch automation contract; no repository
+     file yet defines Stage 7G scope.
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 7G
      scope.
 
 ## Mitigations

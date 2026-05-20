@@ -2,6 +2,14 @@
 
 ## 2026-05-20
 
+- Создан Stage 7D-7F batch automation contract as one Pull request.
+- Added a batch manifest, merge-before-Lovable handoff gate, and project-memory
+  refresh requirements.
+- Updated project-memory so Stage 7D-7F is confirmed in the current branch and
+  Stage 7G remains an explicit hypothesis until repository files define it.
+
+## 2026-05-20
+
 - Создан Stage 7A-7C development workflow contract одним батчем:
   manifest, working contract, batch planning template, guard, tests, docs,
   workflow, npm scripts and `preflight-all` wiring.

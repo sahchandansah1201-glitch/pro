@@ -2,21 +2,19 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 7A-7C is being
-implemented on branch `codex/stage7a-7c-development-workflow-contract`.
+This handoff captures the repository state while Stage 7D-7F is being
+implemented on branch `codex/stage7d-7f-batch-automation-contract`.
 
 ## Confirmed state
 
-1. Stage 6A-6Z are present on the current branch base.
+1. Stage 6A-6Z and Stage 7A-7C are present on the current branch base.
 2. Current branch base commit:
-   - `4b3ffdd Add Stage 6Z release archive retention next-cycle register receipt`
-3. Stage 7A-7C adds a process contract only:
-   - Stage 7A: Codex owns branch, commit, push, Pull request, checks, merge,
-     local main verification, then Lovable sync prompt.
-   - Stage 7B: future work defaults to at least three related stages per Pull
-     request.
-   - Stage 7C: future batches use a reusable planning template.
-4. Stage 7A-7C product boundary:
+   - `114de32 Add Stage 7A-7C development workflow contract`
+3. Stage 7D-7F adds a batch automation contract only:
+   - Stage 7D: machine-readable batch manifest.
+   - Stage 7E: Lovable prompt gate for merge-before-sync handoff.
+   - Stage 7F: project-memory refresh requirements.
+4. Stage 7D-7F product boundary:
    - no backend route changes
    - no database migrations
    - no frontend runtime pages
@@ -31,14 +29,14 @@ branch switching is explicitly enabled.
 
 ## Hypothesis
 
-- `Stage 7D` is likely next, but its product or process scope is not confirmed
+- `Stage 7G` is likely next, but its product or process scope is not confirmed
   by repository files yet.
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 7A-7C in one Pull request.
+1. Finish Stage 7D-7F in one Pull request.
 2. Run:
-   - `npm run preflight:stage7a-7c`
+   - `npm run preflight:stage7d-7f`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`

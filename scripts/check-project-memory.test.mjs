@@ -43,10 +43,17 @@ function makeRoot() {
     "deploy/self-hosted/release-archive-retention-next-cycle-register.stage6y.json",
     "deploy/self-hosted/release-archive-retention-next-cycle-register-receipt.stage6z.json",
     "deploy/self-hosted/development-workflow-contract.stage7a-7c.json",
+    "deploy/self-hosted/batch-automation-contract.stage7d-7f.json",
     "docs/backend/stage-7a-7c-development-workflow-contract.md",
+    "docs/backend/stage-7d-7f-batch-automation-contract.md",
     "scripts/check-stage7a-7c-development-workflow-contract.mjs",
     "scripts/check-stage7a-7c-development-workflow-contract.test.mjs",
+    "scripts/stage7d-7f-batch-handoff.mjs",
+    "scripts/stage7d-7f-batch-handoff.test.mjs",
+    "scripts/check-stage7d-7f-batch-automation-contract.mjs",
+    "scripts/check-stage7d-7f-batch-automation-contract.test.mjs",
     ".github/workflows/stage7a-7c-development-workflow-contract.yml",
+    ".github/workflows/stage7d-7f-batch-automation-contract.yml",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
@@ -363,6 +370,17 @@ verification:
       leak_findings: 0
       development_workflow_contract_confirmed: true
       minimum_related_stages_per_batch: 3
+  stage7d_7f_preflight:
+    command: "npm run preflight:stage7d-7f"
+    status: "ok"
+    key_facts:
+      tests_passed: 10
+      guard_files_checked: 9
+      leak_findings: 0
+      batch_automation_contract_confirmed: true
+      lovable_prompt_gate_confirmed: true
+      project_memory_refresh_confirmed: true
+      minimum_related_stages_per_batch: 3
 stage_evidence:
   latest_commits:
     - "ca00a2e Harden Stage 6 handoff path resolution"
@@ -400,8 +418,9 @@ stage_evidence:
     - ".github/workflows/stage6y-production-release-archive-retention-next-cycle-register.yml"
     - ".github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml"
     - ".github/workflows/stage7a-7c-development-workflow-contract.yml"
+    - ".github/workflows/stage7d-7f-batch-automation-contract.yml"
 hypotheses:
-    - "Next logical stage after Stage 7A-7C is Stage 7D."
+    - "Next logical stage after Stage 7D-7F is Stage 7G."
 sources:
   commands:
     - "git status -sb"
@@ -433,18 +452,23 @@ sources:
     - "deploy/self-hosted/release-archive-retention-next-cycle-register.stage6y.json"
     - "deploy/self-hosted/release-archive-retention-next-cycle-register-receipt.stage6z.json"
     - "deploy/self-hosted/development-workflow-contract.stage7a-7c.json"
+    - "deploy/self-hosted/batch-automation-contract.stage7d-7f.json"
     - "docs/backend/stage-7a-7c-development-workflow-contract.md"
+    - "docs/backend/stage-7d-7f-batch-automation-contract.md"
     - "scripts/check-stage7a-7c-development-workflow-contract.mjs"
+    - "scripts/stage7d-7f-batch-handoff.mjs"
+    - "scripts/check-stage7d-7f-batch-automation-contract.mjs"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 7A-7C confirmed. Lovable sync prompt after merge.\n\n## Hypothesis\n\nStage 7D is likely next.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 7D-7F confirmed. Lovable sync prompt gate after merge.\n\n## Hypothesis\n\nStage 7G is likely next.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 7A-7C complete. Future work uses minimum three related stages. Stage 7D is the next hypothesis.\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external. micro-PR relapse and early Lovable sync prompt remain risks.\n\n## Hypotheses\n\nStage 7D is next.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 7D-7F complete. Future work uses minimum three related stages. Stage 7G is the next hypothesis.\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external. micro-PR relapse and early Lovable sync prompt remain risks.\n\n## Hypotheses\n\nStage 7G is next.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
 
 - [acceptance](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
+- [stage7d-7f](../../deploy/self-hosted/batch-automation-contract.stage7d-7f.json)
 
 ## Verification outputs
 
@@ -490,9 +514,9 @@ test("project memory guard rejects missing required files", () => {
   assert.match(result.errors.join("\n"), /RISKS\.md/);
 });
 
-test("project memory guard requires Stage 7D uncertainty to be marked as hypothesis", () => {
+test("project memory guard requires Stage 7G uncertainty to be marked as hypothesis", () => {
   const root = makeRoot();
-  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 7D is next.\n" });
+  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 7G is next.\n" });
   const result = collectProjectMemoryChecks({ root });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /without marking it as a hypothesis/);

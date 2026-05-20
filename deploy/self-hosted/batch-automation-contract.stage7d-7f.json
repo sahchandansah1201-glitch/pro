@@ -1,0 +1,97 @@
+{
+  "stage": "7D-7F",
+  "packageId": "stage7d-7f-batch-automation-contract",
+  "createdAt": "2026-05-20T16:25:00+03:00",
+  "purpose": "Make the Stage 7A-7C working contract enforceable with a machine-readable batch manifest, a merge-before-Lovable handoff gate, and project-memory refresh requirements for future larger PRs.",
+  "stages": [
+    {
+      "id": "Stage 7D",
+      "title": "Batch plan manifest",
+      "outcome": "Future multi-stage PRs must declare included stages, scope, affected artifacts, required checks, and the post-merge Lovable prompt before implementation is considered complete."
+    },
+    {
+      "id": "Stage 7E",
+      "title": "Merge-before-Lovable handoff gate",
+      "outcome": "A repository script can evaluate whether Lovable prompt handoff is allowed only after the Pull request is merged into main, local main is verified, and required checks have passed."
+    },
+    {
+      "id": "Stage 7F",
+      "title": "Project-memory refresh automation",
+      "outcome": "Project-memory files record the completed batch, next-stage hypothesis, batch-size policy, and artifacts so future work starts from current repository facts."
+    }
+  ],
+  "batchPlanPolicy": {
+    "manifestRequiredBeforePrompt": true,
+    "minimumRelatedStagesPerBatch": 3,
+    "includedStages": [
+      "Stage 7D",
+      "Stage 7E",
+      "Stage 7F"
+    ],
+    "samePullRequestJustification": "All three stages enforce the development workflow contract and do not modify product runtime behavior.",
+    "microPullRequestRequiresJustification": true
+  },
+  "handoffGate": {
+    "pullRequestMustBeMerged": true,
+    "baseBranchMustBeMain": true,
+    "localMainVerificationRequired": true,
+    "stagePreflightRequired": "npm run preflight:stage7d-7f",
+    "projectMemoryCheckRequired": "npm run check:project-memory",
+    "denoLockGuardRequired": "node scripts/check-no-deno-locks.mjs",
+    "lovablePromptAllowedBeforeMerge": false,
+    "lovablePromptAllowedAfterVerifiedMain": true
+  },
+  "projectMemoryRefresh": {
+    "requiredFiles": [
+      "docs/project-memory/PROJECT_STATE.yaml",
+      "docs/project-memory/HANDOFF.md",
+      "docs/project-memory/WORKLOG.md",
+      "docs/project-memory/NEXT_ACTIONS.md",
+      "docs/project-memory/RISKS.md",
+      "docs/project-memory/ARTIFACTS.md",
+      "docs/project-memory/WORKING_CONTRACT.md",
+      "docs/project-memory/BATCH_TEMPLATE.md"
+    ],
+    "confirmedStage": "Stage 7D-7F",
+    "nextStageHypothesis": "Stage 7G"
+  },
+  "gates": [
+    {
+      "name": "Stage 7D-7F unit tests",
+      "command": "npm run test:stage7d-7f"
+    },
+    {
+      "name": "Stage 7D-7F guard",
+      "command": "npm run check:stage7d-7f"
+    },
+    {
+      "name": "Stage 7D-7F preflight",
+      "command": "npm run preflight:stage7d-7f"
+    },
+    {
+      "name": "Project memory guard",
+      "command": "npm run check:project-memory"
+    },
+    {
+      "name": "Full preflight dry-run visibility",
+      "command": "npm run preflight:all -- --dry-run"
+    },
+    {
+      "name": "No deno lock files",
+      "command": "node scripts/check-no-deno-locks.mjs"
+    }
+  ],
+  "lovableSyncPrompt": {
+    "validOnlyAfterMergeToMain": true,
+    "expectedConfirmation": "Confirmed: Stage 7D-7F synced from main, no conflicts."
+  },
+  "productBoundary": {
+    "runtimeProductChange": false,
+    "backendSchemaChange": false,
+    "frontendRuntimeChange": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false
+  },
+  "nextStageHypothesis": "Stage 7G"
+}
