@@ -62,7 +62,7 @@
 
 1. **Next stage ambiguity**
    - Hypothesis: Stage 6W is next.
-   - Basis: Stage 6A-6V exist in the current branch; Stage 6W files are not
+   - Basis: Stage 6A-6V exist on `main`; Stage 6W files are not
      confirmed.
    - Uncertainty: no explicit roadmap file in current scan naming Stage 6W
      scope.

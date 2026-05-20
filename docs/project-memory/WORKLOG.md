@@ -7,8 +7,13 @@
   `preflight-all` wiring.
 - Подтверждено локально: `npm run test:stage6v`,
   `npm run check:stage6v`, `npm run receipt:stage6v:report`.
-- Updated project-memory so Stage 6V is confirmed in the current branch and
-  Stage 6W remains an explicit hypothesis until repository files define it.
+- PR #158 was merged into `main` as
+  `498aca4 Add Stage 6V release archive retention final closure receipt`.
+- Verified after merge: `npm run preflight:stage6v`,
+  `npm run check:project-memory`, `node scripts/check-no-deno-locks.mjs`, and
+  clean `git status --short`.
+- Updated project-memory so Stage 6V is confirmed on `main` and Stage 6W
+  remains an explicit hypothesis until repository files define it.
 
 ## 2026-05-19
 

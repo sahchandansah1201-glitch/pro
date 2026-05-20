@@ -2,21 +2,21 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 6V is being prepared on
-the current development branch.
+This handoff captures the repository state after Stage 6V was merged into
+`main` and verified locally.
 
 ## Confirmed state
 
-1. Repository work is currently on
-   `codex/stage6v-release-archive-retention-cycle-final-closure-receipt`.
-2. Latest committed base before this Stage 6V branch is:
-   - `e1252ab Add Stage 6U release archive retention cycle final closure`
-3. Stage 6A-6V artifacts, docs, scripts, guards, and workflows are present in
-   the working tree.
-4. Fresh local verification for Stage 6V:
-   - `npm run test:stage6v` -> pass
-   - `npm run check:stage6v` -> pass (`7 files checked`)
-   - `npm run receipt:stage6v:report` -> pass
+1. Repository work is currently on `main`.
+2. Latest confirmed Stage 6V commit:
+   - `498aca4 Add Stage 6V release archive retention final closure receipt`
+3. Stage 6A-6V artifacts, docs, scripts, guards, and workflows are present on
+   `main`.
+4. Fresh local verification after the merge:
+   - `npm run preflight:stage6v` -> pass
+   - `npm run check:project-memory` -> pass
+   - `node scripts/check-no-deno-locks.mjs` -> pass
+   - `git status --short` -> empty
 
 ## Important operational fact
 
@@ -57,8 +57,7 @@ the stage files, then send the Lovable sync prompt.
 
 ## Immediate continuation recommendation
 
-1. Create, check, and merge the Stage 6V Pull request before sending any
-   Lovable sync prompt.
+1. Send the Stage 6V Lovable sync prompt against `main`.
 2. After Stage 6V is confirmed in Lovable, define Stage 6W scope from
    repository facts.
 3. Keep final go-live approval, raw live evidence, live logs, live metrics,
