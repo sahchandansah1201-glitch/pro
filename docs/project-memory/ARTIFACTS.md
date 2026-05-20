@@ -165,6 +165,15 @@
    - [check-stage7d-7f-batch-automation-contract.test.mjs](../../scripts/check-stage7d-7f-batch-automation-contract.test.mjs)
    - [stage7d-7f-batch-automation-contract.yml](../../.github/workflows/stage7d-7f-batch-automation-contract.yml)
 
+9. Stage 7G-7I batch-verification artifacts:
+   - [batch-verification-loop.stage7g-7i.json](../../deploy/self-hosted/batch-verification-loop.stage7g-7i.json)
+   - [stage-7g-7i-batch-verification-loop.md](../backend/stage-7g-7i-batch-verification-loop.md)
+   - [stage7g-7i-batch-readiness.mjs](../../scripts/stage7g-7i-batch-readiness.mjs)
+   - [stage7g-7i-batch-readiness.test.mjs](../../scripts/stage7g-7i-batch-readiness.test.mjs)
+   - [check-stage7g-7i-batch-verification-loop.mjs](../../scripts/check-stage7g-7i-batch-verification-loop.mjs)
+   - [check-stage7g-7i-batch-verification-loop.test.mjs](../../scripts/check-stage7g-7i-batch-verification-loop.test.mjs)
+   - [stage7g-7i-batch-verification-loop.yml](../../.github/workflows/stage7g-7i-batch-verification-loop.yml)
+
 ## Verification outputs captured during black-box creation
 
 0. Stage 7A-7C planned verification:
@@ -180,6 +189,15 @@
    - `npm run check:stage7d-7f`
    - `npm run handoff:stage7d-7f:dry-run`
    - `npm run preflight:stage7d-7f`
+   - `npm run check:project-memory`
+   - `npm run preflight:all -- --dry-run`
+   - `node scripts/check-no-deno-locks.mjs`
+
+0.2. Stage 7G-7I planned verification:
+   - `npm run test:stage7g-7i`
+   - `npm run check:stage7g-7i`
+   - `npm run readiness:stage7g-7i:dry-run`
+   - `npm run preflight:stage7g-7i`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`

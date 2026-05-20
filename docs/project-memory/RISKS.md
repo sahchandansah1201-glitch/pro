@@ -87,13 +87,23 @@
    - Mitigation: Stage 7D-7F requires project-memory refresh as part of the
      batch automation contract.
 
+7. **Batch artifacts can drift after the prompt is generated**
+   - Evidence: Stage 7D-7F introduced the manifest and Lovable prompt gate, but
+     future batches can still let docs, scripts, workflow, project-memory, and
+     package scripts describe slightly different scopes.
+   - Impact: Lovable sync prompts can be technically correct while missing an
+     updated artifact, creating another false mismatch cycle.
+   - Mitigation: Stage 7G-7I adds a readiness reporter, sync verification
+     manifest, and drift guard.
+
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - hypothesis: Stage 7G is next.
-   - Basis: Stage 7D-7F define the batch automation contract; no repository
-     file yet defines Stage 7G scope.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 7G
+   - hypothesis: Stage 7J is next.
+   - Basis: Stage 7G-7I defines the batch verification loop; no repository
+     file yet defines Stage 7J scope. Earlier Stage 7G hypothesis is resolved
+     by this batch.
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 7J
      scope.
 
 ## Mitigations

@@ -86,8 +86,41 @@ merged. At minimum:
 - `RISKS.md` carries forward unresolved process risks;
 - `ARTIFACTS.md` links the new manifest, docs, scripts, tests, and workflow.
 
+## Stage 7G: Batch readiness reporter
+
+Each larger batch should have a dry-run readiness reporter that makes the
+current handoff state explicit before a Lovable prompt is written. The reporter
+must show:
+
+- included stages;
+- required checks;
+- blocked gates;
+- product-boundary claims;
+- generated post-merge Lovable prompt.
+
+## Stage 7H: Lovable sync verification manifest
+
+The Lovable sync prompt should be generated from repository-owned manifest data,
+not written from memory. The manifest must list the files, commands, expected
+confirmation text, no-lock expectations, and package-lock expectation that
+Lovable should verify after merge into `main`.
+
+## Stage 7I: Batch drift guard
+
+Each batch needs a drift guard that compares:
+
+- manifest;
+- reporter exports;
+- docs;
+- workflow;
+- package scripts;
+- `preflight-all` label;
+- project-memory confirmed stage and next hypothesis.
+
+The guard should fail when these artifacts no longer describe the same batch.
+
 ## Product boundary
 
-Stage 7A-7F does not alter runtime behavior. It does not add backend routes,
+Stage 7A-7I does not alter runtime behavior. It does not add backend routes,
 database migrations, frontend pages, device integrations, or third-party
 managed service dependencies.

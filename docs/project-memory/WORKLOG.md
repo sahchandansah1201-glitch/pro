@@ -2,6 +2,14 @@
 
 ## 2026-05-20
 
+- Создан Stage 7G-7I batch verification loop as one Pull request.
+- Added a readiness reporter, Lovable sync verification manifest, and batch
+  drift guard.
+- Updated project-memory so Stage 7G-7I is confirmed in the current branch and
+  Stage 7J remains an explicit hypothesis until repository files define it.
+
+## 2026-05-20
+
 - Создан Stage 7D-7F batch automation contract as one Pull request.
 - Added a batch manifest, merge-before-Lovable handoff gate, and project-memory
   refresh requirements.

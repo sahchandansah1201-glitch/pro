@@ -2,21 +2,21 @@
 
 ## Highest-confidence next step
 
-Complete Stage 7D-7F as one Pull request, then merge it before sending the
+Complete Stage 7G-7I as one Pull request, then merge it before sending the
 Lovable sync prompt.
 
 ## Immediate sequence
 
-1. **Complete Stage 7D-7F implementation**:
-   - Keep the scope limited to batch manifest, handoff gate, project-memory
-     refresh automation, CI guard, and preflight wiring.
+1. **Complete Stage 7G-7I implementation**:
+   - Keep the scope limited to readiness reporter, Lovable sync verification
+     manifest, drift guard, CI guard, and preflight wiring.
    - Do not change product runtime behavior in this stage.
 
 2. **Verify before commit**:
-   - `npm run test:stage7d-7f`
-   - `npm run check:stage7d-7f`
-   - `npm run handoff:stage7d-7f:dry-run`
-   - `npm run preflight:stage7d-7f`
+   - `npm run test:stage7g-7i`
+   - `npm run check:stage7g-7i`
+   - `npm run readiness:stage7g-7i:dry-run`
+   - `npm run preflight:stage7g-7i`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
@@ -34,7 +34,10 @@ Lovable sync prompt.
    - Smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 7G hypothesis
+## Stage 7J hypothesis
 
-Stage 7G is the next likely stage after Stage 7D-7F, but its scope is not
+Stage 7J is the next likely stage after Stage 7G-7I, but its scope is not
 confirmed by repository files yet.
+
+Historical note: Stage 7D-7F is already complete and introduced the batch
+automation contract that Stage 7G-7I now verifies.

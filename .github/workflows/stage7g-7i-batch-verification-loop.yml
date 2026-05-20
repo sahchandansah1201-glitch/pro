@@ -1,0 +1,62 @@
+name: stage7g-7i-batch-verification-loop
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/batch-verification-loop.stage7g-7i.json"
+      - "docs/backend/stage-7g-7i-batch-verification-loop.md"
+      - "docs/project-memory/**"
+      - "scripts/stage7g-7i-batch-readiness.mjs"
+      - "scripts/stage7g-7i-batch-readiness.test.mjs"
+      - "scripts/check-stage7g-7i-batch-verification-loop.mjs"
+      - "scripts/check-stage7g-7i-batch-verification-loop.test.mjs"
+      - "scripts/check-project-memory.mjs"
+      - "scripts/check-project-memory.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+  push:
+    branches:
+      - main
+    paths:
+      - "deploy/self-hosted/batch-verification-loop.stage7g-7i.json"
+      - "docs/backend/stage-7g-7i-batch-verification-loop.md"
+      - "docs/project-memory/**"
+      - "scripts/stage7g-7i-batch-readiness.mjs"
+      - "scripts/stage7g-7i-batch-readiness.test.mjs"
+      - "scripts/check-stage7g-7i-batch-verification-loop.mjs"
+      - "scripts/check-stage7g-7i-batch-verification-loop.test.mjs"
+      - "scripts/check-project-memory.mjs"
+      - "scripts/check-project-memory.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+
+jobs:
+  stage7g_7i:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Stage 7G-7I preflight
+        run: npm run preflight:stage7g-7i
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 7G-7I batch verification loop"
+            echo
+            echo "- Command: \`npm run preflight:stage7g-7i\`"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
