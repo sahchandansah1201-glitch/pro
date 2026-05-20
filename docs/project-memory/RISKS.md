@@ -3,7 +3,7 @@
 ## Confirmed risks
 
 1. **Readiness/decision/observation/closure/archive packages != live go-live approval**
-   - Evidence: Stage 6E-6Y report outputs include or are required to include:
+   - Evidence: Stage 6E-6Z report outputs include or are required to include:
      - `Go-live approved by this report: false`
      - `Live server go-live verified by this report: false`
      - `Final go-live outcome known to repository: false`
@@ -28,6 +28,7 @@
      - `Archive retention cycle final closure reconciliation outcome known to repository: false`
      - `Archive retention cycle final closure reconciliation receipt outcome known to repository: false`
      - `Archive retention next-cycle outcome known to repository: false`
+     - `Archive retention next-cycle register receipt outcome known to repository: false`
      - `Live archive verified by this report: false`
    - Impact: repository can be green while final operator approval, live
      observation outcome, closure outcome, archive outcome, archive receipt
@@ -39,19 +40,20 @@
      closure receipt outcome, archive retention cycle final closure outcome,
      archive retention cycle final closure receipt outcome, archive retention
      cycle final closure reconciliation outcome, archive retention cycle final
-     closure reconciliation receipt outcome, next-cycle retention outcome, live
-     evidence, and archive contents are still pending outside git.
+     closure reconciliation receipt outcome, next-cycle retention outcome,
+     next-cycle retention register receipt outcome, live evidence, and archive
+     contents are still pending outside git.
 
 2. **Operational dependence on external operator-run steps**
-   - Evidence: Stage 6B-6Y manifests include deploy/smoke/backup/rollback,
+   - Evidence: Stage 6B-6Z manifests include deploy/smoke/backup/rollback,
      live evidence, handoff, decision-record, observation, closure, archive,
      receipt, reconciliation, reconciliation receipt, final closure, final
      closure receipt, retention register, retention register receipt, retention
      cycle index/receipt, retention cycle closure, retention cycle closure
      receipt, retention cycle final closure, retention cycle final closure
      receipt, retention cycle final closure reconciliation, retention cycle
-     final closure reconciliation receipt, and retention next-cycle register
-     gates.
+     final closure reconciliation receipt, retention next-cycle register, and
+     retention next-cycle register receipt gates.
    - Impact: success depends on disciplined execution outside the code
      repository.
 
@@ -70,10 +72,10 @@
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - Hypothesis: Stage 6Z is next.
-   - Basis: Stage 6A-6Y exist in the current branch; Stage 6Z files are not
+   - Hypothesis: Stage 7A is next.
+   - Basis: Stage 6A-6Z exist in the current branch; Stage 7A files are not
      confirmed.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 6Z
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 7A
      scope.
 
 ## Mitigations

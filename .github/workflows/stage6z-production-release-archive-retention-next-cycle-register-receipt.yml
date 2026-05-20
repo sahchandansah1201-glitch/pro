@@ -1,0 +1,66 @@
+name: stage6z-production-release-archive-retention-next-cycle-register-receipt
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-next-cycle-register-receipt.stage6z.json"
+      - "scripts/stage6z-production-release-archive-retention-next-cycle-register-receipt.mjs"
+      - "scripts/stage6z-production-release-archive-retention-next-cycle-register-receipt.test.mjs"
+      - "scripts/check-stage6z-production-release-archive-retention-next-cycle-register-receipt.mjs"
+      - "scripts/check-stage6z-production-release-archive-retention-next-cycle-register-receipt.test.mjs"
+      - "docs/backend/stage-6z-production-release-archive-retention-next-cycle-register-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/release-archive-retention-next-cycle-register-receipt.stage6z.json"
+      - "scripts/stage6z-production-release-archive-retention-next-cycle-register-receipt.mjs"
+      - "scripts/stage6z-production-release-archive-retention-next-cycle-register-receipt.test.mjs"
+      - "scripts/check-stage6z-production-release-archive-retention-next-cycle-register-receipt.mjs"
+      - "scripts/check-stage6z-production-release-archive-retention-next-cycle-register-receipt.test.mjs"
+      - "docs/backend/stage-6z-production-release-archive-retention-next-cycle-register-receipt.md"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - ".github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml"
+
+jobs:
+  stage6z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6Z production release archive retention next-cycle register receipt preflight
+        run: npm run preflight:stage6z
+
+      - name: Build Stage 6Z production release archive retention next-cycle register receipt report
+        run: npm run receipt:stage6z:report
+
+      - name: Upload Stage 6Z production release archive retention next-cycle register receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage6z-production-release-archive-retention-next-cycle-register-receipt
+          path: |
+            test-results/stage6z-production-release-archive-retention-next-cycle-register-receipt.md
+            test-results/stage6z-production-release-archive-retention-next-cycle-register-receipt.json
+          if-no-files-found: ignore
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6Z production release archive retention next-cycle register receipt"
+            echo
+            echo "- Preflight: completed"
+            echo "- Report: stage6z-production-release-archive-retention-next-cycle-register-receipt.md"
+            echo "- Boundary: offline redacted archive retention next-cycle register receipt schema, final receipt outcome outside git"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -2,6 +2,15 @@
 
 ## 2026-05-20
 
+- Создан Stage 6Z production release archive retention next-cycle register
+  receipt: manifest, generator, guard, tests, docs, workflow, npm scripts and
+  `preflight-all` wiring.
+- Подтверждено локально: `npm run test:stage6z`,
+  `npm run check:stage6z`, `npm run receipt:stage6z:report`,
+  `npm run preflight:stage6z`.
+- Updated project-memory so Stage 6Z is confirmed in the current branch and
+  Stage 7A remains an explicit hypothesis until repository files define it.
+
 - Создан Stage 6Y production release archive retention next-cycle register:
   manifest, generator, guard, tests, docs, workflow, npm scripts and
   `preflight-all` wiring.
