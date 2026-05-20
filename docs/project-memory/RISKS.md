@@ -3,7 +3,7 @@
 ## Confirmed risks
 
 1. **Readiness/decision/observation/closure/archive packages != live go-live approval**
-   - Evidence: Stage 6E-6X report outputs include:
+   - Evidence: Stage 6E-6Y report outputs include or are required to include:
      - `Go-live approved by this report: false`
      - `Live server go-live verified by this report: false`
      - `Final go-live outcome known to repository: false`
@@ -27,6 +27,7 @@
      - `Archive retention cycle final closure receipt outcome known to repository: false`
      - `Archive retention cycle final closure reconciliation outcome known to repository: false`
      - `Archive retention cycle final closure reconciliation receipt outcome known to repository: false`
+     - `Archive retention next-cycle outcome known to repository: false`
      - `Live archive verified by this report: false`
    - Impact: repository can be green while final operator approval, live
      observation outcome, closure outcome, archive outcome, archive receipt
@@ -38,18 +39,19 @@
      closure receipt outcome, archive retention cycle final closure outcome,
      archive retention cycle final closure receipt outcome, archive retention
      cycle final closure reconciliation outcome, archive retention cycle final
-     closure reconciliation receipt outcome, live evidence, and archive contents
-     are still pending outside git.
+     closure reconciliation receipt outcome, next-cycle retention outcome, live
+     evidence, and archive contents are still pending outside git.
 
 2. **Operational dependence on external operator-run steps**
-   - Evidence: Stage 6B-6X manifests include deploy/smoke/backup/rollback,
+   - Evidence: Stage 6B-6Y manifests include deploy/smoke/backup/rollback,
      live evidence, handoff, decision-record, observation, closure, archive,
      receipt, reconciliation, reconciliation receipt, final closure, final
      closure receipt, retention register, retention register receipt, retention
      cycle index/receipt, retention cycle closure, retention cycle closure
      receipt, retention cycle final closure, retention cycle final closure
-     receipt, retention cycle final closure reconciliation, and retention cycle
-     final closure reconciliation receipt gates.
+     receipt, retention cycle final closure reconciliation, retention cycle
+     final closure reconciliation receipt, and retention next-cycle register
+     gates.
    - Impact: success depends on disciplined execution outside the code
      repository.
 
@@ -68,10 +70,10 @@
 ## Hypotheses
 
 1. **Next stage ambiguity**
-   - Hypothesis: Stage 6Y is next.
-   - Basis: Stage 6A-6X exist in the current branch; Stage 6Y files are not
+   - Hypothesis: Stage 6Z is next.
+   - Basis: Stage 6A-6Y exist in the current branch; Stage 6Z files are not
      confirmed.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 6Y
+   - Uncertainty: no explicit roadmap file in current scan naming Stage 6Z
      scope.
 
 ## Mitigations
@@ -83,11 +85,12 @@
    closure/final closure receipt/retention/retention receipt/retention cycle/
    retention cycle receipt/retention cycle closure/retention cycle closure
    receipt/retention cycle final closure/final closure receipt/final closure
-   reconciliation/final closure reconciliation receipt outcomes outside git,
-   referenced only by deterministic redacted receipt/handoff/decision-record/
-   observation/closure/archive/reconciliation/retention/retention receipt/
-   retention cycle/retention cycle receipt/retention cycle closure/retention
-   cycle closure receipt/final closure/final closure receipt/final closure
-   reconciliation/final closure reconciliation receipt fields.
+   reconciliation/final closure reconciliation receipt/retention next-cycle
+   outcomes outside git, referenced only by deterministic redacted
+   receipt/handoff/decision-record/observation/closure/archive/reconciliation/
+   retention/retention receipt/retention cycle/retention cycle receipt/retention
+   cycle closure/retention cycle closure receipt/final closure/final closure
+   receipt/final closure reconciliation/final closure reconciliation
+   receipt/next-cycle register fields.
 4. For future stages, merge the checked PR into `main` before sending the
    Lovable sync prompt; then verify local `main` contains the stage artifacts.

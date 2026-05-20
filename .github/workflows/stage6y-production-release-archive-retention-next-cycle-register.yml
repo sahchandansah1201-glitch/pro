@@ -1,0 +1,70 @@
+name: stage6y-production-release-archive-retention-next-cycle-register
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/release-archive-retention-next-cycle-register.stage6y.json"
+      - "scripts/stage6y-production-release-archive-retention-next-cycle-register.mjs"
+      - "scripts/stage6y-production-release-archive-retention-next-cycle-register.test.mjs"
+      - "scripts/check-stage6y-production-release-archive-retention-next-cycle-register.mjs"
+      - "scripts/check-stage6y-production-release-archive-retention-next-cycle-register.test.mjs"
+      - "docs/backend/stage-6y-production-release-archive-retention-next-cycle-register.md"
+      - "docs/project-memory/**"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage6y-production-release-archive-retention-next-cycle-register.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "deploy/self-hosted/release-archive-retention-next-cycle-register.stage6y.json"
+      - "scripts/stage6y-production-release-archive-retention-next-cycle-register.mjs"
+      - "scripts/stage6y-production-release-archive-retention-next-cycle-register.test.mjs"
+      - "scripts/check-stage6y-production-release-archive-retention-next-cycle-register.mjs"
+      - "scripts/check-stage6y-production-release-archive-retention-next-cycle-register.test.mjs"
+      - "docs/backend/stage-6y-production-release-archive-retention-next-cycle-register.md"
+      - "docs/project-memory/**"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage6y-production-release-archive-retention-next-cycle-register.yml"
+
+jobs:
+  stage6y:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 6Y production release archive retention next-cycle register preflight
+        run: npm run preflight:stage6y
+
+      - name: Build Stage 6Y production release archive retention next-cycle register report
+        run: npm run register:stage6y:report
+
+      - name: Upload Stage 6Y production release archive retention next-cycle register
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage6y-production-release-archive-retention-next-cycle-register
+          path: |
+            test-results/stage6y-production-release-archive-retention-next-cycle-register.md
+            test-results/stage6y-production-release-archive-retention-next-cycle-register.json
+
+      - name: Write Stage 6Y summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 6Y production release archive retention next-cycle register"
+            echo ""
+            echo "- Preflight: npm run preflight:stage6y"
+            echo "- Report: stage6y-production-release-archive-retention-next-cycle-register.md"
+            echo "- Boundary: offline redacted archive retention next-cycle register schema, external next-cycle records outside git"
+          } >> "$GITHUB_STEP_SUMMARY"
