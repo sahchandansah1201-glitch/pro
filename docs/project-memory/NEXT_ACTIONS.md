@@ -2,24 +2,20 @@
 
 ## Highest-confidence next step
 
-Stage 6V is implemented in the current branch and verified with its focused
-test, guard, report, and preflight path. Do not send the Lovable sync prompt
-until the Pull request is merged into `main` and local `main` verification
-confirms Stage 6V files.
+Stage 6V is merged into `main` and verified locally. The next action is to run
+the Lovable sync confirmation against `main`.
 
 ## Immediate sequence
 
-1. **Complete Stage 6V PR lifecycle**:
-   - Create the Stage 6V Pull request from the current branch.
-   - Wait for GitHub checks.
-   - Merge into `main`.
-   - Verify local `main` contains Stage 6V files.
-   - Only then send the Lovable sync prompt.
+1. **Confirm Stage 6V in Lovable**:
+   - Ask Lovable to verify Stage 6V files from `main`.
+   - Treat "Stage 6V missing" as a sync issue only after checking that Lovable
+     is pointed at `main`.
 
 2. **Define Stage 6W scaffold (hypothesis)**:
    - Hypothesis: Stage 6W follows Stage 6V.
-   - Basis: Stage 6A-6V exist in this branch; Stage 6W files are not confirmed.
-   - Do not implement Stage 6W until Stage 6V is merged and synced.
+   - Basis: Stage 6A-6V exist on `main`; Stage 6W files are not confirmed.
+   - Do not implement Stage 6W until Stage 6V is confirmed in Lovable.
 
 ## Verification commands to keep using
 
