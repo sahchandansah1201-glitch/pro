@@ -31,6 +31,7 @@
    - [release-archive-retention-cycle-final-closure.stage6u.json](../../deploy/self-hosted/release-archive-retention-cycle-final-closure.stage6u.json)
    - [release-archive-retention-cycle-final-closure-receipt.stage6v.json](../../deploy/self-hosted/release-archive-retention-cycle-final-closure-receipt.stage6v.json)
    - [release-archive-retention-cycle-final-closure-reconciliation.stage6w.json](../../deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation.stage6w.json)
+   - [release-archive-retention-cycle-final-closure-reconciliation-receipt.stage6x.json](../../deploy/self-hosted/release-archive-retention-cycle-final-closure-reconciliation-receipt.stage6x.json)
 
 3. Stage 6 docs:
    - [stage-6a-production-acceptance-baseline.md](../backend/stage-6a-production-acceptance-baseline.md)
@@ -56,6 +57,7 @@
    - [stage-6u-production-release-archive-retention-cycle-final-closure.md](../backend/stage-6u-production-release-archive-retention-cycle-final-closure.md)
    - [stage-6v-production-release-archive-retention-cycle-final-closure-receipt.md](../backend/stage-6v-production-release-archive-retention-cycle-final-closure-receipt.md)
    - [stage-6w-production-release-archive-retention-cycle-final-closure-reconciliation.md](../backend/stage-6w-production-release-archive-retention-cycle-final-closure-reconciliation.md)
+   - [stage-6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.md](../backend/stage-6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.md)
 
 4. Stage 6 scripts:
    - [stage6a-production-acceptance-baseline.mjs](../../scripts/stage6a-production-acceptance-baseline.mjs)
@@ -81,6 +83,7 @@
    - [stage6u-production-release-archive-retention-cycle-final-closure.mjs](../../scripts/stage6u-production-release-archive-retention-cycle-final-closure.mjs)
    - [stage6v-production-release-archive-retention-cycle-final-closure-receipt.mjs](../../scripts/stage6v-production-release-archive-retention-cycle-final-closure-receipt.mjs)
    - [stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs](../../scripts/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs)
+   - [stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.mjs](../../scripts/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.mjs)
 
 5. Stage 6 guards:
    - [check-stage6a-production-acceptance-baseline.mjs](../../scripts/check-stage6a-production-acceptance-baseline.mjs)
@@ -106,6 +109,7 @@
    - [check-stage6u-production-release-archive-retention-cycle-final-closure.mjs](../../scripts/check-stage6u-production-release-archive-retention-cycle-final-closure.mjs)
    - [check-stage6v-production-release-archive-retention-cycle-final-closure-receipt.mjs](../../scripts/check-stage6v-production-release-archive-retention-cycle-final-closure-receipt.mjs)
    - [check-stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs](../../scripts/check-stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.mjs)
+   - [check-stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.mjs](../../scripts/check-stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.mjs)
 
 6. Stage 6 workflows:
    - [.github/workflows/stage6a-production-acceptance-baseline.yml](../../.github/workflows/stage6a-production-acceptance-baseline.yml)
@@ -131,6 +135,7 @@
    - [.github/workflows/stage6u-production-release-archive-retention-cycle-final-closure.yml](../../.github/workflows/stage6u-production-release-archive-retention-cycle-final-closure.yml)
    - [.github/workflows/stage6v-production-release-archive-retention-cycle-final-closure-receipt.yml](../../.github/workflows/stage6v-production-release-archive-retention-cycle-final-closure-receipt.yml)
    - [.github/workflows/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.yml](../../.github/workflows/stage6w-production-release-archive-retention-cycle-final-closure-reconciliation.yml)
+   - [.github/workflows/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.yml](../../.github/workflows/stage6x-production-release-archive-retention-cycle-final-closure-reconciliation-receipt.yml)
 
 ## Verification outputs captured during black-box creation
 
@@ -382,3 +387,10 @@
    - `Go-live approved by this report: false`.
    - `Live server go-live verified by this report: false`.
    - `Live archive verified by this report: false`.
+
+23. `npm run preflight:stage6x` -> PASS:
+   - Stage 6X release archive retention cycle final closure reconciliation receipt
+     manifest, report, guard, workflow, docs, project-memory and no-deno-lock
+     checks are present.
+   - Stage 6X keeps external final closure reconciliation receipt records and
+     outcomes outside git.
