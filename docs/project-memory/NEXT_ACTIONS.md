@@ -2,20 +2,21 @@
 
 ## Highest-confidence next step
 
-Complete Stage 7A-7C as one Pull request, then merge it before sending the
+Complete Stage 7D-7F as one Pull request, then merge it before sending the
 Lovable sync prompt.
 
 ## Immediate sequence
 
-1. **Complete Stage 7A-7C implementation**:
-   - Keep the scope limited to workflow contract, batch-size guard, batch
-     planning template, project-memory updates, CI guard, and preflight wiring.
+1. **Complete Stage 7D-7F implementation**:
+   - Keep the scope limited to batch manifest, handoff gate, project-memory
+     refresh automation, CI guard, and preflight wiring.
    - Do not change product runtime behavior in this stage.
 
 2. **Verify before commit**:
-   - `npm run test:stage7a-7c`
-   - `npm run check:stage7a-7c`
-   - `npm run preflight:stage7a-7c`
+   - `npm run test:stage7d-7f`
+   - `npm run check:stage7d-7f`
+   - `npm run handoff:stage7d-7f:dry-run`
+   - `npm run preflight:stage7d-7f`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
@@ -33,7 +34,7 @@ Lovable sync prompt.
    - Smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 7D hypothesis
+## Stage 7G hypothesis
 
-Stage 7D is the next likely stage after Stage 7A-7C, but its scope is not
+Stage 7G is the next likely stage after Stage 7D-7F, but its scope is not
 confirmed by repository files yet.

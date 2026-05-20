@@ -156,12 +156,30 @@
    - [check-stage7a-7c-development-workflow-contract.test.mjs](../../scripts/check-stage7a-7c-development-workflow-contract.test.mjs)
    - [stage7a-7c-development-workflow-contract.yml](../../.github/workflows/stage7a-7c-development-workflow-contract.yml)
 
+8. Stage 7D-7F batch-automation artifacts:
+   - [batch-automation-contract.stage7d-7f.json](../../deploy/self-hosted/batch-automation-contract.stage7d-7f.json)
+   - [stage-7d-7f-batch-automation-contract.md](../backend/stage-7d-7f-batch-automation-contract.md)
+   - [stage7d-7f-batch-handoff.mjs](../../scripts/stage7d-7f-batch-handoff.mjs)
+   - [stage7d-7f-batch-handoff.test.mjs](../../scripts/stage7d-7f-batch-handoff.test.mjs)
+   - [check-stage7d-7f-batch-automation-contract.mjs](../../scripts/check-stage7d-7f-batch-automation-contract.mjs)
+   - [check-stage7d-7f-batch-automation-contract.test.mjs](../../scripts/check-stage7d-7f-batch-automation-contract.test.mjs)
+   - [stage7d-7f-batch-automation-contract.yml](../../.github/workflows/stage7d-7f-batch-automation-contract.yml)
+
 ## Verification outputs captured during black-box creation
 
 0. Stage 7A-7C planned verification:
    - `npm run test:stage7a-7c`
    - `npm run check:stage7a-7c`
    - `npm run preflight:stage7a-7c`
+   - `npm run check:project-memory`
+   - `npm run preflight:all -- --dry-run`
+   - `node scripts/check-no-deno-locks.mjs`
+
+0.1. Stage 7D-7F planned verification:
+   - `npm run test:stage7d-7f`
+   - `npm run check:stage7d-7f`
+   - `npm run handoff:stage7d-7f:dry-run`
+   - `npm run preflight:stage7d-7f`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`

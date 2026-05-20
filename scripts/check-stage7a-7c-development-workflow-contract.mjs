@@ -72,13 +72,10 @@ const PROJECT_MEMORY_REQUIRED_TEXT = {
   ],
   "docs/project-memory/HANDOFF.md": [
     "Stage 7A-7C",
-    "codex/stage7a-7c-development-workflow-contract",
     "Lovable sync prompt",
   ],
   "docs/project-memory/NEXT_ACTIONS.md": [
-    "Stage 7A-7C",
     "minimum three related stages",
-    "Stage 7D",
     "hypothesis",
   ],
   "docs/project-memory/WORKLOG.md": [

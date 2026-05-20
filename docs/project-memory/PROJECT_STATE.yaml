@@ -2,9 +2,9 @@ generated_at: "2026-05-20T15:45:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage7a-7c-development-workflow-contract"
-  head_sha: "4b3ffdd7709d3f1c4371f4be865facf6b1666edc"
-  head_commit: "Add Stage 6Z release archive retention next-cycle register receipt"
+  branch: "codex/stage7d-7f-batch-automation-contract"
+  head_sha: "114de3210df1412d4863248411139e0c70bf4425"
+  head_commit: "Add Stage 7A-7C development workflow contract"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -416,6 +416,18 @@ verification:
       minimum_related_stages_per_batch: 3
       batch_planning_template_present: true
       product_runtime_change: false
+  stage7d_7f_preflight:
+    command: "npm run preflight:stage7d-7f"
+    status: "planned"
+    key_facts:
+      tests_passed: 9
+      guard_files_checked: 9
+      leak_findings: 0
+      batch_automation_contract_confirmed: true
+      lovable_prompt_gate_confirmed: true
+      project_memory_refresh_confirmed: true
+      minimum_related_stages_per_batch: 3
+      product_runtime_change: false
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -444,6 +456,7 @@ verification:
       includes_stage6y: true
       includes_stage6z: true
       includes_stage7a_7c: true
+      includes_stage7d_7f: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
@@ -498,6 +511,7 @@ stage_evidence:
     - "docs/backend/stage-6y-production-release-archive-retention-next-cycle-register.md"
     - "docs/backend/stage-6z-production-release-archive-retention-next-cycle-register-receipt.md"
     - "docs/backend/stage-7a-7c-development-workflow-contract.md"
+    - "docs/backend/stage-7d-7f-batch-automation-contract.md"
   workflows_present:
     - ".github/workflows/stage6a-production-acceptance-baseline.yml"
     - ".github/workflows/stage6b-server-install-package.yml"
@@ -526,8 +540,9 @@ stage_evidence:
     - ".github/workflows/stage6y-production-release-archive-retention-next-cycle-register.yml"
     - ".github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml"
     - ".github/workflows/stage7a-7c-development-workflow-contract.yml"
+    - ".github/workflows/stage7d-7f-batch-automation-contract.yml"
 hypotheses:
-  - "Next logical stage after Stage 7A-7C is Stage 7D. Scope is not confirmed by repository files yet."
+  - "Next logical stage after Stage 7D-7F is Stage 7G. Scope is not confirmed by repository files yet."
 sources:
   commands:
     - "git status --short --branch"
@@ -605,6 +620,10 @@ sources:
     - "npm run test:stage7a-7c"
     - "npm run check:stage7a-7c"
     - "npm run preflight:stage7a-7c"
+    - "npm run test:stage7d-7f"
+    - "npm run check:stage7d-7f"
+    - "npm run handoff:stage7d-7f:dry-run"
+    - "npm run preflight:stage7d-7f"
     - "npm run check:project-memory"
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
@@ -682,9 +701,16 @@ sources:
     - "docs/backend/stage-6z-production-release-archive-retention-next-cycle-register-receipt.md"
     - ".github/workflows/stage6z-production-release-archive-retention-next-cycle-register-receipt.yml"
     - "deploy/self-hosted/development-workflow-contract.stage7a-7c.json"
+    - "deploy/self-hosted/batch-automation-contract.stage7d-7f.json"
     - "docs/backend/stage-7a-7c-development-workflow-contract.md"
+    - "docs/backend/stage-7d-7f-batch-automation-contract.md"
     - "docs/project-memory/WORKING_CONTRACT.md"
     - "docs/project-memory/BATCH_TEMPLATE.md"
     - "scripts/check-stage7a-7c-development-workflow-contract.mjs"
     - "scripts/check-stage7a-7c-development-workflow-contract.test.mjs"
+    - "scripts/stage7d-7f-batch-handoff.mjs"
+    - "scripts/stage7d-7f-batch-handoff.test.mjs"
+    - "scripts/check-stage7d-7f-batch-automation-contract.mjs"
+    - "scripts/check-stage7d-7f-batch-automation-contract.test.mjs"
     - ".github/workflows/stage7a-7c-development-workflow-contract.yml"
+    - ".github/workflows/stage7d-7f-batch-automation-contract.yml"

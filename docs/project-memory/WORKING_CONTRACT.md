@@ -49,8 +49,45 @@ Before starting a future batch, fill the batch template enough to answer:
 - What exact Lovable prompt will be sent after merge.
 - How sync mismatches will be diagnosed.
 
+## Stage 7D: Batch manifest rule
+
+Every normal multi-stage PR must have a repository manifest before the Lovable
+sync prompt is considered valid. The manifest records:
+
+- included stages;
+- why the stages belong in one Pull request;
+- required checks;
+- product-boundary claims;
+- Lovable prompt timing;
+- the next-stage hypothesis.
+
+## Stage 7E: Lovable prompt gate
+
+Lovable prompt gate requirements:
+
+1. Pull request is merged into `main`.
+2. Local branch is `main`.
+3. Local `main` contains the merged files.
+4. Stage preflight passes on local `main`.
+5. Project-memory guard passes on local `main`.
+6. `node scripts/check-no-deno-locks.mjs` passes.
+
+If any gate is missing, the Lovable prompt is blocked.
+
+## Stage 7F: Project-memory refresh rule
+
+Each completed batch must refresh the project-memory black box before the PR is
+merged. At minimum:
+
+- `PROJECT_STATE.yaml` records the new confirmed stage and next hypothesis;
+- `HANDOFF.md` summarizes the confirmed state;
+- `WORKLOG.md` records the batch;
+- `NEXT_ACTIONS.md` points to the next hypothesis, not the completed batch;
+- `RISKS.md` carries forward unresolved process risks;
+- `ARTIFACTS.md` links the new manifest, docs, scripts, tests, and workflow.
+
 ## Product boundary
 
-Stage 7A-7C does not alter runtime behavior. It does not add backend routes,
+Stage 7A-7F does not alter runtime behavior. It does not add backend routes,
 database migrations, frontend pages, device integrations, or third-party
 managed service dependencies.
