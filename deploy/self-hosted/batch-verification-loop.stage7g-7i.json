@@ -1,0 +1,136 @@
+{
+  "stage": "7G-7I",
+  "packageId": "stage7g-7i-batch-verification-loop",
+  "createdAt": "2026-05-20T18:45:00+03:00",
+  "purpose": "Make the larger-batch workflow self-checking by adding a batch readiness reporter, a Lovable sync verification manifest, and a drift guard that keeps batch manifests, docs, workflows, preflight wiring, and project-memory aligned.",
+  "stages": [
+    {
+      "id": "Stage 7G",
+      "title": "Batch readiness reporter",
+      "outcome": "A repository script renders a redacted readiness report that tells Codex whether a batch can be merged and whether the Lovable prompt is still blocked."
+    },
+    {
+      "id": "Stage 7H",
+      "title": "Lovable sync verification manifest",
+      "outcome": "The post-merge Lovable prompt is generated from repository data so every sync check asks for the same files, scripts, workflow, project-memory state, and no-lock/package-lock assertions."
+    },
+    {
+      "id": "Stage 7I",
+      "title": "Batch drift guard",
+      "outcome": "A guard fails when the Stage 7G-7I manifest, reporter, docs, workflow, package scripts, preflight-all entry, and project-memory no longer describe the same batch."
+    }
+  ],
+  "batchPlanPolicy": {
+    "manifestRequiredBeforePrompt": true,
+    "minimumRelatedStagesPerBatch": 3,
+    "includedStages": [
+      "Stage 7G",
+      "Stage 7H",
+      "Stage 7I"
+    ],
+    "samePullRequestJustification": "All three stages close the remaining loop around larger Codex batches: readiness reporting before merge, deterministic Lovable verification after merge, and drift detection for future batches.",
+    "microPullRequestRequiresJustification": true
+  },
+  "readinessReporter": {
+    "script": "scripts/stage7g-7i-batch-readiness.mjs",
+    "exports": [
+      "buildStage7G7IBatchReadiness",
+      "evaluateStage7G7ISyncReadiness",
+      "buildStage7G7ILovablePrompt",
+      "renderStage7G7IBatchReadinessMarkdown",
+      "runStage7G7IBatchReadiness"
+    ],
+    "blockedUntil": [
+      "pullRequestMerged",
+      "localMainVerified",
+      "stagePreflightPassed",
+      "projectMemoryPassed",
+      "driftGuardPassed",
+      "githubChecksPassed",
+      "denoLockGuardPassed"
+    ]
+  },
+  "lovableSyncVerification": {
+    "validOnlyAfterMergeToMain": true,
+    "expectedConfirmation": "Confirmed: Stage 7G-7I synced from main, no conflicts.",
+    "requiredFiles": [
+      "deploy/self-hosted/batch-verification-loop.stage7g-7i.json",
+      "scripts/stage7g-7i-batch-readiness.mjs",
+      "scripts/stage7g-7i-batch-readiness.test.mjs",
+      "scripts/check-stage7g-7i-batch-verification-loop.mjs",
+      "scripts/check-stage7g-7i-batch-verification-loop.test.mjs",
+      "docs/backend/stage-7g-7i-batch-verification-loop.md",
+      ".github/workflows/stage7g-7i-batch-verification-loop.yml"
+    ],
+    "requiredCommands": [
+      "npm run test:stage7g-7i",
+      "npm run check:stage7g-7i",
+      "npm run readiness:stage7g-7i:dry-run",
+      "npm run preflight:stage7g-7i",
+      "npm run check:project-memory",
+      "node scripts/check-no-deno-locks.mjs"
+    ],
+    "packageLockMustRemainUnchanged": true,
+    "denoLockMustBeAbsent": true
+  },
+  "driftGuard": {
+    "script": "scripts/check-stage7g-7i-batch-verification-loop.mjs",
+    "requiresPackageScripts": [
+      "test:stage7g-7i",
+      "check:stage7g-7i",
+      "readiness:stage7g-7i:dry-run",
+      "preflight:stage7g-7i"
+    ],
+    "requiresPreflightAllLabel": "Stage 7G-7I batch verification loop preflight",
+    "requiresProjectMemoryNextHypothesis": "Stage 7J"
+  },
+  "gates": [
+    {
+      "name": "Stage 7G-7I unit tests",
+      "command": "npm run test:stage7g-7i"
+    },
+    {
+      "name": "Stage 7G-7I drift guard",
+      "command": "npm run check:stage7g-7i"
+    },
+    {
+      "name": "Stage 7G-7I readiness dry-run",
+      "command": "npm run readiness:stage7g-7i:dry-run"
+    },
+    {
+      "name": "Stage 7G-7I preflight",
+      "command": "npm run preflight:stage7g-7i"
+    },
+    {
+      "name": "Project memory guard",
+      "command": "npm run check:project-memory"
+    },
+    {
+      "name": "No deno lock files",
+      "command": "node scripts/check-no-deno-locks.mjs"
+    }
+  ],
+  "projectMemoryRefresh": {
+    "requiredFiles": [
+      "docs/project-memory/PROJECT_STATE.yaml",
+      "docs/project-memory/HANDOFF.md",
+      "docs/project-memory/WORKLOG.md",
+      "docs/project-memory/NEXT_ACTIONS.md",
+      "docs/project-memory/RISKS.md",
+      "docs/project-memory/ARTIFACTS.md",
+      "docs/project-memory/WORKING_CONTRACT.md",
+      "docs/project-memory/BATCH_TEMPLATE.md"
+    ],
+    "confirmedStage": "Stage 7G-7I",
+    "nextStageHypothesis": "Stage 7J"
+  },
+  "productBoundary": {
+    "runtimeProductChange": false,
+    "backendSchemaChange": false,
+    "frontendRuntimeChange": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false
+  },
+  "nextStageHypothesis": "Stage 7J"
+}

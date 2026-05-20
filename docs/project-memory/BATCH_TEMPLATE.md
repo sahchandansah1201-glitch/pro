@@ -45,6 +45,7 @@ Use this template before starting future multi-stage work.
 - Stage-specific tests:
 - Stage-specific guard:
 - Stage-specific preflight:
+- Readiness Reporter:
 - Project memory guard:
 - Full preflight dry-run:
 - No lock-file guard:
@@ -65,6 +66,14 @@ Use this template before starting future multi-stage work.
 Write the exact post-merge prompt here. It must ask Lovable to verify files from
 `main`, not from an open PR branch.
 
+## Lovable Verification Manifest
+
+- Required files:
+- Required commands:
+- Expected confirmation:
+- package-lock expectation:
+- deno.lock expectation:
+
 ## Post-Merge Handoff Gate
 
 - PR merged into `main`:
@@ -73,6 +82,15 @@ Write the exact post-merge prompt here. It must ask Lovable to verify files from
 - Project-memory guard passed:
 - Deno-lock guard passed:
 - Lovable prompt allowed:
+
+## Drift Guard
+
+- Manifest and docs aligned:
+- Package scripts present:
+- Workflow present:
+- `preflight-all` label present:
+- Project-memory confirmed stage updated:
+- Next-stage hypothesis updated:
 
 ## Project Memory Refresh
 

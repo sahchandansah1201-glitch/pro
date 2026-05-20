@@ -2,19 +2,23 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 7D-7F is being
-implemented on branch `codex/stage7d-7f-batch-automation-contract`.
+This handoff captures the repository state while Stage 7G-7I is being
+implemented on branch `codex/stage7g-7i-batch-verification-loop`.
 
 ## Confirmed state
 
-1. Stage 6A-6Z and Stage 7A-7C are present on the current branch base.
+1. Stage 6A-6Z, Stage 7A-7C, and Stage 7D-7F are present on the current branch
+   base.
+   Stage 7D-7F is the confirmed batch automation contract and Lovable prompt
+   gate foundation for this batch. The exact Lovable prompt gate rule remains
+   active: prompt only after merge into `main` and local `main` verification.
 2. Current branch base commit:
-   - `114de32 Add Stage 7A-7C development workflow contract`
-3. Stage 7D-7F adds a batch automation contract only:
-   - Stage 7D: machine-readable batch manifest.
-   - Stage 7E: Lovable prompt gate for merge-before-sync handoff.
-   - Stage 7F: project-memory refresh requirements.
-4. Stage 7D-7F product boundary:
+   - `ab8a129 Add Stage 7D-7F batch automation contract`
+3. Stage 7G-7I adds a batch verification loop only:
+   - Stage 7G: readiness reporter for current batch gates.
+   - Stage 7H: Lovable sync verification manifest.
+   - Stage 7I: drift guard for manifest/docs/workflow/scripts/project-memory.
+4. Stage 7G-7I product boundary:
    - no backend route changes
    - no database migrations
    - no frontend runtime pages
@@ -29,14 +33,14 @@ branch switching is explicitly enabled.
 
 ## Hypothesis
 
-- `Stage 7G` is likely next, but its product or process scope is not confirmed
+- `Stage 7J` is likely next, but its product or process scope is not confirmed
   by repository files yet.
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 7D-7F in one Pull request.
+1. Finish Stage 7G-7I in one Pull request.
 2. Run:
-   - `npm run preflight:stage7d-7f`
+   - `npm run preflight:stage7g-7i`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
