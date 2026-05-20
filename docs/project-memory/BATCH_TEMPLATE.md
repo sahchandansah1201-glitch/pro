@@ -92,6 +92,14 @@ Write the exact post-merge prompt here. It must ask Lovable to verify files from
 - Project-memory confirmed stage updated:
 - Next-stage hypothesis updated:
 
+## Product Roadmap Controls
+
+- Product Gap Register:
+- Next Product Batch Planner:
+- Roadmap Drift Guard:
+- Each next product batch has at least three related stages:
+- Managed runtime/database dependency remains `none`:
+
 ## Project Memory Refresh
 
 - `PROJECT_STATE.yaml` updated:

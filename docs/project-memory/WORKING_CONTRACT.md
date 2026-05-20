@@ -119,8 +119,49 @@ Each batch needs a drift guard that compares:
 
 The guard should fail when these artifacts no longer describe the same batch.
 
+## Stage 7J: Product gap register
+
+After the process contract is in place, the repository needs a product gap
+register before returning to implementation work. This product gap register
+must identify:
+
+- confirmed product areas with repository evidence;
+- remaining product gaps;
+- the planned next batch for each gap;
+- whether the gap affects backend, frontend, operations, or external adapter
+  delivery;
+- the self-hosted product boundary for the gap.
+
+## Stage 7K: Next product batch planner
+
+The next product work must be grouped into larger related batches before code
+implementation starts. This next product batch planner must ensure each planned
+batch:
+
+- include at least three related stages;
+- state its focus;
+- state why it belongs in one Pull request;
+- state product-boundary constraints;
+- keep managed runtime and managed database dependencies out of the product
+  runtime.
+
+## Stage 7L: Product roadmap drift guard
+
+The product roadmap drift guard compares:
+
+- product roadmap manifest;
+- roadmap reporter exports;
+- docs;
+- workflow;
+- package scripts;
+- `preflight-all` label;
+- project-memory confirmed stage and next hypothesis.
+
+The guard should fail when roadmap artifacts no longer describe the same next
+product plan.
+
 ## Product boundary
 
-Stage 7A-7I does not alter runtime behavior. It does not add backend routes,
+Stage 7A-7L does not alter runtime behavior. It does not add backend routes,
 database migrations, frontend pages, device integrations, or third-party
 managed service dependencies.

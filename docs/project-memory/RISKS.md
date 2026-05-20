@@ -67,7 +67,7 @@
      merged into `main`.
    - Impact: Lovable can correctly report "missing stage" even when a PR exists
      and is green, because the project sync follows `main` unless branch
-   switching is explicitly enabled.
+     switching is explicitly enabled.
 
 5. **Small PR relapse after repeated large-batch instruction**
    - Evidence: the operator explicitly repeated the instruction to increase
@@ -96,15 +96,22 @@
    - Mitigation: Stage 7G-7I adds a readiness reporter, sync verification
      manifest, and drift guard.
 
+8. **Product roadmap can drift from actual product evidence**
+   - Evidence: Stage 7G-7I verifies batch artifacts but does not decide the
+     next product implementation order.
+   - Impact: future product work can choose small or unrelated PRs even after
+     the process contract is green.
+   - Mitigation: Stage 7J-7L adds a product gap register, next product batch
+     planner, and product roadmap drift guard.
+
 ## Hypotheses
 
-1. **Next stage ambiguity**
-   - hypothesis: Stage 7J is next.
-   - Basis: Stage 7G-7I defines the batch verification loop; no repository
-     file yet defines Stage 7J scope. Earlier Stage 7G hypothesis is resolved
-     by this batch.
-   - Uncertainty: no explicit roadmap file in current scan naming Stage 7J
-     scope.
+1. **Next product batch**
+   - hypothesis: Stage 8A-8C is next.
+   - Basis: Stage 7J-7L product roadmap maps the highest-priority remaining
+     gap to CRM inbound adapter implementation.
+   - Uncertainty: Stage 8A-8C is not implemented until repository files define
+     it.
 
 ## Mitigations
 
@@ -125,3 +132,5 @@
 4. For future stages, merge the checked PR into `main` before sending the
    Lovable sync prompt; then verify local `main` contains the stage artifacts.
 5. Use `docs/project-memory/BATCH_TEMPLATE.md` before future multi-stage work.
+6. Use `deploy/self-hosted/product-roadmap.stage7j-7l.json` to choose the next
+   product batch unless a documented hotfix reason applies.

@@ -1,0 +1,44 @@
+name: stage7j-7l-product-roadmap
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/product-roadmap.stage7j-7l.json"
+      - "scripts/stage7j-7l-product-roadmap.mjs"
+      - "scripts/stage7j-7l-product-roadmap.test.mjs"
+      - "scripts/check-stage7j-7l-product-roadmap.mjs"
+      - "scripts/check-stage7j-7l-product-roadmap.test.mjs"
+      - "docs/backend/stage-7j-7l-product-roadmap.md"
+      - "docs/project-memory/**"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage7j-7l-product-roadmap.yml"
+  workflow_dispatch:
+
+jobs:
+  stage7j_7l:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 7J-7L preflight
+        run: npm run preflight:stage7j-7l
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 7J-7L product roadmap"
+            echo
+            echo "- Preflight: ${{ job.status }}"
+            echo "- Manifest: deploy/self-hosted/product-roadmap.stage7j-7l.json"
+            echo "- Report: npm run roadmap:stage7j-7l:dry-run"
+          } >> "$GITHUB_STEP_SUMMARY"
