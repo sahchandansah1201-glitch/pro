@@ -638,3 +638,31 @@
 - `npm run test:project-memory`
 - `npm run check:project-memory`
 - `node scripts/check-no-deno-locks.mjs`
+
+## Stage 9N-9Z Device Bridge lifecycle assurance artifacts
+
+- [device-bridge-lifecycle-assurance-service.mjs](../../backend/self-hosted/device-bridge-lifecycle-assurance-service.mjs)
+- [device-bridge-lifecycle-assurance-service.test.mjs](../../backend/self-hosted/device-bridge-lifecycle-assurance-service.test.mjs)
+- [openapi.stage9n-9z.json](../../backend/self-hosted/openapi.stage9n-9z.json)
+- [self-hosted-device-api.ts](../../src/lib/self-hosted-device-api.ts)
+- [self-hosted-device-api.test.ts](../../src/lib/self-hosted-device-api.test.ts)
+- [SysDevicesPage.tsx](../../src/pages/sys/SysDevicesPage.tsx)
+- [SysDevicesPage.test.tsx](../../src/pages/sys/SysDevicesPage.test.tsx)
+- [device-bridge-lifecycle-assurance.stage9n-9z.json](../../deploy/self-hosted/device-bridge-lifecycle-assurance.stage9n-9z.json)
+- [stage9n-9z-device-bridge-lifecycle-assurance.mjs](../../scripts/stage9n-9z-device-bridge-lifecycle-assurance.mjs)
+- [stage9n-9z-device-bridge-lifecycle-assurance.test.mjs](../../scripts/stage9n-9z-device-bridge-lifecycle-assurance.test.mjs)
+- [check-stage9n-9z-device-bridge-lifecycle-assurance.mjs](../../scripts/check-stage9n-9z-device-bridge-lifecycle-assurance.mjs)
+- [check-stage9n-9z-device-bridge-lifecycle-assurance.test.mjs](../../scripts/check-stage9n-9z-device-bridge-lifecycle-assurance.test.mjs)
+- [stage-9n-9z-device-bridge-lifecycle-assurance.md](../backend/stage-9n-9z-device-bridge-lifecycle-assurance.md)
+- [stage9n-9z-device-bridge-lifecycle-assurance.yml](../../.github/workflows/stage9n-9z-device-bridge-lifecycle-assurance.yml)
+
+## Stage 9N-9Z verification commands
+
+- `npm run test:stage9n-9z`
+- `npm run check:stage9n-9z`
+- `npm run assurance:stage9n-9z:dry-run`
+- `npm run preflight:stage9n-9z`
+- `npm run preflight:stage9b-9m`
+- `npm run test:project-memory`
+- `npm run check:project-memory`
+- `node scripts/check-no-deno-locks.mjs`

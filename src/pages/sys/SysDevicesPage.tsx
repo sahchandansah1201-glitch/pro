@@ -19,6 +19,7 @@ import {
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeCommandAudit,
   getSelfHostedDeviceBridgeFleetReliability,
+  getSelfHostedDeviceBridgeLifecycleAssurance,
   getSelfHostedDeviceBridgeOperationsContinuity,
   getSelfHostedDeviceBridgeProductionReadiness,
   recoverSelfHostedDeviceBridgeWorkerCommand,
@@ -27,6 +28,7 @@ import {
   requestSelfHostedDeviceCommand,
   type SelfHostedDeviceBridgeCommandAuditDTO,
   type SelfHostedDeviceBridgeFleetReliabilityDTO,
+  type SelfHostedDeviceBridgeLifecycleAssuranceDTO,
   type SelfHostedDeviceBridgeOperationsContinuityDTO,
   type SelfHostedDeviceBridgeProductionReadinessDTO,
   type SelfHostedDeviceBridgeWorkerHardeningDTO,
@@ -193,6 +195,8 @@ export default function SysDevicesPage() {
   const [operationsContinuityError, setOperationsContinuityError] = useState<string | null>(null);
   const [fleetReliability, setFleetReliability] = useState<SelfHostedDeviceBridgeFleetReliabilityDTO | null>(null);
   const [fleetReliabilityError, setFleetReliabilityError] = useState<string | null>(null);
+  const [lifecycleAssurance, setLifecycleAssurance] = useState<SelfHostedDeviceBridgeLifecycleAssuranceDTO | null>(null);
+  const [lifecycleAssuranceError, setLifecycleAssuranceError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -217,6 +221,8 @@ export default function SysDevicesPage() {
       setOperationsContinuityError(null);
       setFleetReliability(null);
       setFleetReliabilityError(null);
+      setLifecycleAssurance(null);
+      setLifecycleAssuranceError(null);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -232,6 +238,7 @@ export default function SysDevicesPage() {
     setProductionReadinessError(null);
     setOperationsContinuityError(null);
     setFleetReliabilityError(null);
+    setLifecycleAssuranceError(null);
     Promise.all([
       listSelfHostedDeviceBridges({
         apiBaseUrl: session.apiBaseUrl,
@@ -282,7 +289,11 @@ export default function SysDevicesPage() {
         apiBaseUrl: session.apiBaseUrl,
         apiToken: session.apiToken,
       }),
-    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult, readinessResult, continuityResult, reliabilityResult]) => {
+      getSelfHostedDeviceBridgeLifecycleAssurance({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      }),
+    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult, readinessResult, continuityResult, reliabilityResult, assuranceResult]) => {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
@@ -296,6 +307,7 @@ export default function SysDevicesPage() {
         setProductionReadiness(null);
         setOperationsContinuity(null);
         setFleetReliability(null);
+        setLifecycleAssurance(null);
         return;
       }
       setLiveBridges((bridgeResult.value ?? []).map(bridgeFromDto));
@@ -352,6 +364,14 @@ export default function SysDevicesPage() {
         setFleetReliability(null);
         setFleetReliabilityError(
           reliabilityResult?.error?.message || "Не удалось загрузить Device Bridge fleet reliability.",
+        );
+      }
+      if (assuranceResult?.ok) {
+        setLifecycleAssurance(assuranceResult.value ?? null);
+      } else {
+        setLifecycleAssurance(null);
+        setLifecycleAssuranceError(
+          assuranceResult?.error?.message || "Не удалось загрузить Device Bridge lifecycle assurance.",
         );
       }
       setLoadStatus("ready");
@@ -1229,6 +1249,100 @@ export default function SysDevicesPage() {
           </section>
         )}
 
+        {isLive && (
+          <section
+            className="space-y-2"
+            aria-label="Device Bridge lifecycle assurance"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
+                Stage 9N-9Z · Lifecycle assurance
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                /api/v1/device-bridge-worker/lifecycle-assurance
+              </span>
+            </div>
+            <Card className="p-3">
+              {lifecycleAssurance ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                    <WorkerMetric label="Assurance %" value={lifecycleAssurance.assurance.completionPercent} />
+                    <WorkerMetric label="Assurance debt" value={lifecycleAssurance.assurance.summary.assuranceDebt} />
+                    <WorkerMetric label="Upgrade pressure" value={lifecycleAssurance.assurance.summary.upgradePressure} />
+                    <WorkerMetric label="Maintenance due" value={lifecycleAssurance.assurance.summary.maintenanceDue ? "Да" : "Нет"} />
+                    <WorkerMetric label="Retention review" value={lifecycleAssurance.assurance.summary.retentionReviewDue ? "Да" : "Нет"} />
+                    <WorkerMetric label="Stages" value={lifecycleAssurance.assurance.stages.length} />
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div
+                      role="region"
+                      aria-label="Device Bridge lifecycle assurance stages"
+                      className="rounded-md border border-border"
+                    >
+                      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Assurance stages · {lifecycleAssurance.assurance.status}
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {lifecycleAssurance.assurance.stages.map((stage) => (
+                          <div key={stage.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                            <span className="font-mono text-[11px] text-muted-foreground">{stage.id}</span>
+                            <div>
+                              <div className="font-medium text-foreground">{stage.title}</div>
+                              <div className="text-[11px] text-muted-foreground">{stage.summary}</div>
+                            </div>
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {stage.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div
+                      role="region"
+                      aria-label="Device Bridge lifecycle assurance gates"
+                      className="rounded-md border border-border"
+                    >
+                      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Assurance gates
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {lifecycleAssurance.assurance.gates.map((gate) => (
+                          <div key={gate.key} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
+                            <div>
+                              <div className="font-medium text-foreground">{gate.label}</div>
+                              <div className="text-[11px] text-muted-foreground">{gate.detail}</div>
+                            </div>
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {gate.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    role="note"
+                    aria-label="Device Bridge lifecycle assurance boundary"
+                    className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+                  >
+                    Stage 9N-9Z closes lifecycle assurance for maintenance, worker upgrade posture,
+                    audit retention and next-cycle handoff. Managed runtime{" "}
+                    {lifecycleAssurance.assurance.productBoundary.managedRuntimeDependency};
+                    managed database {lifecycleAssurance.assurance.productBoundary.managedDatabaseDependency};
+                    payload {lifecycleAssurance.assurance.productBoundary.payloadVisibility}; next batch hypothesis{" "}
+                    {lifecycleAssurance.assurance.handoff.nextBatchHypothesis}.
+                  </div>
+                </div>
+              ) : (
+                <div role="status" className="text-[12px] text-muted-foreground">
+                  {lifecycleAssuranceError || "Device Bridge lifecycle assurance ожидает ответ backend."}
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+
         {/* Bridges */}
         <section className="space-y-2">
           <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1508,7 +1622,7 @@ export default function SysDevicesPage() {
   );
 }
 
-function WorkerMetric({ label, value }: { label: string; value: number }) {
+function WorkerMetric({ label, value }: { label: string; value: number | string }) {
   return (
     <div
       role="region"

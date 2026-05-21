@@ -156,15 +156,27 @@
    - Mitigation: Stage 9B-9M labels the endpoint as reliability metadata only,
      keeps raw worker payloads backend-only, and keeps live outcomes unknown to
      the repository.
+16. **Device Bridge lifecycle assurance can be mistaken for live maintenance approval**
+   - Evidence: Stage 9N-9Z derives maintenance, upgrade posture and audit
+     retention signals from safe fleet reliability metadata, but live operator
+     maintenance outcomes remain outside Git.
+   - Impact: operators may treat repository metadata as proof that maintenance,
+     worker upgrades or retention reviews were completed in the live clinic
+     environment.
+   - Mitigation: Stage 9N-9Z labels the endpoint as lifecycle assurance
+     metadata only, keeps raw worker payloads backend-only, and keeps live
+     outcomes unknown to the repository.
 
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 9N-9Z is next.
-   - Basis: Stage 9B-9M closes Device Bridge fleet reliability and next-batch
+   - hypothesis: Stage 10A-10L is next.
+   - Basis: Stage 9N-9Z closes Device Bridge lifecycle assurance and next-batch
      handoff coverage.
-   - Uncertainty: Stage 9N-9Z is not implemented until repository files define
+   - Uncertainty: Stage 10A-10L is not implemented until repository files define
      it.
+   - Historical marker: Stage 9N-9Z was the next hypothesis after Stage 9B-9M
+     and is now implemented as the lifecycle assurance x2 batch.
    - Historical marker: Stage 9B-9D was the original next hypothesis after
      Stage 8P-9A and is now implemented inside the larger Stage 9B-9M x2 batch.
    - Historical marker: Stage 8P-8R was the original next hypothesis after
