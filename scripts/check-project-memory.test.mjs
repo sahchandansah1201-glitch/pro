@@ -46,10 +46,15 @@ function makeRoot() {
     "deploy/self-hosted/batch-automation-contract.stage7d-7f.json",
     "deploy/self-hosted/batch-verification-loop.stage7g-7i.json",
     "deploy/self-hosted/product-roadmap.stage7j-7l.json",
+    "deploy/self-hosted/integrations/crm-inbound-adapter.stage8a-8c.json",
+    "deploy/self-hosted/integrations/crm-inbound-export.stage8a.example.json",
+    "deploy/self-hosted/integrations/crm-inbound-mapping.stage8a.example.json",
+    "deploy/self-hosted/integrations/booking-import.stage8b.example.json",
     "docs/backend/stage-7a-7c-development-workflow-contract.md",
     "docs/backend/stage-7d-7f-batch-automation-contract.md",
     "docs/backend/stage-7g-7i-batch-verification-loop.md",
     "docs/backend/stage-7j-7l-product-roadmap.md",
+    "docs/backend/stage-8a-8c-crm-inbound-adapter.md",
     "scripts/check-stage7a-7c-development-workflow-contract.mjs",
     "scripts/check-stage7a-7c-development-workflow-contract.test.mjs",
     "scripts/stage7d-7f-batch-handoff.mjs",
@@ -64,10 +69,15 @@ function makeRoot() {
     "scripts/stage7j-7l-product-roadmap.test.mjs",
     "scripts/check-stage7j-7l-product-roadmap.mjs",
     "scripts/check-stage7j-7l-product-roadmap.test.mjs",
+    "scripts/stage8a-8c-crm-inbound-adapter.mjs",
+    "scripts/stage8a-8c-crm-inbound-adapter.test.mjs",
+    "scripts/check-stage8a-8c-crm-inbound-adapter.mjs",
+    "scripts/check-stage8a-8c-crm-inbound-adapter.test.mjs",
     ".github/workflows/stage7a-7c-development-workflow-contract.yml",
     ".github/workflows/stage7d-7f-batch-automation-contract.yml",
     ".github/workflows/stage7g-7i-batch-verification-loop.yml",
     ".github/workflows/stage7j-7l-product-roadmap.yml",
+    ".github/workflows/stage8a-8c-crm-inbound-adapter.yml",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
@@ -417,6 +427,17 @@ verification:
       next_product_batch_planner_confirmed: true
       product_roadmap_drift_guard_confirmed: true
       minimum_related_stages_per_batch: 3
+  stage8a_8c_preflight:
+    command: "npm run preflight:stage8a-8c"
+    status: "ok"
+    key_facts:
+      tests_passed: 7
+      guard_files_checked: 10
+      leak_findings: 0
+      crm_inbound_adapter_contract_confirmed: true
+      crm_export_normalization_confirmed: true
+      safe_import_audit_flow_confirmed: true
+      minimum_related_stages_per_batch: 3
 stage_evidence:
   latest_commits:
     - "ca00a2e Harden Stage 6 handoff path resolution"
@@ -492,6 +513,10 @@ sources:
     - "deploy/self-hosted/batch-automation-contract.stage7d-7f.json"
     - "deploy/self-hosted/batch-verification-loop.stage7g-7i.json"
     - "deploy/self-hosted/product-roadmap.stage7j-7l.json"
+    - "deploy/self-hosted/integrations/crm-inbound-adapter.stage8a-8c.json"
+    - "deploy/self-hosted/integrations/crm-inbound-export.stage8a.example.json"
+    - "deploy/self-hosted/integrations/crm-inbound-mapping.stage8a.example.json"
+    - "deploy/self-hosted/integrations/booking-import.stage8b.example.json"
     - "docs/backend/stage-7a-7c-development-workflow-contract.md"
     - "docs/backend/stage-7d-7f-batch-automation-contract.md"
     - "docs/backend/stage-7g-7i-batch-verification-loop.md"
@@ -503,11 +528,13 @@ sources:
     - "scripts/check-stage7g-7i-batch-verification-loop.mjs"
     - "scripts/stage7j-7l-product-roadmap.mjs"
     - "scripts/check-stage7j-7l-product-roadmap.mjs"
+    - "scripts/stage8a-8c-crm-inbound-adapter.mjs"
+    - "scripts/check-stage8a-8c-crm-inbound-adapter.mjs"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 7D-7F confirmed. Stage 7G-7I confirmed as batch verification loop. Stage 7J-7L confirmed as product roadmap.\n\n## Hypothesis\n\nStage 8A-8C is likely next.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 7D-7F confirmed. Stage 7G-7I confirmed as batch verification loop. Stage 7J-7L confirmed as product roadmap. Stage 8A-8C confirmed as CRM inbound adapter.\n\n## Hypothesis\n\nStage 8D-8F is likely next hypothesis.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 7J-7L complete. Future work uses minimum three related stages. Stage 8A-8C is the next hypothesis. Stage 7D-7F remains confirmed.\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external. micro-PR relapse and early Lovable sync prompt remain risks. Stage 7G-7I reduces drift risk. Stage 7J-7L reduces product-roadmap drift risk.\n\n## Hypotheses\n\nStage 8A-8C is next. Earlier Stage 7G hypothesis is resolved.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 8A-8C complete. Future work uses minimum three related stages. Stage 8D-8F is the next hypothesis. Stage 7D-7F remains confirmed.\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external. micro-PR relapse and early Lovable sync prompt remain risks. Stage 7G-7I reduces drift risk. Stage 7J-7L reduces product-roadmap drift risk. Stage 8A-8C reduces CRM inbound adapter drift risk.\n\n## Hypotheses\n\nStage 8D-8F is next hypothesis. Earlier Stage 7G hypothesis is resolved.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
@@ -516,6 +543,7 @@ sources:
 - [stage7d-7f](../../deploy/self-hosted/batch-automation-contract.stage7d-7f.json)
 - [stage7g-7i](../../deploy/self-hosted/batch-verification-loop.stage7g-7i.json)
 - [stage7j-7l](../../deploy/self-hosted/product-roadmap.stage7j-7l.json)
+- [stage8a-8c](../../deploy/self-hosted/integrations/crm-inbound-adapter.stage8a-8c.json)
 
 ## Verification outputs
 

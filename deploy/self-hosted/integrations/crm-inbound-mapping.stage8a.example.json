@@ -1,0 +1,25 @@
+{
+  "clinicId": "10000000-0000-4000-8000-000000000001",
+  "sourceSystem": "clinic_crm",
+  "sourceReferencePrefix": "clinic-crm-local-json",
+  "idempotencyKeyPrefix": "stage8a8c",
+  "recordsPath": "records",
+  "fieldMap": {
+    "kind": "recordType",
+    "externalId": "externalId",
+    "patientCode": "patientCode",
+    "preferredFrom": "preferredFrom",
+    "preferredTo": "preferredTo",
+    "reason": "reason",
+    "doctorUserId": "doctorUserId",
+    "startedAt": "startedAt",
+    "durationMinutes": "durationMinutes"
+  },
+  "kindMap": {
+    "booking": "booking_request",
+    "booking_request": "booking_request",
+    "request": "booking_request",
+    "available_slot": "available_slot",
+    "slot": "available_slot"
+  }
+}

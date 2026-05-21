@@ -104,13 +104,22 @@
    - Mitigation: Stage 7J-7L adds a product gap register, next product batch
      planner, and product roadmap drift guard.
 
+9. **CRM/ad-source adapter can leak raw external data**
+   - Evidence: Stage 8A-8C accepts operator-owned CRM/ad export files and
+     normalizes them before Stage 5Q import.
+   - Impact: unsafe exports could include raw names, phone numbers, email
+     addresses, external URLs, tokens, or raw external payload fields.
+   - Mitigation: Stage 8A-8C rejects unsafe values before normalization and the
+     audit report is count-only.
+
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 8A-8C is next.
-   - Basis: Stage 7J-7L product roadmap maps the highest-priority remaining
-     gap to CRM inbound adapter implementation.
-   - Uncertainty: Stage 8A-8C is not implemented until repository files define
+   - hypothesis: Stage 8D-8F is next.
+   - Basis: Stage 7J-7L product roadmap maps the next batch after CRM inbound
+     adapter implementation to appointment availability sync and booking
+     confirmation.
+   - Uncertainty: Stage 8D-8F is not implemented until repository files define
      it.
 
 ## Mitigations

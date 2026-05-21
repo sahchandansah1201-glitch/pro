@@ -2,8 +2,8 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 7J-7L is being
-implemented on branch `codex/stage7j-7l-product-roadmap`.
+This handoff captures the repository state while Stage 8A-8C is being
+implemented on branch `codex/stage8a-8c-crm-inbound-adapter`.
 
 ## Confirmed state
 
@@ -18,11 +18,16 @@ implemented on branch `codex/stage7j-7l-product-roadmap`.
    - Stage 7J: product gap register.
    - Stage 7K: next product batch planner.
    - Stage 7L: product roadmap drift guard.
-6. Stage 7J-7L product boundary:
+6. Stage 8A-8C implements the CRM inbound adapter layer:
+   - Stage 8A: CRM inbound adapter contract.
+   - Stage 8B: CRM export normalization into Stage 5Q import payloads.
+   - Stage 8C: safe import audit flow.
+7. Stage 8A-8C product boundary:
    - no backend route changes;
    - no database migrations;
    - no frontend runtime pages;
-   - no managed runtime or managed database dependency.
+   - no managed runtime or managed database dependency;
+   - no browser/backend runtime calls to CRM or advertising systems.
 
 ## Important operational fact
 
@@ -33,14 +38,14 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 8A-8C` is the next likely product batch after Stage 7J-7L.
+- `Stage 8D-8F` is the next likely product batch after Stage 8A-8C.
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 7J-7L in one Pull request.
+1. Finish Stage 8A-8C in one Pull request.
 2. Run:
+   - `npm run preflight:stage8a-8c`
    - `npm run preflight:stage7j-7l`
-   - `npm run preflight:stage7g-7i`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`

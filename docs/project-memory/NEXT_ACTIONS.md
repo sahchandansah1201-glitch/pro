@@ -2,22 +2,22 @@
 
 ## Highest-confidence next step
 
-Complete Stage 7J-7L as one Pull request, then merge it before sending the
+Complete Stage 8A-8C as one Pull request, then merge it before sending the
 Lovable sync prompt.
 
 ## Immediate sequence
 
-1. **Complete Stage 7J-7L implementation**:
-   - keep the scope limited to product gap register, next product batch
-     planner, roadmap dry-run, drift guard, CI guard, and preflight wiring;
-   - do not change product runtime behavior in this stage.
+1. **Complete Stage 8A-8C implementation**:
+   - keep the scope focused on CRM inbound adapter contract, export
+     normalization, safe import audit, guard, CI guard, and preflight wiring;
+   - do not add browser/backend runtime calls to CRM or advertising systems.
 
 2. **Verify before commit**:
-   - `npm run test:stage7j-7l`
-   - `npm run check:stage7j-7l`
-   - `npm run roadmap:stage7j-7l:dry-run`
+   - `npm run test:stage8a-8c`
+   - `npm run check:stage8a-8c`
+   - `npm run adapter:stage8a-8c:dry-run`
+   - `npm run preflight:stage8a-8c`
    - `npm run preflight:stage7j-7l`
-   - `npm run preflight:stage7g-7i`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
@@ -35,11 +35,11 @@ Lovable sync prompt.
    - smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 8A-8C hypothesis
+## Stage 8D-8F hypothesis
 
-Stage 8A-8C is the next likely product batch after Stage 7J-7L. Its current
-roadmap scope is CRM inbound adapter implementation, but it remains a
-hypothesis until repository files define it.
+Stage 8D-8F is the next likely product batch after Stage 8A-8C. Its current
+roadmap scope is appointment availability sync and booking confirmation, but it
+remains a hypothesis until repository files define it.
 
 Historical note: Stage 7G-7I is complete and introduced the batch verification
 loop that Stage 7J-7L now uses for product-roadmap planning. Stage 7D-7F
