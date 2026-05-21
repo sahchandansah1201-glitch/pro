@@ -1,0 +1,136 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted API",
+    "version": "8G-8I-clinical-reporting-completion",
+    "description": "Stage 8G-8I clinical reporting completion package. Self-hosted PostgreSQL only; no managed runtime or managed database dependency."
+  },
+  "paths": {
+    "/api/v1/visits/{visitId}/report-package": {
+      "get": {
+        "summary": "Read clinical report completion package",
+        "description": "Returns a safe report readiness snapshot assembled from local visits, lesions, assets, assessments, conclusions, and reports. The response contains counts and booleans only; it does not expose object storage paths, signed URLs, tokens, or raw patient data.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clinical report package readiness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item", "correlationId"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["8G-8I"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/ClinicalReportPackage" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Auth required" },
+          "403": { "description": "Role or clinic scope denied" },
+          "404": { "description": "Visit/report package not found" },
+          "422": { "description": "Invalid visit id" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ClinicalReportPackage": {
+        "type": "object",
+        "required": [
+          "visitId",
+          "assessment",
+          "conclusion",
+          "report",
+          "counts",
+          "readiness",
+          "productBoundary"
+        ],
+        "properties": {
+          "visitId": { "type": "string" },
+          "clinicId": { "type": ["string", "null"] },
+          "patientId": { "type": ["string", "null"] },
+          "visitStatus": { "type": "string" },
+          "assessment": {
+            "type": "object",
+            "properties": {
+              "status": { "type": ["string", "null"] },
+              "riskLevel": { "type": ["string", "null"] },
+              "abcdTotal": { "type": ["number", "null"] },
+              "sevenPointTotal": { "type": ["number", "null"] },
+              "summaryPresent": { "type": "boolean" },
+              "recommendationPresent": { "type": "boolean" }
+            }
+          },
+          "conclusion": {
+            "type": "object",
+            "properties": {
+              "status": { "type": ["string", "null"] },
+              "summaryPresent": { "type": "boolean" },
+              "nextStepPresent": { "type": "boolean" },
+              "followUpAt": { "type": ["string", "null"] }
+            }
+          },
+          "report": {
+            "type": "object",
+            "properties": {
+              "status": { "type": ["string", "null"] },
+              "physicianTextPresent": { "type": "boolean" },
+              "patientSafeTextPresent": { "type": "boolean" },
+              "signedAt": { "type": ["string", "null"] }
+            }
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "lesions": { "type": "integer" },
+              "assets": { "type": "integer" }
+            }
+          },
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "ready": { "type": "boolean" },
+              "status": { "type": "string", "enum": ["ready", "blocked"] },
+              "completionPercent": { "type": "integer" },
+              "missing": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "exportAllowed": { "type": "boolean" },
+              "patientDeliveryAllowed": { "type": "boolean" }
+            }
+          },
+          "productBoundary": {
+            "type": "object",
+            "properties": {
+              "managedRuntimeDependency": { "type": "string", "enum": ["none"] },
+              "managedDatabaseDependency": { "type": "string", "enum": ["none"] },
+              "externalRuntimeCalls": { "type": "boolean" },
+              "rawPatientDataInReport": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

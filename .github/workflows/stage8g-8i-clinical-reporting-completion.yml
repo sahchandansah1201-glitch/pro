@@ -1,0 +1,39 @@
+name: stage8g-8i-clinical-reporting-completion
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-clinical-report-package-api.ts"
+      - "src/lib/self-hosted-clinical-report-package-api.test.ts"
+      - "src/pages/doctor/VisitWorkspacePage.tsx"
+      - "src/pages/doctor/VisitWorkspacePage.test.tsx"
+      - "docs/backend/stage-8g-8i-clinical-reporting-completion.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage8g-8i-clinical-reporting-completion.mjs"
+      - "scripts/check-stage8g-8i-clinical-reporting-completion.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage8g-8i-clinical-reporting-completion.yml"
+  workflow_dispatch:
+
+jobs:
+  stage8g-8i:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Stage 8G-8I preflight
+        run: npm run preflight:stage8g-8i
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 8G-8I clinical reporting completion"
+            echo ""
+            echo "- Command: \`npm run preflight:stage8g-8i\`"
+            echo "- Boundary: self-hosted PostgreSQL only; no managed runtime/database"
+          } >> "$GITHUB_STEP_SUMMARY"

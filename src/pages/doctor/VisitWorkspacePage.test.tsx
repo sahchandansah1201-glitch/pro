@@ -505,6 +505,53 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/report-package")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              visitId: "live-visit",
+              visitStatus: "signed",
+              assessment: {
+                status: "ready",
+                riskLevel: "moderate",
+                abcdTotal: 3.4,
+                sevenPointTotal: 2,
+                summaryPresent: true,
+                recommendationPresent: true,
+              },
+              conclusion: {
+                status: "signed",
+                summaryPresent: true,
+                nextStepPresent: true,
+              },
+              report: {
+                status: "signed",
+                physicianTextPresent: true,
+                patientSafeTextPresent: true,
+                signedAt: "2026-05-21T10:00:00.000Z",
+              },
+              counts: { lesions: 1, assets: 0 },
+              readiness: {
+                ready: true,
+                status: "ready",
+                completionPercent: 100,
+                missing: [],
+                exportAllowed: true,
+                patientDeliveryAllowed: true,
+              },
+              productBoundary: {
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+                externalRuntimeCalls: false,
+                rawPatientDataInReport: false,
+              },
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
     return Promise.resolve(new Response(JSON.stringify({ items: [] })));
   });
 }
@@ -569,6 +616,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     selectTab(/Отчёт/);
     expect(await screen.findByText(/Self-hosted report contract/)).toBeInTheDocument();
     expect(screen.getByDisplayValue(/Live report physician text/)).toBeInTheDocument();
+    expect(await screen.findByText(/Clinical report completion/)).toBeInTheDocument();
+    expect(screen.getByText(/Stage 8G-8I/)).toBeInTheDocument();
+    expect(screen.getByText(/Готов · 100%/)).toBeInTheDocument();
     expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
   });
 
@@ -606,6 +656,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(patchUrls).toContain("http://localhost:8080/api/v1/visits/live-visit/assessment");
     expect(patchUrls).toContain("http://localhost:8080/api/v1/visits/live-visit/conclusion");
     expect(patchUrls).toContain("http://localhost:8080/api/v1/visits/live-visit/report");
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain(
+      "http://localhost:8080/api/v1/visits/live-visit/report-package",
+    );
   });
 
   it("disables local demo lesion placement in production Body Map", async () => {

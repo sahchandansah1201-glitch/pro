@@ -2244,6 +2244,7 @@ function clinicalWorkspaceRuntime({
   assessment = null,
   conclusion = null,
   report = null,
+  reportPackage = null,
   authContext,
   auditEvents = [],
   authError,
@@ -2271,6 +2272,12 @@ function clinicalWorkspaceRuntime({
       async getReport() {
         if (clinicalError) throw clinicalError;
         return { report, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+    },
+    clinicalReportPackageService: {
+      async getReportPackage() {
+        if (clinicalError) throw clinicalError;
+        return { reportPackage, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
       },
     },
   };
@@ -2894,6 +2901,55 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assessment"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/conclusion"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].get);
+});
+
+test("Stage 8G-8I · GET /api/v1/visits/{id}/report-package returns readiness without protected fields", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/report-package`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      reportPackage: {
+        visitId: STAGE4G_VISIT_ID,
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitStatus: "signed",
+        assessment: { status: "ready", summaryPresent: true },
+        conclusion: { status: "signed", summaryPresent: true },
+        report: {
+          status: "signed",
+          physicianTextPresent: true,
+          patientSafeTextPresent: true,
+        },
+        counts: { lesions: 2, assets: 3 },
+        readiness: {
+          ready: true,
+          status: "ready",
+          completionPercent: 100,
+          missing: [],
+          exportAllowed: true,
+          patientDeliveryAllowed: true,
+        },
+        productBoundary: {
+          managedRuntimeDependency: "none",
+          managedDatabaseDependency: "none",
+          externalRuntimeCalls: false,
+          rawPatientDataInReport: false,
+        },
+      },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "8G-8I");
+  assert.equal(response.json.item.readiness.status, "ready");
+  assert.equal(response.json.item.counts.assets, 3);
+  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|patientFullName/i);
+});
+
+test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package", async () => {
+  const response = await request("/openapi.stage8g-8i.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "8G-8I-clinical-reporting-completion");
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/report-package"].get);
 });
 
 // =====================================================================

@@ -52,6 +52,8 @@ import {
 } from "./asset-write-service.mjs";
 import { createClinicalWorkspaceRepository } from "./clinical-workspace-repository.mjs";
 import { createClinicalWorkspaceService } from "./clinical-workspace-service.mjs";
+import { createClinicalReportPackageRepository } from "./clinical-report-package-repository.mjs";
+import { createClinicalReportPackageService } from "./clinical-report-package-service.mjs";
 import {
   createClinicBookingRequestsRepository,
   normalizeClinicBookingRequestParams,
@@ -175,6 +177,9 @@ const OPENAPI_5S = JSON.parse(
 );
 const OPENAPI_5T = JSON.parse(
   readFileSync(join(HERE, "openapi.stage5t.json"), "utf8"),
+);
+const OPENAPI_8G_8I = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage8g-8i.json"), "utf8"),
 );
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
@@ -301,6 +306,14 @@ function getRuntime(config, runtime = {}) {
       clinicalWorkspaceRepository,
       auditRepository,
     });
+  const clinicalReportPackageRepository =
+    runtime.clinicalReportPackageRepository || createClinicalReportPackageRepository(dbClient);
+  const clinicalReportPackageService =
+    runtime.clinicalReportPackageService ||
+    createClinicalReportPackageService({
+      clinicalReportPackageRepository,
+      auditRepository,
+    });
   const assetWriteRepository =
     runtime.assetWriteRepository || createAssetWriteRepository(dbClient);
   const objectStore = runtime.objectStore || createLocalObjectStore(config);
@@ -319,6 +332,8 @@ function getRuntime(config, runtime = {}) {
     auditRepository,
     authRepository,
     authService,
+    clinicalReportPackageRepository,
+    clinicalReportPackageService,
     clinicalWorkspaceRepository,
     clinicalWorkspaceService,
     clinicAvailableSlotsRepository,
@@ -1629,6 +1644,40 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Stage 8G-8I · clinical reporting completion package.
+  const visitReportPackageMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/report-package$/);
+  if (visitReportPackageMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const visitIdFromPath = decodeURIComponent(visitReportPackageMatch[1]);
+      const result = await runtimeServices.clinicalReportPackageService.getReportPackage(
+        visitIdFromPath,
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "8G-8I",
+          source: "postgres",
+          item: result.reportPackage,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Stage 4R · self-hosted Device Bridge command queue endpoints.
   const bridgeCommandMatch = url.pathname.match(/^\/api\/v1\/device-bridges\/([^/]+)\/commands$/);
   if (bridgeCommandMatch && method === "POST") {
@@ -2633,6 +2682,7 @@ export async function handleSelfHostedRequest(
           clinicBookingSlotConfirmation: "rbac-write-postgres-local-slot-cache",
           externalIntakeImports: "rbac-read-write-postgres-inbound-only-idempotent-redacted-status",
           clinicAvailableSlots: "rbac-read-postgres-local-import-cache",
+          clinicalReportPackage: "rbac-read-postgres-readiness-package",
           patientPortal: "patient-owned-read-postgres",
           patientPortalWrites: "patient-owned-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
@@ -2675,6 +2725,7 @@ export async function handleSelfHostedRequest(
           openapiStage5R: "/openapi.stage5r.json",
           openapiStage5S: "/openapi.stage5s.json",
           openapiStage5T: "/openapi.stage5t.json",
+          openapiStage8G8I: "/openapi.stage8g-8i.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2719,6 +2770,7 @@ export async function handleSelfHostedRequest(
           visitAssessment: "/api/v1/visits/{visitId}/assessment",
           visitConclusion: "/api/v1/visits/{visitId}/conclusion",
           visitReport: "/api/v1/visits/{visitId}/report",
+          visitReportPackage: "/api/v1/visits/{visitId}/report-package",
           lesion: "/api/v1/lesions/{lesionId}",
           health: "/healthz",
           readiness: "/readyz",
@@ -2853,6 +2905,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage5t.json") {
     return jsonResponse(200, OPENAPI_5T, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage8g-8i.json") {
+    return jsonResponse(200, OPENAPI_8G_8I, config, requestOrigin);
   }
 
   return errorResponse({
