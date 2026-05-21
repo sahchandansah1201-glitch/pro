@@ -123,6 +123,39 @@ merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
    - no browser hardware API coupling;
    - no raw worker payload, raw result payload, signed URL, storage path,
      token, or raw patient name output in lifecycle assurance reports.
+20. Stage 10A-10Z implements error prevention and x2 batch quality gates:
+   - Stage 10A: error taxonomy register;
+   - Stage 10B: pre-implementation repository state gate;
+   - Stage 10C: batch size compliance gate;
+   - Stage 10D: manifest-to-docs alignment gate;
+   - Stage 10E: package script alignment gate;
+   - Stage 10F: preflight-all alignment gate;
+   - Stage 10G: project-memory post-merge wording gate;
+   - Stage 10H: Lovable prompt timing gate;
+   - Stage 10I: temporary artifact detection gate;
+   - Stage 10J: lockfile integrity gate;
+   - Stage 10K: boundary marker guard;
+   - Stage 10L: typecheck before PR gate;
+   - Stage 10M: stage-specific preflight gate;
+   - Stage 10N: previous-batch regression gate;
+   - Stage 10O: UI fetch-count drift gate;
+   - Stage 10P: shared UI type drift gate;
+   - Stage 10Q: dry-run output hygiene gate;
+   - Stage 10R: GitHub check wait gate;
+   - Stage 10S: post-merge local main verification gate;
+   - Stage 10T: Lovable sync mismatch diagnostic gate;
+   - Stage 10U: failure-to-prevention worklog gate;
+   - Stage 10V: mandatory command bundle;
+   - Stage 10W: Pull request evidence bundle;
+   - Stage 10X: CI workflow gate;
+   - Stage 10Y: project-memory refresh;
+   - Stage 10Z: next x2 batch handoff.
+21. Stage 10A-10Z product boundary:
+   - no runtime behavior change;
+   - no backend routes or frontend product pages;
+   - no database migrations;
+   - no managed runtime or managed database dependency;
+   - repository metadata only.
 
 ## Important operational fact
 
@@ -133,8 +166,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 9N-9Z` is the confirmed product batch after Stage 9B-9M.
-- `Stage 10A-10L` is the next likely product batch after Stage 9N-9Z.
+- `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
+- `Stage 11A-11Z` is the next likely batch after Stage 10A-10Z.
+- Historical marker: `Stage 10A-10L` was the original next hypothesis after
+  Stage 9N-9Z before the x2 batch expanded into Stage 10A-10Z.
 - Historical marker: `Stage 8P-8R` was the original next hypothesis after
   Stage 8J-8O before the x2 batch expanded into Stage 8P-9A.
 - Historical marker: `Stage 9B-9D` was the original next hypothesis after
@@ -144,10 +179,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 9N-9Z Pull request lifecycle.
+1. Complete the Stage 10A-10Z Pull request lifecycle.
 2. Run or verify:
+   - `npm run preflight:stage10a-10z`
    - `npm run preflight:stage9n-9z`
-   - `npm run preflight:stage9b-9m`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

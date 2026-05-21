@@ -1,0 +1,48 @@
+name: stage10a-10z-error-prevention
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/error-prevention.stage10a-10z.json"
+      - "scripts/stage10a-10z-error-prevention.mjs"
+      - "scripts/stage10a-10z-error-prevention.test.mjs"
+      - "scripts/check-stage10a-10z-error-prevention.mjs"
+      - "scripts/check-stage10a-10z-error-prevention.test.mjs"
+      - "docs/backend/stage-10a-10z-error-prevention.md"
+      - "docs/project-memory/**"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/stage10a-10z-error-prevention.yml"
+  workflow_dispatch:
+
+jobs:
+  stage10a-10z:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Preflight
+        run: npm run preflight:stage10a-10z
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 10A-10Z error prevention"
+            echo
+            echo "- Preflight: \`${{ job.status }}\`"
+            echo "- Managed runtime/database dependency: none"
+            echo "- Lovable prompt gate: merge into main before prompt"
+            echo "- Batch scale: 26 stages"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -2,6 +2,22 @@
 
 ## 2026-05-21
 
+- Создан Stage 10A-10Z error prevention x2 batch после Stage 9N-9Z.
+- Зафиксированы diagnosed defects из Stage 9N-9Z: UI fetch-count drift,
+  shared UI type drift, preflight-all drift, temporary dry-run artifacts,
+  project-memory wording drift, GitHub GraphQL timeout.
+- Добавлены prevention rules, manifest, renderer, guard, workflow, docs,
+  preflight wiring, project-memory markers and post-merge Lovable gate.
+- Первый прогон Stage 10A-10Z обнаружил guard self-scan false positive; дефект
+  добавлен в manifest как diagnosed defect и предотвращается исключением helper
+  files with forbidden marker definitions из protected boundary scan.
+- Полный `preflight:stage10a-10z` обнаружил drift historical marker:
+  предыдущий Stage 9N-9Z guard требовал `Stage 10A-10L` в HANDOFF. Маркер
+  восстановлен как historical marker и дефект добавлен в prevention manifest.
+- Stage 11A-11Z оставлен гипотезой до появления repository files.
+
+## 2026-05-21
+
 - Создан Stage 9N-9Z Device Bridge lifecycle assurance как x2 batch после
   Stage 9B-9M.
 - Добавлены backend endpoint, OpenAPI, frontend adapter/UI, manifest, renderer,

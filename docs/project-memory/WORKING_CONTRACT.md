@@ -119,6 +119,76 @@ Each batch needs a drift guard that compares:
 
 The guard should fail when these artifacts no longer describe the same batch.
 
+## Stage 10A: Error taxonomy register
+
+Repeated defects are no longer treated as isolated events. Each repeated
+defect must be assigned an id, a source batch, a concrete symptom, and a
+prevention mechanism.
+
+## Stage 10B: Pre-implementation repository state gate
+
+Before coding a normal batch, verify the branch, HEAD, working tree status,
+project-memory state, and latest confirmed stage. Do not begin from chat memory
+alone.
+
+## Stage 10C: x2 batch size compliance gate
+
+The default batch target after Stage 9N-9Z is 26 related stages in one Pull
+request. Smaller batches require a written hotfix, security fix, urgent CI fix,
+or single-file typo reason.
+
+## Stage 10D: Manifest-to-docs alignment gate
+
+The manifest, docs, workflow, package scripts, preflight-all, and
+project-memory must describe the same batch id, included stages, next
+hypothesis, required checks, and Lovable confirmation.
+
+## Stage 10E: Failure-to-prevention rule
+
+Every diagnosed failure must create a prevention rule or guard before the
+batch is handed to Lovable. A fix without a prevention mechanism is incomplete
+when the failure class is repeatable.
+
+## Stage 10F: Temporary artifact hygiene
+
+Dry-run output, local `var/` folders, untracked `deno.lock`, and accidental
+test reports must be removed or intentionally documented before staging.
+
+## Stage 10G: Type and UI drift prevention
+
+When a batch adds a frontend endpoint or metric to an existing UI, update
+request-count assertions, endpoint-specific tests, and shared display types in
+the same Pull request.
+
+## Stage 10H: GitHub API fallback rule
+
+If `gh` GraphQL status calls time out, use REST check-runs and continue waiting
+for checks. Do not use an API timeout as a reason to send the Lovable prompt
+early.
+
+## Stage 10I: Post-merge project-memory wording gate
+
+Before commit, project-memory should already be written for the expected
+post-merge state: the current batch is confirmed, and the next batch remains a
+hypothesis until repository files define it.
+
+## Stage 10J: Mandatory command bundle
+
+Normal batches must run the stage tests, stage guard, stage dry-run, stage
+preflight, previous-batch regression preflight, project-memory guard,
+typecheck, preflight-all dry-run, no-deno-locks guard, and `git diff --check`
+before the Pull request is merged.
+
+## Stage 10K: Lovable prompt safety
+
+Lovable prompts are generated from repository-owned manifest data. They are
+sent only after merge into `main` and local `main` verification.
+
+## Stage 10Z: Next x2 batch handoff
+
+The next normal batch after Stage 10A-10Z is Stage 11A-11Z unless repository
+files define a different scope.
+
 ## Stage 7J: Product gap register
 
 After the process contract is in place, the repository needs a product gap

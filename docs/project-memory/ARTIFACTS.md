@@ -666,3 +666,28 @@
 - `npm run test:project-memory`
 - `npm run check:project-memory`
 - `node scripts/check-no-deno-locks.mjs`
+
+## Stage 10A-10Z error prevention artifacts
+
+- [error-prevention.stage10a-10z.json](../../deploy/self-hosted/error-prevention.stage10a-10z.json)
+- [stage10a-10z-error-prevention.mjs](../../scripts/stage10a-10z-error-prevention.mjs)
+- [stage10a-10z-error-prevention.test.mjs](../../scripts/stage10a-10z-error-prevention.test.mjs)
+- [check-stage10a-10z-error-prevention.mjs](../../scripts/check-stage10a-10z-error-prevention.mjs)
+- [check-stage10a-10z-error-prevention.test.mjs](../../scripts/check-stage10a-10z-error-prevention.test.mjs)
+- [stage-10a-10z-error-prevention.md](../backend/stage-10a-10z-error-prevention.md)
+- [stage10a-10z-error-prevention.yml](../../.github/workflows/stage10a-10z-error-prevention.yml)
+- [WORKING_CONTRACT.md](./WORKING_CONTRACT.md)
+- [BATCH_TEMPLATE.md](./BATCH_TEMPLATE.md)
+
+## Stage 10A-10Z verification commands
+
+- `npm run test:stage10a-10z`
+- `npm run check:stage10a-10z`
+- `npm run prevention:stage10a-10z:dry-run`
+- `npm run preflight:stage10a-10z`
+- `npm run preflight:stage9n-9z`
+- `npm run check:project-memory`
+- `npm run typecheck`
+- `npm run preflight:all -- --dry-run`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`

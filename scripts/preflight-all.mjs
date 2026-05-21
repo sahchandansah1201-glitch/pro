@@ -106,6 +106,7 @@ const DEFAULT_STEPS = [
   ["Stage 8P-9A Device Bridge operations continuity preflight", npmCmd, ["run", "preflight:stage8p-9a"]],
   ["Stage 9B-9M Device Bridge fleet reliability preflight", npmCmd, ["run", "preflight:stage9b-9m"]],
   ["Stage 9N-9Z Device Bridge lifecycle assurance preflight", npmCmd, ["run", "preflight:stage9n-9z"]],
+  ["Stage 10A-10Z error prevention preflight", npmCmd, ["run", "preflight:stage10a-10z"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],

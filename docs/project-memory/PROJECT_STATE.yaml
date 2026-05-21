@@ -565,6 +565,21 @@ verification:
       product_runtime_change: true
       managed_runtime_dependency: "none"
       managed_database_dependency: "none"
+  stage10a_10z_preflight:
+    command: "npm run preflight:stage10a-10z"
+    status: "ok"
+    key_facts:
+      error_prevention_confirmed: true
+      diagnosed_defects_recorded: 8
+      prevention_rules_recorded: 8
+      included_stage_count: 26
+      minimum_related_stages_per_batch: 26
+      batch_size_policy: "x2 from previous thirteen-stage batch"
+      closed_stage_hypothesis: "Stage 10A-10L"
+      next_stage_hypothesis: "Stage 11A-11Z"
+      product_runtime_change: false
+      managed_runtime_dependency: "none"
+      managed_database_dependency: "none"
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -702,8 +717,13 @@ stage_evidence:
     - "scripts/stage9n-9z-device-bridge-lifecycle-assurance.mjs"
     - "scripts/check-stage9n-9z-device-bridge-lifecycle-assurance.mjs"
     - ".github/workflows/stage9n-9z-device-bridge-lifecycle-assurance.yml"
+    - "deploy/self-hosted/error-prevention.stage10a-10z.json"
+    - "docs/backend/stage-10a-10z-error-prevention.md"
+    - "scripts/stage10a-10z-error-prevention.mjs"
+    - "scripts/check-stage10a-10z-error-prevention.mjs"
+    - ".github/workflows/stage10a-10z-error-prevention.yml"
 hypotheses:
-  - "Next logical product batch after Stage 9N-9Z is Stage 10A-10L."
+  - "Next logical batch after Stage 10A-10Z is Stage 11A-11Z."
 sources:
   commands:
     - "git status --short --branch"

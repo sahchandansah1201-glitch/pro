@@ -46,9 +46,24 @@ Use this template before starting future multi-stage work.
 - Stage-specific guard:
 - Stage-specific preflight:
 - Readiness Reporter:
+- Error prevention dry-run:
+- Previous-batch regression preflight:
+- Typecheck:
 - Project memory guard:
 - Full preflight dry-run:
 - No lock-file guard:
+- Whitespace diff check:
+
+## Error Prevention
+
+- Diagnosed defects:
+- Source batch for each defect:
+- Symptom:
+- Prevention rule or guard:
+- Test or command that proves the prevention:
+- Temporary artifact check completed:
+- UI endpoint/request-count drift considered:
+- Shared type drift considered:
 
 ## Pull Request Lifecycle
 

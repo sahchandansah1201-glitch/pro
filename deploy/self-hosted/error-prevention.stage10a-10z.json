@@ -1,0 +1,174 @@
+{
+  "stage": "10A-10Z",
+  "packageId": "stage10a-10z-error-prevention",
+  "title": "Stage 10A-10Z · Error prevention and x2 batch quality gates",
+  "purpose": "Convert repeated development mistakes into repository-owned diagnostics before Pull request merge and before Lovable sync prompts.",
+  "previousBatch": "Stage 9N-9Z",
+  "previousBatchCommit": "f26d197",
+  "nextBatchHypothesis": "Stage 11A-11Z",
+  "batchScale": {
+    "previousIncludedStages": 13,
+    "currentIncludedStages": 26,
+    "scaleFactor": 2,
+    "minimumRelatedStagesPerBatch": 26,
+    "reason": "The user explicitly requested x2 batch size and a strategy to diagnose, fix, and prevent repeated errors before Lovable handoff."
+  },
+  "includedStages": [
+    { "id": "Stage 10A", "title": "Error taxonomy register", "status": "ready" },
+    { "id": "Stage 10B", "title": "Pre-implementation repository state gate", "status": "ready" },
+    { "id": "Stage 10C", "title": "Batch size compliance gate", "status": "ready" },
+    { "id": "Stage 10D", "title": "Manifest-to-docs alignment gate", "status": "ready" },
+    { "id": "Stage 10E", "title": "Package script alignment gate", "status": "ready" },
+    { "id": "Stage 10F", "title": "Preflight-all alignment gate", "status": "ready" },
+    { "id": "Stage 10G", "title": "Project-memory post-merge wording gate", "status": "ready" },
+    { "id": "Stage 10H", "title": "Lovable prompt timing gate", "status": "ready" },
+    { "id": "Stage 10I", "title": "Temporary artifact detection gate", "status": "ready" },
+    { "id": "Stage 10J", "title": "Lockfile integrity gate", "status": "ready" },
+    { "id": "Stage 10K", "title": "Boundary marker guard", "status": "ready" },
+    { "id": "Stage 10L", "title": "Typecheck before PR gate", "status": "ready" },
+    { "id": "Stage 10M", "title": "Stage-specific preflight gate", "status": "ready" },
+    { "id": "Stage 10N", "title": "Previous-batch regression gate", "status": "ready" },
+    { "id": "Stage 10O", "title": "UI fetch-count drift gate", "status": "ready" },
+    { "id": "Stage 10P", "title": "Shared UI type drift gate", "status": "ready" },
+    { "id": "Stage 10Q", "title": "Dry-run output hygiene gate", "status": "ready" },
+    { "id": "Stage 10R", "title": "GitHub check wait gate", "status": "ready" },
+    { "id": "Stage 10S", "title": "Post-merge local main verification gate", "status": "ready" },
+    { "id": "Stage 10T", "title": "Lovable sync mismatch diagnostic gate", "status": "ready" },
+    { "id": "Stage 10U", "title": "Failure-to-prevention worklog gate", "status": "ready" },
+    { "id": "Stage 10V", "title": "Mandatory command bundle", "status": "ready" },
+    { "id": "Stage 10W", "title": "Pull request evidence bundle", "status": "ready" },
+    { "id": "Stage 10X", "title": "CI workflow gate", "status": "ready" },
+    { "id": "Stage 10Y", "title": "Project-memory refresh", "status": "ready" },
+    { "id": "Stage 10Z", "title": "Next x2 batch handoff", "status": "ready" }
+  ],
+  "diagnosedDefects": [
+    {
+      "id": "stage9n-ui-fetch-count",
+      "sourceBatch": "Stage 9N-9Z",
+      "symptom": "Existing SysDevicesPage tests failed after adding a new lifecycle endpoint because mocked fetch counts were not updated.",
+      "prevention": "When a batch adds a frontend data endpoint to an existing page, update tests for request counts and add a named assertion for the new endpoint."
+    },
+    {
+      "id": "stage9n-shared-ui-type",
+      "sourceBatch": "Stage 9N-9Z",
+      "symptom": "A shared WorkerMetric type was too narrow for a new string-valued metric.",
+      "prevention": "Run typecheck before PR creation and widen shared UI metric contracts deliberately when new displayed values are not numeric."
+    },
+    {
+      "id": "stage9n-preflight-all-drift",
+      "sourceBatch": "Stage 9N-9Z",
+      "symptom": "preflight-all tests needed updates after adding a new stage preflight step.",
+      "prevention": "Every new preflight script must be added to preflight-all and preflight-all tests in the same commit."
+    },
+    {
+      "id": "stage9n-temp-artifact",
+      "sourceBatch": "Stage 9N-9Z",
+      "symptom": "A dry-run summary directory appeared as untracked var/ output.",
+      "prevention": "Before staging, run temporary artifact detection for var/, test-results stage outputs, deno.lock, and untracked dry-run summaries."
+    },
+    {
+      "id": "stage9n-project-memory-wording",
+      "sourceBatch": "Stage 9N-9Z",
+      "symptom": "Project-memory text initially described the batch as current work instead of confirmed post-merge state.",
+      "prevention": "Before commit, project-memory must identify the implemented batch as confirmed and the next batch as hypothesis."
+    },
+    {
+      "id": "github-graphql-timeout",
+      "sourceBatch": "Stage 9N-9Z",
+      "symptom": "gh GraphQL status calls timed out while PR checks were running.",
+      "prevention": "When GraphQL checks time out, use gh REST API check-runs and continue waiting rather than sending Lovable prompt early."
+    },
+    {
+      "id": "stage10-guard-self-scan",
+      "sourceBatch": "Stage 10A-10Z",
+      "symptom": "The new guard initially scanned a renderer file that defines forbidden-pattern regexes and produced false positives against its own pattern list.",
+      "prevention": "Protected-file scans must target product, docs, and manifest surfaces, not helper files that intentionally define forbidden marker patterns."
+    },
+    {
+      "id": "stage10-previous-guard-marker",
+      "sourceBatch": "Stage 10A-10Z",
+      "symptom": "The previous Stage 9N-9Z guard still required the original Stage 10A-10L hypothesis marker after the batch expanded to Stage 10A-10Z.",
+      "prevention": "When expanding a hypothesis into a larger batch, keep the original hypothesis as a historical marker until older guards are intentionally migrated."
+    }
+  ],
+  "preventionRules": [
+    {
+      "id": "merge-before-lovable",
+      "severity": "critical",
+      "rule": "Lovable prompt is invalid until the PR is merged into main and local main verifies the merged stage."
+    },
+    {
+      "id": "batch-x2-default",
+      "severity": "critical",
+      "rule": "The next normal product/process batch after Stage 9N-9Z must target 26 related stages unless a documented hotfix reason applies."
+    },
+    {
+      "id": "error-memory-required",
+      "severity": "high",
+      "rule": "Every repeated defect must be recorded as a diagnosed defect with an explicit prevention rule or guard."
+    },
+    {
+      "id": "temporary-artifacts-block-staging",
+      "severity": "high",
+      "rule": "Untracked dry-run outputs, var/, deno.lock, and unexpected report files must be removed or intentionally documented before commit."
+    },
+    {
+      "id": "preflight-all-must-know-stage",
+      "severity": "high",
+      "rule": "Stage-specific preflight scripts must be wired into preflight-all and covered by preflight-all.test in the same PR."
+    },
+    {
+      "id": "typecheck-before-pr",
+      "severity": "high",
+      "rule": "npm run typecheck must pass before creating the PR."
+    },
+    {
+      "id": "guard-self-scan-avoidance",
+      "severity": "medium",
+      "rule": "A guard may scan its own required markers, but protected boundary scans must exclude files that define forbidden marker patterns."
+    },
+    {
+      "id": "historical-marker-preservation",
+      "severity": "medium",
+      "rule": "Do not remove historical next-stage markers that older guards still verify; mark them as historical when a larger batch supersedes them."
+    }
+  ],
+  "requiredFiles": [
+    "deploy/self-hosted/error-prevention.stage10a-10z.json",
+    "scripts/stage10a-10z-error-prevention.mjs",
+    "scripts/stage10a-10z-error-prevention.test.mjs",
+    "scripts/check-stage10a-10z-error-prevention.mjs",
+    "scripts/check-stage10a-10z-error-prevention.test.mjs",
+    "docs/backend/stage-10a-10z-error-prevention.md",
+    "docs/project-memory/WORKING_CONTRACT.md",
+    "docs/project-memory/BATCH_TEMPLATE.md",
+    ".github/workflows/stage10a-10z-error-prevention.yml"
+  ],
+  "verificationGates": [
+    { "id": "stage10a-10z-tests", "command": "npm run test:stage10a-10z", "required": true },
+    { "id": "stage10a-10z-guard", "command": "npm run check:stage10a-10z", "required": true },
+    { "id": "stage10a-10z-dry-run", "command": "npm run prevention:stage10a-10z:dry-run", "required": true },
+    { "id": "stage10a-10z-preflight", "command": "npm run preflight:stage10a-10z", "required": true },
+    { "id": "previous-batch-regression", "command": "npm run preflight:stage9n-9z", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "typecheck", "command": "npm run typecheck", "required": true },
+    { "id": "preflight-all-dry-run", "command": "npm run preflight:all -- --dry-run", "required": true },
+    { "id": "no-deno-locks", "command": "node scripts/check-no-deno-locks.mjs", "required": true },
+    { "id": "diff-check", "command": "git diff --check", "required": true }
+  ],
+  "productBoundary": {
+    "runtimeBehaviorChanged": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "database": "none added",
+    "objectStorage": "none added",
+    "dataVisibility": "repository metadata only; no secrets, patient identifiers, tokens, signed URLs, worker payloads, or storage object paths"
+  },
+  "lovableHandoff": {
+    "expectedConfirmation": "Confirmed: Stage 10A-10Z synced from main, no conflicts.",
+    "promptAllowedOnlyAfterMerge": true,
+    "nextBatchHypothesis": "Stage 11A-11Z"
+  }
+}
