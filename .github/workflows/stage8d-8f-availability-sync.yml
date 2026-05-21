@@ -1,0 +1,49 @@
+name: stage8d-8f-availability-sync
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/integrations/availability-sync.stage8d-8f.json"
+      - "deploy/self-hosted/integrations/availability-sync-input.stage8d.example.json"
+      - "deploy/self-hosted/integrations/availability-sync-report.stage8f.example.json"
+      - "scripts/stage8d-8f-availability-sync.mjs"
+      - "scripts/stage8d-8f-availability-sync.test.mjs"
+      - "scripts/check-stage8d-8f-availability-sync.mjs"
+      - "scripts/check-stage8d-8f-availability-sync.test.mjs"
+      - "src/lib/self-hosted-availability-sync.ts"
+      - "src/lib/self-hosted-availability-sync.test.ts"
+      - "src/pages/operator/OperatorBookingRequestsPageLive.tsx"
+      - "src/pages/operator/OperatorBookingRequestsPage.production.test.tsx"
+      - "docs/backend/stage-8d-8f-availability-sync.md"
+      - ".github/workflows/stage8d-8f-availability-sync.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/project-memory/**"
+  workflow_dispatch:
+
+jobs:
+  stage8d_8f:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 8D-8F preflight
+        run: npm run preflight:stage8d-8f
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 8D-8F availability sync"
+            echo ""
+            echo "- Command: \`npm run preflight:stage8d-8f\`"
+            echo "- Boundary: self-hosted/local availability cache, managed runtime/database dependency: none"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -2,6 +2,15 @@
 
 ## 2026-05-21
 
+- Создан Stage 8D-8F availability sync and booking confirmation readiness batch
+  as one Pull request.
+- Added a redacted local availability-sync snapshot planner, conflict detector,
+  booking confirmation candidate summary, and operator UI readiness panel.
+- Updated project-memory so Stage 8D-8F is confirmed in the current branch and
+  Stage 8G-8I remains an explicit hypothesis until repository files define it.
+
+## 2026-05-21
+
 - Создан Stage 8A-8C CRM inbound adapter implementation as one Pull request.
 - Added a CRM inbound adapter contract, safe CRM export normalization into the
   Stage 5Q payload, and a redacted safe import audit flow.

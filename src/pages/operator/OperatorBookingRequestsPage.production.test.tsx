@@ -28,8 +28,8 @@ const request = {
   clinicId: "clinic-1",
   patientId: "patient-1",
   requestedByUserId: "patient-user-1",
-  preferredFrom: "2026-05-16T09:30:00.000Z",
-  preferredTo: "2026-05-16T10:30:00.000Z",
+  preferredFrom: "2026-06-16T09:30:00.000Z",
+  preferredTo: "2026-06-16T10:30:00.000Z",
   reason: "Плановый контроль",
   status: "requested",
   assignedVisitId: null,
@@ -94,7 +94,7 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
             sourceSystem: "all",
             recentBatchCount: 1,
             rejectedLast24h: 0,
-            duplicateLast24h: 1,
+            duplicateLast24h: 0,
             latestImportAt: "2026-05-15T10:00:00.000Z",
             openBookingRequestCount: 1,
             availableSlotCount: 1,
@@ -111,7 +111,7 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
             id: "slot-live-1",
             sourceSystem: "clinic_crm",
             externalSlotId: "crm-slot-1",
-            startedAt: "2026-05-16T11:00:00.000Z",
+            startedAt: "2026-06-16T10:00:00.000Z",
             durationMinutes: 30,
             status: "available",
             doctor: { displayName: "Доктор Live" },
@@ -134,7 +134,7 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
             assignedVisitId: "visit-live-1",
             assignedVisit: {
               id: "visit-live-1",
-              startedAt: "2026-05-16T11:00:00.000Z",
+              startedAt: "2026-06-16T10:00:00.000Z",
               status: "draft",
             },
           },
@@ -147,6 +147,10 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
     renderPage();
 
     expect(await screen.findByText("Production booking requests")).toBeInTheDocument();
+    expect(await screen.findByText("Availability sync readiness")).toBeInTheDocument();
+    expect(screen.getByText(/Готово — Можно подтверждать записи через локальное свободное окно/i)).toBeInTheDocument();
+    expect(screen.getByText(/no CRM runtime calls/i)).toBeInTheDocument();
+    expect(screen.getByText("Конфликтов синхронизации не найдено.")).toBeInTheDocument();
     expect(await screen.findByText("Импорт CRM и рекламных источников")).toBeInTheDocument();
     expect(screen.getByText(/CRM клиники · completed/i)).toBeInTheDocument();
     expect(screen.getByText(/Hardening: stage5t/i)).toBeInTheDocument();

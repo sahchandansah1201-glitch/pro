@@ -195,6 +195,21 @@
    - [check-stage8a-8c-crm-inbound-adapter.test.mjs](../../scripts/check-stage8a-8c-crm-inbound-adapter.test.mjs)
    - [stage8a-8c-crm-inbound-adapter.yml](../../.github/workflows/stage8a-8c-crm-inbound-adapter.yml)
 
+12. Stage 8D-8F availability sync artifacts:
+   - [availability-sync.stage8d-8f.json](../../deploy/self-hosted/integrations/availability-sync.stage8d-8f.json)
+   - [availability-sync-input.stage8d.example.json](../../deploy/self-hosted/integrations/availability-sync-input.stage8d.example.json)
+   - [availability-sync-report.stage8f.example.json](../../deploy/self-hosted/integrations/availability-sync-report.stage8f.example.json)
+   - [stage-8d-8f-availability-sync.md](../backend/stage-8d-8f-availability-sync.md)
+   - [stage8d-8f-availability-sync.mjs](../../scripts/stage8d-8f-availability-sync.mjs)
+   - [stage8d-8f-availability-sync.test.mjs](../../scripts/stage8d-8f-availability-sync.test.mjs)
+   - [check-stage8d-8f-availability-sync.mjs](../../scripts/check-stage8d-8f-availability-sync.mjs)
+   - [check-stage8d-8f-availability-sync.test.mjs](../../scripts/check-stage8d-8f-availability-sync.test.mjs)
+   - [self-hosted-availability-sync.ts](../../src/lib/self-hosted-availability-sync.ts)
+   - [self-hosted-availability-sync.test.ts](../../src/lib/self-hosted-availability-sync.test.ts)
+   - [OperatorBookingRequestsPageLive.tsx](../../src/pages/operator/OperatorBookingRequestsPageLive.tsx)
+   - [OperatorBookingRequestsPage.production.test.tsx](../../src/pages/operator/OperatorBookingRequestsPage.production.test.tsx)
+   - [stage8d-8f-availability-sync.yml](../../.github/workflows/stage8d-8f-availability-sync.yml)
+
 ## Verification outputs captured during black-box creation
 
 0. Stage 7A-7C planned verification:
@@ -237,6 +252,18 @@
    - `npm run check:stage8a-8c`
    - `npm run adapter:stage8a-8c:dry-run`
    - `npm run preflight:stage8a-8c`
+   - `npm run check:project-memory`
+   - `npm run preflight:all -- --dry-run`
+   - `node scripts/check-no-deno-locks.mjs`
+
+0.5. Stage 8D-8F planned verification:
+   - `npm run test:stage8d-8f`
+   - `npm run check:stage8d-8f`
+   - `npm run availability:stage8d-8f:dry-run`
+   - `npm run preflight:stage8d-8f`
+   - `npm run preflight:stage5r`
+   - `npm run preflight:stage5s`
+   - `npm run test:project-memory`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`

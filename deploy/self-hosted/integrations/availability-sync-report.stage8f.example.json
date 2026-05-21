@@ -1,0 +1,31 @@
+{
+  "stage": "8D-8F",
+  "status": "ready",
+  "snapshotId": "availability-sync-safe-snapshot-2026-05-21-1200",
+  "counts": {
+    "bookingRequests": 2,
+    "openBookingRequests": 2,
+    "availableSlots": 2,
+    "confirmationCandidates": 2,
+    "conflicts": 0
+  },
+  "conflictSummary": [],
+  "confirmationCandidates": [
+    {
+      "requestRef": "request-safe-1",
+      "slotRef": "slot-safe-1",
+      "reason": "preferred_window_match"
+    },
+    {
+      "requestRef": "request-safe-2",
+      "slotRef": "slot-safe-2",
+      "reason": "preferred_window_match"
+    }
+  ],
+  "productBoundary": {
+    "networkCalls": false,
+    "storesRawExternalPayload": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none"
+  }
+}

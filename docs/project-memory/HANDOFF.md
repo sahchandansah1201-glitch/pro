@@ -2,8 +2,8 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 8A-8C is being
-implemented on branch `codex/stage8a-8c-crm-inbound-adapter`.
+This handoff captures the repository state while Stage 8D-8F is being
+implemented on branch `codex/stage8d-8f-availability-sync`.
 
 ## Confirmed state
 
@@ -28,6 +28,18 @@ implemented on branch `codex/stage8a-8c-crm-inbound-adapter`.
    - no frontend runtime pages;
    - no managed runtime or managed database dependency;
    - no browser/backend runtime calls to CRM or advertising systems.
+8. Stage 8D-8F implements the appointment availability sync layer:
+   - Stage 8D: local availability sync snapshot contract;
+   - Stage 8E: conflict/readiness detection for stale, duplicate,
+     overlapping, unmatched, and rejected import states;
+   - Stage 8F: booking confirmation readiness that maps local request refs to
+     local slot refs for the existing Stage 5S confirmation flow.
+9. Stage 8D-8F product boundary:
+   - no CRM/ad runtime calls;
+   - no managed runtime or managed database dependency;
+   - no raw patient identity, token, external URL, signed URL, or storage path
+     output in reports or UI;
+   - operator UI reads already-loaded self-hosted Stage 5P/5R/5T data.
 
 ## Important operational fact
 
@@ -38,15 +50,17 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 8D-8F` is the next likely product batch after Stage 8A-8C.
+- `Stage 8G-8I` is the next likely product batch after Stage 8D-8F.
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 8A-8C in one Pull request.
+1. Finish Stage 8D-8F in one Pull request.
 2. Run:
-   - `npm run preflight:stage8a-8c`
-   - `npm run preflight:stage7j-7l`
+   - `npm run preflight:stage8d-8f`
+   - `npm run preflight:stage5r`
+   - `npm run preflight:stage5s`
    - `npm run check:project-memory`
+   - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
 3. Create the Pull request, wait for checks, merge into `main`, verify local

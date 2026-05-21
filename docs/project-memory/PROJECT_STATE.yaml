@@ -1,10 +1,10 @@
-generated_at: "2026-05-21T12:00:00+03:00"
+generated_at: "2026-05-21T08:21:54+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage8a-8c-crm-inbound-adapter"
-  head_sha: "1218071bb104c258398f731d2f2a38b9c4446234"
-  head_commit: "Add Stage 7J-7L product roadmap"
+  branch: "codex/stage8d-8f-availability-sync"
+  head_sha: "ba118c9d74eaffc19c7dd4a2c8fa1a61b548e610"
+  head_commit: "Add Stage 8A-8C CRM inbound adapter"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -439,6 +439,7 @@ verification:
       lovable_sync_verification_manifest_confirmed: true
       batch_drift_guard_confirmed: true
       minimum_related_stages_per_batch: 3
+      next_stage_hypothesis: "Stage 7J"
       product_runtime_change: false
   stage7j_7l_preflight:
     command: "npm run preflight:stage7j-7l"
@@ -466,6 +467,19 @@ verification:
       minimum_related_stages_per_batch: 3
       next_stage_hypothesis: "Stage 8D-8F"
       product_runtime_change: false
+  stage8d_8f_preflight:
+    command: "npm run preflight:stage8d-8f"
+    status: "ok"
+    key_facts:
+      tests_passed: 12
+      guard_files_checked: 13
+      leak_findings: 0
+      availability_sync_snapshot_confirmed: true
+      conflict_handling_confirmed: true
+      booking_confirmation_readiness_confirmed: true
+      minimum_related_stages_per_batch: 3
+      next_stage_hypothesis: "Stage 8G-8I"
+      product_runtime_change: true
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -590,8 +604,9 @@ stage_evidence:
     - ".github/workflows/stage7g-7i-batch-verification-loop.yml"
     - ".github/workflows/stage7j-7l-product-roadmap.yml"
     - ".github/workflows/stage8a-8c-crm-inbound-adapter.yml"
+    - ".github/workflows/stage8d-8f-availability-sync.yml"
 hypotheses:
-  - "Next logical product batch after Stage 8A-8C is Stage 8D-8F."
+  - "Next logical product batch after Stage 8D-8F is Stage 8G-8I."
 sources:
   commands:
     - "git status --short --branch"
@@ -761,11 +776,15 @@ sources:
     - "deploy/self-hosted/integrations/crm-inbound-export.stage8a.example.json"
     - "deploy/self-hosted/integrations/crm-inbound-mapping.stage8a.example.json"
     - "deploy/self-hosted/integrations/booking-import.stage8b.example.json"
+    - "deploy/self-hosted/integrations/availability-sync.stage8d-8f.json"
+    - "deploy/self-hosted/integrations/availability-sync-input.stage8d.example.json"
+    - "deploy/self-hosted/integrations/availability-sync-report.stage8f.example.json"
     - "docs/backend/stage-7a-7c-development-workflow-contract.md"
     - "docs/backend/stage-7d-7f-batch-automation-contract.md"
     - "docs/backend/stage-7g-7i-batch-verification-loop.md"
     - "docs/backend/stage-7j-7l-product-roadmap.md"
     - "docs/backend/stage-8a-8c-crm-inbound-adapter.md"
+    - "docs/backend/stage-8d-8f-availability-sync.md"
     - "docs/project-memory/WORKING_CONTRACT.md"
     - "docs/project-memory/BATCH_TEMPLATE.md"
     - "scripts/check-stage7a-7c-development-workflow-contract.mjs"
@@ -786,8 +805,17 @@ sources:
     - "scripts/stage8a-8c-crm-inbound-adapter.test.mjs"
     - "scripts/check-stage8a-8c-crm-inbound-adapter.mjs"
     - "scripts/check-stage8a-8c-crm-inbound-adapter.test.mjs"
+    - "scripts/stage8d-8f-availability-sync.mjs"
+    - "scripts/stage8d-8f-availability-sync.test.mjs"
+    - "scripts/check-stage8d-8f-availability-sync.mjs"
+    - "scripts/check-stage8d-8f-availability-sync.test.mjs"
+    - "src/lib/self-hosted-availability-sync.ts"
+    - "src/lib/self-hosted-availability-sync.test.ts"
+    - "src/pages/operator/OperatorBookingRequestsPageLive.tsx"
+    - "src/pages/operator/OperatorBookingRequestsPage.production.test.tsx"
     - ".github/workflows/stage7a-7c-development-workflow-contract.yml"
     - ".github/workflows/stage7d-7f-batch-automation-contract.yml"
     - ".github/workflows/stage7g-7i-batch-verification-loop.yml"
     - ".github/workflows/stage7j-7l-product-roadmap.yml"
     - ".github/workflows/stage8a-8c-crm-inbound-adapter.yml"
+    - ".github/workflows/stage8d-8f-availability-sync.yml"

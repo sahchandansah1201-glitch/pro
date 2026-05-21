@@ -1,0 +1,67 @@
+{
+  "stage": "8D-8F",
+  "package": "stage8d-8f-availability-sync",
+  "title": "Appointment availability sync and booking confirmation",
+  "summary": "Connects locally imported CRM/ad availability with self-hosted booking requests, conflict detection, and confirmation readiness.",
+  "includedStages": [
+    {
+      "stage": "8D",
+      "name": "Availability sync snapshot",
+      "status": "confirmed",
+      "scope": "Build an operator-owned local sync snapshot from sanitized booking requests and locally cached clinic slots."
+    },
+    {
+      "stage": "8E",
+      "name": "Conflict handling",
+      "status": "confirmed",
+      "scope": "Detect stale slots, duplicate source slots, overlapping slots, and booking requests without a compatible local slot."
+    },
+    {
+      "stage": "8F",
+      "name": "Booking confirmation readiness",
+      "status": "confirmed",
+      "scope": "Prepare safe confirmation candidates that can be completed through the existing Stage 5S self-hosted booking-from-slot endpoint."
+    }
+  ],
+  "sourceContracts": [
+    "/api/v1/integrations/booking-imports",
+    "/api/v1/integrations/booking-imports/status",
+    "/api/v1/clinic/available-slots",
+    "/api/v1/clinic/booking-requests/{requestId}/book-from-slot"
+  ],
+  "operatorFlow": [
+    "Import sanitized CRM/ad export with Stage 8A-8C into Stage 5Q.",
+    "Inspect local slot cache and booking queue through the self-hosted operator workspace.",
+    "Run the Stage 8D-8F planner against a local redacted snapshot.",
+    "Resolve conflicts before confirmation.",
+    "Confirm only compatible requests through Stage 5S booking-from-slot."
+  ],
+  "safetyPolicy": {
+    "networkCalls": false,
+    "storesRawExternalPayload": false,
+    "printsRawPatientData": false,
+    "printsExternalIds": false,
+    "confirmationWritesDirectly": false,
+    "confirmationEndpoint": "/api/v1/clinic/booking-requests/{requestId}/book-from-slot"
+  },
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "externalCrmRuntimeCalls": false,
+    "externalAdRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "verification": {
+    "commands": [
+      "npm run test:stage8d-8f",
+      "npm run check:stage8d-8f",
+      "npm run availability:stage8d-8f:dry-run",
+      "npm run preflight:stage8d-8f",
+      "npm run preflight:stage5r",
+      "npm run preflight:stage5s",
+      "npm run check:project-memory",
+      "node scripts/check-no-deno-locks.mjs"
+    ],
+    "expectedConfirmation": "Confirmed: Stage 8D-8F synced from main, no conflicts."
+  }
+}
