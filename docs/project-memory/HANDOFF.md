@@ -2,8 +2,8 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 8G-8I is being
-implemented on branch `codex/stage8g-8i-clinical-reporting-completion`.
+This handoff captures the repository state while Stage 8J-8O is being
+implemented on branch `codex/stage8j-8o-device-ops-hardening`.
 
 ## Confirmed state
 
@@ -51,6 +51,20 @@ implemented on branch `codex/stage8g-8i-clinical-reporting-completion`.
    - no browser hardware API coupling;
    - no raw patient report body, signed URL, object storage path, or token
      output in the report package.
+12. Stage 8J-8O implements Device Bridge production readiness and the server
+    operations handbook:
+   - Stage 8J: self-hosted `GET /api/v1/device-bridge-worker/production-readiness`;
+   - Stage 8K: production readiness panel in `/sys/devices`;
+   - Stage 8L: drift guard, OpenAPI, workflow and preflight;
+   - Stage 8M: server operations handbook manifest;
+   - Stage 8N: handbook renderer and Lovable sync prompt;
+   - Stage 8O: handbook guard and project-memory update.
+13. Stage 8J-8O product boundary:
+   - no managed runtime or managed database dependency;
+   - local PostgreSQL and local self-hosted object store only;
+   - no browser hardware API coupling;
+   - no raw worker payload, raw result payload, signed URL, storage path,
+     token, or raw patient name output in the readiness report or handbook.
 
 ## Important operational fact
 
@@ -61,15 +75,17 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 8J-8L` is the next likely product batch after Stage 8G-8I.
+- `Stage 8P-8R` is the next likely product batch after Stage 8J-8O.
+- Historical marker: `Stage 8J-8L` was the original roadmap hypothesis after
+  Stage 8G-8I before the batch-size increase combined it with Stage 8M-8O.
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 8G-8I in one Pull request.
+1. Finish Stage 8J-8O in one Pull request.
 2. Run:
+   - `npm run preflight:stage8j-8o`
+   - `npm run preflight:stage4y`
    - `npm run preflight:stage8g-8i`
-   - `npm run preflight:stage5h`
-   - `npm run preflight:stage5g`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

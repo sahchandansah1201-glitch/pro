@@ -2,7 +2,7 @@ generated_at: "2026-05-21T08:21:54+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage8g-8i-clinical-reporting-completion"
+  branch: "codex/stage8j-8o-device-ops-hardening"
   head_sha: "ee2ec6da61640f856be344feab6ccc83e4a6bb6b"
   head_commit: "Add Stage 8D-8F availability sync"
   working_tree: "modified"
@@ -493,6 +493,22 @@ verification:
       minimum_related_stages_per_batch: 3
       next_stage_hypothesis: "Stage 8J-8L"
       product_runtime_change: true
+  stage8j_8o_preflight:
+    command: "npm run preflight:stage8j-8o"
+    status: "ok"
+    key_facts:
+      backend_node_tests_passed: 93
+      frontend_vitest_tests_passed: 18
+      guard_files_checked: 15
+      leak_findings: 0
+      device_bridge_production_readiness_confirmed: true
+      server_operations_handbook_confirmed: true
+      minimum_related_stages_per_batch: 6
+      batch_size_policy: "x2 from current three-stage product batches"
+      next_stage_hypothesis: "Stage 8P-8R"
+      product_runtime_change: true
+      managed_runtime_dependency: "none"
+      managed_database_dependency: "none"
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -527,6 +543,7 @@ verification:
       includes_stage8a_8c: true
       includes_stage8d_8f: true
       includes_stage8g_8i: true
+      includes_stage8j_8o: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:

@@ -18,11 +18,13 @@ import {
   getSelfHostedDeviceBridgeWorkerHardening,
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeCommandAudit,
+  getSelfHostedDeviceBridgeProductionReadiness,
   recoverSelfHostedDeviceBridgeWorkerCommand,
   replaySelfHostedDeviceBridgeCommand,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   type SelfHostedDeviceBridgeCommandAuditDTO,
+  type SelfHostedDeviceBridgeProductionReadinessDTO,
   type SelfHostedDeviceBridgeWorkerHardeningDTO,
   type SelfHostedDeviceBridgeWorkerRecoveryDTO,
   type SelfHostedDeviceBridgeWorkerStatusDTO,
@@ -181,6 +183,8 @@ export default function SysDevicesPage() {
   const [workerRecoveryError, setWorkerRecoveryError] = useState<string | null>(null);
   const [workerAudit, setWorkerAudit] = useState<SelfHostedDeviceBridgeCommandAuditDTO | null>(null);
   const [workerAuditError, setWorkerAuditError] = useState<string | null>(null);
+  const [productionReadiness, setProductionReadiness] = useState<SelfHostedDeviceBridgeProductionReadinessDTO | null>(null);
+  const [productionReadinessError, setProductionReadinessError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -199,6 +203,8 @@ export default function SysDevicesPage() {
       setWorkerRecoveryError(null);
       setWorkerAudit(null);
       setWorkerAuditError(null);
+      setProductionReadiness(null);
+      setProductionReadinessError(null);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -211,6 +217,7 @@ export default function SysDevicesPage() {
     setWorkerHardeningError(null);
     setWorkerRecoveryError(null);
     setWorkerAuditError(null);
+    setProductionReadinessError(null);
     Promise.all([
       listSelfHostedDeviceBridges({
         apiBaseUrl: session.apiBaseUrl,
@@ -249,7 +256,11 @@ export default function SysDevicesPage() {
         status: "all",
         limit: 25,
       }),
-    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult]) => {
+      getSelfHostedDeviceBridgeProductionReadiness({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      }),
+    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult, readinessResult]) => {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
@@ -292,6 +303,14 @@ export default function SysDevicesPage() {
         setWorkerAudit(null);
         setWorkerAuditError(
           auditResult?.error?.message || "Не удалось загрузить Device Bridge command audit.",
+        );
+      }
+      if (readinessResult?.ok) {
+        setProductionReadiness(readinessResult.value ?? null);
+      } else {
+        setProductionReadiness(null);
+        setProductionReadinessError(
+          readinessResult?.error?.message || "Не удалось загрузить Device Bridge production readiness.",
         );
       }
       setLoadStatus("ready");
@@ -910,6 +929,73 @@ export default function SysDevicesPage() {
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
                   {workerAuditError || "Device Bridge command audit ожидает ответ backend."}
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+
+        {isLive && (
+          <section
+            className="space-y-2"
+            aria-label="Device Bridge production readiness"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
+                Stage 8J-8L · Production readiness
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                /api/v1/device-bridge-worker/production-readiness
+              </span>
+            </div>
+            <Card className="p-3">
+              {productionReadiness ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                    <WorkerMetric label="Readiness %" value={productionReadiness.readiness.completionPercent} />
+                    <WorkerMetric label="Bridge workers" value={productionReadiness.readiness.summary.bridgeCount} />
+                    <WorkerMetric label="Stale workers" value={productionReadiness.readiness.summary.staleWorkers} />
+                    <WorkerMetric label="Failed commands" value={productionReadiness.readiness.summary.failedCommands} />
+                    <WorkerMetric label="Stuck commands" value={productionReadiness.readiness.summary.stuckCommands} />
+                    <WorkerMetric label="Audit events" value={productionReadiness.readiness.summary.auditEvents} />
+                  </div>
+                  <div
+                    role="region"
+                    aria-label="Device Bridge production readiness gates"
+                    className="rounded-md border border-border"
+                  >
+                    <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Readiness gates · {productionReadiness.readiness.status}
+                    </div>
+                    <div className="divide-y divide-border/70">
+                      {productionReadiness.readiness.gates.map((gate) => (
+                        <div key={gate.key} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
+                          <div>
+                            <div className="font-medium text-foreground">{gate.label}</div>
+                            <div className="text-[11px] text-muted-foreground">{gate.detail}</div>
+                          </div>
+                          <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {gate.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div
+                    role="note"
+                    aria-label="Device Bridge production readiness boundary"
+                    className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+                  >
+                    Stage 8J-8L aggregates only safe PostgreSQL lifecycle signals from Stage 4U-4Y.
+                    Policy: payload {productionReadiness.readiness.policy.payloadVisibility}; managed runtime{" "}
+                    {productionReadiness.readiness.policy.managedRuntimeDependency}; browser hardware APIs{" "}
+                    {productionReadiness.readiness.policy.browserHardwareApis ? "enabled" : "disabled"}.
+                  </div>
+                </div>
+              ) : (
+                <div role="status" className="text-[12px] text-muted-foreground">
+                  {productionReadinessError || "Device Bridge production readiness ожидает ответ backend."}
                 </div>
               )}
             </Card>

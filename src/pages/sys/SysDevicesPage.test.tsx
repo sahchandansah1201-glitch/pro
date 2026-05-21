@@ -274,6 +274,61 @@ describe("SysDevicesPage", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/production-readiness")) {
+        return new Response(
+          JSON.stringify({
+            stage: "8J-8L",
+            source: "postgres",
+            readiness: {
+              status: "attention",
+              completionPercent: 80,
+              summary: {
+                bridgeCount: 1,
+                onlineWorkers: 1,
+                degradedWorkers: 0,
+                offlineWorkers: 0,
+                staleWorkers: 1,
+                queuedCommands: 1,
+                failedCommands: 1,
+                stuckCommands: 1,
+                retryableCommands: 1,
+                cancellableCommands: 2,
+                auditEvents: 3,
+                maxQueueAgeSeconds: 120,
+              },
+              gates: [
+                {
+                  key: "worker_telemetry",
+                  label: "Worker heartbeat telemetry",
+                  required: true,
+                  status: "passed",
+                  detail: "1 bridge worker visible.",
+                },
+                {
+                  key: "worker_health",
+                  label: "Worker health pressure",
+                  required: true,
+                  status: "attention",
+                  detail: "1 stale worker.",
+                },
+              ],
+              policy: {
+                workerTelemetrySource: "/api/v1/device-bridge-worker/status",
+                hardeningSource: "/api/v1/device-bridge-worker/hardening",
+                recoverySource: "/api/v1/device-bridge-worker/recovery",
+                auditSource: "/api/v1/device-bridge-worker/audit",
+                auditExportSource: "/api/v1/device-bridge-worker/audit/export",
+                hardwareBoundary: "local Device Bridge worker only",
+                payloadVisibility: "backend-only",
+                browserHardwareApis: false,
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -360,7 +415,16 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("note", { name: "Device Bridge command audit privacy boundary" })).toHaveTextContent(
       "append-only audit projection",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(screen.getByRole("region", { name: "Device Bridge production readiness" })).toHaveTextContent(
+      "Stage 8J-8L",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge production readiness gates" })).toHaveTextContent(
+      "Worker health pressure",
+    );
+    expect(screen.getByRole("note", { name: "Device Bridge production readiness boundary" })).toHaveTextContent(
+      "managed runtime none",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(7);
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
@@ -370,15 +434,15 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
     expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(fetchMock).toHaveBeenCalledTimes(9);
 
     fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
     expect(await screen.findByText(/Команда cmd-retry возвращена в очередь Device Bridge/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(9);
+    expect(fetchMock).toHaveBeenCalledTimes(10);
 
     fireEvent.click(screen.getByRole("button", { name: "Replay" }));
     expect(await screen.findByText(/Replay команды cmd-audit поставлен в очередь Device Bridge: cmd-replay/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(10);
+    expect(fetchMock).toHaveBeenCalledTimes(11);
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
@@ -392,7 +456,7 @@ describe("SysDevicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Экспорт audit CSV" }));
     expect(await screen.findByText(/Экспорт Device Bridge command audit скачан: device-bridge-command-audit-all-all-1-rows.csv/)).toBeInTheDocument();
     expect(click).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(11);
+    expect(fetchMock).toHaveBeenCalledTimes(12);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

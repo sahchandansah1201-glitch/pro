@@ -2,24 +2,25 @@
 
 ## Highest-confidence next step
 
-Complete Stage 8G-8I as one Pull request, then merge it before sending the
+Complete Stage 8J-8O as one x2 Pull request, then merge it before sending the
 Lovable sync prompt.
 
 ## Immediate sequence
 
-1. **Complete Stage 8G-8I implementation**:
-   - keep the scope focused on the self-hosted clinical report-package
-     readiness contract, backend RBAC/audit, production report-tab summary,
-     OpenAPI, guard, CI guard, and preflight wiring;
-   - do not expose raw report body text, signed URLs, object storage paths,
-     tokens, raw patient identifiers, or external runtime calls.
+1. **Complete Stage 8J-8O implementation**:
+   - keep the scope focused on Device Bridge production readiness and the
+     server operations handbook;
+   - do not expose raw worker payloads, raw result payloads, signed URLs,
+     storage paths, tokens, raw patient names, Supabase markers, browser
+     hardware APIs, or managed runtime/database dependencies.
 
 2. **Verify before commit**:
-   - `npm run test:stage8g-8i`
-   - `npm run check:stage8g-8i`
+   - `npm run test:stage8j-8o`
+   - `npm run check:stage8j-8o`
+   - `npm run handbook:stage8m-8o:dry-run`
+   - `npm run preflight:stage8j-8o`
+   - `npm run preflight:stage4y`
    - `npm run preflight:stage8g-8i`
-   - `npm run preflight:stage5h`
-   - `npm run preflight:stage5g`
    - `npm run test:project-memory`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
@@ -38,10 +39,10 @@ Lovable sync prompt.
    - smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 8J-8L hypothesis
+## Stage 8P-8R hypothesis
 
-Stage 8J-8L is the next likely product batch after Stage 8G-8I. Its current
-roadmap scope is Device Bridge production hardening, but it remains a
+Stage 8P-8R is the next likely product batch after Stage 8J-8O. Its current
+scope has not been defined in repository files, so it remains a
 hypothesis until repository files define it.
 
 Historical note: Stage 7G-7I is complete and introduced the batch verification
@@ -58,3 +59,13 @@ Historical roadmap anchor: Stage 8D-8F is complete and remains the confirmed
 availability sync and booking confirmation readiness batch that made Stage
 8G-8I the next clinical reporting batch. Do not remove this historical Stage
 8D-8F marker when updating current next actions.
+
+Historical roadmap anchor: Stage 8G-8I is complete and remains the confirmed
+clinical reporting completion batch that made Stage 8J-8O the next Device
+Bridge and operations handbook batch. Do not remove this historical Stage
+8G-8I marker when updating current next actions.
+
+Historical roadmap marker: Stage 8J-8L was the original Device Bridge
+production hardening hypothesis after Stage 8G-8I. It is preserved for
+backward-compatible guards; the current x2 batch implements it together with
+Stage 8M-8O as Stage 8J-8O.

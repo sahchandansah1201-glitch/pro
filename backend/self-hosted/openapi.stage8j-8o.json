@@ -1,0 +1,112 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Device Bridge production readiness",
+    "version": "8J-8O-device-ops-hardening",
+    "description": "Stage 8J-8O exposes a safe Device Bridge production-readiness projection and operations-handbook contract. The endpoint aggregates PostgreSQL telemetry, hardening, recovery, audit and export signals without exposing raw worker payloads, worker secrets, storage paths, patient names, signed URLs, browser hardware APIs, or managed runtime/database dependencies."
+  },
+  "paths": {
+    "/api/v1/device-bridge-worker/production-readiness": {
+      "get": {
+        "summary": "Read Device Bridge production readiness",
+        "description": "System-admin/ops-scoped readiness projection for local Device Bridge workers. Uses only self-hosted PostgreSQL data and backend-owned audit metadata.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Safe Device Bridge production readiness response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceBridgeProductionReadinessResponse" }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role does not have ops status scope" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "DeviceBridgeProductionReadinessResponse": {
+        "type": "object",
+        "required": ["stage", "source", "readiness", "generatedAt", "correlationId"],
+        "properties": {
+          "stage": { "type": "string", "example": "8J-8L" },
+          "source": { "type": "string", "example": "postgres" },
+          "readiness": {
+            "type": "object",
+            "required": ["status", "completionPercent", "summary", "gates", "policy"],
+            "properties": {
+              "status": { "type": "string", "enum": ["ready", "attention"] },
+              "completionPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "summary": {
+                "type": "object",
+                "properties": {
+                  "bridgeCount": { "type": "integer" },
+                  "onlineWorkers": { "type": "integer" },
+                  "degradedWorkers": { "type": "integer" },
+                  "offlineWorkers": { "type": "integer" },
+                  "staleWorkers": { "type": "integer" },
+                  "queuedCommands": { "type": "integer" },
+                  "failedCommands": { "type": "integer" },
+                  "stuckCommands": { "type": "integer" },
+                  "retryableCommands": { "type": "integer" },
+                  "cancellableCommands": { "type": "integer" },
+                  "auditEvents": { "type": "integer" },
+                  "maxQueueAgeSeconds": { "type": "integer" }
+                }
+              },
+              "gates": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["key", "label", "required", "status", "detail"],
+                  "properties": {
+                    "key": { "type": "string" },
+                    "label": { "type": "string" },
+                    "required": { "type": "boolean" },
+                    "status": { "type": "string", "enum": ["passed", "attention", "info"] },
+                    "detail": { "type": "string" }
+                  }
+                }
+              },
+              "policy": {
+                "type": "object",
+                "properties": {
+                  "workerTelemetrySource": { "type": "string" },
+                  "hardeningSource": { "type": "string" },
+                  "recoverySource": { "type": "string" },
+                  "auditSource": { "type": "string" },
+                  "auditExportSource": { "type": "string" },
+                  "hardwareBoundary": { "type": "string" },
+                  "payloadVisibility": { "type": "string", "example": "backend-only" },
+                  "browserHardwareApis": { "type": "boolean", "example": false },
+                  "managedRuntimeDependency": { "type": "string", "example": "none" },
+                  "managedDatabaseDependency": { "type": "string", "example": "none" }
+                }
+              }
+            }
+          },
+          "auth": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string" },
+              "roles": { "type": "array", "items": { "type": "string" } },
+              "allClinics": { "type": "boolean" }
+            }
+          },
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "correlationId": { "type": "string" }
+        }
+      }
+    }
+  }
+}

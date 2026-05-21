@@ -102,6 +102,7 @@ const DEFAULT_STEPS = [
   ["Stage 8A-8C CRM inbound adapter preflight", npmCmd, ["run", "preflight:stage8a-8c"]],
   ["Stage 8D-8F availability sync preflight", npmCmd, ["run", "preflight:stage8d-8f"]],
   ["Stage 8G-8I clinical reporting completion preflight", npmCmd, ["run", "preflight:stage8g-8i"]],
+  ["Stage 8J-8O Device Bridge and operations handbook preflight", npmCmd, ["run", "preflight:stage8j-8o"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],

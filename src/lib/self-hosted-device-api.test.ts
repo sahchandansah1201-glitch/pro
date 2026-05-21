@@ -8,6 +8,7 @@ import {
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeWorkerStatus,
   getSelfHostedDeviceBridgeCommandAudit,
+  getSelfHostedDeviceBridgeProductionReadiness,
   replaySelfHostedDeviceBridgeCommand,
   recoverSelfHostedDeviceBridgeWorkerCommand,
   requestSelfHostedBridgeCommand,
@@ -16,6 +17,7 @@ import {
   toSelfHostedDeviceBridgeDTO,
   toSelfHostedDeviceBridgeCommandAuditDTO,
   toSelfHostedDeviceBridgeWorkerHardeningDTO,
+  toSelfHostedDeviceBridgeProductionReadinessDTO,
   toSelfHostedDeviceBridgeWorkerRecoveryDTO,
   toSelfHostedDeviceBridgeWorkerStatusDTO,
   toSelfHostedDeviceCommandDTO,
@@ -648,5 +650,65 @@ describe("self-hosted-device-api", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("action=replay");
     expect(String(fetchMock.mock.calls[1][0])).toContain("/api/v1/device-bridge-worker/audit/export");
     expect(String(fetchMock.mock.calls[2][0])).toContain("/api/v1/device-bridge-worker/commands/cmd-1/replay");
+  });
+
+  it("normalizes and fetches Device Bridge production readiness without unsafe fields", async () => {
+    const dto = toSelfHostedDeviceBridgeProductionReadinessDTO({
+      stage: "8J-8L",
+      source: "postgres",
+      readiness: {
+        status: "ready",
+        completionPercent: 100,
+        summary: {
+          bridgeCount: 1,
+          onlineWorkers: 1,
+          staleWorkers: 0,
+          auditEvents: 5,
+        },
+        gates: [
+          {
+            key: "safe_export",
+            label: "Safe audit export",
+            required: true,
+            status: "passed",
+            detail: "metadata only",
+          },
+        ],
+        policy: {
+          payloadVisibility: "backend-only",
+          browserHardwareApis: false,
+          managedRuntimeDependency: "none",
+          managedDatabaseDependency: "none",
+          signed_url: "hidden",
+          storage_object_path: "hidden",
+        },
+      },
+      access_token: "hidden",
+    });
+    expect(dto?.readiness.status).toBe("ready");
+    expect(dto?.readiness.gates[0].key).toBe("safe_export");
+    expect(JSON.stringify(dto)).not.toContain("access_token");
+    expect(JSON.stringify(dto)).not.toContain("storage_object_path");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          stage: "8J-8L",
+          source: "postgres",
+          readiness: dto?.readiness,
+          correlationId: "corr-8j",
+          generatedAt: "2026-05-21T00:00:00.000Z",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const result = await getSelfHostedDeviceBridgeProductionReadiness({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+    });
+
+    expect(result.value?.readiness.completionPercent).toBe(100);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/device-bridge-worker/production-readiness");
   });
 });

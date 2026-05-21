@@ -1043,7 +1043,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.capabilities.patientPortal, "patient-owned-read-postgres");
   assert.equal(meta.json.capabilities.patientPortalWrites, "patient-owned-write-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
-  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness");
+  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
   assert.equal(meta.json.links.openapi, "/openapi.stage4z.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
@@ -1063,6 +1063,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage4X, "/openapi.stage4x.json");
   assert.equal(meta.json.links.openapiStage4Y, "/openapi.stage4y.json");
   assert.equal(meta.json.links.openapiStage4Z, "/openapi.stage4z.json");
+  assert.equal(meta.json.links.openapiStage8J8O, "/openapi.stage8j-8o.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -1088,6 +1089,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.deviceBridgeWorkerAudit, "/api/v1/device-bridge-worker/audit");
   assert.equal(meta.json.links.deviceBridgeWorkerAuditExport, "/api/v1/device-bridge-worker/audit/export");
   assert.equal(meta.json.links.deviceBridgeWorkerReplay, "/api/v1/device-bridge-worker/commands/{commandId}/replay");
+  assert.equal(meta.json.links.deviceBridgeWorkerProductionReadiness, "/api/v1/device-bridge-worker/production-readiness");
   assert.equal(meta.json.links.devices, "/api/v1/devices");
   assert.equal(meta.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(meta.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
@@ -1845,6 +1847,49 @@ test("Stage 4Y · system_admin exports Device Bridge command audit CSV safely", 
   assert.doesNotMatch(response.body, /stage4s-worker-token|metadata_json|payload_json|result_json|access_token|storage_object_path|patient_full_name|navigator\./i);
 });
 
+test("Stage 8J-8L · system_admin reads Device Bridge production readiness safely", async () => {
+  const auditEvents = [];
+  const runtime = createRuntime({
+    auditEvents,
+    authContext: {
+      userId: "10000000-0000-4000-8000-000000000999",
+      displayName: "System Admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+      roleBindings: [{ role: "system_admin", clinicId: null, clinicSlug: null }],
+      token: {},
+    },
+  });
+  const response = await request(
+    "/api/v1/device-bridge-worker/production-readiness?limit=10",
+    configuredEnv,
+    runtime,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "8J-8L");
+  assert.equal(response.json.readiness.policy.managedRuntimeDependency, "none");
+  assert.equal(response.json.readiness.policy.managedDatabaseDependency, "none");
+  assert.equal(response.json.readiness.policy.payloadVisibility, "backend-only");
+  assert.equal(response.json.readiness.summary.bridgeCount, 1);
+  assert.ok(response.json.readiness.gates.some((gate) => gate.key === "worker_health"));
+  assert.deepEqual(response.json.auth.roles, ["system_admin"]);
+  assert.equal(auditEvents.at(-1).action, "device_bridge.production_readiness.read");
+  assert.doesNotMatch(response.body, /stage4s-worker-token|metadata_json|payload_json|result_json|access_token|storage_object_path|patient_full_name|navigator\./i);
+});
+
+test("Stage 8J-8L · Device Bridge production readiness denies non-system-admin", async () => {
+  const response = await request(
+    "/api/v1/device-bridge-worker/production-readiness",
+    configuredEnv,
+    createRuntime(),
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(response.json.error.code, "forbidden");
+  assert.doesNotMatch(response.body, WORKER_SECRET_ERROR_PATTERN);
+});
+
 test("Stage 4X · system_admin replays a safe command through backend policy", async () => {
   const runtime = createRuntime({
     authContext: {
@@ -2511,6 +2556,14 @@ test("Stage 4G · /openapi.stage4g.json documents the new visit workspace endpoi
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets"]);
 });
 
+test("Stage 8J-8O · /openapi.stage8j-8o.json documents Device Bridge production readiness", async () => {
+  const response = await request("/openapi.stage8j-8o.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "8J-8O-device-ops-hardening");
+  assert.ok(response.json.paths["/api/v1/device-bridge-worker/production-readiness"]);
+  assert.doesNotMatch(response.body, /SUPABASE_|api-read|api-write|storage_object_path|signed_url|access_token/i);
+});
+
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
@@ -2554,6 +2607,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage5R, "/openapi.stage5r.json");
   assert.equal(response.json.links.openapiStage5S, "/openapi.stage5s.json");
   assert.equal(response.json.links.openapiStage5T, "/openapi.stage5t.json");
+  assert.equal(response.json.links.openapiStage8J8O, "/openapi.stage8j-8o.json");
   assert.equal(response.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(response.json.links.leadsAppointments, "/api/v1/leads/appointments");
   assert.equal(response.json.links.createLead, "/api/v1/leads");
@@ -2583,6 +2637,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.deviceBridgeWorkerAudit, "/api/v1/device-bridge-worker/audit");
   assert.equal(response.json.links.deviceBridgeWorkerReplay, "/api/v1/device-bridge-worker/commands/{commandId}/replay");
   assert.equal(response.json.links.deviceBridgeWorkerAuditExport, "/api/v1/device-bridge-worker/audit/export");
+  assert.equal(response.json.links.deviceBridgeWorkerProductionReadiness, "/api/v1/device-bridge-worker/production-readiness");
   assert.equal(response.json.links.devices, "/api/v1/devices");
   assert.equal(response.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");

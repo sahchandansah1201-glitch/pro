@@ -127,16 +127,31 @@
    - Mitigation: Stage 8G-8I returns counts, statuses, booleans, missing gate
      keys, and safe product-boundary flags only; the guard scans protected files
      for token, storage path, signed URL, and managed-runtime markers.
+12. **Device Bridge production readiness can be mistaken for live hardware proof**
+   - Evidence: Stage 8J-8O aggregates safe PostgreSQL worker telemetry,
+     hardening, recovery, audit, and export metadata.
+   - Impact: treating repository metadata as direct hardware proof could hide a
+     live worker or clinic-network issue.
+   - Mitigation: Stage 8J-8O labels the endpoint as readiness metadata only,
+     keeps raw worker payloads backend-only, and requires operator review for
+     stale workers, failed commands, and stuck commands.
+13. **Server operations handbook can drift from deployed server practice**
+   - Evidence: Stage 8J-8O adds a repository-bundled server operations
+     handbook.
+   - Impact: outdated commands or boundaries can make the handoff unreliable.
+   - Mitigation: handbook manifest, renderer, guard, workflow, project-memory
+     markers, and `preflight:stage8j-8o` keep the handbook checked with code.
 
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 8J-8L is next.
-   - Basis: Stage 8G-8I closes clinical reporting completion, leaving Device
-     Bridge production hardening as the next likely product batch in the
-     roadmap.
-   - Uncertainty: Stage 8J-8L is not implemented until repository files define
+   - hypothesis: Stage 8P-8R is next.
+   - Basis: Stage 8J-8O closes Device Bridge production readiness and server
+     operations handbook coverage.
+   - Uncertainty: Stage 8P-8R is not implemented until repository files define
      it.
+   - Historical marker: Stage 8J-8L was the original hypothesis after Stage
+     8G-8I and is now implemented inside the larger Stage 8J-8O x2 batch.
 
 ## Mitigations
 

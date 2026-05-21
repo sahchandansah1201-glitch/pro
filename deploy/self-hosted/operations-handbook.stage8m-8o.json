@@ -1,0 +1,146 @@
+{
+  "stage": "8J-8O",
+  "packageId": "stage8j-8o-device-ops-hardening",
+  "title": "Device Bridge production readiness and server operations handbook",
+  "purpose": "Bundle a safe Device Bridge production-readiness projection with a server operations handbook that keeps Dermatolog Pro deployable as one self-hosted product.",
+  "includedStages": [
+    {
+      "id": "Stage 8J",
+      "title": "Device Bridge production readiness endpoint",
+      "outcome": "Expose a system-admin backend endpoint that aggregates safe worker telemetry, hardening, recovery, audit and export metadata."
+    },
+    {
+      "id": "Stage 8K",
+      "title": "Device Bridge production readiness UI",
+      "outcome": "Show safe readiness gates in the system devices page without raw worker payloads, tokens, patient names or storage paths."
+    },
+    {
+      "id": "Stage 8L",
+      "title": "Device Bridge hardening guard",
+      "outcome": "Lock the backend, frontend, OpenAPI, workflow, docs and project-memory markers behind a deterministic preflight."
+    },
+    {
+      "id": "Stage 8M",
+      "title": "Server operations handbook manifest",
+      "outcome": "Capture local operating commands, incident boundaries and verification gates in a repository-bundled manifest."
+    },
+    {
+      "id": "Stage 8N",
+      "title": "Server operations handbook renderer",
+      "outcome": "Render the manifest to a safe markdown handoff for operators without including live secrets or external service dependencies."
+    },
+    {
+      "id": "Stage 8O",
+      "title": "Operations handbook drift guard",
+      "outcome": "Verify handbook files, scripts, docs, workflow and project-memory markers before future development continues."
+    }
+  ],
+  "serverOperationsHandbook": {
+    "audience": [
+      "system_admin",
+      "server_operator"
+    ],
+    "sections": [
+      {
+        "id": "daily-readiness",
+        "title": "Daily readiness",
+        "checks": [
+          "Open /sys/devices as system_admin and review Device Bridge production readiness.",
+          "Open /sys/self-hosted-ops and confirm product readiness has managedRuntime/database set to none.",
+          "Run npm run preflight:stage8j-8o before merging Device Bridge or operations changes."
+        ]
+      },
+      {
+        "id": "device-bridge-incidents",
+        "title": "Device Bridge incidents",
+        "checks": [
+          "Use backend audit/recovery/replay endpoints instead of direct database edits for command lifecycle recovery.",
+          "Do not expose raw worker payloads, result payloads, storage paths, tokens or patient names in operator-facing reports.",
+          "Treat stale workers, failed commands and stuck commands as readiness gates requiring operator review."
+        ]
+      },
+      {
+        "id": "deployment-boundary",
+        "title": "Deployment boundary",
+        "checks": [
+          "Managed runtime/database dependency: none.",
+          "Deploy frontend, backend, PostgreSQL, nginx and local object storage together from deploy/self-hosted.",
+          "Do not introduce Supabase, managed databases, browser hardware APIs or external worker runtimes as required production dependencies.",
+          "External CRM/ad inputs must remain inbound/imported data, never a runtime dependency for the clinical product."
+        ]
+      },
+      {
+        "id": "preflight",
+        "title": "Preflight and release gate",
+        "checks": [
+          "npm run preflight:stage8j-8o",
+          "npm run preflight:stage4y",
+          "npm run preflight:stage8g-8i",
+          "npm run check:project-memory",
+          "node scripts/check-no-deno-locks.mjs",
+          "npm run preflight:all -- --dry-run"
+        ]
+      }
+    ]
+  },
+  "verificationGates": [
+    {
+      "id": "stage8j-8o-preflight",
+      "command": "npm run preflight:stage8j-8o",
+      "required": true
+    },
+    {
+      "id": "device-readiness-endpoint",
+      "command": "npm run test:stage8j-8o",
+      "required": true
+    },
+    {
+      "id": "device-readiness-guard",
+      "command": "npm run check:stage8j-8o",
+      "required": true
+    },
+    {
+      "id": "operations-handbook-render",
+      "command": "npm run handbook:stage8m-8o:dry-run",
+      "required": true
+    },
+    {
+      "id": "no-deno-lock",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    }
+  ],
+  "productBoundary": {
+    "runtimeProductChange": true,
+    "backendSchemaChange": false,
+    "frontendRuntimeChange": true,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "workerPayloadVisibility": "backend-only",
+    "rawPatientDataInReports": false
+  },
+  "lovableSyncVerification": {
+    "expectedConfirmation": "Confirmed: Stage 8J-8O synced from main, no conflicts.",
+    "requiredFiles": [
+      "backend/self-hosted/device-bridge-production-readiness-service.mjs",
+      "backend/self-hosted/openapi.stage8j-8o.json",
+      "src/lib/self-hosted-device-api.ts",
+      "src/pages/sys/SysDevicesPage.tsx",
+      "deploy/self-hosted/operations-handbook.stage8m-8o.json",
+      "scripts/stage8m-8o-server-operations-handbook.mjs",
+      "scripts/check-stage8j-8o-device-ops-hardening.mjs",
+      "docs/backend/stage-8j-8o-device-ops-hardening.md",
+      ".github/workflows/stage8j-8o-device-ops-hardening.yml"
+    ],
+    "requiredCommands": [
+      "npm run preflight:stage8j-8o",
+      "npm run check:project-memory",
+      "node scripts/check-no-deno-locks.mjs"
+    ]
+  },
+  "nextStageHypothesis": "Stage 8P-8R"
+}

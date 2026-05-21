@@ -1,0 +1,45 @@
+name: stage8j-8o-device-ops-hardening
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-8j-8o-device-ops-hardening.md"
+      - "docs/project-memory/**"
+      - "scripts/stage8m-8o-server-operations-handbook.mjs"
+      - "scripts/stage8m-8o-server-operations-handbook.test.mjs"
+      - "scripts/check-stage8j-8o-device-ops-hardening.mjs"
+      - "scripts/check-stage8j-8o-device-ops-hardening.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage8j-8o-device-ops-hardening.yml"
+  workflow_dispatch:
+
+jobs:
+  stage8j-8o:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run Stage 8J-8O preflight
+        run: npm run preflight:stage8j-8o
+      - name: Stage 8J-8O summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 8J-8O"
+            echo ""
+            echo "- Preflight: npm run preflight:stage8j-8o"
+            echo "- Scope: Device Bridge production readiness + server operations handbook"
+            echo "- Boundary: self-hosted runtime, local PostgreSQL, no managed runtime/database"
+          } >> "$GITHUB_STEP_SUMMARY"
