@@ -1,5 +1,26 @@
 # RISKS
 
+## Stage 10A-10Z error prevention risks
+
+1. **Risk: repeated development defects remain manual discipline only.**
+   - Evidence: Stage 9N-9Z exposed fetch-count drift, shared UI type drift,
+     preflight-all drift, temporary artifact drift and project-memory wording
+     drift before merge.
+   - Mitigation: Stage 10A-10Z records diagnosed defects and prevention rules
+     in repository files and blocks Lovable handoff until the error-prevention
+     preflight is green.
+
+2. **Risk: x2 batch size creates more surface for silent inconsistency.**
+   - Evidence: Stage 10A-10Z expands the normal target to 26 related stages.
+   - Mitigation: manifest-to-docs, package script, preflight-all,
+     project-memory, typecheck and previous-batch regression gates are required
+     before merge.
+
+3. **Hypothesis: Stage 11A-11Z is the next likely batch.**
+   - Basis: Stage 10A-10Z closes error-prevention infrastructure and records
+     Stage 11A-11Z as next x2 handoff.
+   - Status: hypothesis only until repository files define it.
+
 ## Confirmed risks
 
 1. **Readiness/decision/observation/closure/archive packages != live go-live approval**
@@ -170,11 +191,13 @@
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 10A-10L is next.
-   - Basis: Stage 9N-9Z closes Device Bridge lifecycle assurance and next-batch
-     handoff coverage.
-   - Uncertainty: Stage 10A-10L is not implemented until repository files define
+   - hypothesis: Stage 11A-11Z is next.
+   - Basis: Stage 10A-10Z closes error-prevention and x2 batch quality gates.
+   - Uncertainty: Stage 11A-11Z is not implemented until repository files define
      it.
+   - Historical marker: Stage 10A-10L was the original next hypothesis after
+     Stage 9N-9Z and is now implemented inside the larger Stage 10A-10Z x2
+     batch.
    - Historical marker: Stage 9N-9Z was the next hypothesis after Stage 9B-9M
      and is now implemented as the lifecycle assurance x2 batch.
    - Historical marker: Stage 9B-9D was the original next hypothesis after

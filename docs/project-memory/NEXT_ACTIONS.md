@@ -2,24 +2,25 @@
 
 ## Highest-confidence next step
 
-Merge and verify Stage 9N-9Z as one x2 Pull request, then send the Lovable
+Merge and verify Stage 10A-10Z as one x2 Pull request, then send the Lovable
 sync prompt only after `main` contains the merged batch.
 
 ## Immediate sequence
 
-1. **Complete the Stage 9N-9Z Pull request lifecycle**:
-   - commit the Device Bridge lifecycle assurance batch with backend endpoint,
-     UI, OpenAPI, guard, workflow, docs, and project-memory;
-   - do not expose raw worker payloads, raw result payloads, signed URLs,
-     storage paths, tokens, raw patient names, Supabase markers, browser
-     hardware APIs, or managed runtime/database dependencies.
+1. **Complete the Stage 10A-10Z Pull request lifecycle**:
+   - commit the error prevention batch with diagnosed defects, prevention
+     rules, manifest, renderer, guard, workflow, docs, project-memory, and
+     preflight-all wiring;
+   - do not send the Lovable prompt before the PR is merged into `main` and
+     local `main` is verified.
 
 2. **Verify before commit**:
-   - `npm run test:stage9n-9z`
-   - `npm run check:stage9n-9z`
-   - `npm run assurance:stage9n-9z:dry-run`
+   - `npm run test:stage10a-10z`
+   - `npm run check:stage10a-10z`
+   - `npm run prevention:stage10a-10z:dry-run`
+   - `npm run preflight:stage10a-10z`
    - `npm run preflight:stage9n-9z`
-   - `npm run preflight:stage9b-9m`
+   - `npm run typecheck`
    - `npm run test:project-memory`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
@@ -38,7 +39,22 @@ sync prompt only after `main` contains the merged batch.
    - smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 9N-9Z current batch
+## Stage 10A-10Z current batch
+
+Stage 10A-10Z is the confirmed x2 process batch after Stage 9N-9Z. It closes
+the earlier Stage 10A-10L hypothesis by defining a 26-stage error-prevention
+and batch-quality gate in repository files.
+
+The batch converts repeated defects into prevention rules:
+
+- UI fetch-count drift;
+- shared UI type drift;
+- preflight-all drift;
+- temporary dry-run artifacts;
+- project-memory post-merge wording drift;
+- GitHub GraphQL timeout fallback.
+
+## Stage 9N-9Z historical batch
 
 Stage 9N-9Z is the confirmed x2 product batch after Stage 9B-9M. It closes the
 earlier Stage 9N-9Z hypothesis by defining Device Bridge lifecycle assurance in
@@ -54,9 +70,9 @@ operations continuity batch. It expands the previous six-stage batch to
 twelve related stages in one Pull request and recorded Stage 9B-9D as the
 next hypothesis before Stage 9B-9M defined the actual scope.
 
-## Stage 10A-10L hypothesis
+## Stage 11A-11Z hypothesis
 
-Stage 10A-10L is the next likely product batch after Stage 9N-9Z. Its current
+Stage 11A-11Z is the next likely batch after Stage 10A-10Z. Its current
 scope has not been defined in repository files, so it remains a hypothesis
 until repository files define it.
 
