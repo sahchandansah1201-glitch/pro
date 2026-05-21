@@ -2,6 +2,14 @@
 
 ## 2026-05-21
 
+- Создан Stage 8G-8I Clinical reporting completion batch as one Pull request.
+- Added a self-hosted clinical report package read contract, readiness gates,
+  backend audit, and production report-tab completion summary.
+- Updated project-memory so Stage 8G-8I is confirmed in the current branch and
+  Stage 8J-8L remains an explicit hypothesis until repository files define it.
+
+## 2026-05-21
+
 - Создан Stage 8D-8F availability sync and booking confirmation readiness batch
   as one Pull request.
 - Added a redacted local availability-sync snapshot planner, conflict detector,

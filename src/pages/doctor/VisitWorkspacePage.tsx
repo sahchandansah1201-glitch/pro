@@ -46,6 +46,11 @@ import {
   type SelfHostedClinicalAssessmentDTO,
   type SelfHostedClinicalConclusionDTO,
 } from "@/lib/self-hosted-clinical-workspace-api";
+import {
+  clinicalReportMissingLabel,
+  getSelfHostedClinicalReportPackage,
+  type SelfHostedClinicalReportPackageDTO,
+} from "@/lib/self-hosted-clinical-report-package-api";
 import type { SelfHostedVisitReportDTO, VisitReportPayload } from "@/lib/self-hosted-visit-write-api";
 import {
   SELF_HOSTED_LIVE_SOURCE_LABEL,
@@ -419,6 +424,7 @@ type ClinicalPanelState =
       assessment: SelfHostedClinicalAssessmentDTO | null;
       conclusion: SelfHostedClinicalConclusionDTO | null;
       report: SelfHostedVisitReportDTO | null;
+      reportPackage: SelfHostedClinicalReportPackageDTO | null;
     };
 
 function textFrom(value: string | number | null | undefined): string {
@@ -482,7 +488,7 @@ function ProductionClinicalWorkspacePanel({
         summary: item?.summary ?? "",
         recommendation: item?.recommendation ?? "",
       });
-      setState({ kind: "ready", assessment: item, conclusion: null, report: null });
+      setState({ kind: "ready", assessment: item, conclusion: null, report: null, reportPackage: null });
       return;
     }
     if (kind === "conclusion") {
@@ -493,16 +499,23 @@ function ProductionClinicalWorkspacePanel({
         nextStep: item?.nextStep ?? "",
         followUpAt: item?.followUpAt ?? "",
       });
-      setState({ kind: "ready", assessment: null, conclusion: item, report: null });
+      setState({ kind: "ready", assessment: null, conclusion: item, report: null, reportPackage: null });
       return;
     }
     const item = result.value as SelfHostedVisitReportDTO | null;
+    const packageResult = await getSelfHostedClinicalReportPackage(args);
     setReportForm({
       status: item?.status ?? "draft",
       physicianText: item?.physicianText ?? "",
       patientText: String((item as unknown as Record<string, unknown>)?.["patient" + "SafeText"] ?? ""),
     });
-    setState({ kind: "ready", assessment: null, conclusion: null, report: item });
+    setState({
+      kind: "ready",
+      assessment: null,
+      conclusion: null,
+      report: item,
+      reportPackage: packageResult.ok ? packageResult.value : null,
+    });
   }, [apiBaseUrl, apiToken, kind, visitId]);
 
   useEffect(() => {
@@ -589,6 +602,10 @@ function ProductionClinicalWorkspacePanel({
           Production clinical workspace: mock assessment/report data hidden. Статус записи:{" "}
           <span className="font-medium text-foreground">{itemStatus}</span>.
         </div>
+
+        {kind === "report" && state.reportPackage && (
+          <ClinicalReportCompletionSummary reportPackage={state.reportPackage} />
+        )}
 
         {kind === "assessment" && (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -723,6 +740,56 @@ function ProductionClinicalWorkspacePanel({
         </div>
       </div>
     </Section>
+  );
+}
+
+function ClinicalReportCompletionSummary({
+  reportPackage,
+}: {
+  reportPackage: SelfHostedClinicalReportPackageDTO;
+}) {
+  const readiness = reportPackage.readiness;
+  return (
+    <section
+      aria-label="Stage 8G-8I clinical report completion"
+      className="rounded-sm border border-border bg-surface px-3 py-3"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[13px] font-semibold">Clinical report completion</h3>
+          <p className="text-[12px] text-muted-foreground">
+            Stage 8G-8I · self-hosted report package, local PostgreSQL only.
+          </p>
+        </div>
+        <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 text-[12px] font-medium">
+          {readiness.status === "ready" ? "Готов" : "Блокировано"} · {readiness.completionPercent}%
+        </span>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-2 text-[12px] sm:grid-cols-4">
+        <Field term="Очагов" value={reportPackage.counts.lesions} />
+        <Field term="Снимков" value={reportPackage.counts.assets} />
+        <Field term="Assessment" value={reportPackage.assessment.status ?? "—"} />
+        <Field term="Conclusion" value={reportPackage.conclusion.status ?? "—"} />
+        <Field term="Report" value={reportPackage.report.status ?? "—"} />
+        <Field term="Текст для пациента" value={reportPackage.report.patientTextPresent ? "есть" : "нет"} />
+        <Field term="Export" value={readiness.exportAllowed ? "разрешён" : "закрыт"} />
+        <Field term="Delivery" value={readiness.patientDeliveryAllowed ? "разрешена" : "закрыта"} />
+      </dl>
+      {readiness.missing.length > 0 ? (
+        <ul className="mt-3 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
+          {readiness.missing.map((item) => (
+            <li key={item} className="flex items-start gap-1.5">
+              <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground" aria-hidden />
+              <span>{clinicalReportMissingLabel(item)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-[12px] text-muted-foreground">
+          Все report gates закрыты. Внешние сервисы, storage paths и signed URLs не используются.
+        </p>
+      )}
+    </section>
   );
 }
 

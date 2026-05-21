@@ -119,15 +119,23 @@
    - Mitigation: Stage 8D-8F reports stale, duplicate-source, overlap,
      unmatched-request, rejected-import, and raw-payload risks before marking
      a candidate ready.
+11. **Clinical report package can leak report content**
+   - Evidence: Stage 8G-8I summarizes assessment, conclusion, report, lesion,
+     and asset readiness for the production report tab.
+   - Impact: putting raw report text, signed URLs, object storage paths, or
+     tokens into the package would violate the self-hosted privacy boundary.
+   - Mitigation: Stage 8G-8I returns counts, statuses, booleans, missing gate
+     keys, and safe product-boundary flags only; the guard scans protected files
+     for token, storage path, signed URL, and managed-runtime markers.
 
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 8G-8I is next.
-   - Basis: Stage 8D-8F closes availability sync and booking confirmation
-     readiness, leaving clinical reporting completion as the next likely
-     product batch.
-   - Uncertainty: Stage 8G-8I is not implemented until repository files define
+   - hypothesis: Stage 8J-8L is next.
+   - Basis: Stage 8G-8I closes clinical reporting completion, leaving Device
+     Bridge production hardening as the next likely product batch in the
+     roadmap.
+   - Uncertainty: Stage 8J-8L is not implemented until repository files define
      it.
 
 ## Mitigations

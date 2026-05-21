@@ -2,8 +2,8 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 8D-8F is being
-implemented on branch `codex/stage8d-8f-availability-sync`.
+This handoff captures the repository state while Stage 8G-8I is being
+implemented on branch `codex/stage8g-8i-clinical-reporting-completion`.
 
 ## Confirmed state
 
@@ -40,6 +40,17 @@ implemented on branch `codex/stage8d-8f-availability-sync`.
    - no raw patient identity, token, external URL, signed URL, or storage path
      output in reports or UI;
    - operator UI reads already-loaded self-hosted Stage 5P/5R/5T data.
+10. Stage 8G-8I implements Clinical reporting completion:
+   - Stage 8G: self-hosted `GET /api/v1/visits/{visitId}/report-package`;
+   - Stage 8H: readiness gates for assessment, conclusion, report, lesion,
+     and asset completeness;
+   - Stage 8I: production report-tab summary in `VisitWorkspacePage`.
+11. Stage 8G-8I product boundary:
+   - no managed runtime or managed database dependency;
+   - no external CRM/ad/scheduling runtime calls;
+   - no browser hardware API coupling;
+   - no raw patient report body, signed URL, object storage path, or token
+     output in the report package.
 
 ## Important operational fact
 
@@ -50,15 +61,15 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 8G-8I` is the next likely product batch after Stage 8D-8F.
+- `Stage 8J-8L` is the next likely product batch after Stage 8G-8I.
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 8D-8F in one Pull request.
+1. Finish Stage 8G-8I in one Pull request.
 2. Run:
-   - `npm run preflight:stage8d-8f`
-   - `npm run preflight:stage5r`
-   - `npm run preflight:stage5s`
+   - `npm run preflight:stage8g-8i`
+   - `npm run preflight:stage5h`
+   - `npm run preflight:stage5g`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

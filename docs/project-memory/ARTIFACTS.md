@@ -210,6 +210,21 @@
    - [OperatorBookingRequestsPage.production.test.tsx](../../src/pages/operator/OperatorBookingRequestsPage.production.test.tsx)
    - [stage8d-8f-availability-sync.yml](../../.github/workflows/stage8d-8f-availability-sync.yml)
 
+13. Stage 8G-8I clinical reporting completion artifacts:
+   - [clinical-report-package-repository.mjs](../../backend/self-hosted/clinical-report-package-repository.mjs)
+   - [clinical-report-package-repository.test.mjs](../../backend/self-hosted/clinical-report-package-repository.test.mjs)
+   - [clinical-report-package-service.mjs](../../backend/self-hosted/clinical-report-package-service.mjs)
+   - [clinical-report-package-service.test.mjs](../../backend/self-hosted/clinical-report-package-service.test.mjs)
+   - [openapi.stage8g-8i.json](../../backend/self-hosted/openapi.stage8g-8i.json)
+   - [self-hosted-clinical-report-package-api.ts](../../src/lib/self-hosted-clinical-report-package-api.ts)
+   - [self-hosted-clinical-report-package-api.test.ts](../../src/lib/self-hosted-clinical-report-package-api.test.ts)
+   - [VisitWorkspacePage.tsx](../../src/pages/doctor/VisitWorkspacePage.tsx)
+   - [VisitWorkspacePage.test.tsx](../../src/pages/doctor/VisitWorkspacePage.test.tsx)
+   - [stage-8g-8i-clinical-reporting-completion.md](../backend/stage-8g-8i-clinical-reporting-completion.md)
+   - [check-stage8g-8i-clinical-reporting-completion.mjs](../../scripts/check-stage8g-8i-clinical-reporting-completion.mjs)
+   - [check-stage8g-8i-clinical-reporting-completion.test.mjs](../../scripts/check-stage8g-8i-clinical-reporting-completion.test.mjs)
+   - [stage8g-8i-clinical-reporting-completion.yml](../../.github/workflows/stage8g-8i-clinical-reporting-completion.yml)
+
 ## Verification outputs captured during black-box creation
 
 0. Stage 7A-7C planned verification:
