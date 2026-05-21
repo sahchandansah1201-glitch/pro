@@ -1,0 +1,77 @@
+{
+  "stage": "9N-9Z",
+  "packageId": "stage9n-9z-device-bridge-lifecycle-assurance",
+  "title": "Device Bridge lifecycle assurance",
+  "generatedAt": "2026-05-21T00:00:00.000Z",
+  "purpose": "Close the Stage 9N-9Z Device Bridge lifecycle assurance batch as a larger x2 package that can be verified from repository files before the next Stage 10A-10L hypothesis.",
+  "includedStages": [
+    { "id": "Stage 9N", "title": "Lifecycle assurance register", "status": "ready" },
+    { "id": "Stage 9O", "title": "Maintenance window policy", "status": "ready" },
+    { "id": "Stage 9P", "title": "Worker upgrade posture", "status": "ready" },
+    { "id": "Stage 9Q", "title": "Audit retention closure", "status": "ready" },
+    { "id": "Stage 9R", "title": "Backend assurance endpoint", "status": "ready" },
+    { "id": "Stage 9S", "title": "OpenAPI and nginx publishing", "status": "ready" },
+    { "id": "Stage 9T", "title": "Frontend assurance adapter", "status": "ready" },
+    { "id": "Stage 9U", "title": "System devices assurance UI", "status": "ready" },
+    { "id": "Stage 9V", "title": "Safe closure export preview", "status": "ready" },
+    { "id": "Stage 9W", "title": "Drift guard", "status": "ready" },
+    { "id": "Stage 9X", "title": "Workflow gate", "status": "ready" },
+    { "id": "Stage 9Y", "title": "Project-memory refresh", "status": "ready" },
+    { "id": "Stage 9Z", "title": "Next batch handoff", "status": "ready" }
+  ],
+  "assuranceRegisters": {
+    "maintenanceClosure": {
+      "maintenanceReviewCadence": "weekly",
+      "workerUpgradeReviewCadence": "monthly",
+      "auditRetentionReviewDays": 90,
+      "storedEvidence": "external",
+      "repositoryOutcomeKnown": false
+    },
+    "safeUiProjection": {
+      "sourceEndpoint": "/api/v1/device-bridge-worker/lifecycle-assurance",
+      "visibleData": "metadata-counts-policy-labels-gate-status",
+      "payloadVisibility": "backend-only",
+      "liveOutcomeKnownToRepository": false
+    },
+    "nextBatchHandoff": {
+      "previousBatch": "Stage 9B-9M",
+      "originalHypothesis": "Stage 9N-9Z",
+      "nextBatchHypothesis": "Stage 10A-10L",
+      "promptOnlyAfterMergeToMain": true,
+      "expectedLovableConfirmation": "Confirmed: Stage 9N-9Z synced from main, no conflicts."
+    }
+  },
+  "verificationGates": [
+    { "id": "stage9n9z-tests", "command": "npm run test:stage9n-9z", "required": true },
+    { "id": "stage9n9z-guard", "command": "npm run check:stage9n-9z", "required": true },
+    { "id": "stage9n9z-dry-run", "command": "npm run assurance:stage9n-9z:dry-run", "required": true },
+    { "id": "stage9n9z-preflight", "command": "npm run preflight:stage9n-9z", "required": true },
+    { "id": "stage9b9m-regression", "command": "npm run preflight:stage9b-9m", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "deno-lock-guard", "command": "node scripts/check-no-deno-locks.mjs", "required": true }
+  ],
+  "requiredFiles": [
+    "backend/self-hosted/device-bridge-lifecycle-assurance-service.mjs",
+    "backend/self-hosted/openapi.stage9n-9z.json",
+    "backend/self-hosted/routes.mjs",
+    "src/lib/self-hosted-device-api.ts",
+    "src/pages/sys/SysDevicesPage.tsx",
+    "deploy/self-hosted/device-bridge-lifecycle-assurance.stage9n-9z.json",
+    "scripts/stage9n-9z-device-bridge-lifecycle-assurance.mjs",
+    "scripts/check-stage9n-9z-device-bridge-lifecycle-assurance.mjs",
+    "docs/backend/stage-9n-9z-device-bridge-lifecycle-assurance.md",
+    ".github/workflows/stage9n-9z-device-bridge-lifecycle-assurance.yml"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "payloadVisibility": "backend-only",
+    "rawPatientDataInReports": false,
+    "workerSecretsInReports": false,
+    "protectedStorageFieldsInReports": false
+  }
+}

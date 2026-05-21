@@ -490,6 +490,87 @@ export interface SelfHostedDeviceBridgeFleetReliabilityDTO {
   generatedAt: string;
 }
 
+export interface SelfHostedDeviceBridgeLifecycleAssuranceStageDTO {
+  id: string;
+  title: string;
+  status: "ready" | "attention" | "blocked" | string;
+  summary: string;
+  owner: string;
+}
+
+export interface SelfHostedDeviceBridgeLifecycleAssuranceGateDTO {
+  key: string;
+  label: string;
+  required: boolean;
+  status: "passed" | "attention" | "info" | string;
+  detail: string;
+}
+
+export interface SelfHostedDeviceBridgeLifecycleAssuranceDTO {
+  stage: "9N-9Z" | string;
+  source: "postgres" | string;
+  assurance: {
+    status: "ready" | "attention" | string;
+    completionPercent: number;
+    generatedAt: string;
+    summary: {
+      bridgeCount: number;
+      staleWorkers: number;
+      failedCommands: number;
+      stuckCommands: number;
+      retryableCommands: number;
+      cancellableCommands: number;
+      queuePressure: number;
+      fleetAttention: number;
+      inheritedAttentionGates: number;
+      auditEvents: number;
+      assuranceDebt: number;
+      upgradePressure: number;
+      maintenanceDue: boolean;
+      retentionReviewDue: boolean;
+    };
+    lifecyclePolicy: {
+      maintenanceReviewCadence: string;
+      workerUpgradeReviewCadence: string;
+      auditRetentionReviewDays: number;
+      closureEvidenceStorage: string;
+      liveOutcomeKnownToRepository: boolean;
+      workerHeartbeatReviewMinutes: number;
+      commandQueueReviewMinutes: number;
+    };
+    handoff: {
+      previousBatch: string;
+      currentBatch: string;
+      originalHypothesis: string;
+      nextBatchHypothesis: string;
+      includedStages: string[];
+      assuranceOwner: string;
+      promptOnlyAfterMergeToMain: boolean;
+    };
+    stages: SelfHostedDeviceBridgeLifecycleAssuranceStageDTO[];
+    gates: SelfHostedDeviceBridgeLifecycleAssuranceGateDTO[];
+    inheritedReliability: {
+      status: string;
+      completionPercent: number;
+      gateCount: number;
+      attentionGateCount: number;
+    };
+    productBoundary: {
+      managedRuntimeDependency: string;
+      managedDatabaseDependency: string;
+      browserHardwareApis: boolean;
+      payloadVisibility: string;
+      rawPatientDataInReports: boolean;
+      signedUrlExposure: boolean;
+      storagePathExposure: boolean;
+      externalRuntimeCalls: boolean;
+      liveSecretsInReports: boolean;
+    };
+  };
+  correlationId: string;
+  generatedAt: string;
+}
+
 export interface SelfHostedDeviceBridgeWorkerStatusDTO {
   stage: "4U" | string;
   source: "postgres" | string;
@@ -561,6 +642,8 @@ export interface GetSelfHostedDeviceBridgeProductionReadinessArgs extends BaseAr
 export interface GetSelfHostedDeviceBridgeOperationsContinuityArgs extends BaseArgs {}
 
 export interface GetSelfHostedDeviceBridgeFleetReliabilityArgs extends BaseArgs {}
+
+export interface GetSelfHostedDeviceBridgeLifecycleAssuranceArgs extends BaseArgs {}
 
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
@@ -1362,6 +1445,106 @@ export function toSelfHostedDeviceBridgeFleetReliabilityDTO(
   };
 }
 
+export function toSelfHostedDeviceBridgeLifecycleAssuranceDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeLifecycleAssuranceDTO | null {
+  if (!isRecord(input) || !isRecord(input.assurance)) return null;
+  const assurance = input.assurance;
+  const summary = isRecord(assurance.summary) ? assurance.summary : {};
+  const lifecyclePolicy = isRecord(assurance.lifecyclePolicy) ? assurance.lifecyclePolicy : {};
+  const handoff = isRecord(assurance.handoff) ? assurance.handoff : {};
+  const inheritedReliability = isRecord(assurance.inheritedReliability) ? assurance.inheritedReliability : {};
+  const productBoundary = isRecord(assurance.productBoundary) ? assurance.productBoundary : {};
+  const stages = Array.isArray(assurance.stages)
+    ? assurance.stages
+        .filter(isRecord)
+        .map((item) => ({
+          id: String(item.id ?? ""),
+          title: String(item.title ?? ""),
+          status: typeof item.status === "string" ? item.status : "attention",
+          summary: String(item.summary ?? ""),
+          owner: String(item.owner ?? "system_admin"),
+        }))
+        .filter((item) => item.id && item.title)
+    : [];
+  const gates = Array.isArray(assurance.gates)
+    ? assurance.gates
+        .filter(isRecord)
+        .map((item) => ({
+          key: String(item.key ?? ""),
+          label: String(item.label ?? ""),
+          required: Boolean(item.required),
+          status: typeof item.status === "string" ? item.status : "attention",
+          detail: String(item.detail ?? ""),
+        }))
+        .filter((item) => item.key && item.label)
+    : [];
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "postgres",
+    assurance: {
+      status: typeof assurance.status === "string" ? assurance.status : "attention",
+      completionPercent: Number(assurance.completionPercent ?? 0),
+      generatedAt: typeof assurance.generatedAt === "string" ? assurance.generatedAt : "",
+      summary: {
+        bridgeCount: Number(summary.bridgeCount ?? 0),
+        staleWorkers: Number(summary.staleWorkers ?? 0),
+        failedCommands: Number(summary.failedCommands ?? 0),
+        stuckCommands: Number(summary.stuckCommands ?? 0),
+        retryableCommands: Number(summary.retryableCommands ?? 0),
+        cancellableCommands: Number(summary.cancellableCommands ?? 0),
+        queuePressure: Number(summary.queuePressure ?? 0),
+        fleetAttention: Number(summary.fleetAttention ?? 0),
+        inheritedAttentionGates: Number(summary.inheritedAttentionGates ?? 0),
+        auditEvents: Number(summary.auditEvents ?? 0),
+        assuranceDebt: Number(summary.assuranceDebt ?? 0),
+        upgradePressure: Number(summary.upgradePressure ?? 0),
+        maintenanceDue: Boolean(summary.maintenanceDue),
+        retentionReviewDue: Boolean(summary.retentionReviewDue),
+      },
+      lifecyclePolicy: {
+        maintenanceReviewCadence: String(lifecyclePolicy.maintenanceReviewCadence ?? "weekly"),
+        workerUpgradeReviewCadence: String(lifecyclePolicy.workerUpgradeReviewCadence ?? "monthly"),
+        auditRetentionReviewDays: Number(lifecyclePolicy.auditRetentionReviewDays ?? 90),
+        closureEvidenceStorage: String(lifecyclePolicy.closureEvidenceStorage ?? "external"),
+        liveOutcomeKnownToRepository: Boolean(lifecyclePolicy.liveOutcomeKnownToRepository),
+        workerHeartbeatReviewMinutes: Number(lifecyclePolicy.workerHeartbeatReviewMinutes ?? 30),
+        commandQueueReviewMinutes: Number(lifecyclePolicy.commandQueueReviewMinutes ?? 15),
+      },
+      handoff: {
+        previousBatch: String(handoff.previousBatch ?? ""),
+        currentBatch: String(handoff.currentBatch ?? ""),
+        originalHypothesis: String(handoff.originalHypothesis ?? ""),
+        nextBatchHypothesis: String(handoff.nextBatchHypothesis ?? ""),
+        includedStages: Array.isArray(handoff.includedStages) ? handoff.includedStages.map(String) : [],
+        assuranceOwner: String(handoff.assuranceOwner ?? "system_admin"),
+        promptOnlyAfterMergeToMain: Boolean(handoff.promptOnlyAfterMergeToMain),
+      },
+      stages,
+      gates,
+      inheritedReliability: {
+        status: String(inheritedReliability.status ?? "attention"),
+        completionPercent: Number(inheritedReliability.completionPercent ?? 0),
+        gateCount: Number(inheritedReliability.gateCount ?? 0),
+        attentionGateCount: Number(inheritedReliability.attentionGateCount ?? 0),
+      },
+      productBoundary: {
+        managedRuntimeDependency: String(productBoundary.managedRuntimeDependency ?? "none"),
+        managedDatabaseDependency: String(productBoundary.managedDatabaseDependency ?? "none"),
+        browserHardwareApis: Boolean(productBoundary.browserHardwareApis),
+        payloadVisibility: String(productBoundary.payloadVisibility ?? "backend-only"),
+        rawPatientDataInReports: Boolean(productBoundary.rawPatientDataInReports),
+        signedUrlExposure: Boolean(productBoundary.signedUrlExposure),
+        storagePathExposure: Boolean(productBoundary.storagePathExposure),
+        externalRuntimeCalls: Boolean(productBoundary.externalRuntimeCalls),
+        liveSecretsInReports: Boolean(productBoundary.liveSecretsInReports),
+      },
+    },
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+  };
+}
+
 function extractItems<T>(body: unknown, mapper: (item: unknown) => T | null): T[] {
   const rawItems = isRecord(body) && Array.isArray(body.items) ? body.items : [];
   return rawItems.map(mapper).filter((item): item is T => item != null);
@@ -1672,6 +1855,26 @@ export async function getSelfHostedDeviceBridgeFleetReliability(
         kind: "http",
         code: "invalid_response",
         message: "Backend вернул некорректный ответ fleet reliability Device Bridge.",
+      });
+}
+
+export async function getSelfHostedDeviceBridgeLifecycleAssurance(
+  args: GetSelfHostedDeviceBridgeLifecycleAssuranceArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeLifecycleAssuranceDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const result = await requestJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, "/api/v1/device-bridge-worker/lifecycle-assurance"),
+    args.apiToken as string,
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const assurance = toSelfHostedDeviceBridgeLifecycleAssuranceDTO(result.value);
+  return assurance
+    ? ok(assurance)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ lifecycle assurance Device Bridge.",
       });
 }
 

@@ -2,6 +2,17 @@
 
 ## 2026-05-21
 
+- Создан Stage 9N-9Z Device Bridge lifecycle assurance как x2 batch после
+  Stage 9B-9M.
+- Добавлены backend endpoint, OpenAPI, frontend adapter/UI, manifest, renderer,
+  guard, workflow, docs and project-memory markers.
+- Подтверждается self-hosted boundary: managed runtime/database dependency
+  none, browser hardware APIs disabled, raw worker payloads and protected
+  storage fields stay outside reports.
+- Stage 10A-10L оставлен гипотезой до появления repository files.
+
+## 2026-05-21
+
 - Создаётся Stage 9B-9M x2 batch as one Pull request.
 - Added Device Bridge fleet reliability endpoint/UI, reliability manifest/renderer,
   guard, workflow, docs, preflight wiring, and project-memory markers.

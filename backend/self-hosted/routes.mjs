@@ -21,6 +21,7 @@ import { createPostgresClient, DatabaseConfigError } from "./db-client.mjs";
 import { createDeviceBridgeCommandRepository } from "./device-bridge-command-repository.mjs";
 import { createDeviceBridgeCommandService } from "./device-bridge-command-service.mjs";
 import { createDeviceBridgeFleetReliabilityService } from "./device-bridge-fleet-reliability-service.mjs";
+import { createDeviceBridgeLifecycleAssuranceService } from "./device-bridge-lifecycle-assurance-service.mjs";
 import { createDeviceBridgeOperationsContinuityService } from "./device-bridge-operations-continuity-service.mjs";
 import { createDeviceBridgeProductionReadinessService } from "./device-bridge-production-readiness-service.mjs";
 import { createDeviceBridgeWorkerRepository } from "./device-bridge-worker-repository.mjs";
@@ -193,6 +194,9 @@ const OPENAPI_8P_9A = JSON.parse(
 const OPENAPI_9B_9M = JSON.parse(
   readFileSync(join(HERE, "openapi.stage9b-9m.json"), "utf8"),
 );
+const OPENAPI_9N_9Z = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage9n-9z.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -244,6 +248,12 @@ function getRuntime(config, runtime = {}) {
     runtime.deviceBridgeFleetReliabilityService ||
     createDeviceBridgeFleetReliabilityService({
       deviceBridgeOperationsContinuityService,
+      auditRepository,
+    });
+  const deviceBridgeLifecycleAssuranceService =
+    runtime.deviceBridgeLifecycleAssuranceService ||
+    createDeviceBridgeLifecycleAssuranceService({
+      deviceBridgeFleetReliabilityService,
       auditRepository,
     });
   const doctorDashboardRepository =
@@ -374,6 +384,7 @@ function getRuntime(config, runtime = {}) {
     deviceBridgeCommandRepository,
     deviceBridgeCommandService,
     deviceBridgeFleetReliabilityService,
+    deviceBridgeLifecycleAssuranceService,
     deviceBridgeOperationsContinuityService,
     deviceBridgeProductionReadinessService,
     deviceBridgeWorkerRepository,
@@ -2198,6 +2209,37 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Stage 9N-9Z · Device Bridge lifecycle assurance.
+  if (url.pathname === "/api/v1/device-bridge-worker/lifecycle-assurance" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.deviceBridgeLifecycleAssuranceService.getLifecycleAssurance(
+        authContext,
+        { correlationId, generatedAt: now() },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "9N-9Z",
+          source: "postgres",
+          assurance: result.assurance,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   const workerCommandReplayMatch = url.pathname.match(
     /^\/api\/v1\/device-bridge-worker\/commands\/([^/]+)\/replay$/,
   );
@@ -2813,7 +2855,7 @@ export async function handleSelfHostedRequest(
           patientPortalWrites: "patient-owned-write-postgres",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
-          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability",
+          deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance",
           reports: "rbac-write-postgres",
           observability: "structured-json-logs-redacted-ops-status-runtime-checks",
           audit: "append-only-contract",
@@ -2855,6 +2897,7 @@ export async function handleSelfHostedRequest(
           openapiStage8J8O: "/openapi.stage8j-8o.json",
           openapiStage8P9A: "/openapi.stage8p-9a.json",
           openapiStage9B9M: "/openapi.stage9b-9m.json",
+          openapiStage9N9Z: "/openapi.stage9n-9z.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -2873,6 +2916,7 @@ export async function handleSelfHostedRequest(
           deviceBridgeWorkerProductionReadiness: "/api/v1/device-bridge-worker/production-readiness",
           deviceBridgeWorkerOperationsContinuity: "/api/v1/device-bridge-worker/operations-continuity",
           deviceBridgeWorkerFleetReliability: "/api/v1/device-bridge-worker/fleet-reliability",
+          deviceBridgeWorkerLifecycleAssurance: "/api/v1/device-bridge-worker/lifecycle-assurance",
           deviceBridgeWorkerReplay: "/api/v1/device-bridge-worker/commands/{commandId}/replay",
           devices: "/api/v1/devices",
           deviceCommands: "/api/v1/devices/{deviceId}/commands",
@@ -3053,6 +3097,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage9b-9m.json") {
     return jsonResponse(200, OPENAPI_9B_9M, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage9n-9z.json") {
+    return jsonResponse(200, OPENAPI_9N_9Z, config, requestOrigin);
   }
 
   return errorResponse({

@@ -2,8 +2,8 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 9B-9M is being
-implemented on branch `codex/stage9b-9m-device-bridge-fleet-reliability`.
+This handoff captures the repository state while Stage 9N-9Z is being
+merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
 
 ## Confirmed state
 
@@ -103,6 +103,26 @@ implemented on branch `codex/stage9b-9m-device-bridge-fleet-reliability`.
    - no browser hardware API coupling;
    - no raw worker payload, raw result payload, signed URL, storage path,
      token, or raw patient name output in reliability reports.
+18. Stage 9N-9Z implements Device Bridge lifecycle assurance:
+   - Stage 9N: lifecycle assurance register;
+   - Stage 9O: maintenance window policy;
+   - Stage 9P: worker upgrade posture;
+   - Stage 9Q: audit retention closure;
+   - Stage 9R: self-hosted `GET /api/v1/device-bridge-worker/lifecycle-assurance`;
+   - Stage 9S: OpenAPI and nginx publishing;
+   - Stage 9T: frontend assurance adapter;
+   - Stage 9U: `/sys/devices` lifecycle assurance UI;
+   - Stage 9V: safe closure export preview;
+   - Stage 9W: drift guard;
+   - Stage 9X: workflow gate;
+   - Stage 9Y: project-memory refresh;
+   - Stage 9Z: next batch handoff.
+19. Stage 9N-9Z product boundary:
+   - no managed runtime or managed database dependency;
+   - local PostgreSQL and local self-hosted object store only;
+   - no browser hardware API coupling;
+   - no raw worker payload, raw result payload, signed URL, storage path,
+     token, or raw patient name output in lifecycle assurance reports.
 
 ## Important operational fact
 
@@ -113,8 +133,8 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 9B-9M` is the current product batch after Stage 8P-9A.
-- `Stage 9N-9Z` is the next likely product batch after Stage 9B-9M.
+- `Stage 9N-9Z` is the confirmed product batch after Stage 9B-9M.
+- `Stage 10A-10L` is the next likely product batch after Stage 9N-9Z.
 - Historical marker: `Stage 8P-8R` was the original next hypothesis after
   Stage 8J-8O before the x2 batch expanded into Stage 8P-9A.
 - Historical marker: `Stage 9B-9D` was the original next hypothesis after
@@ -124,10 +144,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 9B-9M in one Pull request.
-2. Run:
+1. Complete the Stage 9N-9Z Pull request lifecycle.
+2. Run or verify:
+   - `npm run preflight:stage9n-9z`
    - `npm run preflight:stage9b-9m`
-   - `npm run preflight:stage8p-9a`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

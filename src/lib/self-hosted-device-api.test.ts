@@ -9,6 +9,7 @@ import {
   getSelfHostedDeviceBridgeWorkerStatus,
   getSelfHostedDeviceBridgeCommandAudit,
   getSelfHostedDeviceBridgeFleetReliability,
+  getSelfHostedDeviceBridgeLifecycleAssurance,
   getSelfHostedDeviceBridgeOperationsContinuity,
   getSelfHostedDeviceBridgeProductionReadiness,
   replaySelfHostedDeviceBridgeCommand,
@@ -17,6 +18,7 @@ import {
   requestSelfHostedDeviceCommand,
   toSelfHostedDeviceBridgeCommandAuditExportDTO,
   toSelfHostedDeviceBridgeFleetReliabilityDTO,
+  toSelfHostedDeviceBridgeLifecycleAssuranceDTO,
   toSelfHostedDeviceBridgeOperationsContinuityDTO,
   toSelfHostedDeviceBridgeDTO,
   toSelfHostedDeviceBridgeCommandAuditDTO,
@@ -910,5 +912,118 @@ describe("self-hosted-device-api", () => {
 
     expect(result.value?.reliability.completionPercent).toBe(67);
     expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/device-bridge-worker/fleet-reliability");
+  });
+
+  it("normalizes and fetches Device Bridge lifecycle assurance without unsafe fields", async () => {
+    const dto = toSelfHostedDeviceBridgeLifecycleAssuranceDTO({
+      stage: "9N-9Z",
+      source: "postgres",
+      assurance: {
+        status: "attention",
+        completionPercent: 50,
+        generatedAt: "2026-05-21T12:00:00.000Z",
+        summary: {
+          bridgeCount: 2,
+          staleWorkers: 1,
+          failedCommands: 1,
+          stuckCommands: 1,
+          retryableCommands: 2,
+          cancellableCommands: 0,
+          queuePressure: 3,
+          fleetAttention: 4,
+          inheritedAttentionGates: 1,
+          auditEvents: 9,
+          assuranceDebt: 5,
+          upgradePressure: 2,
+          maintenanceDue: true,
+          retentionReviewDue: true,
+        },
+        lifecyclePolicy: {
+          maintenanceReviewCadence: "weekly",
+          workerUpgradeReviewCadence: "monthly",
+          auditRetentionReviewDays: 90,
+          closureEvidenceStorage: "external",
+          liveOutcomeKnownToRepository: false,
+          workerHeartbeatReviewMinutes: 30,
+          commandQueueReviewMinutes: 15,
+        },
+        handoff: {
+          previousBatch: "Stage 9B-9M",
+          currentBatch: "Stage 9N-9Z",
+          originalHypothesis: "Stage 9N-9Z",
+          nextBatchHypothesis: "Stage 10A-10L",
+          includedStages: ["Stage 9N", "Stage 9Z"],
+          assuranceOwner: "system_admin",
+          promptOnlyAfterMergeToMain: true,
+        },
+        stages: [
+          {
+            id: "Stage 9N",
+            title: "Lifecycle assurance register",
+            status: "ready",
+            summary: "metadata only",
+            owner: "system_admin",
+          },
+        ],
+        gates: [
+          {
+            key: "self_hosted_boundary",
+            label: "Self-hosted product boundary",
+            required: true,
+            status: "passed",
+            detail: "none/none",
+          },
+        ],
+        inheritedReliability: {
+          status: "attention",
+          completionPercent: 67,
+          gateCount: 6,
+          attentionGateCount: 2,
+        },
+        productBoundary: {
+          managedRuntimeDependency: "none",
+          managedDatabaseDependency: "none",
+          browserHardwareApis: false,
+          payloadVisibility: "backend-only",
+          rawPatientDataInReports: false,
+          signedUrlExposure: false,
+          storagePathExposure: false,
+          externalRuntimeCalls: false,
+          liveSecretsInReports: false,
+        },
+        payload_json: { hidden: true },
+        result_json: { hidden: true },
+      },
+      access_token: "hidden",
+      storage_object_path: "hidden",
+    });
+    expect(dto?.stage).toBe("9N-9Z");
+    expect(dto?.assurance.summary.assuranceDebt).toBe(5);
+    expect(dto?.assurance.handoff.nextBatchHypothesis).toBe("Stage 10A-10L");
+    expect(JSON.stringify(dto)).not.toContain("payload_json");
+    expect(JSON.stringify(dto)).not.toContain("result_json");
+    expect(JSON.stringify(dto)).not.toContain("access_token");
+    expect(JSON.stringify(dto)).not.toContain("storage_object_path");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          stage: "9N-9Z",
+          source: "postgres",
+          assurance: dto?.assurance,
+          correlationId: "corr-9n",
+          generatedAt: "2026-05-21T12:00:00.000Z",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const result = await getSelfHostedDeviceBridgeLifecycleAssurance({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+    });
+
+    expect(result.value?.assurance.completionPercent).toBe(50);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/device-bridge-worker/lifecycle-assurance");
   });
 });

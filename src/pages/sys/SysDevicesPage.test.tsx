@@ -492,6 +492,103 @@ describe("SysDevicesPage", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/lifecycle-assurance")) {
+        return new Response(
+          JSON.stringify({
+            stage: "9N-9Z",
+            source: "postgres",
+            assurance: {
+              status: "attention",
+              completionPercent: 50,
+              generatedAt: "2026-05-21T12:00:00.000Z",
+              summary: {
+                bridgeCount: 1,
+                staleWorkers: 1,
+                failedCommands: 1,
+                stuckCommands: 1,
+                retryableCommands: 1,
+                cancellableCommands: 2,
+                queuePressure: 5,
+                fleetAttention: 8,
+                inheritedAttentionGates: 2,
+                auditEvents: 3,
+                assuranceDebt: 10,
+                upgradePressure: 2,
+                maintenanceDue: true,
+                retentionReviewDue: true,
+              },
+              lifecyclePolicy: {
+                maintenanceReviewCadence: "weekly",
+                workerUpgradeReviewCadence: "monthly",
+                auditRetentionReviewDays: 90,
+                closureEvidenceStorage: "external",
+                liveOutcomeKnownToRepository: false,
+                workerHeartbeatReviewMinutes: 30,
+                commandQueueReviewMinutes: 15,
+              },
+              handoff: {
+                previousBatch: "Stage 9B-9M",
+                currentBatch: "Stage 9N-9Z",
+                originalHypothesis: "Stage 9N-9Z",
+                nextBatchHypothesis: "Stage 10A-10L",
+                includedStages: ["Stage 9N", "Stage 9Z"],
+                assuranceOwner: "system_admin",
+                promptOnlyAfterMergeToMain: true,
+              },
+              stages: [
+                {
+                  id: "Stage 9N",
+                  title: "Lifecycle assurance register",
+                  status: "ready",
+                  summary: "Lifecycle assurance is repository-defined.",
+                  owner: "system_admin",
+                },
+                {
+                  id: "Stage 9Z",
+                  title: "Next batch handoff",
+                  status: "ready",
+                  summary: "Stage 10A-10L remains a hypothesis.",
+                  owner: "system_admin",
+                },
+              ],
+              gates: [
+                {
+                  key: "maintenance_window_reviewed",
+                  label: "Maintenance window reviewed",
+                  required: true,
+                  status: "attention",
+                  detail: "Review required.",
+                },
+                {
+                  key: "self_hosted_boundary",
+                  label: "Self-hosted product boundary",
+                  required: true,
+                  status: "passed",
+                  detail: "none/none.",
+                },
+              ],
+              inheritedReliability: {
+                status: "attention",
+                completionPercent: 67,
+                gateCount: 2,
+                attentionGateCount: 1,
+              },
+              productBoundary: {
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+                browserHardwareApis: false,
+                payloadVisibility: "backend-only",
+                rawPatientDataInReports: false,
+                signedUrlExposure: false,
+                storagePathExposure: false,
+                externalRuntimeCalls: false,
+                liveSecretsInReports: false,
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -611,7 +708,19 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("note", { name: "Device Bridge fleet reliability boundary" })).toHaveTextContent(
       "next batch hypothesis Stage 9N-9Z",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(9);
+    expect(screen.getByRole("region", { name: "Device Bridge lifecycle assurance" })).toHaveTextContent(
+      "Stage 9N-9Z",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge lifecycle assurance stages" })).toHaveTextContent(
+      "Lifecycle assurance register",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge lifecycle assurance gates" })).toHaveTextContent(
+      "Maintenance window reviewed",
+    );
+    expect(screen.getByRole("note", { name: "Device Bridge lifecycle assurance boundary" })).toHaveTextContent(
+      "next batch hypothesis Stage 10A-10L",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(10);
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
@@ -621,15 +730,15 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
     expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(11);
+    expect(fetchMock).toHaveBeenCalledTimes(12);
 
     fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
     expect(await screen.findByText(/Команда cmd-retry возвращена в очередь Device Bridge/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(12);
+    expect(fetchMock).toHaveBeenCalledTimes(13);
 
     fireEvent.click(screen.getByRole("button", { name: "Replay" }));
     expect(await screen.findByText(/Replay команды cmd-audit поставлен в очередь Device Bridge: cmd-replay/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(13);
+    expect(fetchMock).toHaveBeenCalledTimes(14);
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
@@ -643,7 +752,7 @@ describe("SysDevicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Экспорт audit CSV" }));
     expect(await screen.findByText(/Экспорт Device Bridge command audit скачан: device-bridge-command-audit-all-all-1-rows.csv/)).toBeInTheDocument();
     expect(click).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(14);
+    expect(fetchMock).toHaveBeenCalledTimes(15);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

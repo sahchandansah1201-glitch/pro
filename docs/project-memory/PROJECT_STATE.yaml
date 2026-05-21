@@ -1,10 +1,10 @@
-generated_at: "2026-05-21T08:21:54+03:00"
+generated_at: "2026-05-21T22:17:30+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage9b-9m-device-bridge-fleet-reliability"
-  head_sha: "7f21146a64e5cd2a0d347d5b69b026aab2326615"
-  head_commit: "Add Stage 8P-9A Device Bridge ops continuity"
+  branch: "codex/stage9n-9z-device-bridge-lifecycle-assurance"
+  head_sha: "3a2f2a8688ac6d7342634453373ab38f5e338ad5"
+  head_commit: "Add Stage 9B-9M Device Bridge fleet reliability"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -546,6 +546,25 @@ verification:
       product_runtime_change: true
       managed_runtime_dependency: "none"
       managed_database_dependency: "none"
+  stage9n_9z_preflight:
+    command: "npm run preflight:stage9n-9z"
+    status: "ok"
+    key_facts:
+      backend_node_tests_passed: 102
+      frontend_vitest_tests_passed: 21
+      guard_files_checked: 17
+      leak_findings: 0
+      device_bridge_lifecycle_assurance_confirmed: true
+      lifecycle_assurance_endpoint: "/api/v1/device-bridge-worker/lifecycle-assurance"
+      openapi: "/openapi.stage9n-9z.json"
+      included_stage_count: 13
+      minimum_related_stages_per_batch: 13
+      batch_size_policy: "x2 from previous twelve-stage batch"
+      closed_stage_hypothesis: "Stage 9N-9Z"
+      next_stage_hypothesis: "Stage 10A-10L"
+      product_runtime_change: true
+      managed_runtime_dependency: "none"
+      managed_database_dependency: "none"
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -675,8 +694,16 @@ stage_evidence:
     - ".github/workflows/stage8a-8c-crm-inbound-adapter.yml"
     - ".github/workflows/stage8d-8f-availability-sync.yml"
     - ".github/workflows/stage8g-8i-clinical-reporting-completion.yml"
+    - "backend/self-hosted/device-bridge-lifecycle-assurance-service.mjs"
+    - "backend/self-hosted/device-bridge-lifecycle-assurance-service.test.mjs"
+    - "backend/self-hosted/openapi.stage9n-9z.json"
+    - "deploy/self-hosted/device-bridge-lifecycle-assurance.stage9n-9z.json"
+    - "docs/backend/stage-9n-9z-device-bridge-lifecycle-assurance.md"
+    - "scripts/stage9n-9z-device-bridge-lifecycle-assurance.mjs"
+    - "scripts/check-stage9n-9z-device-bridge-lifecycle-assurance.mjs"
+    - ".github/workflows/stage9n-9z-device-bridge-lifecycle-assurance.yml"
 hypotheses:
-  - "Next logical product batch after Stage 8G-8I is Stage 8J-8L."
+  - "Next logical product batch after Stage 9N-9Z is Stage 10A-10L."
 sources:
   commands:
     - "git status --short --branch"
@@ -763,6 +790,10 @@ sources:
     - "npm run check:stage7g-7i"
     - "npm run readiness:stage7g-7i:dry-run"
     - "npm run preflight:stage7g-7i"
+    - "npm run test:stage9n-9z"
+    - "npm run check:stage9n-9z"
+    - "npm run assurance:stage9n-9z:dry-run"
+    - "npm run preflight:stage9n-9z"
     - "npm run check:project-memory"
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
