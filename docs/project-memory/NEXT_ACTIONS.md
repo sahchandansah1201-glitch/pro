@@ -2,25 +2,24 @@
 
 ## Highest-confidence next step
 
-Complete Stage 8J-8O as one x2 Pull request, then merge it before sending the
+Complete Stage 8P-9A as one x2 Pull request, then merge it before sending the
 Lovable sync prompt.
 
 ## Immediate sequence
 
-1. **Complete Stage 8J-8O implementation**:
-   - keep the scope focused on Device Bridge production readiness and the
-     server operations handbook;
+1. **Complete Stage 8P-9A implementation**:
+   - keep the scope focused on Device Bridge operations continuity, incident
+     drill, telemetry retention, UI, and next-batch handoff;
    - do not expose raw worker payloads, raw result payloads, signed URLs,
      storage paths, tokens, raw patient names, Supabase markers, browser
      hardware APIs, or managed runtime/database dependencies.
 
 2. **Verify before commit**:
-   - `npm run test:stage8j-8o`
-   - `npm run check:stage8j-8o`
-   - `npm run handbook:stage8m-8o:dry-run`
+   - `npm run test:stage8p-9a`
+   - `npm run check:stage8p-9a`
+   - `npm run continuity:stage8p-9a:dry-run`
+   - `npm run preflight:stage8p-9a`
    - `npm run preflight:stage8j-8o`
-   - `npm run preflight:stage4y`
-   - `npm run preflight:stage8g-8i`
    - `npm run test:project-memory`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
@@ -39,11 +38,16 @@ Lovable sync prompt.
    - smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 8P-8R hypothesis
+## Stage 9B-9D hypothesis
 
-Stage 8P-8R is the next likely product batch after Stage 8J-8O. Its current
+Stage 9B-9D is the next likely product batch after Stage 8P-9A. Its current
 scope has not been defined in repository files, so it remains a
 hypothesis until repository files define it.
+
+Historical roadmap anchor: Stage 8P-9A is the current x2 Device Bridge
+operations continuity batch. It expands the previous six-stage batch to
+twelve related stages in one Pull request and records Stage 9B-9D as the
+next hypothesis.
 
 Historical note: Stage 7G-7I is complete and introduced the batch verification
 loop that Stage 7J-7L now uses for product-roadmap planning. Stage 7D-7F
@@ -69,3 +73,8 @@ Historical roadmap marker: Stage 8J-8L was the original Device Bridge
 production hardening hypothesis after Stage 8G-8I. It is preserved for
 backward-compatible guards; the current x2 batch implements it together with
 Stage 8M-8O as Stage 8J-8O.
+
+Historical roadmap marker: Stage 8P-8R was the original Device Bridge
+operations continuity hypothesis after Stage 8J-8O. It is preserved for
+backward-compatible guards; the current x2 batch expands that scope through
+Stage 9A as Stage 8P-9A.

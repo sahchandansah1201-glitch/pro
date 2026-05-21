@@ -1,0 +1,156 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro self-hosted API · Stage 8P-9A",
+    "version": "8P-9A-device-ops-continuity",
+    "description": "Device Bridge operations continuity endpoint for incident drill, retention, UI handoff, and server operations evidence. Self-hosted only: no managed runtime/database dependency, no browser hardware API dependency, no signed URLs, no storage paths, no raw worker payloads, no raw patient names, and no tokens."
+  },
+  "paths": {
+    "/api/v1/device-bridge-worker/operations-continuity": {
+      "get": {
+        "summary": "Read Device Bridge operations continuity",
+        "description": "Returns safe continuity metadata derived from backend-owned readiness signals. Requires system_admin. Does not expose raw worker payloads or protected patient/device storage data.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Safe continuity metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceBridgeOperationsContinuityResponse"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/AuthRequired" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "responses": {
+      "AuthRequired": {
+        "description": "Bearer token is missing or invalid"
+      },
+      "Forbidden": {
+        "description": "The authenticated user lacks system_admin scope"
+      }
+    },
+    "schemas": {
+      "DeviceBridgeOperationsContinuityResponse": {
+        "type": "object",
+        "required": ["stage", "source", "continuity", "generatedAt", "correlationId"],
+        "properties": {
+          "stage": { "const": "8P-9A" },
+          "source": { "const": "postgres" },
+          "continuity": { "$ref": "#/components/schemas/DeviceBridgeOperationsContinuity" },
+          "generatedAt": { "type": "string" },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "DeviceBridgeOperationsContinuity": {
+        "type": "object",
+        "required": [
+          "status",
+          "completionPercent",
+          "summary",
+          "incidentDrill",
+          "retentionPolicy",
+          "handoff",
+          "stages",
+          "gates",
+          "productBoundary"
+        ],
+        "properties": {
+          "status": { "type": "string", "enum": ["ready", "attention"] },
+          "completionPercent": { "type": "number" },
+          "summary": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          },
+          "incidentDrill": {
+            "type": "object",
+            "properties": {
+              "cadence": { "type": "string" },
+              "lastDrillRecordedInGit": { "type": "boolean" },
+              "requiredSteps": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          "retentionPolicy": {
+            "type": "object",
+            "properties": {
+              "workerTelemetryRetentionDays": { "type": "number" },
+              "commandAuditRetentionDays": { "type": "number" },
+              "exportContainsRawPayloads": { "type": "boolean" },
+              "cleanupMode": { "type": "string" }
+            }
+          },
+          "handoff": {
+            "type": "object",
+            "properties": {
+              "nextBatchHypothesis": { "type": "string" },
+              "includedStages": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "continuityOwner": { "type": "string" },
+              "liveOutcomeKnownToRepository": { "type": "boolean" }
+            }
+          },
+          "stages": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ContinuityStage" }
+          },
+          "gates": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ContinuityGate" }
+          },
+          "productBoundary": {
+            "type": "object",
+            "properties": {
+              "managedRuntimeDependency": { "const": "none" },
+              "managedDatabaseDependency": { "const": "none" },
+              "browserHardwareApis": { "const": false },
+              "payloadVisibility": { "const": "backend-only" },
+              "rawPatientDataInReports": { "const": false },
+              "signedUrlExposure": { "const": false },
+              "storagePathExposure": { "const": false }
+            }
+          }
+        }
+      },
+      "ContinuityStage": {
+        "type": "object",
+        "required": ["id", "title", "status", "summary", "owner"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string" },
+          "summary": { "type": "string" },
+          "owner": { "type": "string" }
+        }
+      },
+      "ContinuityGate": {
+        "type": "object",
+        "required": ["key", "label", "status", "detail"],
+        "properties": {
+          "key": { "type": "string" },
+          "label": { "type": "string" },
+          "status": { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    }
+  }
+}

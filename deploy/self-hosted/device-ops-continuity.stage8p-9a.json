@@ -1,0 +1,72 @@
+{
+  "stage": "8P-9A",
+  "packageId": "stage8p-9a-device-ops-continuity",
+  "title": "Device Bridge operations continuity",
+  "generatedAt": "2026-05-21T00:00:00.000Z",
+  "purpose": "Bundle the next x2 Device Bridge operations batch into one repository-owned continuity package.",
+  "includedStages": [
+    { "id": "Stage 8P", "title": "Incident drill register", "status": "ready" },
+    { "id": "Stage 8Q", "title": "Telemetry retention register", "status": "ready" },
+    { "id": "Stage 8R", "title": "Continuity checklist", "status": "ready" },
+    { "id": "Stage 8S", "title": "Backend continuity endpoint", "status": "ready" },
+    { "id": "Stage 8T", "title": "OpenAPI and nginx publishing", "status": "ready" },
+    { "id": "Stage 8U", "title": "Frontend continuity adapter", "status": "ready" },
+    { "id": "Stage 8V", "title": "System devices continuity UI", "status": "ready" },
+    { "id": "Stage 8W", "title": "Safe export preview", "status": "ready" },
+    { "id": "Stage 8X", "title": "Drift guard", "status": "ready" },
+    { "id": "Stage 8Y", "title": "Workflow gate", "status": "ready" },
+    { "id": "Stage 8Z", "title": "Project-memory refresh", "status": "ready" },
+    { "id": "Stage 9A", "title": "Next batch handoff", "status": "ready" }
+  ],
+  "continuityRegisters": {
+    "incidentDrill": {
+      "cadence": "monthly",
+      "ownerRole": "system_admin",
+      "storedEvidence": "external",
+      "repositoryOutcomeKnown": false
+    },
+    "telemetryRetention": {
+      "workerTelemetryRetentionDays": 30,
+      "commandAuditRetentionDays": 90,
+      "exportContainsRawPayloads": false,
+      "cleanupMode": "operator-reviewed"
+    },
+    "nextBatchHandoff": {
+      "nextBatchHypothesis": "Stage 9B-9D",
+      "promptOnlyAfterMergeToMain": true,
+      "expectedLovableConfirmation": "Confirmed: Stage 8P-9A synced from main, no conflicts."
+    }
+  },
+  "verificationGates": [
+    { "id": "stage8p9a-tests", "command": "npm run test:stage8p-9a", "required": true },
+    { "id": "stage8p9a-guard", "command": "npm run check:stage8p-9a", "required": true },
+    { "id": "stage8p9a-dry-run", "command": "npm run continuity:stage8p-9a:dry-run", "required": true },
+    { "id": "stage8p9a-preflight", "command": "npm run preflight:stage8p-9a", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "deno-lock-guard", "command": "node scripts/check-no-deno-locks.mjs", "required": true }
+  ],
+  "requiredFiles": [
+    "backend/self-hosted/device-bridge-operations-continuity-service.mjs",
+    "backend/self-hosted/openapi.stage8p-9a.json",
+    "backend/self-hosted/routes.mjs",
+    "src/lib/self-hosted-device-api.ts",
+    "src/pages/sys/SysDevicesPage.tsx",
+    "deploy/self-hosted/device-ops-continuity.stage8p-9a.json",
+    "scripts/stage8p-9a-device-ops-continuity.mjs",
+    "scripts/check-stage8p-9a-device-ops-continuity.mjs",
+    "docs/backend/stage-8p-9a-device-ops-continuity.md",
+    ".github/workflows/stage8p-9a-device-ops-continuity.yml"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "payloadVisibility": "backend-only",
+    "rawPatientDataInReports": false,
+    "workerSecretsInReports": false,
+    "protectedStorageFieldsInReports": false
+  }
+}

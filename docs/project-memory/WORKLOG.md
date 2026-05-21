@@ -2,6 +2,14 @@
 
 ## 2026-05-21
 
+- Создан Stage 8P-9A x2 batch as one Pull request.
+- Added Device Bridge operations continuity endpoint/UI, continuity manifest/renderer,
+  guard, workflow, docs, preflight wiring, and project-memory markers.
+- Updated project-memory so Stage 8P-9A is confirmed in the current branch and
+  Stage 9B-9D remains an explicit hypothesis until repository files define it.
+
+## 2026-05-21
+
 - Создан Stage 8J-8O x2 batch as one Pull request.
 - Added Device Bridge production readiness endpoint/UI, server operations handbook,
   handbook manifest/renderer, guard, workflow, docs, preflight wiring, and

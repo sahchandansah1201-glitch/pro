@@ -2,8 +2,8 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 8J-8O is being
-implemented on branch `codex/stage8j-8o-device-ops-hardening`.
+This handoff captures the repository state while Stage 8P-9A is being
+implemented on branch `codex/stage8p-9a-device-ops-continuity`.
 
 ## Confirmed state
 
@@ -65,6 +65,25 @@ implemented on branch `codex/stage8j-8o-device-ops-hardening`.
    - no browser hardware API coupling;
    - no raw worker payload, raw result payload, signed URL, storage path,
      token, or raw patient name output in the readiness report or handbook.
+14. Stage 8P-9A implements Device Bridge operations continuity:
+   - Stage 8P: incident drill register;
+   - Stage 8Q: telemetry retention register;
+   - Stage 8R: continuity checklist;
+   - Stage 8S: self-hosted `GET /api/v1/device-bridge-worker/operations-continuity`;
+   - Stage 8T: OpenAPI and nginx publishing;
+   - Stage 8U: frontend continuity adapter;
+   - Stage 8V: `/sys/devices` continuity UI;
+   - Stage 8W: safe export preview;
+   - Stage 8X: drift guard;
+   - Stage 8Y: workflow gate;
+   - Stage 8Z: project-memory refresh;
+   - Stage 9A: next batch handoff.
+15. Stage 8P-9A product boundary:
+   - no managed runtime or managed database dependency;
+   - local PostgreSQL and local self-hosted object store only;
+   - no browser hardware API coupling;
+   - no raw worker payload, raw result payload, signed URL, storage path,
+     token, or raw patient name output in continuity reports.
 
 ## Important operational fact
 
@@ -75,17 +94,18 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 8P-8R` is the next likely product batch after Stage 8J-8O.
+- `Stage 9B-9D` is the next likely product batch after Stage 8P-9A.
+- Historical marker: `Stage 8P-8R` was the original next hypothesis after
+  Stage 8J-8O before the x2 batch expanded into Stage 8P-9A.
 - Historical marker: `Stage 8J-8L` was the original roadmap hypothesis after
   Stage 8G-8I before the batch-size increase combined it with Stage 8M-8O.
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 8J-8O in one Pull request.
+1. Finish Stage 8P-9A in one Pull request.
 2. Run:
+   - `npm run preflight:stage8p-9a`
    - `npm run preflight:stage8j-8o`
-   - `npm run preflight:stage4y`
-   - `npm run preflight:stage8g-8i`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

@@ -18,12 +18,14 @@ import {
   getSelfHostedDeviceBridgeWorkerHardening,
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeCommandAudit,
+  getSelfHostedDeviceBridgeOperationsContinuity,
   getSelfHostedDeviceBridgeProductionReadiness,
   recoverSelfHostedDeviceBridgeWorkerCommand,
   replaySelfHostedDeviceBridgeCommand,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   type SelfHostedDeviceBridgeCommandAuditDTO,
+  type SelfHostedDeviceBridgeOperationsContinuityDTO,
   type SelfHostedDeviceBridgeProductionReadinessDTO,
   type SelfHostedDeviceBridgeWorkerHardeningDTO,
   type SelfHostedDeviceBridgeWorkerRecoveryDTO,
@@ -185,6 +187,8 @@ export default function SysDevicesPage() {
   const [workerAuditError, setWorkerAuditError] = useState<string | null>(null);
   const [productionReadiness, setProductionReadiness] = useState<SelfHostedDeviceBridgeProductionReadinessDTO | null>(null);
   const [productionReadinessError, setProductionReadinessError] = useState<string | null>(null);
+  const [operationsContinuity, setOperationsContinuity] = useState<SelfHostedDeviceBridgeOperationsContinuityDTO | null>(null);
+  const [operationsContinuityError, setOperationsContinuityError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -205,6 +209,8 @@ export default function SysDevicesPage() {
       setWorkerAuditError(null);
       setProductionReadiness(null);
       setProductionReadinessError(null);
+      setOperationsContinuity(null);
+      setOperationsContinuityError(null);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -218,6 +224,7 @@ export default function SysDevicesPage() {
     setWorkerRecoveryError(null);
     setWorkerAuditError(null);
     setProductionReadinessError(null);
+    setOperationsContinuityError(null);
     Promise.all([
       listSelfHostedDeviceBridges({
         apiBaseUrl: session.apiBaseUrl,
@@ -260,7 +267,11 @@ export default function SysDevicesPage() {
         apiBaseUrl: session.apiBaseUrl,
         apiToken: session.apiToken,
       }),
-    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult, readinessResult]) => {
+      getSelfHostedDeviceBridgeOperationsContinuity({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      }),
+    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult, readinessResult, continuityResult]) => {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
@@ -311,6 +322,14 @@ export default function SysDevicesPage() {
         setProductionReadiness(null);
         setProductionReadinessError(
           readinessResult?.error?.message || "Не удалось загрузить Device Bridge production readiness.",
+        );
+      }
+      if (continuityResult?.ok) {
+        setOperationsContinuity(continuityResult.value ?? null);
+      } else {
+        setOperationsContinuity(null);
+        setOperationsContinuityError(
+          continuityResult?.error?.message || "Не удалось загрузить Device Bridge operations continuity.",
         );
       }
       setLoadStatus("ready");
@@ -996,6 +1015,99 @@ export default function SysDevicesPage() {
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
                   {productionReadinessError || "Device Bridge production readiness ожидает ответ backend."}
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+
+        {isLive && (
+          <section
+            className="space-y-2"
+            aria-label="Device Bridge operations continuity"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <Activity className="h-3.5 w-3.5" aria-hidden />
+                Stage 8P-9A · Operations continuity
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                /api/v1/device-bridge-worker/operations-continuity
+              </span>
+            </div>
+            <Card className="p-3">
+              {operationsContinuity ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                    <WorkerMetric label="Continuity %" value={operationsContinuity.continuity.completionPercent} />
+                    <WorkerMetric label="Queue pressure" value={operationsContinuity.continuity.summary.queuePressure} />
+                    <WorkerMetric label="Attention gates" value={operationsContinuity.continuity.summary.attentionGateCount} />
+                    <WorkerMetric label="Stale workers" value={operationsContinuity.continuity.summary.staleWorkers} />
+                    <WorkerMetric label="Audit events" value={operationsContinuity.continuity.summary.auditEvents} />
+                    <WorkerMetric label="Stages" value={operationsContinuity.continuity.stages.length} />
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div
+                      role="region"
+                      aria-label="Device Bridge operations continuity stages"
+                      className="rounded-md border border-border"
+                    >
+                      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Continuity stages · {operationsContinuity.continuity.status}
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {operationsContinuity.continuity.stages.map((stage) => (
+                          <div key={stage.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                            <span className="font-mono text-[11px] text-muted-foreground">{stage.id}</span>
+                            <div>
+                              <div className="font-medium text-foreground">{stage.title}</div>
+                              <div className="text-[11px] text-muted-foreground">{stage.summary}</div>
+                            </div>
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {stage.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div
+                      role="region"
+                      aria-label="Device Bridge operations continuity gates"
+                      className="rounded-md border border-border"
+                    >
+                      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Continuity gates
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {operationsContinuity.continuity.gates.map((gate) => (
+                          <div key={gate.key} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
+                            <div>
+                              <div className="font-medium text-foreground">{gate.label}</div>
+                              <div className="text-[11px] text-muted-foreground">{gate.detail}</div>
+                            </div>
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {gate.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    role="note"
+                    aria-label="Device Bridge operations continuity boundary"
+                    className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+                  >
+                    Stage 8P-9A publishes operator continuity metadata only. Managed runtime{" "}
+                    {operationsContinuity.continuity.productBoundary.managedRuntimeDependency}; managed database{" "}
+                    {operationsContinuity.continuity.productBoundary.managedDatabaseDependency}; payload{" "}
+                    {operationsContinuity.continuity.productBoundary.payloadVisibility}; next batch hypothesis{" "}
+                    {operationsContinuity.continuity.handoff.nextBatchHypothesis}.
+                  </div>
+                </div>
+              ) : (
+                <div role="status" className="text-[12px] text-muted-foreground">
+                  {operationsContinuityError || "Device Bridge operations continuity ожидает ответ backend."}
                 </div>
               )}
             </Card>
