@@ -12,6 +12,7 @@ function makeRoot() {
   const root = join(tmpdir(), `project-memory-${Date.now()}-${Math.random().toString(16).slice(2)}`);
   mkdirSync(join(root, "docs/project-memory"), { recursive: true });
   mkdirSync(join(root, "deploy/self-hosted"), { recursive: true });
+  mkdirSync(join(root, "deploy/self-hosted/integrations"), { recursive: true });
   mkdirSync(join(root, "docs/backend"), { recursive: true });
   mkdirSync(join(root, "scripts"), { recursive: true });
   mkdirSync(join(root, ".github/workflows"), { recursive: true });
