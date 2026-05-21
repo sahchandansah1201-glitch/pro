@@ -1,0 +1,153 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro self-hosted API · Stage 9B-9M",
+    "version": "9B-9M-device-bridge-fleet-reliability",
+    "description": "Self-hosted Device Bridge fleet reliability contract. The endpoint exposes safe operator metadata only and keeps the product independent from managed runtime/database services."
+  },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/api/v1/device-bridge-worker/fleet-reliability": {
+      "get": {
+        "summary": "Read Device Bridge fleet reliability package",
+        "operationId": "getDeviceBridgeFleetReliability",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Safe fleet reliability metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceBridgeFleetReliabilityResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/AuthRequired" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "responses": {
+      "AuthRequired": {
+        "description": "Authentication required"
+      },
+      "Forbidden": {
+        "description": "system_admin role required"
+      }
+    },
+    "schemas": {
+      "DeviceBridgeFleetReliabilityResponse": {
+        "type": "object",
+        "required": ["stage", "source", "reliability", "generatedAt", "correlationId"],
+        "properties": {
+          "stage": { "const": "9B-9M" },
+          "source": { "const": "postgres" },
+          "reliability": { "$ref": "#/components/schemas/DeviceBridgeFleetReliability" },
+          "auth": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string" },
+              "roles": { "type": "array", "items": { "type": "string" } },
+              "allClinics": { "type": "boolean" }
+            }
+          },
+          "generatedAt": { "type": "string" },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "DeviceBridgeFleetReliability": {
+        "type": "object",
+        "required": ["status", "completionPercent", "summary", "sloPolicy", "handoff", "stages", "gates", "productBoundary"],
+        "properties": {
+          "status": { "type": "string", "enum": ["ready", "attention"] },
+          "completionPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "bridgeCount": { "type": "integer" },
+              "staleWorkers": { "type": "integer" },
+              "failedCommands": { "type": "integer" },
+              "stuckCommands": { "type": "integer" },
+              "retryableCommands": { "type": "integer" },
+              "cancellableCommands": { "type": "integer" },
+              "auditEvents": { "type": "integer" },
+              "inheritedAttentionGates": { "type": "integer" },
+              "queuePressure": { "type": "integer" },
+              "fleetAttention": { "type": "integer" }
+            }
+          },
+          "sloPolicy": {
+            "type": "object",
+            "properties": {
+              "workerHeartbeatReviewMinutes": { "type": "integer" },
+              "commandQueueReviewMinutes": { "type": "integer" },
+              "retryReviewMinutes": { "type": "integer" },
+              "incidentDrillCadence": { "type": "string" },
+              "reliabilityReviewCadence": { "type": "string" },
+              "liveOutcomeKnownToRepository": { "type": "boolean" }
+            }
+          },
+          "handoff": {
+            "type": "object",
+            "properties": {
+              "previousBatch": { "type": "string" },
+              "currentBatch": { "type": "string" },
+              "originalHypothesis": { "type": "string" },
+              "nextBatchHypothesis": { "type": "string" },
+              "includedStages": { "type": "array", "items": { "type": "string" } },
+              "reliabilityOwner": { "type": "string" }
+            }
+          },
+          "stages": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ReliabilityStage" }
+          },
+          "gates": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ReliabilityGate" }
+          },
+          "productBoundary": {
+            "type": "object",
+            "properties": {
+              "managedRuntimeDependency": { "const": "none" },
+              "managedDatabaseDependency": { "const": "none" },
+              "browserHardwareApis": { "const": false },
+              "payloadVisibility": { "const": "backend-only" },
+              "rawPatientDataInReports": { "const": false },
+              "signedUrlExposure": { "const": false },
+              "storagePathExposure": { "const": false },
+              "externalRuntimeCalls": { "const": false }
+            }
+          }
+        }
+      },
+      "ReliabilityStage": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string" },
+          "summary": { "type": "string" },
+          "owner": { "type": "string" }
+        }
+      },
+      "ReliabilityGate": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "label": { "type": "string" },
+          "required": { "type": "boolean" },
+          "status": { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    }
+  }
+}

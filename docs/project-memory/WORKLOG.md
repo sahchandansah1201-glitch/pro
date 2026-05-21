@@ -2,6 +2,15 @@
 
 ## 2026-05-21
 
+- Создаётся Stage 9B-9M x2 batch as one Pull request.
+- Added Device Bridge fleet reliability endpoint/UI, reliability manifest/renderer,
+  guard, workflow, docs, preflight wiring, and project-memory markers.
+- Updated project-memory so Stage 9B-9M is the current batch, the older
+  Stage 9B-9D hypothesis is closed by repository files, and Stage 9N-9Z
+  remains an explicit hypothesis until repository files define it.
+
+## 2026-05-21
+
 - Создан Stage 8P-9A x2 batch as one Pull request.
 - Added Device Bridge operations continuity endpoint/UI, continuity manifest/renderer,
   guard, workflow, docs, preflight wiring, and project-memory markers.

@@ -610,3 +610,31 @@
 - `npm run test:project-memory`
 - `npm run check:project-memory`
 - `node scripts/check-no-deno-locks.mjs`
+
+## Stage 9B-9M Device Bridge fleet reliability artifacts
+
+- [device-bridge-fleet-reliability-service.mjs](../../backend/self-hosted/device-bridge-fleet-reliability-service.mjs)
+- [device-bridge-fleet-reliability-service.test.mjs](../../backend/self-hosted/device-bridge-fleet-reliability-service.test.mjs)
+- [openapi.stage9b-9m.json](../../backend/self-hosted/openapi.stage9b-9m.json)
+- [self-hosted-device-api.ts](../../src/lib/self-hosted-device-api.ts)
+- [self-hosted-device-api.test.ts](../../src/lib/self-hosted-device-api.test.ts)
+- [SysDevicesPage.tsx](../../src/pages/sys/SysDevicesPage.tsx)
+- [SysDevicesPage.test.tsx](../../src/pages/sys/SysDevicesPage.test.tsx)
+- [device-bridge-fleet-reliability.stage9b-9m.json](../../deploy/self-hosted/device-bridge-fleet-reliability.stage9b-9m.json)
+- [stage9b-9m-device-bridge-fleet-reliability.mjs](../../scripts/stage9b-9m-device-bridge-fleet-reliability.mjs)
+- [stage9b-9m-device-bridge-fleet-reliability.test.mjs](../../scripts/stage9b-9m-device-bridge-fleet-reliability.test.mjs)
+- [check-stage9b-9m-device-bridge-fleet-reliability.mjs](../../scripts/check-stage9b-9m-device-bridge-fleet-reliability.mjs)
+- [check-stage9b-9m-device-bridge-fleet-reliability.test.mjs](../../scripts/check-stage9b-9m-device-bridge-fleet-reliability.test.mjs)
+- [stage-9b-9m-device-bridge-fleet-reliability.md](../backend/stage-9b-9m-device-bridge-fleet-reliability.md)
+- [stage9b-9m-device-bridge-fleet-reliability.yml](../../.github/workflows/stage9b-9m-device-bridge-fleet-reliability.yml)
+
+## Stage 9B-9M verification commands
+
+- `npm run test:stage9b-9m`
+- `npm run check:stage9b-9m`
+- `npm run reliability:stage9b-9m:dry-run`
+- `npm run preflight:stage9b-9m`
+- `npm run preflight:stage8p-9a`
+- `npm run test:project-memory`
+- `npm run check:project-memory`
+- `node scripts/check-no-deno-locks.mjs`

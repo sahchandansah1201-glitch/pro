@@ -1,0 +1,67 @@
+name: stage9b-9m-device-bridge-fleet-reliability
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/device-bridge-fleet-reliability-service.mjs"
+      - "backend/self-hosted/device-bridge-fleet-reliability-service.test.mjs"
+      - "backend/self-hosted/openapi.stage9b-9m.json"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "deploy/self-hosted/device-bridge-fleet-reliability.stage9b-9m.json"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "scripts/stage9b-9m-device-bridge-fleet-reliability.mjs"
+      - "scripts/stage9b-9m-device-bridge-fleet-reliability.test.mjs"
+      - "scripts/check-stage9b-9m-device-bridge-fleet-reliability.mjs"
+      - "scripts/check-stage9b-9m-device-bridge-fleet-reliability.test.mjs"
+      - "docs/backend/stage-9b-9m-device-bridge-fleet-reliability.md"
+      - "docs/project-memory/**"
+      - "package.json"
+      - ".github/workflows/stage9b-9m-device-bridge-fleet-reliability.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/self-hosted/device-bridge-fleet-reliability-service.mjs"
+      - "backend/self-hosted/device-bridge-fleet-reliability-service.test.mjs"
+      - "backend/self-hosted/openapi.stage9b-9m.json"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "deploy/self-hosted/device-bridge-fleet-reliability.stage9b-9m.json"
+      - "deploy/self-hosted/nginx.stage4a.conf"
+      - "scripts/stage9b-9m-device-bridge-fleet-reliability.mjs"
+      - "scripts/stage9b-9m-device-bridge-fleet-reliability.test.mjs"
+      - "scripts/check-stage9b-9m-device-bridge-fleet-reliability.mjs"
+      - "scripts/check-stage9b-9m-device-bridge-fleet-reliability.test.mjs"
+      - "docs/backend/stage-9b-9m-device-bridge-fleet-reliability.md"
+      - "docs/project-memory/**"
+      - "package.json"
+      - ".github/workflows/stage9b-9m-device-bridge-fleet-reliability.yml"
+
+jobs:
+  stage9b-9m:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage9b-9m
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 9B-9M Device Bridge fleet reliability"
+            echo
+            echo "- Command: \`npm run preflight:stage9b-9m\`"
+            echo "- Product boundary: self-hosted runtime, local PostgreSQL, local object store"
+          } >> "$GITHUB_STEP_SUMMARY"

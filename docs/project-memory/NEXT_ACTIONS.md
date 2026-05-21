@@ -2,24 +2,25 @@
 
 ## Highest-confidence next step
 
-Complete Stage 8P-9A as one x2 Pull request, then merge it before sending the
+Complete Stage 9B-9M as one x2 Pull request, then merge it before sending the
 Lovable sync prompt.
 
 ## Immediate sequence
 
-1. **Complete Stage 8P-9A implementation**:
-   - keep the scope focused on Device Bridge operations continuity, incident
-     drill, telemetry retention, UI, and next-batch handoff;
+1. **Complete Stage 9B-9M implementation**:
+   - convert the previous Stage 9B-9D hypothesis into a larger Device Bridge
+     fleet reliability batch with backend endpoint, UI, OpenAPI, guard,
+     workflow, docs, and project-memory;
    - do not expose raw worker payloads, raw result payloads, signed URLs,
      storage paths, tokens, raw patient names, Supabase markers, browser
      hardware APIs, or managed runtime/database dependencies.
 
 2. **Verify before commit**:
-   - `npm run test:stage8p-9a`
-   - `npm run check:stage8p-9a`
-   - `npm run continuity:stage8p-9a:dry-run`
+   - `npm run test:stage9b-9m`
+   - `npm run check:stage9b-9m`
+   - `npm run reliability:stage9b-9m:dry-run`
+   - `npm run preflight:stage9b-9m`
    - `npm run preflight:stage8p-9a`
-   - `npm run preflight:stage8j-8o`
    - `npm run test:project-memory`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
@@ -38,16 +39,22 @@ Lovable sync prompt.
    - smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 9B-9D hypothesis
+## Stage 9B-9M current batch
 
-Stage 9B-9D is the next likely product batch after Stage 8P-9A. Its current
-scope has not been defined in repository files, so it remains a
-hypothesis until repository files define it.
+Stage 9B-9M is the current x2 product batch after Stage 8P-9A. It closes the
+earlier Stage 9B-9D hypothesis by defining Device Bridge fleet reliability in
+repository files.
 
 Historical roadmap anchor: Stage 8P-9A is the current x2 Device Bridge
 operations continuity batch. It expands the previous six-stage batch to
-twelve related stages in one Pull request and records Stage 9B-9D as the
-next hypothesis.
+twelve related stages in one Pull request and recorded Stage 9B-9D as the
+next hypothesis before Stage 9B-9M defined the actual scope.
+
+## Stage 9N-9Z hypothesis
+
+Stage 9N-9Z is the next likely product batch after Stage 9B-9M. Its current
+scope has not been defined in repository files, so it remains a hypothesis
+until repository files define it.
 
 Historical note: Stage 7G-7I is complete and introduced the batch verification
 loop that Stage 7J-7L now uses for product-roadmap planning. Stage 7D-7F

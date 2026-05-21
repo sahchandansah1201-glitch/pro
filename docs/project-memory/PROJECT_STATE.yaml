@@ -2,9 +2,9 @@ generated_at: "2026-05-21T08:21:54+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage8p-9a-device-ops-continuity"
-  head_sha: "de58e96f43c53408fa06df32814708156cbe5e2e"
-  head_commit: "Add Stage 8J-8O Device Bridge ops hardening"
+  branch: "codex/stage9b-9m-device-bridge-fleet-reliability"
+  head_sha: "7f21146a64e5cd2a0d347d5b69b026aab2326615"
+  head_commit: "Add Stage 8P-9A Device Bridge ops continuity"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -524,6 +524,25 @@ verification:
       minimum_related_stages_per_batch: 12
       batch_size_policy: "x2 from previous six-stage batch"
       next_stage_hypothesis: "Stage 9B-9D"
+      product_runtime_change: true
+      managed_runtime_dependency: "none"
+      managed_database_dependency: "none"
+  stage9b_9m_preflight:
+    command: "npm run preflight:stage9b-9m"
+    status: "ok"
+    key_facts:
+      backend_node_tests_passed: 98
+      frontend_vitest_tests_passed: 20
+      guard_files_checked: 17
+      leak_findings: 0
+      device_bridge_fleet_reliability_confirmed: true
+      fleet_reliability_endpoint: "/api/v1/device-bridge-worker/fleet-reliability"
+      openapi: "/openapi.stage9b-9m.json"
+      included_stage_count: 12
+      minimum_related_stages_per_batch: 12
+      batch_size_policy: "x2 from previous twelve-stage batch"
+      closed_stage_hypothesis: "Stage 9B-9D"
+      next_stage_hypothesis: "Stage 9N-9Z"
       product_runtime_change: true
       managed_runtime_dependency: "none"
       managed_database_dependency: "none"
