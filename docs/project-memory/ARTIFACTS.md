@@ -691,3 +691,28 @@
 - `npm run preflight:all -- --dry-run`
 - `node scripts/check-no-deno-locks.mjs`
 - `git diff --check`
+
+## Stage 11A-11Z development quality ledger artifacts
+
+- [development-quality-ledger.stage11a-11z.json](../../deploy/self-hosted/development-quality-ledger.stage11a-11z.json)
+- [stage11a-11z-development-quality-ledger.mjs](../../scripts/stage11a-11z-development-quality-ledger.mjs)
+- [stage11a-11z-development-quality-ledger.test.mjs](../../scripts/stage11a-11z-development-quality-ledger.test.mjs)
+- [check-stage11a-11z-development-quality-ledger.mjs](../../scripts/check-stage11a-11z-development-quality-ledger.mjs)
+- [check-stage11a-11z-development-quality-ledger.test.mjs](../../scripts/check-stage11a-11z-development-quality-ledger.test.mjs)
+- [stage-11a-11z-development-quality-ledger.md](../backend/stage-11a-11z-development-quality-ledger.md)
+- [stage11a-11z-development-quality-ledger.yml](../../.github/workflows/stage11a-11z-development-quality-ledger.yml)
+- [WORKING_CONTRACT.md](./WORKING_CONTRACT.md)
+- [BATCH_TEMPLATE.md](./BATCH_TEMPLATE.md)
+
+## Stage 11A-11Z verification commands
+
+- `npm run test:stage11a-11z`
+- `npm run check:stage11a-11z`
+- `npm run ledger:stage11a-11z:dry-run`
+- `npm run preflight:stage11a-11z`
+- `npm run preflight:stage10a-10z`
+- `npm run check:project-memory`
+- `npm run typecheck`
+- `npm run preflight:all -- --dry-run`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`

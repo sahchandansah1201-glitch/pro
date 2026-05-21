@@ -1,0 +1,176 @@
+{
+  "stage": "11A-11Z",
+  "packageId": "stage11a-11z-development-quality-ledger",
+  "title": "Stage 11A-11Z · Development quality ledger",
+  "purpose": "Turn the Stage 10A-10Z error-prevention contract into a repository-owned execution ledger for every large batch before GitHub merge and Lovable sync.",
+  "previousBatch": "Stage 10A-10Z",
+  "previousBatchCommit": "6c136db",
+  "nextBatchHypothesis": "Stage 12A-12Z",
+  "batchScale": {
+    "previousIncludedStages": 26,
+    "currentIncludedStages": 26,
+    "minimumRelatedStagesPerBatch": 26,
+    "scalePolicy": "sustain x2-size batch after Stage 10A-10Z rather than shrinking back to micro-PRs"
+  },
+  "includedStages": [
+    { "id": "Stage 11A", "title": "Batch intake ledger", "status": "ready" },
+    { "id": "Stage 11B", "title": "Repository evidence ledger", "status": "ready" },
+    { "id": "Stage 11C", "title": "Scope-to-file ownership ledger", "status": "ready" },
+    { "id": "Stage 11D", "title": "Required check matrix", "status": "ready" },
+    { "id": "Stage 11E", "title": "Previous-batch regression matrix", "status": "ready" },
+    { "id": "Stage 11F", "title": "Defect capture ledger", "status": "ready" },
+    { "id": "Stage 11G", "title": "Prevention verification ledger", "status": "ready" },
+    { "id": "Stage 11H", "title": "Temporary artifact quarantine ledger", "status": "ready" },
+    { "id": "Stage 11I", "title": "Lockfile integrity ledger", "status": "ready" },
+    { "id": "Stage 11J", "title": "Typecheck and shared type ledger", "status": "ready" },
+    { "id": "Stage 11K", "title": "UI endpoint drift ledger", "status": "ready" },
+    { "id": "Stage 11L", "title": "OpenAPI and route alignment ledger", "status": "ready" },
+    { "id": "Stage 11M", "title": "Workflow and CI alignment ledger", "status": "ready" },
+    { "id": "Stage 11N", "title": "Project-memory confirmation ledger", "status": "ready" },
+    { "id": "Stage 11O", "title": "Historical guard compatibility ledger", "status": "ready" },
+    { "id": "Stage 11P", "title": "Lovable prompt sequencing ledger", "status": "ready" },
+    { "id": "Stage 11Q", "title": "GitHub checks waiting ledger", "status": "ready" },
+    { "id": "Stage 11R", "title": "Post-merge local main ledger", "status": "ready" },
+    { "id": "Stage 11S", "title": "Sync mismatch recovery ledger", "status": "ready" },
+    { "id": "Stage 11T", "title": "Batch volume metrics ledger", "status": "ready" },
+    { "id": "Stage 11U", "title": "Risk and uncertainty ledger", "status": "ready" },
+    { "id": "Stage 11V", "title": "Artifact link ledger", "status": "ready" },
+    { "id": "Stage 11W", "title": "Boundary and privacy ledger", "status": "ready" },
+    { "id": "Stage 11X", "title": "Pull request evidence ledger", "status": "ready" },
+    { "id": "Stage 11Y", "title": "Lovable verification manifest ledger", "status": "ready" },
+    { "id": "Stage 11Z", "title": "Next x2 batch handoff ledger", "status": "ready" }
+  ],
+  "ledgerSections": [
+    {
+      "id": "batch_intake",
+      "title": "Batch Intake",
+      "requiredEvidence": [
+        "current branch",
+        "base HEAD",
+        "included stage range",
+        "same-PR justification",
+        "micro-PR exception status"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "title": "Diagnostics",
+      "requiredEvidence": [
+        "known defects",
+        "new defects detected during implementation",
+        "recurrence class per defect",
+        "prevention rule per repeated defect",
+        "command proving the prevention"
+      ]
+    },
+    {
+      "id": "verification",
+      "title": "Verification",
+      "requiredEvidence": [
+        "stage tests",
+        "stage guard",
+        "dry-run renderer",
+        "stage preflight",
+        "previous-batch regression",
+        "typecheck",
+        "project-memory",
+        "preflight-all dry-run",
+        "no-deno-locks",
+        "git diff --check"
+      ]
+    },
+    {
+      "id": "handoff",
+      "title": "Handoff",
+      "requiredEvidence": [
+        "Pull request URL",
+        "all GitHub checks passed",
+        "merge commit",
+        "local main verification",
+        "post-merge Lovable prompt",
+        "Lovable confirmation"
+      ]
+    }
+  ],
+  "qualityRules": [
+    {
+      "id": "no_memory_only_scope",
+      "severity": "critical",
+      "rule": "Stage scope must be derived from repository files, not chat memory alone."
+    },
+    {
+      "id": "x2_no_shrink",
+      "severity": "critical",
+      "rule": "Normal batches after Stage 10A-10Z must not shrink below 26 related stages without a documented exception."
+    },
+    {
+      "id": "defect_requires_prevention",
+      "severity": "critical",
+      "rule": "Every repeated or newly found defect must be recorded with a prevention rule before Lovable handoff."
+    },
+    {
+      "id": "preflight_all_alignment",
+      "severity": "high",
+      "rule": "New stage preflights must be present in preflight-all and preflight-all tests."
+    },
+    {
+      "id": "old_guard_compatibility",
+      "severity": "high",
+      "rule": "When expanding hypotheses into larger batches, preserve older guard markers as historical markers until those guards are intentionally migrated."
+    },
+    {
+      "id": "no_temp_artifacts",
+      "severity": "high",
+      "rule": "Temporary output directories and generated lock files must not enter Pull requests."
+    },
+    {
+      "id": "merge_before_lovable",
+      "severity": "critical",
+      "rule": "Lovable sync prompt must be sent only after merge into main and local main verification."
+    }
+  ],
+  "knownPreventionSources": [
+    "deploy/self-hosted/error-prevention.stage10a-10z.json",
+    "docs/project-memory/WORKING_CONTRACT.md",
+    "docs/project-memory/BATCH_TEMPLATE.md",
+    "docs/project-memory/WORKLOG.md"
+  ],
+  "requiredFiles": [
+    "deploy/self-hosted/development-quality-ledger.stage11a-11z.json",
+    "scripts/stage11a-11z-development-quality-ledger.mjs",
+    "scripts/stage11a-11z-development-quality-ledger.test.mjs",
+    "scripts/check-stage11a-11z-development-quality-ledger.mjs",
+    "scripts/check-stage11a-11z-development-quality-ledger.test.mjs",
+    "docs/backend/stage-11a-11z-development-quality-ledger.md",
+    "docs/project-memory/WORKING_CONTRACT.md",
+    "docs/project-memory/BATCH_TEMPLATE.md",
+    ".github/workflows/stage11a-11z-development-quality-ledger.yml"
+  ],
+  "verificationGates": [
+    { "id": "stage11a-11z-tests", "command": "npm run test:stage11a-11z", "required": true },
+    { "id": "stage11a-11z-guard", "command": "npm run check:stage11a-11z", "required": true },
+    { "id": "stage11a-11z-dry-run", "command": "npm run ledger:stage11a-11z:dry-run", "required": true },
+    { "id": "stage11a-11z-preflight", "command": "npm run preflight:stage11a-11z", "required": true },
+    { "id": "previous-batch-regression", "command": "npm run preflight:stage10a-10z", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "typecheck", "command": "npm run typecheck", "required": true },
+    { "id": "preflight-all-dry-run", "command": "npm run preflight:all -- --dry-run", "required": true },
+    { "id": "no-deno-locks", "command": "node scripts/check-no-deno-locks.mjs", "required": true },
+    { "id": "diff-check", "command": "git diff --check", "required": true }
+  ],
+  "productBoundary": {
+    "runtimeBehaviorChanged": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "database": "none added",
+    "objectStorage": "none added",
+    "dataVisibility": "repository quality ledger metadata only; no secrets, patient identifiers, tokens, signed URLs, worker payloads, or storage object paths"
+  },
+  "lovableHandoff": {
+    "expectedConfirmation": "Confirmed: Stage 11A-11Z synced from main, no conflicts.",
+    "promptAllowedOnlyAfterMerge": true,
+    "nextBatchHypothesis": "Stage 12A-12Z"
+  }
+}

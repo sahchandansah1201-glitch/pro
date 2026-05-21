@@ -1,0 +1,47 @@
+name: stage11a-11z-development-quality-ledger
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/development-quality-ledger.stage11a-11z.json"
+      - "scripts/stage11a-11z-development-quality-ledger.mjs"
+      - "scripts/stage11a-11z-development-quality-ledger.test.mjs"
+      - "scripts/check-stage11a-11z-development-quality-ledger.mjs"
+      - "scripts/check-stage11a-11z-development-quality-ledger.test.mjs"
+      - "docs/backend/stage-11a-11z-development-quality-ledger.md"
+      - "docs/project-memory/**"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage11a-11z-development-quality-ledger.yml"
+  workflow_dispatch:
+
+jobs:
+  stage11a-11z-development-quality-ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Run Stage 11A-11Z preflight
+        run: npm run preflight:stage11a-11z
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 11A-11Z development quality ledger"
+            echo ""
+            echo "- Command: \`npm run preflight:stage11a-11z\`"
+            echo "- Scope: process ledger only; no runtime product changes"
+            echo "- Boundary: self-hosted product, managed runtime/database dependency none"
+          } >> "$GITHUB_STEP_SUMMARY"

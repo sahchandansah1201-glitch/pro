@@ -156,6 +156,39 @@ merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
    - no database migrations;
    - no managed runtime or managed database dependency;
    - repository metadata only.
+22. Stage 11A-11Z implements development quality ledger:
+   - Stage 11A: batch intake ledger;
+   - Stage 11B: repository evidence ledger;
+   - Stage 11C: scope-to-file ownership ledger;
+   - Stage 11D: required check matrix;
+   - Stage 11E: previous-batch regression matrix;
+   - Stage 11F: defect capture ledger;
+   - Stage 11G: prevention verification ledger;
+   - Stage 11H: temporary artifact quarantine ledger;
+   - Stage 11I: lockfile integrity ledger;
+   - Stage 11J: typecheck and shared type ledger;
+   - Stage 11K: UI endpoint drift ledger;
+   - Stage 11L: OpenAPI and route alignment ledger;
+   - Stage 11M: workflow and CI alignment ledger;
+   - Stage 11N: project-memory confirmation ledger;
+   - Stage 11O: historical guard compatibility ledger;
+   - Stage 11P: Lovable prompt sequencing ledger;
+   - Stage 11Q: GitHub checks waiting ledger;
+   - Stage 11R: post-merge local main ledger;
+   - Stage 11S: sync mismatch recovery ledger;
+   - Stage 11T: batch volume metrics ledger;
+   - Stage 11U: risk and uncertainty ledger;
+   - Stage 11V: artifact link ledger;
+   - Stage 11W: boundary and privacy ledger;
+   - Stage 11X: Pull request evidence ledger;
+   - Stage 11Y: Lovable verification manifest ledger;
+   - Stage 11Z: next x2 batch handoff ledger.
+23. Stage 11A-11Z product boundary:
+   - no runtime behavior change;
+   - no backend routes or frontend product pages;
+   - no database migrations;
+   - no managed runtime or managed database dependency;
+   - repository quality metadata only.
 
 ## Important operational fact
 
@@ -167,7 +200,8 @@ expected to produce a false "missing files" result because Lovable follows
 ## Hypothesis
 
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
-- `Stage 11A-11Z` is the next likely batch after Stage 10A-10Z.
+- `Stage 11A-11Z` is the current development quality ledger batch after Stage 10A-10Z.
+- `Stage 12A-12Z` is the next likely batch after Stage 11A-11Z.
 - Historical marker: `Stage 10A-10L` was the original next hypothesis after
   Stage 9N-9Z before the x2 batch expanded into Stage 10A-10Z.
 - Historical marker: `Stage 8P-8R` was the original next hypothesis after
@@ -179,10 +213,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 10A-10Z Pull request lifecycle.
+1. Complete the Stage 11A-11Z Pull request lifecycle.
 2. Run or verify:
+   - `npm run preflight:stage11a-11z`
    - `npm run preflight:stage10a-10z`
-   - `npm run preflight:stage9n-9z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`
