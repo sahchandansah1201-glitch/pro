@@ -189,6 +189,43 @@ sent only after merge into `main` and local `main` verification.
 The next normal batch after Stage 10A-10Z is Stage 11A-11Z unless repository
 files define a different scope.
 
+## Stage 11A: Batch intake ledger
+
+Stage 11A-11Z creates the Development quality ledger for every large batch.
+The intake ledger records branch, base HEAD, included stage range,
+same-Pull-request justification, and micro-PR exception status before the
+handoff prompt is allowed.
+
+## Stage 11B-11E: Evidence and verification ledgers
+
+Repository evidence, scope-to-file ownership, required checks, and
+previous-batch regression must be visible in repository files. The normal
+minimum remains 26 related stages after Stage 10A-10Z.
+
+## Stage 11F-11G: Defect and prevention ledgers
+
+Each diagnosed defect must be paired with a prevention rule and a command or
+guard that proves the prevention. A fix without a prevention mechanism is not
+ready for Lovable handoff when the failure class can repeat.
+
+## Stage 11H-11O: Hygiene and compatibility ledgers
+
+Temporary artifacts, lock files, typecheck drift, route/OpenAPI drift, CI
+alignment, project-memory state, and historical guard compatibility remain
+part of the batch quality contract.
+
+## Stage 11P-11Y: Handoff ledgers
+
+Lovable prompt sequencing, GitHub checks, post-merge local main verification,
+sync mismatch recovery, volume metrics, risk, artifact links, boundary and
+privacy, Pull request evidence, and Lovable verification evidence must be
+captured before the prompt is sent.
+
+## Stage 11Z: Next x2 batch handoff ledger
+
+The next normal batch after Stage 11A-11Z is Stage 12A-12Z unless repository
+files define a different scope.
+
 ## Stage 7J: Product gap register
 
 After the process contract is in place, the repository needs a product gap

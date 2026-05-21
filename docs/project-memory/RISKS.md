@@ -188,13 +188,25 @@
      metadata only, keeps raw worker payloads backend-only, and keeps live
      outcomes unknown to the repository.
 
+17. **Development quality ledger can become ceremonial instead of diagnostic**
+   - Evidence: Stage 11A-11Z introduces the development quality ledger after
+     repeated requests to increase batch size and prevent recurring errors.
+   - Impact: if the ledger records commands but not discovered defects and
+     prevention rules, future large batches can repeat the same failure classes.
+   - Mitigation: Stage 11A-11Z requires batch intake, diagnostics,
+     verification, and handoff evidence, with `defect_requires_prevention` as a
+     critical quality rule.
+
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 11A-11Z is next.
-   - Basis: Stage 10A-10Z closes error-prevention and x2 batch quality gates.
-   - Uncertainty: Stage 11A-11Z is not implemented until repository files define
+   - hypothesis: Stage 12A-12Z is next.
+   - Basis: Stage 11A-11Z creates the development quality ledger after Stage
+     10A-10Z closes error-prevention and x2 batch quality gates.
+   - Uncertainty: Stage 12A-12Z is not implemented until repository files define
      it.
+   - Historical marker: Stage 11A-11Z is the current development quality ledger
+     batch in this branch.
    - Historical marker: Stage 10A-10L was the original next hypothesis after
      Stage 9N-9Z and is now implemented inside the larger Stage 10A-10Z x2
      batch.

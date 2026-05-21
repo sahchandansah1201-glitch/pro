@@ -2,24 +2,23 @@
 
 ## Highest-confidence next step
 
-Merge and verify Stage 10A-10Z as one x2 Pull request, then send the Lovable
-sync prompt only after `main` contains the merged batch.
+Merge and verify Stage 11A-11Z as one x2 Pull request, then send the Lovable
+sync prompt only after `main` contains the merged development quality ledger.
 
 ## Immediate sequence
 
-1. **Complete the Stage 10A-10Z Pull request lifecycle**:
-   - commit the error prevention batch with diagnosed defects, prevention
-     rules, manifest, renderer, guard, workflow, docs, project-memory, and
-     preflight-all wiring;
+1. **Complete the Stage 11A-11Z Pull request lifecycle**:
+   - commit the development quality ledger with manifest, renderer, guard,
+     workflow, docs, project-memory, and preflight-all wiring;
    - do not send the Lovable prompt before the PR is merged into `main` and
      local `main` is verified.
 
 2. **Verify before commit**:
-   - `npm run test:stage10a-10z`
-   - `npm run check:stage10a-10z`
-   - `npm run prevention:stage10a-10z:dry-run`
+   - `npm run test:stage11a-11z`
+   - `npm run check:stage11a-11z`
+   - `npm run ledger:stage11a-11z:dry-run`
+   - `npm run preflight:stage11a-11z`
    - `npm run preflight:stage10a-10z`
-   - `npm run preflight:stage9n-9z`
    - `npm run typecheck`
    - `npm run test:project-memory`
    - `npm run check:project-memory`
@@ -39,7 +38,17 @@ sync prompt only after `main` contains the merged batch.
    - smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 10A-10Z current batch
+## Stage 11A-11Z current batch
+
+Stage 11A-11Z is the current x2 process batch after Stage 10A-10Z. It defines
+the development quality ledger for batch intake, diagnostics, verification,
+handoff evidence, historical guard compatibility, and post-merge Lovable sync
+sequencing.
+
+The batch keeps 26 related stages in one Pull request and records Stage 12A-12Z
+as the next hypothesis until repository files define the next scope.
+
+## Stage 10A-10Z historical batch
 
 Stage 10A-10Z is the confirmed x2 process batch after Stage 9N-9Z. It closes
 the earlier Stage 10A-10L hypothesis by defining a 26-stage error-prevention
@@ -70,9 +79,9 @@ operations continuity batch. It expands the previous six-stage batch to
 twelve related stages in one Pull request and recorded Stage 9B-9D as the
 next hypothesis before Stage 9B-9M defined the actual scope.
 
-## Stage 11A-11Z hypothesis
+## Stage 12A-12Z hypothesis
 
-Stage 11A-11Z is the next likely batch after Stage 10A-10Z. Its current
+Stage 12A-12Z is the next likely batch after Stage 11A-11Z. Its current
 scope has not been defined in repository files, so it remains a hypothesis
 until repository files define it.
 

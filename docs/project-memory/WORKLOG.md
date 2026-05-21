@@ -2,6 +2,18 @@
 
 ## 2026-05-21
 
+- Created Stage 11A-11Z development quality ledger x2 batch after Stage 10A-10Z.
+- Added manifest, renderer, guard, workflow, docs, project-memory updates, and
+  preflight-all wiring for batch intake, diagnostics, verification, and handoff
+  evidence.
+- First Stage 11 test run caught ledger evidence-count drift: diagnostics had
+  four required evidence items while the renderer requires at least five per
+  section. Added recurrence class evidence to keep renderer and manifest aligned.
+- Stage 12A-12Z remains a hypothesis until repository files define the next
+  scope.
+
+## 2026-05-21
+
 - Создан Stage 10A-10Z error prevention x2 batch после Stage 9N-9Z.
 - Зафиксированы diagnosed defects из Stage 9N-9Z: UI fetch-count drift,
   shared UI type drift, preflight-all drift, temporary dry-run artifacts,

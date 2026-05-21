@@ -65,6 +65,17 @@ Use this template before starting future multi-stage work.
 - UI endpoint/request-count drift considered:
 - Shared type drift considered:
 
+## Development Quality Ledger
+
+- Batch intake evidence:
+- Repository evidence:
+- Scope-to-file ownership evidence:
+- Diagnostics evidence:
+- Verification evidence:
+- Pull request evidence:
+- Lovable handoff evidence:
+- Next x2 batch handoff evidence:
+
 ## Pull Request Lifecycle
 
 - Branch created:
