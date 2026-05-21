@@ -31,6 +31,10 @@ import {
   type SelfHostedClinicAvailableSlotDTO,
   type SelfHostedClinicAvailableSlotsPage,
 } from "@/lib/self-hosted-clinic-availability-api";
+import {
+  availabilitySyncStatusLabel,
+  buildSelfHostedAvailabilitySyncSummary,
+} from "@/lib/self-hosted-availability-sync";
 
 const STATUS_LABEL: Record<string, string> = {
   all: "Все",
@@ -226,6 +230,15 @@ export default function OperatorBookingRequestsPageLive() {
   const subtitle = session.user?.displayName
     ? `${session.user.displayName} · production booking intake`
     : "Production booking intake из self-hosted backend";
+  const availabilitySync = useMemo(
+    () =>
+      buildSelfHostedAvailabilitySyncSummary({
+        bookingRequests: page.items,
+        availableSlots: availableSlots.items,
+        importStatus,
+      }),
+    [availableSlots.items, importStatus, page.items],
+  );
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
@@ -265,6 +278,48 @@ export default function OperatorBookingRequestsPageLive() {
             {error.message}
           </section>
         )}
+
+        <section
+          className="surface-card overflow-hidden"
+          aria-label="Stage 8D-8F availability sync readiness"
+        >
+          <header className="section-bar">
+            <h2 className="h-section">Availability sync readiness</h2>
+            <span className="h-section-hint">Stage 8D-8F · local cache only</span>
+          </header>
+          <div className="grid grid-cols-2 divide-x divide-y divide-border lg:grid-cols-4 lg:divide-y-0">
+            <Kpi label="Конфликты" value={availabilitySync.issues.reduce((sum, issue) => sum + issue.count, 0)} />
+            <Kpi label="Открытые заявки" value={availabilitySync.openBookingRequests} />
+            <Kpi label="Доступные окна" value={availabilitySync.availableSlots} />
+            <Kpi label="Кандидаты" value={availabilitySync.confirmationCandidates.length} />
+          </div>
+          <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                {availabilitySyncStatusLabel(availabilitySync.status)} — {availabilitySync.nextActionLabel}
+              </span>
+              <span>
+                no CRM runtime calls; confirmation uses Stage 5S local booking-from-slot
+              </span>
+            </div>
+          </div>
+          <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+            {availabilitySync.issues.length === 0 ? (
+              "Конфликтов синхронизации не найдено."
+            ) : (
+              <ul className="space-y-2">
+                {availabilitySync.issues.map((issue) => (
+                  <li key={issue.type} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{issue.label}</span>
+                    <span className="tabular-nums">
+                      {issue.severity} · {issue.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
 
         <section className="surface-card overflow-hidden" aria-label="Статус импорта CRM и рекламных источников">
           <header className="section-bar">

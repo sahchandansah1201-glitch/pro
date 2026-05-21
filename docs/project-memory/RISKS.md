@@ -111,15 +111,23 @@
      addresses, external URLs, tokens, or raw external payload fields.
    - Mitigation: Stage 8A-8C rejects unsafe values before normalization and the
      audit report is count-only.
+10. **Availability sync can confirm the wrong booking slot**
+   - Evidence: Stage 8D-8F compares imported booking requests with local clinic
+     availability slots before the Stage 5S booking-from-slot flow.
+   - Impact: stale, duplicate, overlapping, or unmatched slots could lead to a
+     wrong confirmation candidate.
+   - Mitigation: Stage 8D-8F reports stale, duplicate-source, overlap,
+     unmatched-request, rejected-import, and raw-payload risks before marking
+     a candidate ready.
 
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 8D-8F is next.
-   - Basis: Stage 7J-7L product roadmap maps the next batch after CRM inbound
-     adapter implementation to appointment availability sync and booking
-     confirmation.
-   - Uncertainty: Stage 8D-8F is not implemented until repository files define
+   - hypothesis: Stage 8G-8I is next.
+   - Basis: Stage 8D-8F closes availability sync and booking confirmation
+     readiness, leaving clinical reporting completion as the next likely
+     product batch.
+   - Uncertainty: Stage 8G-8I is not implemented until repository files define
      it.
 
 ## Mitigations

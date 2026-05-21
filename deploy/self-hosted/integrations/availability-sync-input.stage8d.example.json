@@ -1,0 +1,53 @@
+{
+  "snapshotId": "availability-sync-safe-snapshot-2026-05-21-1200",
+  "generatedAt": "2026-05-21T12:00:00.000Z",
+  "source": "local_postgresql_export",
+  "importStatus": {
+    "recentBatchCount": 1,
+    "rejectedLast24h": 0,
+    "duplicateLast24h": 0,
+    "latestImportAt": "2026-05-21T09:00:00.000Z",
+    "openBookingRequestCount": 2,
+    "availableSlotCount": 2,
+    "storedRawPayload": false,
+    "runtimeCallsExternalSystems": false
+  },
+  "bookingRequests": [
+    {
+      "requestRef": "request-safe-1",
+      "clinicRef": "clinic-derma-pro",
+      "preferredFrom": "2026-06-04T09:00:00.000Z",
+      "preferredTo": "2026-06-04T11:00:00.000Z",
+      "status": "requested"
+    },
+    {
+      "requestRef": "request-safe-2",
+      "clinicRef": "clinic-derma-pro",
+      "preferredFrom": "2026-06-05T10:00:00.000Z",
+      "preferredTo": "2026-06-05T12:00:00.000Z",
+      "status": "reviewing"
+    }
+  ],
+  "availableSlots": [
+    {
+      "slotRef": "slot-safe-1",
+      "clinicRef": "clinic-derma-pro",
+      "doctorRef": "doctor-a",
+      "sourceSystem": "clinic_crm",
+      "sourceSlotRef": "source-slot-a",
+      "startedAt": "2026-06-04T09:30:00.000Z",
+      "durationMinutes": 30,
+      "status": "available"
+    },
+    {
+      "slotRef": "slot-safe-2",
+      "clinicRef": "clinic-derma-pro",
+      "doctorRef": "doctor-b",
+      "sourceSystem": "clinic_crm",
+      "sourceSlotRef": "source-slot-b",
+      "startedAt": "2026-06-05T10:30:00.000Z",
+      "durationMinutes": 30,
+      "status": "available"
+    }
+  ]
+}

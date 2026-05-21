@@ -15,6 +15,8 @@ function makeRoot() {
   mkdirSync(join(root, "deploy/self-hosted/integrations"), { recursive: true });
   mkdirSync(join(root, "docs/backend"), { recursive: true });
   mkdirSync(join(root, "scripts"), { recursive: true });
+  mkdirSync(join(root, "src/lib"), { recursive: true });
+  mkdirSync(join(root, "src/pages/operator"), { recursive: true });
   mkdirSync(join(root, ".github/workflows"), { recursive: true });
   for (const file of [
     "deploy/self-hosted/acceptance-baseline.stage6a.json",
@@ -51,11 +53,15 @@ function makeRoot() {
     "deploy/self-hosted/integrations/crm-inbound-export.stage8a.example.json",
     "deploy/self-hosted/integrations/crm-inbound-mapping.stage8a.example.json",
     "deploy/self-hosted/integrations/booking-import.stage8b.example.json",
+    "deploy/self-hosted/integrations/availability-sync.stage8d-8f.json",
+    "deploy/self-hosted/integrations/availability-sync-input.stage8d.example.json",
+    "deploy/self-hosted/integrations/availability-sync-report.stage8f.example.json",
     "docs/backend/stage-7a-7c-development-workflow-contract.md",
     "docs/backend/stage-7d-7f-batch-automation-contract.md",
     "docs/backend/stage-7g-7i-batch-verification-loop.md",
     "docs/backend/stage-7j-7l-product-roadmap.md",
     "docs/backend/stage-8a-8c-crm-inbound-adapter.md",
+    "docs/backend/stage-8d-8f-availability-sync.md",
     "scripts/check-stage7a-7c-development-workflow-contract.mjs",
     "scripts/check-stage7a-7c-development-workflow-contract.test.mjs",
     "scripts/stage7d-7f-batch-handoff.mjs",
@@ -74,11 +80,20 @@ function makeRoot() {
     "scripts/stage8a-8c-crm-inbound-adapter.test.mjs",
     "scripts/check-stage8a-8c-crm-inbound-adapter.mjs",
     "scripts/check-stage8a-8c-crm-inbound-adapter.test.mjs",
+    "scripts/stage8d-8f-availability-sync.mjs",
+    "scripts/stage8d-8f-availability-sync.test.mjs",
+    "scripts/check-stage8d-8f-availability-sync.mjs",
+    "scripts/check-stage8d-8f-availability-sync.test.mjs",
+    "src/lib/self-hosted-availability-sync.ts",
+    "src/lib/self-hosted-availability-sync.test.ts",
+    "src/pages/operator/OperatorBookingRequestsPageLive.tsx",
+    "src/pages/operator/OperatorBookingRequestsPage.production.test.tsx",
     ".github/workflows/stage7a-7c-development-workflow-contract.yml",
     ".github/workflows/stage7d-7f-batch-automation-contract.yml",
     ".github/workflows/stage7g-7i-batch-verification-loop.yml",
     ".github/workflows/stage7j-7l-product-roadmap.yml",
     ".github/workflows/stage8a-8c-crm-inbound-adapter.yml",
+    ".github/workflows/stage8d-8f-availability-sync.yml",
     "docs/backend/stage-6a-production-acceptance-baseline.md",
     "docs/backend/stage-6b-server-install-package.md",
     "docs/backend/stage-6c-production-install-verification.md",
@@ -439,6 +454,17 @@ verification:
       crm_export_normalization_confirmed: true
       safe_import_audit_flow_confirmed: true
       minimum_related_stages_per_batch: 3
+  stage8d_8f_preflight:
+    command: "npm run preflight:stage8d-8f"
+    status: "ok"
+    key_facts:
+      tests_passed: 12
+      guard_files_checked: 13
+      leak_findings: 0
+      availability_sync_snapshot_confirmed: true
+      conflict_handling_confirmed: true
+      booking_confirmation_readiness_confirmed: true
+      minimum_related_stages_per_batch: 3
 stage_evidence:
   latest_commits:
     - "ca00a2e Harden Stage 6 handoff path resolution"
@@ -518,6 +544,9 @@ sources:
     - "deploy/self-hosted/integrations/crm-inbound-export.stage8a.example.json"
     - "deploy/self-hosted/integrations/crm-inbound-mapping.stage8a.example.json"
     - "deploy/self-hosted/integrations/booking-import.stage8b.example.json"
+    - "deploy/self-hosted/integrations/availability-sync.stage8d-8f.json"
+    - "deploy/self-hosted/integrations/availability-sync-input.stage8d.example.json"
+    - "deploy/self-hosted/integrations/availability-sync-report.stage8f.example.json"
     - "docs/backend/stage-7a-7c-development-workflow-contract.md"
     - "docs/backend/stage-7d-7f-batch-automation-contract.md"
     - "docs/backend/stage-7g-7i-batch-verification-loop.md"
@@ -531,11 +560,15 @@ sources:
     - "scripts/check-stage7j-7l-product-roadmap.mjs"
     - "scripts/stage8a-8c-crm-inbound-adapter.mjs"
     - "scripts/check-stage8a-8c-crm-inbound-adapter.mjs"
+    - "scripts/stage8d-8f-availability-sync.mjs"
+    - "scripts/check-stage8d-8f-availability-sync.mjs"
+    - "src/lib/self-hosted-availability-sync.ts"
+    - "src/pages/operator/OperatorBookingRequestsPageLive.tsx"
 `,
-    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 7D-7F confirmed. Stage 7G-7I confirmed as batch verification loop. Stage 7J-7L confirmed as product roadmap. Stage 8A-8C confirmed as CRM inbound adapter.\n\n## Hypothesis\n\nStage 8D-8F is likely next hypothesis.\n",
+    "HANDOFF.md": "# HANDOFF\n\n## Confirmed state\n\nStage 7D-7F confirmed. Stage 7G-7I confirmed as batch verification loop. Stage 7J-7L confirmed as product roadmap. Stage 8A-8C confirmed as CRM inbound adapter. Stage 8D-8F confirmed as availability sync and booking confirmation readiness.\n\n## Hypothesis\n\nStage 8G-8I is likely next hypothesis.\n",
     "WORKLOG.md": "# WORKLOG\n\n## 2026-05-17\n\n- Создан project-memory черный ящик.\n- Неподтвержденная история помечена как гипотеза.\n",
-    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 8A-8C complete. Future work uses minimum three related stages. Stage 8D-8F is the next hypothesis. Stage 7D-7F remains confirmed.\n",
-    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external. micro-PR relapse and early Lovable sync prompt remain risks. Stage 7G-7I reduces drift risk. Stage 7J-7L reduces product-roadmap drift risk. Stage 8A-8C reduces CRM inbound adapter drift risk.\n\n## Hypotheses\n\nStage 8D-8F is next hypothesis. Earlier Stage 7G hypothesis is resolved.\n",
+    "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\n## Highest-confidence next step\n\nStage 8D-8F complete. Future work uses minimum three related stages. Stage 8G-8I is the next hypothesis. Stage 7D-7F remains confirmed. Stage 8A-8C remains the historical roadmap anchor.\n",
+    "RISKS.md": "# RISKS\n\n## Confirmed risks\n\nGo-live approval is external. micro-PR relapse and early Lovable sync prompt remain risks. Stage 7G-7I reduces drift risk. Stage 7J-7L reduces product-roadmap drift risk. Stage 8A-8C reduces CRM inbound adapter drift risk. Stage 8D-8F reduces availability-sync drift risk.\n\n## Hypotheses\n\nStage 8G-8I is next hypothesis. Earlier Stage 7G hypothesis is resolved.\n",
     "ARTIFACTS.md": `# ARTIFACTS
 
 ## Stage 6 manifests
@@ -545,6 +578,7 @@ sources:
 - [stage7g-7i](../../deploy/self-hosted/batch-verification-loop.stage7g-7i.json)
 - [stage7j-7l](../../deploy/self-hosted/product-roadmap.stage7j-7l.json)
 - [stage8a-8c](../../deploy/self-hosted/integrations/crm-inbound-adapter.stage8a-8c.json)
+- [stage8d-8f](../../deploy/self-hosted/integrations/availability-sync.stage8d-8f.json)
 
 ## Verification outputs
 
@@ -590,9 +624,9 @@ test("project memory guard rejects missing required files", () => {
   assert.match(result.errors.join("\n"), /RISKS\.md/);
 });
 
-test("project memory guard requires Stage 7G uncertainty to be marked as hypothesis", () => {
+test("project memory guard requires Stage 8G uncertainty to be marked as hypothesis", () => {
   const root = makeRoot();
-  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 7G is next.\n" });
+  writeMemory(root, { "NEXT_ACTIONS.md": "# NEXT_ACTIONS\n\nStage 8G-8I is next.\n" });
   const result = collectProjectMemoryChecks({ root });
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /without marking it as a hypothesis/);
