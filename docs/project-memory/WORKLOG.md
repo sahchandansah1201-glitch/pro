@@ -2,6 +2,14 @@
 
 ## 2026-05-21
 
+- Создан Stage 8A-8C CRM inbound adapter implementation as one Pull request.
+- Added a CRM inbound adapter contract, safe CRM export normalization into the
+  Stage 5Q payload, and a redacted safe import audit flow.
+- Updated project-memory so Stage 8A-8C is confirmed in the current branch and
+  Stage 8D-8F remains an explicit hypothesis until repository files define it.
+
+## 2026-05-21
+
 - Создан Stage 7J-7L product roadmap control batch as one Pull request.
 - Added a product gap register, next product batch planner, and product roadmap drift guard.
 - Updated project-memory so Stage 7J-7L is confirmed in the current branch and

@@ -183,6 +183,18 @@
    - [check-stage7j-7l-product-roadmap.test.mjs](../../scripts/check-stage7j-7l-product-roadmap.test.mjs)
    - [stage7j-7l-product-roadmap.yml](../../.github/workflows/stage7j-7l-product-roadmap.yml)
 
+11. Stage 8A-8C CRM inbound adapter artifacts:
+   - [crm-inbound-adapter.stage8a-8c.json](../../deploy/self-hosted/integrations/crm-inbound-adapter.stage8a-8c.json)
+   - [crm-inbound-export.stage8a.example.json](../../deploy/self-hosted/integrations/crm-inbound-export.stage8a.example.json)
+   - [crm-inbound-mapping.stage8a.example.json](../../deploy/self-hosted/integrations/crm-inbound-mapping.stage8a.example.json)
+   - [booking-import.stage8b.example.json](../../deploy/self-hosted/integrations/booking-import.stage8b.example.json)
+   - [stage-8a-8c-crm-inbound-adapter.md](../backend/stage-8a-8c-crm-inbound-adapter.md)
+   - [stage8a-8c-crm-inbound-adapter.mjs](../../scripts/stage8a-8c-crm-inbound-adapter.mjs)
+   - [stage8a-8c-crm-inbound-adapter.test.mjs](../../scripts/stage8a-8c-crm-inbound-adapter.test.mjs)
+   - [check-stage8a-8c-crm-inbound-adapter.mjs](../../scripts/check-stage8a-8c-crm-inbound-adapter.mjs)
+   - [check-stage8a-8c-crm-inbound-adapter.test.mjs](../../scripts/check-stage8a-8c-crm-inbound-adapter.test.mjs)
+   - [stage8a-8c-crm-inbound-adapter.yml](../../.github/workflows/stage8a-8c-crm-inbound-adapter.yml)
+
 ## Verification outputs captured during black-box creation
 
 0. Stage 7A-7C planned verification:
@@ -216,6 +228,15 @@
    - `npm run check:stage7j-7l`
    - `npm run roadmap:stage7j-7l:dry-run`
    - `npm run preflight:stage7j-7l`
+   - `npm run check:project-memory`
+   - `npm run preflight:all -- --dry-run`
+   - `node scripts/check-no-deno-locks.mjs`
+
+0.4. Stage 8A-8C planned verification:
+   - `npm run test:stage8a-8c`
+   - `npm run check:stage8a-8c`
+   - `npm run adapter:stage8a-8c:dry-run`
+   - `npm run preflight:stage8a-8c`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`

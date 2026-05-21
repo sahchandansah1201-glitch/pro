@@ -1,0 +1,46 @@
+name: stage8a-8c-crm-inbound-adapter
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/integrations/crm-inbound-adapter.stage8a-8c.json"
+      - "deploy/self-hosted/integrations/crm-inbound-export.stage8a.example.json"
+      - "deploy/self-hosted/integrations/crm-inbound-mapping.stage8a.example.json"
+      - "deploy/self-hosted/integrations/booking-import.stage8b.example.json"
+      - "scripts/stage8a-8c-crm-inbound-adapter.mjs"
+      - "scripts/stage8a-8c-crm-inbound-adapter.test.mjs"
+      - "scripts/check-stage8a-8c-crm-inbound-adapter.mjs"
+      - "scripts/check-stage8a-8c-crm-inbound-adapter.test.mjs"
+      - "docs/backend/stage-8a-8c-crm-inbound-adapter.md"
+      - ".github/workflows/stage8a-8c-crm-inbound-adapter.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "docs/project-memory/**"
+  workflow_dispatch:
+
+jobs:
+  stage8a_8c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Stage 8A-8C preflight
+        run: npm run preflight:stage8a-8c
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 8A-8C CRM inbound adapter"
+            echo ""
+            echo "- Command: \`npm run preflight:stage8a-8c\`"
+            echo "- Boundary: self-hosted/operator-owned adapter, managed runtime/database dependency: none"
+          } >> "$GITHUB_STEP_SUMMARY"
