@@ -423,6 +423,73 @@ export interface SelfHostedDeviceBridgeOperationsContinuityDTO {
   generatedAt: string;
 }
 
+export interface SelfHostedDeviceBridgeFleetReliabilityStageDTO {
+  id: string;
+  title: string;
+  status: "ready" | "attention" | "blocked" | string;
+  summary: string;
+  owner: string;
+}
+
+export interface SelfHostedDeviceBridgeFleetReliabilityGateDTO {
+  key: string;
+  label: string;
+  required: boolean;
+  status: "passed" | "attention" | "info" | string;
+  detail: string;
+}
+
+export interface SelfHostedDeviceBridgeFleetReliabilityDTO {
+  stage: "9B-9M" | string;
+  source: "postgres" | string;
+  reliability: {
+    status: "ready" | "attention" | string;
+    completionPercent: number;
+    summary: {
+      bridgeCount: number;
+      staleWorkers: number;
+      failedCommands: number;
+      stuckCommands: number;
+      retryableCommands: number;
+      cancellableCommands: number;
+      auditEvents: number;
+      inheritedAttentionGates: number;
+      queuePressure: number;
+      fleetAttention: number;
+    };
+    sloPolicy: {
+      workerHeartbeatReviewMinutes: number;
+      commandQueueReviewMinutes: number;
+      retryReviewMinutes: number;
+      incidentDrillCadence: string;
+      reliabilityReviewCadence: string;
+      liveOutcomeKnownToRepository: boolean;
+    };
+    handoff: {
+      previousBatch: string;
+      currentBatch: string;
+      originalHypothesis: string;
+      nextBatchHypothesis: string;
+      includedStages: string[];
+      reliabilityOwner: string;
+    };
+    stages: SelfHostedDeviceBridgeFleetReliabilityStageDTO[];
+    gates: SelfHostedDeviceBridgeFleetReliabilityGateDTO[];
+    productBoundary: {
+      managedRuntimeDependency: string;
+      managedDatabaseDependency: string;
+      browserHardwareApis: boolean;
+      payloadVisibility: string;
+      rawPatientDataInReports: boolean;
+      signedUrlExposure: boolean;
+      storagePathExposure: boolean;
+      externalRuntimeCalls: boolean;
+    };
+  };
+  correlationId: string;
+  generatedAt: string;
+}
+
 export interface SelfHostedDeviceBridgeWorkerStatusDTO {
   stage: "4U" | string;
   source: "postgres" | string;
@@ -492,6 +559,8 @@ export interface ExportSelfHostedDeviceBridgeCommandAuditArgs extends GetSelfHos
 export interface GetSelfHostedDeviceBridgeProductionReadinessArgs extends BaseArgs {}
 
 export interface GetSelfHostedDeviceBridgeOperationsContinuityArgs extends BaseArgs {}
+
+export interface GetSelfHostedDeviceBridgeFleetReliabilityArgs extends BaseArgs {}
 
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
@@ -1208,6 +1277,91 @@ export function toSelfHostedDeviceBridgeOperationsContinuityDTO(
   };
 }
 
+export function toSelfHostedDeviceBridgeFleetReliabilityDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeFleetReliabilityDTO | null {
+  if (!isRecord(input) || !isRecord(input.reliability)) return null;
+  const reliability = input.reliability;
+  const summary = isRecord(reliability.summary) ? reliability.summary : {};
+  const sloPolicy = isRecord(reliability.sloPolicy) ? reliability.sloPolicy : {};
+  const handoff = isRecord(reliability.handoff) ? reliability.handoff : {};
+  const productBoundary = isRecord(reliability.productBoundary) ? reliability.productBoundary : {};
+  const stages = Array.isArray(reliability.stages)
+    ? reliability.stages
+        .filter(isRecord)
+        .map((item) => ({
+          id: String(item.id ?? ""),
+          title: String(item.title ?? ""),
+          status: typeof item.status === "string" ? item.status : "attention",
+          summary: String(item.summary ?? ""),
+          owner: String(item.owner ?? "system_admin"),
+        }))
+        .filter((item) => item.id && item.title)
+    : [];
+  const gates = Array.isArray(reliability.gates)
+    ? reliability.gates
+        .filter(isRecord)
+        .map((item) => ({
+          key: String(item.key ?? ""),
+          label: String(item.label ?? ""),
+          required: Boolean(item.required),
+          status: typeof item.status === "string" ? item.status : "attention",
+          detail: String(item.detail ?? ""),
+        }))
+        .filter((item) => item.key && item.label)
+    : [];
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "postgres",
+    reliability: {
+      status: typeof reliability.status === "string" ? reliability.status : "attention",
+      completionPercent: Number(reliability.completionPercent ?? 0),
+      summary: {
+        bridgeCount: Number(summary.bridgeCount ?? 0),
+        staleWorkers: Number(summary.staleWorkers ?? 0),
+        failedCommands: Number(summary.failedCommands ?? 0),
+        stuckCommands: Number(summary.stuckCommands ?? 0),
+        retryableCommands: Number(summary.retryableCommands ?? 0),
+        cancellableCommands: Number(summary.cancellableCommands ?? 0),
+        auditEvents: Number(summary.auditEvents ?? 0),
+        inheritedAttentionGates: Number(summary.inheritedAttentionGates ?? 0),
+        queuePressure: Number(summary.queuePressure ?? 0),
+        fleetAttention: Number(summary.fleetAttention ?? 0),
+      },
+      sloPolicy: {
+        workerHeartbeatReviewMinutes: Number(sloPolicy.workerHeartbeatReviewMinutes ?? 30),
+        commandQueueReviewMinutes: Number(sloPolicy.commandQueueReviewMinutes ?? 15),
+        retryReviewMinutes: Number(sloPolicy.retryReviewMinutes ?? 20),
+        incidentDrillCadence: String(sloPolicy.incidentDrillCadence ?? "monthly"),
+        reliabilityReviewCadence: String(sloPolicy.reliabilityReviewCadence ?? "weekly"),
+        liveOutcomeKnownToRepository: Boolean(sloPolicy.liveOutcomeKnownToRepository),
+      },
+      handoff: {
+        previousBatch: String(handoff.previousBatch ?? ""),
+        currentBatch: String(handoff.currentBatch ?? ""),
+        originalHypothesis: String(handoff.originalHypothesis ?? ""),
+        nextBatchHypothesis: String(handoff.nextBatchHypothesis ?? ""),
+        includedStages: Array.isArray(handoff.includedStages) ? handoff.includedStages.map(String) : [],
+        reliabilityOwner: String(handoff.reliabilityOwner ?? "system_admin"),
+      },
+      stages,
+      gates,
+      productBoundary: {
+        managedRuntimeDependency: String(productBoundary.managedRuntimeDependency ?? "none"),
+        managedDatabaseDependency: String(productBoundary.managedDatabaseDependency ?? "none"),
+        browserHardwareApis: Boolean(productBoundary.browserHardwareApis),
+        payloadVisibility: String(productBoundary.payloadVisibility ?? "backend-only"),
+        rawPatientDataInReports: Boolean(productBoundary.rawPatientDataInReports),
+        signedUrlExposure: Boolean(productBoundary.signedUrlExposure),
+        storagePathExposure: Boolean(productBoundary.storagePathExposure),
+        externalRuntimeCalls: Boolean(productBoundary.externalRuntimeCalls),
+      },
+    },
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+  };
+}
+
 function extractItems<T>(body: unknown, mapper: (item: unknown) => T | null): T[] {
   const rawItems = isRecord(body) && Array.isArray(body.items) ? body.items : [];
   return rawItems.map(mapper).filter((item): item is T => item != null);
@@ -1498,6 +1652,26 @@ export async function getSelfHostedDeviceBridgeOperationsContinuity(
         kind: "http",
         code: "invalid_response",
         message: "Backend вернул некорректный ответ operations continuity Device Bridge.",
+      });
+}
+
+export async function getSelfHostedDeviceBridgeFleetReliability(
+  args: GetSelfHostedDeviceBridgeFleetReliabilityArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeFleetReliabilityDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const result = await requestJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, "/api/v1/device-bridge-worker/fleet-reliability"),
+    args.apiToken as string,
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const reliability = toSelfHostedDeviceBridgeFleetReliabilityDTO(result.value);
+  return reliability
+    ? ok(reliability)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ fleet reliability Device Bridge.",
       });
 }
 

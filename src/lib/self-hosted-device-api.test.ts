@@ -8,6 +8,7 @@ import {
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeWorkerStatus,
   getSelfHostedDeviceBridgeCommandAudit,
+  getSelfHostedDeviceBridgeFleetReliability,
   getSelfHostedDeviceBridgeOperationsContinuity,
   getSelfHostedDeviceBridgeProductionReadiness,
   replaySelfHostedDeviceBridgeCommand,
@@ -15,6 +16,7 @@ import {
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   toSelfHostedDeviceBridgeCommandAuditExportDTO,
+  toSelfHostedDeviceBridgeFleetReliabilityDTO,
   toSelfHostedDeviceBridgeOperationsContinuityDTO,
   toSelfHostedDeviceBridgeDTO,
   toSelfHostedDeviceBridgeCommandAuditDTO,
@@ -809,5 +811,104 @@ describe("self-hosted-device-api", () => {
 
     expect(result.value?.continuity.completionPercent).toBe(80);
     expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/device-bridge-worker/operations-continuity");
+  });
+
+  it("normalizes and fetches Device Bridge fleet reliability without unsafe fields", async () => {
+    const dto = toSelfHostedDeviceBridgeFleetReliabilityDTO({
+      stage: "9B-9M",
+      source: "postgres",
+      reliability: {
+        status: "attention",
+        completionPercent: 67,
+        summary: {
+          bridgeCount: 2,
+          staleWorkers: 1,
+          failedCommands: 1,
+          stuckCommands: 1,
+          retryableCommands: 0,
+          cancellableCommands: 0,
+          auditEvents: 7,
+          inheritedAttentionGates: 1,
+          queuePressure: 2,
+          fleetAttention: 4,
+        },
+        sloPolicy: {
+          workerHeartbeatReviewMinutes: 30,
+          commandQueueReviewMinutes: 15,
+          retryReviewMinutes: 20,
+          incidentDrillCadence: "monthly",
+          reliabilityReviewCadence: "weekly",
+          liveOutcomeKnownToRepository: false,
+        },
+        handoff: {
+          previousBatch: "Stage 8P-9A",
+          currentBatch: "Stage 9B-9M",
+          originalHypothesis: "Stage 9B-9D",
+          nextBatchHypothesis: "Stage 9N-9Z",
+          includedStages: ["Stage 9B", "Stage 9M"],
+          reliabilityOwner: "system_admin",
+        },
+        stages: [
+          {
+            id: "Stage 9B",
+            title: "Fleet reliability register",
+            status: "ready",
+            summary: "metadata only",
+            owner: "system_admin",
+          },
+        ],
+        gates: [
+          {
+            key: "self_hosted_boundary",
+            label: "Self-hosted product boundary",
+            required: true,
+            status: "passed",
+            detail: "none/none",
+          },
+        ],
+        productBoundary: {
+          managedRuntimeDependency: "none",
+          managedDatabaseDependency: "none",
+          browserHardwareApis: false,
+          payloadVisibility: "backend-only",
+          rawPatientDataInReports: false,
+          signedUrlExposure: false,
+          storagePathExposure: false,
+          externalRuntimeCalls: false,
+        },
+        payload_json: { hidden: true },
+        result_json: { hidden: true },
+      },
+      access_token: "hidden",
+      storage_object_path: "hidden",
+    });
+    expect(dto?.stage).toBe("9B-9M");
+    expect(dto?.reliability.summary.fleetAttention).toBe(4);
+    expect(dto?.reliability.handoff.nextBatchHypothesis).toBe("Stage 9N-9Z");
+    expect(JSON.stringify(dto)).not.toContain("payload_json");
+    expect(JSON.stringify(dto)).not.toContain("result_json");
+    expect(JSON.stringify(dto)).not.toContain("access_token");
+    expect(JSON.stringify(dto)).not.toContain("storage_object_path");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          stage: "9B-9M",
+          source: "postgres",
+          reliability: dto?.reliability,
+          correlationId: "corr-9b",
+          generatedAt: "2026-05-21T00:00:00.000Z",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const result = await getSelfHostedDeviceBridgeFleetReliability({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+    });
+
+    expect(result.value?.reliability.completionPercent).toBe(67);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/device-bridge-worker/fleet-reliability");
   });
 });

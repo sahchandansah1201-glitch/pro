@@ -18,6 +18,7 @@ import {
   getSelfHostedDeviceBridgeWorkerHardening,
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeCommandAudit,
+  getSelfHostedDeviceBridgeFleetReliability,
   getSelfHostedDeviceBridgeOperationsContinuity,
   getSelfHostedDeviceBridgeProductionReadiness,
   recoverSelfHostedDeviceBridgeWorkerCommand,
@@ -25,6 +26,7 @@ import {
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   type SelfHostedDeviceBridgeCommandAuditDTO,
+  type SelfHostedDeviceBridgeFleetReliabilityDTO,
   type SelfHostedDeviceBridgeOperationsContinuityDTO,
   type SelfHostedDeviceBridgeProductionReadinessDTO,
   type SelfHostedDeviceBridgeWorkerHardeningDTO,
@@ -189,6 +191,8 @@ export default function SysDevicesPage() {
   const [productionReadinessError, setProductionReadinessError] = useState<string | null>(null);
   const [operationsContinuity, setOperationsContinuity] = useState<SelfHostedDeviceBridgeOperationsContinuityDTO | null>(null);
   const [operationsContinuityError, setOperationsContinuityError] = useState<string | null>(null);
+  const [fleetReliability, setFleetReliability] = useState<SelfHostedDeviceBridgeFleetReliabilityDTO | null>(null);
+  const [fleetReliabilityError, setFleetReliabilityError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
   const [note, setNote] = useState<string | null>(null);
@@ -211,6 +215,8 @@ export default function SysDevicesPage() {
       setProductionReadinessError(null);
       setOperationsContinuity(null);
       setOperationsContinuityError(null);
+      setFleetReliability(null);
+      setFleetReliabilityError(null);
       setLoadStatus("idle");
       setLoadError(null);
       return;
@@ -225,6 +231,7 @@ export default function SysDevicesPage() {
     setWorkerAuditError(null);
     setProductionReadinessError(null);
     setOperationsContinuityError(null);
+    setFleetReliabilityError(null);
     Promise.all([
       listSelfHostedDeviceBridges({
         apiBaseUrl: session.apiBaseUrl,
@@ -271,7 +278,11 @@ export default function SysDevicesPage() {
         apiBaseUrl: session.apiBaseUrl,
         apiToken: session.apiToken,
       }),
-    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult, readinessResult, continuityResult]) => {
+      getSelfHostedDeviceBridgeFleetReliability({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      }),
+    ]).then(([bridgeResult, deviceResult, workerResult, hardeningResult, recoveryResult, auditResult, readinessResult, continuityResult, reliabilityResult]) => {
       if (cancelled) return;
       if (!bridgeResult.ok || !deviceResult.ok) {
         setLoadStatus("error");
@@ -282,6 +293,9 @@ export default function SysDevicesPage() {
         setWorkerHardening(null);
         setWorkerRecovery(null);
         setWorkerAudit(null);
+        setProductionReadiness(null);
+        setOperationsContinuity(null);
+        setFleetReliability(null);
         return;
       }
       setLiveBridges((bridgeResult.value ?? []).map(bridgeFromDto));
@@ -330,6 +344,14 @@ export default function SysDevicesPage() {
         setOperationsContinuity(null);
         setOperationsContinuityError(
           continuityResult?.error?.message || "Не удалось загрузить Device Bridge operations continuity.",
+        );
+      }
+      if (reliabilityResult?.ok) {
+        setFleetReliability(reliabilityResult.value ?? null);
+      } else {
+        setFleetReliability(null);
+        setFleetReliabilityError(
+          reliabilityResult?.error?.message || "Не удалось загрузить Device Bridge fleet reliability.",
         );
       }
       setLoadStatus("ready");
@@ -1108,6 +1130,99 @@ export default function SysDevicesPage() {
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
                   {operationsContinuityError || "Device Bridge operations continuity ожидает ответ backend."}
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+
+        {isLive && (
+          <section
+            className="space-y-2"
+            aria-label="Device Bridge fleet reliability"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <RadioTower className="h-3.5 w-3.5" aria-hidden />
+                Stage 9B-9M · Fleet reliability
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                /api/v1/device-bridge-worker/fleet-reliability
+              </span>
+            </div>
+            <Card className="p-3">
+              {fleetReliability ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                    <WorkerMetric label="Reliability %" value={fleetReliability.reliability.completionPercent} />
+                    <WorkerMetric label="Fleet attention" value={fleetReliability.reliability.summary.fleetAttention} />
+                    <WorkerMetric label="Queue pressure" value={fleetReliability.reliability.summary.queuePressure} />
+                    <WorkerMetric label="Stale workers" value={fleetReliability.reliability.summary.staleWorkers} />
+                    <WorkerMetric label="SLO minutes" value={fleetReliability.reliability.sloPolicy.commandQueueReviewMinutes} />
+                    <WorkerMetric label="Stages" value={fleetReliability.reliability.stages.length} />
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div
+                      role="region"
+                      aria-label="Device Bridge fleet reliability stages"
+                      className="rounded-md border border-border"
+                    >
+                      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Reliability stages · {fleetReliability.reliability.status}
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {fleetReliability.reliability.stages.map((stage) => (
+                          <div key={stage.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                            <span className="font-mono text-[11px] text-muted-foreground">{stage.id}</span>
+                            <div>
+                              <div className="font-medium text-foreground">{stage.title}</div>
+                              <div className="text-[11px] text-muted-foreground">{stage.summary}</div>
+                            </div>
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {stage.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div
+                      role="region"
+                      aria-label="Device Bridge fleet reliability gates"
+                      className="rounded-md border border-border"
+                    >
+                      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Reliability gates
+                      </div>
+                      <div className="divide-y divide-border/70">
+                        {fleetReliability.reliability.gates.map((gate) => (
+                          <div key={gate.key} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
+                            <div>
+                              <div className="font-medium text-foreground">{gate.label}</div>
+                              <div className="text-[11px] text-muted-foreground">{gate.detail}</div>
+                            </div>
+                            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {gate.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    role="note"
+                    aria-label="Device Bridge fleet reliability boundary"
+                    className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
+                  >
+                    Stage 9B-9M closes the earlier Stage 9B-9D hypothesis as a larger x2 batch.
+                    Managed runtime {fleetReliability.reliability.productBoundary.managedRuntimeDependency};
+                    managed database {fleetReliability.reliability.productBoundary.managedDatabaseDependency};
+                    payload {fleetReliability.reliability.productBoundary.payloadVisibility}; next batch hypothesis{" "}
+                    {fleetReliability.reliability.handoff.nextBatchHypothesis}.
+                  </div>
+                </div>
+              ) : (
+                <div role="status" className="text-[12px] text-muted-foreground">
+                  {fleetReliabilityError || "Device Bridge fleet reliability ожидает ответ backend."}
                 </div>
               )}
             </Card>

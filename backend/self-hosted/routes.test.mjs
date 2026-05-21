@@ -1043,7 +1043,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.capabilities.patientPortal, "patient-owned-read-postgres");
   assert.equal(meta.json.capabilities.patientPortalWrites, "patient-owned-write-postgres");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
-  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity");
+  assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
   assert.equal(meta.json.links.openapi, "/openapi.stage4z.json");
   assert.equal(meta.json.links.openapiStage4A, "/openapi.stage4a.json");
@@ -1065,6 +1065,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage4Z, "/openapi.stage4z.json");
   assert.equal(meta.json.links.openapiStage8J8O, "/openapi.stage8j-8o.json");
   assert.equal(meta.json.links.openapiStage8P9A, "/openapi.stage8p-9a.json");
+  assert.equal(meta.json.links.openapiStage9B9M, "/openapi.stage9b-9m.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -1092,6 +1093,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.deviceBridgeWorkerReplay, "/api/v1/device-bridge-worker/commands/{commandId}/replay");
   assert.equal(meta.json.links.deviceBridgeWorkerProductionReadiness, "/api/v1/device-bridge-worker/production-readiness");
   assert.equal(meta.json.links.deviceBridgeWorkerOperationsContinuity, "/api/v1/device-bridge-worker/operations-continuity");
+  assert.equal(meta.json.links.deviceBridgeWorkerFleetReliability, "/api/v1/device-bridge-worker/fleet-reliability");
   assert.equal(meta.json.links.devices, "/api/v1/devices");
   assert.equal(meta.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(meta.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
@@ -1936,6 +1938,52 @@ test("Stage 8P-9A · Device Bridge operations continuity denies non-system-admin
   assert.doesNotMatch(response.body, WORKER_SECRET_ERROR_PATTERN);
 });
 
+test("Stage 9B-9M · system_admin reads Device Bridge fleet reliability safely", async () => {
+  const auditEvents = [];
+  const runtime = createRuntime({
+    auditEvents,
+    authContext: {
+      userId: "10000000-0000-4000-8000-000000000999",
+      displayName: "System Admin",
+      roles: ["system_admin"],
+      clinicIds: [],
+      roleBindings: [{ role: "system_admin", clinicId: null, clinicSlug: null }],
+      token: {},
+    },
+  });
+  const response = await request(
+    "/api/v1/device-bridge-worker/fleet-reliability",
+    configuredEnv,
+    runtime,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "9B-9M");
+  assert.equal(response.json.reliability.productBoundary.managedRuntimeDependency, "none");
+  assert.equal(response.json.reliability.productBoundary.managedDatabaseDependency, "none");
+  assert.equal(response.json.reliability.productBoundary.payloadVisibility, "backend-only");
+  assert.equal(response.json.reliability.handoff.currentBatch, "Stage 9B-9M");
+  assert.equal(response.json.reliability.handoff.originalHypothesis, "Stage 9B-9D");
+  assert.equal(response.json.reliability.handoff.nextBatchHypothesis, "Stage 9N-9Z");
+  assert.equal(response.json.reliability.stages.length, 12);
+  assert.ok(response.json.reliability.gates.some((gate) => gate.key === "self_hosted_boundary"));
+  assert.deepEqual(response.json.auth.roles, ["system_admin"]);
+  assert.equal(auditEvents.at(-1).action, "device_bridge.fleet_reliability.read");
+  assert.doesNotMatch(response.body, /stage4s-worker-token|metadata_json|payload_json|result_json|access_token|storage_object_path|patient_full_name|navigator\./i);
+});
+
+test("Stage 9B-9M · Device Bridge fleet reliability denies non-system-admin", async () => {
+  const response = await request(
+    "/api/v1/device-bridge-worker/fleet-reliability",
+    configuredEnv,
+    createRuntime(),
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(response.json.error.code, "forbidden");
+  assert.doesNotMatch(response.body, WORKER_SECRET_ERROR_PATTERN);
+});
+
 test("Stage 4X · system_admin replays a safe command through backend policy", async () => {
   const runtime = createRuntime({
     authContext: {
@@ -2618,6 +2666,14 @@ test("Stage 8P-9A · /openapi.stage8p-9a.json documents Device Bridge operations
   assert.doesNotMatch(response.body, /SUPABASE_|api-read|api-write|storage_object_path|signed_url|access_token/i);
 });
 
+test("Stage 9B-9M · /openapi.stage9b-9m.json documents Device Bridge fleet reliability", async () => {
+  const response = await request("/openapi.stage9b-9m.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "9B-9M-device-bridge-fleet-reliability");
+  assert.ok(response.json.paths["/api/v1/device-bridge-worker/fleet-reliability"]);
+  assert.doesNotMatch(response.body, /SUPABASE_|api-read|api-write|storage_object_path|signed_url|access_token/i);
+});
+
 test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and links", async () => {
   const response = await request("/api/v1/meta", configuredEnv);
   assert.equal(response.status, 200);
@@ -2663,6 +2719,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.openapiStage5T, "/openapi.stage5t.json");
   assert.equal(response.json.links.openapiStage8J8O, "/openapi.stage8j-8o.json");
   assert.equal(response.json.links.openapiStage8P9A, "/openapi.stage8p-9a.json");
+  assert.equal(response.json.links.openapiStage9B9M, "/openapi.stage9b-9m.json");
   assert.equal(response.json.links.doctorDashboard, "/api/v1/doctor/dashboard");
   assert.equal(response.json.links.leadsAppointments, "/api/v1/leads/appointments");
   assert.equal(response.json.links.createLead, "/api/v1/leads");
@@ -2694,6 +2751,7 @@ test("Stage 4G · /api/v1/meta exposes current self-hosted capabilities and link
   assert.equal(response.json.links.deviceBridgeWorkerAuditExport, "/api/v1/device-bridge-worker/audit/export");
   assert.equal(response.json.links.deviceBridgeWorkerProductionReadiness, "/api/v1/device-bridge-worker/production-readiness");
   assert.equal(response.json.links.deviceBridgeWorkerOperationsContinuity, "/api/v1/device-bridge-worker/operations-continuity");
+  assert.equal(response.json.links.deviceBridgeWorkerFleetReliability, "/api/v1/device-bridge-worker/fleet-reliability");
   assert.equal(response.json.links.devices, "/api/v1/devices");
   assert.equal(response.json.links.deviceCommands, "/api/v1/devices/{deviceId}/commands");
   assert.equal(response.json.links.visit, "/api/v1/visits/{visitId}");

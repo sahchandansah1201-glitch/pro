@@ -409,6 +409,89 @@ describe("SysDevicesPage", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/fleet-reliability")) {
+        return new Response(
+          JSON.stringify({
+            stage: "9B-9M",
+            source: "postgres",
+            reliability: {
+              status: "attention",
+              completionPercent: 67,
+              summary: {
+                bridgeCount: 1,
+                staleWorkers: 1,
+                failedCommands: 1,
+                stuckCommands: 1,
+                retryableCommands: 1,
+                cancellableCommands: 2,
+                auditEvents: 3,
+                inheritedAttentionGates: 2,
+                queuePressure: 5,
+                fleetAttention: 8,
+              },
+              sloPolicy: {
+                workerHeartbeatReviewMinutes: 30,
+                commandQueueReviewMinutes: 15,
+                retryReviewMinutes: 20,
+                incidentDrillCadence: "monthly",
+                reliabilityReviewCadence: "weekly",
+                liveOutcomeKnownToRepository: false,
+              },
+              handoff: {
+                previousBatch: "Stage 8P-9A",
+                currentBatch: "Stage 9B-9M",
+                originalHypothesis: "Stage 9B-9D",
+                nextBatchHypothesis: "Stage 9N-9Z",
+                includedStages: ["Stage 9B", "Stage 9M"],
+                reliabilityOwner: "system_admin",
+              },
+              stages: [
+                {
+                  id: "Stage 9B",
+                  title: "Fleet reliability register",
+                  status: "ready",
+                  summary: "Fleet reliability is repository-defined.",
+                  owner: "system_admin",
+                },
+                {
+                  id: "Stage 9M",
+                  title: "Next batch handoff",
+                  status: "ready",
+                  summary: "Stage 9N-9Z remains a hypothesis.",
+                  owner: "system_admin",
+                },
+              ],
+              gates: [
+                {
+                  key: "command_slo_reviewed",
+                  label: "Command SLO reviewed",
+                  required: true,
+                  status: "attention",
+                  detail: "5 command(s).",
+                },
+                {
+                  key: "self_hosted_boundary",
+                  label: "Self-hosted product boundary",
+                  required: true,
+                  status: "passed",
+                  detail: "none/none.",
+                },
+              ],
+              productBoundary: {
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+                browserHardwareApis: false,
+                payloadVisibility: "backend-only",
+                rawPatientDataInReports: false,
+                signedUrlExposure: false,
+                storagePathExposure: false,
+                externalRuntimeCalls: false,
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -516,7 +599,19 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("note", { name: "Device Bridge operations continuity boundary" })).toHaveTextContent(
       "next batch hypothesis Stage 9B-9D",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(screen.getByRole("region", { name: "Device Bridge fleet reliability" })).toHaveTextContent(
+      "Stage 9B-9M",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge fleet reliability stages" })).toHaveTextContent(
+      "Fleet reliability register",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge fleet reliability gates" })).toHaveTextContent(
+      "Command SLO reviewed",
+    );
+    expect(screen.getByRole("note", { name: "Device Bridge fleet reliability boundary" })).toHaveTextContent(
+      "next batch hypothesis Stage 9N-9Z",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(9);
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
@@ -526,15 +621,15 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
     expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(10);
+    expect(fetchMock).toHaveBeenCalledTimes(11);
 
     fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
     expect(await screen.findByText(/Команда cmd-retry возвращена в очередь Device Bridge/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(11);
+    expect(fetchMock).toHaveBeenCalledTimes(12);
 
     fireEvent.click(screen.getByRole("button", { name: "Replay" }));
     expect(await screen.findByText(/Replay команды cmd-audit поставлен в очередь Device Bridge: cmd-replay/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(12);
+    expect(fetchMock).toHaveBeenCalledTimes(13);
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
@@ -548,7 +643,7 @@ describe("SysDevicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Экспорт audit CSV" }));
     expect(await screen.findByText(/Экспорт Device Bridge command audit скачан: device-bridge-command-audit-all-all-1-rows.csv/)).toBeInTheDocument();
     expect(click).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(13);
+    expect(fetchMock).toHaveBeenCalledTimes(14);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

@@ -2,8 +2,8 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 8P-9A is being
-implemented on branch `codex/stage8p-9a-device-ops-continuity`.
+This handoff captures the repository state while Stage 9B-9M is being
+implemented on branch `codex/stage9b-9m-device-bridge-fleet-reliability`.
 
 ## Confirmed state
 
@@ -84,6 +84,25 @@ implemented on branch `codex/stage8p-9a-device-ops-continuity`.
    - no browser hardware API coupling;
    - no raw worker payload, raw result payload, signed URL, storage path,
      token, or raw patient name output in continuity reports.
+16. Stage 9B-9M implements Device Bridge fleet reliability:
+   - Stage 9B: fleet reliability register;
+   - Stage 9C: worker SLO policy;
+   - Stage 9D: command queue SLO policy;
+   - Stage 9E: self-hosted `GET /api/v1/device-bridge-worker/fleet-reliability`;
+   - Stage 9F: OpenAPI and nginx publishing;
+   - Stage 9G: frontend reliability adapter;
+   - Stage 9H: `/sys/devices` fleet reliability UI;
+   - Stage 9I: safe reliability export preview;
+   - Stage 9J: drift guard;
+   - Stage 9K: workflow gate;
+   - Stage 9L: project-memory refresh;
+   - Stage 9M: next batch handoff.
+17. Stage 9B-9M product boundary:
+   - no managed runtime or managed database dependency;
+   - local PostgreSQL and local self-hosted object store only;
+   - no browser hardware API coupling;
+   - no raw worker payload, raw result payload, signed URL, storage path,
+     token, or raw patient name output in reliability reports.
 
 ## Important operational fact
 
@@ -94,18 +113,21 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 9B-9D` is the next likely product batch after Stage 8P-9A.
+- `Stage 9B-9M` is the current product batch after Stage 8P-9A.
+- `Stage 9N-9Z` is the next likely product batch after Stage 9B-9M.
 - Historical marker: `Stage 8P-8R` was the original next hypothesis after
   Stage 8J-8O before the x2 batch expanded into Stage 8P-9A.
+- Historical marker: `Stage 9B-9D` was the original next hypothesis after
+  Stage 8P-9A before this x2 batch expanded into Stage 9B-9M.
 - Historical marker: `Stage 8J-8L` was the original roadmap hypothesis after
   Stage 8G-8I before the batch-size increase combined it with Stage 8M-8O.
 
 ## Immediate continuation recommendation
 
-1. Finish Stage 8P-9A in one Pull request.
+1. Finish Stage 9B-9M in one Pull request.
 2. Run:
+   - `npm run preflight:stage9b-9m`
    - `npm run preflight:stage8p-9a`
-   - `npm run preflight:stage8j-8o`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

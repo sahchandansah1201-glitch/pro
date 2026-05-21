@@ -148,15 +148,25 @@
    - Mitigation: Stage 8P-9A marks live outcomes as unknown to the repository,
      keeps raw worker payloads backend-only, and requires external operator
      evidence for real drill completion.
+15. **Device Bridge fleet reliability can be mistaken for live SLO proof**
+   - Evidence: Stage 9B-9M aggregates safe continuity metadata into fleet SLO
+     gates, but live SLO outcomes remain outside Git.
+   - Impact: operators may treat repository metadata as proof that all worker
+     hosts and command queues meet clinic-network reliability targets.
+   - Mitigation: Stage 9B-9M labels the endpoint as reliability metadata only,
+     keeps raw worker payloads backend-only, and keeps live outcomes unknown to
+     the repository.
 
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 9B-9D is next.
-   - Basis: Stage 8P-9A closes Device Bridge operations continuity and
-     next-batch handoff coverage.
-   - Uncertainty: Stage 9B-9D is not implemented until repository files define
+   - hypothesis: Stage 9N-9Z is next.
+   - Basis: Stage 9B-9M closes Device Bridge fleet reliability and next-batch
+     handoff coverage.
+   - Uncertainty: Stage 9N-9Z is not implemented until repository files define
      it.
+   - Historical marker: Stage 9B-9D was the original next hypothesis after
+     Stage 8P-9A and is now implemented inside the larger Stage 9B-9M x2 batch.
    - Historical marker: Stage 8P-8R was the original next hypothesis after
      Stage 8J-8O and is now implemented inside the larger Stage 8P-9A x2 batch.
    - Historical marker: Stage 8J-8L was the original hypothesis after Stage

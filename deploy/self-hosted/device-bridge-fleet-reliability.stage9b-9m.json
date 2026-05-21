@@ -1,0 +1,76 @@
+{
+  "stage": "9B-9M",
+  "packageId": "stage9b-9m-device-bridge-fleet-reliability",
+  "title": "Device Bridge fleet reliability",
+  "generatedAt": "2026-05-21T00:00:00.000Z",
+  "purpose": "Convert the earlier Stage 9B-9D hypothesis into a larger x2 Device Bridge reliability batch that can be verified from repository files.",
+  "includedStages": [
+    { "id": "Stage 9B", "title": "Fleet reliability register", "status": "ready" },
+    { "id": "Stage 9C", "title": "Worker SLO policy", "status": "ready" },
+    { "id": "Stage 9D", "title": "Command queue SLO policy", "status": "ready" },
+    { "id": "Stage 9E", "title": "Backend reliability endpoint", "status": "ready" },
+    { "id": "Stage 9F", "title": "OpenAPI and nginx publishing", "status": "ready" },
+    { "id": "Stage 9G", "title": "Frontend reliability adapter", "status": "ready" },
+    { "id": "Stage 9H", "title": "System devices reliability UI", "status": "ready" },
+    { "id": "Stage 9I", "title": "Safe reliability export preview", "status": "ready" },
+    { "id": "Stage 9J", "title": "Drift guard", "status": "ready" },
+    { "id": "Stage 9K", "title": "Workflow gate", "status": "ready" },
+    { "id": "Stage 9L", "title": "Project-memory refresh", "status": "ready" },
+    { "id": "Stage 9M", "title": "Next batch handoff", "status": "ready" }
+  ],
+  "reliabilityRegisters": {
+    "fleetSlo": {
+      "workerHeartbeatReviewMinutes": 30,
+      "commandQueueReviewMinutes": 15,
+      "retryReviewMinutes": 20,
+      "ownerRole": "system_admin",
+      "storedEvidence": "external",
+      "repositoryOutcomeKnown": false
+    },
+    "safeUiProjection": {
+      "sourceEndpoint": "/api/v1/device-bridge-worker/fleet-reliability",
+      "visibleData": "metadata-counts-slo-labels-gate-status",
+      "payloadVisibility": "backend-only",
+      "liveOutcomeKnownToRepository": false
+    },
+    "nextBatchHandoff": {
+      "previousBatch": "Stage 8P-9A",
+      "originalHypothesis": "Stage 9B-9D",
+      "nextBatchHypothesis": "Stage 9N-9Z",
+      "promptOnlyAfterMergeToMain": true,
+      "expectedLovableConfirmation": "Confirmed: Stage 9B-9M synced from main, no conflicts."
+    }
+  },
+  "verificationGates": [
+    { "id": "stage9b9m-tests", "command": "npm run test:stage9b-9m", "required": true },
+    { "id": "stage9b9m-guard", "command": "npm run check:stage9b-9m", "required": true },
+    { "id": "stage9b9m-dry-run", "command": "npm run reliability:stage9b-9m:dry-run", "required": true },
+    { "id": "stage9b9m-preflight", "command": "npm run preflight:stage9b-9m", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "deno-lock-guard", "command": "node scripts/check-no-deno-locks.mjs", "required": true }
+  ],
+  "requiredFiles": [
+    "backend/self-hosted/device-bridge-fleet-reliability-service.mjs",
+    "backend/self-hosted/openapi.stage9b-9m.json",
+    "backend/self-hosted/routes.mjs",
+    "src/lib/self-hosted-device-api.ts",
+    "src/pages/sys/SysDevicesPage.tsx",
+    "deploy/self-hosted/device-bridge-fleet-reliability.stage9b-9m.json",
+    "scripts/stage9b-9m-device-bridge-fleet-reliability.mjs",
+    "scripts/check-stage9b-9m-device-bridge-fleet-reliability.mjs",
+    "docs/backend/stage-9b-9m-device-bridge-fleet-reliability.md",
+    ".github/workflows/stage9b-9m-device-bridge-fleet-reliability.yml"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "payloadVisibility": "backend-only",
+    "rawPatientDataInReports": false,
+    "workerSecretsInReports": false,
+    "protectedStorageFieldsInReports": false
+  }
+}
