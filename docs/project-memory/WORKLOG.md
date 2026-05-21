@@ -2,6 +2,15 @@
 
 ## 2026-05-21
 
+- Создан Stage 8J-8O x2 batch as one Pull request.
+- Added Device Bridge production readiness endpoint/UI, server operations handbook,
+  handbook manifest/renderer, guard, workflow, docs, preflight wiring, and
+  project-memory markers.
+- Updated project-memory so Stage 8J-8O is confirmed in the current branch and
+  Stage 8P-8R remains an explicit hypothesis until repository files define it.
+
+## 2026-05-21
+
 - Создан Stage 8G-8I Clinical reporting completion batch as one Pull request.
 - Added a self-hosted clinical report package read contract, readiness gates,
   backend audit, and production report-tab completion summary.

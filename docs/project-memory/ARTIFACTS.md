@@ -553,3 +553,32 @@
    - Stage 6Z keeps external next-cycle receipt values, owner signoffs,
      decision receipts, review windows, holds, exceptions, and outcomes outside
      git.
+
+## Stage 8J-8O Device Bridge and operations handbook artifacts
+
+- [device-bridge-production-readiness-service.mjs](../../backend/self-hosted/device-bridge-production-readiness-service.mjs)
+- [device-bridge-production-readiness-service.test.mjs](../../backend/self-hosted/device-bridge-production-readiness-service.test.mjs)
+- [openapi.stage8j-8o.json](../../backend/self-hosted/openapi.stage8j-8o.json)
+- [self-hosted-device-api.ts](../../src/lib/self-hosted-device-api.ts)
+- [self-hosted-device-api.test.ts](../../src/lib/self-hosted-device-api.test.ts)
+- [SysDevicesPage.tsx](../../src/pages/sys/SysDevicesPage.tsx)
+- [SysDevicesPage.test.tsx](../../src/pages/sys/SysDevicesPage.test.tsx)
+- [operations-handbook.stage8m-8o.json](../../deploy/self-hosted/operations-handbook.stage8m-8o.json)
+- [stage8m-8o-server-operations-handbook.mjs](../../scripts/stage8m-8o-server-operations-handbook.mjs)
+- [stage8m-8o-server-operations-handbook.test.mjs](../../scripts/stage8m-8o-server-operations-handbook.test.mjs)
+- [check-stage8j-8o-device-ops-hardening.mjs](../../scripts/check-stage8j-8o-device-ops-hardening.mjs)
+- [check-stage8j-8o-device-ops-hardening.test.mjs](../../scripts/check-stage8j-8o-device-ops-hardening.test.mjs)
+- [stage-8j-8o-device-ops-hardening.md](../backend/stage-8j-8o-device-ops-hardening.md)
+- [stage8j-8o-device-ops-hardening.yml](../../.github/workflows/stage8j-8o-device-ops-hardening.yml)
+
+## Stage 8J-8O verification commands
+
+- `npm run test:stage8j-8o`
+- `npm run check:stage8j-8o`
+- `npm run handbook:stage8m-8o:dry-run`
+- `npm run preflight:stage8j-8o`
+- `npm run preflight:stage4y`
+- `npm run preflight:stage8g-8i`
+- `npm run test:project-memory`
+- `npm run check:project-memory`
+- `node scripts/check-no-deno-locks.mjs`

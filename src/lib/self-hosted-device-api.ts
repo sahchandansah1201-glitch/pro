@@ -312,6 +312,52 @@ export interface SelfHostedDeviceBridgeCommandAuditExportDTO {
   generatedAt: string;
 }
 
+export interface SelfHostedDeviceBridgeProductionReadinessGateDTO {
+  key: string;
+  label: string;
+  required: boolean;
+  status: "passed" | "attention" | "info" | string;
+  detail: string;
+}
+
+export interface SelfHostedDeviceBridgeProductionReadinessDTO {
+  stage: "8J-8L" | string;
+  source: "postgres" | string;
+  readiness: {
+    status: "ready" | "attention" | string;
+    completionPercent: number;
+    summary: {
+      bridgeCount: number;
+      onlineWorkers: number;
+      degradedWorkers: number;
+      offlineWorkers: number;
+      staleWorkers: number;
+      queuedCommands: number;
+      failedCommands: number;
+      stuckCommands: number;
+      retryableCommands: number;
+      cancellableCommands: number;
+      auditEvents: number;
+      maxQueueAgeSeconds: number;
+    };
+    gates: SelfHostedDeviceBridgeProductionReadinessGateDTO[];
+    policy: {
+      workerTelemetrySource: string;
+      hardeningSource: string;
+      recoverySource: string;
+      auditSource: string;
+      auditExportSource: string;
+      hardwareBoundary: string;
+      payloadVisibility: string;
+      browserHardwareApis: boolean;
+      managedRuntimeDependency: string;
+      managedDatabaseDependency: string;
+    };
+  };
+  correlationId: string;
+  generatedAt: string;
+}
+
 export interface SelfHostedDeviceBridgeWorkerStatusDTO {
   stage: "4U" | string;
   source: "postgres" | string;
@@ -377,6 +423,8 @@ export interface ReplaySelfHostedDeviceBridgeCommandArgs extends BaseArgs {
 }
 
 export interface ExportSelfHostedDeviceBridgeCommandAuditArgs extends GetSelfHostedDeviceBridgeCommandAuditArgs {}
+
+export interface GetSelfHostedDeviceBridgeProductionReadinessArgs extends BaseArgs {}
 
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
@@ -949,6 +997,64 @@ export function toSelfHostedDeviceBridgeCommandAuditExportDTO(
   };
 }
 
+export function toSelfHostedDeviceBridgeProductionReadinessDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeProductionReadinessDTO | null {
+  if (!isRecord(input) || !isRecord(input.readiness)) return null;
+  const readiness = input.readiness;
+  const summary = isRecord(readiness.summary) ? readiness.summary : {};
+  const policy = isRecord(readiness.policy) ? readiness.policy : {};
+  const gates = Array.isArray(readiness.gates)
+    ? readiness.gates
+        .filter(isRecord)
+        .map((item) => ({
+          key: String(item.key ?? ""),
+          label: String(item.label ?? ""),
+          required: Boolean(item.required),
+          status: typeof item.status === "string" ? item.status : "info",
+          detail: String(item.detail ?? ""),
+        }))
+        .filter((item) => item.key && item.label)
+    : [];
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "postgres",
+    readiness: {
+      status: typeof readiness.status === "string" ? readiness.status : "attention",
+      completionPercent: Number(readiness.completionPercent ?? 0),
+      summary: {
+        bridgeCount: Number(summary.bridgeCount ?? 0),
+        onlineWorkers: Number(summary.onlineWorkers ?? 0),
+        degradedWorkers: Number(summary.degradedWorkers ?? 0),
+        offlineWorkers: Number(summary.offlineWorkers ?? 0),
+        staleWorkers: Number(summary.staleWorkers ?? 0),
+        queuedCommands: Number(summary.queuedCommands ?? 0),
+        failedCommands: Number(summary.failedCommands ?? 0),
+        stuckCommands: Number(summary.stuckCommands ?? 0),
+        retryableCommands: Number(summary.retryableCommands ?? 0),
+        cancellableCommands: Number(summary.cancellableCommands ?? 0),
+        auditEvents: Number(summary.auditEvents ?? 0),
+        maxQueueAgeSeconds: Number(summary.maxQueueAgeSeconds ?? 0),
+      },
+      gates,
+      policy: {
+        workerTelemetrySource: String(policy.workerTelemetrySource ?? ""),
+        hardeningSource: String(policy.hardeningSource ?? ""),
+        recoverySource: String(policy.recoverySource ?? ""),
+        auditSource: String(policy.auditSource ?? ""),
+        auditExportSource: String(policy.auditExportSource ?? ""),
+        hardwareBoundary: String(policy.hardwareBoundary ?? "local Device Bridge worker only"),
+        payloadVisibility: String(policy.payloadVisibility ?? "backend-only"),
+        browserHardwareApis: Boolean(policy.browserHardwareApis),
+        managedRuntimeDependency: String(policy.managedRuntimeDependency ?? "none"),
+        managedDatabaseDependency: String(policy.managedDatabaseDependency ?? "none"),
+      },
+    },
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+  };
+}
+
 function extractItems<T>(body: unknown, mapper: (item: unknown) => T | null): T[] {
   const rawItems = isRecord(body) && Array.isArray(body.items) ? body.items : [];
   return rawItems.map(mapper).filter((item): item is T => item != null);
@@ -1199,6 +1305,26 @@ export async function exportSelfHostedDeviceBridgeCommandAudit(
         kind: "http",
         code: "invalid_response",
         message: "Backend вернул некорректный ответ экспорта аудита команд Device Bridge.",
+      });
+}
+
+export async function getSelfHostedDeviceBridgeProductionReadiness(
+  args: GetSelfHostedDeviceBridgeProductionReadinessArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeProductionReadinessDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const result = await requestJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, "/api/v1/device-bridge-worker/production-readiness"),
+    args.apiToken as string,
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const readiness = toSelfHostedDeviceBridgeProductionReadinessDTO(result.value);
+  return readiness
+    ? ok(readiness)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ production readiness Device Bridge.",
       });
 }
 
