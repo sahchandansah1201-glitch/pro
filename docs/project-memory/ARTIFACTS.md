@@ -582,3 +582,31 @@
 - `npm run test:project-memory`
 - `npm run check:project-memory`
 - `node scripts/check-no-deno-locks.mjs`
+
+## Stage 8P-9A Device Bridge operations continuity artifacts
+
+- [device-bridge-operations-continuity-service.mjs](../../backend/self-hosted/device-bridge-operations-continuity-service.mjs)
+- [device-bridge-operations-continuity-service.test.mjs](../../backend/self-hosted/device-bridge-operations-continuity-service.test.mjs)
+- [openapi.stage8p-9a.json](../../backend/self-hosted/openapi.stage8p-9a.json)
+- [self-hosted-device-api.ts](../../src/lib/self-hosted-device-api.ts)
+- [self-hosted-device-api.test.ts](../../src/lib/self-hosted-device-api.test.ts)
+- [SysDevicesPage.tsx](../../src/pages/sys/SysDevicesPage.tsx)
+- [SysDevicesPage.test.tsx](../../src/pages/sys/SysDevicesPage.test.tsx)
+- [device-ops-continuity.stage8p-9a.json](../../deploy/self-hosted/device-ops-continuity.stage8p-9a.json)
+- [stage8p-9a-device-ops-continuity.mjs](../../scripts/stage8p-9a-device-ops-continuity.mjs)
+- [stage8p-9a-device-ops-continuity.test.mjs](../../scripts/stage8p-9a-device-ops-continuity.test.mjs)
+- [check-stage8p-9a-device-ops-continuity.mjs](../../scripts/check-stage8p-9a-device-ops-continuity.mjs)
+- [check-stage8p-9a-device-ops-continuity.test.mjs](../../scripts/check-stage8p-9a-device-ops-continuity.test.mjs)
+- [stage-8p-9a-device-ops-continuity.md](../backend/stage-8p-9a-device-ops-continuity.md)
+- [stage8p-9a-device-ops-continuity.yml](../../.github/workflows/stage8p-9a-device-ops-continuity.yml)
+
+## Stage 8P-9A verification commands
+
+- `npm run test:stage8p-9a`
+- `npm run check:stage8p-9a`
+- `npm run continuity:stage8p-9a:dry-run`
+- `npm run preflight:stage8p-9a`
+- `npm run preflight:stage8j-8o`
+- `npm run test:project-memory`
+- `npm run check:project-memory`
+- `node scripts/check-no-deno-locks.mjs`

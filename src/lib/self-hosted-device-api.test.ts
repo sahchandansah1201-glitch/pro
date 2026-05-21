@@ -8,12 +8,14 @@ import {
   getSelfHostedDeviceBridgeWorkerRecovery,
   getSelfHostedDeviceBridgeWorkerStatus,
   getSelfHostedDeviceBridgeCommandAudit,
+  getSelfHostedDeviceBridgeOperationsContinuity,
   getSelfHostedDeviceBridgeProductionReadiness,
   replaySelfHostedDeviceBridgeCommand,
   recoverSelfHostedDeviceBridgeWorkerCommand,
   requestSelfHostedBridgeCommand,
   requestSelfHostedDeviceCommand,
   toSelfHostedDeviceBridgeCommandAuditExportDTO,
+  toSelfHostedDeviceBridgeOperationsContinuityDTO,
   toSelfHostedDeviceBridgeDTO,
   toSelfHostedDeviceBridgeCommandAuditDTO,
   toSelfHostedDeviceBridgeWorkerHardeningDTO,
@@ -710,5 +712,102 @@ describe("self-hosted-device-api", () => {
 
     expect(result.value?.readiness.completionPercent).toBe(100);
     expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/device-bridge-worker/production-readiness");
+  });
+
+  it("normalizes and fetches Device Bridge operations continuity without unsafe fields", async () => {
+    const dto = toSelfHostedDeviceBridgeOperationsContinuityDTO({
+      stage: "8P-9A",
+      source: "postgres",
+      continuity: {
+        status: "attention",
+        completionPercent: 80,
+        summary: {
+          bridgeCount: 1,
+          staleWorkers: 1,
+          failedCommands: 1,
+          stuckCommands: 1,
+          retryableCommands: 1,
+          cancellableCommands: 0,
+          auditEvents: 5,
+          attentionGateCount: 2,
+          queuePressure: 3,
+        },
+        incidentDrill: {
+          cadence: "monthly",
+          lastDrillRecordedInGit: false,
+          requiredSteps: ["Open /sys/devices"],
+        },
+        retentionPolicy: {
+          workerTelemetryRetentionDays: 30,
+          commandAuditRetentionDays: 90,
+          exportContainsRawPayloads: false,
+          cleanupMode: "operator-reviewed",
+        },
+        handoff: {
+          nextBatchHypothesis: "Stage 9B-9D",
+          includedStages: ["Stage 8P", "Stage 9A"],
+          continuityOwner: "system_admin",
+          liveOutcomeKnownToRepository: false,
+        },
+        stages: [
+          {
+            id: "Stage 8P",
+            title: "Incident drill register",
+            status: "ready",
+            summary: "metadata only",
+            owner: "system_admin",
+          },
+        ],
+        gates: [
+          {
+            key: "self_hosted_boundary",
+            label: "Self-hosted product boundary",
+            status: "passed",
+            detail: "none/none",
+          },
+        ],
+        productBoundary: {
+          managedRuntimeDependency: "none",
+          managedDatabaseDependency: "none",
+          browserHardwareApis: false,
+          payloadVisibility: "backend-only",
+          rawPatientDataInReports: false,
+          signedUrlExposure: false,
+          storagePathExposure: false,
+        },
+        payload_json: { hidden: true },
+        result_json: { hidden: true },
+      },
+      access_token: "hidden",
+      storage_object_path: "hidden",
+    });
+    expect(dto?.stage).toBe("8P-9A");
+    expect(dto?.continuity.summary.queuePressure).toBe(3);
+    expect(dto?.continuity.gates[0].key).toBe("self_hosted_boundary");
+    expect(JSON.stringify(dto)).not.toContain("payload_json");
+    expect(JSON.stringify(dto)).not.toContain("result_json");
+    expect(JSON.stringify(dto)).not.toContain("access_token");
+    expect(JSON.stringify(dto)).not.toContain("storage_object_path");
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          stage: "8P-9A",
+          source: "postgres",
+          continuity: dto?.continuity,
+          correlationId: "corr-8p",
+          generatedAt: "2026-05-21T00:00:00.000Z",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const result = await getSelfHostedDeviceBridgeOperationsContinuity({
+      apiBaseUrl: "http://localhost:8080",
+      apiToken: "jwt",
+    });
+
+    expect(result.value?.continuity.completionPercent).toBe(80);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/api/v1/device-bridge-worker/operations-continuity");
   });
 });

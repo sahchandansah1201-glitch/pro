@@ -1,0 +1,45 @@
+name: stage8p-9a-device-ops-continuity
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-device-api.ts"
+      - "src/lib/self-hosted-device-api.test.ts"
+      - "src/pages/sys/SysDevicesPage.tsx"
+      - "src/pages/sys/SysDevicesPage.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-8p-9a-device-ops-continuity.md"
+      - "docs/project-memory/**"
+      - "scripts/stage8p-9a-device-ops-continuity.mjs"
+      - "scripts/stage8p-9a-device-ops-continuity.test.mjs"
+      - "scripts/check-stage8p-9a-device-ops-continuity.mjs"
+      - "scripts/check-stage8p-9a-device-ops-continuity.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage8p-9a-device-ops-continuity.yml"
+  workflow_dispatch:
+
+jobs:
+  stage8p-9a:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run Stage 8P-9A preflight
+        run: npm run preflight:stage8p-9a
+      - name: Stage 8P-9A summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 8P-9A"
+            echo ""
+            echo "- Preflight: npm run preflight:stage8p-9a"
+            echo "- Scope: Device Bridge operations continuity, incident drill, retention, UI, handoff"
+            echo "- Boundary: self-hosted runtime, local PostgreSQL, no managed runtime/database"
+          } >> "$GITHUB_STEP_SUMMARY"

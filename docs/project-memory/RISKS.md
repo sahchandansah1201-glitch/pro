@@ -141,15 +141,24 @@
    - Impact: outdated commands or boundaries can make the handoff unreliable.
    - Mitigation: handbook manifest, renderer, guard, workflow, project-memory
      markers, and `preflight:stage8j-8o` keep the handbook checked with code.
+14. **Device Bridge operations continuity can drift from actual operator drills**
+   - Evidence: Stage 8P-9A adds repository-defined incident drill and
+     telemetry retention metadata, but live drill outcomes remain outside Git.
+   - Impact: operators may treat metadata as live incident evidence.
+   - Mitigation: Stage 8P-9A marks live outcomes as unknown to the repository,
+     keeps raw worker payloads backend-only, and requires external operator
+     evidence for real drill completion.
 
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 8P-8R is next.
-   - Basis: Stage 8J-8O closes Device Bridge production readiness and server
-     operations handbook coverage.
-   - Uncertainty: Stage 8P-8R is not implemented until repository files define
+   - hypothesis: Stage 9B-9D is next.
+   - Basis: Stage 8P-9A closes Device Bridge operations continuity and
+     next-batch handoff coverage.
+   - Uncertainty: Stage 9B-9D is not implemented until repository files define
      it.
+   - Historical marker: Stage 8P-8R was the original next hypothesis after
+     Stage 8J-8O and is now implemented inside the larger Stage 8P-9A x2 batch.
    - Historical marker: Stage 8J-8L was the original hypothesis after Stage
      8G-8I and is now implemented inside the larger Stage 8J-8O x2 batch.
 

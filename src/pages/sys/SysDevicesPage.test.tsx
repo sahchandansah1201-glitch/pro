@@ -329,6 +329,86 @@ describe("SysDevicesPage", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.includes("/api/v1/device-bridge-worker/operations-continuity")) {
+        return new Response(
+          JSON.stringify({
+            stage: "8P-9A",
+            source: "postgres",
+            continuity: {
+              status: "attention",
+              completionPercent: 80,
+              summary: {
+                bridgeCount: 1,
+                staleWorkers: 1,
+                failedCommands: 1,
+                stuckCommands: 1,
+                retryableCommands: 1,
+                cancellableCommands: 2,
+                auditEvents: 3,
+                attentionGateCount: 2,
+                queuePressure: 5,
+              },
+              incidentDrill: {
+                cadence: "monthly",
+                lastDrillRecordedInGit: false,
+                requiredSteps: ["Open /sys/devices."],
+              },
+              retentionPolicy: {
+                workerTelemetryRetentionDays: 30,
+                commandAuditRetentionDays: 90,
+                exportContainsRawPayloads: false,
+                cleanupMode: "operator-reviewed",
+              },
+              handoff: {
+                nextBatchHypothesis: "Stage 9B-9D",
+                includedStages: ["Stage 8P", "Stage 9A"],
+                continuityOwner: "system_admin",
+                liveOutcomeKnownToRepository: false,
+              },
+              stages: [
+                {
+                  id: "Stage 8P",
+                  title: "Incident drill register",
+                  status: "ready",
+                  summary: "Incident drills are repository-defined.",
+                  owner: "system_admin",
+                },
+                {
+                  id: "Stage 9A",
+                  title: "Next batch handoff",
+                  status: "ready",
+                  summary: "Stage 9B-9D remains a hypothesis.",
+                  owner: "system_admin",
+                },
+              ],
+              gates: [
+                {
+                  key: "incident_pressure_reviewed",
+                  label: "Incident pressure reviewed",
+                  status: "attention",
+                  detail: "5 command(s).",
+                },
+                {
+                  key: "self_hosted_boundary",
+                  label: "Self-hosted product boundary",
+                  status: "passed",
+                  detail: "none/none.",
+                },
+              ],
+              productBoundary: {
+                managedRuntimeDependency: "none",
+                managedDatabaseDependency: "none",
+                browserHardwareApis: false,
+                payloadVisibility: "backend-only",
+                rawPatientDataInReports: false,
+                signedUrlExposure: false,
+                storagePathExposure: false,
+              },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
       if (url.includes("/api/v1/device-bridges")) {
         return new Response(
           JSON.stringify({
@@ -424,7 +504,19 @@ describe("SysDevicesPage", () => {
     expect(screen.getByRole("note", { name: "Device Bridge production readiness boundary" })).toHaveTextContent(
       "managed runtime none",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(screen.getByRole("region", { name: "Device Bridge operations continuity" })).toHaveTextContent(
+      "Stage 8P-9A",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge operations continuity stages" })).toHaveTextContent(
+      "Incident drill register",
+    );
+    expect(screen.getByRole("region", { name: "Device Bridge operations continuity gates" })).toHaveTextContent(
+      "Self-hosted product boundary",
+    );
+    expect(screen.getByRole("note", { name: "Device Bridge operations continuity boundary" })).toHaveTextContent(
+      "next batch hypothesis Stage 9B-9D",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(8);
 
     fireEvent.click(screen.getByRole("tab", { name: "Нужна калибровка" }));
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
@@ -434,15 +526,15 @@ describe("SysDevicesPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
     expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(9);
+    expect(fetchMock).toHaveBeenCalledTimes(10);
 
     fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
     expect(await screen.findByText(/Команда cmd-retry возвращена в очередь Device Bridge/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(10);
+    expect(fetchMock).toHaveBeenCalledTimes(11);
 
     fireEvent.click(screen.getByRole("button", { name: "Replay" }));
     expect(await screen.findByText(/Replay команды cmd-audit поставлен в очередь Device Bridge: cmd-replay/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(11);
+    expect(fetchMock).toHaveBeenCalledTimes(12);
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
@@ -456,7 +548,7 @@ describe("SysDevicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Экспорт audit CSV" }));
     expect(await screen.findByText(/Экспорт Device Bridge command audit скачан: device-bridge-command-audit-all-all-1-rows.csv/)).toBeInTheDocument();
     expect(click).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(12);
+    expect(fetchMock).toHaveBeenCalledTimes(13);
   });
 
   it("shows a safe live error without rendering backend internals", async () => {

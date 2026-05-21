@@ -358,6 +358,71 @@ export interface SelfHostedDeviceBridgeProductionReadinessDTO {
   generatedAt: string;
 }
 
+export interface SelfHostedDeviceBridgeOperationsContinuityStageDTO {
+  id: string;
+  title: string;
+  status: "ready" | "attention" | "blocked" | string;
+  summary: string;
+  owner: string;
+}
+
+export interface SelfHostedDeviceBridgeOperationsContinuityGateDTO {
+  key: string;
+  label: string;
+  status: "passed" | "attention" | string;
+  detail: string;
+}
+
+export interface SelfHostedDeviceBridgeOperationsContinuityDTO {
+  stage: "8P-9A" | string;
+  source: "postgres" | string;
+  continuity: {
+    status: "ready" | "attention" | string;
+    completionPercent: number;
+    summary: {
+      bridgeCount: number;
+      staleWorkers: number;
+      failedCommands: number;
+      stuckCommands: number;
+      retryableCommands: number;
+      cancellableCommands: number;
+      auditEvents: number;
+      attentionGateCount: number;
+      queuePressure: number;
+    };
+    incidentDrill: {
+      cadence: string;
+      lastDrillRecordedInGit: boolean;
+      requiredSteps: string[];
+    };
+    retentionPolicy: {
+      workerTelemetryRetentionDays: number;
+      commandAuditRetentionDays: number;
+      exportContainsRawPayloads: boolean;
+      cleanupMode: string;
+    };
+    handoff: {
+      nextBatchHypothesis: string;
+      includedStages: string[];
+      continuityOwner: string;
+      liveOutcomeKnownToRepository: boolean;
+    };
+    stages: SelfHostedDeviceBridgeOperationsContinuityStageDTO[];
+    gates: SelfHostedDeviceBridgeOperationsContinuityGateDTO[];
+    productBoundary: {
+      managedRuntimeDependency: string;
+      managedDatabaseDependency: string;
+      browserHardwareApis: boolean;
+      payloadVisibility: string;
+      rawPatientDataInReports: boolean;
+      signedUrlExposure: boolean;
+      storagePathExposure: boolean;
+    };
+  };
+  correlationId: string;
+  generatedAt: string;
+}
+
 export interface SelfHostedDeviceBridgeWorkerStatusDTO {
   stage: "4U" | string;
   source: "postgres" | string;
@@ -425,6 +490,8 @@ export interface ReplaySelfHostedDeviceBridgeCommandArgs extends BaseArgs {
 export interface ExportSelfHostedDeviceBridgeCommandAuditArgs extends GetSelfHostedDeviceBridgeCommandAuditArgs {}
 
 export interface GetSelfHostedDeviceBridgeProductionReadinessArgs extends BaseArgs {}
+
+export interface GetSelfHostedDeviceBridgeOperationsContinuityArgs extends BaseArgs {}
 
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
@@ -1055,6 +1122,92 @@ export function toSelfHostedDeviceBridgeProductionReadinessDTO(
   };
 }
 
+export function toSelfHostedDeviceBridgeOperationsContinuityDTO(
+  input: unknown,
+): SelfHostedDeviceBridgeOperationsContinuityDTO | null {
+  if (!isRecord(input) || !isRecord(input.continuity)) return null;
+  const continuity = input.continuity;
+  const summary = isRecord(continuity.summary) ? continuity.summary : {};
+  const incidentDrill = isRecord(continuity.incidentDrill) ? continuity.incidentDrill : {};
+  const retentionPolicy = isRecord(continuity.retentionPolicy) ? continuity.retentionPolicy : {};
+  const handoff = isRecord(continuity.handoff) ? continuity.handoff : {};
+  const productBoundary = isRecord(continuity.productBoundary) ? continuity.productBoundary : {};
+  const stages = Array.isArray(continuity.stages)
+    ? continuity.stages
+        .filter(isRecord)
+        .map((item) => ({
+          id: String(item.id ?? ""),
+          title: String(item.title ?? ""),
+          status: typeof item.status === "string" ? item.status : "attention",
+          summary: String(item.summary ?? ""),
+          owner: String(item.owner ?? "system_admin"),
+        }))
+        .filter((item) => item.id && item.title)
+    : [];
+  const gates = Array.isArray(continuity.gates)
+    ? continuity.gates
+        .filter(isRecord)
+        .map((item) => ({
+          key: String(item.key ?? ""),
+          label: String(item.label ?? ""),
+          status: typeof item.status === "string" ? item.status : "attention",
+          detail: String(item.detail ?? ""),
+        }))
+        .filter((item) => item.key && item.label)
+    : [];
+  return {
+    stage: typeof input.stage === "string" ? input.stage : "unknown",
+    source: typeof input.source === "string" ? input.source : "postgres",
+    continuity: {
+      status: typeof continuity.status === "string" ? continuity.status : "attention",
+      completionPercent: Number(continuity.completionPercent ?? 0),
+      summary: {
+        bridgeCount: Number(summary.bridgeCount ?? 0),
+        staleWorkers: Number(summary.staleWorkers ?? 0),
+        failedCommands: Number(summary.failedCommands ?? 0),
+        stuckCommands: Number(summary.stuckCommands ?? 0),
+        retryableCommands: Number(summary.retryableCommands ?? 0),
+        cancellableCommands: Number(summary.cancellableCommands ?? 0),
+        auditEvents: Number(summary.auditEvents ?? 0),
+        attentionGateCount: Number(summary.attentionGateCount ?? 0),
+        queuePressure: Number(summary.queuePressure ?? 0),
+      },
+      incidentDrill: {
+        cadence: String(incidentDrill.cadence ?? "monthly"),
+        lastDrillRecordedInGit: Boolean(incidentDrill.lastDrillRecordedInGit),
+        requiredSteps: Array.isArray(incidentDrill.requiredSteps)
+          ? incidentDrill.requiredSteps.map(String)
+          : [],
+      },
+      retentionPolicy: {
+        workerTelemetryRetentionDays: Number(retentionPolicy.workerTelemetryRetentionDays ?? 30),
+        commandAuditRetentionDays: Number(retentionPolicy.commandAuditRetentionDays ?? 90),
+        exportContainsRawPayloads: Boolean(retentionPolicy.exportContainsRawPayloads),
+        cleanupMode: String(retentionPolicy.cleanupMode ?? "operator-reviewed"),
+      },
+      handoff: {
+        nextBatchHypothesis: String(handoff.nextBatchHypothesis ?? ""),
+        includedStages: Array.isArray(handoff.includedStages) ? handoff.includedStages.map(String) : [],
+        continuityOwner: String(handoff.continuityOwner ?? "system_admin"),
+        liveOutcomeKnownToRepository: Boolean(handoff.liveOutcomeKnownToRepository),
+      },
+      stages,
+      gates,
+      productBoundary: {
+        managedRuntimeDependency: String(productBoundary.managedRuntimeDependency ?? "none"),
+        managedDatabaseDependency: String(productBoundary.managedDatabaseDependency ?? "none"),
+        browserHardwareApis: Boolean(productBoundary.browserHardwareApis),
+        payloadVisibility: String(productBoundary.payloadVisibility ?? "backend-only"),
+        rawPatientDataInReports: Boolean(productBoundary.rawPatientDataInReports),
+        signedUrlExposure: Boolean(productBoundary.signedUrlExposure),
+        storagePathExposure: Boolean(productBoundary.storagePathExposure),
+      },
+    },
+    correlationId: typeof input.correlationId === "string" ? input.correlationId : "",
+    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : "",
+  };
+}
+
 function extractItems<T>(body: unknown, mapper: (item: unknown) => T | null): T[] {
   const rawItems = isRecord(body) && Array.isArray(body.items) ? body.items : [];
   return rawItems.map(mapper).filter((item): item is T => item != null);
@@ -1325,6 +1478,26 @@ export async function getSelfHostedDeviceBridgeProductionReadiness(
         kind: "http",
         code: "invalid_response",
         message: "Backend вернул некорректный ответ production readiness Device Bridge.",
+      });
+}
+
+export async function getSelfHostedDeviceBridgeOperationsContinuity(
+  args: GetSelfHostedDeviceBridgeOperationsContinuityArgs,
+): Promise<SelfHostedApiResult<SelfHostedDeviceBridgeOperationsContinuityDTO>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  const result = await requestJson(
+    buildSelfHostedApiUrl(args.apiBaseUrl, "/api/v1/device-bridge-worker/operations-continuity"),
+    args.apiToken as string,
+  );
+  if (!result.ok) return fail(result.error as SelfHostedApiError);
+  const continuity = toSelfHostedDeviceBridgeOperationsContinuityDTO(result.value);
+  return continuity
+    ? ok(continuity)
+    : fail({
+        kind: "http",
+        code: "invalid_response",
+        message: "Backend вернул некорректный ответ operations continuity Device Bridge.",
       });
 }
 
