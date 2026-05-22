@@ -217,16 +217,29 @@
      `next_batch_handoff_generated`, stage preflight, project-memory guard,
      and post-merge prompt sequencing.
 
+20. **Sync confirmation can be treated as chat memory instead of evidence**
+   - Evidence: Stage 14A-14Z adds the sync confirmation ledger after Lovable
+     confirmed Stage 13A-13Z from `main`.
+   - Impact: if confirmation is not recorded in repository files, future
+     batches can repeat the mistake of claiming sync before merge, missing
+     duplicate CI runs, or diagnosing webhook delay as code conflict.
+   - Mitigation: Stage 14A-14Z requires `sync_confirmation_not_memory`,
+     `main_before_confirmation`, `sync_delay_not_conflict`,
+     `previous_closure_regression`, `post_merge_verification_required`, and
+     `next_batch_hypothesis_recorded`.
+
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 14A-14Z is next.
-   - Basis: Stage 13A-13Z creates the execution evidence closure after Stage
-     12A-12Z closes the execution evidence bundle.
-   - Uncertainty: Stage 14A-14Z is not implemented until repository files define
+   - hypothesis: Stage 15A-15Z is next.
+   - Basis: Stage 14A-14Z creates the sync confirmation ledger after Stage
+     13A-13Z closes execution evidence.
+   - Uncertainty: Stage 15A-15Z is not implemented until repository files define
      it.
-   - Historical marker: Stage 13A-13Z is the current execution evidence closure
+   - Historical marker: Stage 14A-14Z is the current sync confirmation ledger
      batch in this branch.
+   - Historical marker: Stage 13A-13Z is the current execution evidence closure
+     batch before Stage 14A-14Z.
    - Historical marker: Stage 12A-12Z is the execution evidence bundle batch
      before Stage 13A-13Z.
    - Historical marker: Stage 11A-11Z is the current development quality ledger

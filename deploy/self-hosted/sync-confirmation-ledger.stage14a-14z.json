@@ -1,0 +1,224 @@
+{
+  "stage": "14A-14Z",
+  "packageId": "stage14a-14z-sync-confirmation-ledger",
+  "title": "Stage 14A-14Z · Sync confirmation ledger",
+  "status": "ready",
+  "previousBatch": "Stage 13A-13Z",
+  "previousBatchCommit": "78e8718",
+  "nextBatchHypothesis": "Stage 15A-15Z",
+  "purpose": "Convert the post-merge Lovable confirmation for Stage 13A-13Z into a repository-owned sync confirmation ledger that proves future handoffs are based on merged main, local verification, CI status, and explicit sync evidence instead of chat memory or branch-only assumptions.",
+  "batchScale": {
+    "previousIncludedStages": 26,
+    "currentIncludedStages": 26,
+    "minimumRelatedStagesPerBatch": 26,
+    "scalePolicy": "normal x2 batches after Stage 13 must keep 26 related stages unless repository files justify a different scope"
+  },
+  "includedStages": [
+    { "id": "Stage 14A", "title": "Sync ledger schema", "status": "ready" },
+    { "id": "Stage 14B", "title": "Lovable confirmation evidence", "status": "ready" },
+    { "id": "Stage 14C", "title": "Merged main evidence", "status": "ready" },
+    { "id": "Stage 14D", "title": "Pull request lifecycle ledger", "status": "ready" },
+    { "id": "Stage 14E", "title": "GitHub checks ledger", "status": "ready" },
+    { "id": "Stage 14F", "title": "Command outcome ledger", "status": "ready" },
+    { "id": "Stage 14G", "title": "Sync mismatch decision tree", "status": "ready" },
+    { "id": "Stage 14H", "title": "Branch visibility diagnostic", "status": "ready" },
+    { "id": "Stage 14I", "title": "Artifact hygiene ledger", "status": "ready" },
+    { "id": "Stage 14J", "title": "Project-memory confirmation", "status": "ready" },
+    { "id": "Stage 14K", "title": "Working contract enforcement", "status": "ready" },
+    { "id": "Stage 14L", "title": "Batch template enforcement", "status": "ready" },
+    { "id": "Stage 14M", "title": "Previous batch regression", "status": "ready" },
+    { "id": "Stage 14N", "title": "Preflight-all alignment", "status": "ready" },
+    { "id": "Stage 14O", "title": "Typecheck and lockfile alignment", "status": "ready" },
+    { "id": "Stage 14P", "title": "Package-lock immutability", "status": "ready" },
+    { "id": "Stage 14Q", "title": "Prompt release gate", "status": "ready" },
+    { "id": "Stage 14R", "title": "Lovable response gate", "status": "ready" },
+    { "id": "Stage 14S", "title": "Self-hosted boundary ledger", "status": "ready" },
+    { "id": "Stage 14T", "title": "Privacy marker ledger", "status": "ready" },
+    { "id": "Stage 14U", "title": "Duplicate CI run handling", "status": "ready" },
+    { "id": "Stage 14V", "title": "Long gate handling", "status": "ready" },
+    { "id": "Stage 14W", "title": "Risk rollback ledger", "status": "ready" },
+    { "id": "Stage 14X", "title": "Next batch readiness", "status": "ready" },
+    { "id": "Stage 14Y", "title": "Handoff packet", "status": "ready" },
+    { "id": "Stage 14Z", "title": "Stage 15 hypothesis", "status": "ready" }
+  ],
+  "confirmedPreviousSync": {
+    "stage": "Stage 13A-13Z",
+    "confirmation": "Confirmed: Stage 13A-13Z synced from main, no conflicts.",
+    "mergeCommit": "78e8718",
+    "source": "user-provided Lovable confirmation after post-merge verification",
+    "confirmationStoredInRepository": true
+  },
+  "ledgerSections": [
+    {
+      "id": "schema",
+      "title": "Sync Ledger Schema",
+      "requiredEvidence": [
+        "stage id",
+        "package id",
+        "previous batch",
+        "previous confirmation",
+        "next batch hypothesis",
+        "ledger gates",
+        "product boundary"
+      ]
+    },
+    {
+      "id": "confirmation",
+      "title": "Confirmation Evidence",
+      "requiredEvidence": [
+        "Lovable confirmation phrase",
+        "merged main SHA",
+        "post-merge local main check",
+        "no sync conflicts",
+        "no branch-only handoff",
+        "prompt order proof",
+        "project-memory update"
+      ]
+    },
+    {
+      "id": "verification",
+      "title": "Verification Evidence",
+      "requiredEvidence": [
+        "stage tests",
+        "stage guard",
+        "stage dry run",
+        "stage preflight",
+        "previous batch preflight",
+        "project-memory guard",
+        "typecheck",
+        "preflight-all dry run",
+        "lock-file guard",
+        "diff check"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "title": "Sync Diagnostics",
+      "requiredEvidence": [
+        "merged main check",
+        "local head check",
+        "remote branch check",
+        "Lovable visible head check",
+        "missing file checklist",
+        "webhook delay classification",
+        "no code-conflict claim before evidence"
+      ]
+    },
+    {
+      "id": "ci",
+      "title": "CI Ledger",
+      "requiredEvidence": [
+        "all checks green",
+        "duplicate workflow handling",
+        "long gate wait rule",
+        "failure log rule",
+        "ready transition rule",
+        "merge rule",
+        "post-merge verification rule"
+      ]
+    },
+    {
+      "id": "handoff",
+      "title": "Next Handoff",
+      "requiredEvidence": [
+        "Lovable prompt generated from manifest",
+        "prompt blocked before merge",
+        "expected confirmation phrase",
+        "Stage 15 hypothesis",
+        "working contract marker",
+        "batch template marker",
+        "risk marker"
+      ]
+    }
+  ],
+  "ledgerRules": [
+    {
+      "id": "sync_confirmation_not_memory",
+      "severity": "critical",
+      "rule": "A sync confirmation is valid only when it is recorded in repository evidence and tied to a merged main commit."
+    },
+    {
+      "id": "main_before_confirmation",
+      "severity": "critical",
+      "rule": "Lovable confirmation requests must reference main after merge, not an unmerged branch."
+    },
+    {
+      "id": "duplicate_ci_wait_required",
+      "severity": "high",
+      "rule": "If duplicate GitHub check runs exist, all required duplicates must reach success or skip before ready or merge."
+    },
+    {
+      "id": "sync_delay_not_conflict",
+      "severity": "critical",
+      "rule": "A missing file in Lovable is classified as sync delay until merged main, local head, repository connection, and visible head are checked."
+    },
+    {
+      "id": "previous_closure_regression",
+      "severity": "critical",
+      "rule": "Stage 14 must run the Stage 13 closure preflight before handoff."
+    },
+    {
+      "id": "post_merge_verification_required",
+      "severity": "critical",
+      "rule": "Post-merge local main verification is required before any Lovable prompt is released."
+    },
+    {
+      "id": "prompt_source_manifest",
+      "severity": "high",
+      "rule": "The Lovable prompt must be generated from this ledger manifest and must not be rewritten from memory."
+    },
+    {
+      "id": "relative_artifact_links",
+      "severity": "high",
+      "rule": "Project-memory artifact links must remain repository-relative."
+    },
+    {
+      "id": "no_runtime_coupling",
+      "severity": "critical",
+      "rule": "The sync ledger must not introduce managed runtime, managed database, browser hardware, or external service coupling."
+    },
+    {
+      "id": "next_batch_hypothesis_recorded",
+      "severity": "critical",
+      "rule": "Stage 15A-15Z must be recorded as a hypothesis until repository files define the next scope."
+    }
+  ],
+  "requiredFiles": [
+    "deploy/self-hosted/sync-confirmation-ledger.stage14a-14z.json",
+    "scripts/stage14a-14z-sync-confirmation-ledger.mjs",
+    "scripts/stage14a-14z-sync-confirmation-ledger.test.mjs",
+    "scripts/check-stage14a-14z-sync-confirmation-ledger.mjs",
+    "scripts/check-stage14a-14z-sync-confirmation-ledger.test.mjs",
+    "docs/backend/stage-14a-14z-sync-confirmation-ledger.md",
+    "docs/project-memory/WORKING_CONTRACT.md",
+    "docs/project-memory/BATCH_TEMPLATE.md",
+    ".github/workflows/stage14a-14z-sync-confirmation-ledger.yml"
+  ],
+  "verificationGates": [
+    { "id": "stage14a-14z-tests", "command": "npm run test:stage14a-14z", "required": true },
+    { "id": "stage14a-14z-guard", "command": "npm run check:stage14a-14z", "required": true },
+    { "id": "stage14a-14z-dry-run", "command": "npm run ledger:stage14a-14z:dry-run", "required": true },
+    { "id": "stage14a-14z-preflight", "command": "npm run preflight:stage14a-14z", "required": true },
+    { "id": "previous-closure-regression", "command": "npm run preflight:stage13a-13z", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "typecheck", "command": "npm run typecheck", "required": true },
+    { "id": "preflight-all-dry-run", "command": "npm run preflight:all -- --dry-run", "required": true },
+    { "id": "no-deno-locks", "command": "node scripts/check-no-deno-locks.mjs", "required": true },
+    { "id": "diff-check", "command": "git diff --check", "required": true }
+  ],
+  "productBoundary": {
+    "runtimeBehaviorChanged": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "dataVisibility": "repository sync evidence only; no secrets, patient identifiers, bearer values, signed link values, worker raw values, or binary object references"
+  },
+  "lovableHandoff": {
+    "promptAllowedOnlyAfterMerge": true,
+    "promptGeneratedFromManifest": true,
+    "expectedConfirmation": "Confirmed: Stage 14A-14Z synced from main, no conflicts.",
+    "previousConfirmation": "Confirmed: Stage 13A-13Z synced from main, no conflicts.",
+    "nextBatchHypothesis": "Stage 15A-15Z"
+  }
+}

@@ -2,28 +2,23 @@
 
 ## Highest-confidence next step
 
-Merge and verify Stage 13A-13Z as one x2 Pull request, then send the Lovable
-sync prompt only after `main` contains the merged execution evidence closure.
+Merge and verify Stage 14A-14Z as one x2 Pull request, then send the Lovable
+sync prompt only after `main` contains the merged sync confirmation ledger.
 
 ## Immediate sequence
 
-1. **Complete the Stage 13A-13Z Pull request lifecycle**:
-   - commit the execution evidence closure with manifest, renderer, guard,
+1. **Complete the Stage 14A-14Z Pull request lifecycle**:
+   - commit the sync confirmation ledger with manifest, renderer, guard,
      workflow, docs, project-memory, and preflight-all wiring;
    - do not send the Lovable prompt before the PR is merged into `main` and
      local `main` is verified.
 
 2. **Verify before commit**:
-   - `npm run test:stage13a-13z`
-   - `npm run check:stage13a-13z`
-   - `npm run closure:stage13a-13z:dry-run`
+   - `npm run test:stage14a-14z`
+   - `npm run check:stage14a-14z`
+   - `npm run ledger:stage14a-14z:dry-run`
+   - `npm run preflight:stage14a-14z`
    - `npm run preflight:stage13a-13z`
-   - `npm run preflight:stage12a-12z`
-   - `npm run test:stage11a-11z`
-   - `npm run check:stage11a-11z`
-   - `npm run ledger:stage11a-11z:dry-run`
-   - `npm run preflight:stage11a-11z`
-   - `npm run preflight:stage10a-10z`
    - `npm run typecheck`
    - `npm run test:project-memory`
    - `npm run check:project-memory`
@@ -94,19 +89,30 @@ operations continuity batch. It expands the previous six-stage batch to
 twelve related stages in one Pull request and recorded Stage 9B-9D as the
 next hypothesis before Stage 9B-9M defined the actual scope.
 
-## Stage 13A-13Z current batch
+## Stage 13A-13Z historical batch
 
-Stage 13A-13Z is the current x2 process batch after Stage 12A-12Z. It defines
+Stage 13A-13Z is the confirmed x2 process batch after Stage 12A-12Z. It defines
 the execution evidence closure for schema, previous evidence regression,
 verification, GitHub lifecycle, Lovable prompt sequencing, sync mismatch
 diagnostics, artifact hygiene, project-memory closure, and next x2 handoff.
 
+The batch kept 26 related stages in one Pull request and recorded Stage
+14A-14Z as the next hypothesis before Stage 14A-14Z defined the actual scope.
+
+## Stage 14A-14Z current batch
+
+Stage 14A-14Z is the current x2 process batch after Stage 13A-13Z. It defines
+the sync confirmation ledger for confirmed previous Lovable sync, merged main
+evidence, Pull request lifecycle, duplicate CI handling, sync mismatch
+diagnostics, artifact hygiene, project-memory confirmation, prompt release
+gates, and next x2 handoff.
+
 The batch keeps 26 related stages in one Pull request and records Stage
-14A-14Z as the next hypothesis until repository files define the next scope.
+15A-15Z as the next hypothesis until repository files define the next scope.
 
-## Stage 14A-14Z hypothesis
+## Stage 15A-15Z hypothesis
 
-Stage 14A-14Z is the next likely batch after Stage 13A-13Z. Its current scope
+Stage 15A-15Z is the next likely batch after Stage 14A-14Z. Its current scope
 has not been defined in repository files, so it remains a hypothesis until
 repository files define it.
 

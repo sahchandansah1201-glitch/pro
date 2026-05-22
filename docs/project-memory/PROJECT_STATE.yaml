@@ -625,6 +625,22 @@ verification:
       product_runtime_change: false
       managed_runtime_dependency: "none"
       managed_database_dependency: "none"
+  stage14a_14z_preflight:
+    command: "npm run preflight:stage14a-14z"
+    status: "ok"
+    key_facts:
+      sync_confirmation_ledger_confirmed: true
+      confirmed_previous_sync: "Confirmed: Stage 13A-13Z synced from main, no conflicts."
+      included_stage_count: 26
+      previous_included_stage_count: 26
+      minimum_related_stages_per_batch: 26
+      ledger_rules_recorded: 10
+      ledger_sections: 6
+      closed_stage_hypothesis: "Stage 14A-14Z"
+      next_stage_hypothesis: "Stage 15A-15Z"
+      product_runtime_change: false
+      managed_runtime_dependency: "none"
+      managed_database_dependency: "none"
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -786,9 +802,14 @@ stage_evidence:
     - "scripts/stage13a-13z-execution-evidence-closure.mjs"
     - "scripts/check-stage13a-13z-execution-evidence-closure.mjs"
     - ".github/workflows/stage13a-13z-execution-evidence-closure.yml"
+    - "deploy/self-hosted/sync-confirmation-ledger.stage14a-14z.json"
+    - "docs/backend/stage-14a-14z-sync-confirmation-ledger.md"
+    - "scripts/stage14a-14z-sync-confirmation-ledger.mjs"
+    - "scripts/check-stage14a-14z-sync-confirmation-ledger.mjs"
+    - ".github/workflows/stage14a-14z-sync-confirmation-ledger.yml"
 hypotheses:
-  - "Stage 13A-13Z is the current execution evidence closure batch in this branch."
-  - "Next logical batch after Stage 13A-13Z is Stage 14A-14Z."
+  - "Stage 14A-14Z is the current sync confirmation ledger batch in this branch."
+  - "Next logical batch after Stage 14A-14Z is Stage 15A-15Z."
 sources:
   commands:
     - "git status --short --branch"

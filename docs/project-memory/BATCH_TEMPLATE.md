@@ -170,3 +170,14 @@ If Lovable reports missing files:
    branch.
 4. Trigger Lovable GitHub reconnect or a no-op main commit only after the above
    checks.
+
+## Sync Confirmation Ledger
+
+- Confirmed previous sync:
+- Merged main commit:
+- Duplicate CI handling:
+- Long gate handling:
+- Sync delay diagnostic:
+- Prompt release proof:
+- Lovable response gate:
+- Next batch hypothesis:
