@@ -181,3 +181,14 @@ If Lovable reports missing files:
 - Prompt release proof:
 - Lovable response gate:
 - Next batch hypothesis:
+
+## Post-Sync Handoff Readiness
+
+- Confirmed previous sync replay:
+- Local main and origin main replay:
+- Lovable visible head prompt:
+- Wrong-project or stale-head diagnostic:
+- Duplicate CI completion evidence:
+- Previous batch regression command:
+- Prompt generated from manifest:
+- Next batch hypothesis:

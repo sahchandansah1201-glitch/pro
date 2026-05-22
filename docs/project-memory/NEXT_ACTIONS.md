@@ -7,18 +7,18 @@ sync prompt only after `main` contains the merged sync confirmation ledger.
 
 ## Immediate sequence
 
-1. **Complete the Stage 14A-14Z Pull request lifecycle**:
-   - commit the sync confirmation ledger with manifest, renderer, guard,
+1. **Complete the Stage 15A-15Z Pull request lifecycle**:
+   - commit the post-sync handoff readiness packet with manifest, renderer, guard,
      workflow, docs, project-memory, and preflight-all wiring;
    - do not send the Lovable prompt before the PR is merged into `main` and
      local `main` is verified.
 
 2. **Verify before commit**:
-   - `npm run test:stage14a-14z`
-   - `npm run check:stage14a-14z`
-   - `npm run ledger:stage14a-14z:dry-run`
+   - `npm run test:stage15a-15z`
+   - `npm run check:stage15a-15z`
+   - `npm run readiness:stage15a-15z:dry-run`
+   - `npm run preflight:stage15a-15z`
    - `npm run preflight:stage14a-14z`
-   - `npm run preflight:stage13a-13z`
    - `npm run typecheck`
    - `npm run test:project-memory`
    - `npm run check:project-memory`
@@ -99,22 +99,27 @@ diagnostics, artifact hygiene, project-memory closure, and next x2 handoff.
 The batch kept 26 related stages in one Pull request and recorded Stage
 14A-14Z as the next hypothesis before Stage 14A-14Z defined the actual scope.
 
-## Stage 14A-14Z current batch
+## Stage 14A-14Z historical batch
 
-Stage 14A-14Z is the current x2 process batch after Stage 13A-13Z. It defines
+Stage 14A-14Z is the confirmed x2 process batch after Stage 13A-13Z. It defines
 the sync confirmation ledger for confirmed previous Lovable sync, merged main
 evidence, Pull request lifecycle, duplicate CI handling, sync mismatch
 diagnostics, artifact hygiene, project-memory confirmation, prompt release
 gates, and next x2 handoff.
 
+The batch kept 26 related stages in one Pull request and recorded Stage
+15A-15Z as the next hypothesis before Stage 15A-15Z defined the actual scope.
+
+## Stage 15A-15Z current batch
+
+Stage 15A-15Z is the current x2 process batch after Stage 14A-14Z. It defines
+post-sync handoff readiness for Stage 14 confirmation intake, merged-main
+replay, Lovable prompt replay, duplicate CI and long-gate handling, sync
+mismatch classification, artifact path normalization, project-memory refresh,
+and Stage 16 handoff.
+
 The batch keeps 26 related stages in one Pull request and records Stage
-15A-15Z as the next hypothesis until repository files define the next scope.
-
-## Stage 15A-15Z hypothesis
-
-Stage 15A-15Z is the next likely batch after Stage 14A-14Z. Its current scope
-has not been defined in repository files, so it remains a hypothesis until
-repository files define it.
+16A-16Z as the next hypothesis until repository files define the next scope.
 
 Historical note: Stage 7G-7I is complete and introduced the batch verification
 loop that Stage 7J-7L now uses for product-roadmap planning. Stage 7D-7F

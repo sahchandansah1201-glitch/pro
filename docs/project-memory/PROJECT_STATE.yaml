@@ -2,9 +2,9 @@ generated_at: "2026-05-22T00:00:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage13a-13z-execution-evidence-closure"
-  head_sha: "6937cdf4ca98e850a0ba86982c95cd39bb624b1d"
-  head_commit: "Add Stage 12A-12Z execution evidence bundle"
+  branch: "codex/stage15a-15z-post-sync-handoff-readiness"
+  head_sha: "c92604debb526931f0b5f6a73e18516a95c139f1"
+  head_commit: "Add Stage 14A-14Z sync confirmation ledger"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -641,6 +641,23 @@ verification:
       product_runtime_change: false
       managed_runtime_dependency: "none"
       managed_database_dependency: "none"
+  stage15a_15z_preflight:
+    command: "npm run preflight:stage15a-15z"
+    status: "pending-before-pr-merge"
+    key_facts:
+      post_sync_handoff_readiness_confirmed: true
+      sync_confirmation_ledger_confirmed: true
+      confirmed_previous_sync: "Confirmed: Stage 14A-14Z synced from main, no conflicts."
+      included_stage_count: 26
+      previous_included_stage_count: 26
+      minimum_related_stages_per_batch: 26
+      readiness_rules_recorded: 10
+      readiness_sections: 6
+      closed_stage_hypothesis: "Stage 15A-15Z"
+      next_stage_hypothesis: "Stage 16A-16Z"
+      product_runtime_change: false
+      managed_runtime_dependency: "none"
+      managed_database_dependency: "none"
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -807,9 +824,14 @@ stage_evidence:
     - "scripts/stage14a-14z-sync-confirmation-ledger.mjs"
     - "scripts/check-stage14a-14z-sync-confirmation-ledger.mjs"
     - ".github/workflows/stage14a-14z-sync-confirmation-ledger.yml"
+    - "deploy/self-hosted/post-sync-handoff-readiness.stage15a-15z.json"
+    - "docs/backend/stage-15a-15z-post-sync-handoff-readiness.md"
+    - "scripts/stage15a-15z-post-sync-handoff-readiness.mjs"
+    - "scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs"
+    - ".github/workflows/stage15a-15z-post-sync-handoff-readiness.yml"
 hypotheses:
-  - "Stage 14A-14Z is the current sync confirmation ledger batch in this branch."
-  - "Next logical batch after Stage 14A-14Z is Stage 15A-15Z."
+  - "Stage 15A-15Z is the current post-sync handoff readiness batch in this branch."
+  - "Next logical batch after Stage 15A-15Z is Stage 16A-16Z."
 sources:
   commands:
     - "git status --short --branch"
