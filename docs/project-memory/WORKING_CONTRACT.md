@@ -295,6 +295,39 @@ source, and batch volume are required before the prompt can be sent.
 The next normal batch after Stage 13A-13Z is Stage 14A-14Z unless repository
 files define a different scope.
 
+## Stage 14A: Sync ledger schema
+
+Stage 14A-14Z creates the Sync confirmation ledger. The schema records the
+confirmed Stage 13A-13Z Lovable sync, merged main evidence, ledger sections,
+ledger rules, required checks, product boundary, and post-merge Lovable
+handoff as repository-owned sync confirmation evidence.
+
+## Stage 14B-14F: Confirmation and lifecycle ledger
+
+The previous Stage 13A-13Z confirmation must be recorded in repository files
+before the Stage 14 handoff. Merged main evidence, Pull request lifecycle,
+GitHub checks, and command outcomes are ledger requirements, not optional
+notes.
+
+## Stage 14G-14P: Diagnostics and hygiene ledger
+
+Sync mismatch diagnostics, branch visibility checks, artifact hygiene,
+project-memory confirmation, working contract enforcement, batch template
+enforcement, previous-batch regression, preflight-all alignment, typecheck,
+lockfile alignment, and package-lock immutability must all be represented in
+the ledger.
+
+## Stage 14Q-14Y: Prompt, boundary and handoff ledger
+
+Prompt release gating, Lovable response gating, self-hosted boundary, privacy,
+duplicate CI handling, long gate handling, risk rollback, next batch readiness,
+and handoff packet generation are required before the prompt can be sent.
+
+## Stage 14Z: Stage 15 hypothesis
+
+The next normal batch after Stage 14A-14Z is Stage 15A-15Z unless repository
+files define a different scope.
+
 ## Stage 7J: Product gap register
 
 After the process contract is in place, the repository needs a product gap

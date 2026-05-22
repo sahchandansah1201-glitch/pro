@@ -2,6 +2,19 @@
 
 ## 2026-05-22
 
+- Created Stage 14A-14Z sync confirmation ledger x2 batch after Stage
+  13A-13Z.
+- Added manifest, renderer, guard, tests, docs, workflow, npm scripts,
+  preflight-all wiring, working contract, batch template, and project-memory
+  updates.
+- Stage 14A-14Z records the confirmed Stage 13A-13Z Lovable sync as repository
+  evidence and adds rules for merged-main confirmation, duplicate CI handling,
+  sync-delay diagnostics, and post-merge prompt release.
+- Stage 15A-15Z remains a hypothesis until repository files define the next
+  scope.
+
+## 2026-05-22
+
 - Created Stage 13A-13Z execution evidence closure x2 batch after Stage
   12A-12Z.
 - Added manifest, renderer, guard, tests, docs, workflow, npm scripts,

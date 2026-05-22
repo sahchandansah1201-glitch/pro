@@ -255,6 +255,39 @@ merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
    - no database migrations;
    - no managed runtime or managed database dependency;
    - repository closure evidence only.
+28. Stage 14A-14Z implements the sync confirmation ledger:
+   - Stage 14A: sync ledger schema;
+   - Stage 14B: Lovable confirmation evidence;
+   - Stage 14C: merged main evidence;
+   - Stage 14D: Pull request lifecycle ledger;
+   - Stage 14E: GitHub checks ledger;
+   - Stage 14F: command outcome ledger;
+   - Stage 14G: sync mismatch decision tree;
+   - Stage 14H: branch visibility diagnostic;
+   - Stage 14I: artifact hygiene ledger;
+   - Stage 14J: project-memory confirmation;
+   - Stage 14K: working contract enforcement;
+   - Stage 14L: batch template enforcement;
+   - Stage 14M: previous batch regression;
+   - Stage 14N: preflight-all alignment;
+   - Stage 14O: typecheck and lockfile alignment;
+   - Stage 14P: package-lock immutability;
+   - Stage 14Q: prompt release gate;
+   - Stage 14R: Lovable response gate;
+   - Stage 14S: self-hosted boundary ledger;
+   - Stage 14T: privacy marker ledger;
+   - Stage 14U: duplicate CI run handling;
+   - Stage 14V: long gate handling;
+   - Stage 14W: risk rollback ledger;
+   - Stage 14X: next batch readiness;
+   - Stage 14Y: handoff packet;
+   - Stage 14Z: Stage 15 hypothesis.
+29. Stage 14A-14Z product boundary:
+   - no runtime behavior change;
+   - no backend routes or frontend product pages;
+   - no database migrations;
+   - no managed runtime or managed database dependency;
+   - repository sync evidence only.
 
 ## Important operational fact
 
@@ -266,8 +299,8 @@ expected to produce a false "missing files" result because Lovable follows
 ## Hypothesis
 
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
-- `Stage 13A-13Z` is the current execution evidence closure batch after Stage 12A-12Z.
-- `Stage 14A-14Z` is the next likely batch after Stage 13A-13Z.
+- `Stage 14A-14Z` is the current sync confirmation ledger batch after Stage 13A-13Z.
+- `Stage 15A-15Z` is the next likely batch after Stage 14A-14Z.
 - Historical marker: `Stage 10A-10L` was the original next hypothesis after
   Stage 9N-9Z before the x2 batch expanded into Stage 10A-10Z.
 - Historical marker: `Stage 8P-8R` was the original next hypothesis after
@@ -279,10 +312,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 13A-13Z Pull request lifecycle.
+1. Complete the Stage 14A-14Z Pull request lifecycle.
 2. Run or verify:
+   - `npm run preflight:stage14a-14z`
    - `npm run preflight:stage13a-13z`
-   - `npm run preflight:stage12a-12z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

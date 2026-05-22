@@ -1,0 +1,59 @@
+name: stage14a-14z-sync-confirmation-ledger
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/sync-confirmation-ledger.stage14a-14z.json"
+      - "docs/backend/stage-14a-14z-sync-confirmation-ledger.md"
+      - "docs/project-memory/**"
+      - "scripts/stage14a-14z-sync-confirmation-ledger.mjs"
+      - "scripts/stage14a-14z-sync-confirmation-ledger.test.mjs"
+      - "scripts/check-stage14a-14z-sync-confirmation-ledger.mjs"
+      - "scripts/check-stage14a-14z-sync-confirmation-ledger.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage14a-14z-sync-confirmation-ledger.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/self-hosted/sync-confirmation-ledger.stage14a-14z.json"
+      - "docs/backend/stage-14a-14z-sync-confirmation-ledger.md"
+      - "docs/project-memory/**"
+      - "scripts/stage14a-14z-sync-confirmation-ledger.mjs"
+      - "scripts/stage14a-14z-sync-confirmation-ledger.test.mjs"
+      - "scripts/check-stage14a-14z-sync-confirmation-ledger.mjs"
+      - "scripts/check-stage14a-14z-sync-confirmation-ledger.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage14a-14z-sync-confirmation-ledger.yml"
+  workflow_dispatch:
+
+jobs:
+  stage14a-14z-sync-confirmation-ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Stage 14A-14Z preflight
+        run: npm run preflight:stage14a-14z
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 14A-14Z sync confirmation ledger"
+            echo
+            echo "- Command: \`npm run preflight:stage14a-14z\`"
+            echo "- Result: ${{ job.status }}"
+            echo "- Boundary: self-hosted product runtime unchanged"
+          } >> "$GITHUB_STEP_SUMMARY"

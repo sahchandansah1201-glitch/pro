@@ -766,3 +766,28 @@
 - `npm run preflight:all -- --dry-run`
 - `node scripts/check-no-deno-locks.mjs`
 - `git diff --check`
+
+## Stage 14A-14Z sync confirmation ledger artifacts
+
+- [sync-confirmation-ledger.stage14a-14z.json](../../deploy/self-hosted/sync-confirmation-ledger.stage14a-14z.json)
+- [stage14a-14z-sync-confirmation-ledger.mjs](../../scripts/stage14a-14z-sync-confirmation-ledger.mjs)
+- [stage14a-14z-sync-confirmation-ledger.test.mjs](../../scripts/stage14a-14z-sync-confirmation-ledger.test.mjs)
+- [check-stage14a-14z-sync-confirmation-ledger.mjs](../../scripts/check-stage14a-14z-sync-confirmation-ledger.mjs)
+- [check-stage14a-14z-sync-confirmation-ledger.test.mjs](../../scripts/check-stage14a-14z-sync-confirmation-ledger.test.mjs)
+- [stage-14a-14z-sync-confirmation-ledger.md](../backend/stage-14a-14z-sync-confirmation-ledger.md)
+- [stage14a-14z-sync-confirmation-ledger.yml](../../.github/workflows/stage14a-14z-sync-confirmation-ledger.yml)
+- [WORKING_CONTRACT.md](./WORKING_CONTRACT.md)
+- [BATCH_TEMPLATE.md](./BATCH_TEMPLATE.md)
+
+## Stage 14A-14Z verification commands
+
+- `npm run test:stage14a-14z`
+- `npm run check:stage14a-14z`
+- `npm run ledger:stage14a-14z:dry-run`
+- `npm run preflight:stage14a-14z`
+- `npm run preflight:stage13a-13z`
+- `npm run check:project-memory`
+- `npm run typecheck`
+- `npm run preflight:all -- --dry-run`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`
