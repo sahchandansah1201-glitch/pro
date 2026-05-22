@@ -363,6 +363,25 @@ be sent.
 The next normal batch after Stage 15A-15Z is Stage 16A-16Z unless repository
 files define a different scope.
 
+## Stage 16A: Post-sync baseline intake
+
+Stage 16A-16Z creates Product cycle readiness after the Stage 15 post-sync
+handoff. The packet records the previous 26-stage baseline, the current product
+surface inventory, the rule that the next normal batch must be product-facing,
+and the selected next product candidate.
+
+## Stage 16B-16M: Product-cycle selection
+
+The batch must list product surfaces, block process-only ledger drift, score
+candidate product batches, select a recommended product candidate, and define
+acceptance criteria before another Lovable prompt is generated.
+
+## Stage 16N-16Z: Product-cycle handoff
+
+Stage 16N-16Z freezes the Lovable sync prompt, package scripts, workflow,
+preflight-all wiring, project-memory updates, self-hosted product boundary, and
+Stage 17A-17Z hypothesis for the next product-facing batch.
+
 ## Stage 7J: Product gap register
 
 After the process contract is in place, the repository needs a product gap

@@ -816,3 +816,28 @@
 - `npm run preflight:all -- --dry-run`
 - `node scripts/check-no-deno-locks.mjs`
 - `git diff --check`
+
+## Stage 16A-16Z product cycle readiness artifacts
+
+- [product-cycle-readiness.stage16a-16z.json](../../deploy/self-hosted/product-cycle-readiness.stage16a-16z.json)
+- [stage16a-16z-product-cycle-readiness.mjs](../../scripts/stage16a-16z-product-cycle-readiness.mjs)
+- [stage16a-16z-product-cycle-readiness.test.mjs](../../scripts/stage16a-16z-product-cycle-readiness.test.mjs)
+- [check-stage16a-16z-product-cycle-readiness.mjs](../../scripts/check-stage16a-16z-product-cycle-readiness.mjs)
+- [check-stage16a-16z-product-cycle-readiness.test.mjs](../../scripts/check-stage16a-16z-product-cycle-readiness.test.mjs)
+- [stage-16a-16z-product-cycle-readiness.md](../backend/stage-16a-16z-product-cycle-readiness.md)
+- [stage16a-16z-product-cycle-readiness.yml](../../.github/workflows/stage16a-16z-product-cycle-readiness.yml)
+- [WORKING_CONTRACT.md](./WORKING_CONTRACT.md)
+- [BATCH_TEMPLATE.md](./BATCH_TEMPLATE.md)
+
+## Stage 16A-16Z verification commands
+
+- `npm run test:stage16a-16z`
+- `npm run check:stage16a-16z`
+- `npm run readiness:stage16a-16z:dry-run`
+- `npm run preflight:stage16a-16z`
+- `npm run preflight:stage15a-15z`
+- `npm run check:project-memory`
+- `npm run typecheck`
+- `npm run preflight:all -- --dry-run`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`

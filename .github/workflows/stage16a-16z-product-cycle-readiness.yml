@@ -1,0 +1,53 @@
+name: stage16a-16z-product-cycle-readiness
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/product-cycle-readiness.stage16a-16z.json"
+      - "scripts/stage16a-16z-product-cycle-readiness.mjs"
+      - "scripts/stage16a-16z-product-cycle-readiness.test.mjs"
+      - "scripts/check-stage16a-16z-product-cycle-readiness.mjs"
+      - "scripts/check-stage16a-16z-product-cycle-readiness.test.mjs"
+      - "docs/backend/stage-16a-16z-product-cycle-readiness.md"
+      - "docs/project-memory/**"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage16a-16z-product-cycle-readiness.yml"
+  push:
+    paths:
+      - "deploy/self-hosted/product-cycle-readiness.stage16a-16z.json"
+      - "scripts/stage16a-16z-product-cycle-readiness.mjs"
+      - "scripts/stage16a-16z-product-cycle-readiness.test.mjs"
+      - "scripts/check-stage16a-16z-product-cycle-readiness.mjs"
+      - "scripts/check-stage16a-16z-product-cycle-readiness.test.mjs"
+      - "docs/backend/stage-16a-16z-product-cycle-readiness.md"
+      - "docs/project-memory/**"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage16a-16z-product-cycle-readiness.yml"
+  workflow_dispatch:
+
+jobs:
+  stage16a-16z-product-cycle-readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 16A-16Z preflight
+        run: npm run preflight:stage16a-16z
+      - name: Stage 16A-16Z summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 16A-16Z product cycle readiness"
+            echo ""
+            echo "- Command: \`npm run preflight:stage16a-16z\`"
+            echo "- Scope: product-cycle planning evidence; no runtime behavior change"
+          } >> "$GITHUB_STEP_SUMMARY"

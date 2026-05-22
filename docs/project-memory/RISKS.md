@@ -239,14 +239,25 @@
      `main_verified_before_next_handoff`, `lovable_prompt_replay_manifest`,
      and `wrong_project_diagnostic_required`.
 
+22. **Product work can regress into another process-only ledger**
+   - Evidence: Stage 16A-16Z exists because the project had several large
+     process and handoff batches after product implementation stages.
+   - Impact: the repository can continue to grow without improving a
+     product-facing workflow for Dermatolog Pro.
+   - Mitigation: Stage 16A-16Z records product-facing selection rules,
+     requires a recommended product candidate, and marks Stage 17A-17Z as the
+     next product-facing hypothesis.
+
 ## Hypotheses
 
 1. **Next process batch**
-   - hypothesis: Stage 16A-16Z is next.
-   - Basis: Stage 15A-15Z creates the post-sync handoff readiness packet after
-     Stage 14A-14Z sync confirmation.
-   - Uncertainty: Stage 16A-16Z is not implemented until repository files define
-     it.
+   - hypothesis: Stage 17A-17Z is next.
+   - Basis: Stage 16A-16Z creates the product cycle readiness packet and
+     recommends a product-facing clinical follow-up batch.
+   - Uncertainty: Stage 17A-17Z is not implemented until repository files
+     define it.
+   - Historical marker: Stage 16A-16Z is the current product cycle readiness
+     batch in this branch.
    - Historical marker: Stage 15A-15Z is the current post-sync handoff readiness
      batch in this branch.
    - Historical marker: Stage 14A-14Z is the current sync confirmation ledger

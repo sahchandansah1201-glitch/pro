@@ -192,3 +192,16 @@ If Lovable reports missing files:
 - Previous batch regression command:
 - Prompt generated from manifest:
 - Next batch hypothesis:
+
+## Product Cycle Readiness
+
+- Product-facing batch required:
+- Surface inventory:
+- Confirmed product surfaces:
+- Remaining product gaps:
+- Candidate product batches:
+- Recommended product candidate:
+- Acceptance criteria:
+- Previous batch regression command:
+- Lovable prompt generated from manifest:
+- Next batch hypothesis:

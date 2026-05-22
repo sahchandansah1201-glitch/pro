@@ -434,7 +434,11 @@
     "preflight:stage15a-15z": "npm run test:stage15a-15z && npm run check:stage15a-15z && npm run readiness:stage15a-15z:dry-run && npm run preflight:stage14a-14z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
     "test:stage15a-15z": "node --test scripts/stage15a-15z-post-sync-handoff-readiness.test.mjs scripts/check-stage15a-15z-post-sync-handoff-readiness.test.mjs",
     "check:stage15a-15z": "node scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs",
-    "readiness:stage15a-15z:dry-run": "node scripts/stage15a-15z-post-sync-handoff-readiness.mjs --dry-run"
+    "readiness:stage15a-15z:dry-run": "node scripts/stage15a-15z-post-sync-handoff-readiness.mjs --dry-run",
+    "preflight:stage16a-16z": "npm run test:stage16a-16z && npm run check:stage16a-16z && npm run readiness:stage16a-16z:dry-run && npm run preflight:stage15a-15z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
+    "test:stage16a-16z": "node --test scripts/stage16a-16z-product-cycle-readiness.test.mjs scripts/check-stage16a-16z-product-cycle-readiness.test.mjs",
+    "check:stage16a-16z": "node scripts/check-stage16a-16z-product-cycle-readiness.mjs",
+    "readiness:stage16a-16z:dry-run": "node scripts/stage16a-16z-product-cycle-readiness.mjs --dry-run"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

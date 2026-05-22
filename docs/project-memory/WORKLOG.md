@@ -2,6 +2,14 @@
 
 ## 2026-05-22
 
+- Создан Stage 16A-16Z product cycle readiness x2 batch после Stage 15A-15Z.
+- Зафиксированы product cycle readiness, surface inventory, recommended
+  product candidate, Lovable prompt gate, and Stage 17A-17Z hypothesis.
+- Батч запрещает следующий process-only ledger без product-facing причины и
+  рекомендует `Clinical follow-up and patient communication loop`.
+
+## 2026-05-22
+
 - Создан Stage 15A-15Z post-sync handoff readiness x2 batch после подтверждения Stage 14A-14Z Lovable sync.
 - Зафиксированы previous sync confirmation intake, merged-main replay, Lovable prompt replay, duplicate CI handling, long gate policy, sync mismatch classifier, project-memory refresh, and Stage 16 hypothesis handoff.
 - Подтверждаемые команды для batch: `npm run test:stage15a-15z`, `npm run check:stage15a-15z`, `npm run readiness:stage15a-15z:dry-run`, `npm run preflight:stage15a-15z`.
