@@ -2,6 +2,19 @@
 
 ## 2026-05-22
 
+- Created Stage 13A-13Z execution evidence closure x2 batch after Stage
+  12A-12Z.
+- Added manifest, renderer, guard, tests, docs, workflow, npm scripts,
+  preflight-all wiring, working contract, batch template, and project-memory
+  updates.
+- Stage 13A-13Z converts the Stage 12 evidence bundle into closure rules:
+  `closure_not_assumption`, `prompt_after_merge_only`,
+  `previous_evidence_regression`, and `next_batch_handoff_generated`.
+- Stage 14A-14Z remains a hypothesis until repository files define the next
+  scope.
+
+## 2026-05-22
+
 - Created Stage 12A-12Z execution evidence bundle x2 batch after Stage 11A-11Z.
 - Added manifest, renderer, guard, workflow, docs, project-memory updates, and
   preflight-all wiring for implementation evidence, diagnostics evidence,

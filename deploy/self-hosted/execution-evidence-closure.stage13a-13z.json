@@ -1,0 +1,213 @@
+{
+  "stage": "13A-13Z",
+  "packageId": "stage13a-13z-execution-evidence-closure",
+  "title": "Stage 13A-13Z · Execution evidence closure",
+  "purpose": "Close the Stage 12A-12Z execution evidence bundle with repository-owned proof that future large-batch claims, Lovable prompts, and sync confirmations are gated by concrete files, commands, Pull request lifecycle evidence, and post-merge local main verification.",
+  "previousBatch": "Stage 12A-12Z",
+  "previousBatchCommit": "6937cdf",
+  "nextBatchHypothesis": "Stage 14A-14Z",
+  "batchScale": {
+    "previousIncludedStages": 26,
+    "currentIncludedStages": 26,
+    "minimumRelatedStagesPerBatch": 26,
+    "scalePolicy": "sustain x2-size process batches by closing the previous evidence bundle before starting another product or operations batch"
+  },
+  "includedStages": [
+    { "id": "Stage 13A", "title": "Closure schema", "status": "ready" },
+    { "id": "Stage 13B", "title": "Stage 12 evidence regression", "status": "ready" },
+    { "id": "Stage 13C", "title": "Closure rule register", "status": "ready" },
+    { "id": "Stage 13D", "title": "Prompt sequencing closure", "status": "ready" },
+    { "id": "Stage 13E", "title": "Pull request lifecycle closure", "status": "ready" },
+    { "id": "Stage 13F", "title": "Lovable sync closure", "status": "ready" },
+    { "id": "Stage 13G", "title": "Sync mismatch diagnostic closure", "status": "ready" },
+    { "id": "Stage 13H", "title": "Artifact hygiene closure", "status": "ready" },
+    { "id": "Stage 13I", "title": "Project-memory closure", "status": "ready" },
+    { "id": "Stage 13J", "title": "Working contract closure", "status": "ready" },
+    { "id": "Stage 13K", "title": "Batch template closure", "status": "ready" },
+    { "id": "Stage 13L", "title": "Preflight-all closure", "status": "ready" },
+    { "id": "Stage 13M", "title": "Typecheck closure", "status": "ready" },
+    { "id": "Stage 13N", "title": "No-lock-file closure", "status": "ready" },
+    { "id": "Stage 13O", "title": "Diff hygiene closure", "status": "ready" },
+    { "id": "Stage 13P", "title": "Guard coverage closure", "status": "ready" },
+    { "id": "Stage 13Q", "title": "Workflow closure", "status": "ready" },
+    { "id": "Stage 13R", "title": "Report output closure", "status": "ready" },
+    { "id": "Stage 13S", "title": "Self-hosted boundary closure", "status": "ready" },
+    { "id": "Stage 13T", "title": "Privacy closure", "status": "ready" },
+    { "id": "Stage 13U", "title": "Command repeatability closure", "status": "ready" },
+    { "id": "Stage 13V", "title": "Defect-prevention closure", "status": "ready" },
+    { "id": "Stage 13W", "title": "Post-merge verification closure", "status": "ready" },
+    { "id": "Stage 13X", "title": "Lovable prompt source closure", "status": "ready" },
+    { "id": "Stage 13Y", "title": "Batch volume closure", "status": "ready" },
+    { "id": "Stage 13Z", "title": "Next x2 handoff closure", "status": "ready" }
+  ],
+  "closureSections": [
+    {
+      "id": "schema",
+      "title": "Closure Schema",
+      "requiredEvidence": [
+        "stage id",
+        "package id",
+        "previous batch",
+        "next batch hypothesis",
+        "included stages",
+        "closure gates"
+      ]
+    },
+    {
+      "id": "previous_evidence",
+      "title": "Previous Evidence Regression",
+      "requiredEvidence": [
+        "Stage 12 manifest",
+        "Stage 12 renderer",
+        "Stage 12 guard",
+        "Stage 12 workflow",
+        "Stage 12 documentation",
+        "Stage 12 preflight command"
+      ]
+    },
+    {
+      "id": "verification",
+      "title": "Verification Closure",
+      "requiredEvidence": [
+        "stage tests",
+        "stage guard",
+        "stage dry run",
+        "stage preflight",
+        "previous batch preflight",
+        "project-memory guard",
+        "typecheck",
+        "preflight-all dry run",
+        "lock-file guard",
+        "diff check"
+      ]
+    },
+    {
+      "id": "github",
+      "title": "GitHub Closure",
+      "requiredEvidence": [
+        "branch name",
+        "commit SHA",
+        "Pull request URL",
+        "check-run wait",
+        "ready transition",
+        "squash merge",
+        "branch deletion",
+        "local main verification"
+      ]
+    },
+    {
+      "id": "lovable",
+      "title": "Lovable Closure",
+      "requiredEvidence": [
+        "prompt generated from manifest",
+        "prompt blocked before merge",
+        "prompt sent only after main verification",
+        "expected confirmation phrase",
+        "sync mismatch checklist",
+        "no branch-only claims"
+      ]
+    },
+    {
+      "id": "risk",
+      "title": "Risk Closure",
+      "requiredEvidence": [
+        "repeat defect class",
+        "diagnostic command",
+        "prevention rule",
+        "worklog entry",
+        "next batch hypothesis",
+        "handoff owner"
+      ]
+    }
+  ],
+  "closureRules": [
+    {
+      "id": "closure_not_assumption",
+      "severity": "critical",
+      "rule": "A stage closure is invalid unless the repository contains the manifest, script, guard, docs, workflow, project-memory updates, and passing commands."
+    },
+    {
+      "id": "prompt_after_merge_only",
+      "severity": "critical",
+      "rule": "A Lovable prompt is valid only after the Pull request has been merged into main and local main has been verified."
+    },
+    {
+      "id": "previous_evidence_regression",
+      "severity": "critical",
+      "rule": "A closure batch must run the previous evidence batch preflight before handoff."
+    },
+    {
+      "id": "next_batch_handoff_generated",
+      "severity": "critical",
+      "rule": "The next batch hypothesis must be generated in project memory before the current batch is handed off."
+    },
+    {
+      "id": "checks_before_ready",
+      "severity": "critical",
+      "rule": "The Pull request must not be marked ready until local preflight and GitHub checks are green."
+    },
+    {
+      "id": "sync_mismatch_diagnosed",
+      "severity": "high",
+      "rule": "If Lovable cannot see files, diagnose merged main, local main, repository connection, branch, and webhook state before claiming a conflict."
+    },
+    {
+      "id": "relative_artifact_links",
+      "severity": "high",
+      "rule": "Repository artifact links must stay relative so CI, local machines, and Lovable can resolve them."
+    },
+    {
+      "id": "no_runtime_coupling",
+      "severity": "high",
+      "rule": "Closure evidence must not introduce managed runtime, managed database, browser hardware, or external service coupling."
+    },
+    {
+      "id": "previous_batch_regression_required",
+      "severity": "high",
+      "rule": "Normal x2 batches must include the previous batch preflight in the current preflight."
+    },
+    {
+      "id": "lovable_prompt_source_locked",
+      "severity": "critical",
+      "rule": "The Lovable prompt must be derived from the manifest and not rewritten after merge."
+    }
+  ],
+  "requiredFiles": [
+    "deploy/self-hosted/execution-evidence-closure.stage13a-13z.json",
+    "scripts/stage13a-13z-execution-evidence-closure.mjs",
+    "scripts/stage13a-13z-execution-evidence-closure.test.mjs",
+    "scripts/check-stage13a-13z-execution-evidence-closure.mjs",
+    "scripts/check-stage13a-13z-execution-evidence-closure.test.mjs",
+    "docs/backend/stage-13a-13z-execution-evidence-closure.md",
+    "docs/project-memory/WORKING_CONTRACT.md",
+    "docs/project-memory/BATCH_TEMPLATE.md",
+    ".github/workflows/stage13a-13z-execution-evidence-closure.yml"
+  ],
+  "verificationGates": [
+    { "id": "stage13a-13z-tests", "command": "npm run test:stage13a-13z", "required": true },
+    { "id": "stage13a-13z-guard", "command": "npm run check:stage13a-13z", "required": true },
+    { "id": "stage13a-13z-dry-run", "command": "npm run closure:stage13a-13z:dry-run", "required": true },
+    { "id": "stage13a-13z-preflight", "command": "npm run preflight:stage13a-13z", "required": true },
+    { "id": "previous-evidence-regression", "command": "npm run preflight:stage12a-12z", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "typecheck", "command": "npm run typecheck", "required": true },
+    { "id": "preflight-all-dry-run", "command": "npm run preflight:all -- --dry-run", "required": true },
+    { "id": "no-deno-locks", "command": "node scripts/check-no-deno-locks.mjs", "required": true },
+    { "id": "diff-check", "command": "git diff --check", "required": true }
+  ],
+  "productBoundary": {
+    "runtimeBehaviorChanged": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "database": "none added",
+    "objectStorage": "none added",
+    "dataVisibility": "repository closure evidence only; no secrets, patient identifiers, bearer values, signed link values, worker raw values, or binary object references"
+  },
+  "lovableHandoff": {
+    "expectedConfirmation": "Confirmed: Stage 13A-13Z synced from main, no conflicts.",
+    "promptAllowedOnlyAfterMerge": true,
+    "nextBatchHypothesis": "Stage 14A-14Z"
+  }
+}

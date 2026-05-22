@@ -207,16 +207,28 @@
      GitHub check-run evidence, post-merge local main verification, and
      Lovable confirmation evidence.
 
+19. **Execution evidence closure can drift after the prompt is sent**
+   - Evidence: Stage 13A-13Z adds the execution evidence closure after Stage
+     12A-12Z made execution evidence mandatory.
+   - Impact: if closure files are not guarded, future batches can again send a
+     Lovable prompt before merge or treat a sync delay as a code conflict.
+   - Mitigation: Stage 13A-13Z requires `closure_not_assumption`,
+     `prompt_after_merge_only`, `previous_evidence_regression`,
+     `next_batch_handoff_generated`, stage preflight, project-memory guard,
+     and post-merge prompt sequencing.
+
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 13A-13Z is next.
-   - Basis: Stage 12A-12Z creates the execution evidence bundle after Stage
-     11A-11Z closes the development quality ledger.
-   - Uncertainty: Stage 13A-13Z is not implemented until repository files define
+   - hypothesis: Stage 14A-14Z is next.
+   - Basis: Stage 13A-13Z creates the execution evidence closure after Stage
+     12A-12Z closes the execution evidence bundle.
+   - Uncertainty: Stage 14A-14Z is not implemented until repository files define
      it.
-   - Historical marker: Stage 12A-12Z is the current execution evidence bundle
+   - Historical marker: Stage 13A-13Z is the current execution evidence closure
      batch in this branch.
+   - Historical marker: Stage 12A-12Z is the execution evidence bundle batch
+     before Stage 13A-13Z.
    - Historical marker: Stage 11A-11Z is the current development quality ledger
      batch before Stage 12A-12Z.
    - Historical marker: Stage 10A-10L was the original next hypothesis after
