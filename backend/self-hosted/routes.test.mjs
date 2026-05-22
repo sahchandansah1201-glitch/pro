@@ -37,6 +37,10 @@ function createRuntime({
   patientPortalBookingRequest = null,
   patientPortalReminderPreferences = null,
   patientPortalError = null,
+  clinicalFollowUps = null,
+  clinicalFollowUp = null,
+  clinicalFollowUpMessage = null,
+  clinicalFollowUpError = null,
   clinicBookingRequests = null,
   clinicBookingRequest = null,
   clinicBookingRequestsError = null,
@@ -380,6 +384,128 @@ function createRuntime({
             reportNotificationsEnabled: true,
             preferredChannel: "phone",
             updatedAt: "2026-05-01T10:00:00.000Z",
+          },
+          scope: {
+            userId: authContext?.userId,
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+    },
+    clinicalFollowUpService: {
+      async listClinicalFollowUps() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          result: {
+            items: clinicalFollowUps || [
+              clinicalFollowUp || {
+                id: "10000000-0000-4000-8000-000000000701",
+                clinicId: "10000000-0000-4000-8000-000000000001",
+                patientId: "10000000-0000-4000-8000-000000000201",
+                visitId: "10000000-0000-4000-8000-000000000301",
+                dueAt: "2026-06-10T10:00:00.000Z",
+                status: "sent",
+                priority: "normal",
+                reason: "Контроль после визита",
+                patientSummary: "Patient-safe follow-up summary",
+                internalNote: "Doctor-only follow-up note",
+                messageCount: 1,
+              },
+            ],
+            limit: 50,
+            offset: 0,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async createClinicalFollowUp() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: clinicalFollowUp || {
+            id: "10000000-0000-4000-8000-000000000701",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            patientId: "10000000-0000-4000-8000-000000000201",
+            visitId: "10000000-0000-4000-8000-000000000301",
+            dueAt: "2026-06-10T10:00:00.000Z",
+            status: "planned",
+            priority: "normal",
+            reason: "Контроль после визита",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUp() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: {
+            ...(clinicalFollowUp || { id: "10000000-0000-4000-8000-000000000701" }),
+            status: "completed",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async createClinicalFollowUpMessage() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          message: clinicalFollowUpMessage || {
+            id: "10000000-0000-4000-8000-000000000801",
+            followUpId: "10000000-0000-4000-8000-000000000701",
+            direction: "clinic_to_patient",
+            body: "Контроль назначен.",
+            patientVisible: true,
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async listPatientFollowUps() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          result: {
+            items: clinicalFollowUps || [
+              {
+                id: "10000000-0000-4000-8000-000000000701",
+                visitId: "10000000-0000-4000-8000-000000000301",
+                dueAt: "2026-06-10T10:00:00.000Z",
+                status: "sent",
+                priority: "normal",
+                reason: "Контроль после визита",
+                patientSummary: "Patient-safe follow-up summary",
+                messageCount: 1,
+              },
+            ],
+            source: "postgres",
+          },
+          scope: {
+            userId: authContext?.userId,
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async createPatientFollowUpMessage() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          message: clinicalFollowUpMessage || {
+            id: "10000000-0000-4000-8000-000000000802",
+            followUpId: "10000000-0000-4000-8000-000000000701",
+            direction: "patient_to_clinic",
+            body: "Ответ пациента.",
           },
           scope: {
             userId: authContext?.userId,
@@ -1042,6 +1168,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.capabilities.clinicAvailableSlots, "rbac-read-postgres-local-import-cache");
   assert.equal(meta.json.capabilities.patientPortal, "patient-owned-read-postgres");
   assert.equal(meta.json.capabilities.patientPortalWrites, "patient-owned-write-postgres");
+  assert.equal(meta.json.capabilities.clinicalFollowUps, "rbac-read-write-postgres-patient-portal-local-communication");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -1067,6 +1194,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage8P9A, "/openapi.stage8p-9a.json");
   assert.equal(meta.json.links.openapiStage9B9M, "/openapi.stage9b-9m.json");
   assert.equal(meta.json.links.openapiStage9N9Z, "/openapi.stage9n-9z.json");
+  assert.equal(meta.json.links.openapiStage17A17Z, "/openapi.stage17a-17z.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -1113,6 +1241,11 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.patientPortalReport, "/api/v1/me/reports/{reportId}");
   assert.equal(meta.json.links.patientPortalBookingRequests, "/api/v1/me/booking-requests");
   assert.equal(meta.json.links.patientPortalReminderPreferences, "/api/v1/me/reminder-preferences");
+  assert.equal(meta.json.links.clinicalFollowUps, "/api/v1/clinical/follow-ups");
+  assert.equal(meta.json.links.createVisitFollowUp, "/api/v1/visits/{visitId}/follow-ups");
+  assert.equal(meta.json.links.clinicalFollowUpMessages, "/api/v1/clinical/follow-ups/{followUpId}/messages");
+  assert.equal(meta.json.links.patientPortalFollowUps, "/api/v1/me/follow-ups");
+  assert.equal(meta.json.links.patientPortalFollowUpMessages, "/api/v1/me/follow-ups/{followUpId}/messages");
   assert.equal(meta.json.links.visits, "/api/v1/visits");
   assert.equal(meta.json.links.assetDownloadUrl, "/api/v1/assets/{assetId}/download-url");
   assert.equal(meta.json.links.assetDownload, "/api/v1/assets/{assetId}/download");
@@ -3579,6 +3712,85 @@ test("Stage 5O · /openapi.stage5o.json documents patient portal write contracts
   assert.equal(response.json.info.version, "5O-patient-portal-writes");
   assert.ok(response.json.paths["/api/v1/me/booking-requests"].post);
   assert.ok(response.json.paths["/api/v1/me/reminder-preferences"].patch);
+});
+
+test("Stage 17A-17Z · clinical follow-up routes support staff and patient communication", async () => {
+  const runtime = createRuntime();
+  const list = await request("/api/v1/clinical/follow-ups?status=sent", configuredEnv, runtime);
+  assert.equal(list.status, 200);
+  assert.equal(list.json.stage, "17A-17Z");
+  assert.equal(list.json.items[0].reason, "Контроль после визита");
+  assert.equal(list.json.items[0].internalNote, "Doctor-only follow-up note");
+
+  const created = await request(
+    "/api/v1/visits/10000000-0000-4000-8000-000000000301/follow-ups",
+    configuredEnv,
+    runtime,
+    "POST",
+    {
+      dueAt: "2026-06-10T10:00:00.000Z",
+      reason: "Контроль после визита",
+      patientSummary: "Patient-safe follow-up summary",
+    },
+  );
+  assert.equal(created.status, 201);
+  assert.equal(created.json.item.status, "planned");
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    { status: "completed" },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.item.status, "completed");
+
+  const message = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701/messages",
+    configuredEnv,
+    runtime,
+    "POST",
+    { body: "Контроль назначен." },
+  );
+  assert.equal(message.status, 201);
+  assert.equal(message.json.item.direction, "clinic_to_patient");
+  assert.doesNotMatch(message.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url/i);
+});
+
+test("Stage 17A-17Z · patient follow-up routes hide internal notes and accept replies", async () => {
+  const authContext = {
+    userId: "10000000-0000-4000-8000-000000000901",
+    roles: ["patient"],
+    clinicIds: [],
+    roleBindings: [{ role: "patient", clinicId: null, clinicSlug: null }],
+  };
+  const runtime = createRuntime({ authContext });
+
+  const list = await request("/api/v1/me/follow-ups", configuredEnv, runtime);
+  assert.equal(list.status, 200);
+  assert.equal(list.json.stage, "17A-17Z");
+  assert.equal(list.json.items[0].patientSummary, "Patient-safe follow-up summary");
+  assert.doesNotMatch(list.body, /internalNote|Doctor-only|storage_object_path|signed_url|access_token/i);
+
+  const reply = await request(
+    "/api/v1/me/follow-ups/10000000-0000-4000-8000-000000000701/messages",
+    configuredEnv,
+    runtime,
+    "POST",
+    { body: "Ответ пациента." },
+  );
+  assert.equal(reply.status, 201);
+  assert.equal(reply.json.item.direction, "patient_to_clinic");
+});
+
+test("Stage 17A-17Z · /openapi.stage17a-17z.json documents follow-up communication", async () => {
+  const response = await request("/openapi.stage17a-17z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "17A-17Z-clinical-followup-communication");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups"].get);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/follow-ups"].post);
+  assert.ok(response.json.paths["/api/v1/me/follow-ups/{followUpId}/messages"].post);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

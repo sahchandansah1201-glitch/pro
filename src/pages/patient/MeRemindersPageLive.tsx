@@ -4,7 +4,13 @@ import { FormEvent, useEffect, useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/format";
+import {
+  createSelfHostedPatientFollowUpMessage,
+  listSelfHostedPatientFollowUps,
+  type SelfHostedClinicalFollowUp,
+} from "@/lib/self-hosted-follow-up-api";
 import { updateSelfHostedPatientPortalReminderPreferences } from "@/lib/self-hosted-patient-portal-api";
 import { usePatientPortalOverview } from "./usePatientPortalOverview";
 
@@ -15,6 +21,11 @@ export default function MeRemindersPageLive() {
   const [preferredChannel, setPreferredChannel] = useState<"email" | "phone" | "none">("email");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [followUps, setFollowUps] = useState<SelfHostedClinicalFollowUp[]>([]);
+  const [followUpsStatus, setFollowUpsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [followUpsMessage, setFollowUpsMessage] = useState<string | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replyBusyId, setReplyBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!overview) return;
@@ -22,6 +33,31 @@ export default function MeRemindersPageLive() {
     setReportNotificationsEnabled(overview.reminderPreferences.reportNotificationsEnabled);
     setPreferredChannel(overview.reminderPreferences.preferredChannel);
   }, [overview]);
+
+  useEffect(() => {
+    if (!overview) return;
+    let cancelled = false;
+    async function loadFollowUps() {
+      setFollowUpsStatus("loading");
+      const result = await listSelfHostedPatientFollowUps({
+        apiBaseUrl: session.apiBaseUrl,
+        apiToken: session.apiToken,
+      });
+      if (cancelled) return;
+      if (!result.ok) {
+        setFollowUpsStatus("error");
+        setFollowUpsMessage(result.error.message);
+        return;
+      }
+      setFollowUps(result.value || []);
+      setFollowUpsStatus("ready");
+      setFollowUpsMessage(null);
+    }
+    void loadFollowUps();
+    return () => {
+      cancelled = true;
+    };
+  }, [overview, session.apiBaseUrl, session.apiToken]);
 
   async function submitReminderPreferences(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,6 +80,37 @@ export default function MeRemindersPageLive() {
     setSaveStatus("saved");
     setSaveMessage("Настройки напоминаний сохранены.");
     await reload();
+  }
+
+  async function submitFollowUpReply(followUpId: string) {
+    const body = (replyDrafts[followUpId] || "").trim();
+    if (!body) {
+      setFollowUpsStatus("error");
+      setFollowUpsMessage("Введите текст ответа клинике.");
+      return;
+    }
+    setReplyBusyId(followUpId);
+    setFollowUpsMessage("Отправляем ответ клинике.");
+    const result = await createSelfHostedPatientFollowUpMessage({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      followUpId,
+      payload: { body },
+    });
+    setReplyBusyId(null);
+    if (!result.ok) {
+      setFollowUpsStatus("error");
+      setFollowUpsMessage(result.error.message);
+      return;
+    }
+    setReplyDrafts((current) => ({ ...current, [followUpId]: "" }));
+    setFollowUpsStatus("ready");
+    setFollowUpsMessage("Ответ клинике сохранён в self-hosted backend.");
+    const next = await listSelfHostedPatientFollowUps({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+    });
+    if (next.ok) setFollowUps(next.value || []);
   }
 
   return (
@@ -125,6 +192,73 @@ export default function MeRemindersPageLive() {
                         </div>
                       </div>
                       <div className="shrink-0 text-[12px] text-muted-foreground">{formatDate(reminder.dueAt)}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+            <Card className="overflow-hidden" aria-label="Контроль и сообщения клиники">
+              <div className="flex flex-col gap-1 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-[13px] font-semibold">Контроль и сообщения клиники</div>
+                  <div className="text-[12px] text-muted-foreground">
+                    Локальная self-hosted коммуникация по контрольным задачам.
+                  </div>
+                </div>
+                <div
+                  role={followUpsStatus === "error" ? "alert" : "status"}
+                  aria-live={followUpsStatus === "error" ? "assertive" : "polite"}
+                  className={followUpsStatus === "error" ? "text-[12px] text-destructive" : "text-[12px] text-muted-foreground"}
+                >
+                  {followUpsStatus === "loading" ? "Загружаем контрольные задачи…" : followUpsMessage}
+                </div>
+              </div>
+              {followUpsStatus === "ready" && followUps.length === 0 ? (
+                <div className="p-4 text-[13px] text-muted-foreground">Контрольных сообщений нет.</div>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {followUps.map((followUp) => (
+                    <li key={followUp.id} className="space-y-3 p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-semibold">{followUp.reason || "Контроль"}</div>
+                          <div className="mt-1 text-[12px] text-muted-foreground">
+                            {followUp.status} · {followUp.priority} · {formatDate(followUp.dueAt)}
+                          </div>
+                          {followUp.patientSummary && (
+                            <div className="mt-2 text-[13px] text-foreground">{followUp.patientSummary}</div>
+                          )}
+                          {followUp.latestMessage?.body && (
+                            <div className="mt-2 rounded border border-border bg-muted/30 p-2 text-[12px] text-muted-foreground">
+                              {followUp.latestMessage.body}
+                            </div>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-[12px] text-muted-foreground">
+                          сообщений: {followUp.messageCount}
+                        </div>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+                        <label className="grid gap-1 text-[12px] font-medium">
+                          Ответ клинике
+                          <Textarea
+                            aria-label={`Ответ клинике по контролю ${followUp.reason || followUp.id}`}
+                            value={replyDrafts[followUp.id] || ""}
+                            onChange={(event) => setReplyDrafts((current) => ({
+                              ...current,
+                              [followUp.id]: event.target.value,
+                            }))}
+                            className="min-h-16 text-[13px]"
+                          />
+                        </label>
+                        <Button
+                          type="button"
+                          onClick={() => void submitFollowUpReply(followUp.id)}
+                          disabled={replyBusyId === followUp.id}
+                        >
+                          {replyBusyId === followUp.id ? "Отправляем…" : "Ответить клинике"}
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>

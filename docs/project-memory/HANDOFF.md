@@ -375,3 +375,25 @@ expected to produce a false "missing files" result because Lovable follows
    `main`, then send the Lovable sync prompt.
 4. Future product batches should default to at least three related stages per
    Pull request unless a documented hotfix reason applies.
+
+## Stage 17A-17Z confirmed product cycle
+
+Stage 17A-17Z implements the clinical follow-up and patient communication loop selected by Stage 16A-16Z:
+
+- doctors create visit follow-up tasks through `VisitWorkspaceLiveActions`;
+- the self-hosted backend stores follow-up tasks and messages in PostgreSQL;
+- staff use RBAC-protected `/api/v1/clinical/follow-ups` contracts;
+- patients use `/api/v1/me/follow-ups` and patient-safe replies through the portal;
+- patient-facing responses hide internal notes, object storage paths, signed URLs, and raw infrastructure values.
+
+Product boundary: self-hosted Node backend, self-hosted PostgreSQL, no managed runtime, no managed database, and no managed notification provider dependency.
+
+## Stage 17A-17Z verification
+
+- `npm run test:stage17a-17z`
+- `npm run check:stage17a-17z`
+- `npm run preflight:stage17a-17z`
+
+## Stage 18A-18Z hypothesis
+
+Stage 18A-18Z is the next hypothesis after Stage 17A-17Z. The exact scope is not confirmed until repository files define it.

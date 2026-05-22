@@ -301,3 +301,21 @@
 5. Use `docs/project-memory/BATCH_TEMPLATE.md` before future multi-stage work.
 6. Use `deploy/self-hosted/product-roadmap.stage7j-7l.json` to choose the next
    product batch unless a documented hotfix reason applies.
+
+## Stage 17A-17Z confirmed risks
+
+1. Clinical follow-up messages must stay local and self-hosted.
+   - Evidence: Stage 17A-17Z stores messages in PostgreSQL and records `managedNotificationProviderDependency: none`.
+   - Boundary phrase for guard: managed notification provider dependency remains none.
+   - Risk: Future delivery integrations could accidentally couple product operation to a managed messaging provider.
+   - Mitigation: `check:stage17a-17z` protects Stage 17 runtime files and docs, and patient endpoints hide internal notes and infrastructure fields.
+
+2. Patient-visible follow-up data must not leak clinical internal notes.
+   - Evidence: patient SQL renders `null as "internalNote"` and routes/tests assert patient-safe payloads.
+   - Mitigation: Stage 17 route, repository, frontend, and guard tests are part of `preflight:stage17a-17z`.
+
+## Stage 18A-18Z hypothesis
+
+- hypothesis: Stage 18A-18Z may harden follow-up operations.
+- Basis: Stage 17A-17Z creates the first product follow-up loop.
+- Uncertainty: Stage 18A-18Z is not implemented until repository files define it.

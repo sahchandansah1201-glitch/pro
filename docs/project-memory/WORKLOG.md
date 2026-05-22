@@ -409,3 +409,9 @@
 - Previous chat interruption was reported as:
   - `Error running remote compact task: stream disconnected before completion ... /compact`
 - This is recorded as conversation context, not repository evidence.
+
+## 2026-05-22
+
+- Created Stage 17A-17Z clinical follow-up and patient communication product cycle after Stage 16A-16Z selected it as the recommended product candidate.
+- Added self-hosted PostgreSQL follow-up tasks/messages, backend contracts, patient portal reply flow, doctor visit-workspace follow-up creation, OpenAPI, guard, workflow, and preflight wiring.
+- Updated project-memory so `clinical_followup_communication_confirmed: true` is recorded for Stage 17A-17Z and Stage 18A-18Z remains an explicit hypothesis until repository files define it.

@@ -1,0 +1,61 @@
+name: stage17a-17z-clinical-followup-communication
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "src/pages/patient/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-17a-17z-clinical-followup-communication.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage17a-17z-clinical-followup-communication.mjs"
+      - "scripts/check-stage17a-17z-clinical-followup-communication.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage17a-17z-clinical-followup-communication.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "src/pages/patient/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-17a-17z-clinical-followup-communication.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage17a-17z-clinical-followup-communication.mjs"
+      - "scripts/check-stage17a-17z-clinical-followup-communication.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage17a-17z-clinical-followup-communication.yml"
+  workflow_dispatch:
+
+jobs:
+  stage17a-17z-clinical-followup-communication:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 17A-17Z preflight
+        run: npm run preflight:stage17a-17z
+      - name: Stage 17A-17Z summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 17A-17Z clinical follow-up communication"
+            echo ""
+            echo "- Command: \`npm run preflight:stage17a-17z\`"
+            echo "- Boundary: self-hosted backend + PostgreSQL + local patient portal communication"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -11,6 +11,7 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
+import { createSelfHostedVisitFollowUp } from "@/lib/self-hosted-follow-up-api";
 import {
   archiveSelfHostedVisitLesion,
   buildSelfHostedVisitReportPayload,
@@ -25,7 +26,7 @@ interface VisitWorkspaceLiveActionsProps {
   lesions: Lesion[];
 }
 
-type BusyAction = "visit" | "create-lesion" | "update-lesion" | "archive-lesion" | "report" | null;
+type BusyAction = "visit" | "create-lesion" | "update-lesion" | "archive-lesion" | "report" | "follow-up" | null;
 
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
@@ -47,6 +48,10 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [selectedLesionLabel, setSelectedLesionLabel] = useState(lesions[0]?.label ?? "");
   const [physicianText, setPhysicianText] = useState("");
   const [patientText, setPatientText] = useState("");
+  const [followUpDueAt, setFollowUpDueAt] = useState("");
+  const [followUpReason, setFollowUpReason] = useState("Контроль после визита");
+  const [followUpPatientSummary, setFollowUpPatientSummary] = useState("");
+  const [followUpInternalNote, setFollowUpInternalNote] = useState("");
 
   const selectedLesion = useMemo(
     () => lesions.find((lesion) => lesion.id === selectedLesionId) ?? null,
@@ -147,6 +152,28 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     );
   }
 
+  async function submitFollowUp(event: FormEvent) {
+    event.preventDefault();
+    setBusy("follow-up");
+    const result = await createSelfHostedVisitFollowUp({
+      ...baseArgs,
+      visitId: visit.id,
+      payload: {
+        dueAt: followUpDueAt,
+        reason: followUpReason,
+        priority: "normal",
+        patientSummary: followUpPatientSummary || null,
+        internalNote: followUpInternalNote || null,
+      },
+    });
+    setBusy(null);
+    setStatus(
+      result.ok
+        ? "Контрольный контакт создан в self-hosted backend."
+        : publicMessage(result.error),
+    );
+  }
+
   return (
     <section
       aria-label="Self-hosted запись визита"
@@ -169,7 +196,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
         </div>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-4">
+      <div className="grid gap-3 xl:grid-cols-5">
         <form onSubmit={submitVisit} className="surface-toolbar space-y-2 p-3">
           <h3 className="h-section text-[14px]">Визит</h3>
           <label className="block text-[12px] font-medium" htmlFor="stage4h-visit-status">
@@ -296,6 +323,50 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           />
           <Button type="submit" size="sm" disabled={busy === "report"} className="h-8 text-[12px]">
             {busy === "report" ? "Сохраняем…" : "Сохранить отчёт"}
+          </Button>
+        </form>
+
+        <form onSubmit={submitFollowUp} className="surface-toolbar space-y-2 p-3">
+          <h3 className="h-section text-[14px]">Контроль и связь</h3>
+          <label className="block text-[12px] font-medium" htmlFor="stage17-follow-up-due-at">
+            Дата и время контроля
+          </label>
+          <Input
+            id="stage17-follow-up-due-at"
+            type="datetime-local"
+            value={followUpDueAt}
+            onChange={(event) => setFollowUpDueAt(event.target.value)}
+            className="h-9 text-[13px]"
+          />
+          <label className="block text-[12px] font-medium" htmlFor="stage17-follow-up-reason">
+            Причина
+          </label>
+          <Input
+            id="stage17-follow-up-reason"
+            value={followUpReason}
+            onChange={(event) => setFollowUpReason(event.target.value)}
+            className="h-9 text-[13px]"
+          />
+          <label className="block text-[12px] font-medium" htmlFor="stage17-follow-up-summary">
+            Текст для пациента
+          </label>
+          <Textarea
+            id="stage17-follow-up-summary"
+            value={followUpPatientSummary}
+            onChange={(event) => setFollowUpPatientSummary(event.target.value)}
+            className="min-h-14 text-[13px]"
+          />
+          <label className="block text-[12px] font-medium" htmlFor="stage17-follow-up-note">
+            Внутренняя заметка
+          </label>
+          <Textarea
+            id="stage17-follow-up-note"
+            value={followUpInternalNote}
+            onChange={(event) => setFollowUpInternalNote(event.target.value)}
+            className="min-h-14 text-[13px]"
+          />
+          <Button type="submit" size="sm" disabled={busy === "follow-up"} className="h-8 text-[12px]">
+            {busy === "follow-up" ? "Создаём…" : "Создать контроль"}
           </Button>
         </form>
       </div>

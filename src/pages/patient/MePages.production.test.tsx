@@ -101,6 +101,39 @@ function mockFetch() {
         },
       });
     }
+    if (href.endsWith("/api/v1/me/follow-ups")) {
+      return response({
+        items: [{
+          id: "follow-up-live-1",
+          visitId: "visit-live-1",
+          status: "sent",
+          priority: "normal",
+          reason: "Контроль после лечения",
+          patientSummary: "Через две недели пришлите фото зоны лечения.",
+          dueAt: "2026-06-10T10:00:00.000Z",
+          messageCount: 1,
+          latestMessage: {
+            id: "message-live-1",
+            followUpId: "follow-up-live-1",
+            senderRole: "doctor",
+            direction: "clinic_to_patient",
+            body: "Ожидаем контрольный ответ.",
+            patientVisible: true,
+          },
+        }],
+      });
+    }
+    if (href.endsWith("/api/v1/me/follow-ups/follow-up-live-1/messages")) {
+      return response({
+        item: {
+          id: "message-live-2",
+          followUpId: "follow-up-live-1",
+          senderRole: "patient",
+          direction: "patient_to_clinic",
+          body: "Ответ пациента",
+        },
+      }, 201);
+    }
     return response({ error: { code: "not_found", message: "Not found" } }, 404);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -201,5 +234,25 @@ describe("Patient portal · Stage 5N production", () => {
     renderRoute("/me/reminders");
     expect(await screen.findByText("Ближайший приём")).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Отметить выполнено");
+  });
+
+  it("shows patient-visible follow-ups and posts a clinic reply", async () => {
+    const fetchMock = mockFetch();
+    renderRoute("/me/reminders");
+
+    expect(await screen.findByText("Контроль после лечения")).toBeInTheDocument();
+    expect(screen.getByText("Через две недели пришлите фото зоны лечения.")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("Doctor-only");
+
+    fireEvent.change(screen.getByLabelText(/Ответ клинике по контролю/i), {
+      target: { value: "Фото отправлю завтра." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ответить клинике" }));
+
+    expect(await screen.findByText("Ответ клинике сохранён в self-hosted backend.")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/follow-ups/follow-up-live-1/messages",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 });

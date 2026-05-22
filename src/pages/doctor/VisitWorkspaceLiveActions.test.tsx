@@ -85,6 +85,16 @@ describe("VisitWorkspaceLiveActions", () => {
       if (url.endsWith(`/api/v1/visits/${VISIT_ID}/report`) && init?.method === "PATCH") {
         return jsonResponse({ id: "report-1", visitId: VISIT_ID, status: "draft", patientSafeText: "Контроль у врача." });
       }
+      if (url.endsWith(`/api/v1/visits/${VISIT_ID}/follow-ups`) && init?.method === "POST") {
+        return jsonResponse({
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          dueAt: "2026-06-01T10:00:00.000Z",
+          status: "planned",
+          priority: "normal",
+          reason: "Контроль после визита",
+        }, 201);
+      }
       return jsonResponse({ id: LESION_ID, label: "L2", status: "active" });
     });
 
@@ -105,6 +115,15 @@ describe("VisitWorkspaceLiveActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Сохранить отчёт" }));
     await waitFor(() => expect(screen.getByText("Отчёт визита сохранён в self-hosted backend.")).toBeInTheDocument());
 
+    fireEvent.change(screen.getByLabelText("Дата и время контроля"), {
+      target: { value: "2026-06-01T10:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Текст для пациента"), {
+      target: { value: "Напомним о контрольном осмотре." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Создать контроль" }));
+    await waitFor(() => expect(screen.getByText("Контрольный контакт создан в self-hosted backend.")).toBeInTheDocument());
+
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/visits/${VISIT_ID}`,
       expect.objectContaining({
@@ -112,7 +131,11 @@ describe("VisitWorkspaceLiveActions", () => {
         headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
       }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
   });
 
   it("shows validation status returned by backend", async () => {

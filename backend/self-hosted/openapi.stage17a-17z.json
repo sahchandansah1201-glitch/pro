@@ -1,0 +1,283 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API · Stage 17A-17Z",
+    "version": "17A-17Z-clinical-followup-communication",
+    "description": "Self-hosted clinical follow-up and patient communication loop. PostgreSQL is the source of truth; no managed runtime, managed database, or managed notification provider is required."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/clinical/follow-ups": {
+      "get": {
+        "summary": "List clinical follow-ups",
+        "description": "Returns clinic-scoped follow-up tasks for doctors, clinic admins, and system admins.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["planned", "in_progress", "sent", "acknowledged", "completed", "cancelled"]
+            }
+          },
+          {
+            "name": "patientId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "visitId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Follow-up list"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Role or clinic scope denied"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/follow-ups": {
+      "post": {
+        "summary": "Create clinical follow-up for a visit",
+        "description": "Doctor/system_admin write contract for local follow-up planning.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFollowUp"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Follow-up created"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}": {
+      "patch": {
+        "summary": "Update clinical follow-up",
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFollowUp"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Follow-up updated"
+          },
+          "404": {
+            "description": "Follow-up not found"
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/messages": {
+      "post": {
+        "summary": "Create clinic-to-patient follow-up message",
+        "description": "Stores a local portal message and updates the follow-up timestamp.",
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFollowUpMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message stored"
+          }
+        }
+      }
+    },
+    "/api/v1/me/follow-ups": {
+      "get": {
+        "summary": "List patient-visible follow-ups",
+        "description": "Patient portal read contract. Internal clinical notes are never returned.",
+        "responses": {
+          "200": {
+            "description": "Patient follow-up list"
+          }
+        }
+      }
+    },
+    "/api/v1/me/follow-ups/{followUpId}/messages": {
+      "post": {
+        "summary": "Create patient-to-clinic follow-up reply",
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFollowUpMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Patient reply stored"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "CreateFollowUp": {
+        "type": "object",
+        "required": ["dueAt", "reason"],
+        "properties": {
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "normal", "high", "urgent"]
+          },
+          "patientSummary": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "internalNote": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      },
+      "UpdateFollowUp": {
+        "type": "object",
+        "properties": {
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["planned", "in_progress", "sent", "acknowledged", "completed", "cancelled"]
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "normal", "high", "urgent"]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "patientSummary": {
+            "type": "string"
+          },
+          "internalNote": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateFollowUpMessage": {
+        "type": "object",
+        "required": ["body"],
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 3000
+          },
+          "patientVisible": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      }
+    }
+  }
+}
