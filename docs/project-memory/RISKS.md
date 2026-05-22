@@ -197,16 +197,28 @@
      verification, and handoff evidence, with `defect_requires_prevention` as a
      critical quality rule.
 
+18. **Execution evidence bundle can become checklist theater**
+   - Evidence: Stage 12A-12Z introduces the execution evidence bundle after
+     Stage 11A-11Z made quality evidence mandatory.
+   - Impact: if commands are listed but not actually run before merge, the
+     Lovable prompt can still race ahead of verification.
+   - Mitigation: Stage 12A-12Z requires `checks_before_ready`,
+     `merge_before_prompt`, stage preflight, previous-batch regression,
+     GitHub check-run evidence, post-merge local main verification, and
+     Lovable confirmation evidence.
+
 ## Hypotheses
 
 1. **Next product batch**
-   - hypothesis: Stage 12A-12Z is next.
-   - Basis: Stage 11A-11Z creates the development quality ledger after Stage
-     10A-10Z closes error-prevention and x2 batch quality gates.
-   - Uncertainty: Stage 12A-12Z is not implemented until repository files define
+   - hypothesis: Stage 13A-13Z is next.
+   - Basis: Stage 12A-12Z creates the execution evidence bundle after Stage
+     11A-11Z closes the development quality ledger.
+   - Uncertainty: Stage 13A-13Z is not implemented until repository files define
      it.
-   - Historical marker: Stage 11A-11Z is the current development quality ledger
+   - Historical marker: Stage 12A-12Z is the current execution evidence bundle
      batch in this branch.
+   - Historical marker: Stage 11A-11Z is the current development quality ledger
+     batch before Stage 12A-12Z.
    - Historical marker: Stage 10A-10L was the original next hypothesis after
      Stage 9N-9Z and is now implemented inside the larger Stage 10A-10Z x2
      batch.

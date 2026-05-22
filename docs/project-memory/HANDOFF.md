@@ -189,6 +189,39 @@ merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
    - no database migrations;
    - no managed runtime or managed database dependency;
    - repository quality metadata only.
+24. Stage 12A-12Z implements the execution evidence bundle:
+   - Stage 12A: evidence bundle schema;
+   - Stage 12B: repository baseline evidence;
+   - Stage 12C: branch and commit evidence;
+   - Stage 12D: scope ownership evidence;
+   - Stage 12E: command bundle evidence;
+   - Stage 12F: previous-batch regression evidence;
+   - Stage 12G: defect recurrence evidence;
+   - Stage 12H: prevention proof evidence;
+   - Stage 12I: preflight-all alignment evidence;
+   - Stage 12J: project-memory alignment evidence;
+   - Stage 12K: typecheck evidence;
+   - Stage 12L: lockfile and temp artifact evidence;
+   - Stage 12M: boundary scan evidence;
+   - Stage 12N: privacy scan evidence;
+   - Stage 12O: workflow and CI evidence;
+   - Stage 12P: GitHub check-run evidence;
+   - Stage 12Q: GitHub API fallback evidence;
+   - Stage 12R: Pull request evidence;
+   - Stage 12S: merge evidence;
+   - Stage 12T: post-merge local main evidence;
+   - Stage 12U: Lovable prompt evidence;
+   - Stage 12V: Lovable confirmation evidence;
+   - Stage 12W: sync mismatch recovery evidence;
+   - Stage 12X: risk roll-forward evidence;
+   - Stage 12Y: batch volume evidence;
+   - Stage 12Z: next x2 execution handoff evidence.
+25. Stage 12A-12Z product boundary:
+   - no runtime behavior change;
+   - no backend routes or frontend product pages;
+   - no database migrations;
+   - no managed runtime or managed database dependency;
+   - repository execution evidence only.
 
 ## Important operational fact
 
@@ -200,8 +233,8 @@ expected to produce a false "missing files" result because Lovable follows
 ## Hypothesis
 
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
-- `Stage 11A-11Z` is the current development quality ledger batch after Stage 10A-10Z.
-- `Stage 12A-12Z` is the next likely batch after Stage 11A-11Z.
+- `Stage 12A-12Z` is the current execution evidence bundle batch after Stage 11A-11Z.
+- `Stage 13A-13Z` is the next likely batch after Stage 12A-12Z.
 - Historical marker: `Stage 10A-10L` was the original next hypothesis after
   Stage 9N-9Z before the x2 batch expanded into Stage 10A-10Z.
 - Historical marker: `Stage 8P-8R` was the original next hypothesis after
@@ -213,10 +246,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 11A-11Z Pull request lifecycle.
+1. Complete the Stage 12A-12Z Pull request lifecycle.
 2. Run or verify:
+   - `npm run preflight:stage12a-12z`
    - `npm run preflight:stage11a-11z`
-   - `npm run preflight:stage10a-10z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`
