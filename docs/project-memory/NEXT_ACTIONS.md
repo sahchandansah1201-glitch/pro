@@ -2,23 +2,25 @@
 
 ## Highest-confidence next step
 
-Merge and verify Stage 14A-14Z as one x2 Pull request, then send the Lovable
-sync prompt only after `main` contains the merged sync confirmation ledger.
+Merge and verify Stage 16A-16Z as one x2 Pull request, then send the Lovable
+sync prompt only after `main` contains the merged product cycle readiness
+packet. After sync, Stage 17A-17Z is the next hypothesis and should be
+product-facing.
 
 ## Immediate sequence
 
-1. **Complete the Stage 15A-15Z Pull request lifecycle**:
-   - commit the post-sync handoff readiness packet with manifest, renderer, guard,
+1. **Complete the Stage 16A-16Z Pull request lifecycle**:
+   - commit the product cycle readiness packet with manifest, renderer, guard,
      workflow, docs, project-memory, and preflight-all wiring;
    - do not send the Lovable prompt before the PR is merged into `main` and
      local `main` is verified.
 
 2. **Verify before commit**:
-   - `npm run test:stage15a-15z`
-   - `npm run check:stage15a-15z`
-   - `npm run readiness:stage15a-15z:dry-run`
+   - `npm run test:stage16a-16z`
+   - `npm run check:stage16a-16z`
+   - `npm run readiness:stage16a-16z:dry-run`
+   - `npm run preflight:stage16a-16z`
    - `npm run preflight:stage15a-15z`
-   - `npm run preflight:stage14a-14z`
    - `npm run typecheck`
    - `npm run test:project-memory`
    - `npm run check:project-memory`
@@ -34,6 +36,9 @@ sync prompt only after `main` contains the merged sync confirmation ledger.
    - only then send Lovable the sync prompt.
 
 4. **Use the product roadmap for the next implementation phase**:
+   - Stage 17A-17Z is a hypothesis until repository files define it;
+   - prioritize the recommended product candidate:
+     `Clinical follow-up and patient communication loop`;
    - minimum three related stages per Pull request;
    - smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.

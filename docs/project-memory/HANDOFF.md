@@ -321,6 +321,23 @@ merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
    - no database migrations;
    - no managed runtime or managed database dependency;
    - repository post-sync handoff evidence only.
+32. Stage 16A-16Z implements product cycle readiness:
+   - Stage 16A: post-sync baseline intake;
+   - Stage 16B: product surface inventory;
+   - Stage 16C: process-only batch stop rule;
+   - Stage 16D: product candidate scoring;
+   - Stage 16E: recommended product candidate:
+     `Clinical follow-up and patient communication loop`;
+   - Stage 16F: acceptance criteria outline;
+   - Stage 16G: Lovable prompt gate;
+   - Stage 16H-16M: verification, boundary, and project-memory alignment;
+   - Stage 16N-16Z: Product-cycle handoff and Stage 17A-17Z hypothesis.
+33. Stage 16A-16Z product boundary:
+   - no runtime behavior change;
+   - no backend routes or frontend product pages;
+   - no database migrations;
+   - no managed runtime or managed database dependency;
+   - repository product cycle readiness only.
 
 ## Important operational fact
 
@@ -332,8 +349,9 @@ expected to produce a false "missing files" result because Lovable follows
 ## Hypothesis
 
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
-- `Stage 15A-15Z` is the current post-sync handoff readiness batch after Stage 14A-14Z.
-- `Stage 16A-16Z` is the next likely batch after Stage 15A-15Z.
+- `Stage 15A-15Z` is the confirmed post-sync handoff readiness batch after Stage 14A-14Z.
+- `Stage 16A-16Z` is the current product cycle readiness batch after Stage 15A-15Z.
+- `Stage 17A-17Z` is the next product-facing hypothesis after Stage 16A-16Z.
 - Historical marker: `Stage 10A-10L` was the original next hypothesis after
   Stage 9N-9Z before the x2 batch expanded into Stage 10A-10Z.
 - Historical marker: `Stage 8P-8R` was the original next hypothesis after
@@ -345,10 +363,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 15A-15Z Pull request lifecycle.
+1. Complete the Stage 16A-16Z Pull request lifecycle.
 2. Run or verify:
+   - `npm run preflight:stage16a-16z`
    - `npm run preflight:stage15a-15z`
-   - `npm run preflight:stage14a-14z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

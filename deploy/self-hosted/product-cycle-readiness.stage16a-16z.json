@@ -1,0 +1,257 @@
+{
+  "stage": "16A-16Z",
+  "packageId": "stage16a-16z-product-cycle-readiness",
+  "title": "Stage 16A-16Z · Product cycle readiness",
+  "purpose": "Turn the Stage 15 post-sync handoff into a repository-owned product-cycle readiness packet that chooses the next product-facing delivery cycle, maps owned backend/frontend/data/ops surfaces, freezes acceptance criteria, and prevents returning to purely process-only batches without an explicit reason.",
+  "previousBatch": "Stage 15A-15Z",
+  "previousBatchCommit": "cd26b77",
+  "nextBatchHypothesis": "Stage 17A-17Z",
+  "batchScale": {
+    "previousIncludedStages": 26,
+    "currentIncludedStages": 26,
+    "minimumRelatedStagesPerBatch": 26,
+    "smallerBatchExceptionRequired": true
+  },
+  "productCycle": {
+    "cycleId": "self-hosted-product-delivery-cycle-after-stage15",
+    "cycleIntent": "Resume product-facing development after the Stage 10-15 evidence and sync-readiness batches.",
+    "selectedNextTheme": "production feature delivery readiness",
+    "allowedBatchTypes": [
+      "product runtime implementation",
+      "production hardening with user-visible surface",
+      "self-hosted integration contract completion",
+      "release readiness only when product runtime is blocked"
+    ],
+    "blockedBatchTypesWithoutReason": [
+      "process-only ledger",
+      "chat-only planning",
+      "single-stage documentation",
+      "branch-only Lovable prompt"
+    ]
+  },
+  "includedStages": [
+    { "id": "Stage 16A", "title": "Post-sync baseline intake", "status": "ready" },
+    { "id": "Stage 16B", "title": "Product roadmap replay", "status": "ready" },
+    { "id": "Stage 16C", "title": "Product-facing batch selection", "status": "ready" },
+    { "id": "Stage 16D", "title": "Backend surface inventory", "status": "ready" },
+    { "id": "Stage 16E", "title": "Frontend surface inventory", "status": "ready" },
+    { "id": "Stage 16F", "title": "Data contract inventory", "status": "ready" },
+    { "id": "Stage 16G", "title": "External intake inventory", "status": "ready" },
+    { "id": "Stage 16H", "title": "Device Bridge inventory", "status": "ready" },
+    { "id": "Stage 16I", "title": "RBAC and security inventory", "status": "ready" },
+    { "id": "Stage 16J", "title": "Production UX gap inventory", "status": "ready" },
+    { "id": "Stage 16K", "title": "Test debt inventory", "status": "ready" },
+    { "id": "Stage 16L", "title": "Migration and deploy debt inventory", "status": "ready" },
+    { "id": "Stage 16M", "title": "Operations readiness inventory", "status": "ready" },
+    { "id": "Stage 16N", "title": "Next product batch rules", "status": "ready" },
+    { "id": "Stage 16O", "title": "Acceptance criteria freeze", "status": "ready" },
+    { "id": "Stage 16P", "title": "File ownership map", "status": "ready" },
+    { "id": "Stage 16Q", "title": "Risk and defect prevention map", "status": "ready" },
+    { "id": "Stage 16R", "title": "Stage 15 regression gate", "status": "ready" },
+    { "id": "Stage 16S", "title": "Command bundle freeze", "status": "ready" },
+    { "id": "Stage 16T", "title": "Lovable sync prompt freeze", "status": "ready" },
+    { "id": "Stage 16U", "title": "Sync mismatch diagnostic freeze", "status": "ready" },
+    { "id": "Stage 16V", "title": "Self-hosted boundary assertion", "status": "ready" },
+    { "id": "Stage 16W", "title": "Privacy and artifact hygiene assertion", "status": "ready" },
+    { "id": "Stage 16X", "title": "Pull request lifecycle gate", "status": "ready" },
+    { "id": "Stage 16Y", "title": "Stage 17 hypothesis", "status": "ready" },
+    { "id": "Stage 16Z", "title": "Product-cycle handoff packet", "status": "ready" }
+  ],
+  "readinessSections": [
+    {
+      "id": "baseline",
+      "title": "Baseline",
+      "requiredEvidence": [
+        "confirmed Stage 15A-15Z Lovable sync",
+        "merged main commit",
+        "local main status",
+        "origin main status",
+        "project-memory status",
+        "working contract status",
+        "batch template status",
+        "no-lock-file status"
+      ]
+    },
+    {
+      "id": "roadmap",
+      "title": "Roadmap",
+      "requiredEvidence": [
+        "Stage 7J-7L product roadmap",
+        "Stage 8A-8C CRM inbound adapter",
+        "Stage 8D-8F availability sync",
+        "Stage 8G-8I clinical reporting",
+        "Stage 8J-9Z Device Bridge operations",
+        "Stage 10-15 process hardening",
+        "self-hosted product boundary",
+        "Stage 17 hypothesis"
+      ]
+    },
+    {
+      "id": "surface_inventory",
+      "title": "Surface Inventory",
+      "requiredEvidence": [
+        "backend route inventory",
+        "frontend route inventory",
+        "database migration inventory",
+        "external intake inventory",
+        "Device Bridge inventory",
+        "ops UI inventory",
+        "patient portal inventory",
+        "doctor workspace inventory"
+      ]
+    },
+    {
+      "id": "selection",
+      "title": "Selection Rules",
+      "requiredEvidence": [
+        "product-facing batch required",
+        "process-only exception required",
+        "minimum 26 stages",
+        "same-PR justification",
+        "file ownership map",
+        "acceptance criteria map",
+        "risk map",
+        "verification map"
+      ]
+    },
+    {
+      "id": "verification",
+      "title": "Verification",
+      "requiredEvidence": [
+        "stage tests",
+        "stage guard",
+        "stage dry run",
+        "stage preflight",
+        "previous batch preflight",
+        "project-memory guard",
+        "typecheck",
+        "preflight-all dry run",
+        "no-deno-lock guard",
+        "diff check"
+      ]
+    },
+    {
+      "id": "handoff",
+      "title": "Handoff",
+      "requiredEvidence": [
+        "manifest-derived Lovable prompt",
+        "prompt blocked before merge",
+        "expected confirmation phrase",
+        "sync mismatch diagnostic",
+        "Stage 17 hypothesis",
+        "project-memory refresh",
+        "working contract refresh",
+        "batch template refresh"
+      ]
+    }
+  ],
+  "readinessRules": [
+    {
+      "id": "product_cycle_not_chat_memory",
+      "severity": "critical",
+      "rule": "The next product cycle is valid only when repository files define the scope, gates, and expected Lovable prompt."
+    },
+    {
+      "id": "product_facing_batch_required",
+      "severity": "critical",
+      "rule": "The next normal batch after Stage 16 must be product-facing unless a documented blocker forces a process-only batch."
+    },
+    {
+      "id": "stage15_regression_required",
+      "severity": "critical",
+      "rule": "Stage 16 must run the Stage 15 preflight before handoff."
+    },
+    {
+      "id": "minimum_26_stage_batch",
+      "severity": "high",
+      "rule": "The default batch size remains 26 related stages unless a hotfix exception is recorded."
+    },
+    {
+      "id": "surface_inventory_required",
+      "severity": "high",
+      "rule": "Backend, frontend, data, integration, Device Bridge, ops, patient portal, and doctor workspace surfaces must be inventoried before choosing Stage 17 work."
+    },
+    {
+      "id": "acceptance_criteria_required",
+      "severity": "high",
+      "rule": "The next product batch must include acceptance criteria and verification commands before implementation is handed off."
+    },
+    {
+      "id": "lovable_prompt_from_manifest",
+      "severity": "high",
+      "rule": "The Lovable prompt must be generated from this manifest after merge into main."
+    },
+    {
+      "id": "sync_delay_not_code_conflict",
+      "severity": "critical",
+      "rule": "A missing Stage 16 file in Lovable is a sync-delay or wrong-project diagnostic until main, visible head, and repository connection are checked."
+    },
+    {
+      "id": "self_hosted_boundary_preserved",
+      "severity": "critical",
+      "rule": "Stage 16 must not introduce managed runtime, managed database, browser hardware, or external service dependencies."
+    },
+    {
+      "id": "next_stage_hypothesis_recorded",
+      "severity": "critical",
+      "rule": "Stage 17A-17Z remains a hypothesis until repository files define the concrete product scope."
+    }
+  ],
+  "selectedProductCandidates": [
+    {
+      "id": "candidate-stage17-clinical-followup",
+      "title": "Clinical follow-up and patient communication loop",
+      "reason": "Connects doctor workspace, patient portal, visit schedule, and self-hosted notification/audit contracts without adding a managed dependency.",
+      "status": "recommended-hypothesis"
+    },
+    {
+      "id": "candidate-stage17-intake-reconciliation",
+      "title": "Clinic intake reconciliation workbench",
+      "reason": "Builds on CRM inbound, availability sync, booking requests, and operator workspace contracts.",
+      "status": "alternate-hypothesis"
+    },
+    {
+      "id": "candidate-stage17-device-quality",
+      "title": "Device Bridge image-quality operations loop",
+      "reason": "Builds on Device Bridge lifecycle assurance and clinical asset binaries.",
+      "status": "alternate-hypothesis"
+    }
+  ],
+  "requiredFiles": [
+    "deploy/self-hosted/product-cycle-readiness.stage16a-16z.json",
+    "scripts/stage16a-16z-product-cycle-readiness.mjs",
+    "scripts/stage16a-16z-product-cycle-readiness.test.mjs",
+    "scripts/check-stage16a-16z-product-cycle-readiness.mjs",
+    "scripts/check-stage16a-16z-product-cycle-readiness.test.mjs",
+    "docs/backend/stage-16a-16z-product-cycle-readiness.md",
+    "docs/project-memory/WORKING_CONTRACT.md",
+    "docs/project-memory/BATCH_TEMPLATE.md",
+    ".github/workflows/stage16a-16z-product-cycle-readiness.yml"
+  ],
+  "verificationGates": [
+    { "id": "stage16a-16z-tests", "command": "npm run test:stage16a-16z", "required": true },
+    { "id": "stage16a-16z-guard", "command": "npm run check:stage16a-16z", "required": true },
+    { "id": "stage16a-16z-dry-run", "command": "npm run readiness:stage16a-16z:dry-run", "required": true },
+    { "id": "stage16a-16z-preflight", "command": "npm run preflight:stage16a-16z", "required": true },
+    { "id": "previous-batch-regression", "command": "npm run preflight:stage15a-15z", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "typecheck", "command": "npm run typecheck", "required": true },
+    { "id": "preflight-all-dry-run", "command": "npm run preflight:all -- --dry-run", "required": true },
+    { "id": "no-deno-locks", "command": "node scripts/check-no-deno-locks.mjs", "required": true },
+    { "id": "diff-check", "command": "git diff --check", "required": true }
+  ],
+  "productBoundary": {
+    "runtimeBehaviorChanged": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "dataVisibility": "repository product-cycle planning evidence only"
+  },
+  "lovableHandoff": {
+    "promptAllowedOnlyAfterMerge": true,
+    "promptGeneratedFromManifest": true,
+    "previousConfirmation": "Confirmed: Stage 15A-15Z synced from main, no conflicts.",
+    "expectedConfirmation": "Confirmed: Stage 16A-16Z synced from main, no conflicts."
+  }
+}
