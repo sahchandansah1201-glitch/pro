@@ -89,6 +89,18 @@ Use this template before starting future multi-stage work.
 - Previous-batch regression proof:
 - Sync-mismatch recovery proof:
 
+## Execution Evidence Closure
+
+- Closure sections:
+- Closure rule ids:
+- Closure-not-assumption proof:
+- Prompt-after-merge proof:
+- Previous evidence regression:
+- Next batch handoff generated:
+- Post-merge local main proof:
+- Lovable prompt source:
+- Sync mismatch diagnostic path:
+
 ## Pull Request Lifecycle
 
 - Branch created:

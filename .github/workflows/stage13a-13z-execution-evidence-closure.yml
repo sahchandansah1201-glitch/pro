@@ -1,0 +1,61 @@
+name: stage13a-13z-execution-evidence-closure
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/execution-evidence-closure.stage13a-13z.json"
+      - "scripts/stage13a-13z-execution-evidence-closure.mjs"
+      - "scripts/stage13a-13z-execution-evidence-closure.test.mjs"
+      - "scripts/check-stage13a-13z-execution-evidence-closure.mjs"
+      - "scripts/check-stage13a-13z-execution-evidence-closure.test.mjs"
+      - "docs/backend/stage-13a-13z-execution-evidence-closure.md"
+      - "docs/project-memory/**"
+      - ".github/workflows/stage13a-13z-execution-evidence-closure.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  push:
+    branches:
+      - main
+    paths:
+      - "deploy/self-hosted/execution-evidence-closure.stage13a-13z.json"
+      - "scripts/stage13a-13z-execution-evidence-closure.mjs"
+      - "scripts/stage13a-13z-execution-evidence-closure.test.mjs"
+      - "scripts/check-stage13a-13z-execution-evidence-closure.mjs"
+      - "scripts/check-stage13a-13z-execution-evidence-closure.test.mjs"
+      - "docs/backend/stage-13a-13z-execution-evidence-closure.md"
+      - "docs/project-memory/**"
+      - ".github/workflows/stage13a-13z-execution-evidence-closure.yml"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Stage 13A-13Z preflight
+        run: npm run preflight:stage13a-13z
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 13A-13Z execution evidence closure"
+            echo ""
+            echo "- Command: \`npm run preflight:stage13a-13z\`"
+            echo "- Status: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

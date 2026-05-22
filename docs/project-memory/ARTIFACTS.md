@@ -741,3 +741,28 @@
 - `npm run preflight:all -- --dry-run`
 - `node scripts/check-no-deno-locks.mjs`
 - `git diff --check`
+
+## Stage 13A-13Z execution evidence closure artifacts
+
+- [execution-evidence-closure.stage13a-13z.json](../../deploy/self-hosted/execution-evidence-closure.stage13a-13z.json)
+- [stage13a-13z-execution-evidence-closure.mjs](../../scripts/stage13a-13z-execution-evidence-closure.mjs)
+- [stage13a-13z-execution-evidence-closure.test.mjs](../../scripts/stage13a-13z-execution-evidence-closure.test.mjs)
+- [check-stage13a-13z-execution-evidence-closure.mjs](../../scripts/check-stage13a-13z-execution-evidence-closure.mjs)
+- [check-stage13a-13z-execution-evidence-closure.test.mjs](../../scripts/check-stage13a-13z-execution-evidence-closure.test.mjs)
+- [stage-13a-13z-execution-evidence-closure.md](../backend/stage-13a-13z-execution-evidence-closure.md)
+- [stage13a-13z-execution-evidence-closure.yml](../../.github/workflows/stage13a-13z-execution-evidence-closure.yml)
+- [WORKING_CONTRACT.md](./WORKING_CONTRACT.md)
+- [BATCH_TEMPLATE.md](./BATCH_TEMPLATE.md)
+
+## Stage 13A-13Z verification commands
+
+- `npm run test:stage13a-13z`
+- `npm run check:stage13a-13z`
+- `npm run closure:stage13a-13z:dry-run`
+- `npm run preflight:stage13a-13z`
+- `npm run preflight:stage12a-12z`
+- `npm run check:project-memory`
+- `npm run typecheck`
+- `npm run preflight:all -- --dry-run`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`

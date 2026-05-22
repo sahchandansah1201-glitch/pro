@@ -265,6 +265,36 @@ sync-mismatch recovery evidence must be explicit before the prompt is allowed.
 The next normal batch after Stage 12A-12Z is Stage 13A-13Z unless repository
 files define a different scope.
 
+## Stage 13A: Closure schema
+
+Stage 13A-13Z creates the Execution evidence closure. The schema records the
+previous evidence bundle, closure sections, closure rules, required checks,
+product boundary, GitHub lifecycle, and post-merge Lovable handoff as a
+repository-owned closure package.
+
+## Stage 13B-13F: Previous evidence and prompt closure
+
+The previous Stage 12 evidence bundle must be regressed before the Stage 13
+handoff. Prompt sequencing, Pull request lifecycle, Lovable sync, and sync
+mismatch diagnostics are closure requirements, not optional notes.
+
+## Stage 13G-13P: Hygiene and verification closure
+
+Artifact hygiene, project-memory updates, working contract updates, batch
+template updates, preflight-all wiring, typecheck, lock-file guard, diff
+check, and stage guard coverage must all be represented in the closure.
+
+## Stage 13Q-13Y: Boundary and handoff closure
+
+Workflow presence, report output, self-hosted boundary, privacy, command
+repeatability, defect prevention, post-merge verification, Lovable prompt
+source, and batch volume are required before the prompt can be sent.
+
+## Stage 13Z: Next x2 handoff closure
+
+The next normal batch after Stage 13A-13Z is Stage 14A-14Z unless repository
+files define a different scope.
+
 ## Stage 7J: Product gap register
 
 After the process contract is in place, the repository needs a product gap
