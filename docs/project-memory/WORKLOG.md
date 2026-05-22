@@ -2,6 +2,16 @@
 
 ## 2026-05-22
 
+- Создан Stage 18A-18Z clinical follow-up operations hardening после Stage 17A-17Z.
+- Добавлены SLA, triage, escalation, delivery evidence, append-only operations
+  events, backend queue/summary/update routes, live UI panel, OpenAPI, guard,
+  workflow, docs, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed
+  notification provider, no signed URLs/storage paths/provider tokens in
+  protected outputs.
+
+## 2026-05-22
+
 - Создан Stage 16A-16Z product cycle readiness x2 batch после Stage 15A-15Z.
 - Зафиксированы product cycle readiness, surface inventory, recommended
   product candidate, Lovable prompt gate, and Stage 17A-17Z hypothesis.

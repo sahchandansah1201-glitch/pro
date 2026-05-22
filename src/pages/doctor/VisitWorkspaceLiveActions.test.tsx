@@ -73,6 +73,21 @@ describe("VisitWorkspaceLiveActions", () => {
     configureSession();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
+      if (url.endsWith("/api/v1/clinical/follow-ups/operations/summary")) {
+        return jsonResponse({ totalOpen: 1, overdue: 0, waitingPatient: 0, escalated: 0, deliveryFailed: 0, deliveryPending: 0 });
+      }
+      if (url.includes("/api/v1/clinical/follow-ups/operations?")) {
+        return new Response(JSON.stringify({ items: [{
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          reason: "Контроль после визита",
+          status: "sent",
+          priority: "normal",
+          triageState: "new",
+          escalationLevel: "none",
+          deliveryState: "not_required",
+        }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
       if (url.endsWith(`/api/v1/visits/${VISIT_ID}`) && init?.method === "PATCH") {
         return jsonResponse({ id: VISIT_ID, status: "in_progress", chiefComplaint: "Контроль динамики" });
       }
@@ -135,13 +150,67 @@ describe("VisitWorkspaceLiveActions", () => {
       `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    expect(fetchSpy).toHaveBeenCalledTimes(9);
+  });
+
+  it("updates the operational follow-up queue from the live panel", async () => {
+    configureSession();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/clinical/follow-ups/operations/summary")) {
+        return jsonResponse({ totalOpen: 1, overdue: 1, waitingPatient: 0, escalated: 1, deliveryFailed: 1, deliveryPending: 0 });
+      }
+      if (url.includes("/api/v1/clinical/follow-ups/operations?")) {
+        return new Response(JSON.stringify({ items: [{
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          reason: "Контроль после визита",
+          status: "sent",
+          priority: "urgent",
+          triageState: "escalated",
+          escalationLevel: "clinic_admin",
+          deliveryState: "failed",
+        }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/operations") && init?.method === "PATCH") {
+        return jsonResponse({
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          reason: "Контроль после визита",
+          status: "completed",
+          priority: "urgent",
+          triageState: "resolved",
+          escalationLevel: "none",
+          deliveryState: "delivered",
+        });
+      }
+      return jsonResponse({ id: "ok" });
+    });
+
+    render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
+    await waitFor(() => expect(screen.getByRole("region", { name: "Операционный контроль follow-up" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Контроль после визита")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
+    await waitFor(() => expect(screen.getByText("Follow-up закрыт в операционной очереди.")).toBeInTheDocument());
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/operations`,
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
+      }),
+    );
   });
 
   it("shows validation status returned by backend", async () => {
     configureSession();
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/v1/clinical/follow-ups/operations")) {
+        return jsonResponse({ totalOpen: 0, overdue: 0, waitingPatient: 0, escalated: 0, deliveryFailed: 0, deliveryPending: 0 });
+      }
+      return new Response(
         JSON.stringify({
           error: {
             code: "validation_error",
@@ -150,8 +219,8 @@ describe("VisitWorkspaceLiveActions", () => {
           },
         }),
         { status: 422, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+      );
+    });
 
     render(<VisitWorkspaceLiveActions visit={visit} lesions={lesions} />);
     fireEvent.click(screen.getByRole("button", { name: "Создать очаг" }));

@@ -1,0 +1,102 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted API · Stage 18A-18Z",
+    "version": "18A-18Z-clinical-followup-operations-hardening",
+    "description": "Self-hosted clinical follow-up operations queue with SLA, triage, escalation, and local delivery evidence. PostgreSQL is the source of truth; no managed runtime, managed database, or managed notification provider is required."
+  },
+  "servers": [{ "url": "/" }],
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/clinical/follow-ups/operations": {
+      "get": {
+        "summary": "List operational follow-up queue",
+        "description": "Returns clinic-scoped open follow-ups with SLA, triage, escalation, and local delivery evidence fields.",
+        "parameters": [
+          { "name": "triageState", "in": "query", "schema": { "type": "string" } },
+          { "name": "escalationLevel", "in": "query", "schema": { "type": "string" } },
+          { "name": "deliveryState", "in": "query", "schema": { "type": "string" } },
+          { "name": "overdueOnly", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "patientId", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "visitId", "in": "query", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Operational follow-up queue" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Role or clinic scope denied" }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/operations/summary": {
+      "get": {
+        "summary": "Summarize operational follow-up queue",
+        "description": "Returns safe aggregate counts for open, overdue, escalated, waiting-patient, and delivery-state follow-ups.",
+        "responses": {
+          "200": { "description": "Follow-up operations summary" }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/operations": {
+      "patch": {
+        "summary": "Update follow-up operations state",
+        "description": "Updates local triage/SLA/escalation/delivery evidence and writes an append-only operations event.",
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateFollowUpOperations" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Follow-up operations state updated" },
+          "404": { "description": "Follow-up not found in allowed clinic scope" },
+          "422": { "description": "Validation error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "UpdateFollowUpOperations": {
+        "type": "object",
+        "properties": {
+          "triageState": {
+            "type": "string",
+            "enum": ["new", "queued", "in_review", "waiting_patient", "escalated", "resolved", "blocked"]
+          },
+          "escalationLevel": {
+            "type": "string",
+            "enum": ["none", "watch", "clinic_admin", "urgent"]
+          },
+          "slaDueAt": { "type": "string", "format": "date-time", "nullable": true },
+          "deliveryState": {
+            "type": "string",
+            "enum": ["not_required", "pending", "delivered", "failed", "deferred"]
+          },
+          "deliveryEvidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "channel": { "type": "string", "nullable": true },
+              "state": { "type": "string", "nullable": true },
+              "checkedAt": { "type": "string", "nullable": true }
+            }
+          },
+          "operationsNote": { "type": "string", "nullable": true }
+        }
+      }
+    }
+  }
+}

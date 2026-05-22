@@ -351,6 +351,7 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage15a-15z/);
   assert.match(out, /preflight:stage16a-16z/);
   assert.match(out, /preflight:stage17a-17z/);
+  assert.match(out, /preflight:stage18a-18z/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /check:project-memory/);

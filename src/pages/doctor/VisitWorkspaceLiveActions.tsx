@@ -1,7 +1,7 @@
 // Stage 4H · Live write controls for self-hosted visit workspace.
 // Hidden in demo mode. Keeps the existing demo tabs untouched.
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,14 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
-import { createSelfHostedVisitFollowUp } from "@/lib/self-hosted-follow-up-api";
+import {
+  createSelfHostedVisitFollowUp,
+  getSelfHostedClinicalFollowUpOperationsSummary,
+  listSelfHostedClinicalFollowUpOperations,
+  type FollowUpOperationsSummary,
+  type SelfHostedClinicalFollowUp,
+  updateSelfHostedClinicalFollowUpOperations,
+} from "@/lib/self-hosted-follow-up-api";
 import {
   archiveSelfHostedVisitLesion,
   buildSelfHostedVisitReportPayload,
@@ -26,7 +33,25 @@ interface VisitWorkspaceLiveActionsProps {
   lesions: Lesion[];
 }
 
-type BusyAction = "visit" | "create-lesion" | "update-lesion" | "archive-lesion" | "report" | "follow-up" | null;
+type BusyAction =
+  | "visit"
+  | "create-lesion"
+  | "update-lesion"
+  | "archive-lesion"
+  | "report"
+  | "follow-up"
+  | "operations-load"
+  | "operations-update"
+  | null;
+
+const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
+  totalOpen: 0,
+  overdue: 0,
+  waitingPatient: 0,
+  escalated: 0,
+  deliveryFailed: 0,
+  deliveryPending: 0,
+};
 
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
@@ -52,20 +77,45 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [followUpReason, setFollowUpReason] = useState("Контроль после визита");
   const [followUpPatientSummary, setFollowUpPatientSummary] = useState("");
   const [followUpInternalNote, setFollowUpInternalNote] = useState("");
+  const [operationsSummary, setOperationsSummary] = useState<FollowUpOperationsSummary>(EMPTY_OPERATIONS_SUMMARY);
+  const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
 
   const selectedLesion = useMemo(
     () => lesions.find((lesion) => lesion.id === selectedLesionId) ?? null,
     [lesions, selectedLesionId],
   );
 
-  if (!configured) {
-    return null;
-  }
-
   const baseArgs = {
     apiBaseUrl: session.apiBaseUrl,
     apiToken: session.apiToken,
   };
+
+  async function loadOperationsQueue() {
+    if (!configured) return;
+    setBusy((current) => current ?? "operations-load");
+    const [summary, queue] = await Promise.all([
+      getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
+      listSelfHostedClinicalFollowUpOperations({
+        ...baseArgs,
+        visitId: visit.id,
+      }),
+    ]);
+    if (summary.ok) setOperationsSummary(summary.value);
+    if (queue.ok) setOperationsQueue(queue.value);
+    setBusy((current) => current === "operations-load" ? null : current);
+    if (!summary.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || queue.error));
+    }
+  }
+
+  useEffect(() => {
+    void loadOperationsQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configured, session.apiBaseUrl, session.apiToken, visit.id]);
+
+  if (!configured) {
+    return null;
+  }
 
   async function submitVisit(event: FormEvent) {
     event.preventDefault();
@@ -172,6 +222,23 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
         ? "Контрольный контакт создан в self-hosted backend."
         : publicMessage(result.error),
     );
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateOperationsState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpOperations>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("operations-update");
+    const result = await updateSelfHostedClinicalFollowUpOperations({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
   }
 
   return (
@@ -370,6 +437,114 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           </Button>
         </form>
       </div>
+
+      <section
+        aria-label="Операционный контроль follow-up"
+        className="mt-3 rounded-md border border-border bg-background p-3"
+      >
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h3 className="h-section text-[14px]">Операционный контроль</h3>
+            <p className="text-meta">
+              SLA, triage и delivery evidence ведутся локально в self-hosted backend.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy === "operations-load"}
+            onClick={() => void loadOperationsQueue()}
+            className="h-8 text-[12px]"
+          >
+            {busy === "operations-load" ? "Обновляем…" : "Обновить очередь"}
+          </Button>
+        </div>
+        <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-3 lg:grid-cols-6">
+          <div className="surface-toolbar p-2">
+            <dt className="text-muted-foreground">Открыто</dt>
+            <dd className="text-lg font-semibold">{operationsSummary.totalOpen}</dd>
+          </div>
+          <div className="surface-toolbar p-2">
+            <dt className="text-muted-foreground">Просрочено SLA</dt>
+            <dd className="text-lg font-semibold">{operationsSummary.overdue}</dd>
+          </div>
+          <div className="surface-toolbar p-2">
+            <dt className="text-muted-foreground">Ждёт пациента</dt>
+            <dd className="text-lg font-semibold">{operationsSummary.waitingPatient}</dd>
+          </div>
+          <div className="surface-toolbar p-2">
+            <dt className="text-muted-foreground">Эскалации</dt>
+            <dd className="text-lg font-semibold">{operationsSummary.escalated}</dd>
+          </div>
+          <div className="surface-toolbar p-2">
+            <dt className="text-muted-foreground">Ошибки доставки</dt>
+            <dd className="text-lg font-semibold">{operationsSummary.deliveryFailed}</dd>
+          </div>
+          <div className="surface-toolbar p-2">
+            <dt className="text-muted-foreground">Доставка ждёт</dt>
+            <dd className="text-lg font-semibold">{operationsSummary.deliveryPending}</dd>
+          </div>
+        </dl>
+
+        <div className="mt-3 space-y-2" aria-label="Очередь follow-up по визиту">
+          {operationsQueue.length === 0 ? (
+            <p className="text-[12px] text-muted-foreground">Для этого визита нет открытых follow-up задач.</p>
+          ) : operationsQueue.map((item) => (
+            <article key={item.id} className="surface-toolbar flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium">{item.reason || "Контрольный контакт"}</p>
+                <p className="text-[12px] text-muted-foreground">
+                  triage: {item.triageState} · escalation: {item.escalationLevel} · delivery: {item.deliveryState}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "operations-update"}
+                  onClick={() => void updateOperationsState(
+                    item.id,
+                    { triageState: "waiting_patient", deliveryState: "pending", operationsNote: "Waiting for patient confirmation." },
+                    "Follow-up переведён в ожидание пациента.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Ждёт пациента
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "operations-update"}
+                  onClick={() => void updateOperationsState(
+                    item.id,
+                    { triageState: "escalated", escalationLevel: "clinic_admin", operationsNote: "Escalated locally to clinic admin." },
+                    "Follow-up эскалирован администратору клиники.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Эскалировать
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy === "operations-update"}
+                  onClick={() => void updateOperationsState(
+                    item.id,
+                    { triageState: "resolved", deliveryState: "delivered", deliveryEvidence: { channel: "portal", state: "confirmed" } },
+                    "Follow-up закрыт в операционной очереди.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Закрыть
+                </Button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </section>
   );
 }

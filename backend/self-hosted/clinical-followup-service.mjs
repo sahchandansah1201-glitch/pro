@@ -7,10 +7,14 @@ import { patientPortalScope, visitReadScope, visitWriteScope } from "./rbac.mjs"
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T/;
 const PRIORITIES = new Set(["low", "normal", "high", "urgent"]);
 const STATUSES = new Set(["planned", "in_progress", "sent", "acknowledged", "completed", "cancelled"]);
+const TRIAGE_STATES = new Set(["new", "queued", "in_review", "waiting_patient", "escalated", "resolved", "blocked"]);
+const ESCALATION_LEVELS = new Set(["none", "watch", "clinic_admin", "urgent"]);
+const DELIVERY_STATES = new Set(["not_required", "pending", "delivered", "failed", "deferred"]);
 const MAX_REASON = 1000;
 const MAX_SUMMARY = 2000;
 const MAX_INTERNAL_NOTE = 4000;
 const MAX_MESSAGE_BODY = 3000;
+const MAX_OPERATIONS_NOTE = 2000;
 
 class ClinicalFollowUpNotFoundError extends Error {
   constructor(message = "Clinical follow-up was not found.") {
@@ -147,6 +151,62 @@ export function normalizeClinicalFollowUpMessagePayload(input = {}) {
     body: messageBody,
     patientVisible,
   };
+}
+
+export function normalizeClinicalFollowUpOperationsUpdatePayload(input = {}) {
+  const body = requireBodyObject(input);
+  const details = [];
+  const payload = {};
+  if (hasOwn(body, "triageState")) {
+    const triageState = cleanString(body.triageState);
+    if (!triageState || !TRIAGE_STATES.has(triageState)) {
+      details.push({ field: "triageState", message: "triageState is not supported." });
+    } else {
+      payload.triageState = triageState;
+    }
+  }
+  if (hasOwn(body, "escalationLevel")) {
+    const escalationLevel = cleanString(body.escalationLevel);
+    if (!escalationLevel || !ESCALATION_LEVELS.has(escalationLevel)) {
+      details.push({ field: "escalationLevel", message: "escalationLevel is not supported." });
+    } else {
+      payload.escalationLevel = escalationLevel;
+    }
+  }
+  if (hasOwn(body, "deliveryState")) {
+    const deliveryState = cleanString(body.deliveryState);
+    if (!deliveryState || !DELIVERY_STATES.has(deliveryState)) {
+      details.push({ field: "deliveryState", message: "deliveryState is not supported." });
+    } else {
+      payload.deliveryState = deliveryState;
+    }
+  }
+  if (hasOwn(body, "slaDueAt")) {
+    payload.slaDueAt = body.slaDueAt == null || body.slaDueAt === ""
+      ? null
+      : validateIsoDateTime(body.slaDueAt, "slaDueAt", details);
+  }
+  if (hasOwn(body, "deliveryEvidence")) {
+    if (body.deliveryEvidence == null) {
+      payload.deliveryEvidence = {};
+    } else if (!isPlainObject(body.deliveryEvidence)) {
+      details.push({ field: "deliveryEvidence", message: "deliveryEvidence must be an object." });
+    } else {
+      payload.deliveryEvidence = {
+        channel: cleanString(body.deliveryEvidence.channel),
+        state: cleanString(body.deliveryEvidence.state),
+        checkedAt: cleanString(body.deliveryEvidence.checkedAt),
+      };
+    }
+  }
+  if (hasOwn(body, "operationsNote")) {
+    payload.operationsNote = validateLimitedText(body.operationsNote, "operationsNote", MAX_OPERATIONS_NOTE, details);
+  }
+  if (Object.keys(payload).length === 0) {
+    details.push({ field: "body", message: "At least one operations field is required." });
+  }
+  if (details.length > 0) throw new ClinicalFollowUpValidationError(details);
+  return payload;
 }
 
 async function audit(auditRepository, event) {
@@ -294,6 +354,76 @@ export function createClinicalFollowUpService({
         metadata: { followUpId },
       });
       return { message, scope };
+    },
+
+    async listClinicalFollowUpOperations(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const result = await clinicalFollowUpRepository.listClinicalFollowUpOperations({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.operations.list",
+        entityType: "clinical_follow_up",
+        correlationId,
+        metadata: {
+          count: result.items.length,
+          triageState: params?.triageState || null,
+          escalationLevel: params?.escalationLevel || null,
+          overdueOnly: Boolean(params?.overdueOnly),
+        },
+      });
+      return { result, scope };
+    },
+
+    async getClinicalFollowUpOperationsSummary(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const summary = await clinicalFollowUpRepository.getClinicalFollowUpOperationsSummary({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.operations.summary",
+        entityType: "clinical_follow_up",
+        correlationId,
+        metadata: {
+          totalOpen: summary.totalOpen,
+          overdue: summary.overdue,
+          escalated: summary.escalated,
+        },
+      });
+      return { summary, scope };
+    },
+
+    async updateClinicalFollowUpOperations(followUpId, input, authContext, { correlationId } = {}) {
+      const scope = visitWriteScope(authContext);
+      const changes = normalizeClinicalFollowUpOperationsUpdatePayload(input);
+      const followUp = await clinicalFollowUpRepository.updateClinicalFollowUpOperations({
+        followUpId,
+        actorUserId: authContext.userId,
+        changes,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      if (!followUp) throw new ClinicalFollowUpNotFoundError();
+      await audit(auditRepository, {
+        clinicId: followUp.clinicId || null,
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.operations.update",
+        entityType: "clinical_follow_up",
+        entityId: followUp.id,
+        correlationId,
+        metadata: {
+          triageState: followUp.triageState,
+          escalationLevel: followUp.escalationLevel,
+          deliveryState: followUp.deliveryState,
+        },
+      });
+      return { followUp, scope };
     },
   };
 }

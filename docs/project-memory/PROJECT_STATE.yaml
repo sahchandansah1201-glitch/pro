@@ -1,5 +1,11 @@
 generated_at: "2026-05-22T00:00:00+03:00"
 project: "Dermatolog Pro"
+stage18a_18z:
+  name: "Stage 18A-18Z"
+  clinical_followup_operations_confirmed: true
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:stage18a-18z"
+  next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
   branch: "codex/stage16a-16z-product-cycle-readiness"

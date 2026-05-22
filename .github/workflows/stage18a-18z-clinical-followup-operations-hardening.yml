@@ -1,0 +1,59 @@
+name: stage18a-18z-clinical-followup-operations-hardening
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-18a-18z-clinical-followup-operations-hardening.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage18a-18z-clinical-followup-operations-hardening.mjs"
+      - "scripts/check-stage18a-18z-clinical-followup-operations-hardening.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage18a-18z-clinical-followup-operations-hardening.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-18a-18z-clinical-followup-operations-hardening.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage18a-18z-clinical-followup-operations-hardening.mjs"
+      - "scripts/check-stage18a-18z-clinical-followup-operations-hardening.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage18a-18z-clinical-followup-operations-hardening.yml"
+  workflow_dispatch:
+
+jobs:
+  stage18a-18z-clinical-followup-operations-hardening:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 18A-18Z preflight
+        run: npm run preflight:stage18a-18z
+      - name: Stage 18A-18Z summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 18A-18Z clinical follow-up operations hardening"
+            echo ""
+            echo "- Command: \`npm run preflight:stage18a-18z\`"
+            echo "- Boundary: self-hosted backend + PostgreSQL + local follow-up operations metadata"
+          } >> "$GITHUB_STEP_SUMMARY"
