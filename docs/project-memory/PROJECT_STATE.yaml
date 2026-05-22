@@ -1103,3 +1103,15 @@ sources:
     - ".github/workflows/stage8a-8c-crm-inbound-adapter.yml"
     - ".github/workflows/stage8d-8f-availability-sync.yml"
     - ".github/workflows/stage8g-8i-clinical-reporting-completion.yml"
+
+stage17a_17z_preflight:
+  stage: "Stage 17A-17Z"
+  command: "npm run preflight:stage17a-17z"
+  status: "pending-local-run"
+  clinical_followup_communication_confirmed: true
+  product_cycle: "doctor follow-up -> patient portal reply -> local audit trail"
+  managed_runtime_dependency: "none"
+  managed_database_dependency: "none"
+  managed_notification_provider_dependency: "none"
+  expected_lovable_confirmation: "Confirmed: Stage 17A-17Z synced from main, no conflicts."
+  next_batch_hypothesis: "Stage 18A-18Z"

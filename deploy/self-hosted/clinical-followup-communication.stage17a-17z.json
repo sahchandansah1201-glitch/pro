@@ -1,0 +1,61 @@
+{
+  "stage": "17A-17Z",
+  "name": "Clinical follow-up and patient communication loop",
+  "previousBatch": "Stage 16A-16Z",
+  "productCycle": "doctor follow-up -> patient portal reply -> local audit trail",
+  "implementedSurfaces": [
+    "backend PostgreSQL migration for clinical follow-up tasks and messages",
+    "backend RBAC API for staff follow-up list/create/update/message",
+    "patient portal API for patient-visible follow-ups and replies",
+    "visit workspace live action for creating follow-up tasks",
+    "patient reminders page follow-up communication panel",
+    "OpenAPI and nginx self-hosted deploy exposure",
+    "stage guard, workflow, preflight-all wiring, and project-memory handoff"
+  ],
+  "productBoundary": {
+    "runtime": "self-hosted Node backend",
+    "database": "self-hosted PostgreSQL",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "browserHardwareApis": false
+  },
+  "contracts": {
+    "staff": [
+      "GET /api/v1/clinical/follow-ups",
+      "POST /api/v1/visits/{visitId}/follow-ups",
+      "PATCH /api/v1/clinical/follow-ups/{followUpId}",
+      "POST /api/v1/clinical/follow-ups/{followUpId}/messages"
+    ],
+    "patient": [
+      "GET /api/v1/me/follow-ups",
+      "POST /api/v1/me/follow-ups/{followUpId}/messages"
+    ],
+    "openapi": "/openapi.stage17a-17z.json"
+  },
+  "rbac": {
+    "staffRead": "doctor, clinic_admin, system_admin through visitReadScope",
+    "staffWrite": "doctor and system_admin through visitWriteScope",
+    "patient": "linked patient user through patientPortalScope"
+  },
+  "privacy": {
+    "patientEndpointHidesInternalNote": true,
+    "patientEndpointHidesObjectStorage": true,
+    "noSignedUrls": true,
+    "auditActions": [
+      "clinical_follow_up.list",
+      "clinical_follow_up.create",
+      "clinical_follow_up.update",
+      "clinical_follow_up.message.create",
+      "patient_portal.follow_up.list",
+      "patient_portal.follow_up.message.create"
+    ]
+  },
+  "verification": {
+    "test": "npm run test:stage17a-17z",
+    "check": "npm run check:stage17a-17z",
+    "preflight": "npm run preflight:stage17a-17z",
+    "expectedConfirmation": "Confirmed: Stage 17A-17Z synced from main, no conflicts."
+  },
+  "nextBatchHypothesis": "Stage 18A-18Z"
+}

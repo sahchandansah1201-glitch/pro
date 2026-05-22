@@ -841,3 +841,23 @@
 - `npm run preflight:all -- --dry-run`
 - `node scripts/check-no-deno-locks.mjs`
 - `git diff --check`
+
+## Stage 17A-17Z clinical follow-up communication artifacts
+
+- [clinical-followup-communication.stage17a-17z.json](../../deploy/self-hosted/clinical-followup-communication.stage17a-17z.json)
+- [0024_stage17_clinical_followup_communication.sql](../../backend/self-hosted/db/migrations/0024_stage17_clinical_followup_communication.sql)
+- [clinical-followup-repository.mjs](../../backend/self-hosted/clinical-followup-repository.mjs)
+- [clinical-followup-service.mjs](../../backend/self-hosted/clinical-followup-service.mjs)
+- [openapi.stage17a-17z.json](../../backend/self-hosted/openapi.stage17a-17z.json)
+- [self-hosted-follow-up-api.ts](../../src/lib/self-hosted-follow-up-api.ts)
+- [VisitWorkspaceLiveActions.tsx](../../src/pages/doctor/VisitWorkspaceLiveActions.tsx)
+- [MeRemindersPageLive.tsx](../../src/pages/patient/MeRemindersPageLive.tsx)
+- [check-stage17a-17z-clinical-followup-communication.mjs](../../scripts/check-stage17a-17z-clinical-followup-communication.mjs)
+- [stage-17a-17z-clinical-followup-communication.md](../../docs/backend/stage-17a-17z-clinical-followup-communication.md)
+- [stage17a-17z-clinical-followup-communication.yml](../../.github/workflows/stage17a-17z-clinical-followup-communication.yml)
+
+## Stage 17A-17Z verification commands
+
+- `npm run test:stage17a-17z`
+- `npm run check:stage17a-17z`
+- `npm run preflight:stage17a-17z`
