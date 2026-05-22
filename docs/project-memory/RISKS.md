@@ -228,14 +228,27 @@
      `previous_closure_regression`, `post_merge_verification_required`, and
      `next_batch_hypothesis_recorded`.
 
+21. **Post-sync handoff can drift from the confirmed main state**
+   - Evidence: Stage 15A-15Z follows a corrected Lovable confirmation for
+     Stage 14A-14Z after an earlier wrong-head response was rejected.
+   - Impact: future batches can repeat stale-head, wrong-project, duplicate CI,
+     or branch-only handoff mistakes if the confirmed sync is not replayed
+     before the next prompt.
+   - Mitigation: Stage 15A-15Z requires
+     `post_sync_confirmation_not_memory`, `stage14_regression_required`,
+     `main_verified_before_next_handoff`, `lovable_prompt_replay_manifest`,
+     and `wrong_project_diagnostic_required`.
+
 ## Hypotheses
 
-1. **Next product batch**
-   - hypothesis: Stage 15A-15Z is next.
-   - Basis: Stage 14A-14Z creates the sync confirmation ledger after Stage
-     13A-13Z closes execution evidence.
-   - Uncertainty: Stage 15A-15Z is not implemented until repository files define
+1. **Next process batch**
+   - hypothesis: Stage 16A-16Z is next.
+   - Basis: Stage 15A-15Z creates the post-sync handoff readiness packet after
+     Stage 14A-14Z sync confirmation.
+   - Uncertainty: Stage 16A-16Z is not implemented until repository files define
      it.
+   - Historical marker: Stage 15A-15Z is the current post-sync handoff readiness
+     batch in this branch.
    - Historical marker: Stage 14A-14Z is the current sync confirmation ledger
      batch in this branch.
    - Historical marker: Stage 13A-13Z is the current execution evidence closure

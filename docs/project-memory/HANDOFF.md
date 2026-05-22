@@ -288,6 +288,39 @@ merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
    - no database migrations;
    - no managed runtime or managed database dependency;
    - repository sync evidence only.
+30. Stage 15A-15Z implements the post-sync handoff readiness packet:
+   - Stage 15A: previous sync confirmation intake;
+   - Stage 15B: merged main replay evidence;
+   - Stage 15C: Lovable prompt replay evidence;
+   - Stage 15D: Pull request merge audit;
+   - Stage 15E: GitHub checks replay audit;
+   - Stage 15F: duplicate CI resolution rule;
+   - Stage 15G: long gate wait policy;
+   - Stage 15H: sync mismatch classifier;
+   - Stage 15I: repository remote alignment;
+   - Stage 15J: Lovable project alignment;
+   - Stage 15K: artifact path normalization;
+   - Stage 15L: project-memory handoff refresh;
+   - Stage 15M: working contract refresh;
+   - Stage 15N: batch template replay;
+   - Stage 15O: Stage 14 regression gate;
+   - Stage 15P: command bundle freeze;
+   - Stage 15Q: preflight-all readiness check;
+   - Stage 15R: typecheck baseline confirmation;
+   - Stage 15S: no-lock-file hygiene;
+   - Stage 15T: package-lock immutability;
+   - Stage 15U: privacy marker scan;
+   - Stage 15V: self-hosted boundary assertion;
+   - Stage 15W: prompt release checklist;
+   - Stage 15X: Lovable response checklist;
+   - Stage 15Y: defect recurrence ledger;
+   - Stage 15Z: Stage 16 hypothesis handoff.
+31. Stage 15A-15Z product boundary:
+   - no runtime behavior change;
+   - no backend routes or frontend product pages;
+   - no database migrations;
+   - no managed runtime or managed database dependency;
+   - repository post-sync handoff evidence only.
 
 ## Important operational fact
 
@@ -299,8 +332,8 @@ expected to produce a false "missing files" result because Lovable follows
 ## Hypothesis
 
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
-- `Stage 14A-14Z` is the current sync confirmation ledger batch after Stage 13A-13Z.
-- `Stage 15A-15Z` is the next likely batch after Stage 14A-14Z.
+- `Stage 15A-15Z` is the current post-sync handoff readiness batch after Stage 14A-14Z.
+- `Stage 16A-16Z` is the next likely batch after Stage 15A-15Z.
 - Historical marker: `Stage 10A-10L` was the original next hypothesis after
   Stage 9N-9Z before the x2 batch expanded into Stage 10A-10Z.
 - Historical marker: `Stage 8P-8R` was the original next hypothesis after
@@ -312,10 +345,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 14A-14Z Pull request lifecycle.
+1. Complete the Stage 15A-15Z Pull request lifecycle.
 2. Run or verify:
+   - `npm run preflight:stage15a-15z`
    - `npm run preflight:stage14a-14z`
-   - `npm run preflight:stage13a-13z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

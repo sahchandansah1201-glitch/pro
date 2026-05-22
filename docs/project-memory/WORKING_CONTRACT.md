@@ -328,6 +328,41 @@ and handoff packet generation are required before the prompt can be sent.
 The next normal batch after Stage 14A-14Z is Stage 15A-15Z unless repository
 files define a different scope.
 
+## Stage 15A: Previous sync confirmation intake
+
+Stage 15A-15Z creates the Post-sync handoff readiness packet. The packet
+records the confirmed Stage 14A-14Z Lovable sync, merged main replay,
+Lovable prompt replay, duplicate CI handling, long gate policy, wrong-project
+diagnostics, and Stage 16 handoff gates as repository-owned readiness
+evidence.
+
+## Stage 15B-15H: Replay and diagnostics
+
+Merged main replay, Lovable prompt replay, Pull request merge audit, GitHub
+checks replay, duplicate CI resolution, long gate handling, and sync mismatch
+classification are required before another large batch can be handed to
+Lovable.
+
+## Stage 15I-15V: Alignment and boundary
+
+Repository remote alignment, Lovable project alignment, artifact path
+normalization, project-memory refresh, working contract refresh, batch
+template replay, Stage 14 regression, command bundle freeze, preflight-all
+readiness, typecheck baseline, no-lock hygiene, package-lock immutability,
+privacy scan, and self-hosted boundary assertion must all be represented in
+the readiness packet.
+
+## Stage 15W-15Z: Handoff readiness
+
+Prompt release checklist, Lovable response checklist, defect recurrence
+ledger, and Stage 16 hypothesis handoff are required before the next prompt can
+be sent.
+
+## Stage 16 hypothesis
+
+The next normal batch after Stage 15A-15Z is Stage 16A-16Z unless repository
+files define a different scope.
+
 ## Stage 7J: Product gap register
 
 After the process contract is in place, the repository needs a product gap

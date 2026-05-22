@@ -791,3 +791,28 @@
 - `npm run preflight:all -- --dry-run`
 - `node scripts/check-no-deno-locks.mjs`
 - `git diff --check`
+
+## Stage 15A-15Z post-sync handoff readiness artifacts
+
+- [post-sync-handoff-readiness.stage15a-15z.json](../../deploy/self-hosted/post-sync-handoff-readiness.stage15a-15z.json)
+- [stage15a-15z-post-sync-handoff-readiness.mjs](../../scripts/stage15a-15z-post-sync-handoff-readiness.mjs)
+- [stage15a-15z-post-sync-handoff-readiness.test.mjs](../../scripts/stage15a-15z-post-sync-handoff-readiness.test.mjs)
+- [check-stage15a-15z-post-sync-handoff-readiness.mjs](../../scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs)
+- [check-stage15a-15z-post-sync-handoff-readiness.test.mjs](../../scripts/check-stage15a-15z-post-sync-handoff-readiness.test.mjs)
+- [stage-15a-15z-post-sync-handoff-readiness.md](../backend/stage-15a-15z-post-sync-handoff-readiness.md)
+- [stage15a-15z-post-sync-handoff-readiness.yml](../../.github/workflows/stage15a-15z-post-sync-handoff-readiness.yml)
+- [WORKING_CONTRACT.md](./WORKING_CONTRACT.md)
+- [BATCH_TEMPLATE.md](./BATCH_TEMPLATE.md)
+
+## Stage 15A-15Z verification commands
+
+- `npm run test:stage15a-15z`
+- `npm run check:stage15a-15z`
+- `npm run readiness:stage15a-15z:dry-run`
+- `npm run preflight:stage15a-15z`
+- `npm run preflight:stage14a-14z`
+- `npm run check:project-memory`
+- `npm run typecheck`
+- `npm run preflight:all -- --dry-run`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`

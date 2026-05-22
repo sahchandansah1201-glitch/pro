@@ -1,0 +1,368 @@
+{
+  "stage": "15A-15Z",
+  "packageId": "stage15a-15z-post-sync-handoff-readiness",
+  "title": "Stage 15A-15Z · Post-sync handoff readiness",
+  "status": "ready",
+  "previousBatch": "Stage 14A-14Z",
+  "previousBatchCommit": "c92604d",
+  "nextBatchHypothesis": "Stage 16A-16Z",
+  "purpose": "Convert the confirmed Stage 14A-14Z Lovable sync into a repository-owned post-sync handoff readiness packet that replays the previous sync evidence, freezes the next handoff gates, and prevents branch-only, stale-head, duplicate-CI, and sync-delay mistakes before Stage 16 work begins.",
+  "batchScale": {
+    "previousIncludedStages": 26,
+    "currentIncludedStages": 26,
+    "minimumRelatedStagesPerBatch": 26,
+    "scalePolicy": "normal x2 batches after Stage 14 must keep 26 related stages unless repository files justify a different scope"
+  },
+  "includedStages": [
+    {
+      "id": "Stage 15A",
+      "title": "Previous sync confirmation intake",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15B",
+      "title": "Merged main replay evidence",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15C",
+      "title": "Lovable prompt replay evidence",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15D",
+      "title": "Pull request merge audit",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15E",
+      "title": "GitHub checks replay audit",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15F",
+      "title": "Duplicate CI resolution rule",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15G",
+      "title": "Long gate wait policy",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15H",
+      "title": "Sync mismatch classifier",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15I",
+      "title": "Repository remote alignment",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15J",
+      "title": "Lovable project alignment",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15K",
+      "title": "Artifact path normalization",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15L",
+      "title": "Project-memory handoff refresh",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15M",
+      "title": "Working contract refresh",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15N",
+      "title": "Batch template replay",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15O",
+      "title": "Stage 14 regression gate",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15P",
+      "title": "Command bundle freeze",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15Q",
+      "title": "Preflight-all readiness check",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15R",
+      "title": "Typecheck baseline confirmation",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15S",
+      "title": "No-lock-file hygiene",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15T",
+      "title": "Package-lock immutability",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15U",
+      "title": "Privacy marker scan",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15V",
+      "title": "Self-hosted boundary assertion",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15W",
+      "title": "Prompt release checklist",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15X",
+      "title": "Lovable response checklist",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15Y",
+      "title": "Defect recurrence ledger",
+      "status": "ready"
+    },
+    {
+      "id": "Stage 15Z",
+      "title": "Stage 16 hypothesis handoff",
+      "status": "ready"
+    }
+  ],
+  "confirmedPreviousSync": {
+    "stage": "Stage 14A-14Z",
+    "confirmation": "Confirmed: Stage 14A-14Z synced from main, no conflicts.",
+    "mergeCommit": "c92604d",
+    "source": "user-provided Lovable confirmation after Stage 14 post-merge verification",
+    "confirmationStoredInRepository": true
+  },
+  "ledgerSections": [
+    {
+      "id": "intake",
+      "title": "Post-sync Intake",
+      "requiredEvidence": [
+        "confirmed Stage 14 Lovable phrase",
+        "Stage 14 merge commit",
+        "local main head",
+        "origin main head",
+        "post-merge preflight result",
+        "no sync conflict claim",
+        "Stage 16 hypothesis"
+      ]
+    },
+    {
+      "id": "replay",
+      "title": "Replay Evidence",
+      "requiredEvidence": [
+        "Stage 14 manifest",
+        "Stage 14 renderer",
+        "Stage 14 guard",
+        "Stage 14 workflow",
+        "Stage 14 docs",
+        "Stage 14 project-memory markers",
+        "Stage 14 Lovable prompt"
+      ]
+    },
+    {
+      "id": "verification",
+      "title": "Verification Freeze",
+      "requiredEvidence": [
+        "stage tests",
+        "stage guard",
+        "stage dry run",
+        "stage preflight",
+        "previous batch preflight",
+        "project-memory guard",
+        "typecheck",
+        "preflight-all dry run",
+        "no-deno-locks",
+        "diff check"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "title": "Sync Diagnostics",
+      "requiredEvidence": [
+        "expected main SHA",
+        "actual local SHA",
+        "actual remote SHA",
+        "Lovable visible SHA prompt",
+        "missing file checklist",
+        "stale mirror classification",
+        "wrong-project classification"
+      ]
+    },
+    {
+      "id": "ci",
+      "title": "CI and Gate Ledger",
+      "requiredEvidence": [
+        "all checks green before ready",
+        "duplicate CI wait",
+        "long gate observation",
+        "failure log rule",
+        "ready transition rule",
+        "squash merge rule",
+        "post-merge local verification"
+      ]
+    },
+    {
+      "id": "handoff",
+      "title": "Next Handoff Readiness",
+      "requiredEvidence": [
+        "manifest-derived Lovable prompt",
+        "prompt blocked before merge",
+        "expected Stage 15 confirmation",
+        "Stage 16 hypothesis",
+        "working contract marker",
+        "batch template marker",
+        "risk marker"
+      ]
+    }
+  ],
+  "ledgerRules": [
+    {
+      "id": "post_sync_confirmation_not_memory",
+      "severity": "critical",
+      "rule": "A post-sync confirmation is valid only when the repository records the confirmation phrase, merge commit, and verification commands."
+    },
+    {
+      "id": "stage14_regression_required",
+      "severity": "critical",
+      "rule": "Stage 15 must run the Stage 14 preflight before handoff."
+    },
+    {
+      "id": "main_verified_before_next_handoff",
+      "severity": "critical",
+      "rule": "Local main and origin main must match the merged Stage 15 commit before the Lovable prompt is released."
+    },
+    {
+      "id": "lovable_prompt_replay_manifest",
+      "severity": "high",
+      "rule": "The Lovable prompt must be generated from the Stage 15 manifest and must replay the exact file and command checklist."
+    },
+    {
+      "id": "duplicate_ci_wait_required",
+      "severity": "high",
+      "rule": "If duplicate GitHub check runs exist, all required duplicates must reach success or skip before ready or merge."
+    },
+    {
+      "id": "sync_delay_not_conflict",
+      "severity": "critical",
+      "rule": "A missing file in Lovable is classified as sync delay until merged main, local head, remote head, repository connection, and visible head are checked."
+    },
+    {
+      "id": "wrong_project_diagnostic_required",
+      "severity": "high",
+      "rule": "A mismatched Lovable response must be diagnosed as wrong project, wrong branch, stale mirror, or stale prompt before code changes are made."
+    },
+    {
+      "id": "relative_artifact_links",
+      "severity": "high",
+      "rule": "Project-memory artifact links must remain repository-relative."
+    },
+    {
+      "id": "no_runtime_coupling",
+      "severity": "critical",
+      "rule": "The handoff readiness packet must not introduce managed runtime, managed database, browser hardware, or external service coupling."
+    },
+    {
+      "id": "next_batch_hypothesis_recorded",
+      "severity": "critical",
+      "rule": "Stage 16A-16Z must be recorded as a hypothesis until repository files define the next scope."
+    }
+  ],
+  "requiredFiles": [
+    "deploy/self-hosted/post-sync-handoff-readiness.stage15a-15z.json",
+    "scripts/stage15a-15z-post-sync-handoff-readiness.mjs",
+    "scripts/stage15a-15z-post-sync-handoff-readiness.test.mjs",
+    "scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs",
+    "scripts/check-stage15a-15z-post-sync-handoff-readiness.test.mjs",
+    "docs/backend/stage-15a-15z-post-sync-handoff-readiness.md",
+    "docs/project-memory/WORKING_CONTRACT.md",
+    "docs/project-memory/BATCH_TEMPLATE.md",
+    ".github/workflows/stage15a-15z-post-sync-handoff-readiness.yml"
+  ],
+  "verificationGates": [
+    {
+      "id": "stage15a-15z-tests",
+      "command": "npm run test:stage15a-15z",
+      "required": true
+    },
+    {
+      "id": "stage15a-15z-guard",
+      "command": "npm run check:stage15a-15z",
+      "required": true
+    },
+    {
+      "id": "stage15a-15z-dry-run",
+      "command": "npm run readiness:stage15a-15z:dry-run",
+      "required": true
+    },
+    {
+      "id": "stage15a-15z-preflight",
+      "command": "npm run preflight:stage15a-15z",
+      "required": true
+    },
+    {
+      "id": "previous-sync-regression",
+      "command": "npm run preflight:stage14a-14z",
+      "required": true
+    },
+    {
+      "id": "project-memory",
+      "command": "npm run check:project-memory",
+      "required": true
+    },
+    {
+      "id": "typecheck",
+      "command": "npm run typecheck",
+      "required": true
+    },
+    {
+      "id": "preflight-all-dry-run",
+      "command": "npm run preflight:all -- --dry-run",
+      "required": true
+    },
+    {
+      "id": "no-deno-locks",
+      "command": "node scripts/check-no-deno-locks.mjs",
+      "required": true
+    },
+    {
+      "id": "diff-check",
+      "command": "git diff --check",
+      "required": true
+    }
+  ],
+  "productBoundary": {
+    "runtimeBehaviorChanged": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "dataVisibility": "repository sync evidence only; no secrets, patient identifiers, bearer values, signed link values, worker raw values, or binary object references"
+  },
+  "lovableHandoff": {
+    "promptAllowedOnlyAfterMerge": true,
+    "promptGeneratedFromManifest": true,
+    "expectedConfirmation": "Confirmed: Stage 15A-15Z synced from main, no conflicts.",
+    "previousConfirmation": "Confirmed: Stage 14A-14Z synced from main, no conflicts.",
+    "nextBatchHypothesis": "Stage 16A-16Z"
+  }
+}

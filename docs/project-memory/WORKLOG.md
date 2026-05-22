@@ -2,6 +2,12 @@
 
 ## 2026-05-22
 
+- Создан Stage 15A-15Z post-sync handoff readiness x2 batch после подтверждения Stage 14A-14Z Lovable sync.
+- Зафиксированы previous sync confirmation intake, merged-main replay, Lovable prompt replay, duplicate CI handling, long gate policy, sync mismatch classifier, project-memory refresh, and Stage 16 hypothesis handoff.
+- Подтверждаемые команды для batch: `npm run test:stage15a-15z`, `npm run check:stage15a-15z`, `npm run readiness:stage15a-15z:dry-run`, `npm run preflight:stage15a-15z`.
+
+## 2026-05-22
+
 - Created Stage 14A-14Z sync confirmation ledger x2 batch after Stage
   13A-13Z.
 - Added manifest, renderer, guard, tests, docs, workflow, npm scripts,

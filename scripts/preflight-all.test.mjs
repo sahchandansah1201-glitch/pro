@@ -123,6 +123,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 12A-12Z execution evidence bundle preflight",
     "Stage 13A-13Z execution evidence closure preflight",
     "Stage 14A-14Z sync confirmation ledger preflight",
+    "Stage 15A-15Z post-sync handoff readiness preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "project-memory black box guard",
@@ -227,11 +228,12 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[95], /npm(\.cmd)? run preflight:stage12a-12z/);
   assert.match(commands[96], /npm(\.cmd)? run preflight:stage13a-13z/);
   assert.match(commands[97], /npm(\.cmd)? run preflight:stage14a-14z/);
-  assert.match(commands[98], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[99], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[100], /npm(\.cmd)? run check:project-memory/);
-  assert.match(commands[101], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[102], "git diff --check");
+  assert.match(commands[98], /npm(\.cmd)? run preflight:stage15a-15z/);
+  assert.match(commands[99], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[100], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[101], /npm(\.cmd)? run check:project-memory/);
+  assert.match(commands[102], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[103], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
@@ -341,6 +343,8 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage11a-11z/);
   assert.match(out, /preflight:stage12a-12z/);
   assert.match(out, /preflight:stage13a-13z/);
+  assert.match(out, /preflight:stage14a-14z/);
+  assert.match(out, /preflight:stage15a-15z/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /check:project-memory/);
