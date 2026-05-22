@@ -1,0 +1,47 @@
+name: stage12a-12z-execution-evidence-bundle
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/execution-evidence-bundle.stage12a-12z.json"
+      - "scripts/stage12a-12z-execution-evidence-bundle.mjs"
+      - "scripts/stage12a-12z-execution-evidence-bundle.test.mjs"
+      - "scripts/check-stage12a-12z-execution-evidence-bundle.mjs"
+      - "scripts/check-stage12a-12z-execution-evidence-bundle.test.mjs"
+      - "docs/backend/stage-12a-12z-execution-evidence-bundle.md"
+      - "docs/project-memory/**"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage12a-12z-execution-evidence-bundle.yml"
+  workflow_dispatch:
+
+jobs:
+  stage12a-12z-execution-evidence-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Run Stage 12A-12Z preflight
+        run: npm run preflight:stage12a-12z
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 12A-12Z execution evidence bundle"
+            echo ""
+            echo "- Command: \`npm run preflight:stage12a-12z\`"
+            echo "- Scope: process evidence only; no runtime product changes"
+            echo "- Boundary: self-hosted product, managed runtime/database dependency none"
+          } >> "$GITHUB_STEP_SUMMARY"

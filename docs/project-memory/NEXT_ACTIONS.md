@@ -2,18 +2,22 @@
 
 ## Highest-confidence next step
 
-Merge and verify Stage 11A-11Z as one x2 Pull request, then send the Lovable
-sync prompt only after `main` contains the merged development quality ledger.
+Merge and verify Stage 12A-12Z as one x2 Pull request, then send the Lovable
+sync prompt only after `main` contains the merged execution evidence bundle.
 
 ## Immediate sequence
 
-1. **Complete the Stage 11A-11Z Pull request lifecycle**:
-   - commit the development quality ledger with manifest, renderer, guard,
+1. **Complete the Stage 12A-12Z Pull request lifecycle**:
+   - commit the execution evidence bundle with manifest, renderer, guard,
      workflow, docs, project-memory, and preflight-all wiring;
    - do not send the Lovable prompt before the PR is merged into `main` and
      local `main` is verified.
 
 2. **Verify before commit**:
+   - `npm run test:stage12a-12z`
+   - `npm run check:stage12a-12z`
+   - `npm run evidence:stage12a-12z:dry-run`
+   - `npm run preflight:stage12a-12z`
    - `npm run test:stage11a-11z`
    - `npm run check:stage11a-11z`
    - `npm run ledger:stage11a-11z:dry-run`
@@ -38,15 +42,25 @@ sync prompt only after `main` contains the merged development quality ledger.
    - smaller PRs require a documented reason: urgent CI fix, security fix,
      single-file typo, or hotfix.
 
-## Stage 11A-11Z current batch
+## Stage 12A-12Z current batch
+
+Stage 12A-12Z is the current x2 process batch after Stage 11A-11Z. It defines
+the execution evidence bundle for implementation, diagnostics, verification,
+GitHub lifecycle evidence, Lovable handoff evidence, sync mismatch recovery,
+and next x2 handoff evidence.
+
+The batch keeps 26 related stages in one Pull request and records Stage
+13A-13Z as the next hypothesis until repository files define the next scope.
+
+## Stage 11A-11Z historical batch
 
 Stage 11A-11Z is the current x2 process batch after Stage 10A-10Z. It defines
 the development quality ledger for batch intake, diagnostics, verification,
 handoff evidence, historical guard compatibility, and post-merge Lovable sync
 sequencing.
 
-The batch keeps 26 related stages in one Pull request and records Stage 12A-12Z
-as the next hypothesis until repository files define the next scope.
+The batch keeps 26 related stages in one Pull request and recorded Stage
+12A-12Z as the next hypothesis before Stage 12A-12Z defined the actual scope.
 
 ## Stage 10A-10Z historical batch
 
@@ -79,9 +93,9 @@ operations continuity batch. It expands the previous six-stage batch to
 twelve related stages in one Pull request and recorded Stage 9B-9D as the
 next hypothesis before Stage 9B-9M defined the actual scope.
 
-## Stage 12A-12Z hypothesis
+## Stage 13A-13Z hypothesis
 
-Stage 12A-12Z is the next likely batch after Stage 11A-11Z. Its current
+Stage 13A-13Z is the next likely batch after Stage 12A-12Z. Its current
 scope has not been defined in repository files, so it remains a hypothesis
 until repository files define it.
 

@@ -1,0 +1,189 @@
+{
+  "stage": "12A-12Z",
+  "packageId": "stage12a-12z-execution-evidence-bundle",
+  "title": "Stage 12A-12Z · Execution evidence bundle",
+  "purpose": "Turn the Stage 11A-11Z development quality ledger into a repository-owned evidence bundle that proves a large batch was implemented, checked, merged, and handed to Lovable in the correct order.",
+  "previousBatch": "Stage 11A-11Z",
+  "previousBatchCommit": "811bfe1",
+  "nextBatchHypothesis": "Stage 13A-13Z",
+  "batchScale": {
+    "previousIncludedStages": 26,
+    "currentIncludedStages": 26,
+    "minimumRelatedStagesPerBatch": 26,
+    "scalePolicy": "sustain the x2-size process batch and add execution evidence instead of relying on chat assertions"
+  },
+  "includedStages": [
+    { "id": "Stage 12A", "title": "Evidence bundle schema", "status": "ready" },
+    { "id": "Stage 12B", "title": "Repository baseline evidence", "status": "ready" },
+    { "id": "Stage 12C", "title": "Branch and commit evidence", "status": "ready" },
+    { "id": "Stage 12D", "title": "Scope ownership evidence", "status": "ready" },
+    { "id": "Stage 12E", "title": "Command bundle evidence", "status": "ready" },
+    { "id": "Stage 12F", "title": "Previous-batch regression evidence", "status": "ready" },
+    { "id": "Stage 12G", "title": "Defect recurrence evidence", "status": "ready" },
+    { "id": "Stage 12H", "title": "Prevention proof evidence", "status": "ready" },
+    { "id": "Stage 12I", "title": "Preflight-all alignment evidence", "status": "ready" },
+    { "id": "Stage 12J", "title": "Project-memory alignment evidence", "status": "ready" },
+    { "id": "Stage 12K", "title": "Typecheck evidence", "status": "ready" },
+    { "id": "Stage 12L", "title": "Lockfile and temp artifact evidence", "status": "ready" },
+    { "id": "Stage 12M", "title": "Boundary scan evidence", "status": "ready" },
+    { "id": "Stage 12N", "title": "Privacy scan evidence", "status": "ready" },
+    { "id": "Stage 12O", "title": "Workflow and CI evidence", "status": "ready" },
+    { "id": "Stage 12P", "title": "GitHub check-run evidence", "status": "ready" },
+    { "id": "Stage 12Q", "title": "GraphQL fallback evidence", "status": "ready" },
+    { "id": "Stage 12R", "title": "Pull request evidence", "status": "ready" },
+    { "id": "Stage 12S", "title": "Merge evidence", "status": "ready" },
+    { "id": "Stage 12T", "title": "Post-merge local main evidence", "status": "ready" },
+    { "id": "Stage 12U", "title": "Lovable prompt evidence", "status": "ready" },
+    { "id": "Stage 12V", "title": "Lovable confirmation evidence", "status": "ready" },
+    { "id": "Stage 12W", "title": "Sync mismatch recovery evidence", "status": "ready" },
+    { "id": "Stage 12X", "title": "Risk roll-forward evidence", "status": "ready" },
+    { "id": "Stage 12Y", "title": "Batch volume evidence", "status": "ready" },
+    { "id": "Stage 12Z", "title": "Next x2 execution handoff evidence", "status": "ready" }
+  ],
+  "evidenceSections": [
+    {
+      "id": "implementation",
+      "title": "Implementation Evidence",
+      "requiredEvidence": [
+        "base commit",
+        "branch name",
+        "included stages",
+        "owned files",
+        "same-PR justification",
+        "runtime boundary statement"
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "title": "Diagnostics Evidence",
+      "requiredEvidence": [
+        "defects found before handoff",
+        "recurrence class",
+        "fix applied",
+        "prevention rule",
+        "verification command",
+        "worklog entry"
+      ]
+    },
+    {
+      "id": "verification",
+      "title": "Verification Evidence",
+      "requiredEvidence": [
+        "stage tests",
+        "stage guard",
+        "stage report",
+        "stage preflight",
+        "previous-batch regression",
+        "project-memory guard",
+        "typecheck",
+        "preflight-all dry-run",
+        "no-deno-locks",
+        "diff check"
+      ]
+    },
+    {
+      "id": "github",
+      "title": "GitHub Evidence",
+      "requiredEvidence": [
+        "Pull request URL",
+        "commit SHA",
+        "check-run summary",
+        "fallback method for API timeouts",
+        "merge commit",
+        "deleted branch status"
+      ]
+    },
+    {
+      "id": "lovable",
+      "title": "Lovable Evidence",
+      "requiredEvidence": [
+        "prompt source file",
+        "prompt blocked before merge",
+        "post-merge local main check",
+        "expected confirmation",
+        "sync mismatch diagnostic steps",
+        "next batch hypothesis"
+      ]
+    }
+  ],
+  "evidenceRules": [
+    {
+      "id": "evidence_not_assertion",
+      "severity": "critical",
+      "rule": "A handoff claim must point to repository evidence or a command output; chat memory alone is not enough."
+    },
+    {
+      "id": "checks_before_ready",
+      "severity": "critical",
+      "rule": "A Pull request cannot be marked ready until local stage preflight and GitHub checks have both passed."
+    },
+    {
+      "id": "merge_before_prompt",
+      "severity": "critical",
+      "rule": "Lovable prompt remains invalid until the Pull request is merged into main and local main is verified."
+    },
+    {
+      "id": "defect_has_worklog",
+      "severity": "high",
+      "rule": "A detected defect must be recorded in WORKLOG with its recurrence class and prevention evidence."
+    },
+    {
+      "id": "previous_batch_regression_required",
+      "severity": "high",
+      "rule": "A normal x2 batch must run the previous batch preflight before handoff."
+    },
+    {
+      "id": "artifact_hygiene_required",
+      "severity": "high",
+      "rule": "Generated lock files and temporary dry-run outputs must be absent before commit."
+    },
+    {
+      "id": "package_lock_unchanged",
+      "severity": "high",
+      "rule": "package-lock.json must remain unchanged unless dependency installation is the explicit scope."
+    },
+    {
+      "id": "lovable_prompt_generated",
+      "severity": "critical",
+      "rule": "The Lovable prompt must be generated from the manifest, not rewritten manually after merge."
+    }
+  ],
+  "requiredFiles": [
+    "deploy/self-hosted/execution-evidence-bundle.stage12a-12z.json",
+    "scripts/stage12a-12z-execution-evidence-bundle.mjs",
+    "scripts/stage12a-12z-execution-evidence-bundle.test.mjs",
+    "scripts/check-stage12a-12z-execution-evidence-bundle.mjs",
+    "scripts/check-stage12a-12z-execution-evidence-bundle.test.mjs",
+    "docs/backend/stage-12a-12z-execution-evidence-bundle.md",
+    "docs/project-memory/WORKING_CONTRACT.md",
+    "docs/project-memory/BATCH_TEMPLATE.md",
+    ".github/workflows/stage12a-12z-execution-evidence-bundle.yml"
+  ],
+  "verificationGates": [
+    { "id": "stage12a-12z-tests", "command": "npm run test:stage12a-12z", "required": true },
+    { "id": "stage12a-12z-guard", "command": "npm run check:stage12a-12z", "required": true },
+    { "id": "stage12a-12z-dry-run", "command": "npm run evidence:stage12a-12z:dry-run", "required": true },
+    { "id": "stage12a-12z-preflight", "command": "npm run preflight:stage12a-12z", "required": true },
+    { "id": "previous-batch-regression", "command": "npm run preflight:stage11a-11z", "required": true },
+    { "id": "project-memory", "command": "npm run check:project-memory", "required": true },
+    { "id": "typecheck", "command": "npm run typecheck", "required": true },
+    { "id": "preflight-all-dry-run", "command": "npm run preflight:all -- --dry-run", "required": true },
+    { "id": "no-deno-locks", "command": "node scripts/check-no-deno-locks.mjs", "required": true },
+    { "id": "diff-check", "command": "git diff --check", "required": true }
+  ],
+  "productBoundary": {
+    "runtimeBehaviorChanged": false,
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "browserHardwareApis": false,
+    "externalRuntimeCalls": false,
+    "database": "none added",
+    "objectStorage": "none added",
+    "dataVisibility": "repository execution evidence only; no secrets, patient identifiers, tokens, signed URLs, worker raw data, or storage references"
+  },
+  "lovableHandoff": {
+    "expectedConfirmation": "Confirmed: Stage 12A-12Z synced from main, no conflicts.",
+    "promptAllowedOnlyAfterMerge": true,
+    "nextBatchHypothesis": "Stage 13A-13Z"
+  }
+}

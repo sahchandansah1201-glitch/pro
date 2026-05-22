@@ -76,6 +76,19 @@ Use this template before starting future multi-stage work.
 - Lovable handoff evidence:
 - Next x2 batch handoff evidence:
 
+## Execution Evidence Bundle
+
+- Implementation evidence:
+- Diagnostics evidence:
+- Verification evidence:
+- GitHub evidence:
+- Lovable evidence:
+- Evidence rule ids:
+- Checks-before-ready proof:
+- Merge-before-prompt proof:
+- Previous-batch regression proof:
+- Sync-mismatch recovery proof:
+
 ## Pull Request Lifecycle
 
 - Branch created:

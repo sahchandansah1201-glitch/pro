@@ -1,10 +1,10 @@
-generated_at: "2026-05-21T23:58:00+03:00"
+generated_at: "2026-05-22T00:00:00+03:00"
 project: "Dermatolog Pro"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage11a-11z-development-quality-ledger"
-  head_sha: "6c136db2a10536f52fb0e4b220410ee7b5053995"
-  head_commit: "Add Stage 10A-10Z error prevention gates"
+  branch: "codex/stage12a-12z-execution-evidence-bundle"
+  head_sha: "811bfe180bda0780a5229cd99d93a226bac37f4b"
+  head_commit: "Add Stage 11A-11Z development quality ledger"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -595,6 +595,21 @@ verification:
       product_runtime_change: false
       managed_runtime_dependency: "none"
       managed_database_dependency: "none"
+  stage12a_12z_preflight:
+    command: "npm run preflight:stage12a-12z"
+    status: "ok"
+    key_facts:
+      execution_evidence_bundle_confirmed: true
+      included_stage_count: 26
+      previous_included_stage_count: 26
+      minimum_related_stages_per_batch: 26
+      evidence_rules_recorded: 8
+      evidence_sections: 5
+      closed_stage_hypothesis: "Stage 12A-12Z"
+      next_stage_hypothesis: "Stage 13A-13Z"
+      product_runtime_change: false
+      managed_runtime_dependency: "none"
+      managed_database_dependency: "none"
   project_memory_guard:
     command: "npm run check:project-memory"
     status: "ok"
@@ -631,9 +646,11 @@ verification:
       includes_stage8g_8i: true
       includes_stage8j_8o: true
       includes_stage11a_11z: true
+      includes_stage12a_12z: true
       includes_project_memory_guard: true
 stage_evidence:
   latest_commits:
+    - "811bfe1 Add Stage 11A-11Z development quality ledger"
     - "c75f915 Add Stage 7G-7I batch verification loop"
     - "ab8a129 Add Stage 7D-7F batch automation contract"
     - "114de32 Add Stage 7A-7C development workflow contract"
@@ -743,9 +760,14 @@ stage_evidence:
     - "scripts/stage11a-11z-development-quality-ledger.mjs"
     - "scripts/check-stage11a-11z-development-quality-ledger.mjs"
     - ".github/workflows/stage11a-11z-development-quality-ledger.yml"
+    - "deploy/self-hosted/execution-evidence-bundle.stage12a-12z.json"
+    - "docs/backend/stage-12a-12z-execution-evidence-bundle.md"
+    - "scripts/stage12a-12z-execution-evidence-bundle.mjs"
+    - "scripts/check-stage12a-12z-execution-evidence-bundle.mjs"
+    - ".github/workflows/stage12a-12z-execution-evidence-bundle.yml"
 hypotheses:
-  - "Stage 11A-11Z is the current development quality ledger batch in this branch."
-  - "Next logical batch after Stage 11A-11Z is Stage 12A-12Z."
+  - "Stage 12A-12Z is the current execution evidence bundle batch in this branch."
+  - "Next logical batch after Stage 12A-12Z is Stage 13A-13Z."
 sources:
   commands:
     - "git status --short --branch"
@@ -840,6 +862,10 @@ sources:
     - "npm run check:stage11a-11z"
     - "npm run ledger:stage11a-11z:dry-run"
     - "npm run preflight:stage11a-11z"
+    - "npm run test:stage12a-12z"
+    - "npm run check:stage12a-12z"
+    - "npm run evidence:stage12a-12z:dry-run"
+    - "npm run preflight:stage12a-12z"
     - "npm run check:project-memory"
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
@@ -943,6 +969,13 @@ sources:
     - "scripts/check-stage11a-11z-development-quality-ledger.mjs"
     - "scripts/check-stage11a-11z-development-quality-ledger.test.mjs"
     - ".github/workflows/stage11a-11z-development-quality-ledger.yml"
+    - "deploy/self-hosted/execution-evidence-bundle.stage12a-12z.json"
+    - "docs/backend/stage-12a-12z-execution-evidence-bundle.md"
+    - "scripts/stage12a-12z-execution-evidence-bundle.mjs"
+    - "scripts/stage12a-12z-execution-evidence-bundle.test.mjs"
+    - "scripts/check-stage12a-12z-execution-evidence-bundle.mjs"
+    - "scripts/check-stage12a-12z-execution-evidence-bundle.test.mjs"
+    - ".github/workflows/stage12a-12z-execution-evidence-bundle.yml"
     - "scripts/check-stage7a-7c-development-workflow-contract.mjs"
     - "scripts/check-stage7a-7c-development-workflow-contract.test.mjs"
     - "scripts/stage7d-7f-batch-handoff.mjs"

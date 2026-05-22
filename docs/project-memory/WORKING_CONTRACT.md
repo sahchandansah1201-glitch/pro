@@ -226,6 +226,45 @@ captured before the prompt is sent.
 The next normal batch after Stage 11A-11Z is Stage 12A-12Z unless repository
 files define a different scope.
 
+## Stage 12A: Evidence bundle schema
+
+Stage 12A-12Z creates the Execution evidence bundle for large-batch delivery.
+The schema records the branch baseline, included stages, evidence sections,
+required checks, evidence rules, product boundary, GitHub lifecycle, and
+post-merge Lovable handoff in one repository-owned manifest.
+
+## Stage 12B-12F: Implementation and regression evidence
+
+Implementation evidence must show what was added, which files own the scope,
+which command bundle verifies the batch, and which previous batch is regressed
+before handoff. Evidence must be concrete repository data, not a chat-only
+assertion.
+
+## Stage 12G-12H: Diagnostics and prevention evidence
+
+Every repeatable defect found during implementation must be recorded with a
+diagnostic class, a prevention rule, and a command or guard proving the
+prevention. If no defect appears, the bundle still records that the diagnostic
+pass completed.
+
+## Stage 12I-12P: Verification and GitHub evidence
+
+The batch must capture stage preflight, previous-batch preflight,
+project-memory guard, typecheck, full preflight dry-run, lock-file guard,
+whitespace guard, workflow presence, Pull request creation, check-run wait,
+and ready/merge sequencing.
+
+## Stage 12Q-12W: Handoff and sync evidence
+
+GitHub API fallback, Pull request evidence, merge evidence, post-merge local
+main verification, Lovable prompt evidence, Lovable confirmation evidence, and
+sync-mismatch recovery evidence must be explicit before the prompt is allowed.
+
+## Stage 12Z: Next x2 execution handoff evidence
+
+The next normal batch after Stage 12A-12Z is Stage 13A-13Z unless repository
+files define a different scope.
+
 ## Stage 7J: Product gap register
 
 After the process contract is in place, the repository needs a product gap

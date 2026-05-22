@@ -716,3 +716,28 @@
 - `npm run preflight:all -- --dry-run`
 - `node scripts/check-no-deno-locks.mjs`
 - `git diff --check`
+
+## Stage 12A-12Z execution evidence bundle artifacts
+
+- [execution-evidence-bundle.stage12a-12z.json](../../deploy/self-hosted/execution-evidence-bundle.stage12a-12z.json)
+- [stage12a-12z-execution-evidence-bundle.mjs](../../scripts/stage12a-12z-execution-evidence-bundle.mjs)
+- [stage12a-12z-execution-evidence-bundle.test.mjs](../../scripts/stage12a-12z-execution-evidence-bundle.test.mjs)
+- [check-stage12a-12z-execution-evidence-bundle.mjs](../../scripts/check-stage12a-12z-execution-evidence-bundle.mjs)
+- [check-stage12a-12z-execution-evidence-bundle.test.mjs](../../scripts/check-stage12a-12z-execution-evidence-bundle.test.mjs)
+- [stage-12a-12z-execution-evidence-bundle.md](../backend/stage-12a-12z-execution-evidence-bundle.md)
+- [stage12a-12z-execution-evidence-bundle.yml](../../.github/workflows/stage12a-12z-execution-evidence-bundle.yml)
+- [WORKING_CONTRACT.md](./WORKING_CONTRACT.md)
+- [BATCH_TEMPLATE.md](./BATCH_TEMPLATE.md)
+
+## Stage 12A-12Z verification commands
+
+- `npm run test:stage12a-12z`
+- `npm run check:stage12a-12z`
+- `npm run evidence:stage12a-12z:dry-run`
+- `npm run preflight:stage12a-12z`
+- `npm run preflight:stage11a-11z`
+- `npm run check:project-memory`
+- `npm run typecheck`
+- `npm run preflight:all -- --dry-run`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`
