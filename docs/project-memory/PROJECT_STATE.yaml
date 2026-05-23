@@ -1,5 +1,12 @@
-generated_at: "2026-05-23T16:00:00+03:00"
+generated_at: "2026-05-23T16:35:00+03:00"
 project: "Dermatolog Pro"
+stage20a_20z:
+  name: "Stage 20A-20Z"
+  clinical_followup_retention_clinic_review_confirmed: true
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:stage20a-20z"
+  previous_batch: "Stage 19A-19Z"
+  next_hypothesis: "Stage 21A-21Z"
 stage19a_19z:
   name: "Stage 19A-19Z"
   clinical_followup_outcome_quality_confirmed: true
@@ -15,9 +22,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage16a-16z-product-cycle-readiness"
-  head_sha: "cd26b77588b0de20e261e266a0df4f1249e821e3"
-  head_commit: "Add Stage 15A-15Z post-sync handoff readiness"
+  branch: "codex/stage20a-20z-clinical-followup-retention-review"
+  head_sha: "715d6b70665daea91acd4230caf2d58da70074b7"
+  head_commit: "Add Stage 19A-19Z follow-up outcome quality"
   working_tree: "modified"
   upstream: "origin/main"
 verification:

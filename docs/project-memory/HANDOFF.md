@@ -2,10 +2,18 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 9N-9Z is being
-merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
+This handoff captures the repository state while Stage 20A-20Z is being
+implemented from branch `codex/stage20a-20z-clinical-followup-retention-review`.
 
 ## Confirmed state
+
+0. Stage 20A-20Z is implemented in the current branch as follow-up retention and
+   clinic review readiness:
+   - PostgreSQL retention and clinic review state on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_retention_review_events`;
+   - backend clinic-review summary and review update routes;
+   - doctor live workspace retention and clinic-review panel;
+   - no managed notification provider dependency.
 
 0. Stage 19A-19Z is implemented in the current branch as follow-up outcome and
    quality review:

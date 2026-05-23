@@ -2,22 +2,22 @@
 
 ## Current confirmed state
 
-Stage 19A-19Z is the current product-facing batch. It extends the Stage 18A-18Z clinical follow-up operations queue with outcome and quality review state, local quality evidence, and doctor workspace QA actions.
+Stage 20A-20Z is the current product-facing batch. It extends the Stage 19A-19Z clinical follow-up outcome quality layer with local retention review, clinic review readiness, and doctor workspace review actions.
 
-## Immediate actions after Stage 19A-19Z PR merge
+## Immediate actions after Stage 20A-20Z PR merge
 
 1. Verify local `main` after merge:
    - `git status --short`
-   - `npm run preflight:stage19a-19z`
+   - `npm run preflight:stage20a-20z`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
 2. Send the Lovable sync prompt only after the PR is merged into `main` and local `main` is verified.
 3. Expected Lovable confirmation:
-   - `Confirmed: Stage 19A-19Z synced from main, no conflicts.`
+   - `Confirmed: Stage 20A-20Z synced from main, no conflicts.`
 
 ## Next hypothesis
 
-Stage 20A-20Z is a hypothesis until repository files define it. The most likely next product cycle is closing the remaining follow-up analytics, retention, and clinic review gaps after Stage 19A-19Z.
+Stage 21A-21Z is a hypothesis until repository files define it. The most likely next product cycle is clinic-specific SOP validation for follow-up state transitions after Stage 20A-20Z.
 
 ## Historical anchors
 
@@ -26,3 +26,5 @@ Stage 7A-7C, Stage 7D-7F, Stage 7G-7I, and Stage 7J-7L remain historical batch-w
 Stage 10A-10L remains the historical hypothesis that was expanded into Stage 10A-10Z. Stage 10A-10Z remains the confirmed error-prevention batch before Stage 11A-11Z development quality. Stage 11A-11Z remains the confirmed quality-ledger batch before Stage 12A-12Z execution evidence. Stage 12A-12Z remains the confirmed execution evidence bundle before Stage 13A-13Z execution evidence closure. Stage 13A-13Z remains the confirmed execution evidence closure before Stage 14A-14Z sync confirmation ledger. Stage 14A-14Z remains the confirmed sync confirmation ledger before Stage 15A-15Z post-sync handoff readiness.
 
 Stage 15A-15Z remains the confirmed post-sync handoff readiness batch before Stage 16A-16Z product cycle readiness. Stage 16A-16Z selected Stage 17A-17Z as the recommended product candidate, and Stage 17A-17Z closes that hypothesis with code.
+
+Stage 18A-18Z remains the confirmed follow-up operations hardening batch after Stage 17A-17Z. Stage 19A-19Z remains the confirmed follow-up outcome quality batch after Stage 18A-18Z. Stage 20A-20Z closes the previous Stage 20A-20Z hypothesis with retention and clinic review readiness.

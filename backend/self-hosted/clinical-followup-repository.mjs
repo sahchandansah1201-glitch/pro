@@ -102,6 +102,12 @@ export function normalizeClinicalFollowUp(row = {}) {
     qualityReviewState: cleanText(row.qualityReviewState ?? row.quality_review_state) || "pending",
     qualityReviewNote: cleanText(row.qualityReviewNote ?? row.quality_review_note),
     qualityReviewedAt: cleanText(row.qualityReviewedAt ?? row.quality_reviewed_at),
+    retentionReviewState: cleanText(row.retentionReviewState ?? row.retention_review_state) || "not_due",
+    retentionReviewNote: cleanText(row.retentionReviewNote ?? row.retention_review_note),
+    retentionReviewedAt: cleanText(row.retentionReviewedAt ?? row.retention_reviewed_at),
+    clinicReviewState: cleanText(row.clinicReviewState ?? row.clinic_review_state) || "not_scheduled",
+    clinicReviewNote: cleanText(row.clinicReviewNote ?? row.clinic_review_note),
+    clinicReviewedAt: cleanText(row.clinicReviewedAt ?? row.clinic_reviewed_at),
     resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
     lastMessageAt: cleanText(row.lastMessageAt ?? row.last_message_at),
     completedAt: cleanText(row.completedAt ?? row.completed_at),
@@ -190,6 +196,12 @@ function followUpSelect({ patientSafe = false } = {}) {
     coalesce(f.quality_review_state, 'pending') as "qualityReviewState",
     f.quality_review_note as "qualityReviewNote",
     f.quality_reviewed_at as "qualityReviewedAt",
+    coalesce(f.retention_review_state, 'not_due') as "retentionReviewState",
+    f.retention_review_note as "retentionReviewNote",
+    f.retention_reviewed_at as "retentionReviewedAt",
+    coalesce(f.clinic_review_state, 'not_scheduled') as "clinicReviewState",
+    f.clinic_review_note as "clinicReviewNote",
+    f.clinic_reviewed_at as "clinicReviewedAt",
     f.resolved_at as "resolvedAt",
     f.last_message_at as "lastMessageAt",
     f.completed_at as "completedAt",
@@ -568,6 +580,41 @@ export function buildClinicalFollowUpOutcomeQualitySummarySql({
   `;
 }
 
+export function buildClinicalFollowUpClinicReviewSummarySql({
+  now = null,
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const nowExpression = now ? sqlTimestamp(now) : "now()";
+  const retentionDue = `(
+    coalesce(f.retention_review_state, 'not_due') = 'due'
+    or (
+      f.status in ('completed', 'cancelled')
+      and coalesce(f.retention_review_state, 'not_due') not in ('reviewed', 'archived')
+      and coalesce(f.completed_at, f.cancelled_at, f.updated_at) < ${nowExpression} - interval '30 days'
+    )
+  )`;
+  return `
+    select
+      count(*)::int as "totalFollowUps",
+      count(*) filter (where ${retentionDue})::int as "retentionDue",
+      count(*) filter (where coalesce(f.retention_review_state, 'not_due') = 'reviewed')::int as "retentionReviewed",
+      count(*) filter (where coalesce(f.retention_review_state, 'not_due') = 'archived')::int as "retentionArchived",
+      count(*) filter (where coalesce(f.clinic_review_state, 'not_scheduled') = 'scheduled')::int as "clinicReviewScheduled",
+      count(*) filter (where coalesce(f.clinic_review_state, 'not_scheduled') = 'completed')::int as "clinicReviewCompleted",
+      count(*) filter (where coalesce(f.clinic_review_state, 'not_scheduled') = 'needs_policy_review')::int as "clinicNeedsPolicyReview",
+      count(*) filter (where coalesce(f.quality_review_state, 'pending') = 'needs_attention')::int as "qualityNeedsAttention",
+      count(*) filter (where f.status in ('completed', 'cancelled') and coalesce(f.delivery_evidence, '{}'::jsonb) = '{}'::jsonb)::int as "closedMissingEvidence",
+      count(*) filter (where exists (
+        select 1
+        from clinical_follow_up_retention_review_events e
+        where e.follow_up_id = f.id
+      ))::int as "localReviewEvents"
+    from clinical_follow_up_tasks f
+    where ${clinicScopeWhere("f", { allClinics, clinicIds })}
+  `;
+}
+
 export function buildUpdateClinicalFollowUpOperationsSql({
   followUpId,
   actorUserId,
@@ -713,6 +760,87 @@ export function buildUpdateClinicalFollowUpQualitySql({
   `;
 }
 
+export function buildUpdateClinicalFollowUpClinicReviewSql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const updates = [];
+  const updatesRetentionReview = changes.retentionReviewState !== undefined || changes.retentionReviewNote !== undefined;
+  const updatesClinicReview = changes.clinicReviewState !== undefined || changes.clinicReviewNote !== undefined;
+  if (changes.retentionReviewState !== undefined) {
+    updates.push(`retention_review_state = ${sqlLiteral(changes.retentionReviewState)}`);
+  }
+  if (changes.retentionReviewNote !== undefined) {
+    updates.push(`retention_review_note = ${sqlNullableText(changes.retentionReviewNote)}`);
+  }
+  if (updatesRetentionReview) {
+    updates.push(`retention_reviewed_by_user_id = ${sqlUuid(actorUserId)}`);
+    updates.push("retention_reviewed_at = now()");
+  }
+  if (changes.clinicReviewState !== undefined) {
+    updates.push(`clinic_review_state = ${sqlLiteral(changes.clinicReviewState)}`);
+  }
+  if (changes.clinicReviewNote !== undefined) {
+    updates.push(`clinic_review_note = ${sqlNullableText(changes.clinicReviewNote)}`);
+  }
+  if (updatesClinicReview) {
+    updates.push(`clinic_reviewed_by_user_id = ${sqlUuid(actorUserId)}`);
+    updates.push("clinic_reviewed_at = now()");
+  }
+  updates.push("updated_at = now()");
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set ${updates.join(",\n          ")}
+      from previous p
+      where f.id = p.id
+      returning f.*,
+        p.retention_review_state as previous_retention_review_state,
+        p.clinic_review_state as previous_clinic_review_state
+    ), event as (
+      insert into clinical_follow_up_retention_review_events (
+        follow_up_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        note
+      )
+      select
+        id,
+        clinic_id,
+        ${sqlUuid(actorUserId)},
+        'clinic_review.update',
+        jsonb_build_object(
+          'retentionReviewState', coalesce(previous_retention_review_state, 'not_due'),
+          'clinicReviewState', coalesce(previous_clinic_review_state, 'not_scheduled')
+        ),
+        jsonb_build_object(
+          'retentionReviewState', coalesce(retention_review_state, 'not_due'),
+          'clinicReviewState', coalesce(clinic_review_state, 'not_scheduled')
+        ),
+        ${sqlNullableText(changes.clinicReviewNote ?? changes.retentionReviewNote)}
+      from updated
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function createClinicalFollowUpRepository(dbClient) {
   return {
     async listClinicalFollowUps(params) {
@@ -788,12 +916,33 @@ export function createClinicalFollowUpRepository(dbClient) {
         source: "postgres",
       };
     },
+    async getClinicalFollowUpClinicReviewSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpClinicReviewSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalFollowUps: Number(row.totalFollowUps ?? row.total_follow_ups ?? 0),
+        retentionDue: Number(row.retentionDue ?? row.retention_due ?? 0),
+        retentionReviewed: Number(row.retentionReviewed ?? row.retention_reviewed ?? 0),
+        retentionArchived: Number(row.retentionArchived ?? row.retention_archived ?? 0),
+        clinicReviewScheduled: Number(row.clinicReviewScheduled ?? row.clinic_review_scheduled ?? 0),
+        clinicReviewCompleted: Number(row.clinicReviewCompleted ?? row.clinic_review_completed ?? 0),
+        clinicNeedsPolicyReview: Number(row.clinicNeedsPolicyReview ?? row.clinic_needs_policy_review ?? 0),
+        qualityNeedsAttention: Number(row.qualityNeedsAttention ?? row.quality_needs_attention ?? 0),
+        closedMissingEvidence: Number(row.closedMissingEvidence ?? row.closed_missing_evidence ?? 0),
+        localReviewEvents: Number(row.localReviewEvents ?? row.local_review_events ?? 0),
+        source: "postgres",
+      };
+    },
     async updateClinicalFollowUpOperations(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpOperationsSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
     async updateClinicalFollowUpQuality(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpQualitySql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
+    },
+    async updateClinicalFollowUpClinicReview(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpClinicReviewSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };
