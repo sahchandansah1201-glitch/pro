@@ -60,6 +60,7 @@ import { createClinicalReportPackageRepository } from "./clinical-report-package
 import { createClinicalReportPackageService } from "./clinical-report-package-service.mjs";
 import {
   createClinicalFollowUpRepository,
+  normalizeClinicalFollowUpOperationsParams,
   normalizeClinicalFollowUpParams,
 } from "./clinical-followup-repository.mjs";
 import { createClinicalFollowUpService } from "./clinical-followup-service.mjs";
@@ -204,6 +205,9 @@ const OPENAPI_9N_9Z = JSON.parse(
 );
 const OPENAPI_17A_17Z = JSON.parse(
   readFileSync(join(HERE, "openapi.stage17a-17z.json"), "utf8"),
+);
+const OPENAPI_18A_18Z = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage18a-18z.json"), "utf8"),
 );
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
@@ -2480,6 +2484,70 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/clinical/follow-ups/operations/summary" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.getClinicalFollowUpOperationsSummary(
+        normalizeClinicalFollowUpOperationsParams(url.searchParams),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "18A-18Z",
+          source: "postgres",
+          item: result.summary,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (url.pathname === "/api/v1/clinical/follow-ups/operations" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.listClinicalFollowUpOperations(
+        normalizeClinicalFollowUpOperationsParams(url.searchParams),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "18A-18Z",
+          source: "postgres",
+          items: result.result.items,
+          limit: result.result.limit,
+          offset: result.result.offset,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   const createVisitFollowUpMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/follow-ups$/);
   if (createVisitFollowUpMatch && method === "POST") {
     try {
@@ -2494,6 +2562,39 @@ export async function handleSelfHostedRequest(
         201,
         {
           stage: "17A-17Z",
+          source: "postgres",
+          item: result.followUp,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const clinicalFollowUpOperationsMatch = url.pathname.match(/^\/api\/v1\/clinical\/follow-ups\/([^/]+)\/operations$/);
+  if (clinicalFollowUpOperationsMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.updateClinicalFollowUpOperations(
+        decodeURIComponent(clinicalFollowUpOperationsMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "18A-18Z",
           source: "postgres",
           item: result.followUp,
           auth: {
@@ -3066,6 +3167,7 @@ export async function handleSelfHostedRequest(
           patientPortal: "patient-owned-read-postgres",
           patientPortalWrites: "patient-owned-write-postgres",
           clinicalFollowUps: "rbac-read-write-postgres-patient-portal-local-communication",
+          clinicalFollowUpOperations: "rbac-read-write-postgres-sla-triage-escalation-local-evidence",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance",
@@ -3112,6 +3214,7 @@ export async function handleSelfHostedRequest(
           openapiStage9B9M: "/openapi.stage9b-9m.json",
           openapiStage9N9Z: "/openapi.stage9n-9z.json",
           openapiStage17A17Z: "/openapi.stage17a-17z.json",
+          openapiStage18A18Z: "/openapi.stage18a-18z.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -3155,6 +3258,9 @@ export async function handleSelfHostedRequest(
           clinicalFollowUps: "/api/v1/clinical/follow-ups",
           createVisitFollowUp: "/api/v1/visits/{visitId}/follow-ups",
           clinicalFollowUpMessages: "/api/v1/clinical/follow-ups/{followUpId}/messages",
+          clinicalFollowUpOperations: "/api/v1/clinical/follow-ups/operations",
+          clinicalFollowUpOperationsSummary: "/api/v1/clinical/follow-ups/operations/summary",
+          clinicalFollowUpOperation: "/api/v1/clinical/follow-ups/{followUpId}/operations",
           patientPortalFollowUps: "/api/v1/me/follow-ups",
           patientPortalFollowUpMessages: "/api/v1/me/follow-ups/{followUpId}/messages",
           visit: "/api/v1/visits/{visitId}",
@@ -3324,6 +3430,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage17a-17z.json") {
     return jsonResponse(200, OPENAPI_17A_17Z, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage18a-18z.json") {
+    return jsonResponse(200, OPENAPI_18A_18Z, config, requestOrigin);
   }
 
   return errorResponse({

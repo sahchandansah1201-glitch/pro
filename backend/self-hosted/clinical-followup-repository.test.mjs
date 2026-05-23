@@ -5,10 +5,14 @@ import {
   buildCreateClinicalFollowUpMessageSql,
   buildCreateClinicalFollowUpSql,
   buildCreatePatientFollowUpMessageSql,
+  buildClinicalFollowUpOperationsSummarySql,
   buildListClinicalFollowUpsSql,
+  buildListClinicalFollowUpOperationsSql,
   buildListPatientFollowUpsSql,
+  buildUpdateClinicalFollowUpOperationsSql,
   buildUpdateClinicalFollowUpSql,
   createClinicalFollowUpRepository,
+  normalizeClinicalFollowUpOperationsParams,
   normalizeClinicalFollowUpParams,
 } from "./clinical-followup-repository.mjs";
 
@@ -142,5 +146,98 @@ test("repository normalizes staff and patient follow-up DTOs", async () => {
   assert.equal(patient.items[0].internalNote, undefined);
   assert.equal(patient.items[0].patientSummary, "Портальный текст");
   assert.equal(message.direction, "clinic_to_patient");
+  assert.equal(calls.length, 3);
+});
+
+test("builds operations queue, summary, and update SQL with append-only events", () => {
+  const params = normalizeClinicalFollowUpOperationsParams(new URLSearchParams({
+    triageState: "escalated",
+    escalationLevel: "clinic_admin",
+    deliveryState: "failed",
+    overdueOnly: "true",
+    now: "2026-05-22T10:00:00.000Z",
+    visitId: VISIT_ID,
+  }));
+  assert.equal(params.triageState, "escalated");
+  assert.equal(params.overdueOnly, true);
+
+  const listSql = buildListClinicalFollowUpOperationsSql({
+    ...params,
+    clinicIds: [CLINIC_ID],
+  });
+  assert.match(listSql, /f\.triage_state = 'escalated'/);
+  assert.match(listSql, /f\.escalation_level = 'clinic_admin'/);
+  assert.match(listSql, /f\.delivery_state = 'failed'/);
+  assert.match(listSql, /coalesce\(f\.sla_due_at, f\.due_at\) < '2026-05-22T10:00:00.000Z'::timestamptz/);
+  assert.match(listSql, /f\.visit_id = '10000000-0000-4000-8000-000000000301'::uuid/);
+
+  const summarySql = buildClinicalFollowUpOperationsSummarySql({
+    clinicIds: [CLINIC_ID],
+    now: "2026-05-22T10:00:00.000Z",
+  });
+  assert.match(summarySql, /count\(\*\) filter \(where f\.triage_state = 'waiting_patient'\)::int as "waitingPatient"/);
+  assert.match(summarySql, /delivery_state = 'failed'/);
+
+  const updateSql = buildUpdateClinicalFollowUpOperationsSql({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      triageState: "resolved",
+      escalationLevel: "none",
+      deliveryState: "delivered",
+      deliveryEvidence: { channel: "phone", state: "confirmed" },
+      operationsNote: "Resolved locally.",
+    },
+  });
+  assert.match(updateSql, /insert into clinical_follow_up_operations_events/);
+  assert.match(updateSql, /resolved_by_user_id = '10000000-0000-4000-8000-000000000101'::uuid/);
+  assert.match(updateSql, /delivery_attempts = delivery_attempts \+ 1/);
+  assert.match(updateSql, /"channel":"phone"/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
+});
+
+test("repository normalizes operations queue and summary DTOs", async () => {
+  const calls = [];
+  const repository = createClinicalFollowUpRepository({
+    async queryJson(sql) {
+      calls.push(sql);
+      if (/totalOpen/.test(sql)) {
+        return [{ totalOpen: 3, overdue: 1, waitingPatient: 1, escalated: 1, deliveryFailed: 1, deliveryPending: 0 }];
+      }
+      return [{
+        id: FOLLOW_UP_ID,
+        clinicId: CLINIC_ID,
+        patientId: "10000000-0000-4000-8000-000000000201",
+        visitId: VISIT_ID,
+        dueAt: "2026-05-30T10:00:00.000Z",
+        status: "sent",
+        priority: "high",
+        reason: "Контроль",
+        triageState: "escalated",
+        escalationLevel: "clinic_admin",
+        slaDueAt: "2026-05-22T10:00:00.000Z",
+        deliveryState: "failed",
+        deliveryAttempts: 2,
+        deliveryEvidence: { channel: "portal", state: "failed" },
+        operationsNote: "Call patient.",
+      }];
+    },
+  });
+
+  const queue = await repository.listClinicalFollowUpOperations({ clinicIds: [CLINIC_ID] });
+  const summary = await repository.getClinicalFollowUpOperationsSummary({ clinicIds: [CLINIC_ID] });
+  const updated = await repository.updateClinicalFollowUpOperations({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: { triageState: "resolved" },
+  });
+
+  assert.equal(queue.items[0].triageState, "escalated");
+  assert.equal(queue.items[0].deliveryAttempts, 2);
+  assert.equal(summary.totalOpen, 3);
+  assert.equal(summary.deliveryFailed, 1);
+  assert.equal(updated.triageState, "escalated");
   assert.equal(calls.length, 3);
 });

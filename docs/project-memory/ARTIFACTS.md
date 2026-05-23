@@ -7,7 +7,15 @@
    - [DESIGN.md](../../DESIGN.md)
    - [README.md](../../README.md)
 
-2. Stage 6 manifests:
+2. Stage 18A-18Z clinical follow-up operations artifacts:
+   - [clinical-followup-operations.stage18a-18z.json](../../deploy/self-hosted/clinical-followup-operations.stage18a-18z.json)
+   - [0025_stage18_followup_operations_hardening.sql](../../backend/self-hosted/db/migrations/0025_stage18_followup_operations_hardening.sql)
+   - [openapi.stage18a-18z.json](../../backend/self-hosted/openapi.stage18a-18z.json)
+   - [stage-18a-18z-clinical-followup-operations-hardening.md](../backend/stage-18a-18z-clinical-followup-operations-hardening.md)
+   - [check-stage18a-18z-clinical-followup-operations-hardening.mjs](../../scripts/check-stage18a-18z-clinical-followup-operations-hardening.mjs)
+   - [stage18a-18z-clinical-followup-operations-hardening.yml](../../.github/workflows/stage18a-18z-clinical-followup-operations-hardening.yml)
+
+3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)
    - [install-verification.stage6c.json](../../deploy/self-hosted/install-verification.stage6c.json)

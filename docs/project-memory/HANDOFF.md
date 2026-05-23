@@ -7,6 +7,14 @@ merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
 
 ## Confirmed state
 
+0. Stage 18A-18Z is implemented in the current branch as follow-up operations
+   hardening:
+   - PostgreSQL SLA, triage, escalation, delivery evidence, and append-only
+     operations events;
+   - backend operations queue, summary, and update routes;
+   - doctor live workspace operations panel;
+   - no managed notification provider dependency.
+
 1. Stage 6A-6Z and Stage 7A-7I are present on the current branch base.
 2. Stage 7A-7C is the development workflow contract.
 3. Stage 7D-7F is the batch automation contract and Lovable prompt gate.

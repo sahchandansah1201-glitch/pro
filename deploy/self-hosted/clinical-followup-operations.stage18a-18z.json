@@ -1,0 +1,36 @@
+{
+  "stage": "18A-18Z",
+  "title": "Clinical follow-up operations hardening",
+  "previousBatch": "Stage 17A-17Z",
+  "nextBatchHypothesis": "Stage 19A-19Z",
+  "implementedSurfaces": [
+    "PostgreSQL follow-up operations columns and append-only operations events",
+    "Backend repository SQL for SLA, triage, escalation, delivery evidence, queue summary, and scoped update",
+    "Backend service validation and audit actions for operations list, summary, and update",
+    "Self-hosted API routes for operations queue, summary, and per-follow-up operations update",
+    "OpenAPI Stage 18A-18Z contract and nginx proxy route",
+    "Frontend follow-up API adapter operations methods",
+    "Doctor visit workspace live operations control panel",
+    "Stage 18 guard, workflow, docs, and preflight-all integration"
+  ],
+  "productBoundary": {
+    "deploymentModel": "operator-owned-self-hosted",
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "browserHardwareApiDependency": false,
+    "externalCrmRuntimeDependency": "none"
+  },
+  "privacy": {
+    "patientEndpointHidesInternalNote": true,
+    "operationsEvidenceIsLocalMetadataOnly": true,
+    "noSignedUrlsOrStoragePaths": true,
+    "noManagedProviderTokens": true
+  },
+  "verification": {
+    "preflight": "npm run preflight:stage18a-18z",
+    "guard": "npm run check:stage18a-18z",
+    "tests": "npm run test:stage18a-18z"
+  },
+  "expectedConfirmation": "Confirmed: Stage 18A-18Z synced from main, no conflicts."
+}

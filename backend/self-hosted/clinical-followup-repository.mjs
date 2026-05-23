@@ -23,8 +23,16 @@ function sqlNullableText(value) {
   return value == null ? "null" : sqlLiteral(value);
 }
 
+function sqlNullableTimestamp(value) {
+  return value ? sqlTimestamp(value) : "null";
+}
+
 function sqlTimestamp(value) {
   return `${sqlLiteral(value)}::timestamptz`;
+}
+
+function sqlJson(value) {
+  return `${sqlLiteral(JSON.stringify(value && typeof value === "object" && !Array.isArray(value) ? value : {}))}::jsonb`;
 }
 
 function clampLimit(value, fallback = 50, max = 200) {
@@ -41,6 +49,10 @@ function clampOffset(value) {
 function cleanText(value) {
   const text = value == null ? null : String(value).trim();
   return text || null;
+}
+
+function cleanObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 function clinicScopeWhere(alias, { allClinics = false, clinicIds = [] } = {}) {
@@ -78,6 +90,15 @@ export function normalizeClinicalFollowUp(row = {}) {
     reason: cleanText(row.reason),
     patientSummary: cleanText(row.patientSummary ?? row.patient_summary),
     internalNote: cleanText(row.internalNote ?? row.internal_note),
+    triageState: String(row.triageState ?? row.triage_state ?? "new"),
+    escalationLevel: String(row.escalationLevel ?? row.escalation_level ?? "none"),
+    slaDueAt: cleanText(row.slaDueAt ?? row.sla_due_at),
+    deliveryState: String(row.deliveryState ?? row.delivery_state ?? "not_required"),
+    deliveryAttempts: Number(row.deliveryAttempts ?? row.delivery_attempts ?? 0),
+    lastDeliveryAttemptAt: cleanText(row.lastDeliveryAttemptAt ?? row.last_delivery_attempt_at),
+    deliveryEvidence: cleanObject(row.deliveryEvidence ?? row.delivery_evidence),
+    operationsNote: cleanText(row.operationsNote ?? row.operations_note),
+    resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
     lastMessageAt: cleanText(row.lastMessageAt ?? row.last_message_at),
     completedAt: cleanText(row.completedAt ?? row.completed_at),
     cancelledAt: cleanText(row.cancelledAt ?? row.cancelled_at),
@@ -126,6 +147,20 @@ export function normalizeClinicalFollowUpParams(params = new URLSearchParams()) 
   };
 }
 
+export function normalizeClinicalFollowUpOperationsParams(params = new URLSearchParams()) {
+  return {
+    limit: clampLimit(params.get("limit")),
+    offset: clampOffset(params.get("offset")),
+    triageState: cleanText(params.get("triageState")),
+    escalationLevel: cleanText(params.get("escalationLevel")),
+    deliveryState: cleanText(params.get("deliveryState")),
+    patientId: cleanText(params.get("patientId")),
+    visitId: cleanText(params.get("visitId")),
+    overdueOnly: params.get("overdueOnly") === "true",
+    now: cleanText(params.get("now")),
+  };
+}
+
 function followUpSelect({ patientSafe = false } = {}) {
   const internalNote = patientSafe ? "null as \"internalNote\"" : "f.internal_note as \"internalNote\"";
   return `
@@ -139,6 +174,15 @@ function followUpSelect({ patientSafe = false } = {}) {
     f.reason,
     f.patient_summary as "patientSummary",
     ${internalNote},
+    f.triage_state as "triageState",
+    f.escalation_level as "escalationLevel",
+    f.sla_due_at as "slaDueAt",
+    f.delivery_state as "deliveryState",
+    f.delivery_attempts as "deliveryAttempts",
+    f.last_delivery_attempt_at as "lastDeliveryAttemptAt",
+    f.delivery_evidence as "deliveryEvidence",
+    f.operations_note as "operationsNote",
+    f.resolved_at as "resolvedAt",
     f.last_message_at as "lastMessageAt",
     f.completed_at as "completedAt",
     f.cancelled_at as "cancelledAt",
@@ -431,6 +475,141 @@ export function buildCreatePatientFollowUpMessageSql({
   `;
 }
 
+export function buildListClinicalFollowUpOperationsSql({
+  limit = 50,
+  offset = 0,
+  triageState = null,
+  escalationLevel = null,
+  deliveryState = null,
+  patientId = null,
+  visitId = null,
+  overdueOnly = false,
+  now = null,
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const nowExpression = now ? sqlTimestamp(now) : "now()";
+  const filters = [
+    clinicScopeWhere("f", { allClinics, clinicIds }),
+    "f.status not in ('completed', 'cancelled')",
+    triageState ? `f.triage_state = ${sqlLiteral(triageState)}` : "true",
+    escalationLevel ? `f.escalation_level = ${sqlLiteral(escalationLevel)}` : "true",
+    deliveryState ? `f.delivery_state = ${sqlLiteral(deliveryState)}` : "true",
+    patientId ? `f.patient_id = ${sqlUuid(patientId)}` : "true",
+    visitId ? `f.visit_id = ${sqlUuid(visitId)}` : "true",
+    overdueOnly ? `coalesce(f.sla_due_at, f.due_at) < ${nowExpression}` : "true",
+  ].join("\n    and ");
+  return `
+    select ${followUpSelect()}
+    from clinical_follow_up_tasks f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+    where ${filters}
+    order by
+      case when coalesce(f.sla_due_at, f.due_at) < ${nowExpression} then 0 else 1 end,
+      coalesce(f.sla_due_at, f.due_at) asc,
+      f.priority desc,
+      f.created_at desc
+    limit ${clampLimit(limit)}
+    offset ${clampOffset(offset)}
+  `;
+}
+
+export function buildClinicalFollowUpOperationsSummarySql({
+  now = null,
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const nowExpression = now ? sqlTimestamp(now) : "now()";
+  return `
+    select
+      count(*)::int as "totalOpen",
+      count(*) filter (where coalesce(f.sla_due_at, f.due_at) < ${nowExpression})::int as overdue,
+      count(*) filter (where f.triage_state = 'waiting_patient')::int as "waitingPatient",
+      count(*) filter (where f.triage_state = 'escalated' or f.escalation_level <> 'none')::int as escalated,
+      count(*) filter (where f.delivery_state = 'failed')::int as "deliveryFailed",
+      count(*) filter (where f.delivery_state = 'pending')::int as "deliveryPending"
+    from clinical_follow_up_tasks f
+    where ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      and f.status not in ('completed', 'cancelled')
+  `;
+}
+
+export function buildUpdateClinicalFollowUpOperationsSql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const updates = [];
+  if (changes.triageState !== undefined) updates.push(`triage_state = ${sqlLiteral(changes.triageState)}`);
+  if (changes.escalationLevel !== undefined) updates.push(`escalation_level = ${sqlLiteral(changes.escalationLevel)}`);
+  if (changes.slaDueAt !== undefined) updates.push(`sla_due_at = ${sqlNullableTimestamp(changes.slaDueAt)}`);
+  if (changes.deliveryState !== undefined) updates.push(`delivery_state = ${sqlLiteral(changes.deliveryState)}`);
+  if (changes.deliveryEvidence !== undefined) updates.push(`delivery_evidence = ${sqlJson(changes.deliveryEvidence)}`);
+  if (changes.operationsNote !== undefined) updates.push(`operations_note = ${sqlNullableText(changes.operationsNote)}`);
+  if (changes.deliveryState !== undefined) {
+    updates.push("delivery_attempts = delivery_attempts + 1");
+    updates.push("last_delivery_attempt_at = now()");
+  }
+  if (changes.triageState === "resolved") {
+    updates.push(`resolved_by_user_id = ${sqlUuid(actorUserId)}`);
+    updates.push("resolved_at = now()");
+    updates.push("status = case when status in ('planned', 'in_progress', 'sent', 'acknowledged') then 'completed' else status end");
+    updates.push("completed_at = coalesce(completed_at, now())");
+  }
+  updates.push("updated_at = now()");
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set ${updates.join(",\n          ")}
+      from previous p
+      where f.id = p.id
+      returning f.*, p.triage_state as previous_triage_state, p.escalation_level as previous_escalation_level, p.delivery_state as previous_delivery_state
+    ), event as (
+      insert into clinical_follow_up_operations_events (
+        follow_up_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        note
+      )
+      select
+        id,
+        clinic_id,
+        ${sqlUuid(actorUserId)},
+        'operations.update',
+        jsonb_build_object(
+          'triageState', previous_triage_state,
+          'escalationLevel', previous_escalation_level,
+          'deliveryState', previous_delivery_state
+        ),
+        jsonb_build_object(
+          'triageState', triage_state,
+          'escalationLevel', escalation_level,
+          'deliveryState', delivery_state
+        ),
+        ${sqlNullableText(changes.operationsNote)}
+      from updated
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function createClinicalFollowUpRepository(dbClient) {
   return {
     async listClinicalFollowUps(params) {
@@ -464,6 +643,32 @@ export function createClinicalFollowUpRepository(dbClient) {
     async createPatientFollowUpMessage(params) {
       const rows = await dbClient.queryJson(buildCreatePatientFollowUpMessageSql(params));
       return rows[0] ? normalizeMessage(rows[0]) : null;
+    },
+    async listClinicalFollowUpOperations(params) {
+      const rows = await dbClient.queryJson(buildListClinicalFollowUpOperationsSql(params));
+      return {
+        items: rows.map(normalizeClinicalFollowUp).filter((item) => item.id),
+        limit: clampLimit(params?.limit),
+        offset: clampOffset(params?.offset),
+        source: "postgres",
+      };
+    },
+    async getClinicalFollowUpOperationsSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpOperationsSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalOpen: Number(row.totalOpen ?? row.total_open ?? 0),
+        overdue: Number(row.overdue ?? 0),
+        waitingPatient: Number(row.waitingPatient ?? row.waiting_patient ?? 0),
+        escalated: Number(row.escalated ?? 0),
+        deliveryFailed: Number(row.deliveryFailed ?? row.delivery_failed ?? 0),
+        deliveryPending: Number(row.deliveryPending ?? row.delivery_pending ?? 0),
+        source: "postgres",
+      };
+    },
+    async updateClinicalFollowUpOperations(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpOperationsSql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };
 }

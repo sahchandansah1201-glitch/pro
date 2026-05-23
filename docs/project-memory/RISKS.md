@@ -1,5 +1,19 @@
 # RISKS
 
+## Stage 18A-18Z follow-up operations risks
+
+1. **Risk: local delivery evidence can be mistaken for provider delivery proof.**
+   - Evidence: Stage 18A-18Z records delivery state and evidence locally but
+     intentionally does not call a notification provider.
+   - Mitigation: docs, manifest, guard, and UI label the data as local
+     operations metadata only.
+
+2. **Risk: escalation workflow needs clinic-specific SOP validation.**
+   - Evidence: Stage 18A-18Z adds escalation levels and triage states, but
+     dermatologist/clinic staff expertise may refine the exact workflow.
+   - Mitigation: keep values bounded, audited, and self-hosted; later clinical
+     review can adjust labels or required transitions.
+
 ## Stage 10A-10Z error prevention risks
 
 1. **Risk: repeated development defects remain manual discipline only.**

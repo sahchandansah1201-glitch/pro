@@ -5,6 +5,7 @@ import {
   createClinicalFollowUpService,
   normalizeClinicalFollowUpCreatePayload,
   normalizeClinicalFollowUpMessagePayload,
+  normalizeClinicalFollowUpOperationsUpdatePayload,
   normalizeClinicalFollowUpUpdatePayload,
 } from "./clinical-followup-service.mjs";
 import { ForbiddenError } from "./rbac.mjs";
@@ -52,6 +53,15 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
       async createPatientFollowUpMessage() {
         return { id: "message-2", followUpId: FOLLOW_UP_ID, direction: "patient_to_clinic" };
       },
+      async listClinicalFollowUpOperations() {
+        return { items: [{ ...followUp, triageState: "escalated", deliveryState: "failed" }], limit: 50, offset: 0, source: "postgres" };
+      },
+      async getClinicalFollowUpOperationsSummary() {
+        return { totalOpen: 2, overdue: 1, waitingPatient: 1, escalated: 1, deliveryFailed: 1, deliveryPending: 0, source: "postgres" };
+      },
+      async updateClinicalFollowUpOperations() {
+        return { ...followUp, triageState: "resolved", escalationLevel: "none", deliveryState: "delivered" };
+      },
       ...repositoryOverrides,
     },
     auditRepository: {
@@ -89,6 +99,29 @@ test("validates create, update, and message payloads", () => {
   });
   assert.throws(() => normalizeClinicalFollowUpCreatePayload({ reason: "" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpUpdatePayload({}), /validation/i);
+});
+
+test("validates operations hardening payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpOperationsUpdatePayload({
+      triageState: "escalated",
+      escalationLevel: "clinic_admin",
+      deliveryState: "failed",
+      slaDueAt: "2026-05-22T10:00:00.000Z",
+      deliveryEvidence: { channel: "portal", state: "failed", secret: "ignored" },
+      operationsNote: "  Call patient  ",
+    }),
+    {
+      triageState: "escalated",
+      escalationLevel: "clinic_admin",
+      deliveryState: "failed",
+      slaDueAt: "2026-05-22T10:00:00.000Z",
+      deliveryEvidence: { channel: "portal", state: "failed", checkedAt: null },
+      operationsNote: "Call patient",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpOperationsUpdatePayload({ triageState: "bad" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpOperationsUpdatePayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -145,6 +178,61 @@ test("patient can list visible follow-ups and reply through portal scope", async
   assert.deepEqual(
     auditEvents.map((event) => event.action),
     ["patient_portal.follow_up.list", "patient_portal.follow_up.message.create"],
+  );
+});
+
+test("doctor can list, summarize, and update operations queue with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const list = await service.listClinicalFollowUpOperations(
+    { triageState: "escalated" },
+    DOCTOR,
+    { correlationId: "ops-1" },
+  );
+  const summary = await service.getClinicalFollowUpOperationsSummary(
+    { now: "2026-05-22T10:00:00.000Z" },
+    DOCTOR,
+    { correlationId: "ops-2" },
+  );
+  const updated = await service.updateClinicalFollowUpOperations(
+    FOLLOW_UP_ID,
+    { triageState: "resolved", deliveryState: "delivered" },
+    DOCTOR,
+    { correlationId: "ops-3" },
+  );
+
+  assert.equal(list.result.items[0].triageState, "escalated");
+  assert.equal(summary.summary.overdue, 1);
+  assert.equal(updated.followUp.triageState, "resolved");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.operations.list",
+      "clinical_follow_up.operations.summary",
+      "clinical_follow_up.operations.update",
+    ],
+  );
+});
+
+test("operator cannot update operations queue and missing operation row maps to 404", async () => {
+  const service = createService({
+    repositoryOverrides: {
+      async updateClinicalFollowUpOperations() {
+        return null;
+      },
+    },
+  });
+  await assert.rejects(
+    () => service.updateClinicalFollowUpOperations(
+      FOLLOW_UP_ID,
+      { triageState: "resolved" },
+      { ...DOCTOR, roles: ["operator"] },
+    ),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.updateClinicalFollowUpOperations(FOLLOW_UP_ID, { triageState: "resolved" }, DOCTOR),
+    /Clinical follow-up was not found/i,
   );
 });
 
