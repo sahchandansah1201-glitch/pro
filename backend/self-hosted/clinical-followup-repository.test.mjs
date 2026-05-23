@@ -5,11 +5,13 @@ import {
   buildCreateClinicalFollowUpMessageSql,
   buildCreateClinicalFollowUpSql,
   buildCreatePatientFollowUpMessageSql,
+  buildClinicalFollowUpOutcomeQualitySummarySql,
   buildClinicalFollowUpOperationsSummarySql,
   buildListClinicalFollowUpsSql,
   buildListClinicalFollowUpOperationsSql,
   buildListPatientFollowUpsSql,
   buildUpdateClinicalFollowUpOperationsSql,
+  buildUpdateClinicalFollowUpQualitySql,
   buildUpdateClinicalFollowUpSql,
   createClinicalFollowUpRepository,
   normalizeClinicalFollowUpOperationsParams,
@@ -197,6 +199,33 @@ test("builds operations queue, summary, and update SQL with append-only events",
   assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
 });
 
+test("builds outcome quality summary and update SQL with append-only quality events", () => {
+  const summarySql = buildClinicalFollowUpOutcomeQualitySummarySql({
+    clinicIds: [CLINIC_ID],
+    now: "2026-05-22T10:00:00.000Z",
+  });
+  assert.match(summarySql, /closedWithEvidence/);
+  assert.match(summarySql, /qualityNeedsAttention/);
+  assert.match(summarySql, /resolution_outcome/);
+  assert.match(summarySql, /coalesce\(f\.sla_due_at, f\.due_at\) < '2026-05-22T10:00:00.000Z'::timestamptz/);
+
+  const updateSql = buildUpdateClinicalFollowUpQualitySql({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      resolutionOutcome: "patient_reached",
+      qualityReviewState: "reviewed",
+      qualityReviewNote: "QA ok.",
+    },
+  });
+  assert.match(updateSql, /update clinical_follow_up_tasks f/);
+  assert.match(updateSql, /quality_review_state = 'reviewed'/);
+  assert.match(updateSql, /insert into clinical_follow_up_quality_events/);
+  assert.match(updateSql, /quality\.update/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
+});
+
 test("repository normalizes operations queue and summary DTOs", async () => {
   const calls = [];
   const repository = createClinicalFollowUpRepository({
@@ -221,23 +250,35 @@ test("repository normalizes operations queue and summary DTOs", async () => {
         deliveryAttempts: 2,
         deliveryEvidence: { channel: "portal", state: "failed" },
         operationsNote: "Call patient.",
+        resolutionOutcome: "clinical_escalation",
+        qualityReviewState: "needs_attention",
+        qualityReviewNote: "Review escalation.",
       }];
     },
   });
 
   const queue = await repository.listClinicalFollowUpOperations({ clinicIds: [CLINIC_ID] });
   const summary = await repository.getClinicalFollowUpOperationsSummary({ clinicIds: [CLINIC_ID] });
+  const outcomes = await repository.getClinicalFollowUpOutcomeQualitySummary({ clinicIds: [CLINIC_ID] });
   const updated = await repository.updateClinicalFollowUpOperations({
     followUpId: FOLLOW_UP_ID,
     actorUserId: USER_ID,
     clinicIds: [CLINIC_ID],
     changes: { triageState: "resolved" },
   });
+  const quality = await repository.updateClinicalFollowUpQuality({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: { qualityReviewState: "reviewed" },
+  });
 
   assert.equal(queue.items[0].triageState, "escalated");
   assert.equal(queue.items[0].deliveryAttempts, 2);
   assert.equal(summary.totalOpen, 3);
   assert.equal(summary.deliveryFailed, 1);
+  assert.equal(outcomes.qualityNeedsAttention, 0);
   assert.equal(updated.triageState, "escalated");
-  assert.equal(calls.length, 3);
+  assert.equal(quality.qualityReviewState, "needs_attention");
+  assert.equal(calls.length, 5);
 });

@@ -1,5 +1,20 @@
 # RISKS
 
+## Stage 19A-19Z follow-up outcome quality risks
+
+1. **Risk: quality review state can be mistaken for clinical outcome proof.**
+   - Evidence: Stage 19A-19Z records resolution outcome and quality review
+     state locally, but it does not prove patient response or clinical result
+     outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label the data as local
+     quality review metadata only.
+
+2. **Risk: outcome labels need clinic SOP validation.**
+   - Evidence: Stage 19A-19Z adds bounded resolution outcome values and QA
+     states, but clinic-specific follow-up closure rules may refine them.
+   - Mitigation: keep values bounded, RBAC-protected, audited, and self-hosted;
+     future clinical review can adjust allowed labels or required transitions.
+
 ## Stage 18A-18Z follow-up operations risks
 
 1. **Risk: local delivery evidence can be mistaken for provider delivery proof.**

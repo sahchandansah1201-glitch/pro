@@ -1,0 +1,132 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Stage 19A-19Z",
+    "version": "19A-19Z-clinical-followup-outcome-quality",
+    "description": "Self-hosted clinical follow-up outcome and quality review contracts. Uses local PostgreSQL only and does not call notification vendors."
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/outcomes/summary": {
+      "get": {
+        "summary": "Read local follow-up outcome and quality summary",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "now",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local outcome and quality summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "19A-19Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "$ref": "#/components/schemas/FollowUpOutcomeQualitySummary" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/quality": {
+      "patch": {
+        "summary": "Update local follow-up outcome and quality review state",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FollowUpQualityUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated local quality review state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "19A-19Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "FollowUpOutcomeQualitySummary": {
+        "type": "object",
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "closedFollowUps": { "type": "integer" },
+          "openOverdue": { "type": "integer" },
+          "openEscalated": { "type": "integer" },
+          "closedWithEvidence": { "type": "integer" },
+          "closedMissingEvidence": { "type": "integer" },
+          "qualityReviewed": { "type": "integer" },
+          "qualityPending": { "type": "integer" },
+          "qualityNeedsAttention": { "type": "integer" },
+          "patientReached": { "type": "integer" },
+          "clinicalEscalations": { "type": "integer" },
+          "deliveryFailures": { "type": "integer" }
+        }
+      },
+      "FollowUpQualityUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "resolutionOutcome": {
+            "type": "string",
+            "enum": [
+              "not_reviewed",
+              "patient_reached",
+              "patient_unreachable",
+              "clinical_escalation",
+              "administrative_close"
+            ]
+          },
+          "qualityReviewState": {
+            "type": "string",
+            "enum": ["pending", "reviewed", "needs_attention"]
+          },
+          "qualityReviewNote": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+name: stage19a-19z-clinical-followup-outcome-quality
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-19a-19z-clinical-followup-outcome-quality.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage19a-19z-clinical-followup-outcome-quality.mjs"
+      - "scripts/check-stage19a-19z-clinical-followup-outcome-quality.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage19a-19z-clinical-followup-outcome-quality.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-19a-19z-clinical-followup-outcome-quality.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage19a-19z-clinical-followup-outcome-quality.mjs"
+      - "scripts/check-stage19a-19z-clinical-followup-outcome-quality.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage19a-19z-clinical-followup-outcome-quality.yml"
+  workflow_dispatch:
+
+jobs:
+  stage19a-19z-clinical-followup-outcome-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 19A-19Z preflight
+        run: npm run preflight:stage19a-19z
+      - name: Stage 19A-19Z summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 19A-19Z clinical follow-up outcome quality"
+            echo ""
+            echo "- Command: \`npm run preflight:stage19a-19z\`"
+            echo "- Boundary: self-hosted backend + PostgreSQL + local follow-up outcome and quality metadata"
+          } >> "$GITHUB_STEP_SUMMARY"

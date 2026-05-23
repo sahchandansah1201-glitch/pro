@@ -13,11 +13,14 @@ import {
 } from "@/lib/self-hosted-api-session";
 import {
   createSelfHostedVisitFollowUp,
+  getSelfHostedClinicalFollowUpOutcomeQualitySummary,
   getSelfHostedClinicalFollowUpOperationsSummary,
   listSelfHostedClinicalFollowUpOperations,
+  type FollowUpOutcomeQualitySummary,
   type FollowUpOperationsSummary,
   type SelfHostedClinicalFollowUp,
   updateSelfHostedClinicalFollowUpOperations,
+  updateSelfHostedClinicalFollowUpQuality,
 } from "@/lib/self-hosted-follow-up-api";
 import {
   archiveSelfHostedVisitLesion,
@@ -42,6 +45,7 @@ type BusyAction =
   | "follow-up"
   | "operations-load"
   | "operations-update"
+  | "quality-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -51,6 +55,21 @@ const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
   escalated: 0,
   deliveryFailed: 0,
   deliveryPending: 0,
+};
+
+const EMPTY_OUTCOME_SUMMARY: FollowUpOutcomeQualitySummary = {
+  totalFollowUps: 0,
+  closedFollowUps: 0,
+  openOverdue: 0,
+  openEscalated: 0,
+  closedWithEvidence: 0,
+  closedMissingEvidence: 0,
+  qualityReviewed: 0,
+  qualityPending: 0,
+  qualityNeedsAttention: 0,
+  patientReached: 0,
+  clinicalEscalations: 0,
+  deliveryFailures: 0,
 };
 
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
@@ -78,6 +97,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [followUpPatientSummary, setFollowUpPatientSummary] = useState("");
   const [followUpInternalNote, setFollowUpInternalNote] = useState("");
   const [operationsSummary, setOperationsSummary] = useState<FollowUpOperationsSummary>(EMPTY_OPERATIONS_SUMMARY);
+  const [outcomeSummary, setOutcomeSummary] = useState<FollowUpOutcomeQualitySummary>(EMPTY_OUTCOME_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
 
   const selectedLesion = useMemo(
@@ -93,18 +113,20 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, queue] = await Promise.all([
+    const [summary, outcomes, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
+      getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       listSelfHostedClinicalFollowUpOperations({
         ...baseArgs,
         visitId: visit.id,
       }),
     ]);
     if (summary.ok) setOperationsSummary(summary.value);
+    if (outcomes.ok) setOutcomeSummary(outcomes.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || queue.error));
     }
   }
 
@@ -232,6 +254,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("operations-update");
     const result = await updateSelfHostedClinicalFollowUpOperations({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateQualityState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpQuality>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("quality-update");
+    const result = await updateSelfHostedClinicalFollowUpQuality({
       ...baseArgs,
       followUpId,
       payload,
@@ -487,6 +525,41 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           </div>
         </dl>
 
+        <section
+          aria-label="Качество закрытия follow-up"
+          className="mt-3 rounded-md border border-border bg-muted/20 p-3"
+        >
+          <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h4 className="h-section text-[13px]">Качество закрытия follow-up</h4>
+              <p className="text-meta">
+                Итоги основаны только на локальных outcome/QA полях и delivery evidence.
+              </p>
+            </div>
+            <span className="text-[12px] text-muted-foreground">
+              QA pending: {outcomeSummary.qualityPending}
+            </span>
+          </div>
+          <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2 lg:grid-cols-4">
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Закрыто всего</dt>
+              <dd className="text-lg font-semibold">{outcomeSummary.closedFollowUps}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">С evidence</dt>
+              <dd className="text-lg font-semibold">{outcomeSummary.closedWithEvidence}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Без evidence</dt>
+              <dd className="text-lg font-semibold">{outcomeSummary.closedMissingEvidence}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Требует внимания</dt>
+              <dd className="text-lg font-semibold">{outcomeSummary.qualityNeedsAttention}</dd>
+            </div>
+          </dl>
+        </section>
+
         <div className="mt-3 space-y-2" aria-label="Очередь follow-up по визиту">
           {operationsQueue.length === 0 ? (
             <p className="text-[12px] text-muted-foreground">Для этого визита нет открытых follow-up задач.</p>
@@ -496,6 +569,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 <p className="text-[13px] font-medium">{item.reason || "Контрольный контакт"}</p>
                 <p className="text-[12px] text-muted-foreground">
                   triage: {item.triageState} · escalation: {item.escalationLevel} · delivery: {item.deliveryState}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  outcome: {item.resolutionOutcome} · QA: {item.qualityReviewState}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -539,6 +615,42 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Закрыть
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "quality-update"}
+                  onClick={() => void updateQualityState(
+                    item.id,
+                    {
+                      resolutionOutcome: "patient_reached",
+                      qualityReviewState: "reviewed",
+                      qualityReviewNote: "Reviewed locally in clinical workspace.",
+                    },
+                    "Follow-up отмечен как QA reviewed.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  QA reviewed
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "quality-update"}
+                  onClick={() => void updateQualityState(
+                    item.id,
+                    {
+                      resolutionOutcome: "clinical_escalation",
+                      qualityReviewState: "needs_attention",
+                      qualityReviewNote: "Needs local clinical review.",
+                    },
+                    "Follow-up помечен как требующий внимания.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Требует внимания
                 </Button>
               </div>
             </article>
