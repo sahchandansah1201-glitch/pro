@@ -450,7 +450,10 @@
     "check:stage19a-19z": "node scripts/check-stage19a-19z-clinical-followup-outcome-quality.mjs",
     "preflight:stage20a-20z": "npm run test:stage20a-20z && npm run check:stage20a-20z && npm run preflight:stage19a-19z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
     "test:stage20a-20z": "node --test backend/self-hosted/clinical-followup-repository.test.mjs backend/self-hosted/clinical-followup-service.test.mjs backend/self-hosted/routes.test.mjs scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.test.mjs && npm test -- --run src/lib/self-hosted-follow-up-api.test.ts src/pages/doctor/VisitWorkspaceLiveActions.test.tsx src/pages/patient/MePages.production.test.tsx",
-    "check:stage20a-20z": "node scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.mjs"
+    "check:stage20a-20z": "node scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.mjs",
+    "preflight:stage21a-21z": "npm run test:stage21a-21z && npm run check:stage21a-21z && npm run preflight:stage20a-20z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
+    "test:stage21a-21z": "node --test backend/self-hosted/clinical-followup-repository.test.mjs backend/self-hosted/clinical-followup-service.test.mjs backend/self-hosted/routes.test.mjs scripts/check-stage21a-21z-clinical-followup-sop-validation.test.mjs && npm test -- --run src/lib/self-hosted-follow-up-api.test.ts src/pages/doctor/VisitWorkspaceLiveActions.test.tsx src/pages/patient/MePages.production.test.tsx",
+    "check:stage21a-21z": "node scripts/check-stage21a-21z-clinical-followup-sop-validation.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

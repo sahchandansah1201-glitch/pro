@@ -2,10 +2,18 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 20A-20Z is being
-implemented from branch `codex/stage20a-20z-clinical-followup-retention-review`.
+This handoff captures the repository state while Stage 21A-21Z is being
+implemented from branch `codex/stage21a-21z-clinical-followup-sop-validation`.
 
 ## Confirmed state
+
+0. Stage 21A-21Z is implemented in the current branch as clinic-specific
+   follow-up SOP validation:
+   - PostgreSQL SOP validation state on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_sop_validation_events`;
+   - backend SOP validation summary and update routes;
+   - doctor live workspace SOP validation panel;
+   - no managed notification provider dependency.
 
 0. Stage 20A-20Z is implemented in the current branch as follow-up retention and
    clinic review readiness:

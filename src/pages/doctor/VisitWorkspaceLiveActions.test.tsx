@@ -82,6 +82,9 @@ describe("VisitWorkspaceLiveActions", () => {
       if (url.endsWith("/api/v1/clinical/follow-ups/clinic-review/summary")) {
         return jsonResponse({ totalFollowUps: 2, retentionDue: 1, retentionReviewed: 0, retentionArchived: 0, clinicReviewScheduled: 0, clinicReviewCompleted: 0, clinicNeedsPolicyReview: 0, localReviewEvents: 0 });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/sop-validation/summary")) {
+        return jsonResponse({ totalFollowUps: 2, sopRequired: 1, sopValidated: 0, sopExceptions: 0, sopBlocked: 0, clinicNeedsPolicyReview: 0, qualityNeedsAttention: 0, openEscalated: 0, closedMissingEvidence: 0, localSopEvents: 0 });
+      }
       if (url.includes("/api/v1/clinical/follow-ups/operations?")) {
         return new Response(JSON.stringify({ items: [{
           id: "follow-up-1",
@@ -96,6 +99,8 @@ describe("VisitWorkspaceLiveActions", () => {
           qualityReviewState: "pending",
           retentionReviewState: "due",
           clinicReviewState: "not_scheduled",
+          sopValidationState: "required",
+          sopPolicyVersion: "clinic-local-v1",
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith(`/api/v1/visits/${VISIT_ID}`) && init?.method === "PATCH") {
@@ -160,7 +165,7 @@ describe("VisitWorkspaceLiveActions", () => {
       `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(13);
+    expect(fetchSpy).toHaveBeenCalledTimes(15);
   });
 
   it("updates the operational follow-up queue from the live panel", async () => {
@@ -176,6 +181,9 @@ describe("VisitWorkspaceLiveActions", () => {
       if (url.endsWith("/api/v1/clinical/follow-ups/clinic-review/summary")) {
         return jsonResponse({ totalFollowUps: 2, retentionDue: 1, retentionReviewed: 0, retentionArchived: 0, clinicReviewScheduled: 1, clinicReviewCompleted: 0, clinicNeedsPolicyReview: 1, localReviewEvents: 1 });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/sop-validation/summary")) {
+        return jsonResponse({ totalFollowUps: 2, sopRequired: 1, sopValidated: 0, sopExceptions: 0, sopBlocked: 0, clinicNeedsPolicyReview: 1, qualityNeedsAttention: 1, openEscalated: 1, closedMissingEvidence: 1, localSopEvents: 0 });
+      }
       if (url.includes("/api/v1/clinical/follow-ups/operations?")) {
         return new Response(JSON.stringify({ items: [{
           id: "follow-up-1",
@@ -190,6 +198,8 @@ describe("VisitWorkspaceLiveActions", () => {
           qualityReviewState: "needs_attention",
           retentionReviewState: "due",
           clinicReviewState: "needs_policy_review",
+          sopValidationState: "required",
+          sopPolicyVersion: null,
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/operations") && init?.method === "PATCH") {
@@ -226,6 +236,17 @@ describe("VisitWorkspaceLiveActions", () => {
           clinicReviewState: "completed",
         });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-validation") && init?.method === "PATCH") {
+        return jsonResponse({
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          reason: "Контроль после визита",
+          status: "completed",
+          priority: "urgent",
+          sopValidationState: "validated",
+          sopPolicyVersion: "clinic-local-v1",
+        });
+      }
       return jsonResponse({ id: "ok" });
     });
 
@@ -241,6 +262,9 @@ describe("VisitWorkspaceLiveActions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Clinic review done" }));
     await waitFor(() => expect(screen.getByText("Clinic review по follow-up завершён локально.")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "SOP validated" }));
+    await waitFor(() => expect(screen.getByText("SOP validation по follow-up подтверждён локально.")).toBeInTheDocument());
 
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/clinical/follow-ups/follow-up-1/operations`,
@@ -263,6 +287,13 @@ describe("VisitWorkspaceLiveActions", () => {
         headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
       }),
     );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-validation`,
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
+      }),
+    );
   });
 
   it("shows validation status returned by backend", async () => {
@@ -277,6 +308,9 @@ describe("VisitWorkspaceLiveActions", () => {
       }
       if (url.includes("/api/v1/clinical/follow-ups/clinic-review")) {
         return jsonResponse({ totalFollowUps: 0, retentionDue: 0, clinicNeedsPolicyReview: 0, localReviewEvents: 0 });
+      }
+      if (url.includes("/api/v1/clinical/follow-ups/sop-validation")) {
+        return jsonResponse({ totalFollowUps: 0, sopRequired: 0, sopValidated: 0, localSopEvents: 0 });
       }
       return new Response(
         JSON.stringify({

@@ -1,5 +1,22 @@
 # RISKS
 
+## Stage 21A-21Z follow-up SOP validation risks
+
+1. **Risk: local SOP validation state can be mistaken for external clinic policy approval.**
+   - Evidence: Stage 21A-21Z records SOP validation state, policy version, and
+     exception reason locally, but it does not verify external SOP documents,
+     clinic governance approval, or medical correctness outside the self-hosted
+     workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP validation as local
+     metadata only.
+
+2. **Risk: SOP validation labels may need clinic-specific policy templates.**
+   - Evidence: Stage 21A-21Z stores bounded states but does not define a full
+     policy-template engine for per-clinic required transitions.
+   - Mitigation: keep values bounded, RBAC-protected, audited, and self-hosted;
+     Stage 22A-22Z can define configurable policy templates if repository
+     evidence supports it.
+
 ## Stage 20A-20Z follow-up retention and clinic review risks
 
 1. **Risk: retention review state can be mistaken for external retention archive proof.**

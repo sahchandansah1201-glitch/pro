@@ -2,6 +2,15 @@
 
 ## 2026-05-23
 
+- Создан Stage 21A-21Z clinical follow-up SOP validation после Stage 20A-20Z.
+- Добавлены SOP validation поля, append-only SOP events, backend
+  summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor
+  live workspace SOP validation panel, guard, workflow, docs, project-memory
+  update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external SOP proof, no signed URLs/storage paths/provider tokens
+  in protected outputs.
+
 - Создан Stage 20A-20Z clinical follow-up retention clinic review после Stage 19A-19Z.
 - Добавлены retention/clinic-review поля, append-only review events, backend
   summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor

@@ -1,0 +1,116 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Stage 21A-21Z",
+    "version": "21A-21Z-clinical-followup-sop-validation",
+    "description": "Self-hosted clinic-specific SOP validation contracts for clinical follow-up state transitions. Uses local PostgreSQL metadata only and does not prove external SOP completion."
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-validation/summary": {
+      "get": {
+        "summary": "Read local follow-up SOP validation summary",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Local SOP validation summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "21A-21Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "$ref": "#/components/schemas/FollowUpSopValidationSummary" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-validation": {
+      "patch": {
+        "summary": "Update local follow-up SOP validation state",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FollowUpSopValidationUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated local SOP validation state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "21A-21Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "FollowUpSopValidationSummary": {
+        "type": "object",
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "sopRequired": { "type": "integer" },
+          "sopValidated": { "type": "integer" },
+          "sopExceptions": { "type": "integer" },
+          "sopBlocked": { "type": "integer" },
+          "clinicNeedsPolicyReview": { "type": "integer" },
+          "qualityNeedsAttention": { "type": "integer" },
+          "openEscalated": { "type": "integer" },
+          "closedMissingEvidence": { "type": "integer" },
+          "localSopEvents": { "type": "integer" }
+        }
+      },
+      "FollowUpSopValidationUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sopValidationState": {
+            "type": "string",
+            "enum": ["not_required", "required", "validated", "exception", "blocked"]
+          },
+          "sopPolicyVersion": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "sopExceptionReason": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  }
+}

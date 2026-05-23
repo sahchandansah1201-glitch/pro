@@ -1,0 +1,37 @@
+{
+  "stage": "21A-21Z",
+  "previousBatch": "Stage 20A-20Z",
+  "nextBatchHypothesis": "Stage 22A-22Z",
+  "title": "Clinical follow-up clinic-specific SOP validation",
+  "implementedSurfaces": [
+    "PostgreSQL SOP validation columns on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_sop_validation_events audit table",
+    "GET /api/v1/clinical/follow-ups/sop-validation/summary",
+    "PATCH /api/v1/clinical/follow-ups/{followUpId}/sop-validation",
+    "OpenAPI Stage 21A-21Z contract and nginx publishing",
+    "Frontend self-hosted follow-up SOP validation API adapter",
+    "Doctor visit workspace SOP validation summary and row actions",
+    "Stage 21 guard, docs, workflow, project-memory update, and preflight-all wiring"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "sourceOfTruth": "self-hosted PostgreSQL",
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopValidationEvidenceIsLocalMetadataOnly": true,
+    "clinicSpecificSopIsNotExternalProof": true,
+    "exportsRawPatientNames": false,
+    "exportsProviderTokens": false,
+    "exportsStoragePaths": false,
+    "exportsSignedUrls": false
+  },
+  "verification": {
+    "test": "npm run test:stage21a-21z",
+    "check": "npm run check:stage21a-21z",
+    "preflight": "npm run preflight:stage21a-21z"
+  },
+  "expectedConfirmation": "Confirmed: Stage 21A-21Z synced from main, no conflicts."
+}

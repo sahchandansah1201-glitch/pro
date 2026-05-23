@@ -108,6 +108,10 @@ export function normalizeClinicalFollowUp(row = {}) {
     clinicReviewState: cleanText(row.clinicReviewState ?? row.clinic_review_state) || "not_scheduled",
     clinicReviewNote: cleanText(row.clinicReviewNote ?? row.clinic_review_note),
     clinicReviewedAt: cleanText(row.clinicReviewedAt ?? row.clinic_reviewed_at),
+    sopValidationState: cleanText(row.sopValidationState ?? row.sop_validation_state) || "not_required",
+    sopPolicyVersion: cleanText(row.sopPolicyVersion ?? row.sop_policy_version),
+    sopExceptionReason: cleanText(row.sopExceptionReason ?? row.sop_exception_reason),
+    sopValidatedAt: cleanText(row.sopValidatedAt ?? row.sop_validated_at),
     resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
     lastMessageAt: cleanText(row.lastMessageAt ?? row.last_message_at),
     completedAt: cleanText(row.completedAt ?? row.completed_at),
@@ -202,6 +206,10 @@ function followUpSelect({ patientSafe = false } = {}) {
     coalesce(f.clinic_review_state, 'not_scheduled') as "clinicReviewState",
     f.clinic_review_note as "clinicReviewNote",
     f.clinic_reviewed_at as "clinicReviewedAt",
+    coalesce(f.sop_validation_state, 'not_required') as "sopValidationState",
+    f.sop_policy_version as "sopPolicyVersion",
+    f.sop_exception_reason as "sopExceptionReason",
+    f.sop_validated_at as "sopValidatedAt",
     f.resolved_at as "resolvedAt",
     f.last_message_at as "lastMessageAt",
     f.completed_at as "completedAt",
@@ -615,6 +623,37 @@ export function buildClinicalFollowUpClinicReviewSummarySql({
   `;
 }
 
+export function buildClinicalFollowUpSopValidationSummarySql({
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const sopRequired = `(
+    coalesce(f.sop_validation_state, 'not_required') = 'required'
+    or coalesce(f.clinic_review_state, 'not_scheduled') = 'needs_policy_review'
+    or coalesce(f.quality_review_state, 'pending') = 'needs_attention'
+    or f.escalation_level <> 'none'
+  )`;
+  return `
+    select
+      count(*)::int as "totalFollowUps",
+      count(*) filter (where ${sopRequired})::int as "sopRequired",
+      count(*) filter (where coalesce(f.sop_validation_state, 'not_required') = 'validated')::int as "sopValidated",
+      count(*) filter (where coalesce(f.sop_validation_state, 'not_required') = 'exception')::int as "sopExceptions",
+      count(*) filter (where coalesce(f.sop_validation_state, 'not_required') = 'blocked')::int as "sopBlocked",
+      count(*) filter (where coalesce(f.clinic_review_state, 'not_scheduled') = 'needs_policy_review')::int as "clinicNeedsPolicyReview",
+      count(*) filter (where coalesce(f.quality_review_state, 'pending') = 'needs_attention')::int as "qualityNeedsAttention",
+      count(*) filter (where f.status not in ('completed', 'cancelled') and f.escalation_level <> 'none')::int as "openEscalated",
+      count(*) filter (where f.status in ('completed', 'cancelled') and coalesce(f.delivery_evidence, '{}'::jsonb) = '{}'::jsonb)::int as "closedMissingEvidence",
+      count(*) filter (where exists (
+        select 1
+        from clinical_follow_up_sop_validation_events e
+        where e.follow_up_id = f.id
+      ))::int as "localSopEvents"
+    from clinical_follow_up_tasks f
+    where ${clinicScopeWhere("f", { allClinics, clinicIds })}
+  `;
+}
+
 export function buildUpdateClinicalFollowUpOperationsSql({
   followUpId,
   actorUserId,
@@ -841,6 +880,79 @@ export function buildUpdateClinicalFollowUpClinicReviewSql({
   `;
 }
 
+export function buildUpdateClinicalFollowUpSopValidationSql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const updates = [];
+  if (changes.sopValidationState !== undefined) updates.push(`sop_validation_state = ${sqlLiteral(changes.sopValidationState)}`);
+  if (changes.sopPolicyVersion !== undefined) updates.push(`sop_policy_version = ${sqlNullableText(changes.sopPolicyVersion)}`);
+  if (changes.sopExceptionReason !== undefined) updates.push(`sop_exception_reason = ${sqlNullableText(changes.sopExceptionReason)}`);
+  if (Object.keys(changes).length > 0) {
+    updates.push(`sop_validated_by_user_id = ${sqlUuid(actorUserId)}`);
+    updates.push("sop_validated_at = now()");
+  }
+  updates.push("updated_at = now()");
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set ${updates.join(",\n          ")}
+      from previous p
+      where f.id = p.id
+      returning f.*,
+        p.sop_validation_state as previous_sop_validation_state,
+        p.sop_policy_version as previous_sop_policy_version,
+        p.sop_exception_reason as previous_sop_exception_reason
+    ), event as (
+      insert into clinical_follow_up_sop_validation_events (
+        follow_up_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        sop_policy_version,
+        exception_reason,
+        note
+      )
+      select
+        u.id,
+        u.clinic_id,
+        ${sqlUuid(actorUserId)},
+        'sop_validation.update',
+        jsonb_build_object(
+          'sopValidationState', coalesce(previous_sop_validation_state, 'not_required'),
+          'sopPolicyVersion', previous_sop_policy_version,
+          'sopExceptionReason', previous_sop_exception_reason
+        ),
+        jsonb_build_object(
+          'sopValidationState', u.sop_validation_state,
+          'sopPolicyVersion', u.sop_policy_version,
+          'sopExceptionReason', u.sop_exception_reason
+        ),
+        ${sqlNullableText(changes.sopPolicyVersion)},
+        ${sqlNullableText(changes.sopExceptionReason)},
+        ${sqlNullableText(changes.sopExceptionReason || changes.sopPolicyVersion || changes.sopValidationState)}
+      from updated u
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function createClinicalFollowUpRepository(dbClient) {
   return {
     async listClinicalFollowUps(params) {
@@ -933,6 +1045,23 @@ export function createClinicalFollowUpRepository(dbClient) {
         source: "postgres",
       };
     },
+    async getClinicalFollowUpSopValidationSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpSopValidationSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalFollowUps: Number(row.totalFollowUps ?? row.total_follow_ups ?? 0),
+        sopRequired: Number(row.sopRequired ?? row.sop_required ?? 0),
+        sopValidated: Number(row.sopValidated ?? row.sop_validated ?? 0),
+        sopExceptions: Number(row.sopExceptions ?? row.sop_exceptions ?? 0),
+        sopBlocked: Number(row.sopBlocked ?? row.sop_blocked ?? 0),
+        clinicNeedsPolicyReview: Number(row.clinicNeedsPolicyReview ?? row.clinic_needs_policy_review ?? 0),
+        qualityNeedsAttention: Number(row.qualityNeedsAttention ?? row.quality_needs_attention ?? 0),
+        openEscalated: Number(row.openEscalated ?? row.open_escalated ?? 0),
+        closedMissingEvidence: Number(row.closedMissingEvidence ?? row.closed_missing_evidence ?? 0),
+        localSopEvents: Number(row.localSopEvents ?? row.local_sop_events ?? 0),
+        source: "postgres",
+      };
+    },
     async updateClinicalFollowUpOperations(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpOperationsSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
@@ -943,6 +1072,10 @@ export function createClinicalFollowUpRepository(dbClient) {
     },
     async updateClinicalFollowUpClinicReview(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpClinicReviewSql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
+    },
+    async updateClinicalFollowUpSopValidation(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopValidationSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };

@@ -14,6 +14,7 @@ const RESOLUTION_OUTCOMES = new Set(["not_reviewed", "patient_reached", "patient
 const QUALITY_REVIEW_STATES = new Set(["pending", "reviewed", "needs_attention"]);
 const RETENTION_REVIEW_STATES = new Set(["not_due", "due", "reviewed", "archived"]);
 const CLINIC_REVIEW_STATES = new Set(["not_scheduled", "scheduled", "completed", "needs_policy_review"]);
+const SOP_VALIDATION_STATES = new Set(["not_required", "required", "validated", "exception", "blocked"]);
 const MAX_REASON = 1000;
 const MAX_SUMMARY = 2000;
 const MAX_INTERNAL_NOTE = 4000;
@@ -21,6 +22,8 @@ const MAX_MESSAGE_BODY = 3000;
 const MAX_OPERATIONS_NOTE = 2000;
 const MAX_QUALITY_NOTE = 2000;
 const MAX_REVIEW_NOTE = 2000;
+const MAX_SOP_POLICY_VERSION = 120;
+const MAX_SOP_EXCEPTION_REASON = 2000;
 
 class ClinicalFollowUpNotFoundError extends Error {
   constructor(message = "Clinical follow-up was not found.") {
@@ -278,6 +281,31 @@ export function normalizeClinicalFollowUpClinicReviewUpdatePayload(input = {}) {
   return payload;
 }
 
+export function normalizeClinicalFollowUpSopValidationUpdatePayload(input = {}) {
+  const body = requireBodyObject(input);
+  const details = [];
+  const payload = {};
+  if (hasOwn(body, "sopValidationState")) {
+    const sopValidationState = cleanString(body.sopValidationState);
+    if (!sopValidationState || !SOP_VALIDATION_STATES.has(sopValidationState)) {
+      details.push({ field: "sopValidationState", message: "sopValidationState is not supported." });
+    } else {
+      payload.sopValidationState = sopValidationState;
+    }
+  }
+  if (hasOwn(body, "sopPolicyVersion")) {
+    payload.sopPolicyVersion = validateLimitedText(body.sopPolicyVersion, "sopPolicyVersion", MAX_SOP_POLICY_VERSION, details);
+  }
+  if (hasOwn(body, "sopExceptionReason")) {
+    payload.sopExceptionReason = validateLimitedText(body.sopExceptionReason, "sopExceptionReason", MAX_SOP_EXCEPTION_REASON, details);
+  }
+  if (Object.keys(payload).length === 0) {
+    details.push({ field: "body", message: "At least one SOP validation field is required." });
+  }
+  if (details.length > 0) throw new ClinicalFollowUpValidationError(details);
+  return payload;
+}
+
 async function audit(auditRepository, event) {
   await recordAuditBestEffort(auditRepository, event);
 }
@@ -510,6 +538,27 @@ export function createClinicalFollowUpService({
       return { summary, scope };
     },
 
+    async getClinicalFollowUpSopValidationSummary(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopValidationSummary({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_validation.summary",
+        entityType: "clinical_follow_up",
+        correlationId,
+        metadata: {
+          sopRequired: summary.sopRequired,
+          sopValidated: summary.sopValidated,
+          localSopEvents: summary.localSopEvents,
+        },
+      });
+      return { summary, scope };
+    },
+
     async updateClinicalFollowUpOperations(followUpId, input, authContext, { correlationId } = {}) {
       const scope = visitWriteScope(authContext);
       const changes = normalizeClinicalFollowUpOperationsUpdatePayload(input);
@@ -584,6 +633,32 @@ export function createClinicalFollowUpService({
         metadata: {
           retentionReviewState: followUp.retentionReviewState,
           clinicReviewState: followUp.clinicReviewState,
+        },
+      });
+      return { followUp, scope };
+    },
+
+    async updateClinicalFollowUpSopValidation(followUpId, input, authContext, { correlationId } = {}) {
+      const scope = visitWriteScope(authContext);
+      const changes = normalizeClinicalFollowUpSopValidationUpdatePayload(input);
+      const followUp = await clinicalFollowUpRepository.updateClinicalFollowUpSopValidation({
+        followUpId,
+        actorUserId: authContext.userId,
+        changes,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      if (!followUp) throw new ClinicalFollowUpNotFoundError();
+      await audit(auditRepository, {
+        clinicId: followUp.clinicId || null,
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_validation.update",
+        entityType: "clinical_follow_up",
+        entityId: followUp.id,
+        correlationId,
+        metadata: {
+          sopValidationState: followUp.sopValidationState,
+          sopPolicyVersion: followUp.sopPolicyVersion,
         },
       });
       return { followUp, scope };

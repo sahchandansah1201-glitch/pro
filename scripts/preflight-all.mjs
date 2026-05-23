@@ -117,6 +117,7 @@ const DEFAULT_STEPS = [
   ["Stage 18A-18Z clinical follow-up operations hardening preflight", npmCmd, ["run", "preflight:stage18a-18z"]],
   ["Stage 19A-19Z clinical follow-up outcome quality preflight", npmCmd, ["run", "preflight:stage19a-19z"]],
   ["Stage 20A-20Z clinical follow-up retention clinic review preflight", npmCmd, ["run", "preflight:stage20a-20z"]],
+  ["Stage 21A-21Z clinical follow-up SOP validation preflight", npmCmd, ["run", "preflight:stage21a-21z"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],

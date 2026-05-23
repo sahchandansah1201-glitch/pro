@@ -8,12 +8,14 @@ import {
   buildClinicalFollowUpClinicReviewSummarySql,
   buildClinicalFollowUpOutcomeQualitySummarySql,
   buildClinicalFollowUpOperationsSummarySql,
+  buildClinicalFollowUpSopValidationSummarySql,
   buildListClinicalFollowUpsSql,
   buildListClinicalFollowUpOperationsSql,
   buildListPatientFollowUpsSql,
   buildUpdateClinicalFollowUpOperationsSql,
   buildUpdateClinicalFollowUpClinicReviewSql,
   buildUpdateClinicalFollowUpQualitySql,
+  buildUpdateClinicalFollowUpSopValidationSql,
   buildUpdateClinicalFollowUpSql,
   createClinicalFollowUpRepository,
   normalizeClinicalFollowUpOperationsParams,
@@ -256,6 +258,32 @@ test("builds retention and clinic review summary and update SQL with append-only
   assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
 });
 
+test("builds SOP validation summary and update SQL with append-only SOP events", () => {
+  const summarySql = buildClinicalFollowUpSopValidationSummarySql({
+    clinicIds: [CLINIC_ID],
+  });
+  assert.match(summarySql, /sopRequired/);
+  assert.match(summarySql, /sopValidated/);
+  assert.match(summarySql, /clinical_follow_up_sop_validation_events/);
+  assert.match(summarySql, /clinic_review_state, 'not_scheduled'\) = 'needs_policy_review'/);
+
+  const updateSql = buildUpdateClinicalFollowUpSopValidationSql({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      sopValidationState: "validated",
+      sopPolicyVersion: "clinic-local-v1",
+      sopExceptionReason: "Policy exception not needed.",
+    },
+  });
+  assert.match(updateSql, /sop_validation_state = 'validated'/);
+  assert.match(updateSql, /sop_policy_version = 'clinic-local-v1'/);
+  assert.match(updateSql, /insert into clinical_follow_up_sop_validation_events/);
+  assert.match(updateSql, /sop_validation\.update/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
+});
+
 test("repository normalizes operations queue and summary DTOs", async () => {
   const calls = [];
   const repository = createClinicalFollowUpRepository({
@@ -263,6 +291,9 @@ test("repository normalizes operations queue and summary DTOs", async () => {
       calls.push(sql);
       if (/totalOpen/.test(sql)) {
         return [{ totalOpen: 3, overdue: 1, waitingPatient: 1, escalated: 1, deliveryFailed: 1, deliveryPending: 0 }];
+      }
+      if (/sopRequired/.test(sql)) {
+        return [{ sopRequired: 1, sopValidated: 1, sopExceptions: 0, sopBlocked: 0, localSopEvents: 2 }];
       }
       return [{
         id: FOLLOW_UP_ID,
@@ -283,6 +314,8 @@ test("repository normalizes operations queue and summary DTOs", async () => {
         resolutionOutcome: "clinical_escalation",
         qualityReviewState: "needs_attention",
         qualityReviewNote: "Review escalation.",
+        sopValidationState: "required",
+        sopPolicyVersion: "clinic-local-v1",
       }];
     },
   });
@@ -291,6 +324,7 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   const summary = await repository.getClinicalFollowUpOperationsSummary({ clinicIds: [CLINIC_ID] });
   const outcomes = await repository.getClinicalFollowUpOutcomeQualitySummary({ clinicIds: [CLINIC_ID] });
   const clinicReview = await repository.getClinicalFollowUpClinicReviewSummary({ clinicIds: [CLINIC_ID] });
+  const sop = await repository.getClinicalFollowUpSopValidationSummary({ clinicIds: [CLINIC_ID] });
   const updated = await repository.updateClinicalFollowUpOperations({
     followUpId: FOLLOW_UP_ID,
     actorUserId: USER_ID,
@@ -309,6 +343,12 @@ test("repository normalizes operations queue and summary DTOs", async () => {
     clinicIds: [CLINIC_ID],
     changes: { clinicReviewState: "completed" },
   });
+  const sopUpdated = await repository.updateClinicalFollowUpSopValidation({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: { sopValidationState: "validated" },
+  });
 
   assert.equal(queue.items[0].triageState, "escalated");
   assert.equal(queue.items[0].deliveryAttempts, 2);
@@ -316,8 +356,10 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   assert.equal(summary.deliveryFailed, 1);
   assert.equal(outcomes.qualityNeedsAttention, 0);
   assert.equal(clinicReview.clinicNeedsPolicyReview, 0);
+  assert.equal(sop.sopRequired, 1);
   assert.equal(updated.triageState, "escalated");
   assert.equal(quality.qualityReviewState, "needs_attention");
   assert.equal(review.clinicReviewState, "not_scheduled");
-  assert.equal(calls.length, 7);
+  assert.equal(sopUpdated.sopValidationState, "required");
+  assert.equal(calls.length, 9);
 });

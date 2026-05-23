@@ -215,6 +215,9 @@ const OPENAPI_19A_19Z = JSON.parse(
 const OPENAPI_20A_20Z = JSON.parse(
   readFileSync(join(HERE, "openapi.stage20a-20z.json"), "utf8"),
 );
+const OPENAPI_21A_21Z = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage21a-21z.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -2583,6 +2586,37 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/clinical/follow-ups/sop-validation/summary" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.getClinicalFollowUpSopValidationSummary(
+        normalizeClinicalFollowUpOperationsParams(url.searchParams),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "21A-21Z",
+          source: "postgres",
+          item: result.summary,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (url.pathname === "/api/v1/clinical/follow-ups/operations" && method === "GET") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -2729,6 +2763,39 @@ export async function handleSelfHostedRequest(
         200,
         {
           stage: "20A-20Z",
+          source: "postgres",
+          item: result.followUp,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const clinicalFollowUpSopValidationMatch = url.pathname.match(/^\/api\/v1\/clinical\/follow-ups\/([^/]+)\/sop-validation$/);
+  if (clinicalFollowUpSopValidationMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.updateClinicalFollowUpSopValidation(
+        decodeURIComponent(clinicalFollowUpSopValidationMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "21A-21Z",
           source: "postgres",
           item: result.followUp,
           auth: {
@@ -3304,6 +3371,7 @@ export async function handleSelfHostedRequest(
           clinicalFollowUpOperations: "rbac-read-write-postgres-sla-triage-escalation-local-evidence",
           clinicalFollowUpOutcomeQuality: "rbac-read-write-postgres-outcome-quality-local-evidence",
           clinicalFollowUpClinicReview: "rbac-read-write-postgres-retention-clinic-review-local-evidence",
+          clinicalFollowUpSopValidation: "rbac-read-write-postgres-clinic-specific-sop-validation-local-evidence",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance",
@@ -3353,6 +3421,7 @@ export async function handleSelfHostedRequest(
           openapiStage18A18Z: "/openapi.stage18a-18z.json",
           openapiStage19A19Z: "/openapi.stage19a-19z.json",
           openapiStage20A20Z: "/openapi.stage20a-20z.json",
+          openapiStage21A21Z: "/openapi.stage21a-21z.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -3403,6 +3472,8 @@ export async function handleSelfHostedRequest(
           clinicalFollowUpQuality: "/api/v1/clinical/follow-ups/{followUpId}/quality",
           clinicalFollowUpClinicReviewSummary: "/api/v1/clinical/follow-ups/clinic-review/summary",
           clinicalFollowUpClinicReview: "/api/v1/clinical/follow-ups/{followUpId}/clinic-review",
+          clinicalFollowUpSopValidationSummary: "/api/v1/clinical/follow-ups/sop-validation/summary",
+          clinicalFollowUpSopValidation: "/api/v1/clinical/follow-ups/{followUpId}/sop-validation",
           patientPortalFollowUps: "/api/v1/me/follow-ups",
           patientPortalFollowUpMessages: "/api/v1/me/follow-ups/{followUpId}/messages",
           visit: "/api/v1/visits/{visitId}",
@@ -3584,6 +3655,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage20a-20z.json") {
     return jsonResponse(200, OPENAPI_20A_20Z, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage21a-21z.json") {
+    return jsonResponse(200, OPENAPI_21A_21Z, config, requestOrigin);
   }
 
   return errorResponse({
