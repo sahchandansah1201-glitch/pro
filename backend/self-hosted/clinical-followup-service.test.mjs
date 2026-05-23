@@ -6,6 +6,7 @@ import {
   normalizeClinicalFollowUpCreatePayload,
   normalizeClinicalFollowUpMessagePayload,
   normalizeClinicalFollowUpOperationsUpdatePayload,
+  normalizeClinicalFollowUpQualityUpdatePayload,
   normalizeClinicalFollowUpUpdatePayload,
 } from "./clinical-followup-service.mjs";
 import { ForbiddenError } from "./rbac.mjs";
@@ -59,8 +60,28 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
       async getClinicalFollowUpOperationsSummary() {
         return { totalOpen: 2, overdue: 1, waitingPatient: 1, escalated: 1, deliveryFailed: 1, deliveryPending: 0, source: "postgres" };
       },
+      async getClinicalFollowUpOutcomeQualitySummary() {
+        return {
+          totalFollowUps: 4,
+          closedFollowUps: 2,
+          closedWithEvidence: 1,
+          closedMissingEvidence: 1,
+          qualityReviewed: 1,
+          qualityPending: 2,
+          qualityNeedsAttention: 1,
+          source: "postgres",
+        };
+      },
       async updateClinicalFollowUpOperations() {
         return { ...followUp, triageState: "resolved", escalationLevel: "none", deliveryState: "delivered" };
+      },
+      async updateClinicalFollowUpQuality() {
+        return {
+          ...followUp,
+          resolutionOutcome: "patient_reached",
+          qualityReviewState: "reviewed",
+          qualityReviewNote: "QA ok.",
+        };
       },
       ...repositoryOverrides,
     },
@@ -122,6 +143,23 @@ test("validates operations hardening payloads", () => {
   );
   assert.throws(() => normalizeClinicalFollowUpOperationsUpdatePayload({ triageState: "bad" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpOperationsUpdatePayload({}), /validation/i);
+});
+
+test("validates outcome quality payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpQualityUpdatePayload({
+      resolutionOutcome: "patient_reached",
+      qualityReviewState: "reviewed",
+      qualityReviewNote: "  QA ok.  ",
+    }),
+    {
+      resolutionOutcome: "patient_reached",
+      qualityReviewState: "reviewed",
+      qualityReviewNote: "QA ok.",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpQualityUpdatePayload({ qualityReviewState: "bad" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpQualityUpdatePayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -211,6 +249,58 @@ test("doctor can list, summarize, and update operations queue with audit", async
       "clinical_follow_up.operations.summary",
       "clinical_follow_up.operations.update",
     ],
+  );
+});
+
+test("doctor can summarize outcomes and update quality review with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpOutcomeQualitySummary(
+    { now: "2026-05-22T10:00:00.000Z" },
+    DOCTOR,
+    { correlationId: "qa-1" },
+  );
+  const updated = await service.updateClinicalFollowUpQuality(
+    FOLLOW_UP_ID,
+    {
+      resolutionOutcome: "patient_reached",
+      qualityReviewState: "reviewed",
+      qualityReviewNote: "QA ok.",
+    },
+    DOCTOR,
+    { correlationId: "qa-2" },
+  );
+
+  assert.equal(summary.summary.closedMissingEvidence, 1);
+  assert.equal(updated.followUp.qualityReviewState, "reviewed");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.outcomes.summary",
+      "clinical_follow_up.quality.update",
+    ],
+  );
+});
+
+test("operator cannot update quality review and missing quality row maps to 404", async () => {
+  const service = createService({
+    repositoryOverrides: {
+      async updateClinicalFollowUpQuality() {
+        return null;
+      },
+    },
+  });
+  await assert.rejects(
+    () => service.updateClinicalFollowUpQuality(
+      FOLLOW_UP_ID,
+      { qualityReviewState: "reviewed" },
+      { ...DOCTOR, roles: ["operator"] },
+    ),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.updateClinicalFollowUpQuality(FOLLOW_UP_ID, { qualityReviewState: "reviewed" }, DOCTOR),
+    /Clinical follow-up was not found/i,
   );
 });
 

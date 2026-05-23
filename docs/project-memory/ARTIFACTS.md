@@ -15,6 +15,14 @@
    - [check-stage18a-18z-clinical-followup-operations-hardening.mjs](../../scripts/check-stage18a-18z-clinical-followup-operations-hardening.mjs)
    - [stage18a-18z-clinical-followup-operations-hardening.yml](../../.github/workflows/stage18a-18z-clinical-followup-operations-hardening.yml)
 
+3. Stage 19A-19Z clinical follow-up outcome quality artifacts:
+   - [clinical-followup-outcome-quality.stage19a-19z.json](../../deploy/self-hosted/clinical-followup-outcome-quality.stage19a-19z.json)
+   - [0026_stage19_followup_outcome_quality.sql](../../backend/self-hosted/db/migrations/0026_stage19_followup_outcome_quality.sql)
+   - [openapi.stage19a-19z.json](../../backend/self-hosted/openapi.stage19a-19z.json)
+   - [stage-19a-19z-clinical-followup-outcome-quality.md](../backend/stage-19a-19z-clinical-followup-outcome-quality.md)
+   - [check-stage19a-19z-clinical-followup-outcome-quality.mjs](../../scripts/check-stage19a-19z-clinical-followup-outcome-quality.mjs)
+   - [stage19a-19z-clinical-followup-outcome-quality.yml](../../.github/workflows/stage19a-19z-clinical-followup-outcome-quality.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

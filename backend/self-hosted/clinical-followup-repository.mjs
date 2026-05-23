@@ -98,6 +98,10 @@ export function normalizeClinicalFollowUp(row = {}) {
     lastDeliveryAttemptAt: cleanText(row.lastDeliveryAttemptAt ?? row.last_delivery_attempt_at),
     deliveryEvidence: cleanObject(row.deliveryEvidence ?? row.delivery_evidence),
     operationsNote: cleanText(row.operationsNote ?? row.operations_note),
+    resolutionOutcome: cleanText(row.resolutionOutcome ?? row.resolution_outcome) || "not_reviewed",
+    qualityReviewState: cleanText(row.qualityReviewState ?? row.quality_review_state) || "pending",
+    qualityReviewNote: cleanText(row.qualityReviewNote ?? row.quality_review_note),
+    qualityReviewedAt: cleanText(row.qualityReviewedAt ?? row.quality_reviewed_at),
     resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
     lastMessageAt: cleanText(row.lastMessageAt ?? row.last_message_at),
     completedAt: cleanText(row.completedAt ?? row.completed_at),
@@ -182,6 +186,10 @@ function followUpSelect({ patientSafe = false } = {}) {
     f.last_delivery_attempt_at as "lastDeliveryAttemptAt",
     f.delivery_evidence as "deliveryEvidence",
     f.operations_note as "operationsNote",
+    coalesce(f.resolution_outcome, 'not_reviewed') as "resolutionOutcome",
+    coalesce(f.quality_review_state, 'pending') as "qualityReviewState",
+    f.quality_review_note as "qualityReviewNote",
+    f.quality_reviewed_at as "qualityReviewedAt",
     f.resolved_at as "resolvedAt",
     f.last_message_at as "lastMessageAt",
     f.completed_at as "completedAt",
@@ -535,6 +543,31 @@ export function buildClinicalFollowUpOperationsSummarySql({
   `;
 }
 
+export function buildClinicalFollowUpOutcomeQualitySummarySql({
+  now = null,
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const nowExpression = now ? sqlTimestamp(now) : "now()";
+  return `
+    select
+      count(*)::int as "totalFollowUps",
+      count(*) filter (where f.status = 'completed' or f.triage_state = 'resolved')::int as "closedFollowUps",
+      count(*) filter (where f.status not in ('completed', 'cancelled') and coalesce(f.sla_due_at, f.due_at) < ${nowExpression})::int as "openOverdue",
+      count(*) filter (where f.status not in ('completed', 'cancelled') and f.escalation_level <> 'none')::int as "openEscalated",
+      count(*) filter (where f.status in ('completed', 'cancelled') and coalesce(f.delivery_evidence, '{}'::jsonb) <> '{}'::jsonb)::int as "closedWithEvidence",
+      count(*) filter (where f.status in ('completed', 'cancelled') and coalesce(f.delivery_evidence, '{}'::jsonb) = '{}'::jsonb)::int as "closedMissingEvidence",
+      count(*) filter (where coalesce(f.quality_review_state, 'pending') = 'reviewed')::int as "qualityReviewed",
+      count(*) filter (where coalesce(f.quality_review_state, 'pending') = 'pending')::int as "qualityPending",
+      count(*) filter (where coalesce(f.quality_review_state, 'pending') = 'needs_attention')::int as "qualityNeedsAttention",
+      count(*) filter (where coalesce(f.resolution_outcome, 'not_reviewed') = 'patient_reached')::int as "patientReached",
+      count(*) filter (where coalesce(f.resolution_outcome, 'not_reviewed') = 'clinical_escalation')::int as "clinicalEscalations",
+      count(*) filter (where f.delivery_state = 'failed')::int as "deliveryFailures"
+    from clinical_follow_up_tasks f
+    where ${clinicScopeWhere("f", { allClinics, clinicIds })}
+  `;
+}
+
 export function buildUpdateClinicalFollowUpOperationsSql({
   followUpId,
   actorUserId,
@@ -610,6 +643,76 @@ export function buildUpdateClinicalFollowUpOperationsSql({
   `;
 }
 
+export function buildUpdateClinicalFollowUpQualitySql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const updates = [];
+  if (changes.resolutionOutcome !== undefined) {
+    updates.push(`resolution_outcome = ${sqlLiteral(changes.resolutionOutcome)}`);
+  }
+  if (changes.qualityReviewState !== undefined) {
+    updates.push(`quality_review_state = ${sqlLiteral(changes.qualityReviewState)}`);
+  }
+  if (changes.qualityReviewNote !== undefined) {
+    updates.push(`quality_review_note = ${sqlNullableText(changes.qualityReviewNote)}`);
+  }
+  updates.push(`quality_reviewed_by_user_id = ${sqlUuid(actorUserId)}`);
+  updates.push("quality_reviewed_at = now()");
+  updates.push("updated_at = now()");
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set ${updates.join(",\n          ")}
+      from previous p
+      where f.id = p.id
+      returning f.*,
+        p.resolution_outcome as previous_resolution_outcome,
+        p.quality_review_state as previous_quality_review_state
+    ), event as (
+      insert into clinical_follow_up_quality_events (
+        follow_up_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        note
+      )
+      select
+        id,
+        clinic_id,
+        ${sqlUuid(actorUserId)},
+        'quality.update',
+        jsonb_build_object(
+          'resolutionOutcome', coalesce(previous_resolution_outcome, 'not_reviewed'),
+          'qualityReviewState', coalesce(previous_quality_review_state, 'pending')
+        ),
+        jsonb_build_object(
+          'resolutionOutcome', coalesce(resolution_outcome, 'not_reviewed'),
+          'qualityReviewState', coalesce(quality_review_state, 'pending')
+        ),
+        ${sqlNullableText(changes.qualityReviewNote)}
+      from updated
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function createClinicalFollowUpRepository(dbClient) {
   return {
     async listClinicalFollowUps(params) {
@@ -666,8 +769,31 @@ export function createClinicalFollowUpRepository(dbClient) {
         source: "postgres",
       };
     },
+    async getClinicalFollowUpOutcomeQualitySummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpOutcomeQualitySummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalFollowUps: Number(row.totalFollowUps ?? row.total_follow_ups ?? 0),
+        closedFollowUps: Number(row.closedFollowUps ?? row.closed_follow_ups ?? 0),
+        openOverdue: Number(row.openOverdue ?? row.open_overdue ?? 0),
+        openEscalated: Number(row.openEscalated ?? row.open_escalated ?? 0),
+        closedWithEvidence: Number(row.closedWithEvidence ?? row.closed_with_evidence ?? 0),
+        closedMissingEvidence: Number(row.closedMissingEvidence ?? row.closed_missing_evidence ?? 0),
+        qualityReviewed: Number(row.qualityReviewed ?? row.quality_reviewed ?? 0),
+        qualityPending: Number(row.qualityPending ?? row.quality_pending ?? 0),
+        qualityNeedsAttention: Number(row.qualityNeedsAttention ?? row.quality_needs_attention ?? 0),
+        patientReached: Number(row.patientReached ?? row.patient_reached ?? 0),
+        clinicalEscalations: Number(row.clinicalEscalations ?? row.clinical_escalations ?? 0),
+        deliveryFailures: Number(row.deliveryFailures ?? row.delivery_failures ?? 0),
+        source: "postgres",
+      };
+    },
     async updateClinicalFollowUpOperations(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpOperationsSql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
+    },
+    async updateClinicalFollowUpQuality(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpQualitySql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };

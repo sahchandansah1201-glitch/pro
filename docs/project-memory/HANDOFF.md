@@ -7,6 +7,14 @@ merged from branch `codex/stage9n-9z-device-bridge-lifecycle-assurance`.
 
 ## Confirmed state
 
+0. Stage 19A-19Z is implemented in the current branch as follow-up outcome and
+   quality review:
+   - PostgreSQL outcome and quality review state on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_quality_events`;
+   - backend outcome summary and quality update routes;
+   - doctor live workspace quality closure panel;
+   - no managed notification provider dependency.
+
 0. Stage 18A-18Z is implemented in the current branch as follow-up operations
    hardening:
    - PostgreSQL SLA, triage, escalation, delivery evidence, and append-only

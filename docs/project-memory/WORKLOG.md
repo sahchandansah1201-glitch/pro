@@ -1,5 +1,14 @@
 # WORKLOG
 
+## 2026-05-23
+
+- Создан Stage 19A-19Z clinical follow-up outcome quality после Stage 18A-18Z.
+- Добавлены outcome/QA поля, append-only quality events, backend summary/update
+  routes, OpenAPI, nginx publishing, frontend adapter, doctor live workspace
+  quality panel, guard, workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no signed URLs/storage paths/provider tokens in protected outputs.
+
 ## 2026-05-22
 
 - Создан Stage 18A-18Z clinical follow-up operations hardening после Stage 17A-17Z.

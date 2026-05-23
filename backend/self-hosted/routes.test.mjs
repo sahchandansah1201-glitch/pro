@@ -562,6 +562,31 @@ function createRuntime({
           },
         };
       },
+      async getClinicalFollowUpOutcomeQualitySummary() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          summary: {
+            totalFollowUps: 4,
+            closedFollowUps: 2,
+            openOverdue: 1,
+            openEscalated: 1,
+            closedWithEvidence: 1,
+            closedMissingEvidence: 1,
+            qualityReviewed: 1,
+            qualityPending: 2,
+            qualityNeedsAttention: 1,
+            patientReached: 1,
+            clinicalEscalations: 1,
+            deliveryFailures: 1,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
       async updateClinicalFollowUpOperations() {
         if (clinicalFollowUpError) throw clinicalFollowUpError;
         return {
@@ -570,6 +595,22 @@ function createRuntime({
             triageState: "resolved",
             escalationLevel: "none",
             deliveryState: "delivered",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUpQuality() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: {
+            ...(clinicalFollowUp || { id: "10000000-0000-4000-8000-000000000701" }),
+            resolutionOutcome: "patient_reached",
+            qualityReviewState: "reviewed",
+            qualityReviewNote: "QA ok.",
           },
           scope: {
             allClinics: false,
@@ -3909,6 +3950,43 @@ test("Stage 18A-18Z · /openapi.stage18a-18z.json documents operations hardening
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/operations"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/operations/summary"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/operations"].patch);
+});
+
+test("Stage 19A-19Z · follow-up outcome quality routes summarize and update local QA state", async () => {
+  const runtime = createRuntime();
+  const summary = await request(
+    "/api/v1/clinical/follow-ups/outcomes/summary",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(summary.status, 200);
+  assert.equal(summary.json.stage, "19A-19Z");
+  assert.equal(summary.json.item.closedMissingEvidence, 1);
+  assert.equal(summary.json.item.qualityNeedsAttention, 1);
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701/quality",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    {
+      resolutionOutcome: "patient_reached",
+      qualityReviewState: "reviewed",
+      qualityReviewNote: "QA ok.",
+    },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.stage, "19A-19Z");
+  assert.equal(updated.json.item.qualityReviewState, "reviewed");
+  assert.doesNotMatch(updated.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url|access_token/i);
+});
+
+test("Stage 19A-19Z · /openapi.stage19a-19z.json documents outcome quality", async () => {
+  const response = await request("/openapi.stage19a-19z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "19A-19Z-clinical-followup-outcome-quality");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/outcomes/summary"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/quality"].patch);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

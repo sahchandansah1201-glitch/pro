@@ -4,12 +4,15 @@ import {
   createSelfHostedClinicalFollowUpMessage,
   createSelfHostedPatientFollowUpMessage,
   createSelfHostedVisitFollowUp,
+  getSelfHostedClinicalFollowUpOutcomeQualitySummary,
   getSelfHostedClinicalFollowUpOperationsSummary,
   listSelfHostedClinicalFollowUps,
   listSelfHostedClinicalFollowUpOperations,
   listSelfHostedPatientFollowUps,
   toSelfHostedClinicalFollowUp,
+  toFollowUpOutcomeQualitySummary,
   toFollowUpOperationsSummary,
+  updateSelfHostedClinicalFollowUpQuality,
   updateSelfHostedClinicalFollowUpOperations,
   updateSelfHostedClinicalFollowUp,
 } from "./self-hosted-follow-up-api";
@@ -30,6 +33,9 @@ const FOLLOW_UP = {
   deliveryAttempts: 2,
   deliveryEvidence: { channel: "portal", state: "failed" },
   operationsNote: "Позвонить пациенту",
+  resolutionOutcome: "clinical_escalation",
+  qualityReviewState: "needs_attention",
+  qualityReviewNote: "Нужен разбор.",
   messageCount: 1,
   latestMessage: {
     id: "message-1",
@@ -57,7 +63,10 @@ describe("self-hosted follow-up API", () => {
     expect(item.escalationLevel).toBe("clinic_admin");
     expect(item.deliveryState).toBe("failed");
     expect(item.deliveryAttempts).toBe(2);
+    expect(item.resolutionOutcome).toBe("clinical_escalation");
+    expect(item.qualityReviewState).toBe("needs_attention");
     expect(toFollowUpOperationsSummary({ totalOpen: 2, overdue: 1 }).overdue).toBe(1);
+    expect(toFollowUpOutcomeQualitySummary({ closedMissingEvidence: 2 }).closedMissingEvidence).toBe(2);
   });
 
   it("lists staff and patient follow-ups with bearer token", async () => {
@@ -116,13 +125,19 @@ describe("self-hosted follow-up API", () => {
       followUpId: "fu-1",
       payload: { triageState: "resolved", deliveryState: "delivered" },
     });
+    await updateSelfHostedClinicalFollowUpQuality({
+      ...args,
+      followUpId: "fu-1",
+      payload: { resolutionOutcome: "patient_reached", qualityReviewState: "reviewed" },
+    });
 
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/visits/visit-1/follow-ups");
     expect(fetchMock.mock.calls[1][1]?.method).toBe("PATCH");
     expect(fetchMock.mock.calls[2][0]).toContain("/api/v1/clinical/follow-ups/fu-1/messages");
     expect(fetchMock.mock.calls[3][0]).toContain("/api/v1/me/follow-ups/fu-1/messages");
     expect(fetchMock.mock.calls[4][0]).toContain("/api/v1/clinical/follow-ups/fu-1/operations");
+    expect(fetchMock.mock.calls[5][0]).toContain("/api/v1/clinical/follow-ups/fu-1/quality");
   });
 
   it("lists and summarizes follow-up operations queue", async () => {
@@ -143,12 +158,15 @@ describe("self-hosted follow-up API", () => {
       overdueOnly: true,
     });
     const summary = await getSelfHostedClinicalFollowUpOperationsSummary(args);
+    const outcomes = await getSelfHostedClinicalFollowUpOutcomeQualitySummary(args);
 
     expect(queue.ok).toBe(true);
     expect(queue.value?.[0]?.triageState).toBe("escalated");
     expect(summary.value?.deliveryFailed).toBe(1);
+    expect(outcomes.ok).toBe(true);
     expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/clinical/follow-ups/operations?visitId=visit-1&overdueOnly=true");
     expect(fetchMock.mock.calls[1][0]).toContain("/api/v1/clinical/follow-ups/operations/summary");
+    expect(fetchMock.mock.calls[2][0]).toContain("/api/v1/clinical/follow-ups/outcomes/summary");
   });
 
   it("returns not_configured without a token", async () => {

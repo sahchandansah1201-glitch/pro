@@ -14,6 +14,13 @@ export type FollowUpStatus = "planned" | "in_progress" | "sent" | "acknowledged"
 export type FollowUpTriageState = "new" | "queued" | "in_review" | "waiting_patient" | "escalated" | "resolved" | "blocked";
 export type FollowUpEscalationLevel = "none" | "watch" | "clinic_admin" | "urgent";
 export type FollowUpDeliveryState = "not_required" | "pending" | "delivered" | "failed" | "deferred";
+export type FollowUpResolutionOutcome =
+  | "not_reviewed"
+  | "patient_reached"
+  | "patient_unreachable"
+  | "clinical_escalation"
+  | "administrative_close";
+export type FollowUpQualityReviewState = "pending" | "reviewed" | "needs_attention";
 
 export interface SelfHostedFollowUpMessage {
   id: string;
@@ -46,6 +53,10 @@ export interface SelfHostedClinicalFollowUp {
   lastDeliveryAttemptAt: string | null;
   deliveryEvidence: Record<string, unknown>;
   operationsNote?: string | null;
+  resolutionOutcome: FollowUpResolutionOutcome;
+  qualityReviewState: FollowUpQualityReviewState;
+  qualityReviewNote?: string | null;
+  qualityReviewedAt?: string | null;
   resolvedAt?: string | null;
   lastMessageAt: string | null;
   createdAt: string | null;
@@ -91,6 +102,22 @@ export interface FollowUpOperationsSummary {
   source?: string;
 }
 
+export interface FollowUpOutcomeQualitySummary {
+  totalFollowUps: number;
+  closedFollowUps: number;
+  openOverdue: number;
+  openEscalated: number;
+  closedWithEvidence: number;
+  closedMissingEvidence: number;
+  qualityReviewed: number;
+  qualityPending: number;
+  qualityNeedsAttention: number;
+  patientReached: number;
+  clinicalEscalations: number;
+  deliveryFailures: number;
+  source?: string;
+}
+
 export interface UpdateFollowUpOperationsPayload {
   triageState?: FollowUpTriageState;
   escalationLevel?: FollowUpEscalationLevel;
@@ -98,6 +125,12 @@ export interface UpdateFollowUpOperationsPayload {
   deliveryState?: FollowUpDeliveryState;
   deliveryEvidence?: Record<string, unknown>;
   operationsNote?: string | null;
+}
+
+export interface UpdateFollowUpQualityPayload {
+  resolutionOutcome?: FollowUpResolutionOutcome;
+  qualityReviewState?: FollowUpQualityReviewState;
+  qualityReviewNote?: string | null;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -157,6 +190,20 @@ function toDeliveryState(value: unknown): FollowUpDeliveryState {
     : "not_required";
 }
 
+function toResolutionOutcome(value: unknown): FollowUpResolutionOutcome {
+  const outcome = String(value ?? "not_reviewed");
+  return ["not_reviewed", "patient_reached", "patient_unreachable", "clinical_escalation", "administrative_close"].includes(outcome)
+    ? (outcome as FollowUpResolutionOutcome)
+    : "not_reviewed";
+}
+
+function toQualityReviewState(value: unknown): FollowUpQualityReviewState {
+  const state = String(value ?? "pending");
+  return ["pending", "reviewed", "needs_attention"].includes(state)
+    ? (state as FollowUpQualityReviewState)
+    : "pending";
+}
+
 export function toSelfHostedFollowUpMessage(input: unknown): SelfHostedFollowUpMessage {
   const row = isRecord(input) ? input : {};
   return {
@@ -194,6 +241,10 @@ export function toSelfHostedClinicalFollowUp(input: unknown): SelfHostedClinical
     lastDeliveryAttemptAt: textOrNull(row.lastDeliveryAttemptAt),
     deliveryEvidence: isRecord(row.deliveryEvidence) ? row.deliveryEvidence : {},
     operationsNote: textOrNull(row.operationsNote),
+    resolutionOutcome: toResolutionOutcome(row.resolutionOutcome),
+    qualityReviewState: toQualityReviewState(row.qualityReviewState),
+    qualityReviewNote: textOrNull(row.qualityReviewNote),
+    qualityReviewedAt: textOrNull(row.qualityReviewedAt),
     resolvedAt: textOrNull(row.resolvedAt),
     lastMessageAt: textOrNull(row.lastMessageAt),
     createdAt: textOrNull(row.createdAt),
@@ -217,6 +268,25 @@ export function toFollowUpOperationsSummary(input: unknown): FollowUpOperationsS
     escalated: Number(row.escalated ?? 0),
     deliveryFailed: Number(row.deliveryFailed ?? 0),
     deliveryPending: Number(row.deliveryPending ?? 0),
+    source: textOrNull(row.source) ?? undefined,
+  };
+}
+
+export function toFollowUpOutcomeQualitySummary(input: unknown): FollowUpOutcomeQualitySummary {
+  const row = isRecord(input) ? input : {};
+  return {
+    totalFollowUps: Number(row.totalFollowUps ?? 0),
+    closedFollowUps: Number(row.closedFollowUps ?? 0),
+    openOverdue: Number(row.openOverdue ?? 0),
+    openEscalated: Number(row.openEscalated ?? 0),
+    closedWithEvidence: Number(row.closedWithEvidence ?? 0),
+    closedMissingEvidence: Number(row.closedMissingEvidence ?? 0),
+    qualityReviewed: Number(row.qualityReviewed ?? 0),
+    qualityPending: Number(row.qualityPending ?? 0),
+    qualityNeedsAttention: Number(row.qualityNeedsAttention ?? 0),
+    patientReached: Number(row.patientReached ?? 0),
+    clinicalEscalations: Number(row.clinicalEscalations ?? 0),
+    deliveryFailures: Number(row.deliveryFailures ?? 0),
     source: textOrNull(row.source) ?? undefined,
   };
 }
@@ -368,10 +438,31 @@ export async function getSelfHostedClinicalFollowUpOperationsSummary(
   return ok(toFollowUpOperationsSummary(body.item));
 }
 
+export async function getSelfHostedClinicalFollowUpOutcomeQualitySummary(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<FollowUpOutcomeQualitySummary>> {
+  const response = await requestJson(args, "/api/v1/clinical/follow-ups/outcomes/summary");
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toFollowUpOutcomeQualitySummary(body.item));
+}
+
 export async function updateSelfHostedClinicalFollowUpOperations(
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpOperationsPayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
   const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/operations`, {
+    method: "PATCH",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedClinicalFollowUp(body.item));
+}
+
+export async function updateSelfHostedClinicalFollowUpQuality(
+  args: BaseArgs & { followUpId: string; payload: UpdateFollowUpQualityPayload },
+): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
+  const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/quality`, {
     method: "PATCH",
     body: args.payload,
   });

@@ -2,22 +2,22 @@
 
 ## Current confirmed state
 
-Stage 18A-18Z is the current product-facing batch. It hardens the Stage 17A-17Z clinical follow-up communication loop with staff queue triage, escalation states, SLA tracking, and local delivery evidence.
+Stage 19A-19Z is the current product-facing batch. It extends the Stage 18A-18Z clinical follow-up operations queue with outcome and quality review state, local quality evidence, and doctor workspace QA actions.
 
-## Immediate actions after Stage 18A-18Z PR merge
+## Immediate actions after Stage 19A-19Z PR merge
 
 1. Verify local `main` after merge:
    - `git status --short`
-   - `npm run preflight:stage18a-18z`
+   - `npm run preflight:stage19a-19z`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
 2. Send the Lovable sync prompt only after the PR is merged into `main` and local `main` is verified.
 3. Expected Lovable confirmation:
-   - `Confirmed: Stage 18A-18Z synced from main, no conflicts.`
+   - `Confirmed: Stage 19A-19Z synced from main, no conflicts.`
 
 ## Next hypothesis
 
-Stage 19A-19Z is a hypothesis until repository files define it. The most likely next product cycle is closing the remaining clinical follow-up/product operations gaps after Stage 18A-18Z.
+Stage 20A-20Z is a hypothesis until repository files define it. The most likely next product cycle is closing the remaining follow-up analytics, retention, and clinic review gaps after Stage 19A-19Z.
 
 ## Historical anchors
 
