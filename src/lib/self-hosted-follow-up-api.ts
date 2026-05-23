@@ -23,6 +23,7 @@ export type FollowUpResolutionOutcome =
 export type FollowUpQualityReviewState = "pending" | "reviewed" | "needs_attention";
 export type FollowUpRetentionReviewState = "not_due" | "due" | "reviewed" | "archived";
 export type FollowUpClinicReviewState = "not_scheduled" | "scheduled" | "completed" | "needs_policy_review";
+export type FollowUpSopValidationState = "not_required" | "required" | "validated" | "exception" | "blocked";
 
 export interface SelfHostedFollowUpMessage {
   id: string;
@@ -65,6 +66,10 @@ export interface SelfHostedClinicalFollowUp {
   clinicReviewState: FollowUpClinicReviewState;
   clinicReviewNote?: string | null;
   clinicReviewedAt?: string | null;
+  sopValidationState: FollowUpSopValidationState;
+  sopPolicyVersion?: string | null;
+  sopExceptionReason?: string | null;
+  sopValidatedAt?: string | null;
   resolvedAt?: string | null;
   lastMessageAt: string | null;
   createdAt: string | null;
@@ -140,6 +145,20 @@ export interface FollowUpClinicReviewSummary {
   source?: string;
 }
 
+export interface FollowUpSopValidationSummary {
+  totalFollowUps: number;
+  sopRequired: number;
+  sopValidated: number;
+  sopExceptions: number;
+  sopBlocked: number;
+  clinicNeedsPolicyReview: number;
+  qualityNeedsAttention: number;
+  openEscalated: number;
+  closedMissingEvidence: number;
+  localSopEvents: number;
+  source?: string;
+}
+
 export interface UpdateFollowUpOperationsPayload {
   triageState?: FollowUpTriageState;
   escalationLevel?: FollowUpEscalationLevel;
@@ -162,6 +181,12 @@ export interface UpdateFollowUpClinicReviewPayload {
   clinicReviewNote?: string | null;
 }
 
+export interface UpdateFollowUpSopValidationPayload {
+  sopValidationState?: FollowUpSopValidationState;
+  sopPolicyVersion?: string | null;
+  sopExceptionReason?: string | null;
+}
+
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
@@ -182,6 +207,11 @@ function isRecord(input: unknown): input is Record<string, unknown> {
 
 function textOrNull(value: unknown): string | null {
   return value == null ? null : String(value);
+}
+
+function numberOrZero(value: unknown): number {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function toStatus(value: unknown): FollowUpStatus {
@@ -247,6 +277,13 @@ function toClinicReviewState(value: unknown): FollowUpClinicReviewState {
     : "not_scheduled";
 }
 
+function toSopValidationState(value: unknown): FollowUpSopValidationState {
+  const state = String(value ?? "not_required");
+  return ["not_required", "required", "validated", "exception", "blocked"].includes(state)
+    ? (state as FollowUpSopValidationState)
+    : "not_required";
+}
+
 export function toSelfHostedFollowUpMessage(input: unknown): SelfHostedFollowUpMessage {
   const row = isRecord(input) ? input : {};
   return {
@@ -294,6 +331,10 @@ export function toSelfHostedClinicalFollowUp(input: unknown): SelfHostedClinical
     clinicReviewState: toClinicReviewState(row.clinicReviewState),
     clinicReviewNote: textOrNull(row.clinicReviewNote),
     clinicReviewedAt: textOrNull(row.clinicReviewedAt),
+    sopValidationState: toSopValidationState(row.sopValidationState),
+    sopPolicyVersion: textOrNull(row.sopPolicyVersion),
+    sopExceptionReason: textOrNull(row.sopExceptionReason),
+    sopValidatedAt: textOrNull(row.sopValidatedAt),
     resolvedAt: textOrNull(row.resolvedAt),
     lastMessageAt: textOrNull(row.lastMessageAt),
     createdAt: textOrNull(row.createdAt),
@@ -354,6 +395,23 @@ export function toFollowUpClinicReviewSummary(input: unknown): FollowUpClinicRev
     closedMissingEvidence: Number(row.closedMissingEvidence ?? 0),
     localReviewEvents: Number(row.localReviewEvents ?? 0),
     source: textOrNull(row.source) ?? undefined,
+  };
+}
+
+export function toFollowUpSopValidationSummary(input: unknown): FollowUpSopValidationSummary {
+  const row = isRecord(input) ? input : {};
+  return {
+    totalFollowUps: numberOrZero(row.totalFollowUps),
+    sopRequired: numberOrZero(row.sopRequired),
+    sopValidated: numberOrZero(row.sopValidated),
+    sopExceptions: numberOrZero(row.sopExceptions),
+    sopBlocked: numberOrZero(row.sopBlocked),
+    clinicNeedsPolicyReview: numberOrZero(row.clinicNeedsPolicyReview),
+    qualityNeedsAttention: numberOrZero(row.qualityNeedsAttention),
+    openEscalated: numberOrZero(row.openEscalated),
+    closedMissingEvidence: numberOrZero(row.closedMissingEvidence),
+    localSopEvents: numberOrZero(row.localSopEvents),
+    source: textOrNull(row.source) || undefined,
   };
 }
 
@@ -522,6 +580,15 @@ export async function getSelfHostedClinicalFollowUpClinicReviewSummary(
   return ok(toFollowUpClinicReviewSummary(body.item));
 }
 
+export async function getSelfHostedClinicalFollowUpSopValidationSummary(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<FollowUpSopValidationSummary>> {
+  const response = await requestJson(args, "/api/v1/clinical/follow-ups/sop-validation/summary");
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toFollowUpSopValidationSummary(body.item));
+}
+
 export async function updateSelfHostedClinicalFollowUpOperations(
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpOperationsPayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
@@ -550,6 +617,18 @@ export async function updateSelfHostedClinicalFollowUpClinicReview(
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpClinicReviewPayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
   const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/clinic-review`, {
+    method: "PATCH",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedClinicalFollowUp(body.item));
+}
+
+export async function updateSelfHostedClinicalFollowUpSopValidation(
+  args: BaseArgs & { followUpId: string; payload: UpdateFollowUpSopValidationPayload },
+): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
+  const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/sop-validation`, {
     method: "PATCH",
     body: args.payload,
   });

@@ -31,6 +31,14 @@
    - [check-stage20a-20z-clinical-followup-retention-clinic-review.mjs](../../scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.mjs)
    - [stage20a-20z-clinical-followup-retention-clinic-review.yml](../../.github/workflows/stage20a-20z-clinical-followup-retention-clinic-review.yml)
 
+5. Stage 21A-21Z clinical follow-up SOP validation artifacts:
+   - [clinical-followup-sop-validation.stage21a-21z.json](../../deploy/self-hosted/clinical-followup-sop-validation.stage21a-21z.json)
+   - [0028_stage21_followup_sop_validation.sql](../../backend/self-hosted/db/migrations/0028_stage21_followup_sop_validation.sql)
+   - [openapi.stage21a-21z.json](../../backend/self-hosted/openapi.stage21a-21z.json)
+   - [stage-21a-21z-clinical-followup-sop-validation.md](../backend/stage-21a-21z-clinical-followup-sop-validation.md)
+   - [check-stage21a-21z-clinical-followup-sop-validation.mjs](../../scripts/check-stage21a-21z-clinical-followup-sop-validation.mjs)
+   - [stage21a-21z-clinical-followup-sop-validation.yml](../../.github/workflows/stage21a-21z-clinical-followup-sop-validation.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

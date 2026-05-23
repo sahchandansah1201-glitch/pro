@@ -1,0 +1,59 @@
+name: stage21a-21z-clinical-followup-sop-validation
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-21a-21z-clinical-followup-sop-validation.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage21a-21z-clinical-followup-sop-validation.mjs"
+      - "scripts/check-stage21a-21z-clinical-followup-sop-validation.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage21a-21z-clinical-followup-sop-validation.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-21a-21z-clinical-followup-sop-validation.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage21a-21z-clinical-followup-sop-validation.mjs"
+      - "scripts/check-stage21a-21z-clinical-followup-sop-validation.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage21a-21z-clinical-followup-sop-validation.yml"
+  workflow_dispatch:
+
+jobs:
+  stage21a-21z-clinical-followup-sop-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 21A-21Z preflight
+        run: npm run preflight:stage21a-21z
+      - name: Stage 21A-21Z summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 21A-21Z clinical follow-up SOP validation"
+            echo ""
+            echo "- Command: \`npm run preflight:stage21a-21z\`"
+            echo "- Boundary: self-hosted backend + PostgreSQL + clinic-specific SOP validation metadata"
+          } >> "$GITHUB_STEP_SUMMARY"

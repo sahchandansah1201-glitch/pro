@@ -16,14 +16,17 @@ import {
   getSelfHostedClinicalFollowUpClinicReviewSummary,
   getSelfHostedClinicalFollowUpOutcomeQualitySummary,
   getSelfHostedClinicalFollowUpOperationsSummary,
+  getSelfHostedClinicalFollowUpSopValidationSummary,
   listSelfHostedClinicalFollowUpOperations,
   type FollowUpClinicReviewSummary,
   type FollowUpOutcomeQualitySummary,
   type FollowUpOperationsSummary,
+  type FollowUpSopValidationSummary,
   type SelfHostedClinicalFollowUp,
   updateSelfHostedClinicalFollowUpClinicReview,
   updateSelfHostedClinicalFollowUpOperations,
   updateSelfHostedClinicalFollowUpQuality,
+  updateSelfHostedClinicalFollowUpSopValidation,
 } from "@/lib/self-hosted-follow-up-api";
 import {
   archiveSelfHostedVisitLesion,
@@ -50,6 +53,7 @@ type BusyAction =
   | "operations-update"
   | "quality-update"
   | "clinic-review-update"
+  | "sop-validation-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -89,6 +93,19 @@ const EMPTY_CLINIC_REVIEW_SUMMARY: FollowUpClinicReviewSummary = {
   localReviewEvents: 0,
 };
 
+const EMPTY_SOP_VALIDATION_SUMMARY: FollowUpSopValidationSummary = {
+  totalFollowUps: 0,
+  sopRequired: 0,
+  sopValidated: 0,
+  sopExceptions: 0,
+  sopBlocked: 0,
+  clinicNeedsPolicyReview: 0,
+  qualityNeedsAttention: 0,
+  openEscalated: 0,
+  closedMissingEvidence: 0,
+  localSopEvents: 0,
+};
+
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
   if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
@@ -116,6 +133,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [operationsSummary, setOperationsSummary] = useState<FollowUpOperationsSummary>(EMPTY_OPERATIONS_SUMMARY);
   const [outcomeSummary, setOutcomeSummary] = useState<FollowUpOutcomeQualitySummary>(EMPTY_OUTCOME_SUMMARY);
   const [clinicReviewSummary, setClinicReviewSummary] = useState<FollowUpClinicReviewSummary>(EMPTY_CLINIC_REVIEW_SUMMARY);
+  const [sopValidationSummary, setSopValidationSummary] = useState<FollowUpSopValidationSummary>(EMPTY_SOP_VALIDATION_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
 
   const selectedLesion = useMemo(
@@ -131,10 +149,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, clinicReview, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, sopValidation, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
+      getSelfHostedClinicalFollowUpSopValidationSummary(baseArgs),
       listSelfHostedClinicalFollowUpOperations({
         ...baseArgs,
         visitId: visit.id,
@@ -143,10 +162,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (summary.ok) setOperationsSummary(summary.value);
     if (outcomes.ok) setOutcomeSummary(outcomes.value);
     if (clinicReview.ok) setClinicReviewSummary(clinicReview.value);
+    if (sopValidation.ok) setSopValidationSummary(sopValidation.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || queue.error));
     }
   }
 
@@ -306,6 +326,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("clinic-review-update");
     const result = await updateSelfHostedClinicalFollowUpClinicReview({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateSopValidationState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpSopValidation>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("sop-validation-update");
+    const result = await updateSelfHostedClinicalFollowUpSopValidation({
       ...baseArgs,
       followUpId,
       payload,
@@ -635,6 +671,45 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           </dl>
         </section>
 
+        <section
+          aria-label="SOP validation follow-up"
+          className="mt-3 rounded-md border border-border bg-muted/20 p-3"
+        >
+          <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h4 className="h-section text-[13px]">SOP validation</h4>
+              <p className="text-meta">
+                Clinic-specific SOP validation хранится локально и не подтверждает внешний SOP outcome.
+              </p>
+            </div>
+            <span className="text-[12px] text-muted-foreground">
+              SOP events: {sopValidationSummary.localSopEvents}
+            </span>
+          </div>
+          <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2 lg:grid-cols-5">
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">SOP required</dt>
+              <dd className="text-lg font-semibold">{sopValidationSummary.sopRequired}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">SOP validated</dt>
+              <dd className="text-lg font-semibold">{sopValidationSummary.sopValidated}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Exceptions</dt>
+              <dd className="text-lg font-semibold">{sopValidationSummary.sopExceptions}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Blocked</dt>
+              <dd className="text-lg font-semibold">{sopValidationSummary.sopBlocked}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Escalated open</dt>
+              <dd className="text-lg font-semibold">{sopValidationSummary.openEscalated}</dd>
+            </div>
+          </dl>
+        </section>
+
         <div className="mt-3 space-y-2" aria-label="Очередь follow-up по визиту">
           {operationsQueue.length === 0 ? (
             <p className="text-[12px] text-muted-foreground">Для этого визита нет открытых follow-up задач.</p>
@@ -650,6 +725,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   retention: {item.retentionReviewState} · clinic review: {item.clinicReviewState}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  SOP: {item.sopValidationState} · policy: {item.sopPolicyVersion || "not set"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -780,6 +858,41 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Clinic review done
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-validation-update"}
+                  onClick={() => void updateSopValidationState(
+                    item.id,
+                    {
+                      sopValidationState: "validated",
+                      sopPolicyVersion: "clinic-local-v1",
+                    },
+                    "SOP validation по follow-up подтверждён локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  SOP validated
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-validation-update"}
+                  onClick={() => void updateSopValidationState(
+                    item.id,
+                    {
+                      sopValidationState: "exception",
+                      sopPolicyVersion: "clinic-local-v1",
+                      sopExceptionReason: "Clinic-specific exception recorded locally.",
+                    },
+                    "SOP exception по follow-up записан локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  SOP exception
                 </Button>
               </div>
             </article>

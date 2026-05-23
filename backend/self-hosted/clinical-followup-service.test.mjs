@@ -8,6 +8,7 @@ import {
   normalizeClinicalFollowUpMessagePayload,
   normalizeClinicalFollowUpOperationsUpdatePayload,
   normalizeClinicalFollowUpQualityUpdatePayload,
+  normalizeClinicalFollowUpSopValidationUpdatePayload,
   normalizeClinicalFollowUpUpdatePayload,
 } from "./clinical-followup-service.mjs";
 import { ForbiddenError } from "./rbac.mjs";
@@ -88,6 +89,21 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           source: "postgres",
         };
       },
+      async getClinicalFollowUpSopValidationSummary() {
+        return {
+          totalFollowUps: 4,
+          sopRequired: 2,
+          sopValidated: 1,
+          sopExceptions: 1,
+          sopBlocked: 0,
+          clinicNeedsPolicyReview: 1,
+          qualityNeedsAttention: 1,
+          openEscalated: 1,
+          closedMissingEvidence: 1,
+          localSopEvents: 2,
+          source: "postgres",
+        };
+      },
       async updateClinicalFollowUpOperations() {
         return { ...followUp, triageState: "resolved", escalationLevel: "none", deliveryState: "delivered" };
       },
@@ -106,6 +122,14 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           retentionReviewNote: "Retention ok.",
           clinicReviewState: "completed",
           clinicReviewNote: "Clinic review complete.",
+        };
+      },
+      async updateClinicalFollowUpSopValidation() {
+        return {
+          ...followUp,
+          sopValidationState: "validated",
+          sopPolicyVersion: "clinic-local-v1",
+          sopExceptionReason: null,
         };
       },
       ...repositoryOverrides,
@@ -204,6 +228,23 @@ test("validates retention and clinic review payloads", () => {
   );
   assert.throws(() => normalizeClinicalFollowUpClinicReviewUpdatePayload({ clinicReviewState: "bad" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpClinicReviewUpdatePayload({}), /validation/i);
+});
+
+test("validates clinic-specific SOP validation payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpSopValidationUpdatePayload({
+      sopValidationState: "validated",
+      sopPolicyVersion: "  clinic-local-v1  ",
+      sopExceptionReason: "  Exception not needed.  ",
+    }),
+    {
+      sopValidationState: "validated",
+      sopPolicyVersion: "clinic-local-v1",
+      sopExceptionReason: "Exception not needed.",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpSopValidationUpdatePayload({ sopValidationState: "bad" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopValidationUpdatePayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -354,6 +395,57 @@ test("doctor can summarize retention review and update clinic review with audit"
       "clinical_follow_up.clinic_review.summary",
       "clinical_follow_up.clinic_review.update",
     ],
+  );
+});
+
+test("doctor can summarize and update SOP validation with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpSopValidationSummary(
+    {},
+    DOCTOR,
+    { correlationId: "sop-1" },
+  );
+  const updated = await service.updateClinicalFollowUpSopValidation(
+    FOLLOW_UP_ID,
+    {
+      sopValidationState: "validated",
+      sopPolicyVersion: "clinic-local-v1",
+    },
+    DOCTOR,
+    { correlationId: "sop-2" },
+  );
+
+  assert.equal(summary.summary.sopRequired, 2);
+  assert.equal(updated.followUp.sopValidationState, "validated");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.sop_validation.summary",
+      "clinical_follow_up.sop_validation.update",
+    ],
+  );
+});
+
+test("operator cannot update SOP validation and missing SOP row maps to 404", async () => {
+  const service = createService({
+    repositoryOverrides: {
+      async updateClinicalFollowUpSopValidation() {
+        return null;
+      },
+    },
+  });
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopValidation(
+      FOLLOW_UP_ID,
+      { sopValidationState: "validated" },
+      { ...DOCTOR, roles: ["operator"] },
+    ),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopValidation(FOLLOW_UP_ID, { sopValidationState: "validated" }, DOCTOR),
+    /Clinical follow-up was not found/i,
   );
 });
 
