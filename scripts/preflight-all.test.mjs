@@ -128,6 +128,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 17A-17Z clinical follow-up communication preflight",
     "Stage 18A-18Z clinical follow-up operations hardening preflight",
     "Stage 19A-19Z clinical follow-up outcome quality preflight",
+    "Stage 20A-20Z clinical follow-up retention clinic review preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "project-memory black box guard",
@@ -237,11 +238,12 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[100], /npm(\.cmd)? run preflight:stage17a-17z/);
   assert.match(commands[101], /npm(\.cmd)? run preflight:stage18a-18z/);
   assert.match(commands[102], /npm(\.cmd)? run preflight:stage19a-19z/);
-  assert.match(commands[103], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[104], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[105], /npm(\.cmd)? run check:project-memory/);
-  assert.match(commands[106], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[107], "git diff --check");
+  assert.match(commands[103], /npm(\.cmd)? run preflight:stage20a-20z/);
+  assert.match(commands[104], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[105], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[106], /npm(\.cmd)? run check:project-memory/);
+  assert.match(commands[107], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[108], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
@@ -357,6 +359,7 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage17a-17z/);
   assert.match(out, /preflight:stage18a-18z/);
   assert.match(out, /preflight:stage19a-19z/);
+  assert.match(out, /preflight:stage20a-20z/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /check:project-memory/);

@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   createClinicalFollowUpService,
+  normalizeClinicalFollowUpClinicReviewUpdatePayload,
   normalizeClinicalFollowUpCreatePayload,
   normalizeClinicalFollowUpMessagePayload,
   normalizeClinicalFollowUpOperationsUpdatePayload,
@@ -72,6 +73,21 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           source: "postgres",
         };
       },
+      async getClinicalFollowUpClinicReviewSummary() {
+        return {
+          totalFollowUps: 4,
+          retentionDue: 1,
+          retentionReviewed: 1,
+          retentionArchived: 0,
+          clinicReviewScheduled: 1,
+          clinicReviewCompleted: 1,
+          clinicNeedsPolicyReview: 1,
+          qualityNeedsAttention: 1,
+          closedMissingEvidence: 1,
+          localReviewEvents: 2,
+          source: "postgres",
+        };
+      },
       async updateClinicalFollowUpOperations() {
         return { ...followUp, triageState: "resolved", escalationLevel: "none", deliveryState: "delivered" };
       },
@@ -81,6 +97,15 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           resolutionOutcome: "patient_reached",
           qualityReviewState: "reviewed",
           qualityReviewNote: "QA ok.",
+        };
+      },
+      async updateClinicalFollowUpClinicReview() {
+        return {
+          ...followUp,
+          retentionReviewState: "reviewed",
+          retentionReviewNote: "Retention ok.",
+          clinicReviewState: "completed",
+          clinicReviewNote: "Clinic review complete.",
         };
       },
       ...repositoryOverrides,
@@ -160,6 +185,25 @@ test("validates outcome quality payloads", () => {
   );
   assert.throws(() => normalizeClinicalFollowUpQualityUpdatePayload({ qualityReviewState: "bad" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpQualityUpdatePayload({}), /validation/i);
+});
+
+test("validates retention and clinic review payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpClinicReviewUpdatePayload({
+      retentionReviewState: "reviewed",
+      retentionReviewNote: "  Retention ok.  ",
+      clinicReviewState: "completed",
+      clinicReviewNote: "  Clinic review complete.  ",
+    }),
+    {
+      retentionReviewState: "reviewed",
+      retentionReviewNote: "Retention ok.",
+      clinicReviewState: "completed",
+      clinicReviewNote: "Clinic review complete.",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpClinicReviewUpdatePayload({ clinicReviewState: "bad" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpClinicReviewUpdatePayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -279,6 +323,59 @@ test("doctor can summarize outcomes and update quality review with audit", async
       "clinical_follow_up.outcomes.summary",
       "clinical_follow_up.quality.update",
     ],
+  );
+});
+
+test("doctor can summarize retention review and update clinic review with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpClinicReviewSummary(
+    { now: "2026-05-22T10:00:00.000Z" },
+    DOCTOR,
+    { correlationId: "review-1" },
+  );
+  const updated = await service.updateClinicalFollowUpClinicReview(
+    FOLLOW_UP_ID,
+    {
+      retentionReviewState: "reviewed",
+      retentionReviewNote: "Retention ok.",
+      clinicReviewState: "completed",
+      clinicReviewNote: "Clinic review complete.",
+    },
+    DOCTOR,
+    { correlationId: "review-2" },
+  );
+
+  assert.equal(summary.summary.retentionDue, 1);
+  assert.equal(updated.followUp.clinicReviewState, "completed");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.clinic_review.summary",
+      "clinical_follow_up.clinic_review.update",
+    ],
+  );
+});
+
+test("operator cannot update clinic review and missing clinic review row maps to 404", async () => {
+  const service = createService({
+    repositoryOverrides: {
+      async updateClinicalFollowUpClinicReview() {
+        return null;
+      },
+    },
+  });
+  await assert.rejects(
+    () => service.updateClinicalFollowUpClinicReview(
+      FOLLOW_UP_ID,
+      { clinicReviewState: "completed" },
+      { ...DOCTOR, roles: ["operator"] },
+    ),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.updateClinicalFollowUpClinicReview(FOLLOW_UP_ID, { clinicReviewState: "completed" }, DOCTOR),
+    /Clinical follow-up was not found/i,
   );
 });
 

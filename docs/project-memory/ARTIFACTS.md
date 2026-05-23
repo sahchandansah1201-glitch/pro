@@ -23,6 +23,14 @@
    - [check-stage19a-19z-clinical-followup-outcome-quality.mjs](../../scripts/check-stage19a-19z-clinical-followup-outcome-quality.mjs)
    - [stage19a-19z-clinical-followup-outcome-quality.yml](../../.github/workflows/stage19a-19z-clinical-followup-outcome-quality.yml)
 
+4. Stage 20A-20Z clinical follow-up retention clinic review artifacts:
+   - [clinical-followup-retention-clinic-review.stage20a-20z.json](../../deploy/self-hosted/clinical-followup-retention-clinic-review.stage20a-20z.json)
+   - [0027_stage20_followup_retention_clinic_review.sql](../../backend/self-hosted/db/migrations/0027_stage20_followup_retention_clinic_review.sql)
+   - [openapi.stage20a-20z.json](../../backend/self-hosted/openapi.stage20a-20z.json)
+   - [stage-20a-20z-clinical-followup-retention-clinic-review.md](../backend/stage-20a-20z-clinical-followup-retention-clinic-review.md)
+   - [check-stage20a-20z-clinical-followup-retention-clinic-review.mjs](../../scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.mjs)
+   - [stage20a-20z-clinical-followup-retention-clinic-review.yml](../../.github/workflows/stage20a-20z-clinical-followup-retention-clinic-review.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

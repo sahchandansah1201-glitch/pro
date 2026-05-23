@@ -13,12 +13,15 @@ import {
 } from "@/lib/self-hosted-api-session";
 import {
   createSelfHostedVisitFollowUp,
+  getSelfHostedClinicalFollowUpClinicReviewSummary,
   getSelfHostedClinicalFollowUpOutcomeQualitySummary,
   getSelfHostedClinicalFollowUpOperationsSummary,
   listSelfHostedClinicalFollowUpOperations,
+  type FollowUpClinicReviewSummary,
   type FollowUpOutcomeQualitySummary,
   type FollowUpOperationsSummary,
   type SelfHostedClinicalFollowUp,
+  updateSelfHostedClinicalFollowUpClinicReview,
   updateSelfHostedClinicalFollowUpOperations,
   updateSelfHostedClinicalFollowUpQuality,
 } from "@/lib/self-hosted-follow-up-api";
@@ -46,6 +49,7 @@ type BusyAction =
   | "operations-load"
   | "operations-update"
   | "quality-update"
+  | "clinic-review-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -70,6 +74,19 @@ const EMPTY_OUTCOME_SUMMARY: FollowUpOutcomeQualitySummary = {
   patientReached: 0,
   clinicalEscalations: 0,
   deliveryFailures: 0,
+};
+
+const EMPTY_CLINIC_REVIEW_SUMMARY: FollowUpClinicReviewSummary = {
+  totalFollowUps: 0,
+  retentionDue: 0,
+  retentionReviewed: 0,
+  retentionArchived: 0,
+  clinicReviewScheduled: 0,
+  clinicReviewCompleted: 0,
+  clinicNeedsPolicyReview: 0,
+  qualityNeedsAttention: 0,
+  closedMissingEvidence: 0,
+  localReviewEvents: 0,
 };
 
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
@@ -98,6 +115,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [followUpInternalNote, setFollowUpInternalNote] = useState("");
   const [operationsSummary, setOperationsSummary] = useState<FollowUpOperationsSummary>(EMPTY_OPERATIONS_SUMMARY);
   const [outcomeSummary, setOutcomeSummary] = useState<FollowUpOutcomeQualitySummary>(EMPTY_OUTCOME_SUMMARY);
+  const [clinicReviewSummary, setClinicReviewSummary] = useState<FollowUpClinicReviewSummary>(EMPTY_CLINIC_REVIEW_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
 
   const selectedLesion = useMemo(
@@ -113,9 +131,10 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
+      getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
       listSelfHostedClinicalFollowUpOperations({
         ...baseArgs,
         visitId: visit.id,
@@ -123,10 +142,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     ]);
     if (summary.ok) setOperationsSummary(summary.value);
     if (outcomes.ok) setOutcomeSummary(outcomes.value);
+    if (clinicReview.ok) setClinicReviewSummary(clinicReview.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || queue.error));
     }
   }
 
@@ -270,6 +290,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("quality-update");
     const result = await updateSelfHostedClinicalFollowUpQuality({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateClinicReviewState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpClinicReview>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("clinic-review-update");
+    const result = await updateSelfHostedClinicalFollowUpClinicReview({
       ...baseArgs,
       followUpId,
       payload,
@@ -560,6 +596,45 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
           </dl>
         </section>
 
+        <section
+          aria-label="Retention и clinic review follow-up"
+          className="mt-3 rounded-md border border-border bg-muted/20 p-3"
+        >
+          <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h4 className="h-section text-[13px]">Retention и clinic review</h4>
+              <p className="text-meta">
+                Обзор хранит локальные retention/clinic-review отметки без внешнего SOP-подтверждения.
+              </p>
+            </div>
+            <span className="text-[12px] text-muted-foreground">
+              events: {clinicReviewSummary.localReviewEvents}
+            </span>
+          </div>
+          <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2 lg:grid-cols-5">
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Retention due</dt>
+              <dd className="text-lg font-semibold">{clinicReviewSummary.retentionDue}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Retention reviewed</dt>
+              <dd className="text-lg font-semibold">{clinicReviewSummary.retentionReviewed}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Clinic scheduled</dt>
+              <dd className="text-lg font-semibold">{clinicReviewSummary.clinicReviewScheduled}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Clinic completed</dt>
+              <dd className="text-lg font-semibold">{clinicReviewSummary.clinicReviewCompleted}</dd>
+            </div>
+            <div className="surface-toolbar p-2">
+              <dt className="text-muted-foreground">Policy review</dt>
+              <dd className="text-lg font-semibold">{clinicReviewSummary.clinicNeedsPolicyReview}</dd>
+            </div>
+          </dl>
+        </section>
+
         <div className="mt-3 space-y-2" aria-label="Очередь follow-up по визиту">
           {operationsQueue.length === 0 ? (
             <p className="text-[12px] text-muted-foreground">Для этого визита нет открытых follow-up задач.</p>
@@ -572,6 +647,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   outcome: {item.resolutionOutcome} · QA: {item.qualityReviewState}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  retention: {item.retentionReviewState} · clinic review: {item.clinicReviewState}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -651,6 +729,57 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Требует внимания
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "clinic-review-update"}
+                  onClick={() => void updateClinicReviewState(
+                    item.id,
+                    {
+                      retentionReviewState: "reviewed",
+                      retentionReviewNote: "Retention reviewed locally after follow-up closure.",
+                    },
+                    "Follow-up retention review отмечен локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Retention reviewed
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "clinic-review-update"}
+                  onClick={() => void updateClinicReviewState(
+                    item.id,
+                    {
+                      clinicReviewState: "needs_policy_review",
+                      clinicReviewNote: "Needs clinic policy review before SOP closure.",
+                    },
+                    "Follow-up отправлен на clinic policy review.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Policy review
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "clinic-review-update"}
+                  onClick={() => void updateClinicReviewState(
+                    item.id,
+                    {
+                      clinicReviewState: "completed",
+                      clinicReviewNote: "Clinic review completed locally.",
+                    },
+                    "Clinic review по follow-up завершён локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Clinic review done
                 </Button>
               </div>
             </article>

@@ -1,0 +1,37 @@
+{
+  "stage": "20A-20Z",
+  "previousBatch": "Stage 19A-19Z",
+  "nextBatchHypothesis": "Stage 21A-21Z",
+  "title": "Clinical follow-up retention and clinic review readiness",
+  "implementedSurfaces": [
+    "PostgreSQL retention and clinic review columns on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_retention_review_events audit table",
+    "GET /api/v1/clinical/follow-ups/clinic-review/summary",
+    "PATCH /api/v1/clinical/follow-ups/{followUpId}/clinic-review",
+    "OpenAPI Stage 20A-20Z contract and nginx publishing",
+    "Frontend self-hosted follow-up retention and clinic review API adapter",
+    "Doctor visit workspace retention/clinic-review summary and row actions",
+    "Stage 20 guard, docs, workflow, project-memory update, and preflight-all wiring"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "sourceOfTruth": "self-hosted PostgreSQL",
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "retentionEvidenceIsLocalMetadataOnly": true,
+    "clinicReviewEvidenceIsLocalMetadataOnly": true,
+    "exportsRawPatientNames": false,
+    "exportsProviderTokens": false,
+    "exportsStoragePaths": false,
+    "exportsSignedUrls": false
+  },
+  "verification": {
+    "test": "npm run test:stage20a-20z",
+    "check": "npm run check:stage20a-20z",
+    "preflight": "npm run preflight:stage20a-20z"
+  },
+  "expectedConfirmation": "Confirmed: Stage 20A-20Z synced from main, no conflicts."
+}

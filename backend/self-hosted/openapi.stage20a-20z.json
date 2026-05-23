@@ -1,0 +1,128 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Stage 20A-20Z",
+    "version": "20A-20Z-clinical-followup-retention-clinic-review",
+    "description": "Self-hosted clinical follow-up retention and clinic review readiness contracts. Uses local PostgreSQL only and does not prove external retention or clinic SOP outcomes."
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/clinic-review/summary": {
+      "get": {
+        "summary": "Read local follow-up retention and clinic review summary",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "now",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local retention and clinic review summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "20A-20Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "$ref": "#/components/schemas/FollowUpClinicReviewSummary" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/clinic-review": {
+      "patch": {
+        "summary": "Update local follow-up retention and clinic review state",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FollowUpClinicReviewUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated local retention and clinic review state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "20A-20Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "FollowUpClinicReviewSummary": {
+        "type": "object",
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "retentionDue": { "type": "integer" },
+          "retentionReviewed": { "type": "integer" },
+          "retentionArchived": { "type": "integer" },
+          "clinicReviewScheduled": { "type": "integer" },
+          "clinicReviewCompleted": { "type": "integer" },
+          "clinicNeedsPolicyReview": { "type": "integer" },
+          "qualityNeedsAttention": { "type": "integer" },
+          "closedMissingEvidence": { "type": "integer" },
+          "localReviewEvents": { "type": "integer" }
+        }
+      },
+      "FollowUpClinicReviewUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "retentionReviewState": {
+            "type": "string",
+            "enum": ["not_due", "due", "reviewed", "archived"]
+          },
+          "retentionReviewNote": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "clinicReviewState": {
+            "type": "string",
+            "enum": ["not_scheduled", "scheduled", "completed", "needs_policy_review"]
+          },
+          "clinicReviewNote": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  }
+}

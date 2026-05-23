@@ -1,0 +1,59 @@
+name: stage20a-20z-clinical-followup-retention-clinic-review
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-20a-20z-clinical-followup-retention-clinic-review.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.mjs"
+      - "scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage20a-20z-clinical-followup-retention-clinic-review.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-20a-20z-clinical-followup-retention-clinic-review.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.mjs"
+      - "scripts/check-stage20a-20z-clinical-followup-retention-clinic-review.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage20a-20z-clinical-followup-retention-clinic-review.yml"
+  workflow_dispatch:
+
+jobs:
+  stage20a-20z-clinical-followup-retention-clinic-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 20A-20Z preflight
+        run: npm run preflight:stage20a-20z
+      - name: Stage 20A-20Z summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 20A-20Z clinical follow-up retention and clinic review"
+            echo ""
+            echo "- Command: \`npm run preflight:stage20a-20z\`"
+            echo "- Boundary: self-hosted backend + PostgreSQL + local retention and clinic review metadata"
+          } >> "$GITHUB_STEP_SUMMARY"

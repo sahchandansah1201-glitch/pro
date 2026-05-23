@@ -5,12 +5,14 @@ import {
   buildCreateClinicalFollowUpMessageSql,
   buildCreateClinicalFollowUpSql,
   buildCreatePatientFollowUpMessageSql,
+  buildClinicalFollowUpClinicReviewSummarySql,
   buildClinicalFollowUpOutcomeQualitySummarySql,
   buildClinicalFollowUpOperationsSummarySql,
   buildListClinicalFollowUpsSql,
   buildListClinicalFollowUpOperationsSql,
   buildListPatientFollowUpsSql,
   buildUpdateClinicalFollowUpOperationsSql,
+  buildUpdateClinicalFollowUpClinicReviewSql,
   buildUpdateClinicalFollowUpQualitySql,
   buildUpdateClinicalFollowUpSql,
   createClinicalFollowUpRepository,
@@ -226,6 +228,34 @@ test("builds outcome quality summary and update SQL with append-only quality eve
   assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
 });
 
+test("builds retention and clinic review summary and update SQL with append-only review events", () => {
+  const summarySql = buildClinicalFollowUpClinicReviewSummarySql({
+    clinicIds: [CLINIC_ID],
+    now: "2026-05-22T10:00:00.000Z",
+  });
+  assert.match(summarySql, /retentionDue/);
+  assert.match(summarySql, /clinicNeedsPolicyReview/);
+  assert.match(summarySql, /clinical_follow_up_retention_review_events/);
+  assert.match(summarySql, /interval '30 days'/);
+
+  const updateSql = buildUpdateClinicalFollowUpClinicReviewSql({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      retentionReviewState: "reviewed",
+      retentionReviewNote: "Retention ok.",
+      clinicReviewState: "completed",
+      clinicReviewNote: "Clinic review complete.",
+    },
+  });
+  assert.match(updateSql, /retention_review_state = 'reviewed'/);
+  assert.match(updateSql, /clinic_review_state = 'completed'/);
+  assert.match(updateSql, /insert into clinical_follow_up_retention_review_events/);
+  assert.match(updateSql, /clinic_review\.update/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
+});
+
 test("repository normalizes operations queue and summary DTOs", async () => {
   const calls = [];
   const repository = createClinicalFollowUpRepository({
@@ -260,6 +290,7 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   const queue = await repository.listClinicalFollowUpOperations({ clinicIds: [CLINIC_ID] });
   const summary = await repository.getClinicalFollowUpOperationsSummary({ clinicIds: [CLINIC_ID] });
   const outcomes = await repository.getClinicalFollowUpOutcomeQualitySummary({ clinicIds: [CLINIC_ID] });
+  const clinicReview = await repository.getClinicalFollowUpClinicReviewSummary({ clinicIds: [CLINIC_ID] });
   const updated = await repository.updateClinicalFollowUpOperations({
     followUpId: FOLLOW_UP_ID,
     actorUserId: USER_ID,
@@ -272,13 +303,21 @@ test("repository normalizes operations queue and summary DTOs", async () => {
     clinicIds: [CLINIC_ID],
     changes: { qualityReviewState: "reviewed" },
   });
+  const review = await repository.updateClinicalFollowUpClinicReview({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: { clinicReviewState: "completed" },
+  });
 
   assert.equal(queue.items[0].triageState, "escalated");
   assert.equal(queue.items[0].deliveryAttempts, 2);
   assert.equal(summary.totalOpen, 3);
   assert.equal(summary.deliveryFailed, 1);
   assert.equal(outcomes.qualityNeedsAttention, 0);
+  assert.equal(clinicReview.clinicNeedsPolicyReview, 0);
   assert.equal(updated.triageState, "escalated");
   assert.equal(quality.qualityReviewState, "needs_attention");
-  assert.equal(calls.length, 5);
+  assert.equal(review.clinicReviewState, "not_scheduled");
+  assert.equal(calls.length, 7);
 });

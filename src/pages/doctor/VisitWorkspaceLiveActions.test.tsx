@@ -79,6 +79,9 @@ describe("VisitWorkspaceLiveActions", () => {
       if (url.endsWith("/api/v1/clinical/follow-ups/outcomes/summary")) {
         return jsonResponse({ totalFollowUps: 2, closedFollowUps: 1, closedWithEvidence: 1, closedMissingEvidence: 0, qualityPending: 1, qualityNeedsAttention: 0 });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/clinic-review/summary")) {
+        return jsonResponse({ totalFollowUps: 2, retentionDue: 1, retentionReviewed: 0, retentionArchived: 0, clinicReviewScheduled: 0, clinicReviewCompleted: 0, clinicNeedsPolicyReview: 0, localReviewEvents: 0 });
+      }
       if (url.includes("/api/v1/clinical/follow-ups/operations?")) {
         return new Response(JSON.stringify({ items: [{
           id: "follow-up-1",
@@ -91,6 +94,8 @@ describe("VisitWorkspaceLiveActions", () => {
           deliveryState: "not_required",
           resolutionOutcome: "not_reviewed",
           qualityReviewState: "pending",
+          retentionReviewState: "due",
+          clinicReviewState: "not_scheduled",
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith(`/api/v1/visits/${VISIT_ID}`) && init?.method === "PATCH") {
@@ -155,7 +160,7 @@ describe("VisitWorkspaceLiveActions", () => {
       `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(11);
+    expect(fetchSpy).toHaveBeenCalledTimes(13);
   });
 
   it("updates the operational follow-up queue from the live panel", async () => {
@@ -167,6 +172,9 @@ describe("VisitWorkspaceLiveActions", () => {
       }
       if (url.endsWith("/api/v1/clinical/follow-ups/outcomes/summary")) {
         return jsonResponse({ totalFollowUps: 2, closedFollowUps: 1, closedWithEvidence: 0, closedMissingEvidence: 1, qualityPending: 1, qualityNeedsAttention: 1 });
+      }
+      if (url.endsWith("/api/v1/clinical/follow-ups/clinic-review/summary")) {
+        return jsonResponse({ totalFollowUps: 2, retentionDue: 1, retentionReviewed: 0, retentionArchived: 0, clinicReviewScheduled: 1, clinicReviewCompleted: 0, clinicNeedsPolicyReview: 1, localReviewEvents: 1 });
       }
       if (url.includes("/api/v1/clinical/follow-ups/operations?")) {
         return new Response(JSON.stringify({ items: [{
@@ -180,6 +188,8 @@ describe("VisitWorkspaceLiveActions", () => {
           deliveryState: "failed",
           resolutionOutcome: "clinical_escalation",
           qualityReviewState: "needs_attention",
+          retentionReviewState: "due",
+          clinicReviewState: "needs_policy_review",
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/operations") && init?.method === "PATCH") {
@@ -205,6 +215,17 @@ describe("VisitWorkspaceLiveActions", () => {
           qualityReviewState: "reviewed",
         });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/clinic-review") && init?.method === "PATCH") {
+        return jsonResponse({
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          reason: "Контроль после визита",
+          status: "completed",
+          priority: "urgent",
+          retentionReviewState: "reviewed",
+          clinicReviewState: "completed",
+        });
+      }
       return jsonResponse({ id: "ok" });
     });
 
@@ -218,6 +239,9 @@ describe("VisitWorkspaceLiveActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "QA reviewed" }));
     await waitFor(() => expect(screen.getByText("Follow-up отмечен как QA reviewed.")).toBeInTheDocument());
 
+    fireEvent.click(screen.getByRole("button", { name: "Clinic review done" }));
+    await waitFor(() => expect(screen.getByText("Clinic review по follow-up завершён локально.")).toBeInTheDocument());
+
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/clinical/follow-ups/follow-up-1/operations`,
       expect.objectContaining({
@@ -227,6 +251,13 @@ describe("VisitWorkspaceLiveActions", () => {
     );
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/clinical/follow-ups/follow-up-1/quality`,
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
+      }),
+    );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/clinic-review`,
       expect.objectContaining({
         method: "PATCH",
         headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
@@ -243,6 +274,9 @@ describe("VisitWorkspaceLiveActions", () => {
       }
       if (url.includes("/api/v1/clinical/follow-ups/outcomes")) {
         return jsonResponse({ totalFollowUps: 0, qualityPending: 0, qualityNeedsAttention: 0 });
+      }
+      if (url.includes("/api/v1/clinical/follow-ups/clinic-review")) {
+        return jsonResponse({ totalFollowUps: 0, retentionDue: 0, clinicNeedsPolicyReview: 0, localReviewEvents: 0 });
       }
       return new Response(
         JSON.stringify({

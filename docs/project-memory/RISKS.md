@@ -1,5 +1,20 @@
 # RISKS
 
+## Stage 20A-20Z follow-up retention and clinic review risks
+
+1. **Risk: retention review state can be mistaken for external retention archive proof.**
+   - Evidence: Stage 20A-20Z records retention review state locally, but it
+     does not verify external retention archive contents, legal retention
+     approval, or live clinic review evidence outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label retention review as local
+     metadata only.
+
+2. **Risk: clinic review states need clinic SOP validation.**
+   - Evidence: Stage 20A-20Z adds bounded clinic review states and local notes,
+     but clinic-specific follow-up transition rules may refine them.
+   - Mitigation: keep values bounded, RBAC-protected, audited, and self-hosted;
+     future SOP validation can adjust allowed labels or required transitions.
+
 ## Stage 19A-19Z follow-up outcome quality risks
 
 1. **Risk: quality review state can be mistaken for clinical outcome proof.**

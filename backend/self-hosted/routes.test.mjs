@@ -587,6 +587,29 @@ function createRuntime({
           },
         };
       },
+      async getClinicalFollowUpClinicReviewSummary() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          summary: {
+            totalFollowUps: 4,
+            retentionDue: 1,
+            retentionReviewed: 1,
+            retentionArchived: 0,
+            clinicReviewScheduled: 1,
+            clinicReviewCompleted: 1,
+            clinicNeedsPolicyReview: 1,
+            qualityNeedsAttention: 1,
+            closedMissingEvidence: 1,
+            localReviewEvents: 2,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
       async updateClinicalFollowUpOperations() {
         if (clinicalFollowUpError) throw clinicalFollowUpError;
         return {
@@ -611,6 +634,23 @@ function createRuntime({
             resolutionOutcome: "patient_reached",
             qualityReviewState: "reviewed",
             qualityReviewNote: "QA ok.",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUpClinicReview() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: {
+            ...(clinicalFollowUp || { id: "10000000-0000-4000-8000-000000000701" }),
+            retentionReviewState: "reviewed",
+            retentionReviewNote: "Retention ok.",
+            clinicReviewState: "completed",
+            clinicReviewNote: "Clinic review complete.",
           },
           scope: {
             allClinics: false,
@@ -1303,6 +1343,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage9N9Z, "/openapi.stage9n-9z.json");
   assert.equal(meta.json.links.openapiStage17A17Z, "/openapi.stage17a-17z.json");
   assert.equal(meta.json.links.openapiStage18A18Z, "/openapi.stage18a-18z.json");
+  assert.equal(meta.json.links.openapiStage19A19Z, "/openapi.stage19a-19z.json");
+  assert.equal(meta.json.links.openapiStage20A20Z, "/openapi.stage20a-20z.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -1354,6 +1396,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.clinicalFollowUpMessages, "/api/v1/clinical/follow-ups/{followUpId}/messages");
   assert.equal(meta.json.links.clinicalFollowUpOperations, "/api/v1/clinical/follow-ups/operations");
   assert.equal(meta.json.links.clinicalFollowUpOperationsSummary, "/api/v1/clinical/follow-ups/operations/summary");
+  assert.equal(meta.json.links.clinicalFollowUpClinicReviewSummary, "/api/v1/clinical/follow-ups/clinic-review/summary");
+  assert.equal(meta.json.links.clinicalFollowUpClinicReview, "/api/v1/clinical/follow-ups/{followUpId}/clinic-review");
   assert.equal(meta.json.links.clinicalFollowUpOperation, "/api/v1/clinical/follow-ups/{followUpId}/operations");
   assert.equal(meta.json.links.patientPortalFollowUps, "/api/v1/me/follow-ups");
   assert.equal(meta.json.links.patientPortalFollowUpMessages, "/api/v1/me/follow-ups/{followUpId}/messages");
@@ -3987,6 +4031,45 @@ test("Stage 19A-19Z · /openapi.stage19a-19z.json documents outcome quality", as
   assert.equal(response.json.info.version, "19A-19Z-clinical-followup-outcome-quality");
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/outcomes/summary"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/quality"].patch);
+});
+
+test("Stage 20A-20Z · follow-up retention and clinic review routes summarize and update local review state", async () => {
+  const runtime = createRuntime();
+  const summary = await request(
+    "/api/v1/clinical/follow-ups/clinic-review/summary",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(summary.status, 200);
+  assert.equal(summary.json.stage, "20A-20Z");
+  assert.equal(summary.json.item.retentionDue, 1);
+  assert.equal(summary.json.item.clinicNeedsPolicyReview, 1);
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701/clinic-review",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    {
+      retentionReviewState: "reviewed",
+      retentionReviewNote: "Retention ok.",
+      clinicReviewState: "completed",
+      clinicReviewNote: "Clinic review complete.",
+    },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.stage, "20A-20Z");
+  assert.equal(updated.json.item.retentionReviewState, "reviewed");
+  assert.equal(updated.json.item.clinicReviewState, "completed");
+  assert.doesNotMatch(updated.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url|access_token/i);
+});
+
+test("Stage 20A-20Z · /openapi.stage20a-20z.json documents retention and clinic review", async () => {
+  const response = await request("/openapi.stage20a-20z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "20A-20Z-clinical-followup-retention-clinic-review");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/clinic-review/summary"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/clinic-review"].patch);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

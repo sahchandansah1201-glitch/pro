@@ -2,6 +2,15 @@
 
 ## 2026-05-23
 
+- Создан Stage 20A-20Z clinical follow-up retention clinic review после Stage 19A-19Z.
+- Добавлены retention/clinic-review поля, append-only review events, backend
+  summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor
+  live workspace review panel, guard, workflow, docs, project-memory update,
+  and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external retention proof, no signed URLs/storage paths/provider
+  tokens in protected outputs.
+
 - Создан Stage 19A-19Z clinical follow-up outcome quality после Stage 18A-18Z.
 - Добавлены outcome/QA поля, append-only quality events, backend summary/update
   routes, OpenAPI, nginx publishing, frontend adapter, doctor live workspace

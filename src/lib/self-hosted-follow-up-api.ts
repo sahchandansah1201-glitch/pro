@@ -21,6 +21,8 @@ export type FollowUpResolutionOutcome =
   | "clinical_escalation"
   | "administrative_close";
 export type FollowUpQualityReviewState = "pending" | "reviewed" | "needs_attention";
+export type FollowUpRetentionReviewState = "not_due" | "due" | "reviewed" | "archived";
+export type FollowUpClinicReviewState = "not_scheduled" | "scheduled" | "completed" | "needs_policy_review";
 
 export interface SelfHostedFollowUpMessage {
   id: string;
@@ -57,6 +59,12 @@ export interface SelfHostedClinicalFollowUp {
   qualityReviewState: FollowUpQualityReviewState;
   qualityReviewNote?: string | null;
   qualityReviewedAt?: string | null;
+  retentionReviewState: FollowUpRetentionReviewState;
+  retentionReviewNote?: string | null;
+  retentionReviewedAt?: string | null;
+  clinicReviewState: FollowUpClinicReviewState;
+  clinicReviewNote?: string | null;
+  clinicReviewedAt?: string | null;
   resolvedAt?: string | null;
   lastMessageAt: string | null;
   createdAt: string | null;
@@ -118,6 +126,20 @@ export interface FollowUpOutcomeQualitySummary {
   source?: string;
 }
 
+export interface FollowUpClinicReviewSummary {
+  totalFollowUps: number;
+  retentionDue: number;
+  retentionReviewed: number;
+  retentionArchived: number;
+  clinicReviewScheduled: number;
+  clinicReviewCompleted: number;
+  clinicNeedsPolicyReview: number;
+  qualityNeedsAttention: number;
+  closedMissingEvidence: number;
+  localReviewEvents: number;
+  source?: string;
+}
+
 export interface UpdateFollowUpOperationsPayload {
   triageState?: FollowUpTriageState;
   escalationLevel?: FollowUpEscalationLevel;
@@ -131,6 +153,13 @@ export interface UpdateFollowUpQualityPayload {
   resolutionOutcome?: FollowUpResolutionOutcome;
   qualityReviewState?: FollowUpQualityReviewState;
   qualityReviewNote?: string | null;
+}
+
+export interface UpdateFollowUpClinicReviewPayload {
+  retentionReviewState?: FollowUpRetentionReviewState;
+  retentionReviewNote?: string | null;
+  clinicReviewState?: FollowUpClinicReviewState;
+  clinicReviewNote?: string | null;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -204,6 +233,20 @@ function toQualityReviewState(value: unknown): FollowUpQualityReviewState {
     : "pending";
 }
 
+function toRetentionReviewState(value: unknown): FollowUpRetentionReviewState {
+  const state = String(value ?? "not_due");
+  return ["not_due", "due", "reviewed", "archived"].includes(state)
+    ? (state as FollowUpRetentionReviewState)
+    : "not_due";
+}
+
+function toClinicReviewState(value: unknown): FollowUpClinicReviewState {
+  const state = String(value ?? "not_scheduled");
+  return ["not_scheduled", "scheduled", "completed", "needs_policy_review"].includes(state)
+    ? (state as FollowUpClinicReviewState)
+    : "not_scheduled";
+}
+
 export function toSelfHostedFollowUpMessage(input: unknown): SelfHostedFollowUpMessage {
   const row = isRecord(input) ? input : {};
   return {
@@ -245,6 +288,12 @@ export function toSelfHostedClinicalFollowUp(input: unknown): SelfHostedClinical
     qualityReviewState: toQualityReviewState(row.qualityReviewState),
     qualityReviewNote: textOrNull(row.qualityReviewNote),
     qualityReviewedAt: textOrNull(row.qualityReviewedAt),
+    retentionReviewState: toRetentionReviewState(row.retentionReviewState),
+    retentionReviewNote: textOrNull(row.retentionReviewNote),
+    retentionReviewedAt: textOrNull(row.retentionReviewedAt),
+    clinicReviewState: toClinicReviewState(row.clinicReviewState),
+    clinicReviewNote: textOrNull(row.clinicReviewNote),
+    clinicReviewedAt: textOrNull(row.clinicReviewedAt),
     resolvedAt: textOrNull(row.resolvedAt),
     lastMessageAt: textOrNull(row.lastMessageAt),
     createdAt: textOrNull(row.createdAt),
@@ -287,6 +336,23 @@ export function toFollowUpOutcomeQualitySummary(input: unknown): FollowUpOutcome
     patientReached: Number(row.patientReached ?? 0),
     clinicalEscalations: Number(row.clinicalEscalations ?? 0),
     deliveryFailures: Number(row.deliveryFailures ?? 0),
+    source: textOrNull(row.source) ?? undefined,
+  };
+}
+
+export function toFollowUpClinicReviewSummary(input: unknown): FollowUpClinicReviewSummary {
+  const row = isRecord(input) ? input : {};
+  return {
+    totalFollowUps: Number(row.totalFollowUps ?? 0),
+    retentionDue: Number(row.retentionDue ?? 0),
+    retentionReviewed: Number(row.retentionReviewed ?? 0),
+    retentionArchived: Number(row.retentionArchived ?? 0),
+    clinicReviewScheduled: Number(row.clinicReviewScheduled ?? 0),
+    clinicReviewCompleted: Number(row.clinicReviewCompleted ?? 0),
+    clinicNeedsPolicyReview: Number(row.clinicNeedsPolicyReview ?? 0),
+    qualityNeedsAttention: Number(row.qualityNeedsAttention ?? 0),
+    closedMissingEvidence: Number(row.closedMissingEvidence ?? 0),
+    localReviewEvents: Number(row.localReviewEvents ?? 0),
     source: textOrNull(row.source) ?? undefined,
   };
 }
@@ -447,6 +513,15 @@ export async function getSelfHostedClinicalFollowUpOutcomeQualitySummary(
   return ok(toFollowUpOutcomeQualitySummary(body.item));
 }
 
+export async function getSelfHostedClinicalFollowUpClinicReviewSummary(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<FollowUpClinicReviewSummary>> {
+  const response = await requestJson(args, "/api/v1/clinical/follow-ups/clinic-review/summary");
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toFollowUpClinicReviewSummary(body.item));
+}
+
 export async function updateSelfHostedClinicalFollowUpOperations(
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpOperationsPayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
@@ -463,6 +538,18 @@ export async function updateSelfHostedClinicalFollowUpQuality(
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpQualityPayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
   const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/quality`, {
+    method: "PATCH",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedClinicalFollowUp(body.item));
+}
+
+export async function updateSelfHostedClinicalFollowUpClinicReview(
+  args: BaseArgs & { followUpId: string; payload: UpdateFollowUpClinicReviewPayload },
+): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
+  const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/clinic-review`, {
     method: "PATCH",
     body: args.payload,
   });

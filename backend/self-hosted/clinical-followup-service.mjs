@@ -12,12 +12,15 @@ const ESCALATION_LEVELS = new Set(["none", "watch", "clinic_admin", "urgent"]);
 const DELIVERY_STATES = new Set(["not_required", "pending", "delivered", "failed", "deferred"]);
 const RESOLUTION_OUTCOMES = new Set(["not_reviewed", "patient_reached", "patient_unreachable", "clinical_escalation", "administrative_close"]);
 const QUALITY_REVIEW_STATES = new Set(["pending", "reviewed", "needs_attention"]);
+const RETENTION_REVIEW_STATES = new Set(["not_due", "due", "reviewed", "archived"]);
+const CLINIC_REVIEW_STATES = new Set(["not_scheduled", "scheduled", "completed", "needs_policy_review"]);
 const MAX_REASON = 1000;
 const MAX_SUMMARY = 2000;
 const MAX_INTERNAL_NOTE = 4000;
 const MAX_MESSAGE_BODY = 3000;
 const MAX_OPERATIONS_NOTE = 2000;
 const MAX_QUALITY_NOTE = 2000;
+const MAX_REVIEW_NOTE = 2000;
 
 class ClinicalFollowUpNotFoundError extends Error {
   constructor(message = "Clinical follow-up was not found.") {
@@ -242,6 +245,39 @@ export function normalizeClinicalFollowUpQualityUpdatePayload(input = {}) {
   return payload;
 }
 
+export function normalizeClinicalFollowUpClinicReviewUpdatePayload(input = {}) {
+  const body = requireBodyObject(input);
+  const details = [];
+  const payload = {};
+  if (hasOwn(body, "retentionReviewState")) {
+    const retentionReviewState = cleanString(body.retentionReviewState);
+    if (!retentionReviewState || !RETENTION_REVIEW_STATES.has(retentionReviewState)) {
+      details.push({ field: "retentionReviewState", message: "retentionReviewState is not supported." });
+    } else {
+      payload.retentionReviewState = retentionReviewState;
+    }
+  }
+  if (hasOwn(body, "retentionReviewNote")) {
+    payload.retentionReviewNote = validateLimitedText(body.retentionReviewNote, "retentionReviewNote", MAX_REVIEW_NOTE, details);
+  }
+  if (hasOwn(body, "clinicReviewState")) {
+    const clinicReviewState = cleanString(body.clinicReviewState);
+    if (!clinicReviewState || !CLINIC_REVIEW_STATES.has(clinicReviewState)) {
+      details.push({ field: "clinicReviewState", message: "clinicReviewState is not supported." });
+    } else {
+      payload.clinicReviewState = clinicReviewState;
+    }
+  }
+  if (hasOwn(body, "clinicReviewNote")) {
+    payload.clinicReviewNote = validateLimitedText(body.clinicReviewNote, "clinicReviewNote", MAX_REVIEW_NOTE, details);
+  }
+  if (Object.keys(payload).length === 0) {
+    details.push({ field: "body", message: "At least one clinic review field is required." });
+  }
+  if (details.length > 0) throw new ClinicalFollowUpValidationError(details);
+  return payload;
+}
+
 async function audit(auditRepository, event) {
   await recordAuditBestEffort(auditRepository, event);
 }
@@ -453,6 +489,27 @@ export function createClinicalFollowUpService({
       return { summary, scope };
     },
 
+    async getClinicalFollowUpClinicReviewSummary(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const summary = await clinicalFollowUpRepository.getClinicalFollowUpClinicReviewSummary({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.clinic_review.summary",
+        entityType: "clinical_follow_up",
+        correlationId,
+        metadata: {
+          retentionDue: summary.retentionDue,
+          clinicNeedsPolicyReview: summary.clinicNeedsPolicyReview,
+          localReviewEvents: summary.localReviewEvents,
+        },
+      });
+      return { summary, scope };
+    },
+
     async updateClinicalFollowUpOperations(followUpId, input, authContext, { correlationId } = {}) {
       const scope = visitWriteScope(authContext);
       const changes = normalizeClinicalFollowUpOperationsUpdatePayload(input);
@@ -501,6 +558,32 @@ export function createClinicalFollowUpService({
         metadata: {
           resolutionOutcome: followUp.resolutionOutcome,
           qualityReviewState: followUp.qualityReviewState,
+        },
+      });
+      return { followUp, scope };
+    },
+
+    async updateClinicalFollowUpClinicReview(followUpId, input, authContext, { correlationId } = {}) {
+      const scope = visitWriteScope(authContext);
+      const changes = normalizeClinicalFollowUpClinicReviewUpdatePayload(input);
+      const followUp = await clinicalFollowUpRepository.updateClinicalFollowUpClinicReview({
+        followUpId,
+        actorUserId: authContext.userId,
+        changes,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      if (!followUp) throw new ClinicalFollowUpNotFoundError();
+      await audit(auditRepository, {
+        clinicId: followUp.clinicId || null,
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.clinic_review.update",
+        entityType: "clinical_follow_up",
+        entityId: followUp.id,
+        correlationId,
+        metadata: {
+          retentionReviewState: followUp.retentionReviewState,
+          clinicReviewState: followUp.clinicReviewState,
         },
       });
       return { followUp, scope };
