@@ -1,5 +1,21 @@
 # RISKS
 
+## Stage 27A-27Z follow-up SOP policy governance closure risks
+
+1. **Risk: local SOP policy governance closure can be mistaken for external governance approval.**
+   - Evidence: Stage 27A-27Z records local governance closure state and notes
+     on follow-up tasks, but it does not verify legal sign-off, external SOP
+     approvals, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy governance
+     closure as local metadata only.
+
+2. **Risk: governance closure can obscure unresolved policy drift or open exceptions.**
+   - Evidence: Stage 27A-27Z summarizes closure readiness from local governance,
+     audit, drift, and exception fields; it does not prove external remediation
+     or diagnosis/treatment correctness.
+   - Mitigation: keep states bounded, RBAC-protected, append-only audited, and
+     visible in the doctor workspace summary.
+
 ## Stage 26A-26Z follow-up SOP policy governance readiness risks
 
 1. **Risk: local SOP policy governance readiness can be mistaken for external governance approval.**

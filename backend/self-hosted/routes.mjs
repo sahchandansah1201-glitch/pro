@@ -234,6 +234,9 @@ const OPENAPI_25A_25Z = JSON.parse(
 const OPENAPI_26A_26Z = JSON.parse(
   readFileSync(join(HERE, "openapi.stage26a-26z.json"), "utf8"),
 );
+const OPENAPI_27A_27Z = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage27a-27z.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -2852,6 +2855,37 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/clinical/follow-ups/sop-policy-governance-closure/summary" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.getClinicalFollowUpSopPolicyGovernanceClosureSummary(
+        normalizeClinicalFollowUpOperationsParams(url.searchParams),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "27A-27Z",
+          source: "postgres",
+          item: result.summary,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (url.pathname === "/api/v1/clinical/follow-ups/operations" && method === "GET") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -3163,6 +3197,39 @@ export async function handleSelfHostedRequest(
         200,
         {
           stage: "26A-26Z",
+          source: "postgres",
+          item: result.followUp,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const clinicalFollowUpSopPolicyGovernanceClosureMatch = url.pathname.match(/^\/api\/v1\/clinical\/follow-ups\/([^/]+)\/sop-policy-governance-closure$/);
+  if (clinicalFollowUpSopPolicyGovernanceClosureMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.updateClinicalFollowUpSopPolicyGovernanceClosure(
+        decodeURIComponent(clinicalFollowUpSopPolicyGovernanceClosureMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "27A-27Z",
           source: "postgres",
           item: result.followUp,
           auth: {
@@ -3777,6 +3844,7 @@ export async function handleSelfHostedRequest(
           clinicalFollowUpSopPolicyExceptionClosure: "rbac-read-write-postgres-local-sop-policy-exception-closure",
           clinicalFollowUpSopPolicyAuditRollup: "rbac-read-write-postgres-local-sop-policy-audit-rollup",
           clinicalFollowUpSopPolicyGovernanceReadiness: "rbac-read-write-postgres-local-sop-policy-governance-readiness",
+          clinicalFollowUpSopPolicyGovernanceClosure: "rbac-read-write-postgres-local-sop-policy-governance-closure",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance",
@@ -3832,6 +3900,7 @@ export async function handleSelfHostedRequest(
           openapiStage24A24Z: "/openapi.stage24a-24z.json",
           openapiStage25A25Z: "/openapi.stage25a-25z.json",
           openapiStage26A26Z: "/openapi.stage26a-26z.json",
+          openapiStage27A27Z: "/openapi.stage27a-27z.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -3895,6 +3964,8 @@ export async function handleSelfHostedRequest(
           clinicalFollowUpSopPolicyAuditRollup: "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-audit",
           clinicalFollowUpSopPolicyGovernanceReadinessSummary: "/api/v1/clinical/follow-ups/sop-policy-governance/summary",
           clinicalFollowUpSopPolicyGovernanceReadiness: "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance",
+          clinicalFollowUpSopPolicyGovernanceClosureSummary: "/api/v1/clinical/follow-ups/sop-policy-governance-closure/summary",
+          clinicalFollowUpSopPolicyGovernanceClosure: "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-closure",
           patientPortalFollowUps: "/api/v1/me/follow-ups",
           patientPortalFollowUpMessages: "/api/v1/me/follow-ups/{followUpId}/messages",
           visit: "/api/v1/visits/{visitId}",
@@ -4099,6 +4170,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage26a-26z.json") {
     return jsonResponse(200, OPENAPI_26A_26Z, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage27a-27z.json") {
+    return jsonResponse(200, OPENAPI_27A_27Z, config, requestOrigin);
   }
 
   return errorResponse({
