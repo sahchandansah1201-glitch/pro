@@ -1,0 +1,38 @@
+{
+  "stage": "26A-26Z",
+  "previousBatch": "Stage 25A-25Z",
+  "nextBatchHypothesis": "Stage 27A-27Z",
+  "title": "Clinical follow-up local SOP policy governance readiness",
+  "implementedSurfaces": [
+    "PostgreSQL SOP policy governance readiness columns on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_sop_policy_governance_events audit table",
+    "GET /api/v1/clinical/follow-ups/sop-policy-governance/summary",
+    "PATCH /api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance",
+    "OpenAPI Stage 26A-26Z contract and nginx publishing",
+    "Backend repository/service local SOP policy governance readiness summary and update",
+    "Frontend self-hosted follow-up SOP policy governance API adapter",
+    "Doctor visit workspace SOP policy governance readiness tiles and row actions",
+    "Stage 26 guard, docs, workflow, project-memory update, and preflight-all wiring"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "sourceOfTruth": "self-hosted PostgreSQL",
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyGovernanceReadinessIsLocalMetadataOnly": true,
+    "clinicGovernanceIsNotExternalApprovalProof": true,
+    "exportsRawPatientNames": false,
+    "exportsProviderTokens": false,
+    "exportsStoragePaths": false,
+    "exportsSignedUrls": false
+  },
+  "verification": {
+    "test": "npm run test:stage26a-26z",
+    "check": "npm run check:stage26a-26z",
+    "preflight": "npm run preflight:stage26a-26z"
+  },
+  "expectedConfirmation": "Confirmed: Stage 26A-26Z synced from main, no conflicts."
+}

@@ -97,6 +97,9 @@ describe("VisitWorkspaceLiveActions", () => {
       if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-audit/summary")) {
         return jsonResponse({ totalFollowUps: 2, auditReady: 1, needsAuditReview: 0, reviewedAudits: 1, needsFollowUp: 0, unresolvedPolicyDrift: 0, openExceptions: 0, missingPolicyTemplate: 0, localPolicyAuditEvents: 1 });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-governance/summary")) {
+        return jsonResponse({ totalFollowUps: 2, governanceReady: 1, needsGovernanceReview: 0, reviewedGovernance: 1, governanceNeedsFollowUp: 0, reviewedPolicyAudits: 1, unresolvedPolicyDrift: 0, openExceptions: 0, localGovernanceEvents: 1 });
+      }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-templates?")) {
         return new Response(JSON.stringify({ items: [{
           id: "template-1",
@@ -130,6 +133,8 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyExceptionResolution: "Local exception closed.",
           sopPolicyAuditState: "reviewed",
           sopPolicyAuditNote: "Local SOP policy audit reviewed.",
+          sopPolicyGovernanceState: "reviewed",
+          sopPolicyGovernanceNote: "Local SOP policy governance reviewed.",
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith(`/api/v1/visits/${VISIT_ID}`) && init?.method === "PATCH") {
@@ -194,7 +199,7 @@ describe("VisitWorkspaceLiveActions", () => {
       `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(25);
+    expect(fetchSpy).toHaveBeenCalledTimes(27);
   });
 
   it("updates the operational follow-up queue from the live panel", async () => {
@@ -224,6 +229,9 @@ describe("VisitWorkspaceLiveActions", () => {
       }
       if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-audit/summary")) {
         return jsonResponse({ totalFollowUps: 2, auditReady: 1, needsAuditReview: 1, reviewedAudits: 0, needsFollowUp: 0, unresolvedPolicyDrift: 1, openExceptions: 1, missingPolicyTemplate: 1, localPolicyAuditEvents: 0 });
+      }
+      if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-governance/summary")) {
+        return jsonResponse({ totalFollowUps: 2, governanceReady: 0, needsGovernanceReview: 2, reviewedGovernance: 0, governanceNeedsFollowUp: 0, reviewedPolicyAudits: 0, unresolvedPolicyDrift: 1, openExceptions: 1, localGovernanceEvents: 0 });
       }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-templates?")) {
         return new Response(JSON.stringify({ items: [{
@@ -257,6 +265,8 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyExceptionState: "open",
           sopPolicyExceptionReason: "Clinic-specific policy exception opened.",
           sopPolicyAuditState: "not_started",
+          sopPolicyGovernanceState: "not_started",
+          sopPolicyGovernanceNote: null,
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/operations") && init?.method === "PATCH") {
@@ -346,6 +356,21 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyAuditNote: "Local SOP policy audit reviewed.",
         });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance") && init?.method === "PATCH") {
+        return jsonResponse({
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          reason: "Контроль после визита",
+          status: "completed",
+          priority: "urgent",
+          sopValidationState: "validated",
+          sopPolicyDriftState: "in_sync",
+          sopPolicyExceptionState: "closed",
+          sopPolicyAuditState: "reviewed",
+          sopPolicyGovernanceState: "reviewed",
+          sopPolicyGovernanceNote: "Local SOP policy governance reviewed.",
+        });
+      }
       return jsonResponse({ id: "ok" });
     });
 
@@ -373,6 +398,9 @@ describe("VisitWorkspaceLiveActions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Audit reviewed" }));
     await waitFor(() => expect(screen.getByText("SOP policy audit отмечен как reviewed локально.")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Governance reviewed" }));
+    await waitFor(() => expect(screen.getByText("SOP policy governance review отмечен как reviewed локально.")).toBeInTheDocument());
 
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/clinical/follow-ups/follow-up-1/operations`,
@@ -423,6 +451,13 @@ describe("VisitWorkspaceLiveActions", () => {
         headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
       }),
     );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance`,
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
+      }),
+    );
     const sopValidationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-validation"));
     expect(JSON.parse(String(sopValidationCall?.[1]?.body)).sopPolicyVersion).toBe("clinic-local-v2");
     const sopPolicyApplicationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-application"));
@@ -431,6 +466,8 @@ describe("VisitWorkspaceLiveActions", () => {
     expect(JSON.parse(String(sopPolicyExceptionCall?.[1]?.body)).sopPolicyExceptionState).toBe("accepted");
     const sopPolicyAuditCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-audit"));
     expect(JSON.parse(String(sopPolicyAuditCall?.[1]?.body)).sopPolicyAuditState).toBe("reviewed");
+    const sopPolicyGovernanceCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance"));
+    expect(JSON.parse(String(sopPolicyGovernanceCall?.[1]?.body)).sopPolicyGovernanceState).toBe("reviewed");
   });
 
   it("shows validation status returned by backend", async () => {
@@ -457,6 +494,9 @@ describe("VisitWorkspaceLiveActions", () => {
       }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-audit")) {
         return jsonResponse({ totalFollowUps: 0, auditReady: 0, needsAuditReview: 0, reviewedAudits: 0, localPolicyAuditEvents: 0 });
+      }
+      if (url.includes("/api/v1/clinical/follow-ups/sop-policy-governance")) {
+        return jsonResponse({ totalFollowUps: 0, governanceReady: 0, needsGovernanceReview: 0, reviewedGovernance: 0, localGovernanceEvents: 0 });
       }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-templates")) {
         return url.includes("summary")

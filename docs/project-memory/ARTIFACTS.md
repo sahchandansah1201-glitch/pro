@@ -71,6 +71,14 @@
    - [check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.mjs](../../scripts/check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.mjs)
    - [stage25a-25z-clinical-followup-sop-policy-audit-rollup.yml](../../.github/workflows/stage25a-25z-clinical-followup-sop-policy-audit-rollup.yml)
 
+10. Stage 26A-26Z clinical follow-up SOP policy governance readiness artifacts:
+   - [clinical-followup-sop-policy-governance-readiness.stage26a-26z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-readiness.stage26a-26z.json)
+   - [0033_stage26_followup_sop_policy_governance_readiness.sql](../../backend/self-hosted/db/migrations/0033_stage26_followup_sop_policy_governance_readiness.sql)
+   - [openapi.stage26a-26z.json](../../backend/self-hosted/openapi.stage26a-26z.json)
+   - [stage-26a-26z-clinical-followup-sop-policy-governance-readiness.md](../backend/stage-26a-26z-clinical-followup-sop-policy-governance-readiness.md)
+   - [check-stage26a-26z-clinical-followup-sop-policy-governance-readiness.mjs](../../scripts/check-stage26a-26z-clinical-followup-sop-policy-governance-readiness.mjs)
+   - [stage26a-26z-clinical-followup-sop-policy-governance-readiness.yml](../../.github/workflows/stage26a-26z-clinical-followup-sop-policy-governance-readiness.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

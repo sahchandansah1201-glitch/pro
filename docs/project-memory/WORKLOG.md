@@ -2,6 +2,15 @@
 
 ## 2026-05-24
 
+- Создан Stage 26A-26Z clinical follow-up SOP policy governance readiness после Stage 25A-25Z.
+- Добавлены SOP policy governance readiness поля, append-only governance
+  events, backend summary/update routes, OpenAPI, nginx publishing, frontend
+  adapter, doctor live workspace Governance reviewed / Governance follow-up
+  actions, guard, workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no medical correctness proof, no
+  signed URLs/storage paths/provider tokens in protected outputs.
+
 - Создан Stage 25A-25Z clinical follow-up SOP policy audit rollup после Stage 24A-24Z.
 - Добавлены SOP policy audit поля, append-only audit events, backend
   summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor

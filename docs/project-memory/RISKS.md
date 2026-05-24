@@ -1,5 +1,21 @@
 # RISKS
 
+## Stage 26A-26Z follow-up SOP policy governance readiness risks
+
+1. **Risk: local SOP policy governance readiness can be mistaken for external governance approval.**
+   - Evidence: Stage 26A-26Z records local governance readiness state and notes
+     on follow-up tasks, but it does not verify legal sign-off, external SOP
+     approvals, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy governance
+     readiness as local metadata only.
+
+2. **Risk: governance review can obscure unresolved policy drift or open exceptions.**
+   - Evidence: Stage 26A-26Z summarizes governance readiness from local audit,
+     drift, exception, and validation fields; it does not prove external
+     remediation or diagnosis/treatment correctness.
+   - Mitigation: keep states bounded, RBAC-protected, append-only audited, and
+     visible in the doctor workspace summary.
+
 ## Stage 25A-25Z follow-up SOP policy audit rollup risks
 
 1. **Risk: local SOP policy audit rollup can be mistaken for external SOP approval.**

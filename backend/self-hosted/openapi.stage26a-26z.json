@@ -1,0 +1,118 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted clinical follow-up SOP policy governance readiness",
+    "version": "26A-26Z-clinical-followup-sop-policy-governance-readiness"
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-governance/summary": {
+      "get": {
+        "summary": "Read local SOP policy governance readiness summary",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Clinic-scoped governance readiness summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "const": "26A-26Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/SopPolicyGovernanceReadinessSummary" }
+                  },
+                  "required": ["stage", "source", "item"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance": {
+      "patch": {
+        "summary": "Update local SOP policy governance readiness state",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateSopPolicyGovernanceReadiness" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated local follow-up governance readiness state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "const": "26A-26Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/ClinicalFollowUp" }
+                  },
+                  "required": ["stage", "source", "item"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "SopPolicyGovernanceReadinessSummary": {
+        "type": "object",
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "governanceReady": { "type": "integer" },
+          "needsGovernanceReview": { "type": "integer" },
+          "reviewedGovernance": { "type": "integer" },
+          "governanceNeedsFollowUp": { "type": "integer" },
+          "reviewedPolicyAudits": { "type": "integer" },
+          "unresolvedPolicyDrift": { "type": "integer" },
+          "openExceptions": { "type": "integer" },
+          "localGovernanceEvents": { "type": "integer" },
+          "source": { "type": "string" }
+        }
+      },
+      "UpdateSopPolicyGovernanceReadiness": {
+        "type": "object",
+        "properties": {
+          "sopPolicyGovernanceState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "reviewed", "needs_followup"]
+          },
+          "sopPolicyGovernanceNote": { "type": ["string", "null"], "maxLength": 2000 }
+        },
+        "additionalProperties": false
+      },
+      "ClinicalFollowUp": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "sopPolicyGovernanceState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "reviewed", "needs_followup"]
+          },
+          "sopPolicyGovernanceNote": { "type": ["string", "null"], "maxLength": 2000 },
+          "sopPolicyGovernanceReviewedAt": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}
