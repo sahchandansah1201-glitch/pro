@@ -1,0 +1,105 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-Hosted Clinical Follow-Up SOP Policy Exception Closure",
+    "version": "24A-24Z-clinical-followup-sop-policy-exception-closure",
+    "description": "Self-hosted local SOP policy exception closure contracts for clinical follow-up drift review. Uses local PostgreSQL metadata only and does not prove external SOP approval or medical correctness."
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-exceptions/summary": {
+      "get": {
+        "summary": "Read local SOP policy exception closure summary",
+        "responses": {
+          "200": {
+            "description": "Local SOP policy exception closure summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "const": "24A-24Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/SopPolicyExceptionClosureSummary" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-exception": {
+      "patch": {
+        "summary": "Open or close a local SOP policy exception",
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SopPolicyExceptionClosureUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated follow-up local SOP policy exception closure state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "const": "24A-24Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "422": { "description": "Validation error" },
+          "404": { "description": "Follow-up SOP policy exception was not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SopPolicyExceptionClosureSummary": {
+        "type": "object",
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "openExceptions": { "type": "integer" },
+          "closedExceptions": { "type": "integer" },
+          "acceptedExceptions": { "type": "integer" },
+          "rejectedExceptions": { "type": "integer" },
+          "unresolvedDrift": { "type": "integer" },
+          "unclosedValidationExceptions": { "type": "integer" },
+          "closedWithLocalResolution": { "type": "integer" },
+          "localExceptionEvents": { "type": "integer" },
+          "source": { "const": "postgres" }
+        }
+      },
+      "SopPolicyExceptionClosureUpdate": {
+        "type": "object",
+        "properties": {
+          "sopPolicyExceptionState": {
+            "type": "string",
+            "enum": ["none", "open", "accepted", "rejected", "closed"]
+          },
+          "sopPolicyExceptionReason": { "type": ["string", "null"], "maxLength": 2000 },
+          "sopPolicyExceptionResolution": { "type": ["string", "null"], "maxLength": 2000 }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

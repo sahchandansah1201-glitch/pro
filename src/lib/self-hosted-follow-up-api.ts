@@ -25,6 +25,7 @@ export type FollowUpRetentionReviewState = "not_due" | "due" | "reviewed" | "arc
 export type FollowUpClinicReviewState = "not_scheduled" | "scheduled" | "completed" | "needs_policy_review";
 export type FollowUpSopValidationState = "not_required" | "required" | "validated" | "exception" | "blocked";
 export type FollowUpSopPolicyDriftState = "not_checked" | "in_sync" | "drifted" | "missing_template" | "review_required";
+export type FollowUpSopPolicyExceptionState = "none" | "open" | "accepted" | "rejected" | "closed";
 
 export interface SelfHostedFollowUpMessage {
   id: string;
@@ -75,6 +76,10 @@ export interface SelfHostedClinicalFollowUp {
   sopPolicyDriftReason?: string | null;
   sopPolicyAppliedAt?: string | null;
   sopPolicyDriftReviewedAt?: string | null;
+  sopPolicyExceptionState: FollowUpSopPolicyExceptionState;
+  sopPolicyExceptionReason?: string | null;
+  sopPolicyExceptionResolution?: string | null;
+  sopPolicyExceptionClosedAt?: string | null;
   sopExceptionReason?: string | null;
   sopValidatedAt?: string | null;
   resolvedAt?: string | null;
@@ -190,6 +195,19 @@ export interface FollowUpSopPolicyApplicationSummary {
   source?: string;
 }
 
+export interface FollowUpSopPolicyExceptionClosureSummary {
+  totalFollowUps: number;
+  openExceptions: number;
+  closedExceptions: number;
+  acceptedExceptions: number;
+  rejectedExceptions: number;
+  unresolvedDrift: number;
+  unclosedValidationExceptions: number;
+  closedWithLocalResolution: number;
+  localExceptionEvents: number;
+  source?: string;
+}
+
 export interface SelfHostedFollowUpSopPolicyTemplate {
   id: string;
   clinicId: string | null;
@@ -241,6 +259,12 @@ export interface UpdateFollowUpSopPolicyApplicationPayload {
   sopValidationState?: FollowUpSopValidationState;
   sopPolicyDriftState?: FollowUpSopPolicyDriftState;
   sopPolicyDriftReason?: string | null;
+}
+
+export interface UpdateFollowUpSopPolicyExceptionClosurePayload {
+  sopPolicyExceptionState?: FollowUpSopPolicyExceptionState;
+  sopPolicyExceptionReason?: string | null;
+  sopPolicyExceptionResolution?: string | null;
 }
 
 export interface CreateFollowUpSopPolicyTemplatePayload {
@@ -362,6 +386,13 @@ function toSopPolicyDriftState(value: unknown): FollowUpSopPolicyDriftState {
     : "not_checked";
 }
 
+function toSopPolicyExceptionState(value: unknown): FollowUpSopPolicyExceptionState {
+  const state = String(value ?? "none");
+  return ["none", "open", "accepted", "rejected", "closed"].includes(state)
+    ? (state as FollowUpSopPolicyExceptionState)
+    : "none";
+}
+
 export function toSelfHostedFollowUpMessage(input: unknown): SelfHostedFollowUpMessage {
   const row = isRecord(input) ? input : {};
   return {
@@ -417,6 +448,10 @@ export function toSelfHostedClinicalFollowUp(input: unknown): SelfHostedClinical
     sopPolicyDriftReason: textOrNull(row.sopPolicyDriftReason),
     sopPolicyAppliedAt: textOrNull(row.sopPolicyAppliedAt),
     sopPolicyDriftReviewedAt: textOrNull(row.sopPolicyDriftReviewedAt),
+    sopPolicyExceptionState: toSopPolicyExceptionState(row.sopPolicyExceptionState),
+    sopPolicyExceptionReason: textOrNull(row.sopPolicyExceptionReason),
+    sopPolicyExceptionResolution: textOrNull(row.sopPolicyExceptionResolution),
+    sopPolicyExceptionClosedAt: textOrNull(row.sopPolicyExceptionClosedAt),
     sopExceptionReason: textOrNull(row.sopExceptionReason),
     sopValidatedAt: textOrNull(row.sopValidatedAt),
     resolvedAt: textOrNull(row.resolvedAt),
@@ -525,6 +560,22 @@ export function toFollowUpSopPolicyApplicationSummary(input: unknown): FollowUpS
     reviewRequired: numberOrZero(row.reviewRequired),
     needsPolicyApplication: numberOrZero(row.needsPolicyApplication),
     localApplicationEvents: numberOrZero(row.localApplicationEvents),
+    source: textOrNull(row.source) || undefined,
+  };
+}
+
+export function toFollowUpSopPolicyExceptionClosureSummary(input: unknown): FollowUpSopPolicyExceptionClosureSummary {
+  const row = isRecord(input) ? input : {};
+  return {
+    totalFollowUps: numberOrZero(row.totalFollowUps),
+    openExceptions: numberOrZero(row.openExceptions),
+    closedExceptions: numberOrZero(row.closedExceptions),
+    acceptedExceptions: numberOrZero(row.acceptedExceptions),
+    rejectedExceptions: numberOrZero(row.rejectedExceptions),
+    unresolvedDrift: numberOrZero(row.unresolvedDrift),
+    unclosedValidationExceptions: numberOrZero(row.unclosedValidationExceptions),
+    closedWithLocalResolution: numberOrZero(row.closedWithLocalResolution),
+    localExceptionEvents: numberOrZero(row.localExceptionEvents),
     source: textOrNull(row.source) || undefined,
   };
 }
@@ -743,6 +794,15 @@ export async function getSelfHostedClinicalFollowUpSopPolicyApplicationSummary(
   return ok(toFollowUpSopPolicyApplicationSummary(body.item));
 }
 
+export async function getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<FollowUpSopPolicyExceptionClosureSummary>> {
+  const response = await requestJson(args, "/api/v1/clinical/follow-ups/sop-policy-exceptions/summary");
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toFollowUpSopPolicyExceptionClosureSummary(body.item));
+}
+
 export async function listSelfHostedClinicalFollowUpSopPolicyTemplates(
   args: BaseArgs & { activeOnly?: boolean },
 ): Promise<SelfHostedApiResult<SelfHostedFollowUpSopPolicyTemplate[]>> {
@@ -808,6 +868,18 @@ export async function updateSelfHostedClinicalFollowUpSopPolicyApplication(
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpSopPolicyApplicationPayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
   const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/sop-policy-application`, {
+    method: "PATCH",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedClinicalFollowUp(body.item));
+}
+
+export async function updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure(
+  args: BaseArgs & { followUpId: string; payload: UpdateFollowUpSopPolicyExceptionClosurePayload },
+): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
+  const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/sop-policy-exception`, {
     method: "PATCH",
     body: args.payload,
   });

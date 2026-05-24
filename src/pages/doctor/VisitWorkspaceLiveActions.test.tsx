@@ -91,6 +91,9 @@ describe("VisitWorkspaceLiveActions", () => {
       if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-application/summary")) {
         return jsonResponse({ totalFollowUps: 2, activeTemplates: 1, appliedTemplates: 1, notChecked: 0, inSync: 1, reviewRequired: 0, needsPolicyApplication: 0, localApplicationEvents: 0 });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-exceptions/summary")) {
+        return jsonResponse({ totalFollowUps: 2, openExceptions: 0, closedExceptions: 1, acceptedExceptions: 1, rejectedExceptions: 0, unresolvedDrift: 0, unclosedValidationExceptions: 0, closedWithLocalResolution: 1, localExceptionEvents: 1 });
+      }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-templates?")) {
         return new Response(JSON.stringify({ items: [{
           id: "template-1",
@@ -120,6 +123,8 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyVersion: "clinic-local-v1",
           sopPolicyTemplateCode: "followup-standard",
           sopPolicyDriftState: "in_sync",
+          sopPolicyExceptionState: "closed",
+          sopPolicyExceptionResolution: "Local exception closed.",
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith(`/api/v1/visits/${VISIT_ID}`) && init?.method === "PATCH") {
@@ -184,7 +189,7 @@ describe("VisitWorkspaceLiveActions", () => {
       `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(21);
+    expect(fetchSpy).toHaveBeenCalledTimes(23);
   });
 
   it("updates the operational follow-up queue from the live panel", async () => {
@@ -208,6 +213,9 @@ describe("VisitWorkspaceLiveActions", () => {
       }
       if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-application/summary")) {
         return jsonResponse({ totalFollowUps: 2, activeTemplates: 1, appliedTemplates: 0, notChecked: 1, inSync: 0, reviewRequired: 1, needsPolicyApplication: 1, localApplicationEvents: 0 });
+      }
+      if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-exceptions/summary")) {
+        return jsonResponse({ totalFollowUps: 2, openExceptions: 1, closedExceptions: 0, acceptedExceptions: 0, rejectedExceptions: 0, unresolvedDrift: 1, unclosedValidationExceptions: 1, closedWithLocalResolution: 0, localExceptionEvents: 0 });
       }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-templates?")) {
         return new Response(JSON.stringify({ items: [{
@@ -238,6 +246,8 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyVersion: null,
           sopPolicyTemplateCode: null,
           sopPolicyDriftState: "review_required",
+          sopPolicyExceptionState: "open",
+          sopPolicyExceptionReason: "Clinic-specific policy exception opened.",
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/operations") && init?.method === "PATCH") {
@@ -299,6 +309,20 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyDriftState: "in_sync",
         });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-exception") && init?.method === "PATCH") {
+        return jsonResponse({
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          reason: "Контроль после визита",
+          status: "completed",
+          priority: "urgent",
+          sopValidationState: "exception",
+          sopPolicyDriftState: "review_required",
+          sopPolicyExceptionState: "accepted",
+          sopPolicyExceptionReason: "Clinic-specific policy exception opened.",
+          sopPolicyExceptionResolution: "Local exception accepted and closed for clinic policy review.",
+        });
+      }
       return jsonResponse({ id: "ok" });
     });
 
@@ -320,6 +344,9 @@ describe("VisitWorkspaceLiveActions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Apply policy" }));
     await waitFor(() => expect(screen.getByText("SOP policy template применён к follow-up локально.")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Close exception" }));
+    await waitFor(() => expect(screen.getByText("SOP policy exception закрыт локально.")).toBeInTheDocument());
 
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/clinical/follow-ups/follow-up-1/operations`,
@@ -356,10 +383,19 @@ describe("VisitWorkspaceLiveActions", () => {
         headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
       }),
     );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-exception`,
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
+      }),
+    );
     const sopValidationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-validation"));
     expect(JSON.parse(String(sopValidationCall?.[1]?.body)).sopPolicyVersion).toBe("clinic-local-v2");
     const sopPolicyApplicationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-application"));
     expect(JSON.parse(String(sopPolicyApplicationCall?.[1]?.body)).sopPolicyTemplateId).toBe("template-1");
+    const sopPolicyExceptionCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-exception"));
+    expect(JSON.parse(String(sopPolicyExceptionCall?.[1]?.body)).sopPolicyExceptionState).toBe("accepted");
   });
 
   it("shows validation status returned by backend", async () => {
@@ -380,6 +416,9 @@ describe("VisitWorkspaceLiveActions", () => {
       }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-application")) {
         return jsonResponse({ totalFollowUps: 0, activeTemplates: 0, appliedTemplates: 0, reviewRequired: 0, needsPolicyApplication: 0, localApplicationEvents: 0 });
+      }
+      if (url.includes("/api/v1/clinical/follow-ups/sop-policy-exceptions")) {
+        return jsonResponse({ totalFollowUps: 0, openExceptions: 0, closedExceptions: 0, unresolvedDrift: 0, localExceptionEvents: 0 });
       }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-templates")) {
         return url.includes("summary")

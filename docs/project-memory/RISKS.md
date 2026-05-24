@@ -1,5 +1,22 @@
 # RISKS
 
+## Stage 24A-24Z follow-up SOP policy exception closure risks
+
+1. **Risk: local SOP policy exception closure can be mistaken for external SOP approval.**
+   - Evidence: Stage 24A-24Z opens, accepts, rejects, or closes local exception
+     metadata on follow-up tasks, but it does not verify external SOP documents,
+     clinic governance approval, or medical correctness outside the self-hosted
+     workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy exception
+     closure as local metadata only.
+
+2. **Risk: exception closure can hide unresolved drift if the clinic workflow is incomplete.**
+   - Evidence: Stage 24A-24Z records `sop_policy_exception_state` and a local
+     resolution note; it does not enforce external policy remediation or
+     diagnosis/treatment correctness.
+   - Mitigation: keep accepted/rejected/closed states bounded, RBAC-protected,
+     append-only audited, and visible in the doctor workspace summary.
+
 ## Stage 23A-23Z follow-up SOP policy application risks
 
 1. **Risk: local SOP policy application can be mistaken for external SOP approval.**
@@ -15,8 +32,8 @@
      reason locally; it does not execute external policy engines or make
      diagnosis/treatment claims.
    - Mitigation: keep drift states bounded, RBAC-protected, append-only
-     audited, and self-hosted; Stage 24A-24Z remains a hypothesis until
-     repository files define the next closure or audit layer.
+     audited, and self-hosted; Stage 24A-24Z adds the local exception closure
+     layer.
 
 ## Stage 22A-22Z follow-up SOP policy templates risks
 

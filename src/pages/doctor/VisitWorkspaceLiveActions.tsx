@@ -19,6 +19,7 @@ import {
   getSelfHostedClinicalFollowUpOperationsSummary,
   getSelfHostedClinicalFollowUpSopPolicyTemplateSummary,
   getSelfHostedClinicalFollowUpSopPolicyApplicationSummary,
+  getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary,
   getSelfHostedClinicalFollowUpSopValidationSummary,
   listSelfHostedClinicalFollowUpOperations,
   listSelfHostedClinicalFollowUpSopPolicyTemplates,
@@ -27,6 +28,7 @@ import {
   type FollowUpOperationsSummary,
   type FollowUpSopPolicyTemplateSummary,
   type FollowUpSopPolicyApplicationSummary,
+  type FollowUpSopPolicyExceptionClosureSummary,
   type FollowUpSopValidationSummary,
   type SelfHostedClinicalFollowUp,
   type SelfHostedFollowUpSopPolicyTemplate,
@@ -35,6 +37,7 @@ import {
   updateSelfHostedClinicalFollowUpQuality,
   updateSelfHostedClinicalFollowUpSopValidation,
   updateSelfHostedClinicalFollowUpSopPolicyApplication,
+  updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure,
 } from "@/lib/self-hosted-follow-up-api";
 import {
   archiveSelfHostedVisitLesion,
@@ -64,6 +67,7 @@ type BusyAction =
   | "sop-validation-update"
   | "sop-policy-template-create"
   | "sop-policy-application-update"
+  | "sop-policy-exception-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -138,6 +142,18 @@ const EMPTY_SOP_POLICY_APPLICATION_SUMMARY: FollowUpSopPolicyApplicationSummary 
   localApplicationEvents: 0,
 };
 
+const EMPTY_SOP_POLICY_EXCEPTION_CLOSURE_SUMMARY: FollowUpSopPolicyExceptionClosureSummary = {
+  totalFollowUps: 0,
+  openExceptions: 0,
+  closedExceptions: 0,
+  acceptedExceptions: 0,
+  rejectedExceptions: 0,
+  unresolvedDrift: 0,
+  unclosedValidationExceptions: 0,
+  closedWithLocalResolution: 0,
+  localExceptionEvents: 0,
+};
+
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
   if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
@@ -168,6 +184,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [sopValidationSummary, setSopValidationSummary] = useState<FollowUpSopValidationSummary>(EMPTY_SOP_VALIDATION_SUMMARY);
   const [sopPolicyTemplateSummary, setSopPolicyTemplateSummary] = useState<FollowUpSopPolicyTemplateSummary>(EMPTY_SOP_POLICY_TEMPLATE_SUMMARY);
   const [sopPolicyApplicationSummary, setSopPolicyApplicationSummary] = useState<FollowUpSopPolicyApplicationSummary>(EMPTY_SOP_POLICY_APPLICATION_SUMMARY);
+  const [sopPolicyExceptionClosureSummary, setSopPolicyExceptionClosureSummary] = useState<FollowUpSopPolicyExceptionClosureSummary>(EMPTY_SOP_POLICY_EXCEPTION_CLOSURE_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
   const [sopPolicyTemplates, setSopPolicyTemplates] = useState<SelfHostedFollowUpSopPolicyTemplate[]>([]);
   const [sopTemplateCode, setSopTemplateCode] = useState("followup-standard");
@@ -194,13 +211,14 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicies, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicies, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopValidationSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyTemplateSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyApplicationSummary(baseArgs),
+      getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary(baseArgs),
       listSelfHostedClinicalFollowUpSopPolicyTemplates({
         ...baseArgs,
         activeOnly: true,
@@ -216,11 +234,12 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (sopValidation.ok) setSopValidationSummary(sopValidation.value);
     if (sopPolicySummary.ok) setSopPolicyTemplateSummary(sopPolicySummary.value);
     if (sopPolicyApplication.ok) setSopPolicyApplicationSummary(sopPolicyApplication.value);
+    if (sopPolicyExceptions.ok) setSopPolicyExceptionClosureSummary(sopPolicyExceptions.value);
     if (sopPolicies.ok) setSopPolicyTemplates(sopPolicies.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicies.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicies.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicies.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicies.error || queue.error));
     }
   }
 
@@ -412,6 +431,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("sop-policy-application-update");
     const result = await updateSelfHostedClinicalFollowUpSopPolicyApplication({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateSopPolicyExceptionClosureState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("sop-policy-exception-update");
+    const result = await updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure({
       ...baseArgs,
       followUpId,
       payload,
@@ -791,6 +826,20 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   <dd className="text-lg font-semibold">{sopPolicyApplicationSummary.reviewRequired}</dd>
                 </div>
               </dl>
+              <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Open exceptions</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyExceptionClosureSummary.openExceptions}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Unresolved drift</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyExceptionClosureSummary.unresolvedDrift}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Closed local</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyExceptionClosureSummary.closedExceptions}</dd>
+                </div>
+              </dl>
               <div className="space-y-2 text-[12px]">
                 {sopPolicyTemplates.length === 0 ? (
                   <p className="text-muted-foreground">Активный SOP policy template ещё не задан.</p>
@@ -909,6 +958,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   policy drift: {item.sopPolicyDriftState} · template: {item.sopPolicyTemplateCode || "not applied"}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  policy exception: {item.sopPolicyExceptionState} · {item.sopPolicyExceptionResolution || item.sopPolicyExceptionReason || "no local closure"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1108,6 +1160,41 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Drift review
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-exception-update"}
+                  onClick={() => void updateSopPolicyExceptionClosureState(
+                    item.id,
+                    {
+                      sopPolicyExceptionState: "open",
+                      sopPolicyExceptionReason: "Local SOP policy exception opened from workspace.",
+                    },
+                    "SOP policy exception открыт локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Open exception
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-exception-update"}
+                  onClick={() => void updateSopPolicyExceptionClosureState(
+                    item.id,
+                    {
+                      sopPolicyExceptionState: "accepted",
+                      sopPolicyExceptionReason: item.sopPolicyExceptionReason || "Local SOP policy exception accepted from workspace.",
+                      sopPolicyExceptionResolution: "Local exception accepted and closed for clinic policy review.",
+                    },
+                    "SOP policy exception закрыт локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Close exception
                 </Button>
               </div>
             </article>

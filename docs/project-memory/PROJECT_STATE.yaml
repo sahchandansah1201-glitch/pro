@@ -1,9 +1,16 @@
-generated_at: "2026-05-24T08:00:00+03:00"
+generated_at: "2026-05-24T10:30:00+03:00"
 project: "Dermatolog Pro"
+stage24a_24z:
+  name: "Stage 24A-24Z"
+  clinical_followup_sop_policy_exception_closure_confirmed: true
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:stage24a-24z"
+  previous_batch: "Stage 23A-23Z"
+  next_hypothesis: "Stage 25A-25Z"
 stage23a_23z:
   name: "Stage 23A-23Z"
   clinical_followup_sop_policy_application_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage23a-23z"
   previous_batch: "Stage 22A-22Z"
   next_hypothesis: "Stage 24A-24Z"
@@ -31,21 +38,21 @@ stage20a_20z:
 stage19a_19z:
   name: "Stage 19A-19Z"
   clinical_followup_outcome_quality_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage19a-19z"
   previous_batch: "Stage 18A-18Z"
   next_hypothesis: "Stage 20A-20Z"
 stage18a_18z:
   name: "Stage 18A-18Z"
   clinical_followup_operations_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage18a-18z"
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage23a-23z-clinical-followup-sop-policy-application"
-  head_sha: "8aed214e3327113d9000ad615637bd883ceef901"
-  head_commit: "Add Stage 22A-22Z clinical follow-up SOP policy templates"
+  branch: "codex/stage24a-24z-clinical-followup-sop-policy-exception-closure"
+  head_sha: "62d346f2b269aa888cc2dd869646cf88134672f3"
+  head_commit: "Add Stage 23A-23Z clinical follow-up SOP policy application"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -884,10 +891,13 @@ stage16a_16z_preflight:
     - "scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs"
     - ".github/workflows/stage15a-15z-post-sync-handoff-readiness.yml"
 hypotheses:
-  - "Stage 24A-24Z is the next hypothesis after Stage 23A-23Z until repository files define it."
-  - "A likely Stage 24A-24Z direction is follow-up SOP policy exception closure or clinic policy audit rollup, but this remains unconfirmed."
+  - "Stage 25A-25Z is the next hypothesis after Stage 24A-24Z until repository files define it."
+  - "A likely Stage 25A-25Z direction is follow-up clinic policy audit rollup or SOP exception reporting, but this remains unconfirmed."
 sources:
   commands:
+    - "npm run test:stage24a-24z"
+    - "npm run check:stage24a-24z"
+    - "npm run preflight:stage24a-24z"
     - "npm run test:stage23a-23z"
     - "npm run check:stage23a-23z"
     - "npm run preflight:stage23a-23z"

@@ -2,11 +2,19 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 23A-23Z is being
+This handoff captures the repository state while Stage 24A-24Z is being
 implemented from branch
-`codex/stage23a-23z-clinical-followup-sop-policy-application`.
+`codex/stage24a-24z-clinical-followup-sop-policy-exception-closure`.
 
 ## Confirmed state
+
+0. Stage 24A-24Z is implemented in the current branch as local SOP policy
+   exception closure:
+   - PostgreSQL SOP policy exception closure fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_sop_policy_exception_events`;
+   - backend SOP policy exception summary/update routes;
+   - doctor live workspace Open exception and Close exception row actions;
+   - no managed notification provider dependency and no external SOP proof.
 
 0. Stage 23A-23Z is implemented in the current branch as local SOP policy
    application and drift review:
@@ -397,7 +405,7 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 24A-24Z` is the next hypothesis after Stage 23A-23Z until repository
+- `Stage 25A-25Z` is the next hypothesis after Stage 24A-24Z until repository
   files define it.
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
 - `Stage 15A-15Z` is the confirmed post-sync handoff readiness batch after Stage 14A-14Z.
