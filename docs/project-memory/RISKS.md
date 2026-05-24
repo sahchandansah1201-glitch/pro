@@ -1,5 +1,21 @@
 # RISKS
 
+## Stage 28A-28Z follow-up SOP policy governance evidence risks
+
+1. **Risk: local SOP policy governance evidence can be mistaken for external governance approval proof.**
+   - Evidence: Stage 28A-28Z records local evidence export/review state and
+     notes on follow-up tasks, but it does not verify legal sign-off, external
+     SOP approvals, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy governance
+     evidence as local metadata only.
+
+2. **Risk: evidence export can obscure unresolved closure, drift, audit, or exception work.**
+   - Evidence: Stage 28A-28Z summarizes evidence readiness from local closure,
+     governance, audit, drift, and exception fields; it does not prove external
+     remediation or diagnosis/treatment correctness.
+   - Mitigation: keep states bounded, RBAC-protected, append-only audited, and
+     visible in the doctor workspace summary.
+
 ## Stage 27A-27Z follow-up SOP policy governance closure risks
 
 1. **Risk: local SOP policy governance closure can be mistaken for external governance approval.**

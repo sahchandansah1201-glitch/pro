@@ -136,6 +136,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 25A-25Z clinical follow-up SOP policy audit rollup preflight",
     "Stage 26A-26Z clinical follow-up SOP policy governance readiness preflight",
     "Stage 27A-27Z clinical follow-up SOP policy governance closure preflight",
+    "Stage 28A-28Z clinical follow-up SOP policy governance evidence preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "project-memory black box guard",
@@ -253,11 +254,12 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[108], /npm(\.cmd)? run preflight:stage25a-25z/);
   assert.match(commands[109], /npm(\.cmd)? run preflight:stage26a-26z/);
   assert.match(commands[110], /npm(\.cmd)? run preflight:stage27a-27z/);
-  assert.match(commands[111], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[112], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[113], /npm(\.cmd)? run check:project-memory/);
-  assert.match(commands[114], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[115], "git diff --check");
+  assert.match(commands[111], /npm(\.cmd)? run preflight:stage28a-28z/);
+  assert.match(commands[112], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[113], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[114], /npm(\.cmd)? run check:project-memory/);
+  assert.match(commands[115], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[116], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
@@ -379,6 +381,9 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage23a-23z/);
   assert.match(out, /preflight:stage24a-24z/);
   assert.match(out, /preflight:stage25a-25z/);
+  assert.match(out, /preflight:stage26a-26z/);
+  assert.match(out, /preflight:stage27a-27z/);
+  assert.match(out, /preflight:stage28a-28z/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /check:project-memory/);

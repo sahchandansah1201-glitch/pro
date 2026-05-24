@@ -134,6 +134,9 @@ export function normalizeClinicalFollowUp(row = {}) {
     sopPolicyGovernanceClosureState: cleanText(row.sopPolicyGovernanceClosureState ?? row.sop_policy_governance_closure_state) || "not_started",
     sopPolicyGovernanceClosureNote: cleanText(row.sopPolicyGovernanceClosureNote ?? row.sop_policy_governance_closure_note),
     sopPolicyGovernanceClosedAt: cleanText(row.sopPolicyGovernanceClosedAt ?? row.sop_policy_governance_closed_at),
+    sopPolicyGovernanceEvidenceState: cleanText(row.sopPolicyGovernanceEvidenceState ?? row.sop_policy_governance_evidence_state) || "not_started",
+    sopPolicyGovernanceEvidenceNote: cleanText(row.sopPolicyGovernanceEvidenceNote ?? row.sop_policy_governance_evidence_note),
+    sopPolicyGovernanceEvidenceReviewedAt: cleanText(row.sopPolicyGovernanceEvidenceReviewedAt ?? row.sop_policy_governance_evidence_reviewed_at),
     sopExceptionReason: cleanText(row.sopExceptionReason ?? row.sop_exception_reason),
     sopValidatedAt: cleanText(row.sopValidatedAt ?? row.sop_validated_at),
     resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
@@ -281,6 +284,9 @@ function followUpSelect({ patientSafe = false } = {}) {
     coalesce(f.sop_policy_governance_closure_state, 'not_started') as "sopPolicyGovernanceClosureState",
     f.sop_policy_governance_closure_note as "sopPolicyGovernanceClosureNote",
     f.sop_policy_governance_closed_at as "sopPolicyGovernanceClosedAt",
+    coalesce(f.sop_policy_governance_evidence_state, 'not_started') as "sopPolicyGovernanceEvidenceState",
+    f.sop_policy_governance_evidence_note as "sopPolicyGovernanceEvidenceNote",
+    f.sop_policy_governance_evidence_reviewed_at as "sopPolicyGovernanceEvidenceReviewedAt",
     f.sop_exception_reason as "sopExceptionReason",
     f.sop_validated_at as "sopValidatedAt",
     f.resolved_at as "resolvedAt",
@@ -1516,6 +1522,143 @@ export function buildUpdateClinicalFollowUpSopPolicyGovernanceClosureSql({
   `;
 }
 
+export function buildClinicalFollowUpSopPolicyGovernanceEvidenceSummarySql({
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const scopedFollowUps = clinicScopeWhere("f", { allClinics, clinicIds });
+  const evidenceReady = `(
+    coalesce(f.sop_policy_governance_closure_state, 'not_started') = 'closed'
+    and coalesce(f.sop_policy_governance_state, 'not_started') = 'reviewed'
+    and coalesce(f.sop_policy_audit_state, 'not_started') = 'reviewed'
+    and coalesce(f.sop_policy_drift_state, 'not_checked') = 'in_sync'
+    and coalesce(f.sop_policy_exception_state, 'none') in ('none', 'accepted', 'rejected', 'closed')
+  )`;
+  return `
+    with scoped_followups as (
+      select *
+      from clinical_follow_up_tasks f
+      where ${scopedFollowUps}
+    )
+    select
+      count(*)::int as "totalFollowUps",
+      count(*) filter (where ${evidenceReady})::int as "evidenceReady",
+      count(*) filter (where ${evidenceReady} and coalesce(f.sop_policy_governance_evidence_state, 'not_started') in ('not_started', 'needs_followup'))::int as "needsEvidenceReview",
+      count(*) filter (where coalesce(f.sop_policy_governance_evidence_state, 'not_started') = 'exported')::int as "exportedGovernanceEvidence",
+      count(*) filter (where coalesce(f.sop_policy_governance_evidence_state, 'not_started') = 'needs_followup')::int as "evidenceNeedsFollowUp",
+      count(*) filter (where coalesce(f.sop_policy_governance_closure_state, 'not_started') = 'closed')::int as "closedGovernanceReviews",
+      count(*) filter (where coalesce(f.sop_policy_drift_state, 'not_checked') in ('drifted', 'missing_template', 'review_required'))::int as "unresolvedPolicyDrift",
+      count(*) filter (where coalesce(f.sop_policy_exception_state, 'none') = 'open')::int as "openExceptions",
+      count(*) filter (where exists (
+        select 1
+        from clinical_follow_up_sop_policy_governance_evidence_events e
+        where e.follow_up_id = f.id
+      ))::int as "localGovernanceEvidenceEvents"
+    from scoped_followups f
+  `;
+}
+
+export function buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceSql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const nextState = changes.sopPolicyGovernanceEvidenceState !== undefined
+    ? sqlLiteral(changes.sopPolicyGovernanceEvidenceState)
+    : "p.sop_policy_governance_evidence_state";
+  const nextNote = changes.sopPolicyGovernanceEvidenceNote !== undefined
+    ? sqlNullableText(changes.sopPolicyGovernanceEvidenceNote)
+    : "p.sop_policy_governance_evidence_note";
+  const reviewState = ["ready", "exported", "needs_followup"].includes(changes.sopPolicyGovernanceEvidenceState);
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set
+          sop_policy_governance_evidence_state = ${nextState},
+          sop_policy_governance_evidence_note = ${nextNote},
+          sop_policy_governance_evidence_reviewed_by_user_id = ${reviewState ? sqlUuid(actorUserId) : "p.sop_policy_governance_evidence_reviewed_by_user_id"},
+          sop_policy_governance_evidence_reviewed_at = ${reviewState ? "now()" : "p.sop_policy_governance_evidence_reviewed_at"},
+          updated_at = now()
+      from previous p
+      where f.id = p.id
+      returning f.*,
+        p.sop_policy_governance_evidence_state as previous_sop_policy_governance_evidence_state,
+        p.sop_policy_governance_evidence_note as previous_sop_policy_governance_evidence_note,
+        p.sop_policy_governance_closure_state as previous_sop_policy_governance_closure_state,
+        p.sop_policy_governance_state as previous_sop_policy_governance_state,
+        p.sop_policy_audit_state as previous_sop_policy_audit_state,
+        p.sop_policy_drift_state as previous_sop_policy_drift_state,
+        p.sop_policy_exception_state as previous_sop_policy_exception_state,
+        p.sop_validation_state as previous_sop_validation_state
+    ), event as (
+      insert into clinical_follow_up_sop_policy_governance_evidence_events (
+        follow_up_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        evidence_state,
+        closure_state,
+        governance_state,
+        audit_state,
+        drift_state,
+        exception_state,
+        validation_state,
+        note
+      )
+      select
+        u.id,
+        u.clinic_id,
+        ${sqlUuid(actorUserId)},
+        'sop_policy_governance_evidence.update',
+        jsonb_build_object(
+          'sopPolicyGovernanceEvidenceState', coalesce(previous_sop_policy_governance_evidence_state, 'not_started'),
+          'sopPolicyGovernanceEvidenceNote', previous_sop_policy_governance_evidence_note,
+          'sopPolicyGovernanceClosureState', coalesce(previous_sop_policy_governance_closure_state, 'not_started'),
+          'sopPolicyGovernanceState', coalesce(previous_sop_policy_governance_state, 'not_started'),
+          'sopPolicyAuditState', coalesce(previous_sop_policy_audit_state, 'not_started'),
+          'sopPolicyDriftState', coalesce(previous_sop_policy_drift_state, 'not_checked'),
+          'sopPolicyExceptionState', coalesce(previous_sop_policy_exception_state, 'none'),
+          'sopValidationState', coalesce(previous_sop_validation_state, 'not_required')
+        ),
+        jsonb_build_object(
+          'sopPolicyGovernanceEvidenceState', coalesce(u.sop_policy_governance_evidence_state, 'not_started'),
+          'sopPolicyGovernanceEvidenceNote', u.sop_policy_governance_evidence_note,
+          'sopPolicyGovernanceClosureState', coalesce(u.sop_policy_governance_closure_state, 'not_started'),
+          'sopPolicyGovernanceState', coalesce(u.sop_policy_governance_state, 'not_started'),
+          'sopPolicyAuditState', coalesce(u.sop_policy_audit_state, 'not_started'),
+          'sopPolicyDriftState', coalesce(u.sop_policy_drift_state, 'not_checked'),
+          'sopPolicyExceptionState', coalesce(u.sop_policy_exception_state, 'none'),
+          'sopValidationState', coalesce(u.sop_validation_state, 'not_required')
+        ),
+        coalesce(u.sop_policy_governance_evidence_state, 'not_started'),
+        coalesce(u.sop_policy_governance_closure_state, 'not_started'),
+        coalesce(u.sop_policy_governance_state, 'not_started'),
+        coalesce(u.sop_policy_audit_state, 'not_started'),
+        coalesce(u.sop_policy_drift_state, 'not_checked'),
+        coalesce(u.sop_policy_exception_state, 'none'),
+        coalesce(u.sop_validation_state, 'not_required'),
+        ${sqlNullableText(changes.sopPolicyGovernanceEvidenceNote || changes.sopPolicyGovernanceEvidenceState)}
+      from updated u
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function buildUpdateClinicalFollowUpSopPolicyExceptionClosureSql({
   followUpId,
   actorUserId,
@@ -2110,6 +2253,22 @@ export function createClinicalFollowUpRepository(dbClient) {
         source: "postgres",
       };
     },
+    async getClinicalFollowUpSopPolicyGovernanceEvidenceSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpSopPolicyGovernanceEvidenceSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalFollowUps: Number(row.totalFollowUps ?? row.total_follow_ups ?? 0),
+        evidenceReady: Number(row.evidenceReady ?? row.evidence_ready ?? 0),
+        needsEvidenceReview: Number(row.needsEvidenceReview ?? row.needs_evidence_review ?? 0),
+        exportedGovernanceEvidence: Number(row.exportedGovernanceEvidence ?? row.exported_governance_evidence ?? 0),
+        evidenceNeedsFollowUp: Number(row.evidenceNeedsFollowUp ?? row.evidence_needs_follow_up ?? 0),
+        closedGovernanceReviews: Number(row.closedGovernanceReviews ?? row.closed_governance_reviews ?? 0),
+        unresolvedPolicyDrift: Number(row.unresolvedPolicyDrift ?? row.unresolved_policy_drift ?? 0),
+        openExceptions: Number(row.openExceptions ?? row.open_exceptions ?? 0),
+        localGovernanceEvidenceEvents: Number(row.localGovernanceEvidenceEvents ?? row.local_governance_evidence_events ?? 0),
+        source: "postgres",
+      };
+    },
     async listClinicalFollowUpSopPolicyTemplates(params) {
       const rows = await dbClient.queryJson(buildListClinicalFollowUpSopPolicyTemplatesSql(params));
       return {
@@ -2161,6 +2320,10 @@ export function createClinicalFollowUpRepository(dbClient) {
     },
     async updateClinicalFollowUpSopPolicyGovernanceClosure(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyGovernanceClosureSql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
+    },
+    async updateClinicalFollowUpSopPolicyGovernanceEvidence(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };

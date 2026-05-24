@@ -1,0 +1,43 @@
+{
+  "stage": "28A-28Z",
+  "name": "clinical-followup-sop-policy-governance-evidence-export",
+  "status": "ready",
+  "previousBatch": "Stage 27A-27Z",
+  "nextBatchHypothesis": "Stage 29A-29Z",
+  "purpose": "Add a local SOP policy governance evidence export/review checkpoint after governance closure for clinical follow-up tasks.",
+  "implementedSurfaces": [
+    "PostgreSQL governance evidence fields on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_sop_policy_governance_evidence_events",
+    "Backend governance evidence summary route",
+    "Backend governance evidence update route",
+    "OpenAPI Stage 28A-28Z contract",
+    "nginx OpenAPI publishing",
+    "Frontend follow-up API adapter",
+    "Doctor workspace evidence summary tiles",
+    "Doctor workspace Export evidence and Evidence follow-up actions",
+    "Stage guard, tests, workflow, docs, and preflight-all wiring",
+    "Project-memory recovery update"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "externalRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyGovernanceEvidenceIsLocalMetadataOnly": true,
+    "clinicGovernanceEvidenceIsNotExternalApprovalProof": true,
+    "exportsDoNotIncludeRawPatientNames": true,
+    "exportsDoNotIncludeTokensOrSignedUrls": true,
+    "medicalCorrectnessProof": false
+  },
+  "verification": {
+    "test": "npm run test:stage28a-28z",
+    "check": "npm run check:stage28a-28z",
+    "preflight": "npm run preflight:stage28a-28z",
+    "expectedConfirmation": "Confirmed: Stage 28A-28Z synced from main, no conflicts."
+  }
+}

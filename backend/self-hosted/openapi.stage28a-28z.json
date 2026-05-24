@@ -1,0 +1,139 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-Hosted Backend - Stage 28A-28Z",
+    "version": "28A-28Z-clinical-followup-sop-policy-governance-evidence-export",
+    "description": "Local SOP policy governance evidence export/review contracts for clinical follow-up tasks. Evidence metadata is local only and is not external governance approval proof."
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-governance-evidence/summary": {
+      "get": {
+        "summary": "Read local SOP policy governance evidence export summary",
+        "operationId": "getClinicalFollowUpSopPolicyGovernanceEvidenceSummary",
+        "responses": {
+          "200": {
+            "description": "Local governance evidence summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["28A-28Z"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/SopPolicyGovernanceEvidenceSummary" },
+                    "generatedAt": { "type": "string" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence": {
+      "patch": {
+        "summary": "Update local SOP policy governance evidence export state",
+        "operationId": "updateClinicalFollowUpSopPolicyGovernanceEvidence",
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateSopPolicyGovernanceEvidence" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated follow-up with local evidence export metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["28A-28Z"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/ClinicalFollowUpGovernanceEvidenceFields" },
+                    "generatedAt": { "type": "string" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SopPolicyGovernanceEvidenceSummary": {
+        "type": "object",
+        "required": [
+          "totalFollowUps",
+          "evidenceReady",
+          "needsEvidenceReview",
+          "exportedGovernanceEvidence",
+          "evidenceNeedsFollowUp",
+          "closedGovernanceReviews",
+          "unresolvedPolicyDrift",
+          "openExceptions",
+          "localGovernanceEvidenceEvents"
+        ],
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "evidenceReady": { "type": "integer" },
+          "needsEvidenceReview": { "type": "integer" },
+          "exportedGovernanceEvidence": { "type": "integer" },
+          "evidenceNeedsFollowUp": { "type": "integer" },
+          "closedGovernanceReviews": { "type": "integer" },
+          "unresolvedPolicyDrift": { "type": "integer" },
+          "openExceptions": { "type": "integer" },
+          "localGovernanceEvidenceEvents": { "type": "integer" },
+          "source": { "type": "string", "enum": ["postgres"] }
+        }
+      },
+      "UpdateSopPolicyGovernanceEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sopPolicyGovernanceEvidenceState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "exported", "needs_followup"]
+          },
+          "sopPolicyGovernanceEvidenceNote": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          }
+        }
+      },
+      "ClinicalFollowUpGovernanceEvidenceFields": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "sopPolicyGovernanceEvidenceState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "exported", "needs_followup"]
+          },
+          "sopPolicyGovernanceEvidenceNote": { "type": ["string", "null"] },
+          "sopPolicyGovernanceEvidenceReviewedAt": { "type": ["string", "null"] },
+          "sopPolicyGovernanceClosureState": { "type": "string" },
+          "sopPolicyGovernanceState": { "type": "string" },
+          "sopPolicyAuditState": { "type": "string" },
+          "sopPolicyDriftState": { "type": "string" },
+          "sopPolicyExceptionState": { "type": "string" }
+        }
+      }
+    }
+  }
+}
