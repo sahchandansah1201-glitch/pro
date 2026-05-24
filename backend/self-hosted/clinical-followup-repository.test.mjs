@@ -8,18 +8,23 @@ import {
   buildClinicalFollowUpClinicReviewSummarySql,
   buildClinicalFollowUpOutcomeQualitySummarySql,
   buildClinicalFollowUpOperationsSummarySql,
+  buildClinicalFollowUpSopPolicyTemplateSummarySql,
   buildClinicalFollowUpSopValidationSummarySql,
+  buildCreateClinicalFollowUpSopPolicyTemplateSql,
   buildListClinicalFollowUpsSql,
   buildListClinicalFollowUpOperationsSql,
+  buildListClinicalFollowUpSopPolicyTemplatesSql,
   buildListPatientFollowUpsSql,
   buildUpdateClinicalFollowUpOperationsSql,
   buildUpdateClinicalFollowUpClinicReviewSql,
   buildUpdateClinicalFollowUpQualitySql,
+  buildUpdateClinicalFollowUpSopPolicyTemplateSql,
   buildUpdateClinicalFollowUpSopValidationSql,
   buildUpdateClinicalFollowUpSql,
   createClinicalFollowUpRepository,
   normalizeClinicalFollowUpOperationsParams,
   normalizeClinicalFollowUpParams,
+  normalizeClinicalFollowUpSopPolicyTemplateParams,
 } from "./clinical-followup-repository.mjs";
 
 const CLINIC_ID = "10000000-0000-4000-8000-000000000001";
@@ -284,6 +289,64 @@ test("builds SOP validation summary and update SQL with append-only SOP events",
   assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
 });
 
+test("builds SOP policy template summary, list, create, and update SQL with append-only policy events", () => {
+  const params = normalizeClinicalFollowUpSopPolicyTemplateParams(new URLSearchParams({
+    activeOnly: "true",
+    limit: "500",
+    offset: "3",
+  }));
+  assert.equal(params.activeOnly, true);
+  assert.equal(params.limit, 100);
+  assert.equal(params.offset, 3);
+
+  const summarySql = buildClinicalFollowUpSopPolicyTemplateSummarySql({
+    clinicIds: [CLINIC_ID],
+  });
+  assert.match(summarySql, /totalTemplates/);
+  assert.match(summarySql, /clinical_follow_up_sop_policy_template_events/);
+
+  const listSql = buildListClinicalFollowUpSopPolicyTemplatesSql({
+    ...params,
+    clinicIds: [CLINIC_ID],
+  });
+  assert.match(listSql, /from clinical_follow_up_sop_policy_templates t/);
+  assert.match(listSql, /t\.active is true/);
+  assert.match(listSql, /limit 100/);
+
+  const createSql = buildCreateClinicalFollowUpSopPolicyTemplateSql({
+    clinicId: CLINIC_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    payload: {
+      code: "followup-standard",
+      title: "Follow-up standard SOP",
+      version: "clinic-local-v1",
+      description: "Local only.",
+      appliesTo: { workspace: "visit-follow-up" },
+      requiredValidationStates: ["required", "blocked"],
+      defaultValidationState: "required",
+      exceptionAllowed: true,
+      active: true,
+    },
+  });
+  assert.match(createSql, /insert into clinical_follow_up_sop_policy_templates/);
+  assert.match(createSql, /insert into clinical_follow_up_sop_policy_template_events/);
+  assert.match(createSql, /sop_policy_template\.create/);
+  assert.match(createSql, /array\['required', 'blocked'\]::text\[\]/);
+
+  const updateSql = buildUpdateClinicalFollowUpSopPolicyTemplateSql({
+    templateId: "10000000-0000-4000-8000-000000000901",
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: { version: "clinic-local-v2", active: false },
+  });
+  assert.match(updateSql, /update clinical_follow_up_sop_policy_templates t/);
+  assert.match(updateSql, /version = 'clinic-local-v2'/);
+  assert.match(updateSql, /active = false/);
+  assert.match(updateSql, /sop_policy_template\.update/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
+});
+
 test("repository normalizes operations queue and summary DTOs", async () => {
   const calls = [];
   const repository = createClinicalFollowUpRepository({
@@ -294,6 +357,24 @@ test("repository normalizes operations queue and summary DTOs", async () => {
       }
       if (/sopRequired/.test(sql)) {
         return [{ sopRequired: 1, sopValidated: 1, sopExceptions: 0, sopBlocked: 0, localSopEvents: 2 }];
+      }
+      if (/totalTemplates/.test(sql)) {
+        return [{ totalTemplates: 2, activeTemplates: 1, inactiveTemplates: 1, exceptionsAllowed: 1, requiredByDefault: 1, localPolicyEvents: 3 }];
+      }
+      if (/clinical_follow_up_sop_policy_templates/.test(sql)) {
+        return [{
+          id: "10000000-0000-4000-8000-000000000901",
+          clinicId: CLINIC_ID,
+          code: "followup-standard",
+          title: "Follow-up standard SOP",
+          version: "clinic-local-v1",
+          description: "Local only.",
+          appliesTo: { workspace: "visit-follow-up" },
+          requiredValidationStates: ["required", "blocked"],
+          defaultValidationState: "required",
+          exceptionAllowed: true,
+          active: true,
+        }];
       }
       return [{
         id: FOLLOW_UP_ID,
@@ -325,6 +406,29 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   const outcomes = await repository.getClinicalFollowUpOutcomeQualitySummary({ clinicIds: [CLINIC_ID] });
   const clinicReview = await repository.getClinicalFollowUpClinicReviewSummary({ clinicIds: [CLINIC_ID] });
   const sop = await repository.getClinicalFollowUpSopValidationSummary({ clinicIds: [CLINIC_ID] });
+  const policySummary = await repository.getClinicalFollowUpSopPolicyTemplateSummary({ clinicIds: [CLINIC_ID] });
+  const policies = await repository.listClinicalFollowUpSopPolicyTemplates({ clinicIds: [CLINIC_ID], activeOnly: true });
+  const createdPolicy = await repository.createClinicalFollowUpSopPolicyTemplate({
+    clinicId: CLINIC_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    payload: {
+      code: "followup-standard",
+      title: "Follow-up standard SOP",
+      version: "clinic-local-v1",
+      requiredValidationStates: ["required", "blocked"],
+      defaultValidationState: "required",
+      appliesTo: {},
+      exceptionAllowed: true,
+      active: true,
+    },
+  });
+  const updatedPolicy = await repository.updateClinicalFollowUpSopPolicyTemplate({
+    templateId: "10000000-0000-4000-8000-000000000901",
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: { version: "clinic-local-v2" },
+  });
   const updated = await repository.updateClinicalFollowUpOperations({
     followUpId: FOLLOW_UP_ID,
     actorUserId: USER_ID,
@@ -357,9 +461,13 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   assert.equal(outcomes.qualityNeedsAttention, 0);
   assert.equal(clinicReview.clinicNeedsPolicyReview, 0);
   assert.equal(sop.sopRequired, 1);
+  assert.equal(policySummary.activeTemplates, 1);
+  assert.equal(policies.items[0].code, "followup-standard");
+  assert.equal(createdPolicy.version, "clinic-local-v1");
+  assert.equal(updatedPolicy.title, "Follow-up standard SOP");
   assert.equal(updated.triageState, "escalated");
   assert.equal(quality.qualityReviewState, "needs_attention");
   assert.equal(review.clinicReviewState, "not_scheduled");
   assert.equal(sopUpdated.sopValidationState, "required");
-  assert.equal(calls.length, 9);
+  assert.equal(calls.length, 13);
 });

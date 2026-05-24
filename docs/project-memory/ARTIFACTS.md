@@ -39,6 +39,14 @@
    - [check-stage21a-21z-clinical-followup-sop-validation.mjs](../../scripts/check-stage21a-21z-clinical-followup-sop-validation.mjs)
    - [stage21a-21z-clinical-followup-sop-validation.yml](../../.github/workflows/stage21a-21z-clinical-followup-sop-validation.yml)
 
+6. Stage 22A-22Z clinical follow-up SOP policy templates artifacts:
+   - [clinical-followup-sop-policy-templates.stage22a-22z.json](../../deploy/self-hosted/clinical-followup-sop-policy-templates.stage22a-22z.json)
+   - [0029_stage22_followup_sop_policy_templates.sql](../../backend/self-hosted/db/migrations/0029_stage22_followup_sop_policy_templates.sql)
+   - [openapi.stage22a-22z.json](../../backend/self-hosted/openapi.stage22a-22z.json)
+   - [stage-22a-22z-clinical-followup-sop-policy-templates.md](../backend/stage-22a-22z-clinical-followup-sop-policy-templates.md)
+   - [check-stage22a-22z-clinical-followup-sop-policy-templates.mjs](../../scripts/check-stage22a-22z-clinical-followup-sop-policy-templates.mjs)
+   - [stage22a-22z-clinical-followup-sop-policy-templates.yml](../../.github/workflows/stage22a-22z-clinical-followup-sop-policy-templates.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

@@ -159,6 +159,32 @@ export interface FollowUpSopValidationSummary {
   source?: string;
 }
 
+export interface FollowUpSopPolicyTemplateSummary {
+  totalTemplates: number;
+  activeTemplates: number;
+  inactiveTemplates: number;
+  exceptionsAllowed: number;
+  requiredByDefault: number;
+  localPolicyEvents: number;
+  source?: string;
+}
+
+export interface SelfHostedFollowUpSopPolicyTemplate {
+  id: string;
+  clinicId: string | null;
+  code: string;
+  title: string;
+  version: string;
+  description: string | null;
+  appliesTo: Record<string, unknown>;
+  requiredValidationStates: FollowUpSopValidationState[];
+  defaultValidationState: FollowUpSopValidationState;
+  exceptionAllowed: boolean;
+  active: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface UpdateFollowUpOperationsPayload {
   triageState?: FollowUpTriageState;
   escalationLevel?: FollowUpEscalationLevel;
@@ -186,6 +212,21 @@ export interface UpdateFollowUpSopValidationPayload {
   sopPolicyVersion?: string | null;
   sopExceptionReason?: string | null;
 }
+
+export interface CreateFollowUpSopPolicyTemplatePayload {
+  clinicId?: string | null;
+  code: string;
+  title: string;
+  version: string;
+  description?: string | null;
+  appliesTo?: Record<string, unknown>;
+  requiredValidationStates?: FollowUpSopValidationState[];
+  defaultValidationState?: FollowUpSopValidationState;
+  exceptionAllowed?: boolean;
+  active?: boolean;
+}
+
+export type UpdateFollowUpSopPolicyTemplatePayload = Partial<CreateFollowUpSopPolicyTemplatePayload>;
 
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
@@ -415,6 +456,41 @@ export function toFollowUpSopValidationSummary(input: unknown): FollowUpSopValid
   };
 }
 
+export function toFollowUpSopPolicyTemplateSummary(input: unknown): FollowUpSopPolicyTemplateSummary {
+  const row = isRecord(input) ? input : {};
+  return {
+    totalTemplates: numberOrZero(row.totalTemplates),
+    activeTemplates: numberOrZero(row.activeTemplates),
+    inactiveTemplates: numberOrZero(row.inactiveTemplates),
+    exceptionsAllowed: numberOrZero(row.exceptionsAllowed),
+    requiredByDefault: numberOrZero(row.requiredByDefault),
+    localPolicyEvents: numberOrZero(row.localPolicyEvents),
+    source: textOrNull(row.source) || undefined,
+  };
+}
+
+export function toSelfHostedFollowUpSopPolicyTemplate(input: unknown): SelfHostedFollowUpSopPolicyTemplate {
+  const row = isRecord(input) ? input : {};
+  const states = Array.isArray(row.requiredValidationStates)
+    ? row.requiredValidationStates.map(toSopValidationState)
+    : [];
+  return {
+    id: String(row.id ?? ""),
+    clinicId: textOrNull(row.clinicId),
+    code: String(row.code ?? ""),
+    title: String(row.title ?? ""),
+    version: String(row.version ?? ""),
+    description: textOrNull(row.description),
+    appliesTo: isRecord(row.appliesTo) ? row.appliesTo : {},
+    requiredValidationStates: states,
+    defaultValidationState: toSopValidationState(row.defaultValidationState),
+    exceptionAllowed: Boolean(row.exceptionAllowed ?? true),
+    active: Boolean(row.active ?? true),
+    createdAt: textOrNull(row.createdAt),
+    updatedAt: textOrNull(row.updatedAt),
+  };
+}
+
 function apiErrorFromBody(response: Response, body: unknown): SelfHostedApiError {
   const errorBody =
     isRecord(body) && isRecord(body.error)
@@ -589,6 +665,28 @@ export async function getSelfHostedClinicalFollowUpSopValidationSummary(
   return ok(toFollowUpSopValidationSummary(body.item));
 }
 
+export async function getSelfHostedClinicalFollowUpSopPolicyTemplateSummary(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<FollowUpSopPolicyTemplateSummary>> {
+  const response = await requestJson(args, "/api/v1/clinical/follow-ups/sop-policy-templates/summary");
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toFollowUpSopPolicyTemplateSummary(body.item));
+}
+
+export async function listSelfHostedClinicalFollowUpSopPolicyTemplates(
+  args: BaseArgs & { activeOnly?: boolean },
+): Promise<SelfHostedApiResult<SelfHostedFollowUpSopPolicyTemplate[]>> {
+  const params = new URLSearchParams();
+  if (args.activeOnly) params.set("activeOnly", "true");
+  const suffix = params.toString() ? `?${params}` : "";
+  const response = await requestJson(args, `/api/v1/clinical/follow-ups/sop-policy-templates${suffix}`);
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  const items = Array.isArray(body.items) ? body.items : [];
+  return ok(items.map(toSelfHostedFollowUpSopPolicyTemplate).filter((item) => item.id));
+}
+
 export async function updateSelfHostedClinicalFollowUpOperations(
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpOperationsPayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
@@ -635,6 +733,30 @@ export async function updateSelfHostedClinicalFollowUpSopValidation(
   if (!response.ok) return fail(response.error);
   const body = isRecord(response.value) ? response.value : {};
   return ok(toSelfHostedClinicalFollowUp(body.item));
+}
+
+export async function createSelfHostedClinicalFollowUpSopPolicyTemplate(
+  args: BaseArgs & { payload: CreateFollowUpSopPolicyTemplatePayload },
+): Promise<SelfHostedApiResult<SelfHostedFollowUpSopPolicyTemplate>> {
+  const response = await requestJson(args, "/api/v1/clinical/follow-ups/sop-policy-templates", {
+    method: "POST",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedFollowUpSopPolicyTemplate(body.item));
+}
+
+export async function updateSelfHostedClinicalFollowUpSopPolicyTemplate(
+  args: BaseArgs & { templateId: string; payload: UpdateFollowUpSopPolicyTemplatePayload },
+): Promise<SelfHostedApiResult<SelfHostedFollowUpSopPolicyTemplate>> {
+  const response = await requestJson(args, `/api/v1/clinical/follow-ups/sop-policy-templates/${encodeURIComponent(args.templateId)}`, {
+    method: "PATCH",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedFollowUpSopPolicyTemplate(body.item));
 }
 
 export async function listSelfHostedPatientFollowUps(

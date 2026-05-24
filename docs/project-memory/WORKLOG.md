@@ -1,5 +1,16 @@
 # WORKLOG
 
+## 2026-05-24
+
+- Создан Stage 22A-22Z clinical follow-up SOP policy templates после Stage 21A-21Z.
+- Добавлены clinic SOP policy template таблицы, append-only policy template
+  events, backend summary/list/create/update routes, OpenAPI, nginx publishing,
+  frontend adapter, doctor live workspace SOP policy templates panel, guard,
+  workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external SOP proof, no signed URLs/storage paths/provider tokens
+  in protected outputs.
+
 ## 2026-05-23
 
 - Создан Stage 21A-21Z clinical follow-up SOP validation после Stage 20A-20Z.

@@ -1,0 +1,195 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Stage 22A-22Z",
+    "version": "22A-22Z-clinical-followup-sop-policy-templates",
+    "description": "Self-hosted configurable clinic SOP policy template contracts for clinical follow-up validation. Uses local PostgreSQL configuration only and does not prove external SOP completion."
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-templates/summary": {
+      "get": {
+        "summary": "Read local clinic SOP policy template summary",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Local SOP policy template summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "22A-22Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "$ref": "#/components/schemas/FollowUpSopPolicyTemplateSummary" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/sop-policy-templates": {
+      "get": {
+        "summary": "List local clinic SOP policy templates",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "activeOnly",
+            "in": "query",
+            "schema": { "type": "boolean" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local SOP policy templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "22A-22Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/FollowUpSopPolicyTemplate" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a local clinic SOP policy template",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FollowUpSopPolicyTemplateInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created local SOP policy template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "22A-22Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "$ref": "#/components/schemas/FollowUpSopPolicyTemplate" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/sop-policy-templates/{templateId}": {
+      "patch": {
+        "summary": "Update a local clinic SOP policy template",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FollowUpSopPolicyTemplateInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated local SOP policy template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "22A-22Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "$ref": "#/components/schemas/FollowUpSopPolicyTemplate" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "FollowUpSopPolicyTemplateSummary": {
+        "type": "object",
+        "properties": {
+          "totalTemplates": { "type": "integer" },
+          "activeTemplates": { "type": "integer" },
+          "inactiveTemplates": { "type": "integer" },
+          "exceptionsAllowed": { "type": "integer" },
+          "requiredByDefault": { "type": "integer" },
+          "localPolicyEvents": { "type": "integer" }
+        }
+      },
+      "FollowUpSopPolicyTemplate": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "clinicId": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "title": { "type": "string" },
+          "version": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "defaultValidationState": { "type": "string" },
+          "exceptionAllowed": { "type": "boolean" },
+          "active": { "type": "boolean" }
+        }
+      },
+      "FollowUpSopPolicyTemplateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "clinicId": { "type": "string", "format": "uuid" },
+          "code": { "type": "string", "maxLength": 80 },
+          "title": { "type": "string", "maxLength": 160 },
+          "version": { "type": "string", "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 2000 },
+          "appliesTo": { "type": "object" },
+          "requiredValidationStates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["not_required", "required", "validated", "exception", "blocked"]
+            }
+          },
+          "defaultValidationState": {
+            "type": "string",
+            "enum": ["not_required", "required", "validated", "exception", "blocked"]
+          },
+          "exceptionAllowed": { "type": "boolean" },
+          "active": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

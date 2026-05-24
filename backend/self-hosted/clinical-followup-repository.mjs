@@ -35,6 +35,11 @@ function sqlJson(value) {
   return `${sqlLiteral(JSON.stringify(value && typeof value === "object" && !Array.isArray(value) ? value : {}))}::jsonb`;
 }
 
+function sqlTextArray(values) {
+  const items = Array.isArray(values) ? values.map(cleanText).filter(Boolean) : [];
+  return `array[${items.map(sqlLiteral).join(", ")}]::text[]`;
+}
+
 function clampLimit(value, fallback = 50, max = 200) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
@@ -151,6 +156,28 @@ export function normalizePatientFollowUp(row = {}) {
   };
 }
 
+export function normalizeClinicalFollowUpSopPolicyTemplate(row = {}) {
+  return {
+    id: String(row.id ?? ""),
+    clinicId: String(row.clinicId ?? row.clinic_id ?? ""),
+    code: cleanText(row.code) || "",
+    title: cleanText(row.title) || "",
+    version: cleanText(row.version) || "",
+    description: cleanText(row.description),
+    appliesTo: cleanObject(row.appliesTo ?? row.applies_to),
+    requiredValidationStates: Array.isArray(row.requiredValidationStates)
+      ? row.requiredValidationStates.map(String)
+      : Array.isArray(row.required_validation_states)
+        ? row.required_validation_states.map(String)
+        : [],
+    defaultValidationState: cleanText(row.defaultValidationState ?? row.default_validation_state) || "required",
+    exceptionAllowed: Boolean(row.exceptionAllowed ?? row.exception_allowed ?? true),
+    active: Boolean(row.active ?? true),
+    createdAt: cleanText(row.createdAt ?? row.created_at),
+    updatedAt: cleanText(row.updatedAt ?? row.updated_at),
+  };
+}
+
 export function normalizeClinicalFollowUpParams(params = new URLSearchParams()) {
   return {
     limit: clampLimit(params.get("limit")),
@@ -172,6 +199,14 @@ export function normalizeClinicalFollowUpOperationsParams(params = new URLSearch
     visitId: cleanText(params.get("visitId")),
     overdueOnly: params.get("overdueOnly") === "true",
     now: cleanText(params.get("now")),
+  };
+}
+
+export function normalizeClinicalFollowUpSopPolicyTemplateParams(params = new URLSearchParams()) {
+  return {
+    limit: clampLimit(params.get("limit"), 25, 100),
+    offset: clampOffset(params.get("offset")),
+    activeOnly: params.get("activeOnly") === "true",
   };
 }
 
@@ -654,6 +689,230 @@ export function buildClinicalFollowUpSopValidationSummarySql({
   `;
 }
 
+export function buildClinicalFollowUpSopPolicyTemplateSummarySql({
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  return `
+    select
+      count(*)::int as "totalTemplates",
+      count(*) filter (where t.active is true)::int as "activeTemplates",
+      count(*) filter (where t.active is false)::int as "inactiveTemplates",
+      count(*) filter (where t.exception_allowed is true)::int as "exceptionsAllowed",
+      count(*) filter (where t.default_validation_state = 'required')::int as "requiredByDefault",
+      count(*) filter (where exists (
+        select 1
+        from clinical_follow_up_sop_policy_template_events e
+        where e.template_id = t.id
+      ))::int as "localPolicyEvents"
+    from clinical_follow_up_sop_policy_templates t
+    where ${clinicScopeWhere("t", { allClinics, clinicIds })}
+  `;
+}
+
+export function buildListClinicalFollowUpSopPolicyTemplatesSql({
+  limit = 25,
+  offset = 0,
+  activeOnly = false,
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const filters = [clinicScopeWhere("t", { allClinics, clinicIds })];
+  if (activeOnly) filters.push("t.active is true");
+  return `
+    select
+      t.id,
+      t.clinic_id as "clinicId",
+      t.code,
+      t.title,
+      t.version,
+      t.description,
+      t.applies_to as "appliesTo",
+      t.required_validation_states as "requiredValidationStates",
+      t.default_validation_state as "defaultValidationState",
+      t.exception_allowed as "exceptionAllowed",
+      t.active,
+      t.created_at as "createdAt",
+      t.updated_at as "updatedAt"
+    from clinical_follow_up_sop_policy_templates t
+    where ${filters.join("\n      and ")}
+    order by t.active desc, t.updated_at desc, t.title asc
+    limit ${clampLimit(limit, 25, 100)}
+    offset ${clampOffset(offset)}
+  `;
+}
+
+export function buildCreateClinicalFollowUpSopPolicyTemplateSql({
+  clinicId,
+  actorUserId,
+  payload,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  return `
+    with scoped_clinic as (
+      select c.id
+      from clinics c
+      where c.id = ${sqlUuid(clinicId)}
+        and ${clinicScopeWhere("c", { allClinics, clinicIds })}
+    ), inserted as (
+      insert into clinical_follow_up_sop_policy_templates (
+        clinic_id,
+        code,
+        title,
+        version,
+        description,
+        applies_to,
+        required_validation_states,
+        default_validation_state,
+        exception_allowed,
+        active,
+        created_by_user_id,
+        updated_by_user_id
+      )
+      select
+        id,
+        ${sqlLiteral(payload.code)},
+        ${sqlLiteral(payload.title)},
+        ${sqlLiteral(payload.version)},
+        ${sqlNullableText(payload.description)},
+        ${sqlJson(payload.appliesTo)},
+        ${sqlTextArray(payload.requiredValidationStates)},
+        ${sqlLiteral(payload.defaultValidationState)},
+        ${payload.exceptionAllowed ? "true" : "false"},
+        ${payload.active ? "true" : "false"},
+        ${sqlUuid(actorUserId)},
+        ${sqlUuid(actorUserId)}
+      from scoped_clinic
+      returning *
+    ), event as (
+      insert into clinical_follow_up_sop_policy_template_events (
+        template_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        next_state,
+        note
+      )
+      select
+        id,
+        clinic_id,
+        ${sqlUuid(actorUserId)},
+        'sop_policy_template.create',
+        jsonb_build_object(
+          'code', code,
+          'version', version,
+          'defaultValidationState', default_validation_state,
+          'active', active
+        ),
+        title
+      from inserted
+      returning id
+    )
+    select
+      id,
+      clinic_id as "clinicId",
+      code,
+      title,
+      version,
+      description,
+      applies_to as "appliesTo",
+      required_validation_states as "requiredValidationStates",
+      default_validation_state as "defaultValidationState",
+      exception_allowed as "exceptionAllowed",
+      active,
+      created_at as "createdAt",
+      updated_at as "updatedAt"
+    from inserted
+  `;
+}
+
+export function buildUpdateClinicalFollowUpSopPolicyTemplateSql({
+  templateId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const updates = [];
+  if (changes.code !== undefined) updates.push(`code = ${sqlLiteral(changes.code)}`);
+  if (changes.title !== undefined) updates.push(`title = ${sqlLiteral(changes.title)}`);
+  if (changes.version !== undefined) updates.push(`version = ${sqlLiteral(changes.version)}`);
+  if (changes.description !== undefined) updates.push(`description = ${sqlNullableText(changes.description)}`);
+  if (changes.appliesTo !== undefined) updates.push(`applies_to = ${sqlJson(changes.appliesTo)}`);
+  if (changes.requiredValidationStates !== undefined) updates.push(`required_validation_states = ${sqlTextArray(changes.requiredValidationStates)}`);
+  if (changes.defaultValidationState !== undefined) updates.push(`default_validation_state = ${sqlLiteral(changes.defaultValidationState)}`);
+  if (changes.exceptionAllowed !== undefined) updates.push(`exception_allowed = ${changes.exceptionAllowed ? "true" : "false"}`);
+  if (changes.active !== undefined) updates.push(`active = ${changes.active ? "true" : "false"}`);
+  updates.push(`updated_by_user_id = ${sqlUuid(actorUserId)}`);
+  updates.push("updated_at = now()");
+
+  return `
+    with previous as (
+      select t.*
+      from clinical_follow_up_sop_policy_templates t
+      where t.id = ${sqlUuid(templateId)}
+        and ${clinicScopeWhere("t", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_sop_policy_templates t
+      set ${updates.join(",\n          ")}
+      from previous p
+      where t.id = p.id
+      returning t.*,
+        p.code as previous_code,
+        p.version as previous_version,
+        p.default_validation_state as previous_default_validation_state,
+        p.active as previous_active
+    ), event as (
+      insert into clinical_follow_up_sop_policy_template_events (
+        template_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        note
+      )
+      select
+        id,
+        clinic_id,
+        ${sqlUuid(actorUserId)},
+        'sop_policy_template.update',
+        jsonb_build_object(
+          'code', previous_code,
+          'version', previous_version,
+          'defaultValidationState', previous_default_validation_state,
+          'active', previous_active
+        ),
+        jsonb_build_object(
+          'code', code,
+          'version', version,
+          'defaultValidationState', default_validation_state,
+          'active', active
+        ),
+        title
+      from updated
+      returning id
+    )
+    select
+      id,
+      clinic_id as "clinicId",
+      code,
+      title,
+      version,
+      description,
+      applies_to as "appliesTo",
+      required_validation_states as "requiredValidationStates",
+      default_validation_state as "defaultValidationState",
+      exception_allowed as "exceptionAllowed",
+      active,
+      created_at as "createdAt",
+      updated_at as "updatedAt"
+    from updated
+  `;
+}
+
 export function buildUpdateClinicalFollowUpOperationsSql({
   followUpId,
   actorUserId,
@@ -1061,6 +1320,36 @@ export function createClinicalFollowUpRepository(dbClient) {
         localSopEvents: Number(row.localSopEvents ?? row.local_sop_events ?? 0),
         source: "postgres",
       };
+    },
+    async getClinicalFollowUpSopPolicyTemplateSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpSopPolicyTemplateSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalTemplates: Number(row.totalTemplates ?? row.total_templates ?? 0),
+        activeTemplates: Number(row.activeTemplates ?? row.active_templates ?? 0),
+        inactiveTemplates: Number(row.inactiveTemplates ?? row.inactive_templates ?? 0),
+        exceptionsAllowed: Number(row.exceptionsAllowed ?? row.exceptions_allowed ?? 0),
+        requiredByDefault: Number(row.requiredByDefault ?? row.required_by_default ?? 0),
+        localPolicyEvents: Number(row.localPolicyEvents ?? row.local_policy_events ?? 0),
+        source: "postgres",
+      };
+    },
+    async listClinicalFollowUpSopPolicyTemplates(params) {
+      const rows = await dbClient.queryJson(buildListClinicalFollowUpSopPolicyTemplatesSql(params));
+      return {
+        items: rows.map(normalizeClinicalFollowUpSopPolicyTemplate).filter((item) => item.id),
+        limit: clampLimit(params?.limit, 25, 100),
+        offset: clampOffset(params?.offset),
+        source: "postgres",
+      };
+    },
+    async createClinicalFollowUpSopPolicyTemplate(params) {
+      const rows = await dbClient.queryJson(buildCreateClinicalFollowUpSopPolicyTemplateSql(params));
+      return rows[0] ? normalizeClinicalFollowUpSopPolicyTemplate(rows[0]) : null;
+    },
+    async updateClinicalFollowUpSopPolicyTemplate(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyTemplateSql(params));
+      return rows[0] ? normalizeClinicalFollowUpSopPolicyTemplate(rows[0]) : null;
     },
     async updateClinicalFollowUpOperations(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpOperationsSql(params));

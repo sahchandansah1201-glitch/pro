@@ -1,0 +1,39 @@
+{
+  "stage": "22A-22Z",
+  "previousBatch": "Stage 21A-21Z",
+  "nextBatchHypothesis": "Stage 23A-23Z",
+  "title": "Clinical follow-up configurable SOP policy templates",
+  "implementedSurfaces": [
+    "PostgreSQL clinic SOP policy template table",
+    "Append-only clinical_follow_up_sop_policy_template_events audit table",
+    "GET /api/v1/clinical/follow-ups/sop-policy-templates/summary",
+    "GET /api/v1/clinical/follow-ups/sop-policy-templates",
+    "POST /api/v1/clinical/follow-ups/sop-policy-templates",
+    "PATCH /api/v1/clinical/follow-ups/sop-policy-templates/{templateId}",
+    "OpenAPI Stage 22A-22Z contract and nginx publishing",
+    "Frontend self-hosted follow-up SOP policy template API adapter",
+    "Doctor visit workspace local SOP policy template panel",
+    "Stage 22 guard, docs, workflow, project-memory update, and preflight-all wiring"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "sourceOfTruth": "self-hosted PostgreSQL",
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyTemplatesAreLocalConfigurationOnly": true,
+    "clinicSpecificSopIsNotExternalProof": true,
+    "exportsRawPatientNames": false,
+    "exportsProviderTokens": false,
+    "exportsStoragePaths": false,
+    "exportsSignedUrls": false
+  },
+  "verification": {
+    "test": "npm run test:stage22a-22z",
+    "check": "npm run check:stage22a-22z",
+    "preflight": "npm run preflight:stage22a-22z"
+  },
+  "expectedConfirmation": "Confirmed: Stage 22A-22Z synced from main, no conflicts."
+}

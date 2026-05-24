@@ -1,5 +1,23 @@
 # RISKS
 
+## Stage 22A-22Z follow-up SOP policy templates risks
+
+1. **Risk: local SOP policy templates can be mistaken for external clinic policy approval.**
+   - Evidence: Stage 22A-22Z stores local clinic SOP policy template metadata,
+     versions, and required validation states, but it does not verify external
+     SOP documents, clinic governance approval, or medical correctness outside
+     the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy templates as
+     local configuration only.
+
+2. **Risk: policy templates are not yet applied as automated transition rules.**
+   - Evidence: Stage 22A-22Z defines local templates and exposes them to the
+     doctor workspace; Stage 21A-21Z validation updates still submit bounded
+     states directly.
+   - Mitigation: keep policy version selection explicit and audited; Stage
+     23A-23Z can define template application/readiness if repository evidence
+     supports it.
+
 ## Stage 21A-21Z follow-up SOP validation risks
 
 1. **Risk: local SOP validation state can be mistaken for external clinic policy approval.**

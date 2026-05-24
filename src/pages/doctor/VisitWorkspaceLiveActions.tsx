@@ -12,17 +12,22 @@ import {
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
 import {
+  createSelfHostedClinicalFollowUpSopPolicyTemplate,
   createSelfHostedVisitFollowUp,
   getSelfHostedClinicalFollowUpClinicReviewSummary,
   getSelfHostedClinicalFollowUpOutcomeQualitySummary,
   getSelfHostedClinicalFollowUpOperationsSummary,
+  getSelfHostedClinicalFollowUpSopPolicyTemplateSummary,
   getSelfHostedClinicalFollowUpSopValidationSummary,
   listSelfHostedClinicalFollowUpOperations,
+  listSelfHostedClinicalFollowUpSopPolicyTemplates,
   type FollowUpClinicReviewSummary,
   type FollowUpOutcomeQualitySummary,
   type FollowUpOperationsSummary,
+  type FollowUpSopPolicyTemplateSummary,
   type FollowUpSopValidationSummary,
   type SelfHostedClinicalFollowUp,
+  type SelfHostedFollowUpSopPolicyTemplate,
   updateSelfHostedClinicalFollowUpClinicReview,
   updateSelfHostedClinicalFollowUpOperations,
   updateSelfHostedClinicalFollowUpQuality,
@@ -54,6 +59,7 @@ type BusyAction =
   | "quality-update"
   | "clinic-review-update"
   | "sop-validation-update"
+  | "sop-policy-template-create"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -106,6 +112,15 @@ const EMPTY_SOP_VALIDATION_SUMMARY: FollowUpSopValidationSummary = {
   localSopEvents: 0,
 };
 
+const EMPTY_SOP_POLICY_TEMPLATE_SUMMARY: FollowUpSopPolicyTemplateSummary = {
+  totalTemplates: 0,
+  activeTemplates: 0,
+  inactiveTemplates: 0,
+  exceptionsAllowed: 0,
+  requiredByDefault: 0,
+  localPolicyEvents: 0,
+};
+
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
   if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
@@ -134,7 +149,13 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [outcomeSummary, setOutcomeSummary] = useState<FollowUpOutcomeQualitySummary>(EMPTY_OUTCOME_SUMMARY);
   const [clinicReviewSummary, setClinicReviewSummary] = useState<FollowUpClinicReviewSummary>(EMPTY_CLINIC_REVIEW_SUMMARY);
   const [sopValidationSummary, setSopValidationSummary] = useState<FollowUpSopValidationSummary>(EMPTY_SOP_VALIDATION_SUMMARY);
+  const [sopPolicyTemplateSummary, setSopPolicyTemplateSummary] = useState<FollowUpSopPolicyTemplateSummary>(EMPTY_SOP_POLICY_TEMPLATE_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
+  const [sopPolicyTemplates, setSopPolicyTemplates] = useState<SelfHostedFollowUpSopPolicyTemplate[]>([]);
+  const [sopTemplateCode, setSopTemplateCode] = useState("followup-standard");
+  const [sopTemplateTitle, setSopTemplateTitle] = useState("Follow-up standard SOP");
+  const [sopTemplateVersion, setSopTemplateVersion] = useState("clinic-local-v1");
+  const [sopTemplateDescription, setSopTemplateDescription] = useState("");
 
   const selectedLesion = useMemo(
     () => lesions.find((lesion) => lesion.id === selectedLesionId) ?? null,
@@ -146,14 +167,25 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     apiToken: session.apiToken,
   };
 
+  const activeSopPolicyTemplate = useMemo(
+    () => sopPolicyTemplates.find((template) => template.active) ?? null,
+    [sopPolicyTemplates],
+  );
+  const activeSopPolicyVersion = activeSopPolicyTemplate?.version || "clinic-local-v1";
+
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, clinicReview, sopValidation, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicies, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopValidationSummary(baseArgs),
+      getSelfHostedClinicalFollowUpSopPolicyTemplateSummary(baseArgs),
+      listSelfHostedClinicalFollowUpSopPolicyTemplates({
+        ...baseArgs,
+        activeOnly: true,
+      }),
       listSelfHostedClinicalFollowUpOperations({
         ...baseArgs,
         visitId: visit.id,
@@ -163,10 +195,12 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (outcomes.ok) setOutcomeSummary(outcomes.value);
     if (clinicReview.ok) setClinicReviewSummary(clinicReview.value);
     if (sopValidation.ok) setSopValidationSummary(sopValidation.value);
+    if (sopPolicySummary.ok) setSopPolicyTemplateSummary(sopPolicySummary.value);
+    if (sopPolicies.ok) setSopPolicyTemplates(sopPolicies.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicies.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicies.error || queue.error));
     }
   }
 
@@ -348,6 +382,28 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     });
     setBusy(null);
     setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function submitSopPolicyTemplate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy("sop-policy-template-create");
+    const result = await createSelfHostedClinicalFollowUpSopPolicyTemplate({
+      ...baseArgs,
+      payload: {
+        code: sopTemplateCode,
+        title: sopTemplateTitle,
+        version: sopTemplateVersion,
+        description: sopTemplateDescription || null,
+        appliesTo: { workspace: "visit-follow-up" },
+        requiredValidationStates: ["required", "blocked"],
+        defaultValidationState: "required",
+        exceptionAllowed: true,
+        active: true,
+      },
+    });
+    setBusy(null);
+    setStatus(result.ok ? "SOP policy template создан локально." : publicMessage(result.error));
     if (result.ok) await loadOperationsQueue();
   }
 
@@ -669,6 +725,78 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
               <dd className="text-lg font-semibold">{clinicReviewSummary.clinicNeedsPolicyReview}</dd>
             </div>
           </dl>
+          <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]">
+            <div className="space-y-2">
+              <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Policy templates</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyTemplateSummary.totalTemplates}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Active</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyTemplateSummary.activeTemplates}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Policy events</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyTemplateSummary.localPolicyEvents}</dd>
+                </div>
+              </dl>
+              <div className="space-y-2 text-[12px]">
+                {sopPolicyTemplates.length === 0 ? (
+                  <p className="text-muted-foreground">Активный SOP policy template ещё не задан.</p>
+                ) : sopPolicyTemplates.map((template) => (
+                  <div key={template.id} className="surface-toolbar p-2">
+                    <p className="font-medium">{template.title}</p>
+                    <p className="text-muted-foreground">
+                      {template.code} · {template.version} · default: {template.defaultValidationState}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <form onSubmit={submitSopPolicyTemplate} className="surface-toolbar space-y-2 p-3">
+              <h5 className="h-section text-[12px]">SOP policy template</h5>
+              <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-code">
+                Code
+              </label>
+              <Input
+                id="stage22-sop-policy-code"
+                value={sopTemplateCode}
+                onChange={(event) => setSopTemplateCode(event.target.value)}
+                className="h-8 text-[12px]"
+              />
+              <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-title">
+                Title
+              </label>
+              <Input
+                id="stage22-sop-policy-title"
+                value={sopTemplateTitle}
+                onChange={(event) => setSopTemplateTitle(event.target.value)}
+                className="h-8 text-[12px]"
+              />
+              <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-version">
+                Version
+              </label>
+              <Input
+                id="stage22-sop-policy-version"
+                value={sopTemplateVersion}
+                onChange={(event) => setSopTemplateVersion(event.target.value)}
+                className="h-8 text-[12px]"
+              />
+              <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-description">
+                Description
+              </label>
+              <Textarea
+                id="stage22-sop-policy-description"
+                value={sopTemplateDescription}
+                onChange={(event) => setSopTemplateDescription(event.target.value)}
+                className="min-h-14 text-[12px]"
+              />
+              <Button type="submit" size="sm" disabled={busy === "sop-policy-template-create"} className="h-8 text-[12px]">
+                {busy === "sop-policy-template-create" ? "Создаём…" : "Создать policy template"}
+              </Button>
+            </form>
+          </div>
         </section>
 
         <section
@@ -868,7 +996,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     item.id,
                     {
                       sopValidationState: "validated",
-                      sopPolicyVersion: "clinic-local-v1",
+                      sopPolicyVersion: activeSopPolicyVersion,
                     },
                     "SOP validation по follow-up подтверждён локально.",
                   )}
@@ -885,7 +1013,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                     item.id,
                     {
                       sopValidationState: "exception",
-                      sopPolicyVersion: "clinic-local-v1",
+                      sopPolicyVersion: activeSopPolicyVersion,
                       sopExceptionReason: "Clinic-specific exception recorded locally.",
                     },
                     "SOP exception по follow-up записан локально.",

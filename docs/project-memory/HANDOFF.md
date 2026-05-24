@@ -2,12 +2,21 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 21A-21Z is being
-implemented from branch `codex/stage21a-21z-clinical-followup-sop-validation`.
+This handoff captures the repository state while Stage 22A-22Z is being
+implemented from branch
+`codex/stage22a-22z-clinical-followup-sop-policy-templates`.
 
 ## Confirmed state
 
-0. Stage 21A-21Z is implemented in the current branch as clinic-specific
+0. Stage 22A-22Z is implemented in the current branch as configurable local
+   clinic SOP policy templates:
+   - PostgreSQL `clinical_follow_up_sop_policy_templates`;
+   - append-only `clinical_follow_up_sop_policy_template_events`;
+   - backend SOP policy template summary/list/create/update routes;
+   - doctor live workspace SOP policy template panel;
+   - no managed notification provider dependency and no external SOP proof.
+
+0. Stage 21A-21Z is merged to main as clinic-specific
    follow-up SOP validation:
    - PostgreSQL SOP validation state on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_sop_validation_events`;
