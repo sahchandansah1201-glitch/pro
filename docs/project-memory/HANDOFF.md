@@ -2,13 +2,21 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 26A-26Z is being
+This handoff captures the repository state while Stage 27A-27Z is being
 implemented from branch
-`codex/stage26a-26z-clinical-followup-sop-policy-governance-readiness`.
+`codex/stage27a-27z-clinical-followup-sop-governance-closure`.
 
 ## Confirmed state
 
-0. Stage 26A-26Z is implemented in the current branch as SOP policy governance
+0. Stage 27A-27Z is implemented in the current branch as SOP policy governance
+   closure:
+   - PostgreSQL SOP policy governance closure fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_sop_policy_governance_closure_events`;
+   - backend SOP policy governance closure summary/update routes;
+   - doctor live workspace Close governance and Closure follow-up row actions;
+   - no managed notification provider dependency and no external governance proof.
+
+0. Stage 26A-26Z is merged to main as SOP policy governance
    readiness:
    - PostgreSQL SOP policy governance readiness fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_sop_policy_governance_events`;

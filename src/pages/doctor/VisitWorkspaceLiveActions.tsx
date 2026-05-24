@@ -21,6 +21,7 @@ import {
   getSelfHostedClinicalFollowUpSopPolicyApplicationSummary,
   getSelfHostedClinicalFollowUpSopPolicyAuditRollupSummary,
   getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary,
+  getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceReadinessSummary,
   getSelfHostedClinicalFollowUpSopValidationSummary,
   listSelfHostedClinicalFollowUpOperations,
@@ -32,6 +33,7 @@ import {
   type FollowUpSopPolicyApplicationSummary,
   type FollowUpSopPolicyAuditRollupSummary,
   type FollowUpSopPolicyExceptionClosureSummary,
+  type FollowUpSopPolicyGovernanceClosureSummary,
   type FollowUpSopPolicyGovernanceReadinessSummary,
   type FollowUpSopValidationSummary,
   type SelfHostedClinicalFollowUp,
@@ -43,6 +45,7 @@ import {
   updateSelfHostedClinicalFollowUpSopPolicyApplication,
   updateSelfHostedClinicalFollowUpSopPolicyAuditRollup,
   updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure,
+  updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceReadiness,
 } from "@/lib/self-hosted-follow-up-api";
 import {
@@ -76,6 +79,7 @@ type BusyAction =
   | "sop-policy-exception-update"
   | "sop-policy-audit-update"
   | "sop-policy-governance-update"
+  | "sop-policy-governance-closure-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -186,6 +190,18 @@ const EMPTY_SOP_POLICY_GOVERNANCE_READINESS_SUMMARY: FollowUpSopPolicyGovernance
   localGovernanceEvents: 0,
 };
 
+const EMPTY_SOP_POLICY_GOVERNANCE_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceClosureSummary = {
+  totalFollowUps: 0,
+  closureReady: 0,
+  needsClosureReview: 0,
+  closedGovernanceReviews: 0,
+  closureNeedsFollowUp: 0,
+  reviewedGovernance: 0,
+  unresolvedPolicyDrift: 0,
+  openExceptions: 0,
+  localGovernanceClosureEvents: 0,
+};
+
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
   if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
@@ -219,6 +235,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [sopPolicyExceptionClosureSummary, setSopPolicyExceptionClosureSummary] = useState<FollowUpSopPolicyExceptionClosureSummary>(EMPTY_SOP_POLICY_EXCEPTION_CLOSURE_SUMMARY);
   const [sopPolicyAuditRollupSummary, setSopPolicyAuditRollupSummary] = useState<FollowUpSopPolicyAuditRollupSummary>(EMPTY_SOP_POLICY_AUDIT_ROLLUP_SUMMARY);
   const [sopPolicyGovernanceReadinessSummary, setSopPolicyGovernanceReadinessSummary] = useState<FollowUpSopPolicyGovernanceReadinessSummary>(EMPTY_SOP_POLICY_GOVERNANCE_READINESS_SUMMARY);
+  const [sopPolicyGovernanceClosureSummary, setSopPolicyGovernanceClosureSummary] = useState<FollowUpSopPolicyGovernanceClosureSummary>(EMPTY_SOP_POLICY_GOVERNANCE_CLOSURE_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
   const [sopPolicyTemplates, setSopPolicyTemplates] = useState<SelfHostedFollowUpSopPolicyTemplate[]>([]);
   const [sopTemplateCode, setSopTemplateCode] = useState("followup-standard");
@@ -245,7 +262,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicyGovernance, sopPolicies, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicyGovernance, sopPolicyGovernanceClosure, sopPolicies, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
@@ -255,6 +272,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
       getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyAuditRollupSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyGovernanceReadinessSummary(baseArgs),
+      getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSummary(baseArgs),
       listSelfHostedClinicalFollowUpSopPolicyTemplates({
         ...baseArgs,
         activeOnly: true,
@@ -273,11 +291,12 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (sopPolicyExceptions.ok) setSopPolicyExceptionClosureSummary(sopPolicyExceptions.value);
     if (sopPolicyAudit.ok) setSopPolicyAuditRollupSummary(sopPolicyAudit.value);
     if (sopPolicyGovernance.ok) setSopPolicyGovernanceReadinessSummary(sopPolicyGovernance.value);
+    if (sopPolicyGovernanceClosure.ok) setSopPolicyGovernanceClosureSummary(sopPolicyGovernanceClosure.value);
     if (sopPolicies.ok) setSopPolicyTemplates(sopPolicies.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicyGovernance.ok || !sopPolicies.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicies.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicyGovernance.ok || !sopPolicyGovernanceClosure.ok || !sopPolicies.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicyGovernanceClosure.error || sopPolicies.error || queue.error));
     }
   }
 
@@ -517,6 +536,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("sop-policy-governance-update");
     const result = await updateSelfHostedClinicalFollowUpSopPolicyGovernanceReadiness({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateSopPolicyGovernanceClosureState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("sop-policy-governance-closure-update");
+    const result = await updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure({
       ...baseArgs,
       followUpId,
       payload,
@@ -938,6 +973,20 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceReadinessSummary.reviewedGovernance}</dd>
                 </div>
               </dl>
+              <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Closure ready</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceClosureSummary.closureReady}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Needs closure</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceClosureSummary.needsClosureReview}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Closed local</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceClosureSummary.closedGovernanceReviews}</dd>
+                </div>
+              </dl>
               <div className="space-y-2 text-[12px]">
                 {sopPolicyTemplates.length === 0 ? (
                   <p className="text-muted-foreground">Активный SOP policy template ещё не задан.</p>
@@ -1065,6 +1114,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   governance: {item.sopPolicyGovernanceState} · {item.sopPolicyGovernanceNote || "no local governance note"}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  governance closure: {item.sopPolicyGovernanceClosureState} · {item.sopPolicyGovernanceClosureNote || "no local closure note"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1367,6 +1419,40 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Governance follow-up
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-governance-closure-update"}
+                  onClick={() => void updateSopPolicyGovernanceClosureState(
+                    item.id,
+                    {
+                      sopPolicyGovernanceClosureState: "closed",
+                      sopPolicyGovernanceClosureNote: "Local SOP policy governance closure completed from workspace.",
+                    },
+                    "SOP policy governance closure закрыт локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Close governance
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-governance-closure-update"}
+                  onClick={() => void updateSopPolicyGovernanceClosureState(
+                    item.id,
+                    {
+                      sopPolicyGovernanceClosureState: "needs_followup",
+                      sopPolicyGovernanceClosureNote: "Local SOP policy governance closure needs follow-up from workspace.",
+                    },
+                    "SOP policy governance closure отправлен на локальный follow-up.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Closure follow-up
                 </Button>
               </div>
             </article>

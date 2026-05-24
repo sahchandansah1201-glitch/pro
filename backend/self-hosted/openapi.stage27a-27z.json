@@ -1,0 +1,118 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted clinical follow-up SOP policy governance closure",
+    "version": "27A-27Z-clinical-followup-sop-policy-governance-closure"
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-governance-closure/summary": {
+      "get": {
+        "summary": "Read local SOP policy governance closure summary",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Clinic-scoped governance closure summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "const": "27A-27Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/SopPolicyGovernanceClosureSummary" }
+                  },
+                  "required": ["stage", "source", "item"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-closure": {
+      "patch": {
+        "summary": "Update local SOP policy governance closure state",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateSopPolicyGovernanceClosure" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated local follow-up governance closure state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "const": "27A-27Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/ClinicalFollowUp" }
+                  },
+                  "required": ["stage", "source", "item"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "SopPolicyGovernanceClosureSummary": {
+        "type": "object",
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "closureReady": { "type": "integer" },
+          "needsClosureReview": { "type": "integer" },
+          "closedGovernanceReviews": { "type": "integer" },
+          "closureNeedsFollowUp": { "type": "integer" },
+          "reviewedGovernance": { "type": "integer" },
+          "unresolvedPolicyDrift": { "type": "integer" },
+          "openExceptions": { "type": "integer" },
+          "localGovernanceClosureEvents": { "type": "integer" },
+          "source": { "type": "string" }
+        }
+      },
+      "UpdateSopPolicyGovernanceClosure": {
+        "type": "object",
+        "properties": {
+          "sopPolicyGovernanceClosureState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "closed", "needs_followup"]
+          },
+          "sopPolicyGovernanceClosureNote": { "type": ["string", "null"], "maxLength": 2000 }
+        },
+        "additionalProperties": false
+      },
+      "ClinicalFollowUp": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "sopPolicyGovernanceClosureState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "closed", "needs_followup"]
+          },
+          "sopPolicyGovernanceClosureNote": { "type": ["string", "null"], "maxLength": 2000 },
+          "sopPolicyGovernanceClosedAt": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

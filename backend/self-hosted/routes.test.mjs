@@ -741,6 +741,28 @@ function createRuntime({
           },
         };
       },
+      async getClinicalFollowUpSopPolicyGovernanceClosureSummary() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          summary: {
+            totalFollowUps: 4,
+            closureReady: 1,
+            needsClosureReview: 1,
+            closedGovernanceReviews: 1,
+            closureNeedsFollowUp: 0,
+            reviewedGovernance: 1,
+            unresolvedPolicyDrift: 0,
+            openExceptions: 0,
+            localGovernanceClosureEvents: 2,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         if (clinicalFollowUpError) throw clinicalFollowUpError;
         return {
@@ -942,6 +964,26 @@ function createRuntime({
             sopPolicyAuditState: "reviewed",
             sopPolicyGovernanceState: "reviewed",
             sopPolicyGovernanceNote: "Local SOP policy governance reviewed.",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUpSopPolicyGovernanceClosure() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: {
+            ...(clinicalFollowUp || { id: "10000000-0000-4000-8000-000000000701" }),
+            sopValidationState: "validated",
+            sopPolicyDriftState: "in_sync",
+            sopPolicyExceptionState: "closed",
+            sopPolicyAuditState: "reviewed",
+            sopPolicyGovernanceState: "reviewed",
+            sopPolicyGovernanceClosureState: "closed",
+            sopPolicyGovernanceClosureNote: "Local SOP policy governance closure completed.",
           },
           scope: {
             allClinics: false,
@@ -1610,6 +1652,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyExceptionClosure, "rbac-read-write-postgres-local-sop-policy-exception-closure");
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyAuditRollup, "rbac-read-write-postgres-local-sop-policy-audit-rollup");
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceReadiness, "rbac-read-write-postgres-local-sop-policy-governance-readiness");
+  assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceClosure, "rbac-read-write-postgres-local-sop-policy-governance-closure");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -1645,6 +1688,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage24A24Z, "/openapi.stage24a-24z.json");
   assert.equal(meta.json.links.openapiStage25A25Z, "/openapi.stage25a-25z.json");
   assert.equal(meta.json.links.openapiStage26A26Z, "/openapi.stage26a-26z.json");
+  assert.equal(meta.json.links.openapiStage27A27Z, "/openapi.stage27a-27z.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -1711,6 +1755,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyAuditRollup, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-audit");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceReadinessSummary, "/api/v1/clinical/follow-ups/sop-policy-governance/summary");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceReadiness, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceClosureSummary, "/api/v1/clinical/follow-ups/sop-policy-governance-closure/summary");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceClosure, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-closure");
   assert.equal(meta.json.links.clinicalFollowUpOperation, "/api/v1/clinical/follow-ups/{followUpId}/operations");
   assert.equal(meta.json.links.patientPortalFollowUps, "/api/v1/me/follow-ups");
   assert.equal(meta.json.links.patientPortalFollowUpMessages, "/api/v1/me/follow-ups/{followUpId}/messages");
@@ -4633,6 +4679,43 @@ test("Stage 26A-26Z · /openapi.stage26a-26z.json documents SOP policy governanc
   assert.equal(response.json.info.version, "26A-26Z-clinical-followup-sop-policy-governance-readiness");
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-governance/summary"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance"].patch);
+});
+
+test("Stage 27A-27Z · SOP policy governance closure routes close local governance state", async () => {
+  const runtime = createRuntime();
+  const summary = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-governance-closure/summary",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(summary.status, 200);
+  assert.equal(summary.json.stage, "27A-27Z");
+  assert.equal(summary.json.item.closureReady, 1);
+  assert.equal(summary.json.item.needsClosureReview, 1);
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701/sop-policy-governance-closure",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    {
+      sopPolicyGovernanceClosureState: "closed",
+      sopPolicyGovernanceClosureNote: "Local SOP policy governance closure completed.",
+    },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.stage, "27A-27Z");
+  assert.equal(updated.json.item.sopPolicyGovernanceClosureState, "closed");
+  assert.equal(updated.json.item.sopPolicyGovernanceClosureNote, "Local SOP policy governance closure completed.");
+  assert.doesNotMatch(updated.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url|access_token|external governance approval|external SOP approval|medical correctness/i);
+});
+
+test("Stage 27A-27Z · /openapi.stage27a-27z.json documents SOP policy governance closure", async () => {
+  const response = await request("/openapi.stage27a-27z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "27A-27Z-clinical-followup-sop-policy-governance-closure");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-governance-closure/summary"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-closure"].patch);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

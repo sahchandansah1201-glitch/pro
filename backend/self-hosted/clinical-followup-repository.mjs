@@ -131,6 +131,9 @@ export function normalizeClinicalFollowUp(row = {}) {
     sopPolicyGovernanceState: cleanText(row.sopPolicyGovernanceState ?? row.sop_policy_governance_state) || "not_started",
     sopPolicyGovernanceNote: cleanText(row.sopPolicyGovernanceNote ?? row.sop_policy_governance_note),
     sopPolicyGovernanceReviewedAt: cleanText(row.sopPolicyGovernanceReviewedAt ?? row.sop_policy_governance_reviewed_at),
+    sopPolicyGovernanceClosureState: cleanText(row.sopPolicyGovernanceClosureState ?? row.sop_policy_governance_closure_state) || "not_started",
+    sopPolicyGovernanceClosureNote: cleanText(row.sopPolicyGovernanceClosureNote ?? row.sop_policy_governance_closure_note),
+    sopPolicyGovernanceClosedAt: cleanText(row.sopPolicyGovernanceClosedAt ?? row.sop_policy_governance_closed_at),
     sopExceptionReason: cleanText(row.sopExceptionReason ?? row.sop_exception_reason),
     sopValidatedAt: cleanText(row.sopValidatedAt ?? row.sop_validated_at),
     resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
@@ -275,6 +278,9 @@ function followUpSelect({ patientSafe = false } = {}) {
     coalesce(f.sop_policy_governance_state, 'not_started') as "sopPolicyGovernanceState",
     f.sop_policy_governance_note as "sopPolicyGovernanceNote",
     f.sop_policy_governance_reviewed_at as "sopPolicyGovernanceReviewedAt",
+    coalesce(f.sop_policy_governance_closure_state, 'not_started') as "sopPolicyGovernanceClosureState",
+    f.sop_policy_governance_closure_note as "sopPolicyGovernanceClosureNote",
+    f.sop_policy_governance_closed_at as "sopPolicyGovernanceClosedAt",
     f.sop_exception_reason as "sopExceptionReason",
     f.sop_validated_at as "sopValidatedAt",
     f.resolved_at as "resolvedAt",
@@ -1379,6 +1385,137 @@ export function buildUpdateClinicalFollowUpSopPolicyGovernanceReadinessSql({
   `;
 }
 
+export function buildClinicalFollowUpSopPolicyGovernanceClosureSummarySql({
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const scopedFollowUps = clinicScopeWhere("f", { allClinics, clinicIds });
+  const closureReady = `(
+    coalesce(f.sop_policy_governance_state, 'not_started') = 'reviewed'
+    and coalesce(f.sop_policy_audit_state, 'not_started') = 'reviewed'
+    and coalesce(f.sop_policy_drift_state, 'not_checked') = 'in_sync'
+    and coalesce(f.sop_policy_exception_state, 'none') in ('none', 'accepted', 'rejected', 'closed')
+  )`;
+  return `
+    with scoped_followups as (
+      select *
+      from clinical_follow_up_tasks f
+      where ${scopedFollowUps}
+    )
+    select
+      count(*)::int as "totalFollowUps",
+      count(*) filter (where ${closureReady})::int as "closureReady",
+      count(*) filter (where ${closureReady} and coalesce(f.sop_policy_governance_closure_state, 'not_started') in ('not_started', 'needs_followup'))::int as "needsClosureReview",
+      count(*) filter (where coalesce(f.sop_policy_governance_closure_state, 'not_started') = 'closed')::int as "closedGovernanceReviews",
+      count(*) filter (where coalesce(f.sop_policy_governance_closure_state, 'not_started') = 'needs_followup')::int as "closureNeedsFollowUp",
+      count(*) filter (where coalesce(f.sop_policy_governance_state, 'not_started') = 'reviewed')::int as "reviewedGovernance",
+      count(*) filter (where coalesce(f.sop_policy_drift_state, 'not_checked') in ('drifted', 'missing_template', 'review_required'))::int as "unresolvedPolicyDrift",
+      count(*) filter (where coalesce(f.sop_policy_exception_state, 'none') = 'open')::int as "openExceptions",
+      count(*) filter (where exists (
+        select 1
+        from clinical_follow_up_sop_policy_governance_closure_events e
+        where e.follow_up_id = f.id
+      ))::int as "localGovernanceClosureEvents"
+    from scoped_followups f
+  `;
+}
+
+export function buildUpdateClinicalFollowUpSopPolicyGovernanceClosureSql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const nextState = changes.sopPolicyGovernanceClosureState !== undefined
+    ? sqlLiteral(changes.sopPolicyGovernanceClosureState)
+    : "p.sop_policy_governance_closure_state";
+  const nextNote = changes.sopPolicyGovernanceClosureNote !== undefined
+    ? sqlNullableText(changes.sopPolicyGovernanceClosureNote)
+    : "p.sop_policy_governance_closure_note";
+  const closedState = ["ready", "closed", "needs_followup"].includes(changes.sopPolicyGovernanceClosureState);
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set
+          sop_policy_governance_closure_state = ${nextState},
+          sop_policy_governance_closure_note = ${nextNote},
+          sop_policy_governance_closed_by_user_id = ${closedState ? sqlUuid(actorUserId) : "p.sop_policy_governance_closed_by_user_id"},
+          sop_policy_governance_closed_at = ${closedState ? "now()" : "p.sop_policy_governance_closed_at"},
+          updated_at = now()
+      from previous p
+      where f.id = p.id
+      returning f.*,
+        p.sop_policy_governance_closure_state as previous_sop_policy_governance_closure_state,
+        p.sop_policy_governance_closure_note as previous_sop_policy_governance_closure_note,
+        p.sop_policy_governance_state as previous_sop_policy_governance_state,
+        p.sop_policy_audit_state as previous_sop_policy_audit_state,
+        p.sop_policy_drift_state as previous_sop_policy_drift_state,
+        p.sop_policy_exception_state as previous_sop_policy_exception_state,
+        p.sop_validation_state as previous_sop_validation_state
+    ), event as (
+      insert into clinical_follow_up_sop_policy_governance_closure_events (
+        follow_up_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        closure_state,
+        governance_state,
+        audit_state,
+        drift_state,
+        exception_state,
+        validation_state,
+        note
+      )
+      select
+        u.id,
+        u.clinic_id,
+        ${sqlUuid(actorUserId)},
+        'sop_policy_governance_closure.update',
+        jsonb_build_object(
+          'sopPolicyGovernanceClosureState', coalesce(previous_sop_policy_governance_closure_state, 'not_started'),
+          'sopPolicyGovernanceClosureNote', previous_sop_policy_governance_closure_note,
+          'sopPolicyGovernanceState', coalesce(previous_sop_policy_governance_state, 'not_started'),
+          'sopPolicyAuditState', coalesce(previous_sop_policy_audit_state, 'not_started'),
+          'sopPolicyDriftState', coalesce(previous_sop_policy_drift_state, 'not_checked'),
+          'sopPolicyExceptionState', coalesce(previous_sop_policy_exception_state, 'none'),
+          'sopValidationState', coalesce(previous_sop_validation_state, 'not_required')
+        ),
+        jsonb_build_object(
+          'sopPolicyGovernanceClosureState', coalesce(u.sop_policy_governance_closure_state, 'not_started'),
+          'sopPolicyGovernanceClosureNote', u.sop_policy_governance_closure_note,
+          'sopPolicyGovernanceState', coalesce(u.sop_policy_governance_state, 'not_started'),
+          'sopPolicyAuditState', coalesce(u.sop_policy_audit_state, 'not_started'),
+          'sopPolicyDriftState', coalesce(u.sop_policy_drift_state, 'not_checked'),
+          'sopPolicyExceptionState', coalesce(u.sop_policy_exception_state, 'none'),
+          'sopValidationState', coalesce(u.sop_validation_state, 'not_required')
+        ),
+        coalesce(u.sop_policy_governance_closure_state, 'not_started'),
+        coalesce(u.sop_policy_governance_state, 'not_started'),
+        coalesce(u.sop_policy_audit_state, 'not_started'),
+        coalesce(u.sop_policy_drift_state, 'not_checked'),
+        coalesce(u.sop_policy_exception_state, 'none'),
+        coalesce(u.sop_validation_state, 'not_required'),
+        ${sqlNullableText(changes.sopPolicyGovernanceClosureNote || changes.sopPolicyGovernanceClosureState)}
+      from updated u
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function buildUpdateClinicalFollowUpSopPolicyExceptionClosureSql({
   followUpId,
   actorUserId,
@@ -1957,6 +2094,22 @@ export function createClinicalFollowUpRepository(dbClient) {
         source: "postgres",
       };
     },
+    async getClinicalFollowUpSopPolicyGovernanceClosureSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpSopPolicyGovernanceClosureSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalFollowUps: Number(row.totalFollowUps ?? row.total_follow_ups ?? 0),
+        closureReady: Number(row.closureReady ?? row.closure_ready ?? 0),
+        needsClosureReview: Number(row.needsClosureReview ?? row.needs_closure_review ?? 0),
+        closedGovernanceReviews: Number(row.closedGovernanceReviews ?? row.closed_governance_reviews ?? 0),
+        closureNeedsFollowUp: Number(row.closureNeedsFollowUp ?? row.closure_needs_follow_up ?? 0),
+        reviewedGovernance: Number(row.reviewedGovernance ?? row.reviewed_governance ?? 0),
+        unresolvedPolicyDrift: Number(row.unresolvedPolicyDrift ?? row.unresolved_policy_drift ?? 0),
+        openExceptions: Number(row.openExceptions ?? row.open_exceptions ?? 0),
+        localGovernanceClosureEvents: Number(row.localGovernanceClosureEvents ?? row.local_governance_closure_events ?? 0),
+        source: "postgres",
+      };
+    },
     async listClinicalFollowUpSopPolicyTemplates(params) {
       const rows = await dbClient.queryJson(buildListClinicalFollowUpSopPolicyTemplatesSql(params));
       return {
@@ -2004,6 +2157,10 @@ export function createClinicalFollowUpRepository(dbClient) {
     },
     async updateClinicalFollowUpSopPolicyGovernanceReadiness(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyGovernanceReadinessSql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
+    },
+    async updateClinicalFollowUpSopPolicyGovernanceClosure(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyGovernanceClosureSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };

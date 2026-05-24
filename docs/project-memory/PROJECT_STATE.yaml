@@ -1,9 +1,16 @@
-generated_at: "2026-05-24T12:12:27+03:00"
+generated_at: "2026-05-24T13:35:03+03:00"
 project: "Dermatolog Pro"
+stage27a_27z:
+  name: "Stage 27A-27Z"
+  clinical_followup_sop_policy_governance_closure_confirmed: true
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:stage27a-27z"
+  previous_batch: "Stage 26A-26Z"
+  next_hypothesis: "Stage 28A-28Z"
 stage26a_26z:
   name: "Stage 26A-26Z"
   clinical_followup_sop_policy_governance_readiness_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage26a-26z"
   previous_batch: "Stage 25A-25Z"
   next_hypothesis: "Stage 27A-27Z"
@@ -64,9 +71,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage26a-26z-clinical-followup-sop-policy-governance-readiness"
-  head_sha: "61dde3bdbf481fbef9c5c0a7d289e8f2cdd9ab8a"
-  head_commit: "Add Stage 25A-25Z clinical follow-up SOP policy audit rollup"
+  branch: "codex/stage27a-27z-clinical-followup-sop-governance-closure"
+  head_sha: "b14b6ba685030152e56a73a2b583f785a461c717"
+  head_commit: "Add Stage 26A-26Z clinical follow-up SOP policy governance readiness"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
