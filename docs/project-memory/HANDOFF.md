@@ -2,13 +2,26 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 30A-30Z is being
+This handoff captures the repository state while Stage 31A-31Z is being
 implemented from branch
-`codex/stage30a-30z-clinical-followup-sop-governance-evidence-reconciliation-closure`.
+`codex/stage31a-31z-clinical-followup-sop-governance-evidence-reconciliation-closure-receipt`.
 
 ## Confirmed state
 
-0. Stage 30A-30Z is implemented in the current branch as SOP policy governance
+0. Stage 31A-31Z is implemented in the current branch as SOP policy governance
+   evidence reconciliation closure receipt:
+   - PostgreSQL SOP policy governance evidence reconciliation closure receipt
+     fields on `clinical_follow_up_tasks`;
+   - append-only
+     `clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_events`;
+   - backend SOP policy governance evidence reconciliation closure receipt
+     summary/update routes;
+   - doctor live workspace Receipt ready / Needs receipt / Received receipt
+     summary tiles and Receive receipt / Receipt rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     and no medical correctness proof.
+
+0. Stage 30A-30Z is merged to main as SOP policy governance
    evidence reconciliation closure:
    - PostgreSQL SOP policy governance evidence reconciliation closure fields on
      `clinical_follow_up_tasks`;
@@ -492,10 +505,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 30A-30Z Pull request lifecycle.
+1. Complete the Stage 31A-31Z Pull request lifecycle.
 2. Run or verify:
+   - `npm run preflight:stage31a-31z`
    - `npm run preflight:stage30a-30z`
-   - `npm run preflight:stage29a-29z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

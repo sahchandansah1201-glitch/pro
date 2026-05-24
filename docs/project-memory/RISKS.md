@@ -1,5 +1,23 @@
 # RISKS
 
+## Stage 31A-31Z follow-up SOP policy governance evidence reconciliation closure receipt risks
+
+1. **Risk: local SOP policy governance evidence reconciliation closure receipt can be mistaken for external governance approval proof.**
+   - Evidence: Stage 31A-31Z records local closure receipt state and notes on
+     follow-up tasks, but it does not verify legal sign-off, external SOP
+     approvals, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy governance
+     evidence reconciliation closure receipt as local metadata only.
+
+2. **Risk: closure receipt can obscure receipt exception or rework states.**
+   - Evidence: Stage 31A-31Z summarizes receipt readiness from local
+     reconciliation closure, reconciled evidence, and exported evidence fields;
+     it does not perform external remediation or diagnosis/treatment correctness
+     checks.
+   - Mitigation: keep receipt exception and needs-rework states bounded,
+     RBAC-protected, append-only audited, and visible in the doctor workspace
+     summary.
+
 ## Stage 30A-30Z follow-up SOP policy governance evidence reconciliation closure risks
 
 1. **Risk: local SOP policy governance evidence reconciliation closure can be mistaken for external governance approval proof.**

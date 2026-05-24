@@ -111,6 +111,14 @@
    - [check-stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.mjs](../../scripts/check-stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.mjs)
    - [stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.yml](../../.github/workflows/stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.yml)
 
+15. Stage 31A-31Z clinical follow-up SOP policy governance evidence reconciliation closure receipt artifacts:
+   - [clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.stage31a-31z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.stage31a-31z.json)
+   - [0038_stage31_followup_sop_policy_governance_evidence_reconciliation_closure_receipt.sql](../../backend/self-hosted/db/migrations/0038_stage31_followup_sop_policy_governance_evidence_reconciliation_closure_receipt.sql)
+   - [openapi.stage31a-31z.json](../../backend/self-hosted/openapi.stage31a-31z.json)
+   - [stage-31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.md](../backend/stage-31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.md)
+   - [check-stage31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.mjs](../../scripts/check-stage31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.mjs)
+   - [stage31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.yml](../../.github/workflows/stage31a-31z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

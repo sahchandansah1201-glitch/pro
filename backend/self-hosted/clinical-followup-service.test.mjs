@@ -13,6 +13,7 @@ import {
   normalizeClinicalFollowUpSopPolicyExceptionClosurePayload,
   normalizeClinicalFollowUpSopPolicyGovernanceClosurePayload,
   normalizeClinicalFollowUpSopPolicyGovernanceEvidencePayload,
+  normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptPayload,
   normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosurePayload,
   normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationPayload,
   normalizeClinicalFollowUpSopPolicyGovernanceReadinessPayload,
@@ -238,6 +239,20 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           source: "postgres",
         };
       },
+      async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary() {
+        return {
+          totalFollowUps: 4,
+          closureReceiptReady: 1,
+          needsClosureReceipt: 1,
+          receivedClosureReceipts: 1,
+          closureReceiptExceptions: 0,
+          closureReceiptNeedsRework: 0,
+          closedReconciliationEvidence: 1,
+          reconciledGovernanceEvidence: 1,
+          localGovernanceEvidenceReconciliationClosureReceiptEvents: 2,
+          source: "postgres",
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         return {
           items: [{
@@ -398,6 +413,21 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           sopPolicyGovernanceEvidenceReconciliationState: "reconciled",
           sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
           sopPolicyGovernanceEvidenceReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure completed.",
+        };
+      },
+      async updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt() {
+        return {
+          ...followUp,
+          sopPolicyDriftState: "in_sync",
+          sopPolicyExceptionState: "closed",
+          sopPolicyAuditState: "reviewed",
+          sopPolicyGovernanceState: "reviewed",
+          sopPolicyGovernanceClosureState: "closed",
+          sopPolicyGovernanceEvidenceState: "exported",
+          sopPolicyGovernanceEvidenceReconciliationState: "reconciled",
+          sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt recorded.",
         };
       },
       ...repositoryOverrides,
@@ -682,6 +712,22 @@ test("validates local SOP policy governance evidence reconciliation closure payl
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosurePayload({ sopPolicyGovernanceEvidenceReconciliationClosureState: "external_approved" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosurePayload({ sopPolicyGovernanceEvidenceReconciliationClosureState: "needs_rework" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosurePayload({}), /validation/i);
+});
+
+test("validates local SOP policy governance evidence reconciliation closure receipt payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptPayload({
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: "  Local governance evidence reconciliation closure receipt recorded.  ",
+    }),
+    {
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: "Local governance evidence reconciliation closure receipt recorded.",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptPayload({ sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "external_approved" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptPayload({ sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "needs_rework" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptPayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -1153,6 +1199,37 @@ test("doctor can summarize and update SOP policy governance evidence reconciliat
     [
       "clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure.summary",
       "clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure.update",
+    ],
+  );
+});
+
+test("doctor can summarize and update SOP policy governance evidence reconciliation closure receipt with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary(
+    {},
+    DOCTOR,
+    { correlationId: "policy-governance-evidence-reconciliation-closure-receipt-1" },
+  );
+  const updated = await service.updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt(
+    FOLLOW_UP_ID,
+    {
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt recorded.",
+    },
+    DOCTOR,
+    { correlationId: "policy-governance-evidence-reconciliation-closure-receipt-2" },
+  );
+
+  assert.equal(summary.summary.closureReceiptReady, 1);
+  assert.equal(summary.summary.needsClosureReceipt, 1);
+  assert.equal(updated.followUp.sopPolicyGovernanceEvidenceReconciliationClosureReceiptState, "received");
+  assert.equal(updated.followUp.sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote, "Local SOP policy governance evidence reconciliation closure receipt recorded.");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure_receipt.summary",
+      "clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure_receipt.update",
     ],
   );
 });

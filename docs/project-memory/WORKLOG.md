@@ -2,6 +2,17 @@
 
 ## 2026-05-24
 
+- Создан Stage 31A-31Z clinical follow-up SOP policy governance evidence reconciliation closure receipt после Stage 30A-30Z.
+- Добавлены SOP policy governance evidence reconciliation closure receipt поля,
+  append-only governance evidence reconciliation closure receipt events, backend
+  summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor
+  live workspace Receipt ready / Needs receipt / Received receipt summary
+  tiles, Receive receipt / Receipt rework actions, guard, workflow, docs,
+  project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no medical correctness proof, no
+  signed URLs/storage paths/provider tokens in protected outputs.
+
 - Создан Stage 30A-30Z clinical follow-up SOP policy governance evidence reconciliation closure после Stage 29A-29Z.
 - Добавлены SOP policy governance evidence reconciliation closure поля,
   append-only governance evidence reconciliation closure events, backend

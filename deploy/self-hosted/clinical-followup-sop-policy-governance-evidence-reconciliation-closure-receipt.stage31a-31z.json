@@ -1,0 +1,43 @@
+{
+  "stage": "31A-31Z",
+  "name": "clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt",
+  "status": "ready",
+  "previousBatch": "Stage 30A-30Z",
+  "nextBatchHypothesis": "Stage 32A-32Z",
+  "purpose": "Add a local SOP policy governance evidence reconciliation closure receipt checkpoint after Stage 30 closure for clinical follow-up tasks.",
+  "implementedSurfaces": [
+    "PostgreSQL governance evidence reconciliation closure receipt fields on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_events",
+    "Backend governance evidence reconciliation closure receipt summary route",
+    "Backend governance evidence reconciliation closure receipt update route",
+    "OpenAPI Stage 31A-31Z contract",
+    "nginx OpenAPI publishing",
+    "Frontend follow-up API adapter",
+    "Doctor workspace closure receipt summary tiles",
+    "Doctor workspace Receive receipt and Receipt rework actions",
+    "Stage guard, tests, workflow, docs, and preflight-all wiring",
+    "Project-memory recovery update"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "externalRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyGovernanceEvidenceReconciliationClosureReceiptIsLocalMetadataOnly": true,
+    "clinicGovernanceEvidenceReconciliationClosureReceiptIsNotExternalApprovalProof": true,
+    "closureReceiptDoesNotIncludeRawPatientNames": true,
+    "closureReceiptDoesNotIncludeTokensOrSignedUrls": true,
+    "medicalCorrectnessProof": false
+  },
+  "verification": {
+    "test": "npm run test:stage31a-31z",
+    "check": "npm run check:stage31a-31z",
+    "preflight": "npm run preflight:stage31a-31z",
+    "expectedConfirmation": "Confirmed: Stage 31A-31Z synced from main, no conflicts."
+  }
+}
