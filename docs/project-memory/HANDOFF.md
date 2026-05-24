@@ -2,13 +2,21 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 24A-24Z is being
+This handoff captures the repository state while Stage 25A-25Z is being
 implemented from branch
-`codex/stage24a-24z-clinical-followup-sop-policy-exception-closure`.
+`codex/stage25a-25z-clinical-followup-sop-policy-audit-rollup`.
 
 ## Confirmed state
 
-0. Stage 24A-24Z is implemented in the current branch as local SOP policy
+0. Stage 25A-25Z is implemented in the current branch as local SOP policy audit
+   rollup:
+   - PostgreSQL SOP policy audit fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_sop_policy_audit_events`;
+   - backend SOP policy audit rollup summary/update routes;
+   - doctor live workspace Audit reviewed and Audit follow-up row actions;
+   - no managed notification provider dependency and no external SOP proof.
+
+0. Stage 24A-24Z is merged to main as local SOP policy
    exception closure:
    - PostgreSQL SOP policy exception closure fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_sop_policy_exception_events`;
@@ -16,7 +24,7 @@ implemented from branch
    - doctor live workspace Open exception and Close exception row actions;
    - no managed notification provider dependency and no external SOP proof.
 
-0. Stage 23A-23Z is implemented in the current branch as local SOP policy
+0. Stage 23A-23Z is merged to main as local SOP policy
    application and drift review:
    - PostgreSQL SOP policy application fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_sop_policy_application_events`;
@@ -405,7 +413,7 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 25A-25Z` is the next hypothesis after Stage 24A-24Z until repository
+- `Stage 26A-26Z` is the next hypothesis after Stage 25A-25Z until repository
   files define it.
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
 - `Stage 15A-15Z` is the confirmed post-sync handoff readiness batch after Stage 14A-14Z.

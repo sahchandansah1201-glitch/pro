@@ -1,0 +1,46 @@
+name: stage25a-25z-clinical-followup-sop-policy-audit-rollup
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-25a-25z-clinical-followup-sop-policy-audit-rollup.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.mjs"
+      - "scripts/check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "package.json"
+  push:
+    branches: [main]
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-25a-25z-clinical-followup-sop-policy-audit-rollup.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.mjs"
+      - "scripts/check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "package.json"
+
+jobs:
+  stage25a-25z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage25a-25z

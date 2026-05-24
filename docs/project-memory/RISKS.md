@@ -1,5 +1,21 @@
 # RISKS
 
+## Stage 25A-25Z follow-up SOP policy audit rollup risks
+
+1. **Risk: local SOP policy audit rollup can be mistaken for external SOP approval.**
+   - Evidence: Stage 25A-25Z records local audit state and notes on follow-up
+     tasks, but it does not verify external SOP documents, clinic governance
+     approval, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy audit rollup
+     as local metadata only.
+
+2. **Risk: audit review can obscure unresolved policy drift if clinic review is incomplete.**
+   - Evidence: Stage 25A-25Z summarizes audit readiness from local template,
+     drift, exception, and validation fields; it does not prove external
+     remediation or diagnosis/treatment correctness.
+   - Mitigation: keep states bounded, RBAC-protected, append-only audited, and
+     visible in the doctor workspace summary.
+
 ## Stage 24A-24Z follow-up SOP policy exception closure risks
 
 1. **Risk: local SOP policy exception closure can be mistaken for external SOP approval.**

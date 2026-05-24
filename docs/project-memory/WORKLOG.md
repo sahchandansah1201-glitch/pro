@@ -2,6 +2,15 @@
 
 ## 2026-05-24
 
+- Создан Stage 25A-25Z clinical follow-up SOP policy audit rollup после Stage 24A-24Z.
+- Добавлены SOP policy audit поля, append-only audit events, backend
+  summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor
+  live workspace Audit reviewed / Audit follow-up actions, guard, workflow,
+  docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external SOP proof, no medical correctness proof, no signed
+  URLs/storage paths/provider tokens in protected outputs.
+
 - Создан Stage 24A-24Z clinical follow-up SOP policy exception closure после Stage 23A-23Z.
 - Добавлены SOP policy exception closure поля, append-only exception events,
   backend summary/update routes, OpenAPI, nginx publishing, frontend adapter,

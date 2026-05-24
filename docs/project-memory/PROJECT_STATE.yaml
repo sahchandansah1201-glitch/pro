@@ -1,9 +1,16 @@
-generated_at: "2026-05-24T10:30:00+03:00"
+generated_at: "2026-05-24T10:55:00+03:00"
 project: "Dermatolog Pro"
+stage25a_25z:
+  name: "Stage 25A-25Z"
+  clinical_followup_sop_policy_audit_rollup_confirmed: true
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:stage25a-25z"
+  previous_batch: "Stage 24A-24Z"
+  next_hypothesis: "Stage 26A-26Z"
 stage24a_24z:
   name: "Stage 24A-24Z"
   clinical_followup_sop_policy_exception_closure_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage24a-24z"
   previous_batch: "Stage 23A-23Z"
   next_hypothesis: "Stage 25A-25Z"
@@ -50,9 +57,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage24a-24z-clinical-followup-sop-policy-exception-closure"
-  head_sha: "62d346f2b269aa888cc2dd869646cf88134672f3"
-  head_commit: "Add Stage 23A-23Z clinical follow-up SOP policy application"
+  branch: "codex/stage25a-25z-clinical-followup-sop-policy-audit-rollup"
+  head_sha: "a0c2efbbd985e50c095a2737f276c001bc20016d"
+  head_commit: "Add Stage 24A-24Z clinical follow-up SOP policy exception closure"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -891,10 +898,13 @@ stage16a_16z_preflight:
     - "scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs"
     - ".github/workflows/stage15a-15z-post-sync-handoff-readiness.yml"
 hypotheses:
-  - "Stage 25A-25Z is the next hypothesis after Stage 24A-24Z until repository files define it."
-  - "A likely Stage 25A-25Z direction is follow-up clinic policy audit rollup or SOP exception reporting, but this remains unconfirmed."
+  - "Stage 26A-26Z is the next hypothesis after Stage 25A-25Z until repository files define it."
+  - "Stage 25A-25Z closes the prior Stage 25 hypothesis with local follow-up clinic SOP policy audit rollup."
 sources:
   commands:
+    - "npm run test:stage25a-25z"
+    - "npm run check:stage25a-25z"
+    - "npm run preflight:stage25a-25z"
     - "npm run test:stage24a-24z"
     - "npm run check:stage24a-24z"
     - "npm run preflight:stage24a-24z"
@@ -1005,6 +1015,11 @@ sources:
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
   files:
+    - "deploy/self-hosted/clinical-followup-sop-policy-audit-rollup.stage25a-25z.json"
+    - "backend/self-hosted/db/migrations/0032_stage25_followup_sop_policy_audit_rollup.sql"
+    - "backend/self-hosted/openapi.stage25a-25z.json"
+    - "docs/backend/stage-25a-25z-clinical-followup-sop-policy-audit-rollup.md"
+    - "scripts/check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.mjs"
     - "deploy/self-hosted/acceptance-baseline.stage6a.json"
     - "deploy/self-hosted/server-install-package.stage6b.json"
     - "deploy/self-hosted/install-verification.stage6c.json"

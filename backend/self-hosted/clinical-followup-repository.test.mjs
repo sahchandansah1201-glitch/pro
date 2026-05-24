@@ -10,6 +10,7 @@ import {
   buildClinicalFollowUpOperationsSummarySql,
   buildClinicalFollowUpSopPolicyTemplateSummarySql,
   buildClinicalFollowUpSopPolicyApplicationSummarySql,
+  buildClinicalFollowUpSopPolicyAuditRollupSummarySql,
   buildClinicalFollowUpSopPolicyExceptionClosureSummarySql,
   buildClinicalFollowUpSopValidationSummarySql,
   buildCreateClinicalFollowUpSopPolicyTemplateSql,
@@ -22,6 +23,7 @@ import {
   buildUpdateClinicalFollowUpQualitySql,
   buildUpdateClinicalFollowUpSopPolicyTemplateSql,
   buildUpdateClinicalFollowUpSopPolicyApplicationSql,
+  buildUpdateClinicalFollowUpSopPolicyAuditRollupSql,
   buildUpdateClinicalFollowUpSopPolicyExceptionClosureSql,
   buildUpdateClinicalFollowUpSopValidationSql,
   buildUpdateClinicalFollowUpSql,
@@ -401,6 +403,30 @@ test("builds SOP policy exception closure summary and update SQL with append-onl
   assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path|external SOP approval/i);
 });
 
+test("builds SOP policy audit rollup summary and update SQL with append-only audit events", () => {
+  const summarySql = buildClinicalFollowUpSopPolicyAuditRollupSummarySql({
+    clinicIds: [CLINIC_ID],
+  });
+  assert.match(summarySql, /auditReady/);
+  assert.match(summarySql, /needsAuditReview/);
+  assert.match(summarySql, /clinical_follow_up_sop_policy_audit_events/);
+
+  const updateSql = buildUpdateClinicalFollowUpSopPolicyAuditRollupSql({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      sopPolicyAuditState: "reviewed",
+      sopPolicyAuditNote: "Local SOP policy audit reviewed.",
+    },
+  });
+  assert.match(updateSql, /sop_policy_audit_state = 'reviewed'/);
+  assert.match(updateSql, /sop_policy_audit_reviewed_at = now\(\)/);
+  assert.match(updateSql, /insert into clinical_follow_up_sop_policy_audit_events/);
+  assert.match(updateSql, /sop_policy_audit_rollup\.update/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path|external SOP approval|medical correctness/i);
+});
+
 test("repository normalizes operations queue and summary DTOs", async () => {
   const calls = [];
   const repository = createClinicalFollowUpRepository({
@@ -418,8 +444,29 @@ test("repository normalizes operations queue and summary DTOs", async () => {
       if (/active_templates/.test(sql)) {
         return [{ totalFollowUps: 3, activeTemplates: 1, appliedTemplates: 1, notChecked: 1, inSync: 1, drifted: 0, missingTemplate: 0, reviewRequired: 1, needsPolicyApplication: 1, localApplicationEvents: 1 }];
       }
+      if (/auditReady/.test(sql)) {
+        return [{ totalFollowUps: 3, auditReady: 2, needsAuditReview: 1, reviewedAudits: 1, needsFollowUp: 0, unresolvedPolicyDrift: 1, openExceptions: 1, missingPolicyTemplate: 1, localPolicyAuditEvents: 2 }];
+      }
       if (/openExceptions/.test(sql)) {
         return [{ totalFollowUps: 3, openExceptions: 1, closedExceptions: 1, acceptedExceptions: 1, rejectedExceptions: 0, unresolvedDrift: 1, unclosedValidationExceptions: 1, closedWithLocalResolution: 1, localExceptionEvents: 2 }];
+      }
+      if (/clinical_follow_up_sop_policy_audit_events/.test(sql)) {
+        return [{
+          id: FOLLOW_UP_ID,
+          clinicId: CLINIC_ID,
+          patientId: "10000000-0000-4000-8000-000000000201",
+          visitId: VISIT_ID,
+          dueAt: "2026-05-30T10:00:00.000Z",
+          status: "sent",
+          priority: "high",
+          reason: "Контроль",
+          sopValidationState: "validated",
+          sopPolicyVersion: "clinic-local-v1",
+          sopPolicyDriftState: "in_sync",
+          sopPolicyExceptionState: "closed",
+          sopPolicyAuditState: "reviewed",
+          sopPolicyAuditNote: "Local SOP policy audit reviewed.",
+        }];
       }
       if (/clinical_follow_up_sop_policy_exception_events/.test(sql)) {
         return [{
@@ -509,6 +556,7 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   const policySummary = await repository.getClinicalFollowUpSopPolicyTemplateSummary({ clinicIds: [CLINIC_ID] });
   const applicationSummary = await repository.getClinicalFollowUpSopPolicyApplicationSummary({ clinicIds: [CLINIC_ID] });
   const exceptionSummary = await repository.getClinicalFollowUpSopPolicyExceptionClosureSummary({ clinicIds: [CLINIC_ID] });
+  const auditSummary = await repository.getClinicalFollowUpSopPolicyAuditRollupSummary({ clinicIds: [CLINIC_ID] });
   const policies = await repository.listClinicalFollowUpSopPolicyTemplates({ clinicIds: [CLINIC_ID], activeOnly: true });
   const createdPolicy = await repository.createClinicalFollowUpSopPolicyTemplate({
     clinicId: CLINIC_ID,
@@ -570,6 +618,15 @@ test("repository normalizes operations queue and summary DTOs", async () => {
       sopPolicyExceptionResolution: "Closed inside clinic policy review.",
     },
   });
+  const sopAuditReviewed = await repository.updateClinicalFollowUpSopPolicyAuditRollup({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      sopPolicyAuditState: "reviewed",
+      sopPolicyAuditNote: "Local SOP policy audit reviewed.",
+    },
+  });
 
   assert.equal(queue.items[0].triageState, "escalated");
   assert.equal(queue.items[0].deliveryAttempts, 2);
@@ -581,6 +638,8 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   assert.equal(policySummary.activeTemplates, 1);
   assert.equal(applicationSummary.reviewRequired, 1);
   assert.equal(exceptionSummary.openExceptions, 1);
+  assert.equal(auditSummary.auditReady, 2);
+  assert.equal(auditSummary.needsAuditReview, 1);
   assert.equal(policies.items[0].code, "followup-standard");
   assert.equal(createdPolicy.version, "clinic-local-v1");
   assert.equal(updatedPolicy.title, "Follow-up standard SOP");
@@ -590,5 +649,7 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   assert.equal(sopUpdated.sopValidationState, "required");
   assert.equal(sopApplied.sopPolicyDriftState, "in_sync");
   assert.equal(sopExceptionClosed.sopPolicyExceptionState, "accepted");
-  assert.equal(calls.length, 17);
+  assert.equal(sopAuditReviewed.sopPolicyAuditState, "reviewed");
+  assert.equal(sopAuditReviewed.sopPolicyAuditNote, "Local SOP policy audit reviewed.");
+  assert.equal(calls.length, 19);
 });

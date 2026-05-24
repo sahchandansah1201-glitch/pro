@@ -19,6 +19,7 @@ import {
   getSelfHostedClinicalFollowUpOperationsSummary,
   getSelfHostedClinicalFollowUpSopPolicyTemplateSummary,
   getSelfHostedClinicalFollowUpSopPolicyApplicationSummary,
+  getSelfHostedClinicalFollowUpSopPolicyAuditRollupSummary,
   getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary,
   getSelfHostedClinicalFollowUpSopValidationSummary,
   listSelfHostedClinicalFollowUpOperations,
@@ -28,6 +29,7 @@ import {
   type FollowUpOperationsSummary,
   type FollowUpSopPolicyTemplateSummary,
   type FollowUpSopPolicyApplicationSummary,
+  type FollowUpSopPolicyAuditRollupSummary,
   type FollowUpSopPolicyExceptionClosureSummary,
   type FollowUpSopValidationSummary,
   type SelfHostedClinicalFollowUp,
@@ -37,6 +39,7 @@ import {
   updateSelfHostedClinicalFollowUpQuality,
   updateSelfHostedClinicalFollowUpSopValidation,
   updateSelfHostedClinicalFollowUpSopPolicyApplication,
+  updateSelfHostedClinicalFollowUpSopPolicyAuditRollup,
   updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure,
 } from "@/lib/self-hosted-follow-up-api";
 import {
@@ -68,6 +71,7 @@ type BusyAction =
   | "sop-policy-template-create"
   | "sop-policy-application-update"
   | "sop-policy-exception-update"
+  | "sop-policy-audit-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -154,6 +158,18 @@ const EMPTY_SOP_POLICY_EXCEPTION_CLOSURE_SUMMARY: FollowUpSopPolicyExceptionClos
   localExceptionEvents: 0,
 };
 
+const EMPTY_SOP_POLICY_AUDIT_ROLLUP_SUMMARY: FollowUpSopPolicyAuditRollupSummary = {
+  totalFollowUps: 0,
+  auditReady: 0,
+  needsAuditReview: 0,
+  reviewedAudits: 0,
+  needsFollowUp: 0,
+  unresolvedPolicyDrift: 0,
+  openExceptions: 0,
+  missingPolicyTemplate: 0,
+  localPolicyAuditEvents: 0,
+};
+
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
   if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
@@ -185,6 +201,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [sopPolicyTemplateSummary, setSopPolicyTemplateSummary] = useState<FollowUpSopPolicyTemplateSummary>(EMPTY_SOP_POLICY_TEMPLATE_SUMMARY);
   const [sopPolicyApplicationSummary, setSopPolicyApplicationSummary] = useState<FollowUpSopPolicyApplicationSummary>(EMPTY_SOP_POLICY_APPLICATION_SUMMARY);
   const [sopPolicyExceptionClosureSummary, setSopPolicyExceptionClosureSummary] = useState<FollowUpSopPolicyExceptionClosureSummary>(EMPTY_SOP_POLICY_EXCEPTION_CLOSURE_SUMMARY);
+  const [sopPolicyAuditRollupSummary, setSopPolicyAuditRollupSummary] = useState<FollowUpSopPolicyAuditRollupSummary>(EMPTY_SOP_POLICY_AUDIT_ROLLUP_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
   const [sopPolicyTemplates, setSopPolicyTemplates] = useState<SelfHostedFollowUpSopPolicyTemplate[]>([]);
   const [sopTemplateCode, setSopTemplateCode] = useState("followup-standard");
@@ -211,7 +228,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicies, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicies, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
@@ -219,6 +236,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
       getSelfHostedClinicalFollowUpSopPolicyTemplateSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyApplicationSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary(baseArgs),
+      getSelfHostedClinicalFollowUpSopPolicyAuditRollupSummary(baseArgs),
       listSelfHostedClinicalFollowUpSopPolicyTemplates({
         ...baseArgs,
         activeOnly: true,
@@ -235,11 +253,12 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (sopPolicySummary.ok) setSopPolicyTemplateSummary(sopPolicySummary.value);
     if (sopPolicyApplication.ok) setSopPolicyApplicationSummary(sopPolicyApplication.value);
     if (sopPolicyExceptions.ok) setSopPolicyExceptionClosureSummary(sopPolicyExceptions.value);
+    if (sopPolicyAudit.ok) setSopPolicyAuditRollupSummary(sopPolicyAudit.value);
     if (sopPolicies.ok) setSopPolicyTemplates(sopPolicies.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicies.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicies.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicies.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicies.error || queue.error));
     }
   }
 
@@ -447,6 +466,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("sop-policy-exception-update");
     const result = await updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateSopPolicyAuditRollupState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpSopPolicyAuditRollup>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("sop-policy-audit-update");
+    const result = await updateSelfHostedClinicalFollowUpSopPolicyAuditRollup({
       ...baseArgs,
       followUpId,
       payload,
@@ -840,6 +875,20 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   <dd className="text-lg font-semibold">{sopPolicyExceptionClosureSummary.closedExceptions}</dd>
                 </div>
               </dl>
+              <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Audit ready</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyAuditRollupSummary.auditReady}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Needs audit</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyAuditRollupSummary.needsAuditReview}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Reviewed audits</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyAuditRollupSummary.reviewedAudits}</dd>
+                </div>
+              </dl>
               <div className="space-y-2 text-[12px]">
                 {sopPolicyTemplates.length === 0 ? (
                   <p className="text-muted-foreground">Активный SOP policy template ещё не задан.</p>
@@ -961,6 +1010,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   policy exception: {item.sopPolicyExceptionState} · {item.sopPolicyExceptionResolution || item.sopPolicyExceptionReason || "no local closure"}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  policy audit: {item.sopPolicyAuditState} · {item.sopPolicyAuditNote || "no local audit note"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1195,6 +1247,40 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Close exception
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-audit-update"}
+                  onClick={() => void updateSopPolicyAuditRollupState(
+                    item.id,
+                    {
+                      sopPolicyAuditState: "reviewed",
+                      sopPolicyAuditNote: "Local SOP policy audit reviewed from workspace.",
+                    },
+                    "SOP policy audit отмечен как reviewed локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Audit reviewed
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-audit-update"}
+                  onClick={() => void updateSopPolicyAuditRollupState(
+                    item.id,
+                    {
+                      sopPolicyAuditState: "needs_followup",
+                      sopPolicyAuditNote: "Local SOP policy audit needs follow-up from workspace.",
+                    },
+                    "SOP policy audit отправлен на локальный follow-up.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Audit follow-up
                 </Button>
               </div>
             </article>
