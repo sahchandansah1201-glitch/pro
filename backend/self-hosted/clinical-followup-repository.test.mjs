@@ -9,6 +9,7 @@ import {
   buildClinicalFollowUpOutcomeQualitySummarySql,
   buildClinicalFollowUpOperationsSummarySql,
   buildClinicalFollowUpSopPolicyTemplateSummarySql,
+  buildClinicalFollowUpSopPolicyApplicationSummarySql,
   buildClinicalFollowUpSopValidationSummarySql,
   buildCreateClinicalFollowUpSopPolicyTemplateSql,
   buildListClinicalFollowUpsSql,
@@ -19,6 +20,7 @@ import {
   buildUpdateClinicalFollowUpClinicReviewSql,
   buildUpdateClinicalFollowUpQualitySql,
   buildUpdateClinicalFollowUpSopPolicyTemplateSql,
+  buildUpdateClinicalFollowUpSopPolicyApplicationSql,
   buildUpdateClinicalFollowUpSopValidationSql,
   buildUpdateClinicalFollowUpSql,
   createClinicalFollowUpRepository,
@@ -347,6 +349,31 @@ test("builds SOP policy template summary, list, create, and update SQL with appe
   assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path/i);
 });
 
+test("builds SOP policy application summary and update SQL with append-only drift events", () => {
+  const summarySql = buildClinicalFollowUpSopPolicyApplicationSummarySql({
+    clinicIds: [CLINIC_ID],
+  });
+  assert.match(summarySql, /active_templates/);
+  assert.match(summarySql, /needsPolicyApplication/);
+  assert.match(summarySql, /clinical_follow_up_sop_policy_application_events/);
+
+  const updateSql = buildUpdateClinicalFollowUpSopPolicyApplicationSql({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      sopPolicyTemplateId: "10000000-0000-4000-8000-000000000901",
+      sopPolicyDriftState: "in_sync",
+    },
+  });
+  assert.match(updateSql, /selected_template/);
+  assert.match(updateSql, /sop_policy_template_id = coalesce/);
+  assert.match(updateSql, /sop_policy_drift_state = 'in_sync'/);
+  assert.match(updateSql, /insert into clinical_follow_up_sop_policy_application_events/);
+  assert.match(updateSql, /sop_policy_application\.update/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path|external SOP approval/i);
+});
+
 test("repository normalizes operations queue and summary DTOs", async () => {
   const calls = [];
   const repository = createClinicalFollowUpRepository({
@@ -360,6 +387,26 @@ test("repository normalizes operations queue and summary DTOs", async () => {
       }
       if (/totalTemplates/.test(sql)) {
         return [{ totalTemplates: 2, activeTemplates: 1, inactiveTemplates: 1, exceptionsAllowed: 1, requiredByDefault: 1, localPolicyEvents: 3 }];
+      }
+      if (/active_templates/.test(sql)) {
+        return [{ totalFollowUps: 3, activeTemplates: 1, appliedTemplates: 1, notChecked: 1, inSync: 1, drifted: 0, missingTemplate: 0, reviewRequired: 1, needsPolicyApplication: 1, localApplicationEvents: 1 }];
+      }
+      if (/clinical_follow_up_sop_policy_application_events/.test(sql)) {
+        return [{
+          id: FOLLOW_UP_ID,
+          clinicId: CLINIC_ID,
+          patientId: "10000000-0000-4000-8000-000000000201",
+          visitId: VISIT_ID,
+          dueAt: "2026-05-30T10:00:00.000Z",
+          status: "sent",
+          priority: "high",
+          reason: "Контроль",
+          sopValidationState: "required",
+          sopPolicyVersion: "clinic-local-v1",
+          sopPolicyTemplateId: "10000000-0000-4000-8000-000000000901",
+          sopPolicyTemplateCode: "followup-standard",
+          sopPolicyDriftState: "in_sync",
+        }];
       }
       if (/clinical_follow_up_sop_policy_templates/.test(sql)) {
         return [{
@@ -397,6 +444,9 @@ test("repository normalizes operations queue and summary DTOs", async () => {
         qualityReviewNote: "Review escalation.",
         sopValidationState: "required",
         sopPolicyVersion: "clinic-local-v1",
+        sopPolicyTemplateId: "10000000-0000-4000-8000-000000000901",
+        sopPolicyTemplateCode: "followup-standard",
+        sopPolicyDriftState: "in_sync",
       }];
     },
   });
@@ -407,6 +457,7 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   const clinicReview = await repository.getClinicalFollowUpClinicReviewSummary({ clinicIds: [CLINIC_ID] });
   const sop = await repository.getClinicalFollowUpSopValidationSummary({ clinicIds: [CLINIC_ID] });
   const policySummary = await repository.getClinicalFollowUpSopPolicyTemplateSummary({ clinicIds: [CLINIC_ID] });
+  const applicationSummary = await repository.getClinicalFollowUpSopPolicyApplicationSummary({ clinicIds: [CLINIC_ID] });
   const policies = await repository.listClinicalFollowUpSopPolicyTemplates({ clinicIds: [CLINIC_ID], activeOnly: true });
   const createdPolicy = await repository.createClinicalFollowUpSopPolicyTemplate({
     clinicId: CLINIC_ID,
@@ -453,6 +504,12 @@ test("repository normalizes operations queue and summary DTOs", async () => {
     clinicIds: [CLINIC_ID],
     changes: { sopValidationState: "validated" },
   });
+  const sopApplied = await repository.updateClinicalFollowUpSopPolicyApplication({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: { sopPolicyDriftState: "review_required" },
+  });
 
   assert.equal(queue.items[0].triageState, "escalated");
   assert.equal(queue.items[0].deliveryAttempts, 2);
@@ -462,6 +519,7 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   assert.equal(clinicReview.clinicNeedsPolicyReview, 0);
   assert.equal(sop.sopRequired, 1);
   assert.equal(policySummary.activeTemplates, 1);
+  assert.equal(applicationSummary.reviewRequired, 1);
   assert.equal(policies.items[0].code, "followup-standard");
   assert.equal(createdPolicy.version, "clinic-local-v1");
   assert.equal(updatedPolicy.title, "Follow-up standard SOP");
@@ -469,5 +527,6 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   assert.equal(quality.qualityReviewState, "needs_attention");
   assert.equal(review.clinicReviewState, "not_scheduled");
   assert.equal(sopUpdated.sopValidationState, "required");
-  assert.equal(calls.length, 13);
+  assert.equal(sopApplied.sopPolicyDriftState, "in_sync");
+  assert.equal(calls.length, 15);
 });

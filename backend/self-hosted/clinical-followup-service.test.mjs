@@ -8,6 +8,7 @@ import {
   normalizeClinicalFollowUpMessagePayload,
   normalizeClinicalFollowUpOperationsUpdatePayload,
   normalizeClinicalFollowUpQualityUpdatePayload,
+  normalizeClinicalFollowUpSopPolicyApplicationPayload,
   normalizeClinicalFollowUpSopPolicyTemplatePayload,
   normalizeClinicalFollowUpSopValidationUpdatePayload,
   normalizeClinicalFollowUpUpdatePayload,
@@ -117,6 +118,21 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           source: "postgres",
         };
       },
+      async getClinicalFollowUpSopPolicyApplicationSummary() {
+        return {
+          totalFollowUps: 4,
+          activeTemplates: 1,
+          appliedTemplates: 1,
+          notChecked: 1,
+          inSync: 1,
+          drifted: 0,
+          missingTemplate: 0,
+          reviewRequired: 1,
+          needsPolicyApplication: 1,
+          localApplicationEvents: 2,
+          source: "postgres",
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         return {
           items: [{
@@ -187,6 +203,17 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           sopValidationState: "validated",
           sopPolicyVersion: "clinic-local-v1",
           sopExceptionReason: null,
+        };
+      },
+      async updateClinicalFollowUpSopPolicyApplication() {
+        return {
+          ...followUp,
+          sopValidationState: "required",
+          sopPolicyVersion: "clinic-local-v1",
+          sopPolicyTemplateId: TEMPLATE_ID,
+          sopPolicyTemplateCode: "followup-standard",
+          sopPolicyDriftState: "in_sync",
+          sopPolicyDriftReason: "Applied active local SOP policy template.",
         };
       },
       ...repositoryOverrides,
@@ -333,6 +360,30 @@ test("validates local SOP policy template payloads", () => {
   assert.deepEqual(normalizeClinicalFollowUpSopPolicyTemplatePayload({ active: false }), { active: false });
   assert.throws(() => normalizeClinicalFollowUpSopPolicyTemplatePayload({ code: "bad code" }, { create: true }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyTemplatePayload({}), /validation/i);
+});
+
+test("validates local SOP policy application payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpSopPolicyApplicationPayload({
+      sopPolicyTemplateId: TEMPLATE_ID,
+      sopPolicyTemplateCode: "  followup-standard  ",
+      sopPolicyVersion: "  clinic-local-v1  ",
+      sopValidationState: "required",
+      sopPolicyDriftState: "review_required",
+      sopPolicyDriftReason: "  Review active local policy drift.  ",
+    }),
+    {
+      sopPolicyTemplateId: TEMPLATE_ID,
+      sopPolicyTemplateCode: "followup-standard",
+      sopPolicyVersion: "clinic-local-v1",
+      sopValidationState: "required",
+      sopPolicyDriftState: "review_required",
+      sopPolicyDriftReason: "Review active local policy drift.",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyApplicationPayload({ sopPolicyTemplateId: "bad-id" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyApplicationPayload({ sopPolicyDriftState: "external_approved" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyApplicationPayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -561,6 +612,36 @@ test("doctor can list, create, and update SOP policy templates with audit", asyn
   );
 });
 
+test("doctor can summarize and update SOP policy application with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpSopPolicyApplicationSummary(
+    {},
+    DOCTOR,
+    { correlationId: "policy-application-1" },
+  );
+  const updated = await service.updateClinicalFollowUpSopPolicyApplication(
+    FOLLOW_UP_ID,
+    {
+      sopPolicyTemplateId: TEMPLATE_ID,
+      sopPolicyDriftState: "in_sync",
+    },
+    DOCTOR,
+    { correlationId: "policy-application-2" },
+  );
+
+  assert.equal(summary.summary.needsPolicyApplication, 1);
+  assert.equal(updated.followUp.sopPolicyTemplateId, TEMPLATE_ID);
+  assert.equal(updated.followUp.sopPolicyDriftState, "in_sync");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.sop_policy_application.summary",
+      "clinical_follow_up.sop_policy_application.update",
+    ],
+  );
+});
+
 test("operator cannot mutate SOP policy templates and missing template maps to 404", async () => {
   const service = createService({
     repositoryOverrides: {
@@ -579,6 +660,28 @@ test("operator cannot mutate SOP policy templates and missing template maps to 4
   await assert.rejects(
     () => service.updateClinicalFollowUpSopPolicyTemplate(TEMPLATE_ID, { version: "clinic-local-v2" }, DOCTOR),
     /SOP policy template was not found/i,
+  );
+});
+
+test("operator cannot update SOP policy application and missing active template maps to 404", async () => {
+  const service = createService({
+    repositoryOverrides: {
+      async updateClinicalFollowUpSopPolicyApplication() {
+        return null;
+      },
+    },
+  });
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopPolicyApplication(
+      FOLLOW_UP_ID,
+      { sopPolicyTemplateId: TEMPLATE_ID },
+      { userId: "op", roles: ["operator"], clinicIds: [] },
+    ),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopPolicyApplication(FOLLOW_UP_ID, { sopPolicyTemplateId: TEMPLATE_ID }, DOCTOR),
+    /active SOP policy template was not found/i,
   );
 });
 

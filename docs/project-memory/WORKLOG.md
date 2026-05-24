@@ -2,6 +2,15 @@
 
 ## 2026-05-24
 
+- Создан Stage 23A-23Z clinical follow-up SOP policy application после Stage 22A-22Z.
+- Добавлены SOP policy application поля, append-only application events,
+  backend summary/update routes, OpenAPI, nginx publishing, frontend adapter,
+  doctor live workspace Apply policy / Drift review actions, guard, workflow,
+  docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external SOP proof, no signed URLs/storage paths/provider tokens
+  in protected outputs.
+
 - Создан Stage 22A-22Z clinical follow-up SOP policy templates после Stage 21A-21Z.
 - Добавлены clinic SOP policy template таблицы, append-only policy template
   events, backend summary/list/create/update routes, OpenAPI, nginx publishing,
