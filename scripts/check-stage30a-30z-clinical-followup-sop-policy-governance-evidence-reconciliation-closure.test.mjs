@@ -33,7 +33,7 @@ function writeRequiredTree(root) {
     null,
     2,
   ));
-  write(root, "backend/self-hosted/db/migrations/0037_stage30_followup_sop_policy_governance_evidence_reconciliation_closure.sql", "sop_policy_governance_evidence_reconciliation_closure_state sop_policy_governance_evidence_reconciliation_closed_at clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_events");
+  write(root, "backend/self-hosted/db/migrations/0037_stage30_followup_sop_policy_governance_evidence_reconciliation_closure.sql", "sop_policy_governance_evidence_reconciliation_closure_state sop_policy_governance_evidence_reconciliation_closed_at references app_users(id) on delete set null clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_events");
   write(root, "backend/self-hosted/clinical-followup-repository.mjs", "buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummarySql buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSql getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure");
   write(root, "backend/self-hosted/clinical-followup-repository.test.mjs", "Stage 30A-30Z");
   write(root, "backend/self-hosted/clinical-followup-service.mjs", "normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosurePayload clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure.summary clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure.update");
@@ -74,4 +74,13 @@ test("Stage 30 guard fails on forbidden managed runtime markers", () => {
   const result = checkStage30A30Z(root);
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /signed_url/);
+});
+
+test("Stage 30 guard fails on non-self-hosted user table references", () => {
+  const root = mkdtempSync(join(tmpdir(), "stage30-user-table-"));
+  writeRequiredTree(root);
+  write(root, "backend/self-hosted/db/migrations/0037_stage30_followup_sop_policy_governance_evidence_reconciliation_closure.sql", "sop_policy_governance_evidence_reconciliation_closure_state sop_policy_governance_evidence_reconciliation_closed_at references users(id) clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_events");
+  const result = checkStage30A30Z(root);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /references\\s\+users/);
 });

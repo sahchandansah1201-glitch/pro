@@ -14,6 +14,7 @@ import {
   getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceSummary,
+  getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceReadinessSummary,
@@ -33,6 +34,7 @@ import {
   toFollowUpSopPolicyExceptionClosureSummary,
   toFollowUpSopPolicyGovernanceClosureSummary,
   toFollowUpSopPolicyGovernanceEvidenceSummary,
+  toFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary,
   toFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary,
   toFollowUpSopPolicyGovernanceEvidenceReconciliationSummary,
   toFollowUpSopPolicyGovernanceReadinessSummary,
@@ -46,6 +48,7 @@ import {
   updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidence,
+  updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliation,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceReadiness,
@@ -97,6 +100,8 @@ const FOLLOW_UP = {
   sopPolicyGovernanceEvidenceReconciliationNote: null,
   sopPolicyGovernanceEvidenceReconciliationClosureState: "not_started",
   sopPolicyGovernanceEvidenceReconciliationClosureNote: null,
+  sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "not_started",
+  sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: null,
   sopExceptionReason: "Clinic-specific validation needed.",
   messageCount: 1,
   latestMessage: {
@@ -153,6 +158,7 @@ describe("self-hosted follow-up API", () => {
     expect(item.sopPolicyGovernanceEvidenceState).toBe("not_started");
     expect(item.sopPolicyGovernanceEvidenceReconciliationState).toBe("not_started");
     expect(item.sopPolicyGovernanceEvidenceReconciliationClosureState).toBe("not_started");
+    expect(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptState).toBe("not_started");
     expect(toSelfHostedFollowUpSopPolicyTemplate(SOP_POLICY_TEMPLATE).version).toBe("clinic-local-v1");
     expect(toFollowUpOperationsSummary({ totalOpen: 2, overdue: 1 }).overdue).toBe(1);
     expect(toFollowUpOutcomeQualitySummary({ closedMissingEvidence: 2 }).closedMissingEvidence).toBe(2);
@@ -167,6 +173,7 @@ describe("self-hosted follow-up API", () => {
     expect(toFollowUpSopPolicyGovernanceEvidenceSummary({ evidenceReady: 2 }).evidenceReady).toBe(2);
     expect(toFollowUpSopPolicyGovernanceEvidenceReconciliationSummary({ reconciliationReady: 2 }).reconciliationReady).toBe(2);
     expect(toFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary({ reconciliationClosureReady: 2 }).reconciliationClosureReady).toBe(2);
+    expect(toFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary({ closureReceiptReady: 2 }).closureReceiptReady).toBe(2);
   });
 
   it("lists staff and patient follow-ups with bearer token", async () => {
@@ -301,6 +308,14 @@ describe("self-hosted follow-up API", () => {
         sopPolicyGovernanceEvidenceReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closed.",
       },
     });
+    await updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt({
+      ...args,
+      followUpId: "fu-1",
+      payload: {
+        sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
+        sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt recorded.",
+      },
+    });
     await createSelfHostedClinicalFollowUpSopPolicyTemplate({
       ...args,
       payload: {
@@ -315,7 +330,7 @@ describe("self-hosted follow-up API", () => {
       payload: { version: "clinic-local-v2" },
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(18);
+    expect(fetchMock).toHaveBeenCalledTimes(19);
     expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/visits/visit-1/follow-ups");
     expect(fetchMock.mock.calls[1][1]?.method).toBe("PATCH");
     expect(fetchMock.mock.calls[2][0]).toContain("/api/v1/clinical/follow-ups/fu-1/messages");
@@ -332,8 +347,9 @@ describe("self-hosted follow-up API", () => {
     expect(fetchMock.mock.calls[13][0]).toContain("/api/v1/clinical/follow-ups/fu-1/sop-policy-governance-evidence");
     expect(fetchMock.mock.calls[14][0]).toContain("/api/v1/clinical/follow-ups/fu-1/sop-policy-governance-evidence-reconciliation");
     expect(fetchMock.mock.calls[15][0]).toContain("/api/v1/clinical/follow-ups/fu-1/sop-policy-governance-evidence-reconciliation-closure");
-    expect(fetchMock.mock.calls[16][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates");
-    expect(fetchMock.mock.calls[17][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates/template-1");
+    expect(fetchMock.mock.calls[16][0]).toContain("/api/v1/clinical/follow-ups/fu-1/sop-policy-governance-evidence-reconciliation-closure-receipt");
+    expect(fetchMock.mock.calls[17][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates");
+    expect(fetchMock.mock.calls[18][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates/template-1");
   });
 
   it("lists and summarizes follow-up operations queue", async () => {
@@ -350,6 +366,8 @@ describe("self-hosted follow-up API", () => {
               ? { totalFollowUps: 2, openExceptions: 1, closedExceptions: 1, unresolvedDrift: 1, localExceptionEvents: 2 }
               : url.includes("sop-policy-audit")
               ? { totalFollowUps: 2, auditReady: 1, needsAuditReview: 1, reviewedAudits: 0, localPolicyAuditEvents: 1 }
+              : url.includes("sop-policy-governance-evidence-reconciliation-closure-receipt")
+              ? { totalFollowUps: 2, closureReceiptReady: 1, needsClosureReceipt: 1, receivedClosureReceipts: 1, localGovernanceEvidenceReconciliationClosureReceiptEvents: 1 }
               : url.includes("sop-policy-governance-evidence-reconciliation-closure")
               ? { totalFollowUps: 2, reconciliationClosureReady: 1, needsReconciliationClosure: 1, closedReconciliationEvidence: 1, localGovernanceEvidenceReconciliationClosureEvents: 1 }
               : url.includes("sop-policy-governance-evidence-reconciliation")
@@ -388,6 +406,7 @@ describe("self-hosted follow-up API", () => {
     const sopPolicyGovernanceEvidence = await getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceSummary(args);
     const sopPolicyGovernanceEvidenceReconciliation = await getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary(args);
     const sopPolicyGovernanceEvidenceReconciliationClosure = await getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary(args);
+    const sopPolicyGovernanceEvidenceReconciliationClosureReceipt = await getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary(args);
     const sopPolicies = await listSelfHostedClinicalFollowUpSopPolicyTemplates({ ...args, activeOnly: true });
 
     expect(queue.ok).toBe(true);
@@ -405,6 +424,7 @@ describe("self-hosted follow-up API", () => {
     expect(sopPolicyGovernanceEvidence.value?.evidenceReady).toBe(1);
     expect(sopPolicyGovernanceEvidenceReconciliation.value?.reconciliationReady).toBe(1);
     expect(sopPolicyGovernanceEvidenceReconciliationClosure.value?.reconciliationClosureReady).toBe(1);
+    expect(sopPolicyGovernanceEvidenceReconciliationClosureReceipt.value?.closureReceiptReady).toBe(1);
     expect(sopPolicies.value?.[0]?.code).toBe("followup-standard");
     expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/clinical/follow-ups/operations?visitId=visit-1&overdueOnly=true");
     expect(fetchMock.mock.calls[1][0]).toContain("/api/v1/clinical/follow-ups/operations/summary");
@@ -420,7 +440,8 @@ describe("self-hosted follow-up API", () => {
     expect(fetchMock.mock.calls[11][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-governance-evidence/summary");
     expect(fetchMock.mock.calls[12][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation/summary");
     expect(fetchMock.mock.calls[13][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure/summary");
-    expect(fetchMock.mock.calls[14][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates?activeOnly=true");
+    expect(fetchMock.mock.calls[14][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt/summary");
+    expect(fetchMock.mock.calls[15][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates?activeOnly=true");
   });
 
   it("returns not_configured without a token", async () => {
