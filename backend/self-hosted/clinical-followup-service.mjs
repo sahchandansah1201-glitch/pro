@@ -16,6 +16,7 @@ const RETENTION_REVIEW_STATES = new Set(["not_due", "due", "reviewed", "archived
 const CLINIC_REVIEW_STATES = new Set(["not_scheduled", "scheduled", "completed", "needs_policy_review"]);
 const SOP_VALIDATION_STATES = new Set(["not_required", "required", "validated", "exception", "blocked"]);
 const SOP_POLICY_DRIFT_STATES = new Set(["not_checked", "in_sync", "drifted", "missing_template", "review_required"]);
+const SOP_POLICY_EXCEPTION_STATES = new Set(["none", "open", "accepted", "rejected", "closed"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_REASON = 1000;
 const MAX_SUMMARY = 2000;
@@ -30,6 +31,8 @@ const MAX_SOP_TEMPLATE_CODE = 80;
 const MAX_SOP_TEMPLATE_TITLE = 160;
 const MAX_SOP_TEMPLATE_DESCRIPTION = 2000;
 const MAX_SOP_POLICY_DRIFT_REASON = 2000;
+const MAX_SOP_POLICY_EXCEPTION_REASON = 2000;
+const MAX_SOP_POLICY_EXCEPTION_RESOLUTION = 2000;
 const SOP_TEMPLATE_CODE_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{1,79}$/;
 
 class ClinicalFollowUpNotFoundError extends Error {
@@ -484,6 +487,48 @@ export function normalizeClinicalFollowUpSopPolicyApplicationPayload(input = {})
   return payload;
 }
 
+export function normalizeClinicalFollowUpSopPolicyExceptionClosurePayload(input = {}) {
+  const body = requireBodyObject(input);
+  const details = [];
+  const payload = {};
+
+  if (hasOwn(body, "sopPolicyExceptionState")) {
+    const state = cleanString(body.sopPolicyExceptionState);
+    if (!state || !SOP_POLICY_EXCEPTION_STATES.has(state)) {
+      details.push({ field: "sopPolicyExceptionState", message: "sopPolicyExceptionState is not supported." });
+    } else {
+      payload.sopPolicyExceptionState = state;
+    }
+  }
+  if (hasOwn(body, "sopPolicyExceptionReason")) {
+    payload.sopPolicyExceptionReason = validateLimitedText(
+      body.sopPolicyExceptionReason,
+      "sopPolicyExceptionReason",
+      MAX_SOP_POLICY_EXCEPTION_REASON,
+      details,
+    );
+  }
+  if (hasOwn(body, "sopPolicyExceptionResolution")) {
+    payload.sopPolicyExceptionResolution = validateLimitedText(
+      body.sopPolicyExceptionResolution,
+      "sopPolicyExceptionResolution",
+      MAX_SOP_POLICY_EXCEPTION_RESOLUTION,
+      details,
+    );
+  }
+  if (Object.keys(payload).length === 0) {
+    details.push({ field: "body", message: "At least one SOP policy exception closure field is required." });
+  }
+  if (
+    ["accepted", "rejected", "closed"].includes(payload.sopPolicyExceptionState) &&
+    !payload.sopPolicyExceptionResolution
+  ) {
+    details.push({ field: "sopPolicyExceptionResolution", message: "sopPolicyExceptionResolution is required when closing an exception." });
+  }
+  if (details.length > 0) throw new ClinicalFollowUpValidationError(details);
+  return payload;
+}
+
 async function audit(auditRepository, event) {
   await recordAuditBestEffort(auditRepository, event);
 }
@@ -799,6 +844,27 @@ export function createClinicalFollowUpService({
       return { summary, scope };
     },
 
+    async getClinicalFollowUpSopPolicyExceptionClosureSummary(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyExceptionClosureSummary({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_exception_closure.summary",
+        entityType: "clinical_follow_up",
+        correlationId,
+        metadata: {
+          openExceptions: summary.openExceptions,
+          unresolvedDrift: summary.unresolvedDrift,
+          closedExceptions: summary.closedExceptions,
+        },
+      });
+      return { summary, scope };
+    },
+
     async updateClinicalFollowUpOperations(followUpId, input, authContext, { correlationId } = {}) {
       const scope = visitWriteScope(authContext);
       const changes = normalizeClinicalFollowUpOperationsUpdatePayload(input);
@@ -984,6 +1050,33 @@ export function createClinicalFollowUpService({
           sopPolicyTemplateId: followUp.sopPolicyTemplateId,
           sopPolicyVersion: followUp.sopPolicyVersion,
           sopPolicyDriftState: followUp.sopPolicyDriftState,
+        },
+      });
+      return { followUp, scope };
+    },
+
+    async updateClinicalFollowUpSopPolicyExceptionClosure(followUpId, input, authContext, { correlationId } = {}) {
+      const scope = visitWriteScope(authContext);
+      const changes = normalizeClinicalFollowUpSopPolicyExceptionClosurePayload(input);
+      const followUp = await clinicalFollowUpRepository.updateClinicalFollowUpSopPolicyExceptionClosure({
+        followUpId,
+        actorUserId: authContext.userId,
+        changes,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      if (!followUp) throw new ClinicalFollowUpNotFoundError("Follow-up SOP policy exception was not found.");
+      await audit(auditRepository, {
+        clinicId: followUp.clinicId || null,
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_exception_closure.update",
+        entityType: "clinical_follow_up",
+        entityId: followUp.id,
+        correlationId,
+        metadata: {
+          sopPolicyExceptionState: followUp.sopPolicyExceptionState,
+          sopPolicyDriftState: followUp.sopPolicyDriftState,
+          sopValidationState: followUp.sopValidationState,
         },
       });
       return { followUp, scope };

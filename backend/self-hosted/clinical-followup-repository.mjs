@@ -121,6 +121,10 @@ export function normalizeClinicalFollowUp(row = {}) {
     sopPolicyDriftReason: cleanText(row.sopPolicyDriftReason ?? row.sop_policy_drift_reason),
     sopPolicyAppliedAt: cleanText(row.sopPolicyAppliedAt ?? row.sop_policy_applied_at),
     sopPolicyDriftReviewedAt: cleanText(row.sopPolicyDriftReviewedAt ?? row.sop_policy_drift_reviewed_at),
+    sopPolicyExceptionState: cleanText(row.sopPolicyExceptionState ?? row.sop_policy_exception_state) || "none",
+    sopPolicyExceptionReason: cleanText(row.sopPolicyExceptionReason ?? row.sop_policy_exception_reason),
+    sopPolicyExceptionResolution: cleanText(row.sopPolicyExceptionResolution ?? row.sop_policy_exception_resolution),
+    sopPolicyExceptionClosedAt: cleanText(row.sopPolicyExceptionClosedAt ?? row.sop_policy_exception_closed_at),
     sopExceptionReason: cleanText(row.sopExceptionReason ?? row.sop_exception_reason),
     sopValidatedAt: cleanText(row.sopValidatedAt ?? row.sop_validated_at),
     resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
@@ -255,6 +259,10 @@ function followUpSelect({ patientSafe = false } = {}) {
     f.sop_policy_drift_reason as "sopPolicyDriftReason",
     f.sop_policy_applied_at as "sopPolicyAppliedAt",
     f.sop_policy_drift_reviewed_at as "sopPolicyDriftReviewedAt",
+    coalesce(f.sop_policy_exception_state, 'none') as "sopPolicyExceptionState",
+    f.sop_policy_exception_reason as "sopPolicyExceptionReason",
+    f.sop_policy_exception_resolution as "sopPolicyExceptionResolution",
+    f.sop_policy_exception_closed_at as "sopPolicyExceptionClosedAt",
     f.sop_exception_reason as "sopExceptionReason",
     f.sop_validated_at as "sopValidatedAt",
     f.resolved_at as "resolvedAt",
@@ -1084,6 +1092,127 @@ export function buildUpdateClinicalFollowUpSopPolicyApplicationSql({
   `;
 }
 
+export function buildClinicalFollowUpSopPolicyExceptionClosureSummarySql({
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const scopedFollowUps = clinicScopeWhere("f", { allClinics, clinicIds });
+  return `
+    with scoped_followups as (
+      select *
+      from clinical_follow_up_tasks f
+      where ${scopedFollowUps}
+    )
+    select
+      count(*)::int as "totalFollowUps",
+      count(*) filter (where coalesce(f.sop_policy_exception_state, 'none') = 'open')::int as "openExceptions",
+      count(*) filter (where coalesce(f.sop_policy_exception_state, 'none') in ('accepted', 'rejected', 'closed'))::int as "closedExceptions",
+      count(*) filter (where coalesce(f.sop_policy_exception_state, 'none') = 'accepted')::int as "acceptedExceptions",
+      count(*) filter (where coalesce(f.sop_policy_exception_state, 'none') = 'rejected')::int as "rejectedExceptions",
+      count(*) filter (where coalesce(f.sop_policy_drift_state, 'not_checked') in ('drifted', 'missing_template', 'review_required') and coalesce(f.sop_policy_exception_state, 'none') not in ('accepted', 'rejected', 'closed'))::int as "unresolvedDrift",
+      count(*) filter (where coalesce(f.sop_validation_state, 'not_required') = 'exception' and coalesce(f.sop_policy_exception_state, 'none') not in ('accepted', 'rejected', 'closed'))::int as "unclosedValidationExceptions",
+      count(*) filter (where f.sop_policy_exception_closed_at is not null)::int as "closedWithLocalResolution",
+      count(*) filter (where exists (
+        select 1
+        from clinical_follow_up_sop_policy_exception_events e
+        where e.follow_up_id = f.id
+      ))::int as "localExceptionEvents"
+    from scoped_followups f
+  `;
+}
+
+export function buildUpdateClinicalFollowUpSopPolicyExceptionClosureSql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const nextState = changes.sopPolicyExceptionState !== undefined
+    ? sqlLiteral(changes.sopPolicyExceptionState)
+    : "p.sop_policy_exception_state";
+  const nextReason = changes.sopPolicyExceptionReason !== undefined
+    ? sqlNullableText(changes.sopPolicyExceptionReason)
+    : "p.sop_policy_exception_reason";
+  const nextResolution = changes.sopPolicyExceptionResolution !== undefined
+    ? sqlNullableText(changes.sopPolicyExceptionResolution)
+    : "p.sop_policy_exception_resolution";
+  const closingState = ["accepted", "rejected", "closed"].includes(changes.sopPolicyExceptionState);
+  const reopeningState = changes.sopPolicyExceptionState === "open" || changes.sopPolicyExceptionState === "none";
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set
+          sop_policy_exception_state = ${nextState},
+          sop_policy_exception_reason = ${nextReason},
+          sop_policy_exception_resolution = ${nextResolution},
+          sop_policy_exception_closed_by_user_id = ${closingState ? sqlUuid(actorUserId) : reopeningState ? "null" : "p.sop_policy_exception_closed_by_user_id"},
+          sop_policy_exception_closed_at = ${closingState ? "now()" : reopeningState ? "null" : "p.sop_policy_exception_closed_at"},
+          updated_at = now()
+      from previous p
+      where f.id = p.id
+      returning f.*,
+        p.sop_policy_exception_state as previous_sop_policy_exception_state,
+        p.sop_policy_exception_reason as previous_sop_policy_exception_reason,
+        p.sop_policy_exception_resolution as previous_sop_policy_exception_resolution,
+        p.sop_policy_exception_closed_at as previous_sop_policy_exception_closed_at,
+        p.sop_policy_drift_state as previous_sop_policy_drift_state,
+        p.sop_validation_state as previous_sop_validation_state
+    ), event as (
+      insert into clinical_follow_up_sop_policy_exception_events (
+        follow_up_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        exception_state,
+        drift_state,
+        validation_state,
+        note
+      )
+      select
+        u.id,
+        u.clinic_id,
+        ${sqlUuid(actorUserId)},
+        'sop_policy_exception_closure.update',
+        jsonb_build_object(
+          'sopPolicyExceptionState', coalesce(previous_sop_policy_exception_state, 'none'),
+          'sopPolicyExceptionReason', previous_sop_policy_exception_reason,
+          'sopPolicyExceptionResolution', previous_sop_policy_exception_resolution,
+          'sopPolicyExceptionClosedAt', previous_sop_policy_exception_closed_at,
+          'sopPolicyDriftState', coalesce(previous_sop_policy_drift_state, 'not_checked'),
+          'sopValidationState', coalesce(previous_sop_validation_state, 'not_required')
+        ),
+        jsonb_build_object(
+          'sopPolicyExceptionState', coalesce(u.sop_policy_exception_state, 'none'),
+          'sopPolicyExceptionReason', u.sop_policy_exception_reason,
+          'sopPolicyExceptionResolution', u.sop_policy_exception_resolution,
+          'sopPolicyExceptionClosedAt', u.sop_policy_exception_closed_at,
+          'sopPolicyDriftState', coalesce(u.sop_policy_drift_state, 'not_checked'),
+          'sopValidationState', coalesce(u.sop_validation_state, 'not_required')
+        ),
+        coalesce(u.sop_policy_exception_state, 'none'),
+        coalesce(u.sop_policy_drift_state, 'not_checked'),
+        coalesce(u.sop_validation_state, 'not_required'),
+        ${sqlNullableText(changes.sopPolicyExceptionResolution || changes.sopPolicyExceptionReason || changes.sopPolicyExceptionState)}
+      from updated u
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function buildUpdateClinicalFollowUpOperationsSql({
   followUpId,
   actorUserId,
@@ -1522,6 +1651,22 @@ export function createClinicalFollowUpRepository(dbClient) {
         source: "postgres",
       };
     },
+    async getClinicalFollowUpSopPolicyExceptionClosureSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpSopPolicyExceptionClosureSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalFollowUps: Number(row.totalFollowUps ?? row.total_follow_ups ?? 0),
+        openExceptions: Number(row.openExceptions ?? row.open_exceptions ?? 0),
+        closedExceptions: Number(row.closedExceptions ?? row.closed_exceptions ?? 0),
+        acceptedExceptions: Number(row.acceptedExceptions ?? row.accepted_exceptions ?? 0),
+        rejectedExceptions: Number(row.rejectedExceptions ?? row.rejected_exceptions ?? 0),
+        unresolvedDrift: Number(row.unresolvedDrift ?? row.unresolved_drift ?? 0),
+        unclosedValidationExceptions: Number(row.unclosedValidationExceptions ?? row.unclosed_validation_exceptions ?? 0),
+        closedWithLocalResolution: Number(row.closedWithLocalResolution ?? row.closed_with_local_resolution ?? 0),
+        localExceptionEvents: Number(row.localExceptionEvents ?? row.local_exception_events ?? 0),
+        source: "postgres",
+      };
+    },
     async listClinicalFollowUpSopPolicyTemplates(params) {
       const rows = await dbClient.queryJson(buildListClinicalFollowUpSopPolicyTemplatesSql(params));
       return {
@@ -1557,6 +1702,10 @@ export function createClinicalFollowUpRepository(dbClient) {
     },
     async updateClinicalFollowUpSopPolicyApplication(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyApplicationSql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
+    },
+    async updateClinicalFollowUpSopPolicyExceptionClosure(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyExceptionClosureSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };

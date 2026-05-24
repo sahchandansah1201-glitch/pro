@@ -675,6 +675,28 @@ function createRuntime({
           },
         };
       },
+      async getClinicalFollowUpSopPolicyExceptionClosureSummary() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          summary: {
+            totalFollowUps: 4,
+            openExceptions: 1,
+            closedExceptions: 1,
+            acceptedExceptions: 1,
+            rejectedExceptions: 0,
+            unresolvedDrift: 1,
+            unclosedValidationExceptions: 1,
+            closedWithLocalResolution: 1,
+            localExceptionEvents: 2,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         if (clinicalFollowUpError) throw clinicalFollowUpError;
         return {
@@ -821,6 +843,24 @@ function createRuntime({
             sopPolicyTemplateCode: "followup-standard",
             sopPolicyDriftState: "in_sync",
             sopPolicyDriftReason: "Applied active local SOP policy template.",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUpSopPolicyExceptionClosure() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: {
+            ...(clinicalFollowUp || { id: "10000000-0000-4000-8000-000000000701" }),
+            sopValidationState: "exception",
+            sopPolicyDriftState: "review_required",
+            sopPolicyExceptionState: "accepted",
+            sopPolicyExceptionReason: "Local exception accepted.",
+            sopPolicyExceptionResolution: "Closed inside clinic policy review.",
           },
           scope: {
             allClinics: false,
@@ -1486,6 +1526,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.capabilities.patientPortalWrites, "patient-owned-write-postgres");
   assert.equal(meta.json.capabilities.clinicalFollowUps, "rbac-read-write-postgres-patient-portal-local-communication");
   assert.equal(meta.json.capabilities.clinicalFollowUpOperations, "rbac-read-write-postgres-sla-triage-escalation-local-evidence");
+  assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyExceptionClosure, "rbac-read-write-postgres-local-sop-policy-exception-closure");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -1518,6 +1559,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage21A21Z, "/openapi.stage21a-21z.json");
   assert.equal(meta.json.links.openapiStage22A22Z, "/openapi.stage22a-22z.json");
   assert.equal(meta.json.links.openapiStage23A23Z, "/openapi.stage23a-23z.json");
+  assert.equal(meta.json.links.openapiStage24A24Z, "/openapi.stage24a-24z.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -1578,6 +1620,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyTemplate, "/api/v1/clinical/follow-ups/sop-policy-templates/{templateId}");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyApplicationSummary, "/api/v1/clinical/follow-ups/sop-policy-application/summary");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyApplication, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-application");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyExceptionClosureSummary, "/api/v1/clinical/follow-ups/sop-policy-exceptions/summary");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyExceptionClosure, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-exception");
   assert.equal(meta.json.links.clinicalFollowUpOperation, "/api/v1/clinical/follow-ups/{followUpId}/operations");
   assert.equal(meta.json.links.patientPortalFollowUps, "/api/v1/me/follow-ups");
   assert.equal(meta.json.links.patientPortalFollowUpMessages, "/api/v1/me/follow-ups/{followUpId}/messages");
@@ -4388,6 +4432,44 @@ test("Stage 23A-23Z · /openapi.stage23a-23z.json documents SOP policy applicati
   assert.equal(response.json.info.version, "23A-23Z-clinical-followup-sop-policy-application");
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-application/summary"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-application"].patch);
+});
+
+test("Stage 24A-24Z · SOP policy exception closure routes close local exceptions", async () => {
+  const runtime = createRuntime();
+  const summary = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-exceptions/summary",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(summary.status, 200);
+  assert.equal(summary.json.stage, "24A-24Z");
+  assert.equal(summary.json.item.openExceptions, 1);
+  assert.equal(summary.json.item.unresolvedDrift, 1);
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701/sop-policy-exception",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    {
+      sopPolicyExceptionState: "accepted",
+      sopPolicyExceptionReason: "Local exception accepted.",
+      sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+    },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.stage, "24A-24Z");
+  assert.equal(updated.json.item.sopPolicyExceptionState, "accepted");
+  assert.equal(updated.json.item.sopPolicyExceptionResolution, "Closed inside clinic policy review.");
+  assert.doesNotMatch(updated.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url|access_token|external SOP approval|medical correctness/i);
+});
+
+test("Stage 24A-24Z · /openapi.stage24a-24z.json documents SOP policy exception closure", async () => {
+  const response = await request("/openapi.stage24a-24z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "24A-24Z-clinical-followup-sop-policy-exception-closure");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-exceptions/summary"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-exception"].patch);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

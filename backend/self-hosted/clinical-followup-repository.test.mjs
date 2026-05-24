@@ -10,6 +10,7 @@ import {
   buildClinicalFollowUpOperationsSummarySql,
   buildClinicalFollowUpSopPolicyTemplateSummarySql,
   buildClinicalFollowUpSopPolicyApplicationSummarySql,
+  buildClinicalFollowUpSopPolicyExceptionClosureSummarySql,
   buildClinicalFollowUpSopValidationSummarySql,
   buildCreateClinicalFollowUpSopPolicyTemplateSql,
   buildListClinicalFollowUpsSql,
@@ -21,6 +22,7 @@ import {
   buildUpdateClinicalFollowUpQualitySql,
   buildUpdateClinicalFollowUpSopPolicyTemplateSql,
   buildUpdateClinicalFollowUpSopPolicyApplicationSql,
+  buildUpdateClinicalFollowUpSopPolicyExceptionClosureSql,
   buildUpdateClinicalFollowUpSopValidationSql,
   buildUpdateClinicalFollowUpSql,
   createClinicalFollowUpRepository,
@@ -374,6 +376,31 @@ test("builds SOP policy application summary and update SQL with append-only drif
   assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path|external SOP approval/i);
 });
 
+test("builds SOP policy exception closure summary and update SQL with append-only exception events", () => {
+  const summarySql = buildClinicalFollowUpSopPolicyExceptionClosureSummarySql({
+    clinicIds: [CLINIC_ID],
+  });
+  assert.match(summarySql, /openExceptions/);
+  assert.match(summarySql, /unresolvedDrift/);
+  assert.match(summarySql, /clinical_follow_up_sop_policy_exception_events/);
+
+  const updateSql = buildUpdateClinicalFollowUpSopPolicyExceptionClosureSql({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      sopPolicyExceptionState: "accepted",
+      sopPolicyExceptionReason: "Local exception accepted.",
+      sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+    },
+  });
+  assert.match(updateSql, /sop_policy_exception_state = 'accepted'/);
+  assert.match(updateSql, /sop_policy_exception_closed_at = now\(\)/);
+  assert.match(updateSql, /insert into clinical_follow_up_sop_policy_exception_events/);
+  assert.match(updateSql, /sop_policy_exception_closure\.update/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path|external SOP approval/i);
+});
+
 test("repository normalizes operations queue and summary DTOs", async () => {
   const calls = [];
   const repository = createClinicalFollowUpRepository({
@@ -390,6 +417,27 @@ test("repository normalizes operations queue and summary DTOs", async () => {
       }
       if (/active_templates/.test(sql)) {
         return [{ totalFollowUps: 3, activeTemplates: 1, appliedTemplates: 1, notChecked: 1, inSync: 1, drifted: 0, missingTemplate: 0, reviewRequired: 1, needsPolicyApplication: 1, localApplicationEvents: 1 }];
+      }
+      if (/openExceptions/.test(sql)) {
+        return [{ totalFollowUps: 3, openExceptions: 1, closedExceptions: 1, acceptedExceptions: 1, rejectedExceptions: 0, unresolvedDrift: 1, unclosedValidationExceptions: 1, closedWithLocalResolution: 1, localExceptionEvents: 2 }];
+      }
+      if (/clinical_follow_up_sop_policy_exception_events/.test(sql)) {
+        return [{
+          id: FOLLOW_UP_ID,
+          clinicId: CLINIC_ID,
+          patientId: "10000000-0000-4000-8000-000000000201",
+          visitId: VISIT_ID,
+          dueAt: "2026-05-30T10:00:00.000Z",
+          status: "sent",
+          priority: "high",
+          reason: "Контроль",
+          sopValidationState: "exception",
+          sopPolicyVersion: "clinic-local-v1",
+          sopPolicyDriftState: "review_required",
+          sopPolicyExceptionState: "accepted",
+          sopPolicyExceptionReason: "Local exception accepted.",
+          sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+        }];
       }
       if (/clinical_follow_up_sop_policy_application_events/.test(sql)) {
         return [{
@@ -447,6 +495,8 @@ test("repository normalizes operations queue and summary DTOs", async () => {
         sopPolicyTemplateId: "10000000-0000-4000-8000-000000000901",
         sopPolicyTemplateCode: "followup-standard",
         sopPolicyDriftState: "in_sync",
+        sopPolicyExceptionState: "open",
+        sopPolicyExceptionReason: "Local exception opened.",
       }];
     },
   });
@@ -458,6 +508,7 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   const sop = await repository.getClinicalFollowUpSopValidationSummary({ clinicIds: [CLINIC_ID] });
   const policySummary = await repository.getClinicalFollowUpSopPolicyTemplateSummary({ clinicIds: [CLINIC_ID] });
   const applicationSummary = await repository.getClinicalFollowUpSopPolicyApplicationSummary({ clinicIds: [CLINIC_ID] });
+  const exceptionSummary = await repository.getClinicalFollowUpSopPolicyExceptionClosureSummary({ clinicIds: [CLINIC_ID] });
   const policies = await repository.listClinicalFollowUpSopPolicyTemplates({ clinicIds: [CLINIC_ID], activeOnly: true });
   const createdPolicy = await repository.createClinicalFollowUpSopPolicyTemplate({
     clinicId: CLINIC_ID,
@@ -510,6 +561,15 @@ test("repository normalizes operations queue and summary DTOs", async () => {
     clinicIds: [CLINIC_ID],
     changes: { sopPolicyDriftState: "review_required" },
   });
+  const sopExceptionClosed = await repository.updateClinicalFollowUpSopPolicyExceptionClosure({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      sopPolicyExceptionState: "accepted",
+      sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+    },
+  });
 
   assert.equal(queue.items[0].triageState, "escalated");
   assert.equal(queue.items[0].deliveryAttempts, 2);
@@ -520,6 +580,7 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   assert.equal(sop.sopRequired, 1);
   assert.equal(policySummary.activeTemplates, 1);
   assert.equal(applicationSummary.reviewRequired, 1);
+  assert.equal(exceptionSummary.openExceptions, 1);
   assert.equal(policies.items[0].code, "followup-standard");
   assert.equal(createdPolicy.version, "clinic-local-v1");
   assert.equal(updatedPolicy.title, "Follow-up standard SOP");
@@ -528,5 +589,6 @@ test("repository normalizes operations queue and summary DTOs", async () => {
   assert.equal(review.clinicReviewState, "not_scheduled");
   assert.equal(sopUpdated.sopValidationState, "required");
   assert.equal(sopApplied.sopPolicyDriftState, "in_sync");
-  assert.equal(calls.length, 15);
+  assert.equal(sopExceptionClosed.sopPolicyExceptionState, "accepted");
+  assert.equal(calls.length, 17);
 });

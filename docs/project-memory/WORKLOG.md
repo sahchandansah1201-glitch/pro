@@ -2,6 +2,15 @@
 
 ## 2026-05-24
 
+- Создан Stage 24A-24Z clinical follow-up SOP policy exception closure после Stage 23A-23Z.
+- Добавлены SOP policy exception closure поля, append-only exception events,
+  backend summary/update routes, OpenAPI, nginx publishing, frontend adapter,
+  doctor live workspace Open exception / Close exception actions, guard,
+  workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external SOP proof, no signed URLs/storage paths/provider tokens
+  in protected outputs.
+
 - Создан Stage 23A-23Z clinical follow-up SOP policy application после Stage 22A-22Z.
 - Добавлены SOP policy application поля, append-only application events,
   backend summary/update routes, OpenAPI, nginx publishing, frontend adapter,

@@ -55,6 +55,14 @@
    - [check-stage23a-23z-clinical-followup-sop-policy-application.mjs](../../scripts/check-stage23a-23z-clinical-followup-sop-policy-application.mjs)
    - [stage23a-23z-clinical-followup-sop-policy-application.yml](../../.github/workflows/stage23a-23z-clinical-followup-sop-policy-application.yml)
 
+8. Stage 24A-24Z clinical follow-up SOP policy exception closure artifacts:
+   - [clinical-followup-sop-policy-exception-closure.stage24a-24z.json](../../deploy/self-hosted/clinical-followup-sop-policy-exception-closure.stage24a-24z.json)
+   - [0031_stage24_followup_sop_policy_exception_closure.sql](../../backend/self-hosted/db/migrations/0031_stage24_followup_sop_policy_exception_closure.sql)
+   - [openapi.stage24a-24z.json](../../backend/self-hosted/openapi.stage24a-24z.json)
+   - [stage-24a-24z-clinical-followup-sop-policy-exception-closure.md](../backend/stage-24a-24z-clinical-followup-sop-policy-exception-closure.md)
+   - [check-stage24a-24z-clinical-followup-sop-policy-exception-closure.mjs](../../scripts/check-stage24a-24z-clinical-followup-sop-policy-exception-closure.mjs)
+   - [stage24a-24z-clinical-followup-sop-policy-exception-closure.yml](../../.github/workflows/stage24a-24z-clinical-followup-sop-policy-exception-closure.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

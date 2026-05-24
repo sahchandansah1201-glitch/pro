@@ -9,6 +9,7 @@ import {
   normalizeClinicalFollowUpOperationsUpdatePayload,
   normalizeClinicalFollowUpQualityUpdatePayload,
   normalizeClinicalFollowUpSopPolicyApplicationPayload,
+  normalizeClinicalFollowUpSopPolicyExceptionClosurePayload,
   normalizeClinicalFollowUpSopPolicyTemplatePayload,
   normalizeClinicalFollowUpSopValidationUpdatePayload,
   normalizeClinicalFollowUpUpdatePayload,
@@ -133,6 +134,20 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           source: "postgres",
         };
       },
+      async getClinicalFollowUpSopPolicyExceptionClosureSummary() {
+        return {
+          totalFollowUps: 4,
+          openExceptions: 1,
+          closedExceptions: 1,
+          acceptedExceptions: 1,
+          rejectedExceptions: 0,
+          unresolvedDrift: 1,
+          unclosedValidationExceptions: 1,
+          closedWithLocalResolution: 1,
+          localExceptionEvents: 2,
+          source: "postgres",
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         return {
           items: [{
@@ -214,6 +229,16 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           sopPolicyTemplateCode: "followup-standard",
           sopPolicyDriftState: "in_sync",
           sopPolicyDriftReason: "Applied active local SOP policy template.",
+        };
+      },
+      async updateClinicalFollowUpSopPolicyExceptionClosure() {
+        return {
+          ...followUp,
+          sopValidationState: "exception",
+          sopPolicyDriftState: "review_required",
+          sopPolicyExceptionState: "accepted",
+          sopPolicyExceptionReason: "Local exception accepted.",
+          sopPolicyExceptionResolution: "Closed inside clinic policy review.",
         };
       },
       ...repositoryOverrides,
@@ -384,6 +409,24 @@ test("validates local SOP policy application payloads", () => {
   assert.throws(() => normalizeClinicalFollowUpSopPolicyApplicationPayload({ sopPolicyTemplateId: "bad-id" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyApplicationPayload({ sopPolicyDriftState: "external_approved" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyApplicationPayload({}), /validation/i);
+});
+
+test("validates local SOP policy exception closure payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpSopPolicyExceptionClosurePayload({
+      sopPolicyExceptionState: "accepted",
+      sopPolicyExceptionReason: "  Local policy drift accepted.  ",
+      sopPolicyExceptionResolution: "  Closed inside clinic policy review.  ",
+    }),
+    {
+      sopPolicyExceptionState: "accepted",
+      sopPolicyExceptionReason: "Local policy drift accepted.",
+      sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyExceptionClosurePayload({ sopPolicyExceptionState: "external_approved" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyExceptionClosurePayload({ sopPolicyExceptionState: "accepted" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyExceptionClosurePayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -642,6 +685,37 @@ test("doctor can summarize and update SOP policy application with audit", async 
   );
 });
 
+test("doctor can summarize and update SOP policy exception closure with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpSopPolicyExceptionClosureSummary(
+    {},
+    DOCTOR,
+    { correlationId: "policy-exception-1" },
+  );
+  const updated = await service.updateClinicalFollowUpSopPolicyExceptionClosure(
+    FOLLOW_UP_ID,
+    {
+      sopPolicyExceptionState: "accepted",
+      sopPolicyExceptionReason: "Local exception accepted.",
+      sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+    },
+    DOCTOR,
+    { correlationId: "policy-exception-2" },
+  );
+
+  assert.equal(summary.summary.openExceptions, 1);
+  assert.equal(updated.followUp.sopPolicyExceptionState, "accepted");
+  assert.equal(updated.followUp.sopPolicyExceptionResolution, "Closed inside clinic policy review.");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.sop_policy_exception_closure.summary",
+      "clinical_follow_up.sop_policy_exception_closure.update",
+    ],
+  );
+});
+
 test("operator cannot mutate SOP policy templates and missing template maps to 404", async () => {
   const service = createService({
     repositoryOverrides: {
@@ -682,6 +756,38 @@ test("operator cannot update SOP policy application and missing active template 
   await assert.rejects(
     () => service.updateClinicalFollowUpSopPolicyApplication(FOLLOW_UP_ID, { sopPolicyTemplateId: TEMPLATE_ID }, DOCTOR),
     /active SOP policy template was not found/i,
+  );
+});
+
+test("operator cannot update SOP policy exception closure and missing exception maps to 404", async () => {
+  const service = createService({
+    repositoryOverrides: {
+      async updateClinicalFollowUpSopPolicyExceptionClosure() {
+        return null;
+      },
+    },
+  });
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopPolicyExceptionClosure(
+      FOLLOW_UP_ID,
+      {
+        sopPolicyExceptionState: "accepted",
+        sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+      },
+      { userId: "op", roles: ["operator"], clinicIds: [] },
+    ),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopPolicyExceptionClosure(
+      FOLLOW_UP_ID,
+      {
+        sopPolicyExceptionState: "accepted",
+        sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+      },
+      DOCTOR,
+    ),
+    /SOP policy exception was not found/i,
   );
 });
 

@@ -1,0 +1,38 @@
+{
+  "stage": "24A-24Z",
+  "previousBatch": "Stage 23A-23Z",
+  "nextBatchHypothesis": "Stage 25A-25Z",
+  "title": "Clinical follow-up local SOP policy exception closure",
+  "implementedSurfaces": [
+    "PostgreSQL SOP policy exception closure columns on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_sop_policy_exception_events audit table",
+    "GET /api/v1/clinical/follow-ups/sop-policy-exceptions/summary",
+    "PATCH /api/v1/clinical/follow-ups/{followUpId}/sop-policy-exception",
+    "OpenAPI Stage 24A-24Z contract and nginx publishing",
+    "Backend repository/service local SOP policy exception summary and update",
+    "Frontend self-hosted follow-up SOP policy exception API adapter",
+    "Doctor visit workspace Open exception and Close exception row actions",
+    "Stage 24 guard, docs, workflow, project-memory update, and preflight-all wiring"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "sourceOfTruth": "self-hosted PostgreSQL",
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyExceptionClosureIsLocalMetadataOnly": true,
+    "clinicSpecificSopIsNotExternalProof": true,
+    "exportsRawPatientNames": false,
+    "exportsProviderTokens": false,
+    "exportsStoragePaths": false,
+    "exportsSignedUrls": false
+  },
+  "verification": {
+    "test": "npm run test:stage24a-24z",
+    "check": "npm run check:stage24a-24z",
+    "preflight": "npm run preflight:stage24a-24z"
+  },
+  "expectedConfirmation": "Confirmed: Stage 24A-24Z synced from main, no conflicts."
+}
