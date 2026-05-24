@@ -1,0 +1,130 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro self-hosted Stage 23A-23Z",
+    "version": "23A-23Z-clinical-followup-sop-policy-application",
+    "description": "Self-hosted local SOP policy template application and drift review contracts for clinical follow-up validation. Uses local PostgreSQL metadata only and does not prove external SOP approval."
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-application/summary": {
+      "get": {
+        "summary": "Read local SOP policy application and drift summary",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Local SOP policy application summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "23A-23Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "$ref": "#/components/schemas/FollowUpSopPolicyApplicationSummary" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-application": {
+      "patch": {
+        "summary": "Apply a local SOP policy template or record drift review metadata",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FollowUpSopPolicyApplicationInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated follow-up local SOP policy application state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "example": "23A-23Z" },
+                    "source": { "type": "string", "example": "postgres" },
+                    "item": { "$ref": "#/components/schemas/FollowUpSopPolicyApplication" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "FollowUpSopPolicyApplicationSummary": {
+        "type": "object",
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "activeTemplates": { "type": "integer" },
+          "appliedTemplates": { "type": "integer" },
+          "notChecked": { "type": "integer" },
+          "inSync": { "type": "integer" },
+          "drifted": { "type": "integer" },
+          "missingTemplate": { "type": "integer" },
+          "reviewRequired": { "type": "integer" },
+          "needsPolicyApplication": { "type": "integer" },
+          "localApplicationEvents": { "type": "integer" }
+        }
+      },
+      "FollowUpSopPolicyApplication": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "sopValidationState": { "type": "string" },
+          "sopPolicyVersion": { "type": "string", "nullable": true },
+          "sopPolicyTemplateId": { "type": "string", "format": "uuid", "nullable": true },
+          "sopPolicyTemplateCode": { "type": "string", "nullable": true },
+          "sopPolicyDriftState": { "type": "string" },
+          "sopPolicyDriftReason": { "type": "string", "nullable": true },
+          "sopPolicyAppliedAt": { "type": "string", "nullable": true },
+          "sopPolicyDriftReviewedAt": { "type": "string", "nullable": true }
+        }
+      },
+      "FollowUpSopPolicyApplicationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sopPolicyTemplateId": { "type": "string", "format": "uuid" },
+          "sopPolicyTemplateCode": { "type": "string", "maxLength": 80 },
+          "sopPolicyVersion": { "type": "string", "maxLength": 120, "nullable": true },
+          "sopValidationState": {
+            "type": "string",
+            "enum": ["not_required", "required", "validated", "exception", "blocked"]
+          },
+          "sopPolicyDriftState": {
+            "type": "string",
+            "enum": ["not_checked", "in_sync", "drifted", "missing_template", "review_required"]
+          },
+          "sopPolicyDriftReason": { "type": "string", "maxLength": 2000, "nullable": true }
+        }
+      }
+    }
+  }
+}

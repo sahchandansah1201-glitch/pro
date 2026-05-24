@@ -1,0 +1,38 @@
+{
+  "stage": "23A-23Z",
+  "previousBatch": "Stage 22A-22Z",
+  "nextBatchHypothesis": "Stage 24A-24Z",
+  "title": "Clinical follow-up local SOP policy application and drift review",
+  "implementedSurfaces": [
+    "PostgreSQL SOP policy application columns on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_sop_policy_application_events audit table",
+    "GET /api/v1/clinical/follow-ups/sop-policy-application/summary",
+    "PATCH /api/v1/clinical/follow-ups/{followUpId}/sop-policy-application",
+    "OpenAPI Stage 23A-23Z contract and nginx publishing",
+    "Backend repository/service local SOP policy application summary and update",
+    "Frontend self-hosted follow-up SOP policy application API adapter",
+    "Doctor visit workspace SOP policy application summary and row actions",
+    "Stage 23 guard, docs, workflow, project-memory update, and preflight-all wiring"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "sourceOfTruth": "self-hosted PostgreSQL",
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyApplicationIsLocalMetadataOnly": true,
+    "clinicSpecificSopIsNotExternalProof": true,
+    "exportsRawPatientNames": false,
+    "exportsProviderTokens": false,
+    "exportsStoragePaths": false,
+    "exportsSignedUrls": false
+  },
+  "verification": {
+    "test": "npm run test:stage23a-23z",
+    "check": "npm run check:stage23a-23z",
+    "preflight": "npm run preflight:stage23a-23z"
+  },
+  "expectedConfirmation": "Confirmed: Stage 23A-23Z synced from main, no conflicts."
+}

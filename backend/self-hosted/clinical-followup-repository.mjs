@@ -115,6 +115,12 @@ export function normalizeClinicalFollowUp(row = {}) {
     clinicReviewedAt: cleanText(row.clinicReviewedAt ?? row.clinic_reviewed_at),
     sopValidationState: cleanText(row.sopValidationState ?? row.sop_validation_state) || "not_required",
     sopPolicyVersion: cleanText(row.sopPolicyVersion ?? row.sop_policy_version),
+    sopPolicyTemplateId: cleanText(row.sopPolicyTemplateId ?? row.sop_policy_template_id),
+    sopPolicyTemplateCode: cleanText(row.sopPolicyTemplateCode ?? row.sop_policy_template_code),
+    sopPolicyDriftState: cleanText(row.sopPolicyDriftState ?? row.sop_policy_drift_state) || "not_checked",
+    sopPolicyDriftReason: cleanText(row.sopPolicyDriftReason ?? row.sop_policy_drift_reason),
+    sopPolicyAppliedAt: cleanText(row.sopPolicyAppliedAt ?? row.sop_policy_applied_at),
+    sopPolicyDriftReviewedAt: cleanText(row.sopPolicyDriftReviewedAt ?? row.sop_policy_drift_reviewed_at),
     sopExceptionReason: cleanText(row.sopExceptionReason ?? row.sop_exception_reason),
     sopValidatedAt: cleanText(row.sopValidatedAt ?? row.sop_validated_at),
     resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
@@ -243,6 +249,12 @@ function followUpSelect({ patientSafe = false } = {}) {
     f.clinic_reviewed_at as "clinicReviewedAt",
     coalesce(f.sop_validation_state, 'not_required') as "sopValidationState",
     f.sop_policy_version as "sopPolicyVersion",
+    f.sop_policy_template_id as "sopPolicyTemplateId",
+    f.sop_policy_template_code as "sopPolicyTemplateCode",
+    coalesce(f.sop_policy_drift_state, 'not_checked') as "sopPolicyDriftState",
+    f.sop_policy_drift_reason as "sopPolicyDriftReason",
+    f.sop_policy_applied_at as "sopPolicyAppliedAt",
+    f.sop_policy_drift_reviewed_at as "sopPolicyDriftReviewedAt",
     f.sop_exception_reason as "sopExceptionReason",
     f.sop_validated_at as "sopValidatedAt",
     f.resolved_at as "resolvedAt",
@@ -913,6 +925,165 @@ export function buildUpdateClinicalFollowUpSopPolicyTemplateSql({
   `;
 }
 
+export function buildClinicalFollowUpSopPolicyApplicationSummarySql({
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const scopedFollowUps = clinicScopeWhere("f", { allClinics, clinicIds });
+  const scopedTemplates = clinicScopeWhere("t", { allClinics, clinicIds });
+  return `
+    with scoped_followups as (
+      select *
+      from clinical_follow_up_tasks f
+      where ${scopedFollowUps}
+    ), active_templates as (
+      select *
+      from clinical_follow_up_sop_policy_templates t
+      where ${scopedTemplates}
+        and t.active is true
+    )
+    select
+      (select count(*)::int from scoped_followups) as "totalFollowUps",
+      (select count(*)::int from active_templates) as "activeTemplates",
+      count(*) filter (where coalesce(f.sop_policy_template_id, null) is not null)::int as "appliedTemplates",
+      count(*) filter (where coalesce(f.sop_policy_drift_state, 'not_checked') = 'not_checked')::int as "notChecked",
+      count(*) filter (where coalesce(f.sop_policy_drift_state, 'not_checked') = 'in_sync')::int as "inSync",
+      count(*) filter (where coalesce(f.sop_policy_drift_state, 'not_checked') = 'drifted')::int as drifted,
+      count(*) filter (where coalesce(f.sop_policy_drift_state, 'not_checked') = 'missing_template')::int as "missingTemplate",
+      count(*) filter (where coalesce(f.sop_policy_drift_state, 'not_checked') = 'review_required')::int as "reviewRequired",
+      count(*) filter (where coalesce(f.sop_validation_state, 'not_required') in ('required', 'blocked') and f.sop_policy_version is null)::int as "needsPolicyApplication",
+      count(*) filter (where exists (
+        select 1
+        from clinical_follow_up_sop_policy_application_events e
+        where e.follow_up_id = f.id
+      ))::int as "localApplicationEvents"
+    from scoped_followups f
+  `;
+}
+
+export function buildUpdateClinicalFollowUpSopPolicyApplicationSql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const hasTemplate = changes.sopPolicyTemplateId !== undefined;
+  const templateId = changes.sopPolicyTemplateId || null;
+  const nextVersion = hasTemplate
+    ? "coalesce((select version from selected_template), p.sop_policy_version)"
+    : changes.sopPolicyVersion !== undefined
+      ? sqlNullableText(changes.sopPolicyVersion)
+      : "p.sop_policy_version";
+  const nextCode = hasTemplate
+    ? "coalesce((select code from selected_template), p.sop_policy_template_code)"
+    : changes.sopPolicyTemplateCode !== undefined
+      ? sqlNullableText(changes.sopPolicyTemplateCode)
+      : "p.sop_policy_template_code";
+  const nextValidationState = hasTemplate
+    ? "coalesce((select default_validation_state from selected_template), p.sop_validation_state)"
+    : changes.sopValidationState !== undefined
+      ? sqlLiteral(changes.sopValidationState)
+      : "p.sop_validation_state";
+  const nextDriftState = changes.sopPolicyDriftState !== undefined
+    ? sqlLiteral(changes.sopPolicyDriftState)
+    : hasTemplate
+      ? "'in_sync'"
+      : "p.sop_policy_drift_state";
+  const nextReason = changes.sopPolicyDriftReason !== undefined
+    ? sqlNullableText(changes.sopPolicyDriftReason)
+    : hasTemplate
+      ? sqlNullableText("Applied active local SOP policy template.")
+      : "p.sop_policy_drift_reason";
+  const applicationTouched = hasTemplate || changes.sopPolicyVersion !== undefined || changes.sopPolicyTemplateCode !== undefined || changes.sopValidationState !== undefined;
+  const driftTouched = changes.sopPolicyDriftState !== undefined || changes.sopPolicyDriftReason !== undefined;
+  const templateGate = hasTemplate ? "and exists (select 1 from selected_template)" : "";
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), selected_template as (
+      select t.*
+      from clinical_follow_up_sop_policy_templates t
+      join previous p on p.clinic_id = t.clinic_id
+      where ${hasTemplate ? `t.id = ${sqlUuid(templateId)}` : "false"}
+        and t.active is true
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set
+          sop_policy_template_id = ${hasTemplate ? "coalesce((select id from selected_template), p.sop_policy_template_id)" : "p.sop_policy_template_id"},
+          sop_policy_template_code = ${nextCode},
+          sop_policy_version = ${nextVersion},
+          sop_validation_state = ${nextValidationState},
+          sop_policy_drift_state = ${nextDriftState},
+          sop_policy_drift_reason = ${nextReason},
+          sop_policy_applied_by_user_id = ${applicationTouched ? sqlUuid(actorUserId) : "p.sop_policy_applied_by_user_id"},
+          sop_policy_applied_at = ${applicationTouched ? "now()" : "p.sop_policy_applied_at"},
+          sop_policy_drift_reviewed_by_user_id = ${driftTouched ? sqlUuid(actorUserId) : "p.sop_policy_drift_reviewed_by_user_id"},
+          sop_policy_drift_reviewed_at = ${driftTouched ? "now()" : "p.sop_policy_drift_reviewed_at"},
+          updated_at = now()
+      from previous p
+      where f.id = p.id
+        ${templateGate}
+      returning f.*,
+        p.sop_policy_template_id as previous_sop_policy_template_id,
+        p.sop_policy_template_code as previous_sop_policy_template_code,
+        p.sop_policy_version as previous_sop_policy_version,
+        p.sop_validation_state as previous_sop_validation_state,
+        p.sop_policy_drift_state as previous_sop_policy_drift_state,
+        p.sop_policy_drift_reason as previous_sop_policy_drift_reason
+    ), event as (
+      insert into clinical_follow_up_sop_policy_application_events (
+        follow_up_id,
+        template_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        sop_policy_version,
+        drift_state,
+        note
+      )
+      select
+        u.id,
+        u.sop_policy_template_id,
+        u.clinic_id,
+        ${sqlUuid(actorUserId)},
+        'sop_policy_application.update',
+        jsonb_build_object(
+          'sopPolicyTemplateId', previous_sop_policy_template_id,
+          'sopPolicyTemplateCode', previous_sop_policy_template_code,
+          'sopPolicyVersion', previous_sop_policy_version,
+          'sopValidationState', coalesce(previous_sop_validation_state, 'not_required'),
+          'sopPolicyDriftState', coalesce(previous_sop_policy_drift_state, 'not_checked'),
+          'sopPolicyDriftReason', previous_sop_policy_drift_reason
+        ),
+        jsonb_build_object(
+          'sopPolicyTemplateId', u.sop_policy_template_id,
+          'sopPolicyTemplateCode', u.sop_policy_template_code,
+          'sopPolicyVersion', u.sop_policy_version,
+          'sopValidationState', u.sop_validation_state,
+          'sopPolicyDriftState', u.sop_policy_drift_state,
+          'sopPolicyDriftReason', u.sop_policy_drift_reason
+        ),
+        u.sop_policy_version,
+        u.sop_policy_drift_state,
+        ${sqlNullableText(changes.sopPolicyDriftReason || changes.sopPolicyVersion || changes.sopValidationState || (hasTemplate ? "Applied active local SOP policy template." : changes.sopPolicyDriftState))}
+      from updated u
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function buildUpdateClinicalFollowUpOperationsSql({
   followUpId,
   actorUserId,
@@ -1334,6 +1505,23 @@ export function createClinicalFollowUpRepository(dbClient) {
         source: "postgres",
       };
     },
+    async getClinicalFollowUpSopPolicyApplicationSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpSopPolicyApplicationSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalFollowUps: Number(row.totalFollowUps ?? row.total_follow_ups ?? 0),
+        activeTemplates: Number(row.activeTemplates ?? row.active_templates ?? 0),
+        appliedTemplates: Number(row.appliedTemplates ?? row.applied_templates ?? 0),
+        notChecked: Number(row.notChecked ?? row.not_checked ?? 0),
+        inSync: Number(row.inSync ?? row.in_sync ?? 0),
+        drifted: Number(row.drifted ?? 0),
+        missingTemplate: Number(row.missingTemplate ?? row.missing_template ?? 0),
+        reviewRequired: Number(row.reviewRequired ?? row.review_required ?? 0),
+        needsPolicyApplication: Number(row.needsPolicyApplication ?? row.needs_policy_application ?? 0),
+        localApplicationEvents: Number(row.localApplicationEvents ?? row.local_application_events ?? 0),
+        source: "postgres",
+      };
+    },
     async listClinicalFollowUpSopPolicyTemplates(params) {
       const rows = await dbClient.queryJson(buildListClinicalFollowUpSopPolicyTemplatesSql(params));
       return {
@@ -1365,6 +1553,10 @@ export function createClinicalFollowUpRepository(dbClient) {
     },
     async updateClinicalFollowUpSopValidation(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopValidationSql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
+    },
+    async updateClinicalFollowUpSopPolicyApplication(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyApplicationSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };

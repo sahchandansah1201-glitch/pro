@@ -1,5 +1,23 @@
 # RISKS
 
+## Stage 23A-23Z follow-up SOP policy application risks
+
+1. **Risk: local SOP policy application can be mistaken for external SOP approval.**
+   - Evidence: Stage 23A-23Z applies a local Stage 22A-22Z template version to
+     follow-up validation metadata and records drift state, but it does not
+     verify external SOP documents, clinic governance approval, or medical
+     correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy application as
+     local metadata only.
+
+2. **Risk: drift review can be interpreted as automated clinical enforcement.**
+   - Evidence: Stage 23A-23Z records `sop_policy_drift_state` and drift review
+     reason locally; it does not execute external policy engines or make
+     diagnosis/treatment claims.
+   - Mitigation: keep drift states bounded, RBAC-protected, append-only
+     audited, and self-hosted; Stage 24A-24Z remains a hypothesis until
+     repository files define the next closure or audit layer.
+
 ## Stage 22A-22Z follow-up SOP policy templates risks
 
 1. **Risk: local SOP policy templates can be mistaken for external clinic policy approval.**

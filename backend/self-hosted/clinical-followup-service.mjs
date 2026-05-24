@@ -15,6 +15,8 @@ const QUALITY_REVIEW_STATES = new Set(["pending", "reviewed", "needs_attention"]
 const RETENTION_REVIEW_STATES = new Set(["not_due", "due", "reviewed", "archived"]);
 const CLINIC_REVIEW_STATES = new Set(["not_scheduled", "scheduled", "completed", "needs_policy_review"]);
 const SOP_VALIDATION_STATES = new Set(["not_required", "required", "validated", "exception", "blocked"]);
+const SOP_POLICY_DRIFT_STATES = new Set(["not_checked", "in_sync", "drifted", "missing_template", "review_required"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_REASON = 1000;
 const MAX_SUMMARY = 2000;
 const MAX_INTERNAL_NOTE = 4000;
@@ -27,6 +29,7 @@ const MAX_SOP_EXCEPTION_REASON = 2000;
 const MAX_SOP_TEMPLATE_CODE = 80;
 const MAX_SOP_TEMPLATE_TITLE = 160;
 const MAX_SOP_TEMPLATE_DESCRIPTION = 2000;
+const MAX_SOP_POLICY_DRIFT_REASON = 2000;
 const SOP_TEMPLATE_CODE_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{1,79}$/;
 
 class ClinicalFollowUpNotFoundError extends Error {
@@ -432,6 +435,55 @@ export function normalizeClinicalFollowUpSopPolicyTemplatePayload(input = {}, { 
   return payload;
 }
 
+export function normalizeClinicalFollowUpSopPolicyApplicationPayload(input = {}) {
+  const body = requireBodyObject(input);
+  const details = [];
+  const payload = {};
+
+  if (hasOwn(body, "sopPolicyTemplateId")) {
+    const templateId = cleanString(body.sopPolicyTemplateId);
+    if (!templateId || !UUID_RE.test(templateId)) {
+      details.push({ field: "sopPolicyTemplateId", message: "sopPolicyTemplateId must be an active local template UUID." });
+    } else {
+      payload.sopPolicyTemplateId = templateId;
+    }
+  }
+  if (hasOwn(body, "sopPolicyTemplateCode")) {
+    const code = validateLimitedText(body.sopPolicyTemplateCode, "sopPolicyTemplateCode", MAX_SOP_TEMPLATE_CODE, details);
+    if (code && !SOP_TEMPLATE_CODE_RE.test(code)) {
+      details.push({ field: "sopPolicyTemplateCode", message: "sopPolicyTemplateCode must be a local SOP identifier." });
+    }
+    payload.sopPolicyTemplateCode = code;
+  }
+  if (hasOwn(body, "sopPolicyVersion")) {
+    payload.sopPolicyVersion = validateLimitedText(body.sopPolicyVersion, "sopPolicyVersion", MAX_SOP_POLICY_VERSION, details);
+  }
+  if (hasOwn(body, "sopValidationState")) {
+    const state = cleanString(body.sopValidationState);
+    if (!state || !SOP_VALIDATION_STATES.has(state)) {
+      details.push({ field: "sopValidationState", message: "sopValidationState is not supported." });
+    } else {
+      payload.sopValidationState = state;
+    }
+  }
+  if (hasOwn(body, "sopPolicyDriftState")) {
+    const state = cleanString(body.sopPolicyDriftState);
+    if (!state || !SOP_POLICY_DRIFT_STATES.has(state)) {
+      details.push({ field: "sopPolicyDriftState", message: "sopPolicyDriftState is not supported." });
+    } else {
+      payload.sopPolicyDriftState = state;
+    }
+  }
+  if (hasOwn(body, "sopPolicyDriftReason")) {
+    payload.sopPolicyDriftReason = validateLimitedText(body.sopPolicyDriftReason, "sopPolicyDriftReason", MAX_SOP_POLICY_DRIFT_REASON, details);
+  }
+  if (Object.keys(payload).length === 0) {
+    details.push({ field: "body", message: "At least one SOP policy application field is required." });
+  }
+  if (details.length > 0) throw new ClinicalFollowUpValidationError(details);
+  return payload;
+}
+
 async function audit(auditRepository, event) {
   await recordAuditBestEffort(auditRepository, event);
 }
@@ -726,6 +778,27 @@ export function createClinicalFollowUpService({
       return { result, scope };
     },
 
+    async getClinicalFollowUpSopPolicyApplicationSummary(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyApplicationSummary({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_application.summary",
+        entityType: "clinical_follow_up",
+        correlationId,
+        metadata: {
+          activeTemplates: summary.activeTemplates,
+          needsPolicyApplication: summary.needsPolicyApplication,
+          reviewRequired: summary.reviewRequired,
+        },
+      });
+      return { summary, scope };
+    },
+
     async updateClinicalFollowUpOperations(followUpId, input, authContext, { correlationId } = {}) {
       const scope = visitWriteScope(authContext);
       const changes = normalizeClinicalFollowUpOperationsUpdatePayload(input);
@@ -884,6 +957,33 @@ export function createClinicalFollowUpService({
         metadata: {
           sopValidationState: followUp.sopValidationState,
           sopPolicyVersion: followUp.sopPolicyVersion,
+        },
+      });
+      return { followUp, scope };
+    },
+
+    async updateClinicalFollowUpSopPolicyApplication(followUpId, input, authContext, { correlationId } = {}) {
+      const scope = visitWriteScope(authContext);
+      const changes = normalizeClinicalFollowUpSopPolicyApplicationPayload(input);
+      const followUp = await clinicalFollowUpRepository.updateClinicalFollowUpSopPolicyApplication({
+        followUpId,
+        actorUserId: authContext.userId,
+        changes,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      if (!followUp) throw new ClinicalFollowUpNotFoundError("Follow-up or active SOP policy template was not found.");
+      await audit(auditRepository, {
+        clinicId: followUp.clinicId || null,
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_application.update",
+        entityType: "clinical_follow_up",
+        entityId: followUp.id,
+        correlationId,
+        metadata: {
+          sopPolicyTemplateId: followUp.sopPolicyTemplateId,
+          sopPolicyVersion: followUp.sopPolicyVersion,
+          sopPolicyDriftState: followUp.sopPolicyDriftState,
         },
       });
       return { followUp, scope };
