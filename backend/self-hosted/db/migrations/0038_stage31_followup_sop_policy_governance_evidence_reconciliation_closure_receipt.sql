@@ -4,7 +4,7 @@
 alter table clinical_follow_up_tasks
   add column if not exists sop_policy_governance_evidence_reconciliation_closure_receipt_state text not null default 'not_started',
   add column if not exists sop_policy_governance_evidence_reconciliation_closure_receipt_note text,
-  add column if not exists sop_policy_governance_evidence_reconciliation_closure_received_by_user_id uuid references users(id),
+  add column if not exists sop_policy_governance_evidence_reconciliation_closure_received_by_user_id uuid references app_users(id) on delete set null,
   add column if not exists sop_policy_governance_evidence_reconciliation_closure_received_at timestamptz;
 
 alter table clinical_follow_up_tasks
@@ -21,7 +21,7 @@ create table if not exists clinical_follow_up_sop_policy_governance_evidence_rec
   id uuid primary key default gen_random_uuid(),
   follow_up_id uuid not null references clinical_follow_up_tasks(id) on delete cascade,
   clinic_id uuid not null references clinics(id),
-  actor_user_id uuid references users(id),
+  actor_user_id uuid references app_users(id) on delete set null,
   event_type text not null,
   previous_state jsonb not null default '{}'::jsonb,
   next_state jsonb not null default '{}'::jsonb,

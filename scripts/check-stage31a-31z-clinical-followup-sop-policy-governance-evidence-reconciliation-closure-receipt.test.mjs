@@ -33,7 +33,7 @@ function fixture() {
       expectedConfirmation: "Confirmed: Stage 31A-31Z synced from main, no conflicts.",
     },
   }, null, 2));
-  write(root, "backend/self-hosted/db/migrations/0038_stage31_followup_sop_policy_governance_evidence_reconciliation_closure_receipt.sql", "sop_policy_governance_evidence_reconciliation_closure_receipt_state sop_policy_governance_evidence_reconciliation_closure_received_at clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_events");
+  write(root, "backend/self-hosted/db/migrations/0038_stage31_followup_sop_policy_governance_evidence_reconciliation_closure_receipt.sql", "sop_policy_governance_evidence_reconciliation_closure_receipt_state sop_policy_governance_evidence_reconciliation_closure_received_at references app_users(id) on delete set null clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_events");
   write(root, "backend/self-hosted/clinical-followup-repository.mjs", "buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummarySql buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSql getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt");
   write(root, "backend/self-hosted/clinical-followup-repository.test.mjs", "Stage 31A-31Z");
   write(root, "backend/self-hosted/clinical-followup-service.mjs", "normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptPayload clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure_receipt.summary clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure_receipt.update");
@@ -92,4 +92,12 @@ test("Stage 31A-31Z guard rejects forbidden markers", () => {
   const result = checkStage31A31Z(root);
   assert.equal(result.ok, false);
   assert.match(result.errors.join("\n"), /forbidden runtime marker/);
+});
+
+test("Stage 31A-31Z guard rejects non-self-hosted user table references", () => {
+  const root = fixture();
+  write(root, "backend/self-hosted/db/migrations/0038_stage31_followup_sop_policy_governance_evidence_reconciliation_closure_receipt.sql", "sop_policy_governance_evidence_reconciliation_closure_receipt_state sop_policy_governance_evidence_reconciliation_closure_received_at references users(id) clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_events");
+  const result = checkStage31A31Z(root);
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join("\n"), /references\\s\+users/);
 });

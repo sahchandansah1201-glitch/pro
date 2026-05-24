@@ -47,6 +47,7 @@ const REQUIRED_TEXT = {
   "backend/self-hosted/db/migrations/0037_stage30_followup_sop_policy_governance_evidence_reconciliation_closure.sql": [
     "sop_policy_governance_evidence_reconciliation_closure_state",
     "sop_policy_governance_evidence_reconciliation_closed_at",
+    "references app_users(id) on delete set null",
     "clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_events"
   ],
   "backend/self-hosted/clinical-followup-repository.mjs": [
@@ -155,7 +156,8 @@ const FORBIDDEN = [
   /vendor\s+(sms|email|notification)/i,
   /external\s+sop\s+(completion|approval)\s+proof/i,
   /external\s+governance\s+(approval|sign-off)\s+proof/i,
-  /medical\s+correctness\s+(proof|verification|guarantee)/i
+  /medical\s+correctness\s+(proof|verification|guarantee)/i,
+  /references\s+users\s*\(/i
 ];
 
 function read(root, file) {
