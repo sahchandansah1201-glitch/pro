@@ -1,0 +1,43 @@
+{
+  "stage": "30A-30Z",
+  "name": "clinical-followup-sop-policy-governance-evidence-reconciliation-closure",
+  "status": "ready",
+  "previousBatch": "Stage 29A-29Z",
+  "nextBatchHypothesis": "Stage 31A-31Z",
+  "purpose": "Add a local SOP policy governance evidence reconciliation closure checkpoint after Stage 29 reconciliation for clinical follow-up tasks.",
+  "implementedSurfaces": [
+    "PostgreSQL governance evidence reconciliation closure fields on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_events",
+    "Backend governance evidence reconciliation closure summary route",
+    "Backend governance evidence reconciliation closure update route",
+    "OpenAPI Stage 30A-30Z contract",
+    "nginx OpenAPI publishing",
+    "Frontend follow-up API adapter",
+    "Doctor workspace reconciliation closure summary tiles",
+    "Doctor workspace Close recon and Closure rework actions",
+    "Stage guard, tests, workflow, docs, and preflight-all wiring",
+    "Project-memory recovery update"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "externalRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyGovernanceEvidenceReconciliationClosureIsLocalMetadataOnly": true,
+    "clinicGovernanceEvidenceReconciliationClosureIsNotExternalApprovalProof": true,
+    "reconciliationClosureDoesNotIncludeRawPatientNames": true,
+    "reconciliationClosureDoesNotIncludeTokensOrSignedUrls": true,
+    "medicalCorrectnessProof": false
+  },
+  "verification": {
+    "test": "npm run test:stage30a-30z",
+    "check": "npm run check:stage30a-30z",
+    "preflight": "npm run preflight:stage30a-30z",
+    "expectedConfirmation": "Confirmed: Stage 30A-30Z synced from main, no conflicts."
+  }
+}

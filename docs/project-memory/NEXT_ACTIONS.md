@@ -2,22 +2,22 @@
 
 ## Current confirmed state
 
-Stage 29A-29Z is the current product-facing batch. It extends Stage 28A-28Z local SOP policy governance evidence export with local SOP policy governance evidence reconciliation metadata on follow-up tasks.
+Stage 30A-30Z is the current product-facing batch. It extends Stage 29A-29Z local SOP policy governance evidence reconciliation with local reconciliation closure metadata on follow-up tasks.
 
-## Immediate actions after Stage 29A-29Z PR merge
+## Immediate actions after Stage 30A-30Z PR merge
 
 1. Verify local `main` after merge:
    - `git status --short`
-   - `npm run preflight:stage29a-29z`
+   - `npm run preflight:stage30a-30z`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
 2. Send the Lovable sync prompt only after the PR is merged into `main` and local `main` is verified.
 3. Expected Lovable confirmation:
-   - `Confirmed: Stage 29A-29Z synced from main, no conflicts.`
+   - `Confirmed: Stage 30A-30Z synced from main, no conflicts.`
 
 ## Next hypothesis
 
-Stage 30A-30Z is a hypothesis until repository files define it. A likely next product cycle is governance evidence handoff receipt or reconciliation closure, but that is not confirmed until repository files define it.
+Stage 31A-31Z is a hypothesis until repository files define it. A likely next product cycle is governance evidence handoff receipt or post-closure review receipt, but that is not confirmed until repository files define it.
 
 ## Historical anchors
 
@@ -27,4 +27,4 @@ Stage 10A-10L remains the historical hypothesis that was expanded into Stage 10A
 
 Stage 15A-15Z remains the confirmed post-sync handoff readiness batch before Stage 16A-16Z product cycle readiness. Stage 16A-16Z selected Stage 17A-17Z as the recommended product candidate, and Stage 17A-17Z closes that hypothesis with code.
 
-Stage 18A-18Z remains the confirmed follow-up operations hardening batch after Stage 17A-17Z. Stage 19A-19Z remains the confirmed follow-up outcome quality batch after Stage 18A-18Z. Stage 20A-20Z closes the previous Stage 20A-20Z hypothesis with retention and clinic review readiness. Stage 21A-21Z closes the previous Stage 21A-21Z hypothesis with clinic-specific SOP validation. Stage 22A-22Z closes the previous Stage 22A-22Z hypothesis with configurable local SOP policy templates. Stage 23A-23Z closes the previous Stage 23A-23Z hypothesis with local SOP policy application and drift review. Stage 24A-24Z closes the previous Stage 24A-24Z hypothesis with local SOP policy exception closure. Stage 25A-25Z closes the previous Stage 25A-25Z hypothesis with local SOP policy audit rollup. Stage 26A-26Z closes the previous Stage 26A-26Z hypothesis with local SOP policy governance readiness. Stage 27A-27Z closes the previous Stage 27A-27Z hypothesis with local SOP policy governance closure. Stage 28A-28Z closes the previous Stage 28A-28Z hypothesis with local SOP policy governance evidence export. Stage 29A-29Z closes the previous Stage 29A-29Z hypothesis with local SOP policy governance evidence reconciliation.
+Stage 18A-18Z remains the confirmed follow-up operations hardening batch after Stage 17A-17Z. Stage 19A-19Z remains the confirmed follow-up outcome quality batch after Stage 18A-18Z. Stage 20A-20Z closes the previous Stage 20A-20Z hypothesis with retention and clinic review readiness. Stage 21A-21Z closes the previous Stage 21A-21Z hypothesis with clinic-specific SOP validation. Stage 22A-22Z closes the previous Stage 22A-22Z hypothesis with configurable local SOP policy templates. Stage 23A-23Z closes the previous Stage 23A-23Z hypothesis with local SOP policy application and drift review. Stage 24A-24Z closes the previous Stage 24A-24Z hypothesis with local SOP policy exception closure. Stage 25A-25Z closes the previous Stage 25A-25Z hypothesis with local SOP policy audit rollup. Stage 26A-26Z closes the previous Stage 26A-26Z hypothesis with local SOP policy governance readiness. Stage 27A-27Z closes the previous Stage 27A-27Z hypothesis with local SOP policy governance closure. Stage 28A-28Z closes the previous Stage 28A-28Z hypothesis with local SOP policy governance evidence export. Stage 29A-29Z closes the previous Stage 29A-29Z hypothesis with local SOP policy governance evidence reconciliation. Stage 30A-30Z closes the previous Stage 30A-30Z hypothesis with local SOP policy governance evidence reconciliation closure.

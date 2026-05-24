@@ -22,6 +22,7 @@ const SOP_POLICY_GOVERNANCE_STATES = new Set(["not_started", "ready", "reviewed"
 const SOP_POLICY_GOVERNANCE_CLOSURE_STATES = new Set(["not_started", "ready", "closed", "needs_followup"]);
 const SOP_POLICY_GOVERNANCE_EVIDENCE_STATES = new Set(["not_started", "ready", "exported", "needs_followup"]);
 const SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_STATES = new Set(["not_started", "ready", "reconciled", "mismatch", "needs_followup"]);
+const SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_STATES = new Set(["not_started", "ready", "closed", "closure_exception", "needs_rework"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_REASON = 1000;
 const MAX_SUMMARY = 2000;
@@ -43,6 +44,7 @@ const MAX_SOP_POLICY_GOVERNANCE_NOTE = 2000;
 const MAX_SOP_POLICY_GOVERNANCE_CLOSURE_NOTE = 2000;
 const MAX_SOP_POLICY_GOVERNANCE_EVIDENCE_NOTE = 2000;
 const MAX_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_NOTE = 2000;
+const MAX_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_NOTE = 2000;
 const SOP_TEMPLATE_CODE_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{1,79}$/;
 
 class ClinicalFollowUpNotFoundError extends Error {
@@ -700,6 +702,46 @@ export function normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliati
   return payload;
 }
 
+export function normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosurePayload(input = {}) {
+  const body = requireBodyObject(input);
+  const details = [];
+  const payload = {};
+
+  if (hasOwn(body, "sopPolicyGovernanceEvidenceReconciliationClosureState")) {
+    const state = cleanString(body.sopPolicyGovernanceEvidenceReconciliationClosureState);
+    if (!state || !SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_STATES.has(state)) {
+      details.push({
+        field: "sopPolicyGovernanceEvidenceReconciliationClosureState",
+        message: "sopPolicyGovernanceEvidenceReconciliationClosureState is not supported.",
+      });
+    } else {
+      payload.sopPolicyGovernanceEvidenceReconciliationClosureState = state;
+    }
+  }
+  if (hasOwn(body, "sopPolicyGovernanceEvidenceReconciliationClosureNote")) {
+    payload.sopPolicyGovernanceEvidenceReconciliationClosureNote = validateLimitedText(
+      body.sopPolicyGovernanceEvidenceReconciliationClosureNote,
+      "sopPolicyGovernanceEvidenceReconciliationClosureNote",
+      MAX_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_NOTE,
+      details,
+    );
+  }
+  if (Object.keys(payload).length === 0) {
+    details.push({ field: "body", message: "At least one SOP policy governance evidence reconciliation closure field is required." });
+  }
+  if (
+    ["closure_exception", "needs_rework"].includes(payload.sopPolicyGovernanceEvidenceReconciliationClosureState) &&
+    !payload.sopPolicyGovernanceEvidenceReconciliationClosureNote
+  ) {
+    details.push({
+      field: "sopPolicyGovernanceEvidenceReconciliationClosureNote",
+      message: "sopPolicyGovernanceEvidenceReconciliationClosureNote is required when reconciliation closure is not closed.",
+    });
+  }
+  if (details.length > 0) throw new ClinicalFollowUpValidationError(details);
+  return payload;
+}
+
 async function audit(auditRepository, event) {
   await recordAuditBestEffort(auditRepository, event);
 }
@@ -1141,6 +1183,27 @@ export function createClinicalFollowUpService({
       return { summary, scope };
     },
 
+    async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure.summary",
+        entityType: "clinical_follow_up",
+        correlationId,
+        metadata: {
+          reconciliationClosureReady: summary.reconciliationClosureReady,
+          needsReconciliationClosure: summary.needsReconciliationClosure,
+          closedReconciliationEvidence: summary.closedReconciliationEvidence,
+        },
+      });
+      return { summary, scope };
+    },
+
     async updateClinicalFollowUpOperations(followUpId, input, authContext, { correlationId } = {}) {
       const scope = visitWriteScope(authContext);
       const changes = normalizeClinicalFollowUpOperationsUpdatePayload(input);
@@ -1488,6 +1551,33 @@ export function createClinicalFollowUpService({
           sopPolicyGovernanceEvidenceReconciliationState: followUp.sopPolicyGovernanceEvidenceReconciliationState,
           sopPolicyGovernanceEvidenceState: followUp.sopPolicyGovernanceEvidenceState,
           sopPolicyGovernanceClosureState: followUp.sopPolicyGovernanceClosureState,
+        },
+      });
+      return { followUp, scope };
+    },
+
+    async updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure(followUpId, input, authContext, { correlationId } = {}) {
+      const scope = visitWriteScope(authContext);
+      const changes = normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosurePayload(input);
+      const followUp = await clinicalFollowUpRepository.updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure({
+        followUpId,
+        actorUserId: authContext.userId,
+        changes,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      if (!followUp) throw new ClinicalFollowUpNotFoundError("Follow-up SOP policy governance evidence reconciliation closure was not found.");
+      await audit(auditRepository, {
+        clinicId: followUp.clinicId || null,
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure.update",
+        entityType: "clinical_follow_up",
+        entityId: followUp.id,
+        correlationId,
+        metadata: {
+          sopPolicyGovernanceEvidenceReconciliationClosureState: followUp.sopPolicyGovernanceEvidenceReconciliationClosureState,
+          sopPolicyGovernanceEvidenceReconciliationState: followUp.sopPolicyGovernanceEvidenceReconciliationState,
+          sopPolicyGovernanceEvidenceState: followUp.sopPolicyGovernanceEvidenceState,
         },
       });
       return { followUp, scope };

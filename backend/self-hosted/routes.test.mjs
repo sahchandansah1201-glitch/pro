@@ -807,6 +807,28 @@ function createRuntime({
           },
         };
       },
+      async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          summary: {
+            totalFollowUps: 4,
+            reconciliationClosureReady: 1,
+            needsReconciliationClosure: 1,
+            closedReconciliationEvidence: 1,
+            reconciliationClosureExceptions: 0,
+            reconciliationClosureNeedsRework: 0,
+            reconciledGovernanceEvidence: 1,
+            openReconciliationMismatches: 0,
+            localGovernanceEvidenceReconciliationClosureEvents: 2,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         if (clinicalFollowUpError) throw clinicalFollowUpError;
         return {
@@ -1071,6 +1093,29 @@ function createRuntime({
             sopPolicyGovernanceEvidenceState: "exported",
             sopPolicyGovernanceEvidenceReconciliationState: "reconciled",
             sopPolicyGovernanceEvidenceReconciliationNote: "Local SOP policy governance evidence reconciled.",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: {
+            ...(clinicalFollowUp || { id: "10000000-0000-4000-8000-000000000701" }),
+            sopValidationState: "validated",
+            sopPolicyDriftState: "in_sync",
+            sopPolicyExceptionState: "closed",
+            sopPolicyAuditState: "reviewed",
+            sopPolicyGovernanceState: "reviewed",
+            sopPolicyGovernanceClosureState: "closed",
+            sopPolicyGovernanceEvidenceState: "exported",
+            sopPolicyGovernanceEvidenceReconciliationState: "reconciled",
+            sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
+            sopPolicyGovernanceEvidenceReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure completed.",
           },
           scope: {
             allClinics: false,
@@ -1742,6 +1787,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceClosure, "rbac-read-write-postgres-local-sop-policy-governance-closure");
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceEvidence, "rbac-read-write-postgres-local-sop-policy-governance-evidence-export");
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliation, "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation");
+  assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure, "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -1779,6 +1825,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage26A26Z, "/openapi.stage26a-26z.json");
   assert.equal(meta.json.links.openapiStage27A27Z, "/openapi.stage27a-27z.json");
   assert.equal(meta.json.links.openapiStage28A28Z, "/openapi.stage28a-28z.json");
+  assert.equal(meta.json.links.openapiStage29A29Z, "/openapi.stage29a-29z.json");
+  assert.equal(meta.json.links.openapiStage30A30Z, "/openapi.stage30a-30z.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -1851,6 +1899,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidence, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary, "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation/summary");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliation, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary, "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure/summary");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure");
   assert.equal(meta.json.links.clinicalFollowUpOperation, "/api/v1/clinical/follow-ups/{followUpId}/operations");
   assert.equal(meta.json.links.patientPortalFollowUps, "/api/v1/me/follow-ups");
   assert.equal(meta.json.links.patientPortalFollowUpMessages, "/api/v1/me/follow-ups/{followUpId}/messages");
@@ -4884,6 +4934,43 @@ test("Stage 29A-29Z · /openapi.stage29a-29z.json documents SOP policy governanc
   assert.equal(response.json.info.version, "29A-29Z-clinical-followup-sop-policy-governance-evidence-reconciliation");
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation/summary"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation"].patch);
+});
+
+test("Stage 30A-30Z · SOP policy governance evidence reconciliation closure routes close local reconciliation state", async () => {
+  const runtime = createRuntime();
+  const summary = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure/summary",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(summary.status, 200);
+  assert.equal(summary.json.stage, "30A-30Z");
+  assert.equal(summary.json.item.reconciliationClosureReady, 1);
+  assert.equal(summary.json.item.needsReconciliationClosure, 1);
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701/sop-policy-governance-evidence-reconciliation-closure",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    {
+      sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
+      sopPolicyGovernanceEvidenceReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure completed.",
+    },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.stage, "30A-30Z");
+  assert.equal(updated.json.item.sopPolicyGovernanceEvidenceReconciliationClosureState, "closed");
+  assert.equal(updated.json.item.sopPolicyGovernanceEvidenceReconciliationClosureNote, "Local SOP policy governance evidence reconciliation closure completed.");
+  assert.doesNotMatch(updated.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url|access_token|external governance approval|external SOP approval|medical correctness/i);
+});
+
+test("Stage 30A-30Z · /openapi.stage30a-30z.json documents SOP policy governance evidence reconciliation closure", async () => {
+  const response = await request("/openapi.stage30a-30z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "30A-30Z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure/summary"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure"].patch);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

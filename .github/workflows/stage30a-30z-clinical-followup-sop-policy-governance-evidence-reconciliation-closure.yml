@@ -1,0 +1,32 @@
+name: stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.mjs"
+      - "scripts/check-stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.test.mjs"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "package.json"
+      - ".github/workflows/stage30a-30z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure.yml"
+  push:
+    branches:
+      - main
+
+jobs:
+  stage30a-30z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage30a-30z
