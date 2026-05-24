@@ -2,13 +2,21 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 25A-25Z is being
+This handoff captures the repository state while Stage 26A-26Z is being
 implemented from branch
-`codex/stage25a-25z-clinical-followup-sop-policy-audit-rollup`.
+`codex/stage26a-26z-clinical-followup-sop-policy-governance-readiness`.
 
 ## Confirmed state
 
-0. Stage 25A-25Z is implemented in the current branch as local SOP policy audit
+0. Stage 26A-26Z is implemented in the current branch as SOP policy governance
+   readiness:
+   - PostgreSQL SOP policy governance readiness fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_sop_policy_governance_events`;
+   - backend SOP policy governance readiness summary/update routes;
+   - doctor live workspace Governance reviewed and Governance follow-up row actions;
+   - no managed notification provider dependency and no external governance proof.
+
+0. Stage 25A-25Z is merged to main as local SOP policy audit
    rollup:
    - PostgreSQL SOP policy audit fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_sop_policy_audit_events`;
@@ -413,8 +421,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 26A-26Z` is the next hypothesis after Stage 25A-25Z until repository
+- `Stage 27A-27Z` is the next hypothesis after Stage 26A-26Z until repository
   files define it.
+- `Stage 26A-26Z` closes the previous hypothesis with SOP policy governance
+  readiness.
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
 - `Stage 15A-15Z` is the confirmed post-sync handoff readiness batch after Stage 14A-14Z.
 - `Stage 16A-16Z` is the current product cycle readiness batch after Stage 15A-15Z.
@@ -430,10 +440,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 16A-16Z Pull request lifecycle.
+1. Complete the Stage 26A-26Z Pull request lifecycle.
 2. Run or verify:
-   - `npm run preflight:stage16a-16z`
-   - `npm run preflight:stage15a-15z`
+   - `npm run preflight:stage26a-26z`
+   - `npm run preflight:stage25a-25z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`
