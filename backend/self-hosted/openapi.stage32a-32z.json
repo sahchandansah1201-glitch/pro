@@ -1,0 +1,166 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-Hosted Clinical Follow-Up SOP Governance Evidence Reconciliation Closure Receipt Archive Readiness",
+    "version": "32A-32Z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness",
+    "description": "Stage 32A-32Z local SOP policy governance evidence reconciliation closure receipt archive readiness endpoints for the self-hosted product boundary."
+  },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness/summary": {
+      "get": {
+        "summary": "Read local SOP policy governance evidence reconciliation closure receipt archive readiness summary",
+        "operationId": "getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Local archive readiness summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "const": "32A-32Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/ArchiveReadinessSummary" },
+                    "generatedAt": { "type": "string" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness": {
+      "patch": {
+        "summary": "Update local SOP policy governance evidence reconciliation closure receipt archive readiness",
+        "operationId": "updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ArchiveReadinessUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated follow-up with local archive readiness fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "const": "32A-32Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/ArchiveReadinessFollowUp" },
+                    "generatedAt": { "type": "string" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ArchiveReadinessState": {
+        "type": "string",
+        "enum": ["not_started", "ready", "archived", "archive_exception", "needs_rework"]
+      },
+      "ArchiveReadinessSummary": {
+        "type": "object",
+        "required": [
+          "totalFollowUps",
+          "archiveReadinessReady",
+          "needsArchiveReadiness",
+          "archivedLocal",
+          "archiveReadinessExceptions",
+          "archiveReadinessNeedsRework",
+          "receivedClosureReceipts",
+          "closedReconciliationEvidence",
+          "localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents"
+        ],
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "archiveReadinessReady": { "type": "integer" },
+          "needsArchiveReadiness": { "type": "integer" },
+          "archivedLocal": { "type": "integer" },
+          "archiveReadinessExceptions": { "type": "integer" },
+          "archiveReadinessNeedsRework": { "type": "integer" },
+          "receivedClosureReceipts": { "type": "integer" },
+          "closedReconciliationEvidence": { "type": "integer" },
+          "localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents": { "type": "integer" },
+          "source": { "const": "postgres" }
+        }
+      },
+      "ArchiveReadinessUpdate": {
+        "type": "object",
+        "properties": {
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState": {
+            "$ref": "#/components/schemas/ArchiveReadinessState"
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          }
+        },
+        "anyOf": [
+          { "required": ["sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState"] },
+          { "required": ["sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote"] }
+        ]
+      },
+      "ArchiveReadinessFollowUp": {
+        "type": "object",
+        "required": ["id", "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState": {
+            "$ref": "#/components/schemas/ArchiveReadinessState"
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote": {
+            "type": ["string", "null"]
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiedAt": {
+            "type": ["string", "null"]
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "received", "receipt_exception", "needs_rework"]
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "closed", "closure_exception", "needs_rework"]
+          },
+          "sopPolicyGovernanceEvidenceReconciliationState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "reconciled", "mismatch", "needs_followup"]
+          }
+        }
+      }
+    }
+  }
+}

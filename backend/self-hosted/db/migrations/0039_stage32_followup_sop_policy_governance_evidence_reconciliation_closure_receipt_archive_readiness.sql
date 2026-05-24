@@ -1,0 +1,40 @@
+-- Stage 32A-32Z · local SOP policy governance evidence reconciliation closure receipt archive readiness.
+-- This stores clinic-local archive readiness metadata only; no external governance approval or legal archive sufficiency is implied.
+
+alter table clinical_follow_up_tasks
+  add column if not exists sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state text not null default 'not_started',
+  add column if not exists sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note text,
+  add column if not exists sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readied_by_user_id uuid references app_users(id) on delete set null,
+  add column if not exists sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readied_at timestamptz;
+
+alter table clinical_follow_up_tasks
+  drop constraint if exists chk_cfut_stage32_archive_readiness_state;
+
+alter table clinical_follow_up_tasks
+  add constraint chk_cfut_stage32_archive_readiness_state
+  check (sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state in ('not_started', 'ready', 'archived', 'archive_exception', 'needs_rework'));
+
+create index if not exists idx_cfut_stage32_archive_readiness
+  on clinical_follow_up_tasks (clinic_id, sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, updated_at desc);
+
+create table if not exists clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_events (
+  id uuid primary key default gen_random_uuid(),
+  follow_up_id uuid not null references clinical_follow_up_tasks(id) on delete cascade,
+  clinic_id uuid not null references clinics(id),
+  actor_user_id uuid references app_users(id) on delete set null,
+  event_type text not null,
+  previous_state jsonb not null default '{}'::jsonb,
+  next_state jsonb not null default '{}'::jsonb,
+  archive_readiness_state text not null,
+  closure_receipt_state text not null,
+  reconciliation_closure_state text not null,
+  reconciliation_state text not null,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_cfut_stage32_archive_events_follow_up
+  on clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_events (follow_up_id, created_at desc);
+
+create index if not exists idx_cfut_stage32_archive_events_clinic
+  on clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_events (clinic_id, created_at desc);

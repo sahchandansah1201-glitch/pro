@@ -146,6 +146,9 @@ export function normalizeClinicalFollowUp(row = {}) {
     sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: cleanText(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptState ?? row.sop_policy_governance_evidence_reconciliation_closure_receipt_state) || "not_started",
     sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: cleanText(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote ?? row.sop_policy_governance_evidence_reconciliation_closure_receipt_note),
     sopPolicyGovernanceEvidenceReconciliationClosureReceivedAt: cleanText(row.sopPolicyGovernanceEvidenceReconciliationClosureReceivedAt ?? row.sop_policy_governance_evidence_reconciliation_closure_received_at),
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: cleanText(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState ?? row.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state) || "not_started",
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote: cleanText(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote ?? row.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note),
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiedAt: cleanText(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiedAt ?? row.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readied_at),
     sopExceptionReason: cleanText(row.sopExceptionReason ?? row.sop_exception_reason),
     sopValidatedAt: cleanText(row.sopValidatedAt ?? row.sop_validated_at),
     resolvedAt: cleanText(row.resolvedAt ?? row.resolved_at),
@@ -305,6 +308,9 @@ function followUpSelect({ patientSafe = false } = {}) {
     coalesce(f.sop_policy_governance_evidence_reconciliation_closure_receipt_state, 'not_started') as "sopPolicyGovernanceEvidenceReconciliationClosureReceiptState",
     f.sop_policy_governance_evidence_reconciliation_closure_receipt_note as "sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote",
     f.sop_policy_governance_evidence_reconciliation_closure_received_at as "sopPolicyGovernanceEvidenceReconciliationClosureReceivedAt",
+    coalesce(f.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, 'not_started') as "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState",
+    f.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note as "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote",
+    f.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readied_at as "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiedAt",
     f.sop_exception_reason as "sopExceptionReason",
     f.sop_validated_at as "sopValidatedAt",
     f.resolved_at as "resolvedAt",
@@ -2049,6 +2055,128 @@ export function buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconcilia
   `;
 }
 
+export function buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummarySql({
+  allClinics = false,
+  clinicIds = [],
+} = {}) {
+  const scopedFollowUps = clinicScopeWhere("f", { allClinics, clinicIds });
+  const archiveReadinessReady = `(
+    coalesce(f.sop_policy_governance_evidence_reconciliation_closure_receipt_state, 'not_started') = 'received'
+    and coalesce(f.sop_policy_governance_evidence_reconciliation_closure_state, 'not_started') = 'closed'
+    and coalesce(f.sop_policy_governance_evidence_reconciliation_state, 'not_started') = 'reconciled'
+  )`;
+  return `
+    with scoped_followups as (
+      select *
+      from clinical_follow_up_tasks f
+      where ${scopedFollowUps}
+    )
+    select
+      count(*)::int as "totalFollowUps",
+      count(*) filter (where ${archiveReadinessReady})::int as "archiveReadinessReady",
+      count(*) filter (where ${archiveReadinessReady} and coalesce(f.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, 'not_started') in ('not_started', 'ready', 'needs_rework'))::int as "needsArchiveReadiness",
+      count(*) filter (where coalesce(f.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, 'not_started') = 'archived')::int as "archivedLocal",
+      count(*) filter (where coalesce(f.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, 'not_started') = 'archive_exception')::int as "archiveReadinessExceptions",
+      count(*) filter (where coalesce(f.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, 'not_started') = 'needs_rework')::int as "archiveReadinessNeedsRework",
+      count(*) filter (where coalesce(f.sop_policy_governance_evidence_reconciliation_closure_receipt_state, 'not_started') = 'received')::int as "receivedClosureReceipts",
+      count(*) filter (where coalesce(f.sop_policy_governance_evidence_reconciliation_closure_state, 'not_started') = 'closed')::int as "closedReconciliationEvidence",
+      count(*) filter (where exists (
+        select 1
+        from clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_events e
+        where e.follow_up_id = f.id
+      ))::int as "localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents"
+    from scoped_followups f
+  `;
+}
+
+export function buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSql({
+  followUpId,
+  actorUserId,
+  changes,
+  allClinics = false,
+  clinicIds = [],
+}) {
+  const nextState = changes.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState !== undefined
+    ? sqlLiteral(changes.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState)
+    : "p.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state";
+  const nextNote = changes.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote !== undefined
+    ? sqlNullableText(changes.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote)
+    : "p.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note";
+  const archiveReadiedState = ["ready", "archived", "archive_exception", "needs_rework"].includes(
+    changes.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState,
+  );
+
+  return `
+    with previous as (
+      select f.*
+      from clinical_follow_up_tasks f
+      where f.id = ${sqlUuid(followUpId)}
+        and ${clinicScopeWhere("f", { allClinics, clinicIds })}
+      for update
+    ), updated as (
+      update clinical_follow_up_tasks f
+      set
+          sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state = ${nextState},
+          sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note = ${nextNote},
+          sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readied_by_user_id = ${archiveReadiedState ? sqlUuid(actorUserId) : "p.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readied_by_user_id"},
+          sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readied_at = ${archiveReadiedState ? "now()" : "p.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readied_at"},
+          updated_at = now()
+      from previous p
+      where f.id = p.id
+      returning f.*,
+        p.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state as previous_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state,
+        p.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note as previous_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note,
+        p.sop_policy_governance_evidence_reconciliation_closure_receipt_state as previous_sop_policy_governance_evidence_reconciliation_closure_receipt_state,
+        p.sop_policy_governance_evidence_reconciliation_closure_state as previous_sop_policy_governance_evidence_reconciliation_closure_state,
+        p.sop_policy_governance_evidence_reconciliation_state as previous_sop_policy_governance_evidence_reconciliation_state
+    ), event as (
+      insert into clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_events (
+        follow_up_id,
+        clinic_id,
+        actor_user_id,
+        event_type,
+        previous_state,
+        next_state,
+        archive_readiness_state,
+        closure_receipt_state,
+        reconciliation_closure_state,
+        reconciliation_state,
+        note
+      )
+      select
+        u.id,
+        u.clinic_id,
+        ${sqlUuid(actorUserId)},
+        'sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness.update',
+        jsonb_build_object(
+          'sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState', coalesce(previous_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, 'not_started'),
+          'sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote', previous_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note,
+          'sopPolicyGovernanceEvidenceReconciliationClosureReceiptState', coalesce(previous_sop_policy_governance_evidence_reconciliation_closure_receipt_state, 'not_started'),
+          'sopPolicyGovernanceEvidenceReconciliationClosureState', coalesce(previous_sop_policy_governance_evidence_reconciliation_closure_state, 'not_started'),
+          'sopPolicyGovernanceEvidenceReconciliationState', coalesce(previous_sop_policy_governance_evidence_reconciliation_state, 'not_started')
+        ),
+        jsonb_build_object(
+          'sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState', coalesce(u.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, 'not_started'),
+          'sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote', u.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_note,
+          'sopPolicyGovernanceEvidenceReconciliationClosureReceiptState', coalesce(u.sop_policy_governance_evidence_reconciliation_closure_receipt_state, 'not_started'),
+          'sopPolicyGovernanceEvidenceReconciliationClosureState', coalesce(u.sop_policy_governance_evidence_reconciliation_closure_state, 'not_started'),
+          'sopPolicyGovernanceEvidenceReconciliationState', coalesce(u.sop_policy_governance_evidence_reconciliation_state, 'not_started')
+        ),
+        coalesce(u.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_state, 'not_started'),
+        coalesce(u.sop_policy_governance_evidence_reconciliation_closure_receipt_state, 'not_started'),
+        coalesce(u.sop_policy_governance_evidence_reconciliation_closure_state, 'not_started'),
+        coalesce(u.sop_policy_governance_evidence_reconciliation_state, 'not_started'),
+        ${sqlNullableText(changes.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote || changes.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState)}
+      from updated u
+      returning id
+    )
+    select ${followUpSelect()}
+    from updated f
+    join patients p on p.id = f.patient_id
+    left join visits v on v.id = f.visit_id
+  `;
+}
+
 export function buildUpdateClinicalFollowUpSopPolicyExceptionClosureSql({
   followUpId,
   actorUserId,
@@ -2707,6 +2835,22 @@ export function createClinicalFollowUpRepository(dbClient) {
         source: "postgres",
       };
     },
+    async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary(params) {
+      const rows = await dbClient.queryJson(buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummarySql(params));
+      const row = rows[0] || {};
+      return {
+        totalFollowUps: Number(row.totalFollowUps ?? row.total_follow_ups ?? 0),
+        archiveReadinessReady: Number(row.archiveReadinessReady ?? row.archive_readiness_ready ?? 0),
+        needsArchiveReadiness: Number(row.needsArchiveReadiness ?? row.needs_archive_readiness ?? 0),
+        archivedLocal: Number(row.archivedLocal ?? row.archived_local ?? 0),
+        archiveReadinessExceptions: Number(row.archiveReadinessExceptions ?? row.archive_readiness_exceptions ?? 0),
+        archiveReadinessNeedsRework: Number(row.archiveReadinessNeedsRework ?? row.archive_readiness_needs_rework ?? 0),
+        receivedClosureReceipts: Number(row.receivedClosureReceipts ?? row.received_closure_receipts ?? 0),
+        closedReconciliationEvidence: Number(row.closedReconciliationEvidence ?? row.closed_reconciliation_evidence ?? 0),
+        localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents: Number(row.localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents ?? row.local_governance_evidence_reconciliation_closure_receipt_archive_readiness_events ?? 0),
+        source: "postgres",
+      };
+    },
     async listClinicalFollowUpSopPolicyTemplates(params) {
       const rows = await dbClient.queryJson(buildListClinicalFollowUpSopPolicyTemplatesSql(params));
       return {
@@ -2774,6 +2918,10 @@ export function createClinicalFollowUpRepository(dbClient) {
     },
     async updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt(params) {
       const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSql(params));
+      return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
+    },
+    async updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness(params) {
+      const rows = await dbClient.queryJson(buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSql(params));
       return rows[0] ? normalizeClinicalFollowUp(rows[0]) : null;
     },
   };

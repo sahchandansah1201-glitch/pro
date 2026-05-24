@@ -33,6 +33,7 @@ export type FollowUpSopPolicyGovernanceEvidenceState = "not_started" | "ready" |
 export type FollowUpSopPolicyGovernanceEvidenceReconciliationState = "not_started" | "ready" | "reconciled" | "mismatch" | "needs_followup";
 export type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureState = "not_started" | "ready" | "closed" | "closure_exception" | "needs_rework";
 export type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptState = "not_started" | "ready" | "received" | "receipt_exception" | "needs_rework";
+export type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState = "not_started" | "ready" | "archived" | "archive_exception" | "needs_rework";
 
 export interface SelfHostedFollowUpMessage {
   id: string;
@@ -108,6 +109,9 @@ export interface SelfHostedClinicalFollowUp {
   sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptState;
   sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote?: string | null;
   sopPolicyGovernanceEvidenceReconciliationClosureReceivedAt?: string | null;
+  sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState;
+  sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote?: string | null;
+  sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiedAt?: string | null;
   sopExceptionReason?: string | null;
   sopValidatedAt?: string | null;
   resolvedAt?: string | null;
@@ -327,6 +331,19 @@ export interface FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt
   source?: string;
 }
 
+export interface FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary {
+  totalFollowUps: number;
+  archiveReadinessReady: number;
+  needsArchiveReadiness: number;
+  archivedLocal: number;
+  archiveReadinessExceptions: number;
+  archiveReadinessNeedsRework: number;
+  receivedClosureReceipts: number;
+  closedReconciliationEvidence: number;
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents: number;
+  source?: string;
+}
+
 export interface SelfHostedFollowUpSopPolicyTemplate {
   id: string;
   clinicId: string | null;
@@ -419,6 +436,11 @@ export interface UpdateFollowUpSopPolicyGovernanceEvidenceReconciliationClosureP
 export interface UpdateFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptPayload {
   sopPolicyGovernanceEvidenceReconciliationClosureReceiptState?: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptState;
   sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote?: string | null;
+}
+
+export interface UpdateFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessPayload {
+  sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState?: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState;
+  sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote?: string | null;
 }
 
 export interface CreateFollowUpSopPolicyTemplatePayload {
@@ -596,6 +618,13 @@ function toSopPolicyGovernanceEvidenceReconciliationClosureReceiptState(value: u
     : "not_started";
 }
 
+function toSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState(value: unknown): FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState {
+  const state = String(value ?? "not_started");
+  return ["not_started", "ready", "archived", "archive_exception", "needs_rework"].includes(state)
+    ? (state as FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState)
+    : "not_started";
+}
+
 export function toSelfHostedFollowUpMessage(input: unknown): SelfHostedFollowUpMessage {
   const row = isRecord(input) ? input : {};
   return {
@@ -676,6 +705,9 @@ export function toSelfHostedClinicalFollowUp(input: unknown): SelfHostedClinical
     sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: toSopPolicyGovernanceEvidenceReconciliationClosureReceiptState(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptState),
     sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: textOrNull(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote),
     sopPolicyGovernanceEvidenceReconciliationClosureReceivedAt: textOrNull(row.sopPolicyGovernanceEvidenceReconciliationClosureReceivedAt),
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: toSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState),
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote: textOrNull(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote),
+    sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiedAt: textOrNull(row.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiedAt),
     sopExceptionReason: textOrNull(row.sopExceptionReason),
     sopValidatedAt: textOrNull(row.sopValidatedAt),
     resolvedAt: textOrNull(row.resolvedAt),
@@ -912,6 +944,22 @@ export function toFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceip
     closedReconciliationEvidence: numberOrZero(row.closedReconciliationEvidence),
     reconciledGovernanceEvidence: numberOrZero(row.reconciledGovernanceEvidence),
     localGovernanceEvidenceReconciliationClosureReceiptEvents: numberOrZero(row.localGovernanceEvidenceReconciliationClosureReceiptEvents),
+    source: textOrNull(row.source) || undefined,
+  };
+}
+
+export function toFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary(input: unknown): FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary {
+  const row = isRecord(input) ? input : {};
+  return {
+    totalFollowUps: numberOrZero(row.totalFollowUps),
+    archiveReadinessReady: numberOrZero(row.archiveReadinessReady),
+    needsArchiveReadiness: numberOrZero(row.needsArchiveReadiness),
+    archivedLocal: numberOrZero(row.archivedLocal),
+    archiveReadinessExceptions: numberOrZero(row.archiveReadinessExceptions),
+    archiveReadinessNeedsRework: numberOrZero(row.archiveReadinessNeedsRework),
+    receivedClosureReceipts: numberOrZero(row.receivedClosureReceipts),
+    closedReconciliationEvidence: numberOrZero(row.closedReconciliationEvidence),
+    localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents: numberOrZero(row.localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents),
     source: textOrNull(row.source) || undefined,
   };
 }
@@ -1202,6 +1250,15 @@ export async function getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceRe
   return ok(toFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary(body.item));
 }
 
+export async function getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary>> {
+  const response = await requestJson(args, "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness/summary");
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary(body.item));
+}
+
 export async function listSelfHostedClinicalFollowUpSopPolicyTemplates(
   args: BaseArgs & { activeOnly?: boolean },
 ): Promise<SelfHostedApiResult<SelfHostedFollowUpSopPolicyTemplate[]>> {
@@ -1363,6 +1420,18 @@ export async function updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenc
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptPayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
   const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/sop-policy-governance-evidence-reconciliation-closure-receipt`, {
+    method: "PATCH",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedClinicalFollowUp(body.item));
+}
+
+export async function updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness(
+  args: BaseArgs & { followUpId: string; payload: UpdateFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessPayload },
+): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
+  const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness`, {
     method: "PATCH",
     body: args.payload,
   });
