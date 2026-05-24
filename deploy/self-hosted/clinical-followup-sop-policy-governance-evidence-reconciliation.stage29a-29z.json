@@ -1,0 +1,43 @@
+{
+  "stage": "29A-29Z",
+  "name": "clinical-followup-sop-policy-governance-evidence-reconciliation",
+  "status": "ready",
+  "previousBatch": "Stage 28A-28Z",
+  "nextBatchHypothesis": "Stage 30A-30Z",
+  "purpose": "Add a local SOP policy governance evidence reconciliation checkpoint after Stage 28 evidence export/review for clinical follow-up tasks.",
+  "implementedSurfaces": [
+    "PostgreSQL governance evidence reconciliation fields on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_sop_policy_governance_evidence_reconciliation_events",
+    "Backend governance evidence reconciliation summary route",
+    "Backend governance evidence reconciliation update route",
+    "OpenAPI Stage 29A-29Z contract",
+    "nginx OpenAPI publishing",
+    "Frontend follow-up API adapter",
+    "Doctor workspace reconciliation summary tiles",
+    "Doctor workspace Reconcile evidence and Recon mismatch actions",
+    "Stage guard, tests, workflow, docs, and preflight-all wiring",
+    "Project-memory recovery update"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "externalRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyGovernanceEvidenceReconciliationIsLocalMetadataOnly": true,
+    "clinicGovernanceEvidenceReconciliationIsNotExternalApprovalProof": true,
+    "reconciliationDoesNotIncludeRawPatientNames": true,
+    "reconciliationDoesNotIncludeTokensOrSignedUrls": true,
+    "medicalCorrectnessProof": false
+  },
+  "verification": {
+    "test": "npm run test:stage29a-29z",
+    "check": "npm run check:stage29a-29z",
+    "preflight": "npm run preflight:stage29a-29z",
+    "expectedConfirmation": "Confirmed: Stage 29A-29Z synced from main, no conflicts."
+  }
+}

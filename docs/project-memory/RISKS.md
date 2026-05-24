@@ -1,5 +1,22 @@
 # RISKS
 
+## Stage 29A-29Z follow-up SOP policy governance evidence reconciliation risks
+
+1. **Risk: local SOP policy governance evidence reconciliation can be mistaken for external governance approval proof.**
+   - Evidence: Stage 29A-29Z records local reconciliation state and notes on
+     follow-up tasks, but it does not verify legal sign-off, external SOP
+     approvals, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy governance
+     evidence reconciliation as local metadata only.
+
+2. **Risk: reconciliation can hide mismatched evidence if clinic follow-up is not visible.**
+   - Evidence: Stage 29A-29Z summarizes reconciliation readiness from local
+     exported evidence, closure, governance, and audit fields; it does not
+     perform external remediation or diagnosis/treatment correctness checks.
+   - Mitigation: keep mismatch and needs-follow-up states bounded,
+     RBAC-protected, append-only audited, and visible in the doctor workspace
+     summary.
+
 ## Stage 28A-28Z follow-up SOP policy governance evidence risks
 
 1. **Risk: local SOP policy governance evidence can be mistaken for external governance approval proof.**

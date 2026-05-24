@@ -95,6 +95,14 @@
    - [check-stage28a-28z-clinical-followup-sop-policy-governance-evidence.mjs](../../scripts/check-stage28a-28z-clinical-followup-sop-policy-governance-evidence.mjs)
    - [stage28a-28z-clinical-followup-sop-policy-governance-evidence.yml](../../.github/workflows/stage28a-28z-clinical-followup-sop-policy-governance-evidence.yml)
 
+13. Stage 29A-29Z clinical follow-up SOP policy governance evidence reconciliation artifacts:
+   - [clinical-followup-sop-policy-governance-evidence-reconciliation.stage29a-29z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation.stage29a-29z.json)
+   - [0036_stage29_followup_sop_policy_governance_evidence_reconciliation.sql](../../backend/self-hosted/db/migrations/0036_stage29_followup_sop_policy_governance_evidence_reconciliation.sql)
+   - [openapi.stage29a-29z.json](../../backend/self-hosted/openapi.stage29a-29z.json)
+   - [stage-29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.md](../backend/stage-29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.md)
+   - [check-stage29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.mjs](../../scripts/check-stage29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.mjs)
+   - [stage29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.yml](../../.github/workflows/stage29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

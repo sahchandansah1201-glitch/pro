@@ -1,0 +1,178 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-hosted Clinical Follow-up SOP Policy Governance Evidence Reconciliation",
+    "version": "29A-29Z-clinical-followup-sop-policy-governance-evidence-reconciliation"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation/summary": {
+      "get": {
+        "summary": "Read local SOP policy governance evidence reconciliation summary",
+        "operationId": "getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary",
+        "responses": {
+          "200": {
+            "description": "Local reconciliation summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation": {
+      "patch": {
+        "summary": "Update local SOP policy governance evidence reconciliation state",
+        "operationId": "updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliation",
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated local follow-up reconciliation state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationUpdateResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "RBAC denied"
+          },
+          "404": {
+            "description": "Follow-up was not found in scope"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationState": {
+        "type": "string",
+        "enum": [
+          "not_started",
+          "ready",
+          "reconciled",
+          "mismatch",
+          "needs_followup"
+        ]
+      },
+      "ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "reconciliationReady": { "type": "integer" },
+          "needsReconciliation": { "type": "integer" },
+          "reconciledGovernanceEvidence": { "type": "integer" },
+          "evidenceMismatches": { "type": "integer" },
+          "reconciliationNeedsFollowUp": { "type": "integer" },
+          "exportedGovernanceEvidence": { "type": "integer" },
+          "closedGovernanceReviews": { "type": "integer" },
+          "localGovernanceEvidenceReconciliationEvents": { "type": "integer" },
+          "source": { "type": "string", "enum": ["postgres"] }
+        },
+        "required": [
+          "totalFollowUps",
+          "reconciliationReady",
+          "needsReconciliation",
+          "reconciledGovernanceEvidence",
+          "evidenceMismatches",
+          "reconciliationNeedsFollowUp",
+          "exportedGovernanceEvidence",
+          "closedGovernanceReviews",
+          "localGovernanceEvidenceReconciliationEvents",
+          "source"
+        ]
+      },
+      "ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "stage": { "type": "string", "const": "29A-29Z" },
+          "source": { "type": "string", "const": "postgres" },
+          "item": {
+            "$ref": "#/components/schemas/ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary"
+          },
+          "generatedAt": { "type": "string" },
+          "correlationId": { "type": "string" }
+        },
+        "required": ["stage", "source", "item"]
+      },
+      "ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sopPolicyGovernanceEvidenceReconciliationState": {
+            "$ref": "#/components/schemas/ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationState"
+          },
+          "sopPolicyGovernanceEvidenceReconciliationNote": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          }
+        },
+        "anyOf": [
+          { "required": ["sopPolicyGovernanceEvidenceReconciliationState"] },
+          { "required": ["sopPolicyGovernanceEvidenceReconciliationNote"] }
+        ]
+      },
+      "ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "stage": { "type": "string", "const": "29A-29Z" },
+          "source": { "type": "string", "const": "postgres" },
+          "item": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "sopPolicyGovernanceEvidenceReconciliationState": {
+                "$ref": "#/components/schemas/ClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationState"
+              },
+              "sopPolicyGovernanceEvidenceReconciliationNote": {
+                "type": ["string", "null"]
+              },
+              "sopPolicyGovernanceEvidenceReconciledAt": {
+                "type": ["string", "null"]
+              }
+            },
+            "required": ["id", "sopPolicyGovernanceEvidenceReconciliationState"]
+          },
+          "generatedAt": { "type": "string" },
+          "correlationId": { "type": "string" }
+        },
+        "required": ["stage", "source", "item"]
+      }
+    }
+  }
+}
