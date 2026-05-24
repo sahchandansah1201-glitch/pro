@@ -2,13 +2,27 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 32A-32Z is being
+This handoff captures the repository state while Stage 33A-33Z is being
 implemented from branch
-`codex/stage32a-32z-clinical-followup-sop-governance-receipt-archive-readiness`.
+`codex/stage33a-33z-clinical-followup-sop-governance-receipt-archive-closure`.
 
 ## Confirmed state
 
-0. Stage 32A-32Z is implemented in the current branch as SOP policy governance
+0. Stage 33A-33Z is implemented in the current branch as SOP policy governance
+   evidence reconciliation closure receipt archive closure:
+   - PostgreSQL SOP policy governance evidence reconciliation closure receipt
+     archive closure fields on `clinical_follow_up_tasks`;
+   - append-only
+     `clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_events`;
+   - backend SOP policy governance evidence reconciliation closure receipt
+     archive closure summary/update routes;
+   - doctor live workspace Closure ready / Needs closure / Closed archives
+     summary tiles and Close archive / Archive closure rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure.
+
+0. Stage 32A-32Z is merged to main as SOP policy governance
    evidence reconciliation closure receipt archive readiness:
    - PostgreSQL SOP policy governance evidence reconciliation closure receipt
      archive readiness fields on `clinical_follow_up_tasks`;

@@ -127,6 +127,14 @@
    - [check-stage32a-32z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness.mjs](../../scripts/check-stage32a-32z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness.mjs)
    - [stage32a-32z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness.yml](../../.github/workflows/stage32a-32z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness.yml)
 
+17. Stage 33A-33Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure artifacts:
+   - [clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.stage33a-33z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.stage33a-33z.json)
+   - [0040_stage33_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure.sql](../../backend/self-hosted/db/migrations/0040_stage33_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure.sql)
+   - [openapi.stage33a-33z.json](../../backend/self-hosted/openapi.stage33a-33z.json)
+   - [stage-33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.md](../backend/stage-33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.md)
+   - [check-stage33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.mjs](../../scripts/check-stage33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.mjs)
+   - [stage33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.yml](../../.github/workflows/stage33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)
