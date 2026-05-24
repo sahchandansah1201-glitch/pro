@@ -2,13 +2,27 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 31A-31Z is being
+This handoff captures the repository state while Stage 32A-32Z is being
 implemented from branch
-`codex/stage31a-31z-clinical-followup-sop-governance-evidence-reconciliation-closure-receipt`.
+`codex/stage32a-32z-clinical-followup-sop-governance-receipt-archive-readiness`.
 
 ## Confirmed state
 
-0. Stage 31A-31Z is implemented in the current branch as SOP policy governance
+0. Stage 32A-32Z is implemented in the current branch as SOP policy governance
+   evidence reconciliation closure receipt archive readiness:
+   - PostgreSQL SOP policy governance evidence reconciliation closure receipt
+     archive readiness fields on `clinical_follow_up_tasks`;
+   - append-only
+     `clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness_events`;
+   - backend SOP policy governance evidence reconciliation closure receipt
+     archive readiness summary/update routes;
+   - doctor live workspace Archive ready / Needs archive / Archived local
+     summary tiles and Archive ready / Archive rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive readiness.
+
+0. Stage 31A-31Z is merged to main as SOP policy governance
    evidence reconciliation closure receipt:
    - PostgreSQL SOP policy governance evidence reconciliation closure receipt
      fields on `clinical_follow_up_tasks`;
@@ -478,8 +492,12 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 31A-31Z` is the next hypothesis after Stage 30A-30Z until repository
+- `Stage 33A-33Z` is the next hypothesis after Stage 32A-32Z until repository
   files define it.
+- `Stage 32A-32Z` closes the previous hypothesis with local SOP policy
+  governance evidence reconciliation closure receipt archive readiness.
+- `Stage 31A-31Z` closes the previous hypothesis with local SOP policy
+  governance evidence reconciliation closure receipt.
 - `Stage 30A-30Z` closes the previous hypothesis with local SOP policy
   governance evidence reconciliation closure.
 - `Stage 29A-29Z` closes the previous hypothesis with local SOP policy
@@ -505,10 +523,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 31A-31Z Pull request lifecycle.
+1. Complete the Stage 32A-32Z Pull request lifecycle.
 2. Run or verify:
+   - `npm run preflight:stage32a-32z`
    - `npm run preflight:stage31a-31z`
-   - `npm run preflight:stage30a-30z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

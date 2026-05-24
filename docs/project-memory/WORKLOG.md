@@ -2,6 +2,19 @@
 
 ## 2026-05-24
 
+- Создан Stage 32A-32Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive readiness после Stage 31A-31Z.
+- Добавлены SOP policy governance evidence reconciliation closure receipt
+  archive readiness поля, append-only governance evidence reconciliation
+  closure receipt archive readiness events, backend summary/update routes,
+  OpenAPI, nginx publishing, frontend adapter, doctor live workspace Archive
+  ready / Needs archive / Archived local summary tiles, Archive ready /
+  Archive rework actions, guard, workflow, docs, project-memory update, and
+  preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no legal archive sufficiency proof,
+  no medical correctness proof, no signed URLs/storage paths/provider tokens in
+  protected outputs.
+
 - Создан Stage 31A-31Z clinical follow-up SOP policy governance evidence reconciliation closure receipt после Stage 30A-30Z.
 - Добавлены SOP policy governance evidence reconciliation closure receipt поля,
   append-only governance evidence reconciliation closure receipt events, backend
