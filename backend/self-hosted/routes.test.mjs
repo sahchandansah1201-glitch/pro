@@ -697,6 +697,28 @@ function createRuntime({
           },
         };
       },
+      async getClinicalFollowUpSopPolicyAuditRollupSummary() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          summary: {
+            totalFollowUps: 4,
+            auditReady: 2,
+            needsAuditReview: 1,
+            reviewedAudits: 1,
+            needsFollowUp: 0,
+            unresolvedPolicyDrift: 1,
+            openExceptions: 1,
+            missingPolicyTemplate: 1,
+            localPolicyAuditEvents: 2,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         if (clinicalFollowUpError) throw clinicalFollowUpError;
         return {
@@ -861,6 +883,24 @@ function createRuntime({
             sopPolicyExceptionState: "accepted",
             sopPolicyExceptionReason: "Local exception accepted.",
             sopPolicyExceptionResolution: "Closed inside clinic policy review.",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUpSopPolicyAuditRollup() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: {
+            ...(clinicalFollowUp || { id: "10000000-0000-4000-8000-000000000701" }),
+            sopValidationState: "validated",
+            sopPolicyDriftState: "in_sync",
+            sopPolicyExceptionState: "closed",
+            sopPolicyAuditState: "reviewed",
+            sopPolicyAuditNote: "Local SOP policy audit reviewed.",
           },
           scope: {
             allClinics: false,
@@ -1527,6 +1567,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.capabilities.clinicalFollowUps, "rbac-read-write-postgres-patient-portal-local-communication");
   assert.equal(meta.json.capabilities.clinicalFollowUpOperations, "rbac-read-write-postgres-sla-triage-escalation-local-evidence");
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyExceptionClosure, "rbac-read-write-postgres-local-sop-policy-exception-closure");
+  assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyAuditRollup, "rbac-read-write-postgres-local-sop-policy-audit-rollup");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -1622,6 +1663,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyApplication, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-application");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyExceptionClosureSummary, "/api/v1/clinical/follow-ups/sop-policy-exceptions/summary");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyExceptionClosure, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-exception");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyAuditRollupSummary, "/api/v1/clinical/follow-ups/sop-policy-audit/summary");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyAuditRollup, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-audit");
   assert.equal(meta.json.links.clinicalFollowUpOperation, "/api/v1/clinical/follow-ups/{followUpId}/operations");
   assert.equal(meta.json.links.patientPortalFollowUps, "/api/v1/me/follow-ups");
   assert.equal(meta.json.links.patientPortalFollowUpMessages, "/api/v1/me/follow-ups/{followUpId}/messages");
@@ -4470,6 +4513,43 @@ test("Stage 24A-24Z · /openapi.stage24a-24z.json documents SOP policy exception
   assert.equal(response.json.info.version, "24A-24Z-clinical-followup-sop-policy-exception-closure");
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-exceptions/summary"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-exception"].patch);
+});
+
+test("Stage 25A-25Z · SOP policy audit rollup routes review local policy audit state", async () => {
+  const runtime = createRuntime();
+  const summary = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-audit/summary",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(summary.status, 200);
+  assert.equal(summary.json.stage, "25A-25Z");
+  assert.equal(summary.json.item.auditReady, 2);
+  assert.equal(summary.json.item.needsAuditReview, 1);
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701/sop-policy-audit",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    {
+      sopPolicyAuditState: "reviewed",
+      sopPolicyAuditNote: "Local SOP policy audit reviewed.",
+    },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.stage, "25A-25Z");
+  assert.equal(updated.json.item.sopPolicyAuditState, "reviewed");
+  assert.equal(updated.json.item.sopPolicyAuditNote, "Local SOP policy audit reviewed.");
+  assert.doesNotMatch(updated.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url|access_token|external SOP approval|medical correctness/i);
+});
+
+test("Stage 25A-25Z · /openapi.stage25a-25z.json documents SOP policy audit rollup", async () => {
+  const response = await request("/openapi.stage25a-25z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "25A-25Z-clinical-followup-sop-policy-audit-rollup");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-audit/summary"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-audit"].patch);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

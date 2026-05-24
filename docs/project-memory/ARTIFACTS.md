@@ -63,6 +63,14 @@
    - [check-stage24a-24z-clinical-followup-sop-policy-exception-closure.mjs](../../scripts/check-stage24a-24z-clinical-followup-sop-policy-exception-closure.mjs)
    - [stage24a-24z-clinical-followup-sop-policy-exception-closure.yml](../../.github/workflows/stage24a-24z-clinical-followup-sop-policy-exception-closure.yml)
 
+9. Stage 25A-25Z clinical follow-up SOP policy audit rollup artifacts:
+   - [clinical-followup-sop-policy-audit-rollup.stage25a-25z.json](../../deploy/self-hosted/clinical-followup-sop-policy-audit-rollup.stage25a-25z.json)
+   - [0032_stage25_followup_sop_policy_audit_rollup.sql](../../backend/self-hosted/db/migrations/0032_stage25_followup_sop_policy_audit_rollup.sql)
+   - [openapi.stage25a-25z.json](../../backend/self-hosted/openapi.stage25a-25z.json)
+   - [stage-25a-25z-clinical-followup-sop-policy-audit-rollup.md](../backend/stage-25a-25z-clinical-followup-sop-policy-audit-rollup.md)
+   - [check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.mjs](../../scripts/check-stage25a-25z-clinical-followup-sop-policy-audit-rollup.mjs)
+   - [stage25a-25z-clinical-followup-sop-policy-audit-rollup.yml](../../.github/workflows/stage25a-25z-clinical-followup-sop-policy-audit-rollup.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

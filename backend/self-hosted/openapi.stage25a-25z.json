@@ -1,0 +1,104 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dermatolog Pro Self-Hosted Clinical Follow-Up SOP Policy Audit Rollup",
+    "version": "25A-25Z-clinical-followup-sop-policy-audit-rollup",
+    "description": "Self-hosted local SOP policy audit rollup contracts for clinical follow-up policy review. Uses local PostgreSQL metadata only and does not prove external SOP approval or medical correctness."
+  },
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-audit/summary": {
+      "get": {
+        "summary": "Read local SOP policy audit rollup summary",
+        "responses": {
+          "200": {
+            "description": "Local SOP policy audit rollup summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "const": "25A-25Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/SopPolicyAuditRollupSummary" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-audit": {
+      "patch": {
+        "summary": "Review local SOP policy audit state",
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SopPolicyAuditRollupUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated follow-up local SOP policy audit state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "const": "25A-25Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "422": { "description": "Validation error" },
+          "404": { "description": "Follow-up SOP policy audit was not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SopPolicyAuditRollupSummary": {
+        "type": "object",
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "auditReady": { "type": "integer" },
+          "needsAuditReview": { "type": "integer" },
+          "reviewedAudits": { "type": "integer" },
+          "needsFollowUp": { "type": "integer" },
+          "unresolvedPolicyDrift": { "type": "integer" },
+          "openExceptions": { "type": "integer" },
+          "missingPolicyTemplate": { "type": "integer" },
+          "localPolicyAuditEvents": { "type": "integer" },
+          "source": { "const": "postgres" }
+        }
+      },
+      "SopPolicyAuditRollupUpdate": {
+        "type": "object",
+        "properties": {
+          "sopPolicyAuditState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "reviewed", "needs_followup"]
+          },
+          "sopPolicyAuditNote": { "type": ["string", "null"], "maxLength": 2000 }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
