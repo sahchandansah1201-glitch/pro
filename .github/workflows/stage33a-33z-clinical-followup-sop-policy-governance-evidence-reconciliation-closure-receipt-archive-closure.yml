@@ -1,0 +1,34 @@
+name: stage33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.stage33a-33z.json"
+      - "backend/self-hosted/db/migrations/0040_stage33_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure.sql"
+      - "backend/self-hosted/openapi.stage33a-33z.json"
+      - "backend/self-hosted/clinical-followup-repository.mjs"
+      - "backend/self-hosted/clinical-followup-service.mjs"
+      - "backend/self-hosted/routes.mjs"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "scripts/check-stage33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.mjs"
+      - "scripts/check-stage33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.test.mjs"
+      - "docs/backend/stage-33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.md"
+      - "docs/project-memory/**"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/stage33a-33z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure.yml"
+  workflow_dispatch:
+
+jobs:
+  stage33a-33z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage33a-33z
