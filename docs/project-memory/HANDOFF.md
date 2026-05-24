@@ -2,13 +2,26 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 29A-29Z is being
+This handoff captures the repository state while Stage 30A-30Z is being
 implemented from branch
-`codex/stage29a-29z-clinical-followup-sop-governance-evidence-reconciliation`.
+`codex/stage30a-30z-clinical-followup-sop-governance-evidence-reconciliation-closure`.
 
 ## Confirmed state
 
-0. Stage 29A-29Z is implemented in the current branch as SOP policy governance
+0. Stage 30A-30Z is implemented in the current branch as SOP policy governance
+   evidence reconciliation closure:
+   - PostgreSQL SOP policy governance evidence reconciliation closure fields on
+     `clinical_follow_up_tasks`;
+   - append-only
+     `clinical_follow_up_sop_policy_governance_evidence_reconciliation_closure_events`;
+   - backend SOP policy governance evidence reconciliation closure summary/update
+     routes;
+   - doctor live workspace Recon close ready / Needs recon close / Closed recon
+     summary tiles and Close recon / Closure rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     and no medical correctness proof.
+
+0. Stage 29A-29Z is merged to main as SOP policy governance
    evidence reconciliation:
    - PostgreSQL SOP policy governance evidence reconciliation fields on
      `clinical_follow_up_tasks`;
@@ -452,8 +465,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 30A-30Z` is the next hypothesis after Stage 29A-29Z until repository
+- `Stage 31A-31Z` is the next hypothesis after Stage 30A-30Z until repository
   files define it.
+- `Stage 30A-30Z` closes the previous hypothesis with local SOP policy
+  governance evidence reconciliation closure.
 - `Stage 29A-29Z` closes the previous hypothesis with local SOP policy
   governance evidence reconciliation.
 - `Stage 28A-28Z` closes the previous hypothesis with local SOP policy
@@ -477,10 +492,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 28A-28Z Pull request lifecycle.
+1. Complete the Stage 30A-30Z Pull request lifecycle.
 2. Run or verify:
-   - `npm run preflight:stage28a-28z`
-   - `npm run preflight:stage27a-27z`
+   - `npm run preflight:stage30a-30z`
+   - `npm run preflight:stage29a-29z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

@@ -1,0 +1,162 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-Hosted Clinical Follow-Up SOP Governance Evidence Reconciliation Closure",
+    "version": "30A-30Z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure",
+    "description": "Stage 30A-30Z local SOP policy governance evidence reconciliation closure endpoints for the self-hosted product boundary."
+  },
+  "servers": [{ "url": "/" }],
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure/summary": {
+      "get": {
+        "summary": "Read local SOP policy governance evidence reconciliation closure summary",
+        "operationId": "getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Local reconciliation closure summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "const": "30A-30Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/ReconciliationClosureSummary" },
+                    "generatedAt": { "type": "string" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure": {
+      "patch": {
+        "summary": "Update local SOP policy governance evidence reconciliation closure",
+        "operationId": "updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReconciliationClosureUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated follow-up with local reconciliation closure fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item"],
+                  "properties": {
+                    "stage": { "const": "30A-30Z" },
+                    "source": { "const": "postgres" },
+                    "item": { "$ref": "#/components/schemas/ReconciliationClosureFollowUp" },
+                    "generatedAt": { "type": "string" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ReconciliationClosureState": {
+        "type": "string",
+        "enum": ["not_started", "ready", "closed", "closure_exception", "needs_rework"]
+      },
+      "ReconciliationClosureSummary": {
+        "type": "object",
+        "required": [
+          "totalFollowUps",
+          "reconciliationClosureReady",
+          "needsReconciliationClosure",
+          "closedReconciliationEvidence",
+          "reconciliationClosureExceptions",
+          "reconciliationClosureNeedsRework",
+          "reconciledGovernanceEvidence",
+          "openReconciliationMismatches",
+          "localGovernanceEvidenceReconciliationClosureEvents"
+        ],
+        "properties": {
+          "totalFollowUps": { "type": "integer" },
+          "reconciliationClosureReady": { "type": "integer" },
+          "needsReconciliationClosure": { "type": "integer" },
+          "closedReconciliationEvidence": { "type": "integer" },
+          "reconciliationClosureExceptions": { "type": "integer" },
+          "reconciliationClosureNeedsRework": { "type": "integer" },
+          "reconciledGovernanceEvidence": { "type": "integer" },
+          "openReconciliationMismatches": { "type": "integer" },
+          "localGovernanceEvidenceReconciliationClosureEvents": { "type": "integer" },
+          "source": { "const": "postgres" }
+        }
+      },
+      "ReconciliationClosureUpdate": {
+        "type": "object",
+        "properties": {
+          "sopPolicyGovernanceEvidenceReconciliationClosureState": {
+            "$ref": "#/components/schemas/ReconciliationClosureState"
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureNote": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          }
+        },
+        "anyOf": [
+          { "required": ["sopPolicyGovernanceEvidenceReconciliationClosureState"] },
+          { "required": ["sopPolicyGovernanceEvidenceReconciliationClosureNote"] }
+        ]
+      },
+      "ReconciliationClosureFollowUp": {
+        "type": "object",
+        "required": ["id", "sopPolicyGovernanceEvidenceReconciliationClosureState"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "sopPolicyGovernanceEvidenceReconciliationClosureState": {
+            "$ref": "#/components/schemas/ReconciliationClosureState"
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureNote": {
+            "type": ["string", "null"]
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosedAt": {
+            "type": ["string", "null"]
+          },
+          "sopPolicyGovernanceEvidenceReconciliationState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "reconciled", "mismatch", "needs_followup"]
+          },
+          "sopPolicyGovernanceEvidenceState": {
+            "type": "string",
+            "enum": ["not_started", "ready", "exported", "needs_followup"]
+          }
+        }
+      }
+    }
+  }
+}

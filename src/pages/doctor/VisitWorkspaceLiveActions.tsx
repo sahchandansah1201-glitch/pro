@@ -23,6 +23,7 @@ import {
   getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceSummary,
+  getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceReadinessSummary,
   getSelfHostedClinicalFollowUpSopValidationSummary,
@@ -37,6 +38,7 @@ import {
   type FollowUpSopPolicyExceptionClosureSummary,
   type FollowUpSopPolicyGovernanceClosureSummary,
   type FollowUpSopPolicyGovernanceEvidenceSummary,
+  type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary,
   type FollowUpSopPolicyGovernanceEvidenceReconciliationSummary,
   type FollowUpSopPolicyGovernanceReadinessSummary,
   type FollowUpSopValidationSummary,
@@ -51,6 +53,7 @@ import {
   updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidence,
+  updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliation,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceReadiness,
 } from "@/lib/self-hosted-follow-up-api";
@@ -88,6 +91,7 @@ type BusyAction =
   | "sop-policy-governance-closure-update"
   | "sop-policy-governance-evidence-update"
   | "sop-policy-governance-evidence-reconciliation-update"
+  | "sop-policy-governance-evidence-reconciliation-closure-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -234,6 +238,18 @@ const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_SUMMARY: FollowUpSopPo
   localGovernanceEvidenceReconciliationEvents: 0,
 };
 
+const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary = {
+  totalFollowUps: 0,
+  reconciliationClosureReady: 0,
+  needsReconciliationClosure: 0,
+  closedReconciliationEvidence: 0,
+  reconciliationClosureExceptions: 0,
+  reconciliationClosureNeedsRework: 0,
+  reconciledGovernanceEvidence: 0,
+  openReconciliationMismatches: 0,
+  localGovernanceEvidenceReconciliationClosureEvents: 0,
+};
+
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
   if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
@@ -270,6 +286,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [sopPolicyGovernanceClosureSummary, setSopPolicyGovernanceClosureSummary] = useState<FollowUpSopPolicyGovernanceClosureSummary>(EMPTY_SOP_POLICY_GOVERNANCE_CLOSURE_SUMMARY);
   const [sopPolicyGovernanceEvidenceSummary, setSopPolicyGovernanceEvidenceSummary] = useState<FollowUpSopPolicyGovernanceEvidenceSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_SUMMARY);
   const [sopPolicyGovernanceEvidenceReconciliationSummary, setSopPolicyGovernanceEvidenceReconciliationSummary] = useState<FollowUpSopPolicyGovernanceEvidenceReconciliationSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_SUMMARY);
+  const [sopPolicyGovernanceEvidenceReconciliationClosureSummary, setSopPolicyGovernanceEvidenceReconciliationClosureSummary] = useState<FollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
   const [sopPolicyTemplates, setSopPolicyTemplates] = useState<SelfHostedFollowUpSopPolicyTemplate[]>([]);
   const [sopTemplateCode, setSopTemplateCode] = useState("followup-standard");
@@ -296,7 +313,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicyGovernance, sopPolicyGovernanceClosure, sopPolicyGovernanceEvidence, sopPolicyGovernanceEvidenceReconciliation, sopPolicies, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicyGovernance, sopPolicyGovernanceClosure, sopPolicyGovernanceEvidence, sopPolicyGovernanceEvidenceReconciliation, sopPolicyGovernanceEvidenceReconciliationClosure, sopPolicies, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
@@ -309,6 +326,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
       getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationSummary(baseArgs),
+      getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureSummary(baseArgs),
       listSelfHostedClinicalFollowUpSopPolicyTemplates({
         ...baseArgs,
         activeOnly: true,
@@ -330,11 +348,12 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (sopPolicyGovernanceClosure.ok) setSopPolicyGovernanceClosureSummary(sopPolicyGovernanceClosure.value);
     if (sopPolicyGovernanceEvidence.ok) setSopPolicyGovernanceEvidenceSummary(sopPolicyGovernanceEvidence.value);
     if (sopPolicyGovernanceEvidenceReconciliation.ok) setSopPolicyGovernanceEvidenceReconciliationSummary(sopPolicyGovernanceEvidenceReconciliation.value);
+    if (sopPolicyGovernanceEvidenceReconciliationClosure.ok) setSopPolicyGovernanceEvidenceReconciliationClosureSummary(sopPolicyGovernanceEvidenceReconciliationClosure.value);
     if (sopPolicies.ok) setSopPolicyTemplates(sopPolicies.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicyGovernance.ok || !sopPolicyGovernanceClosure.ok || !sopPolicyGovernanceEvidence.ok || !sopPolicyGovernanceEvidenceReconciliation.ok || !sopPolicies.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicyGovernanceClosure.error || sopPolicyGovernanceEvidence.error || sopPolicyGovernanceEvidenceReconciliation.error || sopPolicies.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicyGovernance.ok || !sopPolicyGovernanceClosure.ok || !sopPolicyGovernanceEvidence.ok || !sopPolicyGovernanceEvidenceReconciliation.ok || !sopPolicyGovernanceEvidenceReconciliationClosure.ok || !sopPolicies.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicyGovernanceClosure.error || sopPolicyGovernanceEvidence.error || sopPolicyGovernanceEvidenceReconciliation.error || sopPolicyGovernanceEvidenceReconciliationClosure.error || sopPolicies.error || queue.error));
     }
   }
 
@@ -622,6 +641,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("sop-policy-governance-evidence-reconciliation-update");
     const result = await updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliation({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateSopPolicyGovernanceEvidenceReconciliationClosureState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("sop-policy-governance-evidence-reconciliation-closure-update");
+    const result = await updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosure({
       ...baseArgs,
       followUpId,
       payload,
@@ -1085,6 +1120,20 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationSummary.reconciledGovernanceEvidence}</dd>
                 </div>
               </dl>
+              <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Recon close ready</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureSummary.reconciliationClosureReady}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Needs recon close</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureSummary.needsReconciliationClosure}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Closed recon</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureSummary.closedReconciliationEvidence}</dd>
+                </div>
+              </dl>
               <div className="space-y-2 text-[12px]">
                 {sopPolicyTemplates.length === 0 ? (
                   <p className="text-muted-foreground">Активный SOP policy template ещё не задан.</p>
@@ -1221,6 +1270,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   evidence reconciliation: {item.sopPolicyGovernanceEvidenceReconciliationState} · {item.sopPolicyGovernanceEvidenceReconciliationNote || "no local reconciliation note"}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  reconciliation closure: {item.sopPolicyGovernanceEvidenceReconciliationClosureState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureNote || "no local closure note"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1625,6 +1677,40 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Recon mismatch
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-governance-evidence-reconciliation-closure-update"}
+                  onClick={() => void updateSopPolicyGovernanceEvidenceReconciliationClosureState(
+                    item.id,
+                    {
+                      sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
+                      sopPolicyGovernanceEvidenceReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closed from workspace.",
+                    },
+                    "SOP policy governance evidence reconciliation закрыт локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Close recon
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-governance-evidence-reconciliation-closure-update"}
+                  onClick={() => void updateSopPolicyGovernanceEvidenceReconciliationClosureState(
+                    item.id,
+                    {
+                      sopPolicyGovernanceEvidenceReconciliationClosureState: "needs_rework",
+                      sopPolicyGovernanceEvidenceReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure needs rework from workspace.",
+                    },
+                    "SOP policy governance evidence reconciliation closure отправлен на rework локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Closure rework
                 </Button>
               </div>
             </article>
