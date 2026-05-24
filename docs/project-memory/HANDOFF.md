@@ -2,11 +2,24 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 28A-28Z is being
+This handoff captures the repository state while Stage 29A-29Z is being
 implemented from branch
-`codex/stage28a-28z-clinical-followup-sop-governance-evidence-export`.
+`codex/stage29a-29z-clinical-followup-sop-governance-evidence-reconciliation`.
 
 ## Confirmed state
+
+0. Stage 29A-29Z is implemented in the current branch as SOP policy governance
+   evidence reconciliation:
+   - PostgreSQL SOP policy governance evidence reconciliation fields on
+     `clinical_follow_up_tasks`;
+   - append-only
+     `clinical_follow_up_sop_policy_governance_evidence_reconciliation_events`;
+   - backend SOP policy governance evidence reconciliation summary/update
+     routes;
+   - doctor live workspace Recon ready / Needs recon / Reconciled summary
+     tiles and Reconcile evidence / Recon mismatch row actions;
+   - no managed notification provider dependency, no external governance proof,
+     and no medical correctness proof.
 
 0. Stage 28A-28Z is implemented in the current branch as SOP policy governance
    evidence export:
@@ -439,8 +452,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 29A-29Z` is the next hypothesis after Stage 28A-28Z until repository
+- `Stage 30A-30Z` is the next hypothesis after Stage 29A-29Z until repository
   files define it.
+- `Stage 29A-29Z` closes the previous hypothesis with local SOP policy
+  governance evidence reconciliation.
 - `Stage 28A-28Z` closes the previous hypothesis with local SOP policy
   governance evidence export.
 - `Stage 27A-27Z` closes the previous hypothesis with SOP policy governance

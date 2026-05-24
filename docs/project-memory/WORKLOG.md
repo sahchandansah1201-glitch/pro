@@ -2,6 +2,17 @@
 
 ## 2026-05-24
 
+- Создан Stage 29A-29Z clinical follow-up SOP policy governance evidence reconciliation после Stage 28A-28Z.
+- Добавлены SOP policy governance evidence reconciliation поля,
+  append-only governance evidence reconciliation events, backend
+  summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor
+  live workspace Recon ready / Needs recon / Reconciled summary tiles,
+  Reconcile evidence / Recon mismatch actions, guard, workflow, docs,
+  project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no medical correctness proof, no
+  signed URLs/storage paths/provider tokens in protected outputs.
+
 - Создан Stage 28A-28Z clinical follow-up SOP policy governance evidence export после Stage 27A-27Z.
 - Добавлены SOP policy governance evidence поля, append-only governance
   evidence events, backend summary/update routes, OpenAPI, nginx publishing,

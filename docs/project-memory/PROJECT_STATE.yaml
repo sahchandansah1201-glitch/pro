@@ -1,9 +1,16 @@
-generated_at: "2026-05-24T14:11:17+03:00"
+generated_at: "2026-05-24T16:04:31+03:00"
 project: "Dermatolog Pro"
+stage29a_29z:
+  name: "Stage 29A-29Z"
+  clinical_followup_sop_policy_governance_evidence_reconciliation_confirmed: true
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:stage29a-29z"
+  previous_batch: "Stage 28A-28Z"
+  next_hypothesis: "Stage 30A-30Z"
 stage28a_28z:
   name: "Stage 28A-28Z"
   clinical_followup_sop_policy_governance_evidence_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage28a-28z"
   previous_batch: "Stage 27A-27Z"
   next_hypothesis: "Stage 29A-29Z"
@@ -78,9 +85,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage28a-28z-clinical-followup-sop-governance-evidence-export"
-  head_sha: "ef5fff3656178bc84d27382047319f5b99e151d2"
-  head_commit: "Add Stage 27A-27Z clinical follow-up SOP policy governance closure"
+  branch: "codex/stage29a-29z-clinical-followup-sop-governance-evidence-reconciliation"
+  head_sha: "8062011d4c59137857a26ea42e5552a2a7f3b716"
+  head_commit: "Add Stage 28A-28Z clinical follow-up SOP policy governance evidence"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -919,13 +926,16 @@ stage16a_16z_preflight:
     - "scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs"
     - ".github/workflows/stage15a-15z-post-sync-handoff-readiness.yml"
 hypotheses:
-  - "Stage 29A-29Z is the next hypothesis after Stage 28A-28Z until repository files define it."
+  - "Stage 30A-30Z is the next hypothesis after Stage 29A-29Z until repository files define it."
+  - "Stage 29A-29Z closes the prior Stage 29 hypothesis with local follow-up SOP policy governance evidence reconciliation."
   - "Stage 28A-28Z closes the prior Stage 28 hypothesis with local follow-up SOP policy governance evidence export."
   - "Stage 27A-27Z closes the prior Stage 27 hypothesis with local follow-up SOP policy governance closure."
   - "Stage 26A-26Z closes the prior Stage 26 hypothesis with local follow-up SOP policy governance readiness."
   - "Stage 25A-25Z closes the prior Stage 25 hypothesis with local follow-up clinic SOP policy audit rollup."
 sources:
   commands:
+    - "npm run test:stage29a-29z"
+    - "npm run check:stage29a-29z"
     - "npm run test:stage28a-28z"
     - "npm run check:stage28a-28z"
     - "npm run preflight:stage28a-28z"
@@ -1048,6 +1058,12 @@ sources:
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
   files:
+    - "deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation.stage29a-29z.json"
+    - "backend/self-hosted/db/migrations/0036_stage29_followup_sop_policy_governance_evidence_reconciliation.sql"
+    - "backend/self-hosted/openapi.stage29a-29z.json"
+    - "docs/backend/stage-29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.md"
+    - "scripts/check-stage29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.mjs"
+    - ".github/workflows/stage29a-29z-clinical-followup-sop-policy-governance-evidence-reconciliation.yml"
     - "deploy/self-hosted/clinical-followup-sop-policy-governance-evidence.stage28a-28z.json"
     - "backend/self-hosted/db/migrations/0035_stage28_followup_sop_policy_governance_evidence.sql"
     - "backend/self-hosted/openapi.stage28a-28z.json"
