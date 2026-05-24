@@ -87,6 +87,14 @@
    - [check-stage27a-27z-clinical-followup-sop-policy-governance-closure.mjs](../../scripts/check-stage27a-27z-clinical-followup-sop-policy-governance-closure.mjs)
    - [stage27a-27z-clinical-followup-sop-policy-governance-closure.yml](../../.github/workflows/stage27a-27z-clinical-followup-sop-policy-governance-closure.yml)
 
+12. Stage 28A-28Z clinical follow-up SOP policy governance evidence artifacts:
+   - [clinical-followup-sop-policy-governance-evidence.stage28a-28z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence.stage28a-28z.json)
+   - [0035_stage28_followup_sop_policy_governance_evidence.sql](../../backend/self-hosted/db/migrations/0035_stage28_followup_sop_policy_governance_evidence.sql)
+   - [openapi.stage28a-28z.json](../../backend/self-hosted/openapi.stage28a-28z.json)
+   - [stage-28a-28z-clinical-followup-sop-policy-governance-evidence.md](../backend/stage-28a-28z-clinical-followup-sop-policy-governance-evidence.md)
+   - [check-stage28a-28z-clinical-followup-sop-policy-governance-evidence.mjs](../../scripts/check-stage28a-28z-clinical-followup-sop-policy-governance-evidence.mjs)
+   - [stage28a-28z-clinical-followup-sop-policy-governance-evidence.yml](../../.github/workflows/stage28a-28z-clinical-followup-sop-policy-governance-evidence.yml)
+
 3. Stage 6 manifests:
    - [acceptance-baseline.stage6a.json](../../deploy/self-hosted/acceptance-baseline.stage6a.json)
    - [server-install-package.stage6b.json](../../deploy/self-hosted/server-install-package.stage6b.json)

@@ -22,6 +22,7 @@ import {
   getSelfHostedClinicalFollowUpSopPolicyAuditRollupSummary,
   getSelfHostedClinicalFollowUpSopPolicyExceptionClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSummary,
+  getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceReadinessSummary,
   getSelfHostedClinicalFollowUpSopValidationSummary,
   listSelfHostedClinicalFollowUpOperations,
@@ -34,6 +35,7 @@ import {
   type FollowUpSopPolicyAuditRollupSummary,
   type FollowUpSopPolicyExceptionClosureSummary,
   type FollowUpSopPolicyGovernanceClosureSummary,
+  type FollowUpSopPolicyGovernanceEvidenceSummary,
   type FollowUpSopPolicyGovernanceReadinessSummary,
   type FollowUpSopValidationSummary,
   type SelfHostedClinicalFollowUp,
@@ -46,6 +48,7 @@ import {
   updateSelfHostedClinicalFollowUpSopPolicyAuditRollup,
   updateSelfHostedClinicalFollowUpSopPolicyExceptionClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure,
+  updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidence,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceReadiness,
 } from "@/lib/self-hosted-follow-up-api";
 import {
@@ -80,6 +83,7 @@ type BusyAction =
   | "sop-policy-audit-update"
   | "sop-policy-governance-update"
   | "sop-policy-governance-closure-update"
+  | "sop-policy-governance-evidence-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -202,6 +206,18 @@ const EMPTY_SOP_POLICY_GOVERNANCE_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceCl
   localGovernanceClosureEvents: 0,
 };
 
+const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceSummary = {
+  totalFollowUps: 0,
+  evidenceReady: 0,
+  needsEvidenceReview: 0,
+  exportedGovernanceEvidence: 0,
+  evidenceNeedsFollowUp: 0,
+  closedGovernanceReviews: 0,
+  unresolvedPolicyDrift: 0,
+  openExceptions: 0,
+  localGovernanceEvidenceEvents: 0,
+};
+
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
   if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
@@ -236,6 +252,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [sopPolicyAuditRollupSummary, setSopPolicyAuditRollupSummary] = useState<FollowUpSopPolicyAuditRollupSummary>(EMPTY_SOP_POLICY_AUDIT_ROLLUP_SUMMARY);
   const [sopPolicyGovernanceReadinessSummary, setSopPolicyGovernanceReadinessSummary] = useState<FollowUpSopPolicyGovernanceReadinessSummary>(EMPTY_SOP_POLICY_GOVERNANCE_READINESS_SUMMARY);
   const [sopPolicyGovernanceClosureSummary, setSopPolicyGovernanceClosureSummary] = useState<FollowUpSopPolicyGovernanceClosureSummary>(EMPTY_SOP_POLICY_GOVERNANCE_CLOSURE_SUMMARY);
+  const [sopPolicyGovernanceEvidenceSummary, setSopPolicyGovernanceEvidenceSummary] = useState<FollowUpSopPolicyGovernanceEvidenceSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
   const [sopPolicyTemplates, setSopPolicyTemplates] = useState<SelfHostedFollowUpSopPolicyTemplate[]>([]);
   const [sopTemplateCode, setSopTemplateCode] = useState("followup-standard");
@@ -262,7 +279,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicyGovernance, sopPolicyGovernanceClosure, sopPolicies, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicyGovernance, sopPolicyGovernanceClosure, sopPolicyGovernanceEvidence, sopPolicies, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
@@ -273,6 +290,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
       getSelfHostedClinicalFollowUpSopPolicyAuditRollupSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyGovernanceReadinessSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSummary(baseArgs),
+      getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceSummary(baseArgs),
       listSelfHostedClinicalFollowUpSopPolicyTemplates({
         ...baseArgs,
         activeOnly: true,
@@ -292,11 +310,12 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (sopPolicyAudit.ok) setSopPolicyAuditRollupSummary(sopPolicyAudit.value);
     if (sopPolicyGovernance.ok) setSopPolicyGovernanceReadinessSummary(sopPolicyGovernance.value);
     if (sopPolicyGovernanceClosure.ok) setSopPolicyGovernanceClosureSummary(sopPolicyGovernanceClosure.value);
+    if (sopPolicyGovernanceEvidence.ok) setSopPolicyGovernanceEvidenceSummary(sopPolicyGovernanceEvidence.value);
     if (sopPolicies.ok) setSopPolicyTemplates(sopPolicies.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicyGovernance.ok || !sopPolicyGovernanceClosure.ok || !sopPolicies.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicyGovernanceClosure.error || sopPolicies.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicyGovernance.ok || !sopPolicyGovernanceClosure.ok || !sopPolicyGovernanceEvidence.ok || !sopPolicies.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicyGovernanceClosure.error || sopPolicyGovernanceEvidence.error || sopPolicies.error || queue.error));
     }
   }
 
@@ -552,6 +571,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("sop-policy-governance-closure-update");
     const result = await updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateSopPolicyGovernanceEvidenceState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidence>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("sop-policy-governance-evidence-update");
+    const result = await updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidence({
       ...baseArgs,
       followUpId,
       payload,
@@ -987,6 +1022,20 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceClosureSummary.closedGovernanceReviews}</dd>
                 </div>
               </dl>
+              <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Evidence ready</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceSummary.evidenceReady}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Needs evidence</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceSummary.needsEvidenceReview}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Exported local</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceSummary.exportedGovernanceEvidence}</dd>
+                </div>
+              </dl>
               <div className="space-y-2 text-[12px]">
                 {sopPolicyTemplates.length === 0 ? (
                   <p className="text-muted-foreground">Активный SOP policy template ещё не задан.</p>
@@ -1117,6 +1166,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   governance closure: {item.sopPolicyGovernanceClosureState} · {item.sopPolicyGovernanceClosureNote || "no local closure note"}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  governance evidence: {item.sopPolicyGovernanceEvidenceState} · {item.sopPolicyGovernanceEvidenceNote || "no local evidence note"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1453,6 +1505,40 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Closure follow-up
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-governance-evidence-update"}
+                  onClick={() => void updateSopPolicyGovernanceEvidenceState(
+                    item.id,
+                    {
+                      sopPolicyGovernanceEvidenceState: "exported",
+                      sopPolicyGovernanceEvidenceNote: "Local SOP policy governance evidence export marked from workspace.",
+                    },
+                    "SOP policy governance evidence отмечен как exported локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Export evidence
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-governance-evidence-update"}
+                  onClick={() => void updateSopPolicyGovernanceEvidenceState(
+                    item.id,
+                    {
+                      sopPolicyGovernanceEvidenceState: "needs_followup",
+                      sopPolicyGovernanceEvidenceNote: "Local SOP policy governance evidence export needs follow-up from workspace.",
+                    },
+                    "SOP policy governance evidence отправлен на локальный follow-up.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Evidence follow-up
                 </Button>
               </div>
             </article>

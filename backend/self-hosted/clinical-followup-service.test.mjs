@@ -12,6 +12,7 @@ import {
   normalizeClinicalFollowUpSopPolicyAuditRollupPayload,
   normalizeClinicalFollowUpSopPolicyExceptionClosurePayload,
   normalizeClinicalFollowUpSopPolicyGovernanceClosurePayload,
+  normalizeClinicalFollowUpSopPolicyGovernanceEvidencePayload,
   normalizeClinicalFollowUpSopPolicyGovernanceReadinessPayload,
   normalizeClinicalFollowUpSopPolicyTemplatePayload,
   normalizeClinicalFollowUpSopValidationUpdatePayload,
@@ -193,6 +194,20 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           source: "postgres",
         };
       },
+      async getClinicalFollowUpSopPolicyGovernanceEvidenceSummary() {
+        return {
+          totalFollowUps: 4,
+          evidenceReady: 1,
+          needsEvidenceReview: 1,
+          exportedGovernanceEvidence: 1,
+          evidenceNeedsFollowUp: 0,
+          closedGovernanceReviews: 1,
+          unresolvedPolicyDrift: 0,
+          openExceptions: 0,
+          localGovernanceEvidenceEvents: 2,
+          source: "postgres",
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         return {
           items: [{
@@ -314,6 +329,18 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           sopPolicyGovernanceState: "reviewed",
           sopPolicyGovernanceClosureState: "closed",
           sopPolicyGovernanceClosureNote: "Local SOP policy governance closure completed.",
+        };
+      },
+      async updateClinicalFollowUpSopPolicyGovernanceEvidence() {
+        return {
+          ...followUp,
+          sopPolicyDriftState: "in_sync",
+          sopPolicyExceptionState: "closed",
+          sopPolicyAuditState: "reviewed",
+          sopPolicyGovernanceState: "reviewed",
+          sopPolicyGovernanceClosureState: "closed",
+          sopPolicyGovernanceEvidenceState: "exported",
+          sopPolicyGovernanceEvidenceNote: "Local SOP policy governance evidence export marked.",
         };
       },
       ...repositoryOverrides,
@@ -550,6 +577,22 @@ test("validates local SOP policy governance closure payloads", () => {
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceClosurePayload({ sopPolicyGovernanceClosureState: "external_approved" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceClosurePayload({ sopPolicyGovernanceClosureState: "needs_followup" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceClosurePayload({}), /validation/i);
+});
+
+test("validates local SOP policy governance evidence payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpSopPolicyGovernanceEvidencePayload({
+      sopPolicyGovernanceEvidenceState: "exported",
+      sopPolicyGovernanceEvidenceNote: "  Local governance evidence export marked.  ",
+    }),
+    {
+      sopPolicyGovernanceEvidenceState: "exported",
+      sopPolicyGovernanceEvidenceNote: "Local governance evidence export marked.",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidencePayload({ sopPolicyGovernanceEvidenceState: "external_approved" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidencePayload({ sopPolicyGovernanceEvidenceState: "needs_followup" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidencePayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -928,6 +971,37 @@ test("doctor can summarize and update SOP policy governance closure with audit",
     [
       "clinical_follow_up.sop_policy_governance_closure.summary",
       "clinical_follow_up.sop_policy_governance_closure.update",
+    ],
+  );
+});
+
+test("doctor can summarize and update SOP policy governance evidence with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpSopPolicyGovernanceEvidenceSummary(
+    {},
+    DOCTOR,
+    { correlationId: "policy-governance-evidence-1" },
+  );
+  const updated = await service.updateClinicalFollowUpSopPolicyGovernanceEvidence(
+    FOLLOW_UP_ID,
+    {
+      sopPolicyGovernanceEvidenceState: "exported",
+      sopPolicyGovernanceEvidenceNote: "Local SOP policy governance evidence export marked.",
+    },
+    DOCTOR,
+    { correlationId: "policy-governance-evidence-2" },
+  );
+
+  assert.equal(summary.summary.evidenceReady, 1);
+  assert.equal(summary.summary.needsEvidenceReview, 1);
+  assert.equal(updated.followUp.sopPolicyGovernanceEvidenceState, "exported");
+  assert.equal(updated.followUp.sopPolicyGovernanceEvidenceNote, "Local SOP policy governance evidence export marked.");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.sop_policy_governance_evidence.summary",
+      "clinical_follow_up.sop_policy_governance_evidence.update",
     ],
   );
 });

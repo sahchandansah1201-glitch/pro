@@ -2,13 +2,23 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 27A-27Z is being
+This handoff captures the repository state while Stage 28A-28Z is being
 implemented from branch
-`codex/stage27a-27z-clinical-followup-sop-governance-closure`.
+`codex/stage28a-28z-clinical-followup-sop-governance-evidence-export`.
 
 ## Confirmed state
 
-0. Stage 27A-27Z is implemented in the current branch as SOP policy governance
+0. Stage 28A-28Z is implemented in the current branch as SOP policy governance
+   evidence export:
+   - PostgreSQL SOP policy governance evidence fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_sop_policy_governance_evidence_events`;
+   - backend SOP policy governance evidence summary/update routes;
+   - doctor live workspace Evidence ready / Needs evidence / Exported local
+     summary tiles and Export evidence / Evidence follow-up row actions;
+   - no managed notification provider dependency, no external governance proof,
+     and no medical correctness proof.
+
+0. Stage 27A-27Z is merged to main as SOP policy governance
    closure:
    - PostgreSQL SOP policy governance closure fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_sop_policy_governance_closure_events`;
@@ -429,8 +439,12 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 27A-27Z` is the next hypothesis after Stage 26A-26Z until repository
+- `Stage 29A-29Z` is the next hypothesis after Stage 28A-28Z until repository
   files define it.
+- `Stage 28A-28Z` closes the previous hypothesis with local SOP policy
+  governance evidence export.
+- `Stage 27A-27Z` closes the previous hypothesis with SOP policy governance
+  closure.
 - `Stage 26A-26Z` closes the previous hypothesis with SOP policy governance
   readiness.
 - `Stage 10A-10Z` is the confirmed process batch after Stage 9N-9Z.
@@ -448,10 +462,10 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Complete the Stage 26A-26Z Pull request lifecycle.
+1. Complete the Stage 28A-28Z Pull request lifecycle.
 2. Run or verify:
-   - `npm run preflight:stage26a-26z`
-   - `npm run preflight:stage25a-25z`
+   - `npm run preflight:stage28a-28z`
+   - `npm run preflight:stage27a-27z`
    - `npm run check:project-memory`
    - `npm run test:project-memory`
    - `npm run preflight:all -- --dry-run`

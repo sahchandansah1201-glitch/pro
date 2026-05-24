@@ -29,6 +29,7 @@ export type FollowUpSopPolicyExceptionState = "none" | "open" | "accepted" | "re
 export type FollowUpSopPolicyAuditState = "not_started" | "ready" | "reviewed" | "needs_followup";
 export type FollowUpSopPolicyGovernanceState = "not_started" | "ready" | "reviewed" | "needs_followup";
 export type FollowUpSopPolicyGovernanceClosureState = "not_started" | "ready" | "closed" | "needs_followup";
+export type FollowUpSopPolicyGovernanceEvidenceState = "not_started" | "ready" | "exported" | "needs_followup";
 
 export interface SelfHostedFollowUpMessage {
   id: string;
@@ -92,6 +93,9 @@ export interface SelfHostedClinicalFollowUp {
   sopPolicyGovernanceClosureState: FollowUpSopPolicyGovernanceClosureState;
   sopPolicyGovernanceClosureNote?: string | null;
   sopPolicyGovernanceClosedAt?: string | null;
+  sopPolicyGovernanceEvidenceState: FollowUpSopPolicyGovernanceEvidenceState;
+  sopPolicyGovernanceEvidenceNote?: string | null;
+  sopPolicyGovernanceEvidenceReviewedAt?: string | null;
   sopExceptionReason?: string | null;
   sopValidatedAt?: string | null;
   resolvedAt?: string | null;
@@ -259,6 +263,19 @@ export interface FollowUpSopPolicyGovernanceClosureSummary {
   source?: string;
 }
 
+export interface FollowUpSopPolicyGovernanceEvidenceSummary {
+  totalFollowUps: number;
+  evidenceReady: number;
+  needsEvidenceReview: number;
+  exportedGovernanceEvidence: number;
+  evidenceNeedsFollowUp: number;
+  closedGovernanceReviews: number;
+  unresolvedPolicyDrift: number;
+  openExceptions: number;
+  localGovernanceEvidenceEvents: number;
+  source?: string;
+}
+
 export interface SelfHostedFollowUpSopPolicyTemplate {
   id: string;
   clinicId: string | null;
@@ -331,6 +348,11 @@ export interface UpdateFollowUpSopPolicyGovernanceReadinessPayload {
 export interface UpdateFollowUpSopPolicyGovernanceClosurePayload {
   sopPolicyGovernanceClosureState?: FollowUpSopPolicyGovernanceClosureState;
   sopPolicyGovernanceClosureNote?: string | null;
+}
+
+export interface UpdateFollowUpSopPolicyGovernanceEvidencePayload {
+  sopPolicyGovernanceEvidenceState?: FollowUpSopPolicyGovernanceEvidenceState;
+  sopPolicyGovernanceEvidenceNote?: string | null;
 }
 
 export interface CreateFollowUpSopPolicyTemplatePayload {
@@ -480,6 +502,13 @@ function toSopPolicyGovernanceClosureState(value: unknown): FollowUpSopPolicyGov
     : "not_started";
 }
 
+function toSopPolicyGovernanceEvidenceState(value: unknown): FollowUpSopPolicyGovernanceEvidenceState {
+  const state = String(value ?? "not_started");
+  return ["not_started", "ready", "exported", "needs_followup"].includes(state)
+    ? (state as FollowUpSopPolicyGovernanceEvidenceState)
+    : "not_started";
+}
+
 export function toSelfHostedFollowUpMessage(input: unknown): SelfHostedFollowUpMessage {
   const row = isRecord(input) ? input : {};
   return {
@@ -548,6 +577,9 @@ export function toSelfHostedClinicalFollowUp(input: unknown): SelfHostedClinical
     sopPolicyGovernanceClosureState: toSopPolicyGovernanceClosureState(row.sopPolicyGovernanceClosureState),
     sopPolicyGovernanceClosureNote: textOrNull(row.sopPolicyGovernanceClosureNote),
     sopPolicyGovernanceClosedAt: textOrNull(row.sopPolicyGovernanceClosedAt),
+    sopPolicyGovernanceEvidenceState: toSopPolicyGovernanceEvidenceState(row.sopPolicyGovernanceEvidenceState),
+    sopPolicyGovernanceEvidenceNote: textOrNull(row.sopPolicyGovernanceEvidenceNote),
+    sopPolicyGovernanceEvidenceReviewedAt: textOrNull(row.sopPolicyGovernanceEvidenceReviewedAt),
     sopExceptionReason: textOrNull(row.sopExceptionReason),
     sopValidatedAt: textOrNull(row.sopValidatedAt),
     resolvedAt: textOrNull(row.resolvedAt),
@@ -720,6 +752,22 @@ export function toFollowUpSopPolicyGovernanceClosureSummary(input: unknown): Fol
     unresolvedPolicyDrift: numberOrZero(row.unresolvedPolicyDrift),
     openExceptions: numberOrZero(row.openExceptions),
     localGovernanceClosureEvents: numberOrZero(row.localGovernanceClosureEvents),
+    source: textOrNull(row.source) || undefined,
+  };
+}
+
+export function toFollowUpSopPolicyGovernanceEvidenceSummary(input: unknown): FollowUpSopPolicyGovernanceEvidenceSummary {
+  const row = isRecord(input) ? input : {};
+  return {
+    totalFollowUps: numberOrZero(row.totalFollowUps),
+    evidenceReady: numberOrZero(row.evidenceReady),
+    needsEvidenceReview: numberOrZero(row.needsEvidenceReview),
+    exportedGovernanceEvidence: numberOrZero(row.exportedGovernanceEvidence),
+    evidenceNeedsFollowUp: numberOrZero(row.evidenceNeedsFollowUp),
+    closedGovernanceReviews: numberOrZero(row.closedGovernanceReviews),
+    unresolvedPolicyDrift: numberOrZero(row.unresolvedPolicyDrift),
+    openExceptions: numberOrZero(row.openExceptions),
+    localGovernanceEvidenceEvents: numberOrZero(row.localGovernanceEvidenceEvents),
     source: textOrNull(row.source) || undefined,
   };
 }
@@ -974,6 +1022,15 @@ export async function getSelfHostedClinicalFollowUpSopPolicyGovernanceClosureSum
   return ok(toFollowUpSopPolicyGovernanceClosureSummary(body.item));
 }
 
+export async function getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceSummary(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<FollowUpSopPolicyGovernanceEvidenceSummary>> {
+  const response = await requestJson(args, "/api/v1/clinical/follow-ups/sop-policy-governance-evidence/summary");
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toFollowUpSopPolicyGovernanceEvidenceSummary(body.item));
+}
+
 export async function listSelfHostedClinicalFollowUpSopPolicyTemplates(
   args: BaseArgs & { activeOnly?: boolean },
 ): Promise<SelfHostedApiResult<SelfHostedFollowUpSopPolicyTemplate[]>> {
@@ -1087,6 +1144,18 @@ export async function updateSelfHostedClinicalFollowUpSopPolicyGovernanceClosure
   args: BaseArgs & { followUpId: string; payload: UpdateFollowUpSopPolicyGovernanceClosurePayload },
 ): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
   const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/sop-policy-governance-closure`, {
+    method: "PATCH",
+    body: args.payload,
+  });
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedClinicalFollowUp(body.item));
+}
+
+export async function updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidence(
+  args: BaseArgs & { followUpId: string; payload: UpdateFollowUpSopPolicyGovernanceEvidencePayload },
+): Promise<SelfHostedApiResult<SelfHostedClinicalFollowUp>> {
+  const response = await requestJson(args, `/api/v1/clinical/follow-ups/${encodeURIComponent(args.followUpId)}/sop-policy-governance-evidence`, {
     method: "PATCH",
     body: args.payload,
   });

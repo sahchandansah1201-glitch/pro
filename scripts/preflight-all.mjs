@@ -124,6 +124,7 @@ const DEFAULT_STEPS = [
   ["Stage 25A-25Z clinical follow-up SOP policy audit rollup preflight", npmCmd, ["run", "preflight:stage25a-25z"]],
   ["Stage 26A-26Z clinical follow-up SOP policy governance readiness preflight", npmCmd, ["run", "preflight:stage26a-26z"]],
   ["Stage 27A-27Z clinical follow-up SOP policy governance closure preflight", npmCmd, ["run", "preflight:stage27a-27z"]],
+  ["Stage 28A-28Z clinical follow-up SOP policy governance evidence preflight", npmCmd, ["run", "preflight:stage28a-28z"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],

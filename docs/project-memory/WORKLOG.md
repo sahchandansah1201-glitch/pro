@@ -2,6 +2,16 @@
 
 ## 2026-05-24
 
+- Создан Stage 28A-28Z clinical follow-up SOP policy governance evidence export после Stage 27A-27Z.
+- Добавлены SOP policy governance evidence поля, append-only governance
+  evidence events, backend summary/update routes, OpenAPI, nginx publishing,
+  frontend adapter, doctor live workspace Evidence ready / Needs evidence /
+  Exported local summary tiles, Export evidence / Evidence follow-up actions,
+  guard, workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no medical correctness proof, no
+  signed URLs/storage paths/provider tokens in protected outputs.
+
 - Создан Stage 27A-27Z clinical follow-up SOP policy governance closure после Stage 26A-26Z.
 - Добавлены SOP policy governance closure поля, append-only governance closure
   events, backend summary/update routes, OpenAPI, nginx publishing, frontend
