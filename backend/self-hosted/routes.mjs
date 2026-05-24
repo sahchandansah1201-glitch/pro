@@ -62,6 +62,7 @@ import {
   createClinicalFollowUpRepository,
   normalizeClinicalFollowUpOperationsParams,
   normalizeClinicalFollowUpParams,
+  normalizeClinicalFollowUpSopPolicyTemplateParams,
 } from "./clinical-followup-repository.mjs";
 import { createClinicalFollowUpService } from "./clinical-followup-service.mjs";
 import {
@@ -217,6 +218,9 @@ const OPENAPI_20A_20Z = JSON.parse(
 );
 const OPENAPI_21A_21Z = JSON.parse(
   readFileSync(join(HERE, "openapi.stage21a-21z.json"), "utf8"),
+);
+const OPENAPI_22A_22Z = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage22a-22z.json"), "utf8"),
 );
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
@@ -2617,6 +2621,101 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/clinical/follow-ups/sop-policy-templates/summary" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.getClinicalFollowUpSopPolicyTemplateSummary(
+        normalizeClinicalFollowUpSopPolicyTemplateParams(url.searchParams),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "22A-22Z",
+          source: "postgres",
+          item: result.summary,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (url.pathname === "/api/v1/clinical/follow-ups/sop-policy-templates" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.listClinicalFollowUpSopPolicyTemplates(
+        normalizeClinicalFollowUpSopPolicyTemplateParams(url.searchParams),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "22A-22Z",
+          source: "postgres",
+          items: result.result.items,
+          limit: result.result.limit,
+          offset: result.result.offset,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  if (url.pathname === "/api/v1/clinical/follow-ups/sop-policy-templates" && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.createClinicalFollowUpSopPolicyTemplate(
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        201,
+        {
+          stage: "22A-22Z",
+          source: "postgres",
+          item: result.template,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (url.pathname === "/api/v1/clinical/follow-ups/operations" && method === "GET") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -2798,6 +2897,39 @@ export async function handleSelfHostedRequest(
           stage: "21A-21Z",
           source: "postgres",
           item: result.followUp,
+          auth: {
+            userId: authContext.userId,
+            roles: result.scope.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const clinicalFollowUpSopPolicyTemplateMatch = url.pathname.match(/^\/api\/v1\/clinical\/follow-ups\/sop-policy-templates\/([^/]+)$/);
+  if (clinicalFollowUpSopPolicyTemplateMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.updateClinicalFollowUpSopPolicyTemplate(
+        decodeURIComponent(clinicalFollowUpSopPolicyTemplateMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "22A-22Z",
+          source: "postgres",
+          item: result.template,
           auth: {
             userId: authContext.userId,
             roles: result.scope.roles,
@@ -3372,6 +3504,7 @@ export async function handleSelfHostedRequest(
           clinicalFollowUpOutcomeQuality: "rbac-read-write-postgres-outcome-quality-local-evidence",
           clinicalFollowUpClinicReview: "rbac-read-write-postgres-retention-clinic-review-local-evidence",
           clinicalFollowUpSopValidation: "rbac-read-write-postgres-clinic-specific-sop-validation-local-evidence",
+          clinicalFollowUpSopPolicyTemplates: "rbac-read-write-postgres-local-clinic-sop-policy-templates",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance",
@@ -3422,6 +3555,7 @@ export async function handleSelfHostedRequest(
           openapiStage19A19Z: "/openapi.stage19a-19z.json",
           openapiStage20A20Z: "/openapi.stage20a-20z.json",
           openapiStage21A21Z: "/openapi.stage21a-21z.json",
+          openapiStage22A22Z: "/openapi.stage22a-22z.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -3474,6 +3608,9 @@ export async function handleSelfHostedRequest(
           clinicalFollowUpClinicReview: "/api/v1/clinical/follow-ups/{followUpId}/clinic-review",
           clinicalFollowUpSopValidationSummary: "/api/v1/clinical/follow-ups/sop-validation/summary",
           clinicalFollowUpSopValidation: "/api/v1/clinical/follow-ups/{followUpId}/sop-validation",
+          clinicalFollowUpSopPolicyTemplatesSummary: "/api/v1/clinical/follow-ups/sop-policy-templates/summary",
+          clinicalFollowUpSopPolicyTemplates: "/api/v1/clinical/follow-ups/sop-policy-templates",
+          clinicalFollowUpSopPolicyTemplate: "/api/v1/clinical/follow-ups/sop-policy-templates/{templateId}",
           patientPortalFollowUps: "/api/v1/me/follow-ups",
           patientPortalFollowUpMessages: "/api/v1/me/follow-ups/{followUpId}/messages",
           visit: "/api/v1/visits/{visitId}",
@@ -3659,6 +3796,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage21a-21z.json") {
     return jsonResponse(200, OPENAPI_21A_21Z, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage22a-22z.json") {
+    return jsonResponse(200, OPENAPI_22A_22Z, config, requestOrigin);
   }
 
   return errorResponse({

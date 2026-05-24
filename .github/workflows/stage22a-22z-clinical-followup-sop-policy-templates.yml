@@ -1,0 +1,59 @@
+name: stage22a-22z-clinical-followup-sop-policy-templates
+
+on:
+  pull_request:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-22a-22z-clinical-followup-sop-policy-templates.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage22a-22z-clinical-followup-sop-policy-templates.mjs"
+      - "scripts/check-stage22a-22z-clinical-followup-sop-policy-templates.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage22a-22z-clinical-followup-sop-policy-templates.yml"
+  push:
+    paths:
+      - "backend/self-hosted/**"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "deploy/self-hosted/**"
+      - "docs/backend/stage-22a-22z-clinical-followup-sop-policy-templates.md"
+      - "docs/project-memory/**"
+      - "scripts/check-stage22a-22z-clinical-followup-sop-policy-templates.mjs"
+      - "scripts/check-stage22a-22z-clinical-followup-sop-policy-templates.test.mjs"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - "package.json"
+      - ".github/workflows/stage22a-22z-clinical-followup-sop-policy-templates.yml"
+  workflow_dispatch:
+
+jobs:
+  stage22a-22z-clinical-followup-sop-policy-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Stage 22A-22Z preflight
+        run: npm run preflight:stage22a-22z
+      - name: Stage 22A-22Z summary
+        if: always()
+        run: |
+          {
+            echo "## Stage 22A-22Z clinical follow-up SOP policy templates"
+            echo ""
+            echo "- Command: \`npm run preflight:stage22a-22z\`"
+            echo "- Boundary: self-hosted backend + PostgreSQL + local clinic SOP policy templates"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -8,6 +8,7 @@ import {
   normalizeClinicalFollowUpMessagePayload,
   normalizeClinicalFollowUpOperationsUpdatePayload,
   normalizeClinicalFollowUpQualityUpdatePayload,
+  normalizeClinicalFollowUpSopPolicyTemplatePayload,
   normalizeClinicalFollowUpSopValidationUpdatePayload,
   normalizeClinicalFollowUpUpdatePayload,
 } from "./clinical-followup-service.mjs";
@@ -25,6 +26,7 @@ const PATIENT = {
 };
 const VISIT_ID = "10000000-0000-4000-8000-000000000301";
 const FOLLOW_UP_ID = "10000000-0000-4000-8000-000000000701";
+const TEMPLATE_ID = "10000000-0000-4000-8000-000000000901";
 
 function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
   const followUp = {
@@ -102,6 +104,61 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           closedMissingEvidence: 1,
           localSopEvents: 2,
           source: "postgres",
+        };
+      },
+      async getClinicalFollowUpSopPolicyTemplateSummary() {
+        return {
+          totalTemplates: 2,
+          activeTemplates: 1,
+          inactiveTemplates: 1,
+          exceptionsAllowed: 1,
+          requiredByDefault: 1,
+          localPolicyEvents: 3,
+          source: "postgres",
+        };
+      },
+      async listClinicalFollowUpSopPolicyTemplates() {
+        return {
+          items: [{
+            id: TEMPLATE_ID,
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            code: "followup-standard",
+            title: "Follow-up standard SOP",
+            version: "clinic-local-v1",
+            requiredValidationStates: ["required", "blocked"],
+            defaultValidationState: "required",
+            exceptionAllowed: true,
+            active: true,
+          }],
+          limit: 25,
+          offset: 0,
+          source: "postgres",
+        };
+      },
+      async createClinicalFollowUpSopPolicyTemplate() {
+        return {
+          id: TEMPLATE_ID,
+          clinicId: "10000000-0000-4000-8000-000000000001",
+          code: "followup-standard",
+          title: "Follow-up standard SOP",
+          version: "clinic-local-v1",
+          requiredValidationStates: ["required", "blocked"],
+          defaultValidationState: "required",
+          exceptionAllowed: true,
+          active: true,
+        };
+      },
+      async updateClinicalFollowUpSopPolicyTemplate() {
+        return {
+          id: TEMPLATE_ID,
+          clinicId: "10000000-0000-4000-8000-000000000001",
+          code: "followup-standard",
+          title: "Follow-up standard SOP",
+          version: "clinic-local-v2",
+          requiredValidationStates: ["required", "blocked"],
+          defaultValidationState: "required",
+          exceptionAllowed: true,
+          active: true,
         };
       },
       async updateClinicalFollowUpOperations() {
@@ -245,6 +302,37 @@ test("validates clinic-specific SOP validation payloads", () => {
   );
   assert.throws(() => normalizeClinicalFollowUpSopValidationUpdatePayload({ sopValidationState: "bad" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopValidationUpdatePayload({}), /validation/i);
+});
+
+test("validates local SOP policy template payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpSopPolicyTemplatePayload({
+      code: "  followup-standard  ",
+      title: "  Follow-up standard SOP  ",
+      version: "  clinic-local-v1  ",
+      description: "  Local only.  ",
+      appliesTo: { workspace: "visit-follow-up" },
+      requiredValidationStates: ["required", "blocked", "required"],
+      defaultValidationState: "required",
+      exceptionAllowed: true,
+      active: true,
+    }, { create: true }),
+    {
+      clinicId: null,
+      code: "followup-standard",
+      title: "Follow-up standard SOP",
+      version: "clinic-local-v1",
+      description: "Local only.",
+      appliesTo: { workspace: "visit-follow-up" },
+      requiredValidationStates: ["required", "blocked"],
+      defaultValidationState: "required",
+      exceptionAllowed: true,
+      active: true,
+    },
+  );
+  assert.deepEqual(normalizeClinicalFollowUpSopPolicyTemplatePayload({ active: false }), { active: false });
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyTemplatePayload({ code: "bad code" }, { create: true }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyTemplatePayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -424,6 +512,73 @@ test("doctor can summarize and update SOP validation with audit", async () => {
       "clinical_follow_up.sop_validation.summary",
       "clinical_follow_up.sop_validation.update",
     ],
+  );
+});
+
+test("doctor can list, create, and update SOP policy templates with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpSopPolicyTemplateSummary(
+    {},
+    DOCTOR,
+    { correlationId: "policy-1" },
+  );
+  const list = await service.listClinicalFollowUpSopPolicyTemplates(
+    { activeOnly: true },
+    DOCTOR,
+    { correlationId: "policy-2" },
+  );
+  const created = await service.createClinicalFollowUpSopPolicyTemplate(
+    {
+      code: "followup-standard",
+      title: "Follow-up standard SOP",
+      version: "clinic-local-v1",
+      requiredValidationStates: ["required", "blocked"],
+      defaultValidationState: "required",
+    },
+    DOCTOR,
+    { correlationId: "policy-3" },
+  );
+  const updated = await service.updateClinicalFollowUpSopPolicyTemplate(
+    TEMPLATE_ID,
+    { version: "clinic-local-v2" },
+    DOCTOR,
+    { correlationId: "policy-4" },
+  );
+
+  assert.equal(summary.summary.activeTemplates, 1);
+  assert.equal(list.result.items[0].id, TEMPLATE_ID);
+  assert.equal(created.template.version, "clinic-local-v1");
+  assert.equal(updated.template.version, "clinic-local-v2");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.sop_policy_template.summary",
+      "clinical_follow_up.sop_policy_template.list",
+      "clinical_follow_up.sop_policy_template.create",
+      "clinical_follow_up.sop_policy_template.update",
+    ],
+  );
+});
+
+test("operator cannot mutate SOP policy templates and missing template maps to 404", async () => {
+  const service = createService({
+    repositoryOverrides: {
+      async updateClinicalFollowUpSopPolicyTemplate() {
+        return null;
+      },
+    },
+  });
+  await assert.rejects(
+    () => service.createClinicalFollowUpSopPolicyTemplate(
+      { code: "followup-standard", title: "Follow-up standard SOP", version: "clinic-local-v1" },
+      { ...DOCTOR, roles: ["operator"] },
+    ),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopPolicyTemplate(TEMPLATE_ID, { version: "clinic-local-v2" }, DOCTOR),
+    /SOP policy template was not found/i,
   );
 });
 

@@ -2,23 +2,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createSelfHostedClinicalFollowUpMessage,
+  createSelfHostedClinicalFollowUpSopPolicyTemplate,
   createSelfHostedPatientFollowUpMessage,
   createSelfHostedVisitFollowUp,
   getSelfHostedClinicalFollowUpClinicReviewSummary,
   getSelfHostedClinicalFollowUpOutcomeQualitySummary,
   getSelfHostedClinicalFollowUpOperationsSummary,
+  getSelfHostedClinicalFollowUpSopPolicyTemplateSummary,
   getSelfHostedClinicalFollowUpSopValidationSummary,
   listSelfHostedClinicalFollowUps,
   listSelfHostedClinicalFollowUpOperations,
+  listSelfHostedClinicalFollowUpSopPolicyTemplates,
   listSelfHostedPatientFollowUps,
   toSelfHostedClinicalFollowUp,
+  toSelfHostedFollowUpSopPolicyTemplate,
   toFollowUpClinicReviewSummary,
   toFollowUpOutcomeQualitySummary,
   toFollowUpOperationsSummary,
+  toFollowUpSopPolicyTemplateSummary,
   toFollowUpSopValidationSummary,
   updateSelfHostedClinicalFollowUpClinicReview,
   updateSelfHostedClinicalFollowUpQuality,
   updateSelfHostedClinicalFollowUpOperations,
+  updateSelfHostedClinicalFollowUpSopPolicyTemplate,
   updateSelfHostedClinicalFollowUpSopValidation,
   updateSelfHostedClinicalFollowUp,
 } from "./self-hosted-follow-up-api";
@@ -60,6 +66,20 @@ const FOLLOW_UP = {
   },
 };
 
+const SOP_POLICY_TEMPLATE = {
+  id: "template-1",
+  clinicId: "clinic-1",
+  code: "followup-standard",
+  title: "Follow-up standard SOP",
+  version: "clinic-local-v1",
+  description: "Local only.",
+  appliesTo: { workspace: "visit-follow-up" },
+  requiredValidationStates: ["required", "blocked"],
+  defaultValidationState: "required",
+  exceptionAllowed: true,
+  active: true,
+};
+
 describe("self-hosted follow-up API", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -82,10 +102,12 @@ describe("self-hosted follow-up API", () => {
     expect(item.clinicReviewState).toBe("needs_policy_review");
     expect(item.sopValidationState).toBe("required");
     expect(item.sopPolicyVersion).toBe("clinic-local-v1");
+    expect(toSelfHostedFollowUpSopPolicyTemplate(SOP_POLICY_TEMPLATE).version).toBe("clinic-local-v1");
     expect(toFollowUpOperationsSummary({ totalOpen: 2, overdue: 1 }).overdue).toBe(1);
     expect(toFollowUpOutcomeQualitySummary({ closedMissingEvidence: 2 }).closedMissingEvidence).toBe(2);
     expect(toFollowUpClinicReviewSummary({ retentionDue: 3 }).retentionDue).toBe(3);
     expect(toFollowUpSopValidationSummary({ sopRequired: 4 }).sopRequired).toBe(4);
+    expect(toFollowUpSopPolicyTemplateSummary({ activeTemplates: 1 }).activeTemplates).toBe(1);
   });
 
   it("lists staff and patient follow-ups with bearer token", async () => {
@@ -159,8 +181,21 @@ describe("self-hosted follow-up API", () => {
       followUpId: "fu-1",
       payload: { sopValidationState: "validated", sopPolicyVersion: "clinic-local-v1" },
     });
+    await createSelfHostedClinicalFollowUpSopPolicyTemplate({
+      ...args,
+      payload: {
+        code: "followup-standard",
+        title: "Follow-up standard SOP",
+        version: "clinic-local-v1",
+      },
+    });
+    await updateSelfHostedClinicalFollowUpSopPolicyTemplate({
+      ...args,
+      templateId: "template-1",
+      payload: { version: "clinic-local-v2" },
+    });
 
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(fetchMock).toHaveBeenCalledTimes(10);
     expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/visits/visit-1/follow-ups");
     expect(fetchMock.mock.calls[1][1]?.method).toBe("PATCH");
     expect(fetchMock.mock.calls[2][0]).toContain("/api/v1/clinical/follow-ups/fu-1/messages");
@@ -169,6 +204,8 @@ describe("self-hosted follow-up API", () => {
     expect(fetchMock.mock.calls[5][0]).toContain("/api/v1/clinical/follow-ups/fu-1/quality");
     expect(fetchMock.mock.calls[6][0]).toContain("/api/v1/clinical/follow-ups/fu-1/clinic-review");
     expect(fetchMock.mock.calls[7][0]).toContain("/api/v1/clinical/follow-ups/fu-1/sop-validation");
+    expect(fetchMock.mock.calls[8][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates");
+    expect(fetchMock.mock.calls[9][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates/template-1");
   });
 
   it("lists and summarizes follow-up operations queue", async () => {
@@ -177,12 +214,14 @@ describe("self-hosted follow-up API", () => {
       return {
         ok: true,
         json: async () => url.includes("/summary")
-          ? { item: url.includes("clinic-review")
+          ? { item: url.includes("sop-policy-templates")
+              ? { totalTemplates: 2, activeTemplates: 1, localPolicyEvents: 3 }
+              : url.includes("clinic-review")
               ? { retentionDue: 1, clinicNeedsPolicyReview: 1, localReviewEvents: 2 }
               : url.includes("sop-validation")
                 ? { sopRequired: 1, sopValidated: 1, localSopEvents: 2 }
               : { totalOpen: 3, overdue: 1, waitingPatient: 1, escalated: 1, deliveryFailed: 1, deliveryPending: 0 } }
-          : { items: [FOLLOW_UP] },
+          : { items: url.includes("sop-policy-templates") ? [SOP_POLICY_TEMPLATE] : [FOLLOW_UP] },
       } as Response;
     });
 
@@ -196,6 +235,8 @@ describe("self-hosted follow-up API", () => {
     const outcomes = await getSelfHostedClinicalFollowUpOutcomeQualitySummary(args);
     const clinicReview = await getSelfHostedClinicalFollowUpClinicReviewSummary(args);
     const sopValidation = await getSelfHostedClinicalFollowUpSopValidationSummary(args);
+    const sopPolicySummary = await getSelfHostedClinicalFollowUpSopPolicyTemplateSummary(args);
+    const sopPolicies = await listSelfHostedClinicalFollowUpSopPolicyTemplates({ ...args, activeOnly: true });
 
     expect(queue.ok).toBe(true);
     expect(queue.value?.[0]?.triageState).toBe("escalated");
@@ -203,11 +244,15 @@ describe("self-hosted follow-up API", () => {
     expect(outcomes.ok).toBe(true);
     expect(clinicReview.value?.clinicNeedsPolicyReview).toBe(1);
     expect(sopValidation.value?.sopValidated).toBe(1);
+    expect(sopPolicySummary.value?.activeTemplates).toBe(1);
+    expect(sopPolicies.value?.[0]?.code).toBe("followup-standard");
     expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/clinical/follow-ups/operations?visitId=visit-1&overdueOnly=true");
     expect(fetchMock.mock.calls[1][0]).toContain("/api/v1/clinical/follow-ups/operations/summary");
     expect(fetchMock.mock.calls[2][0]).toContain("/api/v1/clinical/follow-ups/outcomes/summary");
     expect(fetchMock.mock.calls[3][0]).toContain("/api/v1/clinical/follow-ups/clinic-review/summary");
     expect(fetchMock.mock.calls[4][0]).toContain("/api/v1/clinical/follow-ups/sop-validation/summary");
+    expect(fetchMock.mock.calls[5][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates/summary");
+    expect(fetchMock.mock.calls[6][0]).toContain("/api/v1/clinical/follow-ups/sop-policy-templates?activeOnly=true");
   });
 
   it("returns not_configured without a token", async () => {

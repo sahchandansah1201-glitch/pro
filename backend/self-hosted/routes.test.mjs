@@ -633,6 +633,95 @@ function createRuntime({
           },
         };
       },
+      async getClinicalFollowUpSopPolicyTemplateSummary() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          summary: {
+            totalTemplates: 2,
+            activeTemplates: 1,
+            inactiveTemplates: 1,
+            exceptionsAllowed: 1,
+            requiredByDefault: 1,
+            localPolicyEvents: 3,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async listClinicalFollowUpSopPolicyTemplates() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          result: {
+            items: [{
+              id: "10000000-0000-4000-8000-000000000901",
+              clinicId: "10000000-0000-4000-8000-000000000001",
+              code: "followup-standard",
+              title: "Follow-up standard SOP",
+              version: "clinic-local-v1",
+              description: "Local clinic policy template.",
+              appliesTo: { workspace: "visit-follow-up" },
+              requiredValidationStates: ["required", "blocked"],
+              defaultValidationState: "required",
+              exceptionAllowed: true,
+              active: true,
+            }],
+            limit: 25,
+            offset: 0,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async createClinicalFollowUpSopPolicyTemplate() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          template: {
+            id: "10000000-0000-4000-8000-000000000901",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            code: "followup-standard",
+            title: "Follow-up standard SOP",
+            version: "clinic-local-v1",
+            defaultValidationState: "required",
+            requiredValidationStates: ["required", "blocked"],
+            exceptionAllowed: true,
+            active: true,
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUpSopPolicyTemplate() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          template: {
+            id: "10000000-0000-4000-8000-000000000901",
+            clinicId: "10000000-0000-4000-8000-000000000001",
+            code: "followup-standard",
+            title: "Follow-up standard SOP",
+            version: "clinic-local-v2",
+            defaultValidationState: "required",
+            requiredValidationStates: ["required", "blocked"],
+            exceptionAllowed: true,
+            active: true,
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
       async updateClinicalFollowUpOperations() {
         if (clinicalFollowUpError) throw clinicalFollowUpError;
         return {
@@ -1384,6 +1473,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage18A18Z, "/openapi.stage18a-18z.json");
   assert.equal(meta.json.links.openapiStage19A19Z, "/openapi.stage19a-19z.json");
   assert.equal(meta.json.links.openapiStage20A20Z, "/openapi.stage20a-20z.json");
+  assert.equal(meta.json.links.openapiStage21A21Z, "/openapi.stage21a-21z.json");
+  assert.equal(meta.json.links.openapiStage22A22Z, "/openapi.stage22a-22z.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -1439,6 +1530,9 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.clinicalFollowUpClinicReview, "/api/v1/clinical/follow-ups/{followUpId}/clinic-review");
   assert.equal(meta.json.links.clinicalFollowUpSopValidationSummary, "/api/v1/clinical/follow-ups/sop-validation/summary");
   assert.equal(meta.json.links.clinicalFollowUpSopValidation, "/api/v1/clinical/follow-ups/{followUpId}/sop-validation");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyTemplatesSummary, "/api/v1/clinical/follow-ups/sop-policy-templates/summary");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyTemplates, "/api/v1/clinical/follow-ups/sop-policy-templates");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyTemplate, "/api/v1/clinical/follow-ups/sop-policy-templates/{templateId}");
   assert.equal(meta.json.links.clinicalFollowUpOperation, "/api/v1/clinical/follow-ups/{followUpId}/operations");
   assert.equal(meta.json.links.patientPortalFollowUps, "/api/v1/me/follow-ups");
   assert.equal(meta.json.links.patientPortalFollowUpMessages, "/api/v1/me/follow-ups/{followUpId}/messages");
@@ -4148,6 +4242,70 @@ test("Stage 21A-21Z · /openapi.stage21a-21z.json documents SOP validation", asy
   assert.equal(response.json.info.version, "21A-21Z-clinical-followup-sop-validation");
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-validation/summary"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-validation"].patch);
+});
+
+test("Stage 22A-22Z · SOP policy template routes manage local clinic templates", async () => {
+  const runtime = createRuntime();
+  const summary = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-templates/summary",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(summary.status, 200);
+  assert.equal(summary.json.stage, "22A-22Z");
+  assert.equal(summary.json.item.activeTemplates, 1);
+  assert.equal(summary.json.item.localPolicyEvents, 3);
+
+  const list = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-templates?activeOnly=true",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(list.status, 200);
+  assert.equal(list.json.stage, "22A-22Z");
+  assert.equal(list.json.items[0].code, "followup-standard");
+
+  const created = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-templates",
+    configuredEnv,
+    runtime,
+    "POST",
+    {
+      code: "followup-standard",
+      title: "Follow-up standard SOP",
+      version: "clinic-local-v1",
+      requiredValidationStates: ["required", "blocked"],
+      defaultValidationState: "required",
+      active: true,
+    },
+  );
+  assert.equal(created.status, 201);
+  assert.equal(created.json.stage, "22A-22Z");
+  assert.equal(created.json.item.version, "clinic-local-v1");
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-templates/10000000-0000-4000-8000-000000000901",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    {
+      version: "clinic-local-v2",
+    },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.stage, "22A-22Z");
+  assert.equal(updated.json.item.version, "clinic-local-v2");
+  assert.doesNotMatch(updated.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url|access_token/i);
+});
+
+test("Stage 22A-22Z · /openapi.stage22a-22z.json documents SOP policy templates", async () => {
+  const response = await request("/openapi.stage22a-22z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "22A-22Z-clinical-followup-sop-policy-templates");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-templates/summary"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-templates"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-templates"].post);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-templates/{templateId}"].patch);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

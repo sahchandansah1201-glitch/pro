@@ -24,6 +24,10 @@ const MAX_QUALITY_NOTE = 2000;
 const MAX_REVIEW_NOTE = 2000;
 const MAX_SOP_POLICY_VERSION = 120;
 const MAX_SOP_EXCEPTION_REASON = 2000;
+const MAX_SOP_TEMPLATE_CODE = 80;
+const MAX_SOP_TEMPLATE_TITLE = 160;
+const MAX_SOP_TEMPLATE_DESCRIPTION = 2000;
+const SOP_TEMPLATE_CODE_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{1,79}$/;
 
 class ClinicalFollowUpNotFoundError extends Error {
   constructor(message = "Clinical follow-up was not found.") {
@@ -306,6 +310,128 @@ export function normalizeClinicalFollowUpSopValidationUpdatePayload(input = {}) 
   return payload;
 }
 
+function normalizeSopTemplateAppliesTo(value, details) {
+  if (value == null) return {};
+  if (!isPlainObject(value)) {
+    details.push({ field: "appliesTo", message: "appliesTo must be an object." });
+    return {};
+  }
+  const normalized = {};
+  for (const [rawKey, rawValue] of Object.entries(value).slice(0, 20)) {
+    const key = cleanString(rawKey);
+    if (!key || !/^[A-Za-z0-9_.-]{1,60}$/.test(key)) {
+      details.push({ field: "appliesTo", message: "appliesTo keys must be bounded local identifiers." });
+      continue;
+    }
+    if (rawValue == null || typeof rawValue === "boolean") {
+      normalized[key] = rawValue;
+    } else if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      normalized[key] = rawValue;
+    } else if (typeof rawValue === "string") {
+      normalized[key] = cleanString(rawValue)?.slice(0, 200) || "";
+    } else if (Array.isArray(rawValue)) {
+      normalized[key] = rawValue.map(cleanString).filter(Boolean).slice(0, 20);
+    } else {
+      details.push({ field: "appliesTo", message: "appliesTo values must be primitive local metadata." });
+    }
+  }
+  return normalized;
+}
+
+function normalizeSopValidationStates(value, details, { required = false } = {}) {
+  if (value == null) {
+    if (required) details.push({ field: "requiredValidationStates", message: "requiredValidationStates is required." });
+    return ["required", "blocked"];
+  }
+  if (!Array.isArray(value)) {
+    details.push({ field: "requiredValidationStates", message: "requiredValidationStates must be an array." });
+    return ["required", "blocked"];
+  }
+  const states = Array.from(new Set(value.map(cleanString).filter(Boolean)));
+  if (states.length === 0) {
+    details.push({ field: "requiredValidationStates", message: "At least one validation state is required." });
+  }
+  for (const state of states) {
+    if (!SOP_VALIDATION_STATES.has(state)) {
+      details.push({ field: "requiredValidationStates", message: "requiredValidationStates contains an unsupported state." });
+    }
+  }
+  return states;
+}
+
+export function normalizeClinicalFollowUpSopPolicyTemplatePayload(input = {}, { create = false } = {}) {
+  const body = requireBodyObject(input);
+  const details = [];
+  const payload = {};
+
+  if (create) {
+    payload.clinicId = cleanString(body.clinicId);
+  } else if (hasOwn(body, "clinicId")) {
+    details.push({ field: "clinicId", message: "clinicId cannot be updated." });
+  }
+  if (create || hasOwn(body, "code")) {
+    const code = validateLimitedText(body.code, "code", MAX_SOP_TEMPLATE_CODE, details, { required: create });
+    if (code && !SOP_TEMPLATE_CODE_RE.test(code)) {
+      details.push({ field: "code", message: "code must be a local SOP identifier." });
+    }
+    payload.code = code;
+  }
+  if (create || hasOwn(body, "title")) {
+    payload.title = validateLimitedText(body.title, "title", MAX_SOP_TEMPLATE_TITLE, details, { required: create });
+  }
+  if (create || hasOwn(body, "version")) {
+    payload.version = validateLimitedText(body.version, "version", MAX_SOP_POLICY_VERSION, details, { required: create });
+  }
+  if (hasOwn(body, "description")) {
+    payload.description = validateLimitedText(body.description, "description", MAX_SOP_TEMPLATE_DESCRIPTION, details);
+  } else if (create) {
+    payload.description = null;
+  }
+  if (hasOwn(body, "appliesTo")) {
+    payload.appliesTo = normalizeSopTemplateAppliesTo(body.appliesTo, details);
+  } else if (create) {
+    payload.appliesTo = {};
+  }
+  if (hasOwn(body, "requiredValidationStates")) {
+    payload.requiredValidationStates = normalizeSopValidationStates(body.requiredValidationStates, details);
+  } else if (create) {
+    payload.requiredValidationStates = ["required", "blocked"];
+  }
+  if (hasOwn(body, "defaultValidationState")) {
+    const state = cleanString(body.defaultValidationState);
+    if (!state || !SOP_VALIDATION_STATES.has(state)) {
+      details.push({ field: "defaultValidationState", message: "defaultValidationState is not supported." });
+    } else {
+      payload.defaultValidationState = state;
+    }
+  } else if (create) {
+    payload.defaultValidationState = "required";
+  }
+  if (hasOwn(body, "exceptionAllowed")) {
+    if (typeof body.exceptionAllowed !== "boolean") {
+      details.push({ field: "exceptionAllowed", message: "exceptionAllowed must be a boolean." });
+    } else {
+      payload.exceptionAllowed = body.exceptionAllowed;
+    }
+  } else if (create) {
+    payload.exceptionAllowed = true;
+  }
+  if (hasOwn(body, "active")) {
+    if (typeof body.active !== "boolean") {
+      details.push({ field: "active", message: "active must be a boolean." });
+    } else {
+      payload.active = body.active;
+    }
+  } else if (create) {
+    payload.active = true;
+  }
+  if (!create && Object.keys(payload).length === 0) {
+    details.push({ field: "body", message: "At least one SOP policy template field is required." });
+  }
+  if (details.length > 0) throw new ClinicalFollowUpValidationError(details);
+  return payload;
+}
+
 async function audit(auditRepository, event) {
   await recordAuditBestEffort(auditRepository, event);
 }
@@ -559,6 +685,47 @@ export function createClinicalFollowUpService({
       return { summary, scope };
     },
 
+    async getClinicalFollowUpSopPolicyTemplateSummary(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const summary = await clinicalFollowUpRepository.getClinicalFollowUpSopPolicyTemplateSummary({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_template.summary",
+        entityType: "clinical_follow_up_sop_policy_template",
+        correlationId,
+        metadata: {
+          totalTemplates: summary.totalTemplates,
+          activeTemplates: summary.activeTemplates,
+          localPolicyEvents: summary.localPolicyEvents,
+        },
+      });
+      return { summary, scope };
+    },
+
+    async listClinicalFollowUpSopPolicyTemplates(params, authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const result = await clinicalFollowUpRepository.listClinicalFollowUpSopPolicyTemplates({
+        ...params,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      await audit(auditRepository, {
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_template.list",
+        entityType: "clinical_follow_up_sop_policy_template",
+        correlationId,
+        metadata: {
+          count: result.items.length,
+          activeOnly: Boolean(params?.activeOnly),
+        },
+      });
+      return { result, scope };
+    },
+
     async updateClinicalFollowUpOperations(followUpId, input, authContext, { correlationId } = {}) {
       const scope = visitWriteScope(authContext);
       const changes = normalizeClinicalFollowUpOperationsUpdatePayload(input);
@@ -636,6 +803,64 @@ export function createClinicalFollowUpService({
         },
       });
       return { followUp, scope };
+    },
+
+    async createClinicalFollowUpSopPolicyTemplate(input, authContext, { correlationId } = {}) {
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeClinicalFollowUpSopPolicyTemplatePayload(input, { create: true });
+      const clinicId = payload.clinicId || (!scope.allClinics && scope.clinicIds.length === 1 ? scope.clinicIds[0] : null);
+      if (!clinicId) {
+        throw new ClinicalFollowUpValidationError([{ field: "clinicId", message: "clinicId is required for this scope." }]);
+      }
+      const template = await clinicalFollowUpRepository.createClinicalFollowUpSopPolicyTemplate({
+        clinicId,
+        actorUserId: authContext.userId,
+        payload: { ...payload, clinicId },
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      if (!template) throw new ClinicalFollowUpNotFoundError("Clinic was not found.");
+      await audit(auditRepository, {
+        clinicId: template.clinicId || clinicId,
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_template.create",
+        entityType: "clinical_follow_up_sop_policy_template",
+        entityId: template.id,
+        correlationId,
+        metadata: {
+          code: template.code,
+          version: template.version,
+          active: template.active,
+        },
+      });
+      return { template, scope };
+    },
+
+    async updateClinicalFollowUpSopPolicyTemplate(templateId, input, authContext, { correlationId } = {}) {
+      const scope = visitWriteScope(authContext);
+      const changes = normalizeClinicalFollowUpSopPolicyTemplatePayload(input, { create: false });
+      const template = await clinicalFollowUpRepository.updateClinicalFollowUpSopPolicyTemplate({
+        templateId,
+        actorUserId: authContext.userId,
+        changes,
+        allClinics: scope.allClinics,
+        clinicIds: scope.clinicIds,
+      });
+      if (!template) throw new ClinicalFollowUpNotFoundError("SOP policy template was not found.");
+      await audit(auditRepository, {
+        clinicId: template.clinicId || null,
+        actorUserId: authContext.userId,
+        action: "clinical_follow_up.sop_policy_template.update",
+        entityType: "clinical_follow_up_sop_policy_template",
+        entityId: template.id,
+        correlationId,
+        metadata: {
+          code: template.code,
+          version: template.version,
+          active: template.active,
+        },
+      });
+      return { template, scope };
     },
 
     async updateClinicalFollowUpSopValidation(followUpId, input, authContext, { correlationId } = {}) {
