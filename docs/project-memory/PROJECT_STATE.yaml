@@ -1,9 +1,16 @@
 generated_at: "2026-05-25T00:00:00+03:00"
 project: "Dermatolog Pro"
+stage36a_36z:
+  name: "Stage 36A-36Z"
+  clinical_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_confirmed: true
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:stage36a-36z"
+  previous_batch: "Stage 35A-35Z"
+  next_hypothesis: "Stage 37A-37Z"
 stage35a_35z:
   name: "Stage 35A-35Z"
   clinical_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage35a-35z"
   previous_batch: "Stage 34A-34Z"
   next_hypothesis: "Stage 36A-36Z"
@@ -127,9 +134,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage35a-35z-clinical-followup-sop-governance-archive-closure-receipt-handoff"
-  head_sha: "370b9ae963b1e2bd2daaefbc9e76379917c67339"
-  head_commit: "Add Stage 34A-34Z clinical follow-up SOP archive closure receipt"
+  branch: "codex/stage36a-36z-clinical-followup-sop-governance-archive-closure-receipt-handoff-receipt"
+  head_sha: "ccc03786c3a44c5f8bccbab958ae3209aa423de6"
+  head_commit: "Add Stage 35A-35Z clinical follow-up SOP archive receipt handoff"
   working_tree: "modified"
   upstream: "origin/main"
 verification:

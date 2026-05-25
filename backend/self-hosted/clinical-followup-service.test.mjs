@@ -13,6 +13,7 @@ import {
   normalizeClinicalFollowUpSopPolicyExceptionClosurePayload,
   normalizeClinicalFollowUpSopPolicyGovernanceClosurePayload,
   normalizeClinicalFollowUpSopPolicyGovernanceEvidencePayload,
+  normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptPayload,
   normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffPayload,
   normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptPayload,
   normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosurePayload,
@@ -313,6 +314,20 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           source: "postgres",
         };
       },
+      async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary() {
+        return {
+          totalFollowUps: 4,
+          archiveClosureReceiptHandoffReceiptReady: 1,
+          needsArchiveClosureReceiptHandoffReceipt: 1,
+          receivedArchiveClosureReceiptHandoffReceipts: 1,
+          archiveClosureReceiptHandoffReceiptExceptions: 0,
+          archiveClosureReceiptHandoffReceiptNeedsRework: 0,
+          handedOffArchiveClosureReceipts: 1,
+          receivedArchiveClosureReceipts: 1,
+          localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptEvents: 2,
+          source: "postgres",
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         return {
           items: [{
@@ -558,6 +573,26 @@ function createService({ repositoryOverrides = {}, auditEvents = [] } = {}) {
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "received",
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "handed_off",
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff completed.",
+        };
+      },
+      async updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt() {
+        return {
+          ...followUp,
+          sopPolicyDriftState: "in_sync",
+          sopPolicyExceptionState: "closed",
+          sopPolicyAuditState: "reviewed",
+          sopPolicyGovernanceState: "reviewed",
+          sopPolicyGovernanceClosureState: "closed",
+          sopPolicyGovernanceEvidenceState: "exported",
+          sopPolicyGovernanceEvidenceReconciliationState: "reconciled",
+          sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: "ready",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState: "closed",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "received",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "handed_off",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "received",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt recorded.",
         };
       },
       ...repositoryOverrides,
@@ -922,6 +957,22 @@ test("validates local SOP policy governance evidence reconciliation closure rece
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffPayload({ sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "external_approved" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffPayload({ sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "needs_rework" }), /validation/i);
   assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffPayload({}), /validation/i);
+});
+
+test("validates local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt payloads", () => {
+  assert.deepEqual(
+    normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptPayload({
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "received",
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote: "  Local archive closure receipt handoff receipt recorded.  ",
+    }),
+    {
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "received",
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote: "Local archive closure receipt handoff receipt recorded.",
+    },
+  );
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptPayload({ sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "external_approved" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptPayload({ sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "needs_rework" }), /validation/i);
+  assert.throws(() => normalizeClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptPayload({}), /validation/i);
 });
 
 test("doctor can create, update, list, and message clinical follow-ups with audit", async () => {
@@ -1552,6 +1603,37 @@ test("doctor can summarize and update SOP policy governance evidence reconciliat
   );
 });
 
+test("doctor can summarize and update SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt with audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+  const summary = await service.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary(
+    {},
+    DOCTOR,
+    { correlationId: "policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-1" },
+  );
+  const updated = await service.updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt(
+    FOLLOW_UP_ID,
+    {
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "received",
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt recorded.",
+    },
+    DOCTOR,
+    { correlationId: "policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-2" },
+  );
+
+  assert.equal(summary.summary.archiveClosureReceiptHandoffReceiptReady, 1);
+  assert.equal(summary.summary.needsArchiveClosureReceiptHandoffReceipt, 1);
+  assert.equal(updated.followUp.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState, "received");
+  assert.equal(updated.followUp.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote, "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt recorded.");
+  assert.deepEqual(
+    auditEvents.map((event) => event.action),
+    [
+      "clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt.summary",
+      "clinical_follow_up.sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt.update",
+    ],
+  );
+});
+
 test("operator cannot mutate SOP policy templates and missing template maps to 404", async () => {
   const service = createService({
     repositoryOverrides: {
@@ -1618,6 +1700,32 @@ test("operator cannot update SOP policy governance evidence reconciliation closu
       DOCTOR,
     ),
     /archive closure receipt handoff was not found/i,
+  );
+});
+
+test("operator cannot update SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt and missing handoff receipt maps to 404", async () => {
+  const service = createService({
+    repositoryOverrides: {
+      async updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt() {
+        return null;
+      },
+    },
+  });
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt(
+      FOLLOW_UP_ID,
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "received" },
+      { userId: "op", roles: ["operator"], clinicIds: [] },
+    ),
+    ForbiddenError,
+  );
+  await assert.rejects(
+    () => service.updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt(
+      FOLLOW_UP_ID,
+      { sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "received" },
+      DOCTOR,
+    ),
+    /archive closure receipt handoff receipt was not found/i,
   );
 });
 
