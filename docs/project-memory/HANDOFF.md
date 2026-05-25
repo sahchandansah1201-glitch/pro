@@ -4,11 +4,25 @@
 
 This handoff captures the repository state while Stage 41A-41Z is being
 implemented from branch
-`codex/stage41a-41z-clinical-followup-reconciliation-closure-receipt-archive-readiness-closure`.
+`codex/stage42a-42z-clinical-followup-reconciliation-closure-receipt-archive-readiness-closure-receipt`.
 
 ## Confirmed state
 
-0. Stage 41A-41Z is implemented in the current branch as SOP policy governance
+0. Stage 42A-42Z is implemented in the current branch as SOP policy governance
+   evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt:
+   - PostgreSQL Stage 42 archive closure receipt fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_stage42_archive_closure_receipt_events`;
+   - backend SOP policy governance evidence reconciliation closure receipt
+     archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt summary/update routes;
+   - doctor live workspace Recon archive closure receipt ready / Needs recon
+     archive closure receipt / Received recon archive closure receipts summary
+     tiles and Receive recon archive closure / Recon archive closure receipt
+     rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt.
+
+0. Stage 41A-41Z is merged to main as SOP policy governance
    evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure:
    - PostgreSQL Stage 41 archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_stage41_archive_readiness_closure_events`;
