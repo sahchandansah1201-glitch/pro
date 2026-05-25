@@ -2,11 +2,24 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 40A-40Z is being
+This handoff captures the repository state while Stage 41A-41Z is being
 implemented from branch
-`codex/stage40a-40z-clinical-followup-reconciliation-closure-receipt-archive-readiness`.
+`codex/stage41a-41z-clinical-followup-reconciliation-closure-receipt-archive-readiness-closure`.
 
 ## Confirmed state
+
+0. Stage 41A-41Z is implemented in the current branch as SOP policy governance
+   evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure:
+   - PostgreSQL Stage 41 archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_stage41_archive_readiness_closure_events`;
+   - backend SOP policy governance evidence reconciliation closure receipt
+     archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure summary/update routes;
+   - doctor live workspace Recon receipt archive closure ready / Needs recon
+     receipt archive closure / Closed recon receipt archives summary tiles and
+     Close recon receipt archive / Recon receipt archive closure rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure.
 
 0. Stage 40A-40Z is implemented in the current branch as SOP policy governance
    evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness:

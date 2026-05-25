@@ -1,5 +1,39 @@
 # RISKS
 
+## Stage 41A-41Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure risks
+
+1. **Risk: local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure can be mistaken for external governance approval or legal archive sufficiency.**
+   - Evidence: Stage 41A-41Z records local archive closure receipt handoff
+     receipt reconciliation closure receipt archive readiness closure state and
+     notes on follow-up tasks, but it does not verify legal sign-off, external
+     SOP approvals, archive export completeness outside the repository, or
+     medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy governance
+     evidence reconciliation closure receipt archive closure receipt handoff
+     receipt reconciliation closure receipt archive readiness closure as local
+     metadata only.
+
+2. **Risk: archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure can hide closure exception or rework states.**
+   - Evidence: Stage 41A-41Z summarizes archive closure receipt handoff
+     receipt reconciliation closure receipt archive readiness closure from
+     local archive readiness, closure receipt, reconciliation closure,
+     reconciliation, handoff receipt, handoff, archive closure receipt, archive
+     closure, and archive readiness fields; it does not perform external
+     remediation or diagnosis/treatment correctness checks.
+   - Mitigation: keep closure exception and needs-rework states bounded,
+     RBAC-protected, append-only audited, and visible in the doctor workspace
+     summary.
+
+3. **Risk: PostgreSQL can truncate overlong Stage 41 identifiers and collide physical columns.**
+   - Evidence: GitHub `compose-smoke` exposed a Stage 41 migration failure
+     when long archive readiness closure column names truncated to the same
+     63-byte PostgreSQL identifier.
+   - Mitigation: Stage 41 physical database identifiers now use short stable
+     names (`stage41_archive_readiness_closure_*`,
+     `clinical_follow_up_stage41_archive_readiness_closure_events`), while
+     API/UI names remain descriptive. The Stage 41 guard rejects protected
+     migration identifiers longer than 63 bytes.
+
 ## Stage 40A-40Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness risks
 
 1. **Risk: local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness can be mistaken for external governance approval or legal archive sufficiency.**

@@ -2,6 +2,25 @@
 
 ## 2026-05-25
 
+- Создан Stage 41A-41Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure после Stage 40A-40Z.
+- Добавлены Stage 41 archive closure receipt handoff receipt reconciliation
+  closure receipt archive readiness closure поля, append-only
+  `clinical_follow_up_stage41_archive_readiness_closure_events`,
+  backend summary/update routes, OpenAPI, nginx publishing, frontend adapter,
+  doctor live workspace Recon receipt archive closure ready / Needs recon
+  receipt archive closure / Closed recon receipt archives summary tiles, Close
+  recon receipt archive / Recon receipt archive closure rework actions, guard,
+  workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no legal archive sufficiency proof,
+  no medical correctness proof, no signed URLs/storage paths/provider tokens in
+  protected outputs.
+- После GitHub `compose-smoke` failure Stage 41 migration переведена на
+  короткие PostgreSQL identifiers
+  (`stage41_archive_readiness_closure_*`,
+  `clinical_follow_up_stage41_archive_readiness_closure_events`) и guard
+  теперь отклоняет Stage 41 identifiers длиннее PostgreSQL 63-byte limit.
+
 - Создан Stage 40A-40Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness после Stage 39A-39Z.
 - Добавлены Stage 40 archive closure receipt handoff receipt reconciliation
   closure receipt archive readiness поля, append-only
