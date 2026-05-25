@@ -2,13 +2,26 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 38A-38Z is being
+This handoff captures the repository state while Stage 39A-39Z is being
 implemented from branch
-`codex/stage38a-38z-clinical-followup-sop-governance-handoff-receipt-reconciliation-closure`.
+`codex/stage39a-39z-clinical-followup-sop-governance-reconciliation-closure-receipt`.
 
 ## Confirmed state
 
-0. Stage 38A-38Z is implemented in the current branch as SOP policy governance
+0. Stage 39A-39Z is implemented in the current branch as SOP policy governance
+   evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt:
+   - PostgreSQL Stage 39 archive closure receipt handoff receipt reconciliation closure receipt fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_stage39_archive_handoff_receipt_reconciliation_closure_receipt_events`;
+   - backend SOP policy governance evidence reconciliation closure receipt
+     archive closure receipt handoff receipt reconciliation closure receipt summary/update routes;
+   - doctor live workspace Recon closure receipt ready / Needs closure receipt
+     / Received recon closures summary tiles and Receive recon closure /
+     Recon closure receipt rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt.
+
+0. Stage 38A-38Z is merged to main as SOP policy governance
    evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure:
    - PostgreSQL Stage 38 archive closure receipt handoff receipt reconciliation closure fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_stage38_archive_handoff_receipt_reconciliation_closure_events`;
