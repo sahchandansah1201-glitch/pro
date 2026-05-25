@@ -895,6 +895,28 @@ function createRuntime({
           },
         };
       },
+      async getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          summary: {
+            totalFollowUps: 4,
+            archiveClosureReceiptReady: 1,
+            needsArchiveClosureReceipt: 1,
+            receivedArchiveClosureReceipts: 1,
+            archiveClosureReceiptExceptions: 0,
+            archiveClosureReceiptNeedsRework: 0,
+            closedLocalArchives: 1,
+            archiveReadinessMarked: 1,
+            localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptEvents: 2,
+            source: "postgres",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
       async listClinicalFollowUpSopPolicyTemplates() {
         if (clinicalFollowUpError) throw clinicalFollowUpError;
         return {
@@ -1257,6 +1279,33 @@ function createRuntime({
             sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: "ready",
             sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState: "closed",
             sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closed.",
+          },
+          scope: {
+            allClinics: false,
+            clinicIds: ["10000000-0000-4000-8000-000000000001"],
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt() {
+        if (clinicalFollowUpError) throw clinicalFollowUpError;
+        return {
+          followUp: {
+            ...(clinicalFollowUp || { id: "10000000-0000-4000-8000-000000000701" }),
+            sopValidationState: "validated",
+            sopPolicyDriftState: "in_sync",
+            sopPolicyExceptionState: "closed",
+            sopPolicyAuditState: "reviewed",
+            sopPolicyGovernanceState: "reviewed",
+            sopPolicyGovernanceClosureState: "closed",
+            sopPolicyGovernanceEvidenceState: "exported",
+            sopPolicyGovernanceEvidenceReconciliationState: "reconciled",
+            sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
+            sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
+            sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: "ready",
+            sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState: "closed",
+            sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "received",
+            sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt recorded.",
           },
           scope: {
             allClinics: false,
@@ -1932,6 +1981,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceipt, "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure-receipt");
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness, "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness");
   assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure, "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure");
+  assert.equal(meta.json.capabilities.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt, "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt");
   assert.equal(meta.json.capabilities.devices, "rbac-read-command-postgres-device-bridge-registry-worker-contract");
   assert.equal(meta.json.capabilities.deviceBridgeWorker, "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance");
   assert.equal(meta.json.capabilities.observability, "structured-json-logs-redacted-ops-status-runtime-checks");
@@ -1974,6 +2024,7 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.openapiStage31A31Z, "/openapi.stage31a-31z.json");
   assert.equal(meta.json.links.openapiStage32A32Z, "/openapi.stage32a-32z.json");
   assert.equal(meta.json.links.openapiStage33A33Z, "/openapi.stage33a-33z.json");
+  assert.equal(meta.json.links.openapiStage34A34Z, "/openapi.stage34a-34z.json");
   assert.equal(meta.json.links.openapiStage5I, "/openapi.stage5i.json");
   assert.equal(meta.json.links.openapiStage5J, "/openapi.stage5j.json");
   assert.equal(meta.json.links.openapiStage5K, "/openapi.stage5k.json");
@@ -2054,6 +2105,8 @@ test("meta and openapi routes expose contracts without runtime secrets", async (
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary, "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure/summary");
   assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary, "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt/summary");
+  assert.equal(meta.json.links.clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt, "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt");
   assert.equal(meta.json.links.clinicalFollowUpOperation, "/api/v1/clinical/follow-ups/{followUpId}/operations");
   assert.equal(meta.json.links.patientPortalFollowUps, "/api/v1/me/follow-ups");
   assert.equal(meta.json.links.patientPortalFollowUpMessages, "/api/v1/me/follow-ups/{followUpId}/messages");
@@ -5236,6 +5289,44 @@ test("Stage 33A-33Z · /openapi.stage33a-33z.json documents SOP policy governanc
   assert.equal(response.json.info.version, "33A-33Z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure");
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure/summary"].get);
   assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure"].patch);
+});
+
+test("Stage 34A-34Z · SOP policy governance evidence reconciliation closure receipt archive closure receipt routes record local archive receipt", async () => {
+  const runtime = createRuntime();
+  const summary = await request(
+    "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt/summary",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(summary.status, 200);
+  assert.equal(summary.json.stage, "34A-34Z");
+  assert.equal(summary.json.item.archiveClosureReceiptReady, 1);
+  assert.equal(summary.json.item.needsArchiveClosureReceipt, 1);
+  assert.equal(summary.json.item.receivedArchiveClosureReceipts, 1);
+
+  const updated = await request(
+    "/api/v1/clinical/follow-ups/10000000-0000-4000-8000-000000000701/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt",
+    configuredEnv,
+    runtime,
+    "PATCH",
+    {
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "received",
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt recorded.",
+    },
+  );
+  assert.equal(updated.status, 200);
+  assert.equal(updated.json.stage, "34A-34Z");
+  assert.equal(updated.json.item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState, "received");
+  assert.equal(updated.json.item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote, "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt recorded.");
+  assert.doesNotMatch(updated.body, /api-read|api-write|edge function|SUPABASE_|storage_object_path|signed_url|access_token|external governance approval|external SOP approval|legal archive sufficiency proof|medical correctness/i);
+});
+
+test("Stage 34A-34Z · /openapi.stage34a-34z.json documents SOP policy governance evidence reconciliation closure receipt archive closure receipt", async () => {
+  const response = await request("/openapi.stage34a-34z.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.json.info.version, "34A-34Z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt");
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt/summary"].get);
+  assert.ok(response.json.paths["/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt"].patch);
 });
 
 test("Stage 5P · clinic booking request endpoints list, read, and update intake safely", async () => {

@@ -130,6 +130,7 @@ const DEFAULT_STEPS = [
   ["Stage 31A-31Z clinical follow-up SOP policy governance evidence reconciliation closure receipt preflight", npmCmd, ["run", "preflight:stage31a-31z"]],
   ["Stage 32A-32Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive readiness preflight", npmCmd, ["run", "preflight:stage32a-32z"]],
   ["Stage 33A-33Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure preflight", npmCmd, ["run", "preflight:stage33a-33z"]],
+  ["Stage 34A-34Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt preflight", npmCmd, ["run", "preflight:stage34a-34z"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],
