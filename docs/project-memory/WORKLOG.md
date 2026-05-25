@@ -2,6 +2,20 @@
 
 ## 2026-05-25
 
+- Создан Stage 39A-39Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt после Stage 38A-38Z.
+- Добавлены Stage 39 archive closure receipt handoff receipt reconciliation closure receipt
+  поля, append-only
+  `clinical_follow_up_stage39_archive_handoff_receipt_reconciliation_closure_receipt_events`,
+  backend summary/update routes, OpenAPI, nginx publishing, frontend adapter,
+  doctor live workspace Recon closure receipt ready / Needs closure receipt /
+  Received recon closures summary tiles, Receive recon closure / Recon closure
+  receipt rework actions, guard, workflow, docs, project-memory update, and
+  preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no legal archive sufficiency proof,
+  no medical correctness proof, no signed URLs/storage paths/provider tokens in
+  protected outputs.
+
 - Создан Stage 38A-38Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure после Stage 37A-37Z.
 - Добавлены Stage 38 archive closure receipt handoff receipt reconciliation closure
   поля, append-only
