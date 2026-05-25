@@ -7,6 +7,14 @@
    - [DESIGN.md](../../DESIGN.md)
    - [README.md](../../README.md)
 
+2. Stage 35A-35Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff artifacts:
+   - [clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.stage35a-35z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.stage35a-35z.json)
+   - [0042_stage35_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff.sql](../../backend/self-hosted/db/migrations/0042_stage35_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff.sql)
+   - [openapi.stage35a-35z.json](../../backend/self-hosted/openapi.stage35a-35z.json)
+   - [stage-35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.md](../backend/stage-35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.md)
+   - [check-stage35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.mjs](../../scripts/check-stage35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.mjs)
+   - [stage35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.yml](../../.github/workflows/stage35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.yml)
+
 2. Stage 34A-34Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt artifacts:
    - [clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.stage34a-34z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.stage34a-34z.json)
    - [0041_stage34_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt.sql](../../backend/self-hosted/db/migrations/0041_stage34_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt.sql)
