@@ -1,0 +1,44 @@
+{
+  "stage": "37A-37Z",
+  "name": "clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation",
+  "status": "ready",
+  "previousBatch": "Stage 36A-36Z",
+  "nextBatchHypothesis": "Stage 38A-38Z",
+  "purpose": "Add a local archive closure receipt handoff receipt reconciliation checkpoint after Stage 36 archive closure receipt handoff receipt for clinical follow-up tasks.",
+  "implementedSurfaces": [
+    "PostgreSQL Stage 37 archive closure receipt handoff receipt reconciliation fields on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_stage37_archive_handoff_receipt_reconciliation_events",
+    "Backend governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation summary route",
+    "Backend governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation update route",
+    "OpenAPI Stage 37A-37Z contract",
+    "nginx OpenAPI publishing",
+    "Frontend follow-up API adapter",
+    "Doctor workspace archive closure receipt handoff receipt reconciliation summary tiles",
+    "Doctor workspace Reconcile handoff receipt and Receipt recon rework actions",
+    "Stage guard, tests, workflow, docs, and preflight-all wiring",
+    "Project-memory recovery update"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "externalRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationIsLocalMetadataOnly": true,
+    "clinicGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationIsNotExternalApprovalProof": true,
+    "archiveClosureReceiptHandoffReceiptReconciliationIsNotLegalArchiveSufficiencyProof": true,
+    "archiveClosureReceiptHandoffReceiptReconciliationDoesNotIncludeRawPatientNames": true,
+    "archiveClosureReceiptHandoffReceiptReconciliationDoesNotIncludeTokensOrSignedUrls": true,
+    "medicalCorrectnessProof": false
+  },
+  "verification": {
+    "test": "npm run test:stage37a-37z",
+    "check": "npm run check:stage37a-37z",
+    "preflight": "npm run preflight:stage37a-37z",
+    "expectedConfirmation": "Confirmed: Stage 37A-37Z synced from main, no conflicts."
+  }
+}

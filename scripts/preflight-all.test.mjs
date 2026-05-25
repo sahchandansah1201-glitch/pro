@@ -145,6 +145,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 34A-34Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt preflight",
     "Stage 35A-35Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff preflight",
     "Stage 36A-36Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt preflight",
+    "Stage 37A-37Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "project-memory black box guard",
@@ -271,11 +272,12 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[117], /npm(\.cmd)? run preflight:stage34a-34z/);
   assert.match(commands[118], /npm(\.cmd)? run preflight:stage35a-35z/);
   assert.match(commands[119], /npm(\.cmd)? run preflight:stage36a-36z/);
-  assert.match(commands[120], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[121], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[122], /npm(\.cmd)? run check:project-memory/);
-  assert.match(commands[123], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[124], "git diff --check");
+  assert.match(commands[120], /npm(\.cmd)? run preflight:stage37a-37z/);
+  assert.match(commands[121], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[122], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[123], /npm(\.cmd)? run check:project-memory/);
+  assert.match(commands[124], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[125], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
@@ -408,6 +410,7 @@ test("dry-run output includes copyable commands", () => {
   assert.match(out, /preflight:stage34a-34z/);
   assert.match(out, /preflight:stage35a-35z/);
   assert.match(out, /preflight:stage36a-36z/);
+  assert.match(out, /preflight:stage37a-37z/);
   assert.match(out, /ci:release-status-sync/);
   assert.match(out, /check:preflight-all-gate/);
   assert.match(out, /check:project-memory/);
