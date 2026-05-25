@@ -1,5 +1,27 @@
 # RISKS
 
+## Stage 37A-37Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation risks
+
+1. **Risk: local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation can be mistaken for external governance approval or legal archive sufficiency.**
+   - Evidence: Stage 37A-37Z records local archive closure receipt handoff
+     receipt reconciliation state and notes on follow-up tasks, but it does
+     not verify legal sign-off, external SOP approvals, archive export
+     completeness outside the repository, or medical correctness outside the
+     self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy governance
+     evidence reconciliation closure receipt archive closure receipt handoff
+     receipt reconciliation as local metadata only.
+
+2. **Risk: archive closure receipt handoff receipt reconciliation can hide reconciliation exception or rework states.**
+   - Evidence: Stage 37A-37Z summarizes archive closure receipt handoff
+     receipt reconciliation from local handoff receipt, handoff, archive
+     closure receipt, archive closure, and archive readiness fields; it does
+     not perform external remediation or diagnosis/treatment correctness
+     checks.
+   - Mitigation: keep reconciliation exception and needs-rework states
+     bounded, RBAC-protected, append-only audited, and visible in the doctor
+     workspace summary.
+
 ## Stage 36A-36Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt risks
 
 1. **Risk: local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt can be mistaken for external governance approval or legal archive sufficiency.**
