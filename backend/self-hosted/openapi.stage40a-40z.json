@@ -1,0 +1,274 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dermatolog Pro Self-Hosted Clinical Follow-Up SOP Governance Evidence Reconciliation Closure Receipt Archive Closure Receipt Handoff Receipt Reconciliation Closure Receipt Archive Readiness",
+    "version": "40A-40Z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness",
+    "description": "Stage 40A-40Z local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness endpoints for the self-hosted product boundary."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness/summary": {
+      "get": {
+        "summary": "Read local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness summary",
+        "operationId": "getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local archive closure receipt handoff receipt reconciliation closure receipt archive readiness summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "stage",
+                    "source",
+                    "item"
+                  ],
+                  "properties": {
+                    "stage": {
+                      "const": "40A-40Z"
+                    },
+                    "source": {
+                      "const": "postgres"
+                    },
+                    "item": {
+                      "$ref": "#/components/schemas/ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary"
+                    },
+                    "generatedAt": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness": {
+      "patch": {
+        "summary": "Update local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness",
+        "operationId": "updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "followUpId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated follow-up with local archive readiness fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "stage",
+                    "source",
+                    "item"
+                  ],
+                  "properties": {
+                    "stage": {
+                      "const": "40A-40Z"
+                    },
+                    "source": {
+                      "const": "postgres"
+                    },
+                    "item": {
+                      "$ref": "#/components/schemas/ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessFollowUp"
+                    },
+                    "generatedAt": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState": {
+        "type": "string",
+        "enum": [
+          "not_started",
+          "ready",
+          "archived",
+          "archive_exception",
+          "needs_rework"
+        ]
+      },
+      "ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary": {
+        "type": "object",
+        "required": [
+          "totalFollowUps",
+          "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessReady",
+          "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness",
+          "archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts",
+          "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessExceptions",
+          "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNeedsRework",
+          "receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts",
+          "closedArchiveClosureReceiptHandoffReceiptReconciliations",
+          "reconciledArchiveClosureReceiptHandoffReceipts",
+          "receivedArchiveClosureReceiptHandoffReceipts",
+          "handedOffArchiveClosureReceipts",
+          "receivedArchiveClosureReceipts",
+          "localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessEvents"
+        ],
+        "properties": {
+          "totalFollowUps": {
+            "type": "integer"
+          },
+          "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessReady": {
+            "type": "integer"
+          },
+          "needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness": {
+            "type": "integer"
+          },
+          "archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts": {
+            "type": "integer"
+          },
+          "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessExceptions": {
+            "type": "integer"
+          },
+          "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNeedsRework": {
+            "type": "integer"
+          },
+          "receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts": {
+            "type": "integer"
+          },
+          "closedArchiveClosureReceiptHandoffReceiptReconciliations": {
+            "type": "integer"
+          },
+          "reconciledArchiveClosureReceiptHandoffReceipts": {
+            "type": "integer"
+          },
+          "receivedArchiveClosureReceiptHandoffReceipts": {
+            "type": "integer"
+          },
+          "handedOffArchiveClosureReceipts": {
+            "type": "integer"
+          },
+          "receivedArchiveClosureReceipts": {
+            "type": "integer"
+          },
+          "localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessEvents": {
+            "type": "integer"
+          },
+          "source": {
+            "const": "postgres"
+          }
+        }
+      },
+      "ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessUpdate": {
+        "type": "object",
+        "properties": {
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState": {
+            "$ref": "#/components/schemas/ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState"
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState"
+            ]
+          },
+          {
+            "required": [
+              "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote"
+            ]
+          }
+        ]
+      },
+      "ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessFollowUp": {
+        "type": "object",
+        "required": [
+          "id",
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState": {
+            "$ref": "#/components/schemas/ArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState"
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptState": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "ready",
+              "received",
+              "receipt_exception",
+              "needs_rework"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
