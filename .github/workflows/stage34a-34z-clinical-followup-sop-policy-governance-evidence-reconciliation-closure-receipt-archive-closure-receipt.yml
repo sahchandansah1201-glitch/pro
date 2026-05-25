@@ -1,0 +1,34 @@
+name: stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.stage34a-34z.json"
+      - "backend/self-hosted/db/migrations/0041_stage34_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt.sql"
+      - "backend/self-hosted/openapi.stage34a-34z.json"
+      - "backend/self-hosted/clinical-followup-repository.mjs"
+      - "backend/self-hosted/clinical-followup-service.mjs"
+      - "backend/self-hosted/routes.mjs"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "scripts/check-stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.mjs"
+      - "scripts/check-stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.test.mjs"
+      - "docs/backend/stage-34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.md"
+      - "docs/project-memory/**"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.yml"
+  workflow_dispatch:
+
+jobs:
+  stage34a-34z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run preflight:stage34a-34z

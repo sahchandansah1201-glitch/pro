@@ -7,6 +7,14 @@
    - [DESIGN.md](../../DESIGN.md)
    - [README.md](../../README.md)
 
+2. Stage 34A-34Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt artifacts:
+   - [clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.stage34a-34z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.stage34a-34z.json)
+   - [0041_stage34_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt.sql](../../backend/self-hosted/db/migrations/0041_stage34_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt.sql)
+   - [openapi.stage34a-34z.json](../../backend/self-hosted/openapi.stage34a-34z.json)
+   - [stage-34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.md](../backend/stage-34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.md)
+   - [check-stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.mjs](../../scripts/check-stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.mjs)
+   - [stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.yml](../../.github/workflows/stage34a-34z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt.yml)
+
 2. Stage 18A-18Z clinical follow-up operations artifacts:
    - [clinical-followup-operations.stage18a-18z.json](../../deploy/self-hosted/clinical-followup-operations.stage18a-18z.json)
    - [0025_stage18_followup_operations_hardening.sql](../../backend/self-hosted/db/migrations/0025_stage18_followup_operations_hardening.sql)

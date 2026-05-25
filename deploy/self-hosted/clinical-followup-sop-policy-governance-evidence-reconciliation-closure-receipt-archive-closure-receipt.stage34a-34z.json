@@ -1,0 +1,44 @@
+{
+  "stage": "34A-34Z",
+  "name": "clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt",
+  "status": "ready",
+  "previousBatch": "Stage 33A-33Z",
+  "nextBatchHypothesis": "Stage 35A-35Z",
+  "purpose": "Add a local archive closure receipt checkpoint after Stage 33 archive closure for clinical follow-up tasks.",
+  "implementedSurfaces": [
+    "PostgreSQL Stage 34 archive closure receipt fields on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_stage34_archive_closure_receipt_events",
+    "Backend governance evidence reconciliation closure receipt archive closure receipt summary route",
+    "Backend governance evidence reconciliation closure receipt archive closure receipt update route",
+    "OpenAPI Stage 34A-34Z contract",
+    "nginx OpenAPI publishing",
+    "Frontend follow-up API adapter",
+    "Doctor workspace archive closure receipt summary tiles",
+    "Doctor workspace Receive archive receipt and Receipt rework actions",
+    "Stage guard, tests, workflow, docs, and preflight-all wiring",
+    "Project-memory recovery update"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "externalRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptIsLocalMetadataOnly": true,
+    "clinicGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptIsNotExternalApprovalProof": true,
+    "archiveClosureReceiptIsNotLegalArchiveSufficiencyProof": true,
+    "archiveClosureReceiptDoesNotIncludeRawPatientNames": true,
+    "archiveClosureReceiptDoesNotIncludeTokensOrSignedUrls": true,
+    "medicalCorrectnessProof": false
+  },
+  "verification": {
+    "test": "npm run test:stage34a-34z",
+    "check": "npm run check:stage34a-34z",
+    "preflight": "npm run preflight:stage34a-34z",
+    "expectedConfirmation": "Confirmed: Stage 34A-34Z synced from main, no conflicts."
+  }
+}
