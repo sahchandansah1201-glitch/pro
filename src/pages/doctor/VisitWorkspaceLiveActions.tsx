@@ -27,6 +27,7 @@ import {
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary,
+  getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary,
   getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary,
@@ -52,6 +53,7 @@ import {
   type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary,
   type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary,
   type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary,
+  type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary,
   type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary,
   type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary,
   type FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary,
@@ -77,6 +79,7 @@ import {
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness,
+  updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff,
   updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt,
@@ -132,6 +135,7 @@ type BusyAction =
   | "sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-update"
   | "sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-update"
   | "sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-update"
+  | "sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-update"
   | null;
 
 const EMPTY_OPERATIONS_SUMMARY: FollowUpOperationsSummary = {
@@ -420,6 +424,23 @@ const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIV
   localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessEvents: 0,
 };
 
+const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_SUMMARY: FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary = {
+  totalFollowUps: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReady: 0,
+  needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureExceptions: 0,
+  archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNeedsRework: 0,
+  archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts: 0,
+  closedArchiveClosureReceiptHandoffReceiptReconciliations: 0,
+  reconciledArchiveClosureReceiptHandoffReceipts: 0,
+  receivedArchiveClosureReceiptHandoffReceipts: 0,
+  handedOffArchiveClosureReceipts: 0,
+  receivedArchiveClosureReceipts: 0,
+  localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureEvents: 0,
+};
+
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
   if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
@@ -467,6 +488,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary, setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary] = useState<FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_SUMMARY);
   const [sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary, setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary] = useState<FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY);
   const [sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary, setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary] = useState<FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_SUMMARY);
+  const [sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary, setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary] = useState<FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
   const [sopPolicyTemplates, setSopPolicyTemplates] = useState<SelfHostedFollowUpSopPolicyTemplate[]>([]);
   const [sopTemplateCode, setSopTemplateCode] = useState("followup-standard");
@@ -493,7 +515,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   async function loadOperationsQueue() {
     if (!configured) return;
     setBusy((current) => current ?? "operations-load");
-    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicyGovernance, sopPolicyGovernanceClosure, sopPolicyGovernanceEvidence, sopPolicyGovernanceEvidenceReconciliation, sopPolicyGovernanceEvidenceReconciliationClosure, sopPolicyGovernanceEvidenceReconciliationClosureReceipt, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness, sopPolicies, queue] = await Promise.all([
+    const [summary, outcomes, clinicReview, sopValidation, sopPolicySummary, sopPolicyApplication, sopPolicyExceptions, sopPolicyAudit, sopPolicyGovernance, sopPolicyGovernanceClosure, sopPolicyGovernanceEvidence, sopPolicyGovernanceEvidenceReconciliation, sopPolicyGovernanceEvidenceReconciliationClosure, sopPolicyGovernanceEvidenceReconciliationClosureReceipt, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness, sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure, sopPolicies, queue] = await Promise.all([
       getSelfHostedClinicalFollowUpOperationsSummary(baseArgs),
       getSelfHostedClinicalFollowUpOutcomeQualitySummary(baseArgs),
       getSelfHostedClinicalFollowUpClinicReviewSummary(baseArgs),
@@ -517,6 +539,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
       getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary(baseArgs),
       getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary(baseArgs),
+      getSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary(baseArgs),
       listSelfHostedClinicalFollowUpSopPolicyTemplates({
         ...baseArgs,
         activeOnly: true,
@@ -549,11 +572,12 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     if (sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure.ok) setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure.value);
     if (sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt.ok) setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt.value);
     if (sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness.ok) setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness.value);
+    if (sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure.ok) setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure.value);
     if (sopPolicies.ok) setSopPolicyTemplates(sopPolicies.value);
     if (queue.ok) setOperationsQueue(queue.value);
     setBusy((current) => current === "operations-load" ? null : current);
-    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicyGovernance.ok || !sopPolicyGovernanceClosure.ok || !sopPolicyGovernanceEvidence.ok || !sopPolicyGovernanceEvidenceReconciliation.ok || !sopPolicyGovernanceEvidenceReconciliationClosure.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceipt.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness.ok || !sopPolicies.ok || !queue.ok) {
-      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicyGovernanceClosure.error || sopPolicyGovernanceEvidence.error || sopPolicyGovernanceEvidenceReconciliation.error || sopPolicyGovernanceEvidenceReconciliationClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness.error || sopPolicies.error || queue.error));
+    if (!summary.ok || !outcomes.ok || !clinicReview.ok || !sopValidation.ok || !sopPolicySummary.ok || !sopPolicyApplication.ok || !sopPolicyExceptions.ok || !sopPolicyAudit.ok || !sopPolicyGovernance.ok || !sopPolicyGovernanceClosure.ok || !sopPolicyGovernanceEvidence.ok || !sopPolicyGovernanceEvidenceReconciliation.ok || !sopPolicyGovernanceEvidenceReconciliationClosure.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceipt.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness.ok || !sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure.ok || !sopPolicies.ok || !queue.ok) {
+      setStatus(publicMessage(summary.error || outcomes.error || clinicReview.error || sopValidation.error || sopPolicySummary.error || sopPolicyApplication.error || sopPolicyExceptions.error || sopPolicyAudit.error || sopPolicyGovernance.error || sopPolicyGovernanceClosure.error || sopPolicyGovernanceEvidence.error || sopPolicyGovernanceEvidenceReconciliation.error || sopPolicyGovernanceEvidenceReconciliationClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadiness.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness.error || sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure.error || sopPolicies.error || queue.error));
     }
   }
 
@@ -1017,6 +1041,22 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   ) {
     setBusy("sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-update");
     const result = await updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness({
+      ...baseArgs,
+      followUpId,
+      payload,
+    });
+    setBusy(null);
+    setStatus(result.ok ? successMessage : publicMessage(result.error));
+    if (result.ok) await loadOperationsQueue();
+  }
+
+  async function updateSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState(
+    followUpId: string,
+    payload: Parameters<typeof updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure>[0]["payload"],
+    successMessage: string,
+  ) {
+    setBusy("sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-update");
+    const result = await updateSelfHostedClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure({
       ...baseArgs,
       followUpId,
       payload,
@@ -1634,6 +1674,20 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary.archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts}</dd>
                 </div>
               </dl>
+              <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Recon receipt archive closure ready</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReady}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Needs recon receipt archive closure</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure}</dd>
+                </div>
+                <div className="surface-toolbar p-2">
+                  <dt className="text-muted-foreground">Closed recon receipt archives</dt>
+                  <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary.closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures}</dd>
+                </div>
+              </dl>
               <div className="space-y-2 text-[12px]">
                 {sopPolicyTemplates.length === 0 ? (
                   <p className="text-muted-foreground">Активный SOP policy template ещё не задан.</p>
@@ -1803,6 +1857,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   archive closure receipt handoff receipt reconciliation closure receipt archive readiness: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote || "no local archive closure receipt handoff receipt reconciliation closure receipt archive readiness note"}
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNote || "no local archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure note"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -2581,6 +2638,40 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   className="h-8 text-[12px]"
                 >
                   Recon receipt archive rework
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-update"}
+                  onClick={() => void updateSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState(
+                    item.id,
+                    {
+                      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState: "closed",
+                      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure closed from workspace.",
+                    },
+                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure закрыт локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Close recon receipt archive
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy === "sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-update"}
+                  onClick={() => void updateSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState(
+                    item.id,
+                    {
+                      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState: "needs_rework",
+                      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure needs rework from workspace.",
+                    },
+                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure отправлен на rework локально.",
+                  )}
+                  className="h-8 text-[12px]"
+                >
+                  Recon receipt archive closure rework
                 </Button>
               </div>
             </article>

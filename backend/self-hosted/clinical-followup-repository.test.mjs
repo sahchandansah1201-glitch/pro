@@ -16,6 +16,7 @@ import {
   buildClinicalFollowUpSopPolicyGovernanceEvidenceSummarySql,
   buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummarySql,
   buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummarySql,
+  buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummarySql,
   buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummarySql,
   buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummarySql,
   buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummarySql,
@@ -41,6 +42,7 @@ import {
   buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceSql,
   buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSql,
   buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSql,
+  buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSql,
   buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSql,
   buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSql,
   buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSql,
@@ -737,6 +739,30 @@ test("builds SOP policy governance evidence reconciliation closure receipt archi
   assert.match(updateSql, /stage37_archive_handoff_receipt_reconciled_at = now\(\)/);
   assert.match(updateSql, /insert into clinical_follow_up_stage37_archive_handoff_receipt_reconciliation_events/);
   assert.match(updateSql, /sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation\.update/);
+  assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path|external governance approval|legal archive sufficiency proof|medical correctness/i);
+});
+
+test("builds SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure summary and update SQL with append-only closure events", () => {
+  const summarySql = buildClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummarySql({
+    clinicIds: [CLINIC_ID],
+  });
+  assert.match(summarySql, /archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReady/);
+  assert.match(summarySql, /needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure/);
+  assert.match(summarySql, /clinical_follow_up_stage41_archive_readiness_closure_events/);
+
+  const updateSql = buildUpdateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSql({
+    followUpId: FOLLOW_UP_ID,
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    changes: {
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState: "closed",
+      sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure closed.",
+    },
+  });
+  assert.match(updateSql, /stage41_archive_readiness_closure_state = 'closed'/);
+  assert.match(updateSql, /stage41_archive_readiness_closure_closed_at = now\(\)/);
+  assert.match(updateSql, /insert into clinical_follow_up_stage41_archive_readiness_closure_events/);
+  assert.match(updateSql, /sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure\.update/);
   assert.doesNotMatch(updateSql, /\bdelete\s+from\b|signed_url|storage_object_path|external governance approval|legal archive sufficiency proof|medical correctness/i);
 });
 

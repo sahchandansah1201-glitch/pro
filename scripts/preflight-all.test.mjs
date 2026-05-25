@@ -149,6 +149,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 38A-38Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure preflight",
     "Stage 39A-39Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt preflight",
     "Stage 40A-40Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness preflight",
+    "Stage 41A-41Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "project-memory black box guard",
@@ -279,11 +280,12 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[121], /npm(\.cmd)? run preflight:stage38a-38z/);
   assert.match(commands[122], /npm(\.cmd)? run preflight:stage39a-39z/);
   assert.match(commands[123], /npm(\.cmd)? run preflight:stage40a-40z/);
-  assert.match(commands[124], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[125], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[126], /npm(\.cmd)? run check:project-memory/);
-  assert.match(commands[127], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[128], "git diff --check");
+  assert.match(commands[124], /npm(\.cmd)? run preflight:stage41a-41z/);
+  assert.match(commands[125], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[126], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[127], /npm(\.cmd)? run check:project-memory/);
+  assert.match(commands[128], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[129], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {
