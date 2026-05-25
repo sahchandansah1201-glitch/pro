@@ -2,6 +2,18 @@
 
 ## 2026-05-25
 
+- Создан Stage 35A-35Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff после Stage 34A-34Z.
+- Добавлены Stage 35 archive closure receipt handoff поля, append-only
+  `clinical_follow_up_stage35_archive_receipt_handoff_events`, backend
+  summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor
+  live workspace Handoff ready / Needs handoff / Handed off receipts
+  summary tiles, Handoff archive receipt / Handoff rework actions, guard,
+  workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no legal archive sufficiency proof,
+  no medical correctness proof, no signed URLs/storage paths/provider tokens in
+  protected outputs.
+
 - Создан Stage 34A-34Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt после Stage 33A-33Z.
 - Добавлены Stage 34 archive closure receipt поля, append-only
   `clinical_follow_up_stage34_archive_closure_receipt_events`, backend

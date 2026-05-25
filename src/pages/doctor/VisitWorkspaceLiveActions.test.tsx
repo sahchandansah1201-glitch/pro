@@ -124,6 +124,9 @@ describe("VisitWorkspaceLiveActions", () => {
       if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt/summary")) {
         return jsonResponse({ totalFollowUps: 2, archiveClosureReceiptReady: 1, needsArchiveClosureReceipt: 0, receivedArchiveClosureReceipts: 1, archiveClosureReceiptExceptions: 0, archiveClosureReceiptNeedsRework: 0, closedLocalArchives: 1, archiveReadinessMarked: 1, localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptEvents: 1 });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff/summary")) {
+        return jsonResponse({ totalFollowUps: 2, archiveClosureReceiptHandoffReady: 1, needsArchiveClosureReceiptHandoff: 0, handedOffArchiveClosureReceipts: 1, archiveClosureReceiptHandoffExceptions: 0, archiveClosureReceiptHandoffNeedsRework: 0, receivedArchiveClosureReceipts: 1, closedLocalArchives: 1, localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffEvents: 1 });
+      }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-templates?")) {
         return new Response(JSON.stringify({ items: [{
           id: "template-1",
@@ -175,6 +178,8 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closed.",
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "received",
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt recorded.",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "handed_off",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff completed.",
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith(`/api/v1/visits/${VISIT_ID}`) && init?.method === "PATCH") {
@@ -239,7 +244,7 @@ describe("VisitWorkspaceLiveActions", () => {
       `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(43);
+    expect(fetchSpy).toHaveBeenCalledTimes(45);
   });
 
   it("updates the operational follow-up queue from the live panel", async () => {
@@ -297,6 +302,9 @@ describe("VisitWorkspaceLiveActions", () => {
       if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt/summary")) {
         return jsonResponse({ totalFollowUps: 2, archiveClosureReceiptReady: 0, needsArchiveClosureReceipt: 2, receivedArchiveClosureReceipts: 0, archiveClosureReceiptExceptions: 0, archiveClosureReceiptNeedsRework: 0, closedLocalArchives: 0, archiveReadinessMarked: 0, localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptEvents: 0 });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff/summary")) {
+        return jsonResponse({ totalFollowUps: 2, archiveClosureReceiptHandoffReady: 0, needsArchiveClosureReceiptHandoff: 2, handedOffArchiveClosureReceipts: 0, archiveClosureReceiptHandoffExceptions: 0, archiveClosureReceiptHandoffNeedsRework: 0, receivedArchiveClosureReceipts: 0, closedLocalArchives: 0, localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffEvents: 0 });
+      }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-templates?")) {
         return new Response(JSON.stringify({ items: [{
           id: "template-1",
@@ -347,6 +355,8 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureNote: null,
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "not_started",
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote: null,
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "not_started",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffNote: null,
         }] }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/operations") && init?.method === "PATCH") {
@@ -609,6 +619,30 @@ describe("VisitWorkspaceLiveActions", () => {
           sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt recorded.",
         });
       }
+      if (url.endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff") && init?.method === "PATCH") {
+        return jsonResponse({
+          id: "follow-up-1",
+          visitId: VISIT_ID,
+          reason: "Контроль после визита",
+          status: "completed",
+          priority: "urgent",
+          sopValidationState: "validated",
+          sopPolicyDriftState: "in_sync",
+          sopPolicyExceptionState: "closed",
+          sopPolicyAuditState: "reviewed",
+          sopPolicyGovernanceState: "reviewed",
+          sopPolicyGovernanceClosureState: "closed",
+          sopPolicyGovernanceEvidenceState: "exported",
+          sopPolicyGovernanceEvidenceReconciliationState: "reconciled",
+          sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: "ready",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState: "closed",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "received",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "handed_off",
+          sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff completed from workspace.",
+        });
+      }
       return jsonResponse({ id: "ok" });
     });
 
@@ -663,6 +697,9 @@ describe("VisitWorkspaceLiveActions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Receive archive receipt" }));
     await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt получен локально.")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Handoff archive receipt" }));
+    await waitFor(() => expect(screen.getByText("SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff выполнен локально.")).toBeInTheDocument());
 
     expect(fetchSpy).toHaveBeenCalledWith(
       `${BASE}/api/v1/clinical/follow-ups/follow-up-1/operations`,
@@ -769,6 +806,13 @@ describe("VisitWorkspaceLiveActions", () => {
         headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
       }),
     );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${BASE}/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff`,
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: `Bearer ${TOKEN}` }),
+      }),
+    );
     const sopValidationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-validation"));
     expect(JSON.parse(String(sopValidationCall?.[1]?.body)).sopPolicyVersion).toBe("clinic-local-v2");
     const sopPolicyApplicationCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-application"));
@@ -795,6 +839,8 @@ describe("VisitWorkspaceLiveActions", () => {
     expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState).toBe("closed");
     const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt"));
     expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState).toBe("received");
+    const sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffCall = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/v1/clinical/follow-ups/follow-up-1/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff"));
+    expect(JSON.parse(String(sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffCall?.[1]?.body)).sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState).toBe("handed_off");
   });
 
   it("shows validation status returned by backend", async () => {
@@ -824,6 +870,9 @@ describe("VisitWorkspaceLiveActions", () => {
       }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness")) {
         return jsonResponse({ totalFollowUps: 0, archiveReadinessReady: 0, needsArchiveReadiness: 0, archivedLocal: 0, localGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessEvents: 0 });
+      }
+      if (url.includes("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff")) {
+        return jsonResponse({ totalFollowUps: 0, archiveClosureReceiptHandoffReady: 0, needsArchiveClosureReceiptHandoff: 0, handedOffArchiveClosureReceipts: 0, localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffEvents: 0 });
       }
       if (url.includes("/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt")) {
         return jsonResponse({ totalFollowUps: 0, archiveClosureReceiptReady: 0, needsArchiveClosureReceipt: 0, receivedArchiveClosureReceipts: 0, localGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptEvents: 0 });

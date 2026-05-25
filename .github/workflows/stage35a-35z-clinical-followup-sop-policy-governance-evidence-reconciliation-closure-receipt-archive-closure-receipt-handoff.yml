@@ -1,0 +1,37 @@
+name: stage35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.stage35a-35z.json"
+      - "backend/self-hosted/db/migrations/0042_stage35_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff.sql"
+      - "backend/self-hosted/openapi.stage35a-35z.json"
+      - "backend/self-hosted/clinical-followup-repository.mjs"
+      - "backend/self-hosted/clinical-followup-repository.test.mjs"
+      - "backend/self-hosted/clinical-followup-service.mjs"
+      - "backend/self-hosted/clinical-followup-service.test.mjs"
+      - "backend/self-hosted/routes.mjs"
+      - "backend/self-hosted/routes.test.mjs"
+      - "scripts/check-stage35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.mjs"
+      - "scripts/check-stage35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.test.mjs"
+      - "src/lib/self-hosted-follow-up-api.ts"
+      - "src/lib/self-hosted-follow-up-api.test.ts"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.tsx"
+      - "src/pages/doctor/VisitWorkspaceLiveActions.test.tsx"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/stage35a-35z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff.yml"
+  workflow_dispatch:
+
+jobs:
+  stage35a-35z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run preflight:stage35a-35z
