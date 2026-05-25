@@ -267,6 +267,9 @@ const OPENAPI_36A_36Z = JSON.parse(
 const OPENAPI_37A_37Z = JSON.parse(
   readFileSync(join(HERE, "openapi.stage37a-37z.json"), "utf8"),
 );
+const OPENAPI_38A_38Z = JSON.parse(
+  readFileSync(join(HERE, "openapi.stage38a-38z.json"), "utf8"),
+);
 
 const LARGE_JSON_BODY_LIMIT_BYTES = 40 * 1024 * 1024;
 
@@ -3220,6 +3223,35 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure/summary" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.getClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary(
+        normalizeClinicalFollowUpOperationsParams(url.searchParams),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "38A-38Z",
+          source: "postgres",
+          item: result.summary,
+          auth: {
+            userId: authContext.userId,
+            scope: result.scope,
+          },
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (url.pathname === "/api/v1/clinical/follow-ups/operations" && method === "GET") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -3907,6 +3939,37 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureMatch = url.pathname.match(/^\/api\/v1\/clinical\/follow-ups\/([^/]+)\/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure$/);
+  if (clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalFollowUpService.updateClinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure(
+        decodeURIComponent(clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "38A-38Z",
+          source: "postgres",
+          item: result.followUp,
+          auth: {
+            userId: authContext.userId,
+            scope: result.scope,
+          },
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   const clinicalFollowUpSopPolicyTemplateMatch = url.pathname.match(/^\/api\/v1\/clinical\/follow-ups\/sop-policy-templates\/([^/]+)$/);
   if (clinicalFollowUpSopPolicyTemplateMatch && method === "PATCH") {
     try {
@@ -4513,6 +4576,7 @@ export async function handleSelfHostedRequest(
           clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoff: "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff",
           clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt: "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt",
           clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation: "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation",
+          clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure: "rbac-read-write-postgres-local-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure",
           assets: "rbac-read-write-postgres-backend-url-local-object-store",
           devices: "rbac-read-command-postgres-device-bridge-registry-worker-contract",
           deviceBridgeWorker: "token-auth-heartbeat-poll-ack-complete-telemetry-hardening-recovery-audit-replay-export-product-readiness-production-readiness-operations-continuity-fleet-reliability-lifecycle-assurance",
@@ -4579,6 +4643,7 @@ export async function handleSelfHostedRequest(
           openapiStage35A35Z: "/openapi.stage35a-35z.json",
           openapiStage36A36Z: "/openapi.stage36a-36z.json",
           openapiStage37A37Z: "/openapi.stage37a-37z.json",
+          openapiStage38A38Z: "/openapi.stage38a-38z.json",
           login: "/api/v1/auth/login",
           me: "/api/v1/auth/me",
           opsStatus: "/api/v1/ops/status",
@@ -4664,6 +4729,8 @@ export async function handleSelfHostedRequest(
           clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceipt: "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt",
           clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary: "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation/summary",
           clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliation: "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation",
+          clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary: "/api/v1/clinical/follow-ups/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure/summary",
+          clinicalFollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosure: "/api/v1/clinical/follow-ups/{followUpId}/sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure",
           patientPortalFollowUps: "/api/v1/me/follow-ups",
           patientPortalFollowUpMessages: "/api/v1/me/follow-ups/{followUpId}/messages",
           visit: "/api/v1/visits/{visitId}",
@@ -4912,6 +4979,10 @@ export async function handleSelfHostedRequest(
 
   if (url.pathname === "/openapi.stage37a-37z.json") {
     return jsonResponse(200, OPENAPI_37A_37Z, config, requestOrigin);
+  }
+
+  if (url.pathname === "/openapi.stage38a-38z.json") {
+    return jsonResponse(200, OPENAPI_38A_38Z, config, requestOrigin);
   }
 
   return errorResponse({
