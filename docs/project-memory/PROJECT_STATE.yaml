@@ -1,9 +1,16 @@
 generated_at: "2026-05-25T00:00:00+03:00"
 project: "Dermatolog Pro"
+stage40a_40z:
+  name: "Stage 40A-40Z"
+  clinical_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_confirmed: true
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:stage40a-40z"
+  previous_batch: "Stage 39A-39Z"
+  next_hypothesis: "Stage 41A-41Z"
 stage39a_39z:
   name: "Stage 39A-39Z"
   clinical_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage39a-39z"
   previous_batch: "Stage 38A-38Z"
   next_hypothesis: "Stage 40A-40Z"
@@ -155,9 +162,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage39a-39z-clinical-followup-sop-governance-reconciliation-closure-receipt"
-  head_sha: "97ae5a59888d7c4ce76d6110ff0cafd8df6d3e64"
-  head_commit: "Add Stage 38A-38Z clinical follow-up reconciliation closure"
+  branch: "codex/stage40a-40z-clinical-followup-reconciliation-closure-receipt-archive-readiness"
+  head_sha: "59990cd2b7ea2ff1e5f2c9c5df4aa1df75520276"
+  head_commit: "Add Stage 39A-39Z clinical follow-up reconciliation closure receipt"
   working_tree: "modified"
   upstream: "origin/main"
 verification:

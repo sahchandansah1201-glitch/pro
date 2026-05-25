@@ -1,0 +1,29 @@
+name: stage40a-40z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness
+
+on:
+  pull_request:
+    paths:
+      - 'backend/self-hosted/**'
+      - 'deploy/self-hosted/**'
+      - 'docs/backend/**'
+      - 'docs/project-memory/**'
+      - 'scripts/**'
+      - 'src/lib/self-hosted-follow-up-api.ts'
+      - 'src/lib/self-hosted-follow-up-api.test.ts'
+      - 'src/pages/doctor/VisitWorkspaceLiveActions.tsx'
+      - 'src/pages/doctor/VisitWorkspaceLiveActions.test.tsx'
+      - 'package.json'
+      - '.github/workflows/stage40a-40z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness.yml'
+  workflow_dispatch:
+
+jobs:
+  stage40a-40z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage40a-40z
