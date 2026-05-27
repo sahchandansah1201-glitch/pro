@@ -2,22 +2,32 @@
 
 ## Current confirmed state
 
-Stage 47A-47Z is the current product-facing batch. It extends Stage 46A-46Z local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure with a local archive readiness closure receipt handoff receipt reconciliation closure receipt checkpoint on follow-up tasks.
+Stage 47A-47Z is the latest merged product-facing batch. It extends Stage 46A-46Z local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure with a local archive readiness closure receipt handoff receipt reconciliation closure receipt checkpoint on follow-up tasks.
 
-## Immediate actions after Stage 47A-47Z PR merge
+`docs/project-memory/PLAN_RECONCILIATION.md` records the current plan
+reconciliation. It confirms that the Stage 7J-7L roadmap gaps have repository
+evidence through Stage 8A-9Z, Stage 16A-16Z selected Stage 17A-17Z, and the
+Stage 17A-47Z clinical follow-up chain is complete through current repository
+evidence.
+
+## Immediate actions after this reconciliation PR merge
 
 1. Verify local `main` after merge:
    - `git status --short`
    - `npm run preflight:stage47a-47z`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
-2. Send the Lovable sync prompt only after the PR is merged into `main` and local `main` is verified.
+2. Send the Stage 47A-47Z Lovable sync prompt only after the reconciliation PR is merged into `main` and local `main` is verified.
 3. Expected Lovable confirmation:
    - `Confirmed: Stage 47A-47Z synced from main, no conflicts.`
 
 ## Next hypothesis
 
 Stage 48A-48Z is a hypothesis until repository files define it. A likely next product cycle is a local archive readiness closure receipt handoff receipt reconciliation closure receipt archive readiness checkpoint, but that is not confirmed until repository files define it.
+
+There is no repository-defined terminal stage count. Before implementing
+another numbered batch, define either Stage 48A-48Z scope from repository
+evidence or an explicit final backlog/terminal completion criterion.
 
 ## Historical anchors
 

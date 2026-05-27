@@ -1,9 +1,18 @@
 generated_at: "2026-05-27T00:00:00+03:00"
 project: "Dermatolog Pro"
+plan_reconciliation:
+  name: "Post-Stage 47 plan reconciliation"
+  status: "documented"
+  source: "docs/project-memory/PLAN_RECONCILIATION.md"
+  baseline_branch: "main"
+  baseline_head_sha: "927377fe88616b9be4e61f37e38807fc59de88f1"
+  latest_confirmed_stage: "Stage 47A-47Z"
+  next_unconfirmed_hypothesis: "Stage 48A-48Z"
+  terminal_stage_defined: false
 stage47a_47z:
   name: "Stage 47A-47Z"
   clinical_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_receipt_reconciliation_closure_receipt_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage47a-47z"
   previous_batch: "Stage 46A-46Z"
   next_hypothesis: "Stage 48A-48Z"
@@ -17,21 +26,21 @@ stage46a_46z:
 stage45a_45z:
   name: "Stage 45A-45Z"
   clinical_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_receipt_reconciliation_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage45a-45z"
   previous_batch: "Stage 44A-44Z"
   next_hypothesis: "Stage 46A-46Z"
 stage44a_44z:
   name: "Stage 44A-44Z"
   clinical_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_receipt_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage44a-44z"
   previous_batch: "Stage 43A-43Z"
   next_hypothesis: "Stage 45A-45Z"
 stage43a_43z:
   name: "Stage 43A-43Z"
   clinical_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage43a-43z"
   previous_batch: "Stage 42A-42Z"
   next_hypothesis: "Stage 44A-44Z"
@@ -211,9 +220,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage42a-42z-clinical-followup-reconciliation-closure-receipt-archive-readiness-closure-receipt"
-  head_sha: "d0c7db449e9afe70b97cb0675f0349f34fa2fbec"
-  head_commit: "Add Stage 41A-41Z clinical follow-up reconciliation receipt archive readiness closure"
+  branch: "codex/plan-reconciliation-after-stage47"
+  head_sha: "927377fe88616b9be4e61f37e38807fc59de88f1"
+  head_commit: "Add Stage 47A-47Z clinical follow-up archive handoff reconciliation closure receipt"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -1052,6 +1061,8 @@ stage16a_16z_preflight:
     - "scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs"
     - ".github/workflows/stage15a-15z-post-sync-handoff-readiness.yml"
 hypotheses:
+  - "Stage 48A-48Z is the current unconfirmed hypothesis after Stage 47A-47Z until repository files define it."
+  - "A terminal stage count is not defined in repository files; plan completion requires an explicit backlog or terminal criterion."
   - "Stage 33A-33Z is the next hypothesis after Stage 32A-32Z until repository files define it."
   - "Stage 32A-32Z closes the prior Stage 32 hypothesis with local follow-up SOP policy governance evidence reconciliation closure receipt archive readiness."
   - "Stage 31A-31Z closes the prior Stage 31 hypothesis with local follow-up SOP policy governance evidence reconciliation closure receipt."
@@ -1330,6 +1341,7 @@ sources:
     - "docs/backend/stage-8g-8i-clinical-reporting-completion.md"
     - "docs/project-memory/WORKING_CONTRACT.md"
     - "docs/project-memory/BATCH_TEMPLATE.md"
+    - "docs/project-memory/PLAN_RECONCILIATION.md"
     - "deploy/self-hosted/development-quality-ledger.stage11a-11z.json"
     - "docs/backend/stage-11a-11z-development-quality-ledger.md"
     - "scripts/stage11a-11z-development-quality-ledger.mjs"
