@@ -1085,3 +1085,22 @@
 - `npm run test:stage17a-17z`
 - `npm run check:stage17a-17z`
 - `npm run preflight:stage17a-17z`
+
+## Stage 46A-46Z clinical follow-up archive handoff receipt reconciliation closure artifacts
+
+- [clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure.stage46a-46z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure.stage46a-46z.json)
+- [0053_stage46_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_receipt_reconciliation_closure.sql](../../backend/self-hosted/db/migrations/0053_stage46_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_receipt_reconciliation_closure.sql)
+- [openapi.stage46a-46z.json](../../backend/self-hosted/openapi.stage46a-46z.json)
+- [check-stage46a-46z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure.mjs](../../scripts/check-stage46a-46z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure.mjs)
+- [stage-46a-46z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure.md](../backend/stage-46a-46z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure.md)
+
+## Stage 46A-46Z verification commands
+
+- `npm run test:stage46a-46z`
+- `npm run check:stage46a-46z`
+- `npm run preflight:stage46a-46z`
+- `npm run preflight:stage45a-45z`
+- `npm run typecheck`
+- `npm run preflight:all -- --dry-run`
+- `node scripts/check-no-deno-locks.mjs`
+- `git diff --check`

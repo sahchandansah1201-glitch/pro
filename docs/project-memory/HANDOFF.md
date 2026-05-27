@@ -2,11 +2,20 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 45A-45Z is being
+This handoff captures the repository state while Stage 46A-46Z is being
 implemented from branch
-`codex/stage45a-45z-clinical-followup-archive-readiness-closure-receipt-handoff-receipt-reconciliation`.
+`codex/stage46a-46z-clinical-followup-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure`.
 
 ## Confirmed state
+
+0. Stage 46A-46Z is implemented in the current branch as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure:
+   - PostgreSQL Stage 46 archive readiness closure receipt handoff receipt reconciliation closure fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_stage46_handoff_receipt_recon_closure_events`;
+   - backend sop policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure summary/update routes;
+   - doctor live workspace Recon archive handoff receipt reconciliation closure ready / Needs recon archive handoff receipt reconciliation closure / Closed recon archive handoff receipt reconciliation closures summary tiles and Close recon archive handoff receipt reconciliation / Recon archive handoff receipt reconciliation closure rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure.
 
 0. Stage 45A-45Z is implemented in the current branch as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation:
    - PostgreSQL Stage 45 archive readiness closure receipt handoff receipt reconciliation fields on `clinical_follow_up_tasks`;

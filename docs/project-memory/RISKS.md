@@ -827,3 +827,11 @@
 - hypothesis: Stage 18A-18Z may harden follow-up operations.
 - Basis: Stage 17A-17Z creates the first product follow-up loop.
 - Uncertainty: Stage 18A-18Z is not implemented until repository files define it.
+
+## Stage 46A-46Z confirmed risks
+
+1. Archive readiness closure receipt handoff receipt reconciliation closure must stay local metadata only.
+   - Evidence: Stage 46A-46Z stores stage46 archive readiness closure receipt handoff receipt reconciliation closure fields in local PostgreSQL and records managed notification provider dependency as none.
+   - Boundary phrase for guard: archive readiness closure receipt handoff receipt reconciliation closure.
+   - Risk: Future work could misread this local closure as external governance approval, legal archive sufficiency, or medical correctness proof.
+   - Mitigation: `check:stage46a-46z` protects runtime files, docs, and project-memory markers.
