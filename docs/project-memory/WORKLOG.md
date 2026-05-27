@@ -1,5 +1,9 @@
 ## 2026-05-27
 
+- Added a short post-Stage 47 plan reconciliation pass in `docs/project-memory/PLAN_RECONCILIATION.md`.
+- Reconciled the development plan against repository evidence: Stage 4A-47Z has repository-backed artifacts, Stage 48A-48Z remains an unconfirmed hypothesis, and no terminal stage count is defined in repository files.
+- Refreshed project-memory pointers so Stage 47A-47Z is treated as merged to `main` rather than only implemented in a working branch.
+
 - Created Stage 47A-47Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt.
 - Added local PostgreSQL Stage 47 metadata, append-only events, backend summary/update routes, OpenAPI, frontend API/workspace controls, guard, workflow, docs, and preflight wiring.
 - Updated project-memory so Stage 47A-47Z is confirmed in the current branch and Stage 48A-48Z remains an explicit hypothesis until repository files define it.

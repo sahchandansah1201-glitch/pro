@@ -1,5 +1,11 @@
 # RISKS
 
+## Plan reconciliation risks
+
+1. **Risk: an unbounded Stage count can be mistaken for a confirmed development plan.**
+   - Evidence: repository files confirm Stage 47A-47Z as the latest merged batch and record Stage 48A-48Z only as a hypothesis; no terminal Stage count is defined.
+   - Mitigation: `docs/project-memory/PLAN_RECONCILIATION.md` separates completed repository-backed plan blocks from unconfirmed hypotheses and requires explicit Stage 48 scope or a final backlog/terminal criterion before more numbered work is treated as approved.
+
 ## Stage 45A-45Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation risks
 
 1. **Risk: local archive readiness closure receipt handoff receipt reconciliation can be mistaken for external governance approval or legal archive sufficiency.**

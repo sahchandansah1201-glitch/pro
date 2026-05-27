@@ -6,6 +6,7 @@
    - [PRODUCT.md](../../PRODUCT.md)
    - [DESIGN.md](../../DESIGN.md)
    - [README.md](../../README.md)
+   - [PLAN_RECONCILIATION.md](PLAN_RECONCILIATION.md)
 
 2. Stage 47A-47Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt artifacts:
    - [clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt.stage47a-47z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt.stage47a-47z.json)
