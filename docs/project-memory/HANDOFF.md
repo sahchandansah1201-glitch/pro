@@ -8,6 +8,15 @@ implemented from branch
 
 ## Confirmed state
 
+0. Stage 44A-44Z is implemented in the current branch as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt:
+   - PostgreSQL Stage 44 archive readiness closure receipt handoff receipt fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_stage44_archive_handoff_receipt_events`;
+   - backend sop policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt summary/update routes;
+   - doctor live workspace Recon archive handoff receipt ready / Needs recon archive handoff receipt / Received recon archive handoff receipts summary tiles and Receive recon archive handoff receipt / Recon archive handoff receipt rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt.
+
 0. Stage 43A-43Z is implemented in the current branch as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff:
    - PostgreSQL Stage 43 archive readiness closure receipt handoff fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_stage43_archive_receipt_handoff_events`;

@@ -1,5 +1,19 @@
 # RISKS
 
+## Stage 44A-44Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt risks
+
+1. **Risk: local archive readiness closure receipt handoff receipt can be mistaken for external governance approval or legal archive sufficiency.**
+   - Evidence: Stage 44A-44Z records local archive readiness closure receipt handoff receipt state and notes on follow-up tasks, but it does not verify legal sign-off, external SOP approvals, archive export completeness outside the repository, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label it as local metadata only.
+
+2. **Risk: receipt exception or rework states can be hidden if downstream batches assume receipt equals external proof.**
+   - Evidence: Stage 44A-44Z summarizes local receipt state from Stage 43 handoff and prior local receipt/reconciliation/archive checkpoints only.
+   - Mitigation: supported states include `receipt_exception` and `needs_rework`, and the guard blocks external proof wording.
+
+3. **Risk: PostgreSQL can truncate overlong Stage 44 identifiers and collide physical columns.**
+   - Evidence: Stage 44 follows the Stage 41-43 mitigation by using short physical database identifiers for the new handoff receipt checkpoint.
+   - Mitigation: Stage 44 physical database identifiers use `stage44_archive_handoff_receipt_*` and `clinical_follow_up_stage44_archive_handoff_receipt_events`; the Stage 44 guard rejects protected migration identifiers longer than 63 bytes.
+
 ## Stage 43A-43Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff risks
 
 1. **Risk: local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff can be mistaken for external governance approval or legal archive sufficiency.**

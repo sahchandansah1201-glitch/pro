@@ -2,6 +2,24 @@
 
 ## 2026-05-27
 
+- Создан Stage 44A-44Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt после Stage 43A-43Z.
+- Recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt.
+- Добавлены Stage 44 archive readiness closure receipt handoff receipt поля, append-only
+  `clinical_follow_up_stage44_archive_handoff_receipt_events`, backend
+  summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor
+  live workspace Recon archive handoff receipt ready / Needs recon archive
+  handoff receipt / Received recon archive handoff receipts summary tiles,
+  Receive recon archive handoff receipt / Recon archive handoff receipt rework
+  actions, guard, workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no legal archive sufficiency proof,
+  no medical correctness proof, no signed URLs/storage paths/provider tokens in
+  protected outputs.
+- Stage 44 migration использует короткие PostgreSQL identifiers
+  (`stage44_archive_handoff_receipt_*`,
+  `clinical_follow_up_stage44_archive_handoff_receipt_events`) для защиты от
+  63-byte truncation collisions.
+
 - Создан Stage 43A-43Z clinical follow-up sop policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff после Stage 42A-42Z.
 - Recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff.
 - Добавлены Stage 43 archive readiness closure receipt handoff поля, append-only
