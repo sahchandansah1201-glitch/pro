@@ -273,7 +273,7 @@ describe("VisitWorkspaceLiveActions", () => {
       `${BASE}/api/v1/visits/${VISIT_ID}/follow-ups`,
       expect.objectContaining({ method: "POST" }),
     );
-    expect(fetchSpy).toHaveBeenCalledTimes(61);
+    expect(fetchSpy).toHaveBeenCalledTimes(63);
   });
 
   it("updates the operational follow-up queue from the live panel", async () => {

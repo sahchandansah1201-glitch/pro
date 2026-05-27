@@ -1,0 +1,44 @@
+{
+  "stage": "44A-44Z",
+  "name": "clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt",
+  "status": "ready",
+  "previousBatch": "Stage 43A-43Z",
+  "nextBatchHypothesis": "Stage 45A-45Z",
+  "purpose": "Add a local archive readiness closure receipt handoff receipt checkpoint after Stage 43 archive readiness closure receipt handoff for clinical follow-up tasks.",
+  "implementedSurfaces": [
+    "PostgreSQL Stage 44 archive readiness closure receipt handoff receipt fields on clinical_follow_up_tasks",
+    "Append-only clinical_follow_up_stage44_archive_handoff_receipt_events",
+    "Backend governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt summary route",
+    "Backend governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt update route",
+    "OpenAPI Stage 44A-44Z contract",
+    "nginx OpenAPI publishing",
+    "Frontend follow-up API adapter",
+    "Doctor workspace archive readiness closure receipt handoff receipt summary tiles",
+    "Doctor workspace Receive recon archive handoff receipt and Recon archive handoff receipt rework actions",
+    "Stage guard, tests, workflow, docs, and preflight-all wiring",
+    "Project-memory recovery update"
+  ],
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "externalRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptIsLocalMetadataOnly": true,
+    "clinicGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptIsNotExternalApprovalProof": true,
+    "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptIsNotLegalArchiveSufficiencyProof": true,
+    "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptDoesNotIncludeRawPatientNames": true,
+    "archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptDoesNotIncludeTokensOrSignedUrls": true,
+    "medicalCorrectnessProof": false
+  },
+  "verification": {
+    "test": "npm run test:stage44a-44z",
+    "check": "npm run check:stage44a-44z",
+    "preflight": "npm run preflight:stage44a-44z",
+    "expectedConfirmation": "Confirmed: Stage 44A-44Z synced from main, no conflicts."
+  }
+}
