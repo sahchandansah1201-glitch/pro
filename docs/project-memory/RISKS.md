@@ -1,5 +1,19 @@
 # RISKS
 
+## Stage 43A-43Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff risks
+
+1. **Risk: local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff can be mistaken for external governance approval or legal archive sufficiency.**
+   - Evidence: Stage 43A-43Z records local archive readiness closure receipt handoff state and notes on follow-up tasks, but it does not verify legal sign-off, external SOP approvals, archive export completeness outside the repository, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff as local metadata only.
+
+2. **Risk: archive readiness closure receipt handoff can hide handoff exception or rework states.**
+   - Evidence: Stage 43A-43Z summarizes archive readiness closure receipt handoff from Stage 42 receipt and prior local receipt/reconciliation/archive checkpoints; it does not perform external remediation or diagnosis/treatment correctness checks.
+   - Mitigation: keep handoff exception and needs-rework states bounded, RBAC-protected, append-only audited, and visible in the doctor workspace summary.
+
+3. **Risk: PostgreSQL can truncate overlong Stage 43 identifiers and collide physical columns.**
+   - Evidence: Stage 43 follows the Stage 41/42 mitigation by using short physical database identifiers for the new handoff checkpoint.
+   - Mitigation: Stage 43 physical database identifiers use `stage43_archive_receipt_handoff_*` and `clinical_follow_up_stage43_archive_receipt_handoff_events`; the Stage 43 guard rejects protected migration identifiers longer than 63 bytes.
+
 ## Stage 42A-42Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt risks
 
 1. **Risk: local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt can be mistaken for external governance approval or legal archive sufficiency.**
