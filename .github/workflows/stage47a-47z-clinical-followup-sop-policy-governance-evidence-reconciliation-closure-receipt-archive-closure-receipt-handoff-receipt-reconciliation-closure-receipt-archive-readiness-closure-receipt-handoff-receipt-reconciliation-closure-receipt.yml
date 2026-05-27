@@ -1,0 +1,25 @@
+name: stage47a-47z-clinical-followup
+
+on:
+  pull_request:
+    paths:
+      - 'backend/self-hosted/**'
+      - 'deploy/self-hosted/**'
+      - 'docs/backend/**'
+      - 'docs/project-memory/**'
+      - 'scripts/**'
+      - 'src/lib/self-hosted-follow-up-api.ts'
+      - 'src/pages/doctor/VisitWorkspaceLiveActions.tsx'
+      - 'package.json'
+      - '.github/workflows/stage47a-47z-clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt.yml'
+
+jobs:
+  stage47a-47z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run preflight:stage47a-47z

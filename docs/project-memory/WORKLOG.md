@@ -1,5 +1,9 @@
 ## 2026-05-27
 
+- Created Stage 47A-47Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt.
+- Added local PostgreSQL Stage 47 metadata, append-only events, backend summary/update routes, OpenAPI, frontend API/workspace controls, guard, workflow, docs, and preflight wiring.
+- Updated project-memory so Stage 47A-47Z is confirmed in the current branch and Stage 48A-48Z remains an explicit hypothesis until repository files define it.
+
 - Created Stage 46A-46Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure.
 - Added local PostgreSQL Stage 46 metadata, append-only events, backend summary/update routes, OpenAPI, frontend API/workspace controls, guard, workflow, docs, and preflight wiring.
 - Updated project-memory so Stage 46A-46Z is confirmed in the current branch and Stage 47A-47Z remains an explicit hypothesis until repository files define it.

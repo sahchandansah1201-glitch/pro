@@ -2,13 +2,22 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 46A-46Z is being
+This handoff captures the repository state while Stage 47A-47Z is being
 implemented from branch
-`codex/stage46a-46z-clinical-followup-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure`.
+`codex/stage47a-47z-clinical-followup-archive-handoff-reconciliation-closure-receipt`.
 
 ## Confirmed state
 
-0. Stage 46A-46Z is implemented in the current branch as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure:
+0. Stage 47A-47Z is implemented in the current branch as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt:
+   - PostgreSQL Stage 47 archive readiness closure receipt handoff receipt reconciliation closure receipt fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_stage47_recon_closure_receipt_events`;
+   - backend sop policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt summary/update routes;
+   - doctor live workspace Recon archive handoff receipt reconciliation closure receipt ready / Needs recon archive handoff receipt reconciliation closure receipt / Received recon archive handoff receipt reconciliation closure receipts summary tiles and Receive recon archive handoff receipt reconciliation closure receipt / Recon archive handoff receipt reconciliation closure receipt rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt.
+
+0. Stage 46A-46Z is merged to main as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure:
    - PostgreSQL Stage 46 archive readiness closure receipt handoff receipt reconciliation closure fields on `clinical_follow_up_tasks`;
    - append-only `clinical_follow_up_stage46_handoff_receipt_recon_closure_events`;
    - backend sop policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure summary/update routes;
