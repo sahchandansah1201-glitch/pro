@@ -835,3 +835,11 @@
    - Boundary phrase for guard: archive readiness closure receipt handoff receipt reconciliation closure.
    - Risk: Future work could misread this local closure as external governance approval, legal archive sufficiency, or medical correctness proof.
    - Mitigation: `check:stage46a-46z` protects runtime files, docs, and project-memory markers.
+
+## Stage 47A-47Z confirmed risks
+
+1. Archive readiness closure receipt handoff receipt reconciliation closure receipt must stay local metadata only.
+   - Evidence: Stage 47A-47Z stores stage47 archive readiness closure receipt handoff receipt reconciliation closure receipt fields in local PostgreSQL and records managed notification provider dependency as none.
+   - Boundary phrase for guard: archive readiness closure receipt handoff receipt reconciliation closure receipt.
+   - Risk: Future work could misread this local receipt as external governance approval, legal archive sufficiency, or medical correctness proof.
+   - Mitigation: `check:stage47a-47z` protects runtime files, docs, and project-memory markers.
