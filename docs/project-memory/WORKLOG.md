@@ -2,6 +2,25 @@
 
 ## 2026-05-27
 
+- Создан Stage 45A-45Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation после Stage 44A-44Z.
+- Recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation.
+- Добавлены Stage 45 archive readiness closure receipt handoff receipt reconciliation поля, append-only
+  `clinical_follow_up_stage45_handoff_receipt_recon_events`, backend
+  summary/update routes, OpenAPI, nginx publishing, frontend adapter, doctor
+  live workspace Recon archive handoff receipt reconciliation ready / Needs
+  recon archive handoff receipt reconciliation / Reconciled recon archive
+  handoff receipts summary tiles, Reconcile recon archive handoff receipt /
+  Recon archive handoff receipt reconciliation rework actions, guard,
+  workflow, docs, project-memory update, and preflight.
+- Батч сохраняет self-hosted boundary: PostgreSQL only, no managed notification
+  provider, no external governance proof, no legal archive sufficiency proof,
+  no medical correctness proof, no signed URLs/storage paths/provider tokens in
+  protected outputs.
+- Stage 45 migration использует короткие PostgreSQL identifiers
+  (`stage45_archive_handoff_receipt_reconciliation_*`,
+  `clinical_follow_up_stage45_handoff_receipt_recon_events`)
+  для защиты от 63-byte truncation collisions.
+
 - Создан Stage 44A-44Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt после Stage 43A-43Z.
 - Recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt.
 - Добавлены Stage 44 archive readiness closure receipt handoff receipt поля, append-only

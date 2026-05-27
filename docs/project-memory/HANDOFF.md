@@ -2,11 +2,20 @@
 
 ## Scope
 
-This handoff captures the repository state while Stage 43A-43Z is being
+This handoff captures the repository state while Stage 45A-45Z is being
 implemented from branch
-`codex/stage43a-43z-clinical-followup-archive-readiness-closure-receipt-handoff`.
+`codex/stage45a-45z-clinical-followup-archive-readiness-closure-receipt-handoff-receipt-reconciliation`.
 
 ## Confirmed state
+
+0. Stage 45A-45Z is implemented in the current branch as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation:
+   - PostgreSQL Stage 45 archive readiness closure receipt handoff receipt reconciliation fields on `clinical_follow_up_tasks`;
+   - append-only `clinical_follow_up_stage45_handoff_receipt_recon_events`;
+   - backend sop policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation summary/update routes;
+   - doctor live workspace Recon archive handoff receipt reconciliation ready / Needs recon archive handoff receipt reconciliation / Reconciled recon archive handoff receipts summary tiles and Reconcile recon archive handoff receipt / Recon archive handoff receipt reconciliation rework row actions;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
+   - recovery marker: SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation.
 
 0. Stage 44A-44Z is implemented in the current branch as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt:
    - PostgreSQL Stage 44 archive readiness closure receipt handoff receipt fields on `clinical_follow_up_tasks`;

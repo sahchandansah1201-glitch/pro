@@ -1,5 +1,19 @@
 # RISKS
 
+## Stage 45A-45Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation risks
+
+1. **Risk: local archive readiness closure receipt handoff receipt reconciliation can be mistaken for external governance approval or legal archive sufficiency.**
+   - Evidence: Stage 45A-45Z records local archive readiness closure receipt handoff receipt reconciliation state and notes on follow-up tasks, but it does not verify legal sign-off, external SOP approvals, archive export completeness outside the repository, or medical correctness outside the self-hosted workflow.
+   - Mitigation: docs, manifest, guard, and UI label it as local metadata only.
+
+2. **Risk: reconciliation exception or rework states can be hidden if downstream batches assume reconciliation equals external proof.**
+   - Evidence: Stage 45A-45Z summarizes local reconciliation state from Stage 44 receipt and prior local receipt/reconciliation/archive checkpoints only.
+   - Mitigation: supported states include `reconciliation_exception` and `needs_rework`, and the guard blocks external proof wording.
+
+3. **Risk: PostgreSQL can truncate overlong Stage 45 identifiers and collide physical columns.**
+   - Evidence: Stage 45 follows the Stage 41-44 mitigation by using short physical database identifiers for the new handoff receipt reconciliation checkpoint.
+   - Mitigation: Stage 45 physical database identifiers use `stage45_archive_handoff_receipt_reconciliation_*` and `clinical_follow_up_stage45_handoff_receipt_recon_events`; the Stage 45 guard rejects protected migration identifiers longer than 63 bytes.
+
 ## Stage 44A-44Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt risks
 
 1. **Risk: local archive readiness closure receipt handoff receipt can be mistaken for external governance approval or legal archive sufficiency.**
