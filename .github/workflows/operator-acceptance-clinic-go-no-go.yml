@@ -1,0 +1,28 @@
+name: operator-acceptance-clinic-go-no-go
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/operator-acceptance-clinic-go-no-go.json"
+      - "docs/project-memory/OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md"
+      - "docs/backend/operator-acceptance-clinic-go-no-go.md"
+      - "scripts/check-operator-acceptance-clinic-go-no-go.mjs"
+      - "scripts/check-operator-acceptance-clinic-go-no-go.test.mjs"
+      - "docs/project-memory/**"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/operator-acceptance-clinic-go-no-go.yml"
+  workflow_dispatch:
+
+jobs:
+  operator-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:operator-acceptance

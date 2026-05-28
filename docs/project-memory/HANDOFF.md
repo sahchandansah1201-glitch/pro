@@ -2,11 +2,28 @@
 
 ## Scope
 
-This handoff captures the repository state while final backlog / terminal
-completion criterion is being implemented after Stage 48A-48Z. The
-reconciliation pass is recorded in `docs/project-memory/PLAN_RECONCILIATION.md`.
+This handoff captures the repository state while the Operator Acceptance /
+Clinic Go-No-Go checklist is being implemented after the final backlog /
+terminal completion criterion. The reconciliation pass is recorded in
+`docs/project-memory/PLAN_RECONCILIATION.md`.
 
 ## Confirmed state
+
+0. Operator Acceptance / Clinic Go-No-Go checklist is defined:
+   - `deploy/self-hosted/operator-acceptance-clinic-go-no-go.json` records the
+     clinic operator go/no-go checklist;
+   - `docs/project-memory/OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md` records the
+     external acceptance template;
+   - requires external clinic execution;
+   - repository records the checklist template only;
+   - automatic next numbered stage remains disabled;
+   - Stage 49A-49Z remains undefined;
+   - runtime behavior added: false;
+   - database migration added: false;
+   - OpenAPI contract added: false;
+   - frontend workflow added: false;
+   - no external approval proof, no legal sufficiency proof, and no medical
+     correctness proof.
 
 0. Final backlog / terminal completion criterion is defined:
    - `deploy/self-hosted/final-backlog-terminal-completion-criterion.json`

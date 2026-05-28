@@ -10,6 +10,19 @@ plan_reconciliation:
   next_repository_action: "new plan decision required before additional numbered work"
   terminal_completion_criterion_defined: true
   terminal_stage_defined: false
+operator_acceptance_clinic_go_no_go:
+  name: "Operator Acceptance / Clinic Go-No-Go checklist"
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:operator-acceptance"
+  previous_repository_artifact: "final-backlog-terminal-completion-criterion"
+  clinic_operator_acceptance_defined: true
+  requires_external_execution: true
+  repository_can_record_template_only: true
+  stage49_defined: false
+  runtime_behavior_added: false
+  database_migration_added: false
+  openapi_contract_added: false
+  frontend_workflow_added: false
 final_backlog_terminal_completion:
   name: "Final backlog / terminal completion criterion"
   status: "implemented-in-current-branch"
@@ -29,11 +42,11 @@ lovable_progress_ledger:
   status: "active"
   source: "docs/project-memory/LOVABLE_PROGRESS_LEDGER.md"
   required_columns:
-    - "Implementation plan"
-    - "Done, verified"
-    - "Will be implemented"
-    - "Evidence / checks"
-    - "Truth boundary"
+    - "План реализации"
+    - "Сделано / проверено"
+    - "Будет реализовано"
+    - "Доказательства / проверки"
+    - "Граница достоверности"
   latest_logged_response: "Confirmed: final backlog / terminal completion criterion synced from main, no conflicts."
 stage48a_48z:
   name: "Stage 48A-48Z"
@@ -257,9 +270,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/final-backlog-terminal-completion-criterion"
-  head_sha: "596babee6ed152953dc0a2dae69c6dfe88906e4c"
-  head_commit: "Define Stage 48A-48Z clinical follow-up scope"
+  branch: "codex/operator-acceptance-clinic-go-no-go-checklist"
+  head_sha: "c0be24b56dc8cef0727ec311b584895869c70bac"
+  head_commit: "Add Lovable progress ledger"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -1111,6 +1124,9 @@ hypotheses:
   - "Stage 25A-25Z closes the prior Stage 25 hypothesis with local follow-up clinic SOP policy audit rollup."
 sources:
   commands:
+    - "npm run test:operator-acceptance"
+    - "npm run check:operator-acceptance"
+    - "npm run preflight:operator-acceptance"
     - "npm run test:final-backlog"
     - "npm run check:final-backlog"
     - "npm run preflight:final-backlog"
@@ -1246,6 +1262,12 @@ sources:
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
   files:
+    - "deploy/self-hosted/operator-acceptance-clinic-go-no-go.json"
+    - "docs/project-memory/OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md"
+    - "docs/backend/operator-acceptance-clinic-go-no-go.md"
+    - "scripts/check-operator-acceptance-clinic-go-no-go.mjs"
+    - "scripts/check-operator-acceptance-clinic-go-no-go.test.mjs"
+    - ".github/workflows/operator-acceptance-clinic-go-no-go.yml"
     - "docs/project-memory/LOVABLE_PROGRESS_LEDGER.md"
     - "deploy/self-hosted/final-backlog-terminal-completion-criterion.json"
     - "docs/project-memory/FINAL_BACKLOG_TERMINAL_COMPLETION.md"

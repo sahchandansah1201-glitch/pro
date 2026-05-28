@@ -16,6 +16,21 @@
    - Evidence: Stage 48A-48Z closed the prior scope hypothesis, and the final backlog criterion disables automatic next numbered work.
    - Mitigation: final backlog guard blocks Stage 49 markers and requires future numbered work to start from a new explicit plan decision.
 
+## Operator acceptance risks
+
+1. **Risk: operator checklist can be mistaken for real clinic approval.**
+   - Evidence: Operator Acceptance / Clinic Go-No-Go checklist records the
+     template and criteria only; it requires external clinic execution.
+   - Mitigation: manifest, docs, guard, and project-memory block claims that
+     repository files prove external approval, legal sufficiency, or medical
+     correctness.
+
+2. **Risk: clinic starts real use before privacy, legal, or clinical owner signoff.**
+   - Evidence: go criteria include privacy/data handling and legal/clinical
+     approval as external evidence.
+   - Mitigation: no-go criteria block production use before external clinic
+     approval.
+
 ## Stage 48A-48Z scope risks
 
 1. **Risk: a scope definition batch can be mistaken for new clinical runtime behavior.**
