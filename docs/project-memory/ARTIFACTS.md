@@ -9,6 +9,14 @@
    - [PLAN_RECONCILIATION.md](PLAN_RECONCILIATION.md)
    - [LOVABLE_PROGRESS_LEDGER.md](LOVABLE_PROGRESS_LEDGER.md)
 
+2. External Clinic Operator Execution Record artifacts:
+   - [external-clinic-operator-execution-record.json](../../deploy/self-hosted/external-clinic-operator-execution-record.json)
+   - [EXTERNAL_CLINIC_OPERATOR_EXECUTION_RECORD.md](EXTERNAL_CLINIC_OPERATOR_EXECUTION_RECORD.md)
+   - [external-clinic-operator-execution-record.md](../backend/external-clinic-operator-execution-record.md)
+   - [check-external-clinic-operator-execution-record.mjs](../../scripts/check-external-clinic-operator-execution-record.mjs)
+   - [check-external-clinic-operator-execution-record.test.mjs](../../scripts/check-external-clinic-operator-execution-record.test.mjs)
+   - [external-clinic-operator-execution-record.yml](../../.github/workflows/external-clinic-operator-execution-record.yml)
+
 2. Operator Acceptance / Clinic Go-No-Go checklist artifacts:
    - [operator-acceptance-clinic-go-no-go.json](../../deploy/self-hosted/operator-acceptance-clinic-go-no-go.json)
    - [OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md](OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md)

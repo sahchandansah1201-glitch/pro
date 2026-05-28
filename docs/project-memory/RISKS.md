@@ -16,6 +16,24 @@
    - Evidence: Stage 48A-48Z closed the prior scope hypothesis, and the final backlog criterion disables automatic next numbered work.
    - Mitigation: final backlog guard blocks Stage 49 markers and requires future numbered work to start from a new explicit plan decision.
 
+## External clinic operator execution record risks
+
+1. **Risk: execution record template can be mistaken for actual go-live approval.**
+   - Evidence: the External Clinic Operator Execution Record defines the
+     repository-owned template only; external operator execution and owner
+     signoffs remain outside repository evidence.
+   - Mitigation: manifest, docs, guard, and project-memory keep actual go-live
+     decision proof false and require explicit external confirmation.
+
+2. **Risk: clinic-private data or PHI could be copied into repository while
+   recording execution outcome.**
+   - Evidence: execution fields include clinic, operator, deployment, owner
+     signoff, rationale, and privacy attestation values that can be sensitive
+     in a real clinic.
+   - Mitigation: repository intake rules allow only redacted metadata and block
+     patient data, secrets, credentials, signed approval artifacts, and private
+     clinic identifiers.
+
 ## Operator acceptance risks
 
 1. **Risk: operator checklist can be mistaken for real clinic approval.**

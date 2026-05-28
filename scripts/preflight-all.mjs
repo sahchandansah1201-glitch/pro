@@ -147,6 +147,7 @@ const DEFAULT_STEPS = [
   ["Stage 48A-48Z clinical follow-up scope definition preflight", npmCmd, ["run", "preflight:stage48a-48z"]],
   ["Final backlog terminal completion criterion preflight", npmCmd, ["run", "preflight:final-backlog"]],
   ["Operator Acceptance / Clinic Go-No-Go preflight", npmCmd, ["run", "preflight:operator-acceptance"]],
+  ["External Clinic Operator Execution Record preflight", npmCmd, ["run", "preflight:external-clinic-operator-record"]],
   ["release-status CI sync gate", npmCmd, ["run", "ci:release-status-sync"]],
   ["preflight-all workflow gate", npmCmd, ["run", "check:preflight-all-gate"]],
   ["project-memory black box guard", npmCmd, ["run", "check:project-memory"]],

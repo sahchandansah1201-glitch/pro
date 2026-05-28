@@ -540,7 +540,10 @@
     "preflight:final-backlog": "npm run test:final-backlog && npm run check:final-backlog && npm run preflight:stage48a-48z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
     "test:operator-acceptance": "node --test scripts/check-operator-acceptance-clinic-go-no-go.test.mjs",
     "check:operator-acceptance": "node scripts/check-operator-acceptance-clinic-go-no-go.mjs",
-    "preflight:operator-acceptance": "npm run test:operator-acceptance && npm run check:operator-acceptance && npm run preflight:final-backlog && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check"
+    "preflight:operator-acceptance": "npm run test:operator-acceptance && npm run check:operator-acceptance && npm run preflight:final-backlog && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
+    "test:external-clinic-operator-record": "node --test scripts/check-external-clinic-operator-execution-record.test.mjs",
+    "check:external-clinic-operator-record": "node scripts/check-external-clinic-operator-execution-record.mjs",
+    "preflight:external-clinic-operator-record": "npm run test:external-clinic-operator-record && npm run check:external-clinic-operator-record && npm run preflight:operator-acceptance && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

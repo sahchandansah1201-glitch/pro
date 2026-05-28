@@ -1,0 +1,141 @@
+{
+  "id": "external-clinic-operator-execution-record",
+  "project": "Dermatolog Pro",
+  "status": "ready",
+  "previousRepositoryArtifact": "operator-acceptance-clinic-go-no-go",
+  "purpose": "Define the repository-owned template for recording that an external clinic operator executed the Operator Acceptance / Clinic Go-No-Go checklist and what decision was reached outside repository evidence.",
+  "planBoundary": {
+    "isStage49": false,
+    "stage49Defined": false,
+    "automaticNextStageDisabled": true,
+    "futureNumberedBatchRequiresNewPlanDecision": true,
+    "repositoryOwnedRecordTemplateOnly": true
+  },
+  "executionRecordScope": {
+    "operatorRole": "clinic operator",
+    "sourceChecklist": "operator-acceptance-clinic-go-no-go",
+    "decision": "record external execution outcome for clinic go/no-go",
+    "environment": "self-hosted Dermatolog Pro deployment",
+    "requiresExternalExecution": true,
+    "repositoryCanRecordTemplateOnly": true,
+    "repositoryMustNotStorePatientData": true,
+    "realExecutionRequiresExternalArtifact": true
+  },
+  "allowedDecisions": [
+    "go",
+    "no-go",
+    "conditional-go"
+  ],
+  "recordSections": [
+    {
+      "id": "execution-context",
+      "section": "Execution context",
+      "operatorRecord": "Clinic, operator, role, review date, deployment identifier, checklist version, and environment are captured outside the repository.",
+      "repositoryEvidence": "Operator Acceptance / Clinic Go-No-Go checklist exists in repository.",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "checklist-coverage",
+      "section": "Checklist coverage",
+      "operatorRecord": "Operator records whether each go criterion was executed, skipped, blocked, or delegated, with owner and reason.",
+      "repositoryEvidence": "Go criteria and no-go criteria exist in operator acceptance manifest.",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "decision-record",
+      "section": "Decision record",
+      "operatorRecord": "Operator records go, no-go, or conditional-go decision, decision rationale, and unresolved conditions.",
+      "repositoryEvidence": "Allowed decision values are constrained by this manifest.",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "owner-signoffs",
+      "section": "Owner signoffs",
+      "operatorRecord": "Clinic owner, clinical owner, compliance/legal owner, and operations owner approvals are captured outside the repository.",
+      "repositoryEvidence": "Repository explicitly does not prove external approval.",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "privacy-attestation",
+      "section": "Privacy and data boundary attestation",
+      "operatorRecord": "Operator confirms no patient data, secrets, credentials, signed approval artifacts, or clinic-private identifiers are committed to git.",
+      "repositoryEvidence": "Repository guard blocks secret-like and patient-data storage markers in protected files.",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "conditions-and-followup",
+      "section": "Conditions and follow-up",
+      "operatorRecord": "Conditional-go or no-go items include owner, due date, evidence location, and re-review trigger outside the repository.",
+      "repositoryEvidence": "Repository records template and next-action language only.",
+      "externalEvidenceRequired": true
+    }
+  ],
+  "requiredExternalFields": [
+    "clinicName",
+    "operatorName",
+    "operatorRole",
+    "reviewDate",
+    "deploymentIdentifier",
+    "checklistVersion",
+    "decision",
+    "decisionRationale",
+    "conditionSummary",
+    "ownerSignoffs",
+    "privacyAttestation",
+    "reReviewTrigger"
+  ],
+  "repositoryIntakeRules": [
+    "Only redacted execution metadata may be summarized in repository memory.",
+    "Do not commit patient data, secrets, credentials, signed approval artifacts, private clinic identifiers, screenshots with PHI, or legal documents.",
+    "A go or conditional-go decision is not repository-proven unless the user provides explicit external confirmation.",
+    "A no-go decision must preserve the no-go reason and next review trigger without exposing patient or clinic-private data.",
+    "Any future numbered batch still requires a new explicit plan decision."
+  ],
+  "noGoTriggers": [
+    "External operator execution is missing.",
+    "Any required operator checklist area remains unverified, skipped without owner approval, or blocked.",
+    "Clinic owner, clinical owner, compliance/legal owner, or operations owner signoff is missing.",
+    "Patient data, secrets, credentials, signed approval artifacts, or clinic-private identifiers would need to be committed to git.",
+    "Repository metadata is treated as medical correctness proof, legal sufficiency proof, or real go-live approval."
+  ],
+  "executionRecordTemplate": {
+    "clinicName": "external-redacted",
+    "operatorName": "external-redacted",
+    "operatorRole": "clinic operator",
+    "reviewDate": "external",
+    "deploymentIdentifier": "external-redacted",
+    "checklistVersion": "operator-acceptance-clinic-go-no-go",
+    "decision": "go | no-go | conditional-go",
+    "decisionRationale": "external-redacted",
+    "conditions": "external-redacted",
+    "ownerSignoffs": "external-redacted",
+    "privacyAttestation": "external-redacted",
+    "reReviewTrigger": "external-redacted"
+  },
+  "repoOwnedVerification": [
+    "npm run test:external-clinic-operator-record",
+    "npm run check:external-clinic-operator-record",
+    "npm run preflight:external-clinic-operator-record",
+    "npm run preflight:all -- --dry-run",
+    "node scripts/check-no-deno-locks.mjs",
+    "git diff --check"
+  ],
+  "runtimeBoundary": {
+    "runtimeBehaviorAdded": false,
+    "databaseMigrationAdded": false,
+    "openApiContractAdded": false,
+    "frontendWorkflowAdded": false
+  },
+  "privacy": {
+    "repositoryMetadataOnly": true,
+    "containsSecrets": false,
+    "containsPatientData": false,
+    "containsProductionCredentials": false,
+    "storesSignedApprovalArtifact": false,
+    "medicalCorrectnessProof": false,
+    "externalApprovalProof": false,
+    "legalSufficiencyProof": false,
+    "actualGoLiveDecisionProof": false
+  },
+  "expectedConfirmation": "Confirmed: External Clinic Operator Execution Record synced from main, no conflicts."
+}

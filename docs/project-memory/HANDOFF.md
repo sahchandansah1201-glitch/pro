@@ -2,14 +2,34 @@
 
 ## Scope
 
-This handoff captures the repository state while the Operator Acceptance /
-Clinic Go-No-Go checklist is being implemented after the final backlog /
-terminal completion criterion. The reconciliation pass is recorded in
+This handoff captures the repository state while the External Clinic Operator
+Execution Record is being implemented after the Operator Acceptance / Clinic
+Go-No-Go checklist. The reconciliation pass is recorded in
 `docs/project-memory/PLAN_RECONCILIATION.md`.
 
 ## Confirmed state
 
-0. Operator Acceptance / Clinic Go-No-Go checklist is defined:
+0. External Clinic Operator Execution Record is defined:
+   - `deploy/self-hosted/external-clinic-operator-execution-record.json`
+     records the external clinic operator execution record template;
+   - `docs/project-memory/EXTERNAL_CLINIC_OPERATOR_EXECUTION_RECORD.md`
+     records the required external fields, allowed decisions, intake rules,
+     and no-go triggers;
+   - source checklist: `operator-acceptance-clinic-go-no-go`;
+   - repository records the execution record template only;
+   - external clinic operator execution outcome is required before real
+     go/no-go can be treated as externally decided;
+   - automatic next numbered stage remains disabled;
+   - Stage 49A-49Z remains undefined;
+   - runtime behavior added: false;
+   - database migration added: false;
+   - OpenAPI contract added: false;
+   - frontend workflow added: false;
+   - no patient data, secrets, credentials, signed approval artifacts, external
+     approval proof, legal sufficiency proof, medical correctness proof, or
+     actual go-live decision proof is stored in repository.
+
+0. Operator Acceptance / Clinic Go-No-Go checklist is defined and synced:
    - `deploy/self-hosted/operator-acceptance-clinic-go-no-go.json` records the
      clinic operator go/no-go checklist;
    - `docs/project-memory/OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md` records the
