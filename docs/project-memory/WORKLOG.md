@@ -1,5 +1,9 @@
 ## 2026-05-28
 
+- Defined final backlog / terminal completion criterion after Stage 48A-48Z.
+- Recorded terminal criterion as repository metadata only: no runtime behavior, no database migration, no OpenAPI contract, and no frontend workflow.
+- Disabled automatic next numbered stage momentum; future numbered work requires a new explicit plan decision.
+
 - Created Stage 48A-48Z clinical follow-up scope definition after the post-Stage 47 plan reconciliation.
 - Recorded Stage 48A-48Z as repository-defined scope only: no runtime behavior, no database migration, no OpenAPI contract, and no frontend workflow.
 - Updated project-memory so the next repository action is final backlog / terminal completion criterion and Stage 49A-49Z is not defined.

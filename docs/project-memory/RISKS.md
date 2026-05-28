@@ -4,7 +4,17 @@
 
 1. **Risk: an unbounded Stage count can be mistaken for a confirmed development plan.**
    - Evidence: repository files confirm Stage 47A-47Z as the latest runtime batch and Stage 48A-48Z as scope definition only; no terminal Stage count is defined.
-   - Mitigation: `docs/project-memory/PLAN_RECONCILIATION.md` separates completed repository-backed blocks from unconfirmed terminal-planning work and requires explicit final backlog / terminal completion criterion before more numbered work is treated as approved.
+   - Mitigation: `docs/project-memory/PLAN_RECONCILIATION.md` now points to the final backlog / terminal completion criterion and requires a new explicit plan decision before any additional numbered work.
+
+## Final backlog terminal completion risks
+
+1. **Risk: terminal criterion can be mistaken for external approval.**
+   - Evidence: final backlog / terminal completion criterion is repository metadata only and does not review external legal, clinical, compliance, or medical correctness evidence.
+   - Mitigation: manifest, docs, guard, and project-memory state that external approval and medical correctness proof are outside repository evidence.
+
+2. **Risk: automatic Stage 49 momentum can restart without a plan decision.**
+   - Evidence: Stage 48A-48Z closed the prior scope hypothesis, and the final backlog criterion disables automatic next numbered work.
+   - Mitigation: final backlog guard blocks Stage 49 markers and requires future numbered work to start from a new explicit plan decision.
 
 ## Stage 48A-48Z scope risks
 

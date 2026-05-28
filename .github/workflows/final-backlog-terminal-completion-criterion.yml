@@ -1,0 +1,28 @@
+name: final-backlog-terminal-completion-criterion
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/final-backlog-terminal-completion-criterion.json"
+      - "docs/project-memory/FINAL_BACKLOG_TERMINAL_COMPLETION.md"
+      - "docs/backend/final-backlog-terminal-completion-criterion.md"
+      - "scripts/check-final-backlog-terminal-completion-criterion.mjs"
+      - "scripts/check-final-backlog-terminal-completion-criterion.test.mjs"
+      - "docs/project-memory/**"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/final-backlog-terminal-completion-criterion.yml"
+  workflow_dispatch:
+
+jobs:
+  final-backlog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:final-backlog
