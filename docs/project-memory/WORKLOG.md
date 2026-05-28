@@ -1,5 +1,8 @@
 ## 2026-05-28
 
+- Added `docs/project-memory/LOVABLE_PROGRESS_LEDGER.md` as the required table format for every Lovable prompt/response summary.
+- Logged the final backlog / terminal completion criterion Lovable confirmation with plan, done, future work, evidence, and truth boundary.
+
 - Defined final backlog / terminal completion criterion after Stage 48A-48Z.
 - Recorded terminal criterion as repository metadata only: no runtime behavior, no database migration, no OpenAPI contract, and no frontend workflow.
 - Disabled automatic next numbered stage momentum; future numbered work requires a new explicit plan decision.

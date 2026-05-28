@@ -24,6 +24,17 @@ final_backlog_terminal_completion:
   database_migration_added: false
   openapi_contract_added: false
   frontend_workflow_added: false
+lovable_progress_ledger:
+  name: "Lovable prompt/response progress ledger"
+  status: "active"
+  source: "docs/project-memory/LOVABLE_PROGRESS_LEDGER.md"
+  required_columns:
+    - "Implementation plan"
+    - "Done, verified"
+    - "Will be implemented"
+    - "Evidence / checks"
+    - "Truth boundary"
+  latest_logged_response: "Confirmed: final backlog / terminal completion criterion synced from main, no conflicts."
 stage48a_48z:
   name: "Stage 48A-48Z"
   stage48_scope_definition_confirmed: true
@@ -1235,6 +1246,7 @@ sources:
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
   files:
+    - "docs/project-memory/LOVABLE_PROGRESS_LEDGER.md"
     - "deploy/self-hosted/final-backlog-terminal-completion-criterion.json"
     - "docs/project-memory/FINAL_BACKLOG_TERMINAL_COMPLETION.md"
     - "docs/backend/final-backlog-terminal-completion-criterion.md"

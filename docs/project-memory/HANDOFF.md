@@ -23,6 +23,13 @@ reconciliation pass is recorded in `docs/project-memory/PLAN_RECONCILIATION.md`.
    - no external legal approval proof, no external clinical approval proof,
      and no medical correctness proof.
 
+0. Lovable progress reporting rule is active:
+   - every future Lovable prompt and response must be summarized as a table;
+   - the required ledger is
+     `docs/project-memory/LOVABLE_PROGRESS_LEDGER.md`;
+   - each row must separate implementation plan, done/verified, future work,
+     evidence/checks, and truth boundary.
+
 0. Stage 48A-48Z is defined as a repository scope batch:
    - `deploy/self-hosted/clinical-followup-stage48-scope.stage48a-48z.json`
      records Stage 48A-48Z as ready scope after Stage 47A-47Z;
