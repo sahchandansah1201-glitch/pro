@@ -119,8 +119,8 @@ const PROJECT_MEMORY_REQUIRED_TEXT = {
   ],
   "docs/project-memory/LOVABLE_PROGRESS_LEDGER.md": [
     "Confirmed: Operator Acceptance / Clinic Go-No-Go checklist synced from main, no conflicts.",
+    "Confirmed: External Clinic Operator Execution Record synced from main, no conflicts.",
     "External Clinic Operator Execution Record",
-    "ожидается после Lovable sync",
   ],
 };
 
