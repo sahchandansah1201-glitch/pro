@@ -2,11 +2,18 @@
 
 ## Current confirmed state
 
-Operator Acceptance / Clinic Go-No-Go checklist is now the current repository
-planning artifact. It follows the final backlog / terminal completion
-criterion and defines the external clinic operator go/no-go checklist template.
-The repository records checklist metadata only; the decision requires external
-clinic execution.
+External Clinic Operator Execution Record is now the current repository
+planning artifact. It follows the Operator Acceptance / Clinic Go-No-Go
+checklist and defines the redacted record template for an external clinic
+operator execution outcome. The repository records template metadata only; the
+real decision requires external clinic execution and explicit external
+confirmation.
+
+Short marker: external clinic operator execution outcome.
+
+Operator Acceptance / Clinic Go-No-Go checklist is synced from main with no
+conflicts per Lovable confirmation:
+`Confirmed: Operator Acceptance / Clinic Go-No-Go checklist synced from main, no conflicts.`
 
 Final backlog / terminal completion criterion is now the current repository
 planning artifact. It follows Stage 48A-48Z and closes the open-ended numbered
@@ -25,18 +32,18 @@ evidence through Stage 8A-9Z, Stage 16A-16Z selected Stage 17A-17Z, and the
 Stage 17A-47Z clinical follow-up chain is complete through current repository
 evidence.
 
-## Immediate actions after Operator Acceptance PR merge
+## Immediate actions after External Clinic Operator Execution Record PR merge
 
 1. Verify local `main` after merge:
    - `git status --short`
+   - `npm run preflight:external-clinic-operator-record`
    - `npm run preflight:operator-acceptance`
-   - `npm run preflight:final-backlog`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
-2. Send the Operator Acceptance / Clinic Go-No-Go checklist Lovable sync
+2. Send the External Clinic Operator Execution Record Lovable sync
    prompt only after the PR is merged into `main` and local `main` is verified.
 3. Expected Lovable confirmation:
-   - `Confirmed: Operator Acceptance / Clinic Go-No-Go checklist synced from main, no conflicts.`
+   - `Confirmed: External Clinic Operator Execution Record synced from main, no conflicts.`
 
 ## Next repository action
 
@@ -46,9 +53,10 @@ There is still no repository-defined terminal stage count. Stage 49A-49Z is
 not defined. Any future numbered batch or feature work must enter through
 future product-change intake through a new explicit plan decision.
 
-The next non-numbered work item is external clinic execution of the Operator
-Acceptance / Clinic Go-No-Go checklist. Its outcome is not repository evidence
-until the user provides explicit external confirmation or an approved artifact.
+The next non-numbered work item is external clinic operator execution of the
+Operator Acceptance / Clinic Go-No-Go checklist using the External Clinic
+Operator Execution Record. Its outcome is not repository evidence until the
+user provides explicit external confirmation or an approved redacted artifact.
 
 Every future Lovable prompt and response must be summarized in the
 `docs/project-memory/LOVABLE_PROGRESS_LEDGER.md` Russian table format: plan,

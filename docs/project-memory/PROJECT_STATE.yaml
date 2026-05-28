@@ -10,9 +10,35 @@ plan_reconciliation:
   next_repository_action: "new plan decision required before additional numbered work"
   terminal_completion_criterion_defined: true
   terminal_stage_defined: false
+external_clinic_operator_execution_record:
+  name: "External Clinic Operator Execution Record"
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:external-clinic-operator-record"
+  previous_repository_artifact: "operator-acceptance-clinic-go-no-go"
+  source_checklist: "operator-acceptance-clinic-go-no-go"
+  allowed_decisions:
+    - "go"
+    - "no-go"
+    - "conditional-go"
+  requires_external_execution: true
+  repository_can_record_template_only: true
+  repository_must_not_store_patient_data: true
+  real_execution_requires_external_artifact: true
+  stage49_defined: false
+  runtime_behavior_added: false
+  database_migration_added: false
+  openapi_contract_added: false
+  frontend_workflow_added: false
+  contains_patient_data: false
+  contains_secrets: false
+  signed_approval_artifact_stored: false
+  external_approval_proof: false
+  legal_sufficiency_proof: false
+  medical_correctness_proof: false
+  actual_go_live_decision_proof: false
 operator_acceptance_clinic_go_no_go:
   name: "Operator Acceptance / Clinic Go-No-Go checklist"
-  status: "implemented-in-current-branch"
+  status: "synced-from-main"
   preflight: "npm run preflight:operator-acceptance"
   previous_repository_artifact: "final-backlog-terminal-completion-criterion"
   clinic_operator_acceptance_defined: true
@@ -47,7 +73,7 @@ lovable_progress_ledger:
     - "Будет реализовано"
     - "Доказательства / проверки"
     - "Граница достоверности"
-  latest_logged_response: "Confirmed: final backlog / terminal completion criterion synced from main, no conflicts."
+  latest_logged_response: "Confirmed: Operator Acceptance / Clinic Go-No-Go checklist synced from main, no conflicts."
 stage48a_48z:
   name: "Stage 48A-48Z"
   stage48_scope_definition_confirmed: true
@@ -270,9 +296,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/operator-acceptance-clinic-go-no-go-checklist"
-  head_sha: "c0be24b56dc8cef0727ec311b584895869c70bac"
-  head_commit: "Add Lovable progress ledger"
+  branch: "codex/external-clinic-operator-execution-record"
+  head_sha: "ce1b37c623090d2de755012e99f99037e24312a3"
+  head_commit: "Add Operator Acceptance Clinic Go-No-Go checklist"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -1124,6 +1150,9 @@ hypotheses:
   - "Stage 25A-25Z closes the prior Stage 25 hypothesis with local follow-up clinic SOP policy audit rollup."
 sources:
   commands:
+    - "npm run test:external-clinic-operator-record"
+    - "npm run check:external-clinic-operator-record"
+    - "npm run preflight:external-clinic-operator-record"
     - "npm run test:operator-acceptance"
     - "npm run check:operator-acceptance"
     - "npm run preflight:operator-acceptance"
@@ -1262,6 +1291,12 @@ sources:
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
   files:
+    - "deploy/self-hosted/external-clinic-operator-execution-record.json"
+    - "docs/project-memory/EXTERNAL_CLINIC_OPERATOR_EXECUTION_RECORD.md"
+    - "docs/backend/external-clinic-operator-execution-record.md"
+    - "scripts/check-external-clinic-operator-execution-record.mjs"
+    - "scripts/check-external-clinic-operator-execution-record.test.mjs"
+    - ".github/workflows/external-clinic-operator-execution-record.yml"
     - "deploy/self-hosted/operator-acceptance-clinic-go-no-go.json"
     - "docs/project-memory/OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md"
     - "docs/backend/operator-acceptance-clinic-go-no-go.md"

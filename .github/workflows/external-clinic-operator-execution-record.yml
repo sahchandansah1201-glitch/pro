@@ -1,0 +1,28 @@
+name: external-clinic-operator-execution-record
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/external-clinic-operator-execution-record.json"
+      - "docs/project-memory/EXTERNAL_CLINIC_OPERATOR_EXECUTION_RECORD.md"
+      - "docs/backend/external-clinic-operator-execution-record.md"
+      - "scripts/check-external-clinic-operator-execution-record.mjs"
+      - "scripts/check-external-clinic-operator-execution-record.test.mjs"
+      - "docs/project-memory/**"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/external-clinic-operator-execution-record.yml"
+  workflow_dispatch:
+
+jobs:
+  external-clinic-operator-record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:external-clinic-operator-record

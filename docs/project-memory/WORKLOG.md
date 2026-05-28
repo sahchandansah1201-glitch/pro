@@ -1,5 +1,16 @@
 ## 2026-05-28
 
+- Defined External Clinic Operator Execution Record after the Operator
+  Acceptance / Clinic Go-No-Go checklist.
+- Recorded source checklist, allowed decisions, required external fields,
+  no-go triggers, privacy/intake rules, guard, workflow, package scripts,
+  preflight-all wiring, Lovable ledger update, and project-memory markers.
+- Kept the record as repository metadata only: no runtime behavior, no
+  database migration, no OpenAPI contract, no frontend workflow, no patient
+  data, no secrets, no signed approval artifact, no external approval proof,
+  no legal sufficiency proof, no medical correctness proof, and no actual
+  go-live decision proof.
+
 - Defined Operator Acceptance / Clinic Go-No-Go checklist after the final backlog / terminal completion criterion.
 - Recorded go/no-go criteria, no-go criteria, external execution boundary,
   guard, workflow, package scripts, preflight-all wiring, and project-memory
