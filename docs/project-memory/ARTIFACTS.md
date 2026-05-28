@@ -8,14 +8,22 @@
    - [README.md](../../README.md)
    - [PLAN_RECONCILIATION.md](PLAN_RECONCILIATION.md)
 
-2. Stage 48A-48Z clinical follow-up scope definition artifacts:
+2. Final backlog / terminal completion criterion artifacts:
+   - [final-backlog-terminal-completion-criterion.json](../../deploy/self-hosted/final-backlog-terminal-completion-criterion.json)
+   - [FINAL_BACKLOG_TERMINAL_COMPLETION.md](FINAL_BACKLOG_TERMINAL_COMPLETION.md)
+   - [final-backlog-terminal-completion-criterion.md](../backend/final-backlog-terminal-completion-criterion.md)
+   - [check-final-backlog-terminal-completion-criterion.mjs](../../scripts/check-final-backlog-terminal-completion-criterion.mjs)
+   - [check-final-backlog-terminal-completion-criterion.test.mjs](../../scripts/check-final-backlog-terminal-completion-criterion.test.mjs)
+   - [final-backlog-terminal-completion-criterion.yml](../../.github/workflows/final-backlog-terminal-completion-criterion.yml)
+
+3. Stage 48A-48Z clinical follow-up scope definition artifacts:
    - [clinical-followup-stage48-scope.stage48a-48z.json](../../deploy/self-hosted/clinical-followup-stage48-scope.stage48a-48z.json)
    - [stage-48a-48z-clinical-followup-scope-definition.md](../backend/stage-48a-48z-clinical-followup-scope-definition.md)
    - [check-stage48a-48z-clinical-followup-scope-definition.mjs](../../scripts/check-stage48a-48z-clinical-followup-scope-definition.mjs)
    - [check-stage48a-48z-clinical-followup-scope-definition.test.mjs](../../scripts/check-stage48a-48z-clinical-followup-scope-definition.test.mjs)
    - [stage48a-48z-clinical-followup-scope-definition.yml](../../.github/workflows/stage48a-48z-clinical-followup-scope-definition.yml)
 
-3. Stage 47A-47Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt artifacts:
+4. Stage 47A-47Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt artifacts:
    - [clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt.stage47a-47z.json](../../deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-closure-receipt-handoff-receipt-reconciliation-closure-receipt-archive-readiness-closure-receipt-handoff-receipt-reconciliation-closure-receipt.stage47a-47z.json)
    - [0054_stage47_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_receipt_reconciliation_closure_receipt.sql](../../backend/self-hosted/db/migrations/0054_stage47_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_closure_receipt_handoff_receipt_reconciliation_closure_receipt_archive_readiness_closure_receipt_handoff_receipt_reconciliation_closure_receipt.sql)
    - [openapi.stage47a-47z.json](../../backend/self-hosted/openapi.stage47a-47z.json)

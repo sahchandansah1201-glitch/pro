@@ -2,17 +2,32 @@ generated_at: "2026-05-27T00:00:00+03:00"
 project: "Dermatolog Pro"
 plan_reconciliation:
   name: "Post-Stage 47 plan reconciliation"
-  status: "stage48-scope-defined"
+  status: "terminal-criterion-defined"
   source: "docs/project-memory/PLAN_RECONCILIATION.md"
   baseline_branch: "main"
-  baseline_head_sha: "927377fe88616b9be4e61f37e38807fc59de88f1"
+  baseline_head_sha: "596babee6ed152953dc0a2dae69c6dfe88906e4c"
   latest_confirmed_stage: "Stage 48A-48Z"
-  next_repository_action: "final backlog / terminal completion criterion"
+  next_repository_action: "new plan decision required before additional numbered work"
+  terminal_completion_criterion_defined: true
   terminal_stage_defined: false
+final_backlog_terminal_completion:
+  name: "Final backlog / terminal completion criterion"
+  status: "implemented-in-current-branch"
+  preflight: "npm run preflight:final-backlog"
+  previous_repository_batch: "Stage 48A-48Z"
+  terminal_completion_criterion_defined: true
+  terminal_stage_count_defined: false
+  automatic_next_stage_disabled: true
+  future_numbered_batch_requires_new_plan_decision: true
+  stage49_defined: false
+  runtime_behavior_added: false
+  database_migration_added: false
+  openapi_contract_added: false
+  frontend_workflow_added: false
 stage48a_48z:
   name: "Stage 48A-48Z"
   stage48_scope_definition_confirmed: true
-  status: "implemented-in-current-branch"
+  status: "merged-to-main"
   preflight: "npm run preflight:stage48a-48z"
   previous_batch: "Stage 47A-47Z"
   next_repository_action: "final backlog / terminal completion criterion"
@@ -231,9 +246,9 @@ stage18a_18z:
   next_hypothesis: "Stage 19A-19Z"
 repository:
   path: "/Users/istokdmgmail.com/Documents/GitHub/pro"
-  branch: "codex/stage48a-48z-clinical-followup-archive-readiness-scope"
-  head_sha: "3bd52b5aed2f7ccb885090cc87cbab9114262198"
-  head_commit: "Add post-Stage 47 plan reconciliation"
+  branch: "codex/final-backlog-terminal-completion-criterion"
+  head_sha: "596babee6ed152953dc0a2dae69c6dfe88906e4c"
+  head_commit: "Define Stage 48A-48Z clinical follow-up scope"
   working_tree: "modified"
   upstream: "origin/main"
 verification:
@@ -1072,8 +1087,8 @@ stage16a_16z_preflight:
     - "scripts/check-stage15a-15z-post-sync-handoff-readiness.mjs"
     - ".github/workflows/stage15a-15z-post-sync-handoff-readiness.yml"
 hypotheses:
-  - "Final backlog / terminal completion criterion is the next repository action after Stage 48A-48Z; its contents remain a hypothesis until repository files define them."
-  - "A terminal stage count is still not defined in repository files; Stage 48A-48Z defines scope only and does not define Stage 49A-49Z."
+  - "Any future numbered batch after the final backlog / terminal completion criterion remains a hypothesis until a new repository plan defines it."
+  - "A terminal stage count is still not defined in repository files; Stage 48A-48Z and the final backlog criterion do not define Stage 49A-49Z."
   - "Stage 33A-33Z is the next hypothesis after Stage 32A-32Z until repository files define it."
   - "Stage 32A-32Z closes the prior Stage 32 hypothesis with local follow-up SOP policy governance evidence reconciliation closure receipt archive readiness."
   - "Stage 31A-31Z closes the prior Stage 31 hypothesis with local follow-up SOP policy governance evidence reconciliation closure receipt."
@@ -1085,6 +1100,11 @@ hypotheses:
   - "Stage 25A-25Z closes the prior Stage 25 hypothesis with local follow-up clinic SOP policy audit rollup."
 sources:
   commands:
+    - "npm run test:final-backlog"
+    - "npm run check:final-backlog"
+    - "npm run preflight:final-backlog"
+    - "npm run preflight:all -- --dry-run"
+    - "node scripts/check-no-deno-locks.mjs"
     - "npm run test:stage32a-32z"
     - "npm run check:stage32a-32z"
     - "npm run preflight:stage32a-32z"
@@ -1215,6 +1235,17 @@ sources:
     - "npm run preflight:all -- --dry-run"
     - "node scripts/check-no-deno-locks.mjs"
   files:
+    - "deploy/self-hosted/final-backlog-terminal-completion-criterion.json"
+    - "docs/project-memory/FINAL_BACKLOG_TERMINAL_COMPLETION.md"
+    - "docs/backend/final-backlog-terminal-completion-criterion.md"
+    - "scripts/check-final-backlog-terminal-completion-criterion.mjs"
+    - "scripts/check-final-backlog-terminal-completion-criterion.test.mjs"
+    - ".github/workflows/final-backlog-terminal-completion-criterion.yml"
+    - "deploy/self-hosted/clinical-followup-stage48-scope.stage48a-48z.json"
+    - "docs/backend/stage-48a-48z-clinical-followup-scope-definition.md"
+    - "scripts/check-stage48a-48z-clinical-followup-scope-definition.mjs"
+    - "scripts/check-stage48a-48z-clinical-followup-scope-definition.test.mjs"
+    - ".github/workflows/stage48a-48z-clinical-followup-scope-definition.yml"
     - "deploy/self-hosted/clinical-followup-sop-policy-governance-evidence-reconciliation-closure-receipt-archive-readiness.stage32a-32z.json"
     - "backend/self-hosted/db/migrations/0039_stage32_followup_sop_policy_governance_evidence_reconciliation_closure_receipt_archive_readiness.sql"
     - "backend/self-hosted/openapi.stage32a-32z.json"

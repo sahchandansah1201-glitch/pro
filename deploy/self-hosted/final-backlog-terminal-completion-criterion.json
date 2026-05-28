@@ -1,0 +1,75 @@
+{
+  "id": "final-backlog-terminal-completion-criterion",
+  "project": "Dermatolog Pro",
+  "status": "ready",
+  "previousRepositoryBatch": "Stage 48A-48Z",
+  "purpose": "Define the final repository backlog and terminal completion criterion so the plan is no longer an open-ended numbered stage sequence.",
+  "stagePolicy": {
+    "terminalCompletionCriterionDefined": true,
+    "terminalStageCountDefined": false,
+    "stage49Defined": false,
+    "automaticNextStageDisabled": true,
+    "futureNumberedBatchRequiresNewPlanDecision": true
+  },
+  "terminalCompletionCriterion": {
+    "repositoryTerminalWhen": [
+      "Stage 48A-48Z is merged to main and synchronized from main.",
+      "This final backlog / terminal completion criterion manifest is merged to main.",
+      "The final backlog guard and preflight pass from main.",
+      "No repository file defines Stage 49A-49Z or another automatic next numbered batch.",
+      "Remaining work is represented as external approval, operator acceptance, or future product-change intake rather than an active numbered repository stage."
+    ],
+    "notTerminalIf": [
+      "A repository file introduces a new numbered batch without an explicit new plan decision.",
+      "A protected project-memory file claims external legal, clinical, or medical correctness approval as repository proof.",
+      "Lovable reports that the final backlog / terminal completion criterion is not synchronized from main."
+    ]
+  },
+  "finalBacklog": [
+    {
+      "id": "lovable-main-sync",
+      "owner": "Lovable or operator",
+      "status": "external-confirmation-required",
+      "criterion": "Confirm final backlog / terminal completion criterion from main after merge."
+    },
+    {
+      "id": "external-clinic-approval",
+      "owner": "Clinic operator",
+      "status": "outside-repository-evidence-required",
+      "criterion": "Approve production clinical workflow outside git before relying on it operationally."
+    },
+    {
+      "id": "external-legal-compliance-review",
+      "owner": "Legal or compliance reviewer",
+      "status": "outside-repository-evidence-required",
+      "criterion": "Review legal archive sufficiency, privacy posture, and local SOP approval outside repository evidence."
+    },
+    {
+      "id": "future-product-change-intake",
+      "owner": "Product decision maker",
+      "status": "new-plan-decision-required",
+      "criterion": "Any future numbered batch or feature must start from a new explicit plan decision, not from automatic Stage 49 momentum."
+    }
+  ],
+  "repoOwnedCompletionChecklist": [
+    "npm run test:final-backlog",
+    "npm run check:final-backlog",
+    "npm run preflight:final-backlog",
+    "npm run preflight:all -- --dry-run",
+    "node scripts/check-no-deno-locks.mjs",
+    "git diff --check"
+  ],
+  "runtimeBoundary": {
+    "runtimeBehaviorAdded": false,
+    "databaseMigrationAdded": false,
+    "openApiContractAdded": false,
+    "frontendWorkflowAdded": false
+  },
+  "privacy": {
+    "repositoryMetadataOnly": true,
+    "medicalCorrectnessProof": false,
+    "externalApprovalProof": false,
+    "containsSecrets": false
+  },
+  "expectedConfirmation": "Confirmed: final backlog / terminal completion criterion synced from main, no conflicts."
+}

@@ -3,20 +3,21 @@
 ## Scope
 
 This began as a short repository-owned reconciliation pass after the Stage
-47A-47Z merge. Stage 48A-48Z now extends it by defining the previously
-unconfirmed Stage 48 scope. Stage 48A-48Z does not add runtime product
-behavior; it records the repository boundary before final backlog / terminal
-completion criterion work.
+47A-47Z merge. Stage 48A-48Z then defined the previously unconfirmed Stage 48
+scope. The final backlog / terminal completion criterion is now defined by repository files, so the current plan no longer advances by automatic numbered
+stage momentum.
 
 ## Baseline
 
 - Repository baseline: `/Users/istokdmgmail.com/Documents/GitHub/pro`.
 - Baseline branch: `main`.
-- Baseline head: `927377fe88616b9be4e61f37e38807fc59de88f1`.
-- Baseline commit: `Add Stage 47A-47Z clinical follow-up archive handoff reconciliation closure receipt`.
+- Baseline head: `596babee6ed152953dc0a2dae69c6dfe88906e4c`.
+- Baseline commit: `Define Stage 48A-48Z clinical follow-up scope`.
 - Latest confirmed repository runtime stage: Stage 47A-47Z.
 - Latest confirmed repository scope stage: Stage 48A-48Z.
 - Stage 48A-48Z repository files: present as scope definition artifacts.
+- Final backlog / terminal completion criterion repository files: present as
+  terminal planning artifacts.
 
 ## Completed Plan Blocks
 
@@ -48,12 +49,14 @@ completion criterion work.
 8. Stage 48A-48Z is now a repository-defined scope batch. It closes the prior
    unconfirmed Stage 48 hypothesis without adding runtime behavior, database
    migrations, OpenAPI contracts, or frontend workflow changes.
+9. The final backlog / terminal completion criterion is now defined by repository files. It records the terminal criterion for the current plan,
+   the final backlog classes, and the rule that future numbered work requires
+   a new explicit plan decision.
 
 ## Not Confirmed
 
 - A terminal stage count is not defined in repository files.
-- The final backlog / terminal completion criterion is not defined yet.
-- Stage 49A-49Z is not defined by repository files.
+- No automatic Stage 49A-49Z exists.
 - Lovable synchronization is not repository-verifiable. It remains externally
   confirmed only after the user or Lovable returns the expected phrase.
 - The Stage 17-47 follow-up chain records local metadata and workflow state; it
@@ -62,6 +65,6 @@ completion criterion work.
 
 ## Next Decision
 
-Create a final backlog and terminal completion criterion if the product plan
-should stop being an open-ended Stage sequence. This is the next repository
-action after Stage 48A-48Z.
+No automatic next numbered stage is active. Any future numbered batch or
+feature work requires a new explicit plan decision and must be treated as a
+new hypothesis until repository files define it.

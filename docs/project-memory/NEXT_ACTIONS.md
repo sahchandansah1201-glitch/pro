@@ -2,7 +2,14 @@
 
 ## Current confirmed state
 
-Stage 48A-48Z is now the current product-memory batch. It defines the real repository scope after Stage 47A-47Z and before final backlog / terminal completion criterion work.
+Final backlog / terminal completion criterion is now the current repository
+planning artifact. It follows Stage 48A-48Z and closes the open-ended numbered
+stage sequence for the current plan.
+
+Stage 48A-48Z is now the current product-memory batch for numbered scope
+history.
+
+Stage 48A-48Z remains the latest repository scope batch. It defines the real repository scope after Stage 47A-47Z and before final backlog / terminal completion criterion work.
 
 Stage 47A-47Z remains the latest merged runtime product-facing batch. It extends Stage 46A-46Z local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure with a local archive readiness closure receipt handoff receipt reconciliation closure receipt checkpoint on follow-up tasks.
 
@@ -12,25 +19,24 @@ evidence through Stage 8A-9Z, Stage 16A-16Z selected Stage 17A-17Z, and the
 Stage 17A-47Z clinical follow-up chain is complete through current repository
 evidence.
 
-## Immediate actions after Stage 48A-48Z PR merge
+## Immediate actions after final backlog PR merge
 
 1. Verify local `main` after merge:
    - `git status --short`
-   - `npm run preflight:stage48a-48z`
+   - `npm run preflight:final-backlog`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
-2. Send the Stage 48A-48Z Lovable sync prompt only after the PR is merged into `main` and local `main` is verified.
+2. Send the final backlog / terminal completion criterion Lovable sync prompt only after the PR is merged into `main` and local `main` is verified.
 3. Expected Lovable confirmation:
-   - `Confirmed: Stage 48A-48Z synced from main, no conflicts.`
+   - `Confirmed: final backlog / terminal completion criterion synced from main, no conflicts.`
 
 ## Next repository action
 
-Final backlog / terminal completion criterion is the next repository action.
-Its contents remain a hypothesis until repository files define them.
+No automatic next numbered stage is active.
 
-There is no repository-defined terminal stage count. Before implementing
-another numbered batch, define an explicit final backlog/terminal completion
-criterion. Stage 49A-49Z is not defined.
+There is still no repository-defined terminal stage count. Stage 49A-49Z is
+not defined. Any future numbered batch or feature work must enter through
+future product-change intake through a new explicit plan decision.
 
 ## Historical anchors
 
