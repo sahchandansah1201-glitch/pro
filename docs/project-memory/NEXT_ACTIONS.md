@@ -9,6 +9,10 @@ operator execution outcome. The repository records template metadata only; the
 real decision requires external clinic execution and explicit external
 confirmation.
 
+External Clinic Operator Execution Record is synced from main with no conflicts
+per Lovable confirmation:
+`Confirmed: External Clinic Operator Execution Record synced from main, no conflicts.`
+
 Short marker: external clinic operator execution outcome.
 
 Operator Acceptance / Clinic Go-No-Go checklist is synced from main with no
@@ -32,17 +36,17 @@ evidence through Stage 8A-9Z, Stage 16A-16Z selected Stage 17A-17Z, and the
 Stage 17A-47Z clinical follow-up chain is complete through current repository
 evidence.
 
-## Immediate actions after External Clinic Operator Execution Record PR merge
+## Completed sync actions for External Clinic Operator Execution Record
 
-1. Verify local `main` after merge:
+1. Verified local `main` after merge:
    - `git status --short`
    - `npm run preflight:external-clinic-operator-record`
    - `npm run preflight:operator-acceptance`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
-2. Send the External Clinic Operator Execution Record Lovable sync
-   prompt only after the PR is merged into `main` and local `main` is verified.
-3. Expected Lovable confirmation:
+2. Sent the External Clinic Operator Execution Record Lovable sync prompt after
+   PR #218 was merged into `main`.
+3. Received Lovable confirmation:
    - `Confirmed: External Clinic Operator Execution Record synced from main, no conflicts.`
 
 ## Next repository action
@@ -53,7 +57,7 @@ There is still no repository-defined terminal stage count. Stage 49A-49Z is
 not defined. Any future numbered batch or feature work must enter through
 future product-change intake through a new explicit plan decision.
 
-The next non-numbered work item is external clinic operator execution of the
+The next non-numbered work item remains external clinic operator execution of the
 Operator Acceptance / Clinic Go-No-Go checklist using the External Clinic
 Operator Execution Record. Its outcome is not repository evidence until the
 user provides explicit external confirmation or an approved redacted artifact.
