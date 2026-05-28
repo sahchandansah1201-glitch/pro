@@ -7,6 +7,7 @@
    - [DESIGN.md](../../DESIGN.md)
    - [README.md](../../README.md)
    - [PLAN_RECONCILIATION.md](PLAN_RECONCILIATION.md)
+   - [LOVABLE_PROGRESS_LEDGER.md](LOVABLE_PROGRESS_LEDGER.md)
 
 2. Final backlog / terminal completion criterion artifacts:
    - [final-backlog-terminal-completion-criterion.json](../../deploy/self-hosted/final-backlog-terminal-completion-criterion.json)

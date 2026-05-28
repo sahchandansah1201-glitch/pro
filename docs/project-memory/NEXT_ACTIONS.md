@@ -38,6 +38,10 @@ There is still no repository-defined terminal stage count. Stage 49A-49Z is
 not defined. Any future numbered batch or feature work must enter through
 future product-change intake through a new explicit plan decision.
 
+Every future Lovable prompt and response must be summarized in the
+`docs/project-memory/LOVABLE_PROGRESS_LEDGER.md` table format: implementation
+plan, done/verified, future work, evidence/checks, and truth boundary.
+
 ## Historical anchors
 
 Stage 7A-7C, Stage 7D-7F, Stage 7G-7I, and Stage 7J-7L remain historical batch-workflow and roadmap anchors. Stage 7A-7C also remains the workflow-contract anchor for the minimum three related stages rule per Pull request. Stage 8A-8C, Stage 8D-8F, Stage 8G-8I, Stage 8J-8L, Stage 8J-8O, Stage 8P-8R, Stage 8P-9A, Stage 9B-9D, Stage 9B-9M, and Stage 9N-9Z remain historical product and Device Bridge anchors.
