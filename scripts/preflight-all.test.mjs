@@ -156,6 +156,7 @@ test("preflight all command list covers deterministic local gates", () => {
     "Stage 45A-45Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation preflight",
     "Stage 46A-46Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure preflight",
     "Stage 47A-47Z clinical follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt preflight",
+    "Stage 48A-48Z clinical follow-up scope definition preflight",
     "release-status CI sync gate",
     "preflight-all workflow gate",
     "project-memory black box guard",
@@ -293,11 +294,12 @@ test("preflight all command list covers deterministic local gates", () => {
   assert.match(commands[128], /npm(\.cmd)? run preflight:stage45a-45z/);
   assert.match(commands[129], /npm(\.cmd)? run preflight:stage46a-46z/);
   assert.match(commands[130], /npm(\.cmd)? run preflight:stage47a-47z/);
-  assert.match(commands[131], /npm(\.cmd)? run ci:release-status-sync/);
-  assert.match(commands[132], /npm(\.cmd)? run check:preflight-all-gate/);
-  assert.match(commands[133], /npm(\.cmd)? run check:project-memory/);
-  assert.match(commands[134], /scripts\/check-no-deno-locks\.mjs/);
-  assert.equal(commands[135], "git diff --check");
+  assert.match(commands[131], /npm(\.cmd)? run preflight:stage48a-48z/);
+  assert.match(commands[132], /npm(\.cmd)? run ci:release-status-sync/);
+  assert.match(commands[133], /npm(\.cmd)? run check:preflight-all-gate/);
+  assert.match(commands[134], /npm(\.cmd)? run check:project-memory/);
+  assert.match(commands[135], /scripts\/check-no-deno-locks\.mjs/);
+  assert.equal(commands[136], "git diff --check");
 });
 
 test("argument parser supports dry-run and summary path forms", () => {

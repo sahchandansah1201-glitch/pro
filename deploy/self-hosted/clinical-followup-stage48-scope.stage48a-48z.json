@@ -1,0 +1,56 @@
+{
+  "stage": "48A-48Z",
+  "name": "clinical-followup-stage48-scope-definition",
+  "status": "ready",
+  "previousBatch": "Stage 47A-47Z",
+  "nextRepositoryAction": "final backlog / terminal completion criterion",
+  "purpose": "Define Stage 48A-48Z as a real repository scope after Stage 47A-47Z and before the final backlog / terminal completion criterion.",
+  "scopeDecision": {
+    "stage48IsDefinedScope": true,
+    "stage48IsRuntimeClinicalFeature": false,
+    "stage48ClosesPriorHypothesis": "Stage 48A-48Z",
+    "stage49IsNotDefined": true,
+    "terminalCriterionIsDeferredToNextAction": true
+  },
+  "implementedSurfaces": [
+    "Stage 48A-48Z self-hosted scope manifest",
+    "Stage 48A-48Z backend documentation",
+    "Stage 48A-48Z repository guard",
+    "Stage 48A-48Z guard test",
+    "Stage 48A-48Z GitHub workflow",
+    "Stage 48A-48Z package scripts",
+    "Stage 48A-48Z preflight-all wiring",
+    "Project-memory Stage 48 recovery update",
+    "Lovable synchronization prompt boundary"
+  ],
+  "runtimeBoundary": {
+    "runtimeBehaviorAdded": false,
+    "databaseMigrationAdded": false,
+    "openApiContractAdded": false,
+    "frontendWorkflowAdded": false,
+    "reason": "Stage 48A-48Z is a scope definition batch. Runtime backlog and terminal completion are intentionally deferred to the next repository action."
+  },
+  "productBoundary": {
+    "managedRuntimeDependency": "none",
+    "managedDatabaseDependency": "none",
+    "managedNotificationProviderDependency": "none",
+    "database": "local PostgreSQL",
+    "objectStorage": "local self-hosted object store",
+    "externalRuntimeCalls": false,
+    "browserHardwareApis": false
+  },
+  "privacy": {
+    "stage48ScopeIsRepositoryMetadataOnly": true,
+    "stage48ScopeDoesNotIncludePatientClinicalData": true,
+    "stage48ScopeIsNotExternalApprovalProof": true,
+    "stage48ScopeIsNotLegalArchiveSufficiencyProof": true,
+    "stage48ScopeDoesNotIncludeTokensOrSignedUrls": true,
+    "medicalCorrectnessProof": false
+  },
+  "verification": {
+    "test": "npm run test:stage48a-48z",
+    "check": "npm run check:stage48a-48z",
+    "preflight": "npm run preflight:stage48a-48z",
+    "expectedConfirmation": "Confirmed: Stage 48A-48Z synced from main, no conflicts."
+  }
+}

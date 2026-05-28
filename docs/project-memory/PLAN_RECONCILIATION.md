@@ -2,10 +2,11 @@
 
 ## Scope
 
-This is a short repository-owned reconciliation pass after the Stage 47A-47Z
-merge. It reconciles the development plan against files in `main`; it does not
-define Stage 48A-48Z as approved scope and does not add runtime product
-behavior.
+This began as a short repository-owned reconciliation pass after the Stage
+47A-47Z merge. Stage 48A-48Z now extends it by defining the previously
+unconfirmed Stage 48 scope. Stage 48A-48Z does not add runtime product
+behavior; it records the repository boundary before final backlog / terminal
+completion criterion work.
 
 ## Baseline
 
@@ -13,8 +14,9 @@ behavior.
 - Baseline branch: `main`.
 - Baseline head: `927377fe88616b9be4e61f37e38807fc59de88f1`.
 - Baseline commit: `Add Stage 47A-47Z clinical follow-up archive handoff reconciliation closure receipt`.
-- Latest confirmed repository stage: Stage 47A-47Z.
-- Stage 48A-48Z repository files: not present.
+- Latest confirmed repository runtime stage: Stage 47A-47Z.
+- Latest confirmed repository scope stage: Stage 48A-48Z.
+- Stage 48A-48Z repository files: present as scope definition artifacts.
 
 ## Completed Plan Blocks
 
@@ -43,12 +45,15 @@ behavior.
    through the current repository evidence. Stage 47A-47Z is the latest merged
    batch and records local archive readiness closure receipt handoff receipt
    reconciliation closure receipt metadata.
+8. Stage 48A-48Z is now a repository-defined scope batch. It closes the prior
+   unconfirmed Stage 48 hypothesis without adding runtime behavior, database
+   migrations, OpenAPI contracts, or frontend workflow changes.
 
 ## Not Confirmed
 
 - A terminal stage count is not defined in repository files.
-- Stage 48A-48Z is only a hypothesis until repository files define its scope,
-  guard, docs, workflow, package scripts, and Lovable prompt.
+- The final backlog / terminal completion criterion is not defined yet.
+- Stage 49A-49Z is not defined by repository files.
 - Lovable synchronization is not repository-verifiable. It remains externally
   confirmed only after the user or Lovable returns the expected phrase.
 - The Stage 17-47 follow-up chain records local metadata and workflow state; it
@@ -57,10 +62,6 @@ behavior.
 
 ## Next Decision
 
-Before implementing another numbered batch, choose one of these repository
-actions:
-
-1. Define Stage 48A-48Z from repository evidence and an explicit product or
-   closure objective.
-2. Create a final backlog and terminal completion criterion if the product plan
-   should stop being an open-ended Stage sequence.
+Create a final backlog and terminal completion criterion if the product plan
+should stop being an open-ended Stage sequence. This is the next repository
+action after Stage 48A-48Z.

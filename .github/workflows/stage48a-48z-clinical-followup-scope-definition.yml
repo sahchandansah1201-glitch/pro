@@ -1,0 +1,27 @@
+name: stage48a-48z-clinical-followup-scope-definition
+
+on:
+  pull_request:
+    paths:
+      - "deploy/self-hosted/clinical-followup-stage48-scope.stage48a-48z.json"
+      - "docs/backend/stage-48a-48z-clinical-followup-scope-definition.md"
+      - "scripts/check-stage48a-48z-clinical-followup-scope-definition.mjs"
+      - "scripts/check-stage48a-48z-clinical-followup-scope-definition.test.mjs"
+      - "docs/project-memory/**"
+      - "package.json"
+      - "scripts/preflight-all.mjs"
+      - "scripts/preflight-all.test.mjs"
+      - ".github/workflows/stage48a-48z-clinical-followup-scope-definition.yml"
+  workflow_dispatch:
+
+jobs:
+  stage48a-48z:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run preflight:stage48a-48z
