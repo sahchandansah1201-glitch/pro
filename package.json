@@ -531,7 +531,10 @@
     "preflight:stage46a-46z": "npm run test:stage46a-46z && npm run check:stage46a-46z && npm run preflight:stage45a-45z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
     "test:stage47a-47z": "node --test backend/self-hosted/clinical-followup-repository.test.mjs backend/self-hosted/clinical-followup-service.test.mjs backend/self-hosted/routes.test.mjs scripts/check-stage47a-47z-clinical-followup-archive-recon-closure-receipt.test.mjs && npm test -- --run src/lib/self-hosted-follow-up-api.test.ts src/pages/doctor/VisitWorkspaceLiveActions.test.tsx src/pages/patient/MePages.production.test.tsx",
     "check:stage47a-47z": "node scripts/check-stage47a-47z-clinical-followup-archive-recon-closure-receipt.mjs",
-    "preflight:stage47a-47z": "npm run test:stage47a-47z && npm run check:stage47a-47z && npm run preflight:stage46a-46z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check"
+    "preflight:stage47a-47z": "npm run test:stage47a-47z && npm run check:stage47a-47z && npm run preflight:stage46a-46z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
+    "test:stage48a-48z": "node --test scripts/check-stage48a-48z-clinical-followup-scope-definition.test.mjs",
+    "check:stage48a-48z": "node scripts/check-stage48a-48z-clinical-followup-scope-definition.mjs",
+    "preflight:stage48a-48z": "npm run test:stage48a-48z && npm run check:stage48a-48z && npm run preflight:stage47a-47z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -2,12 +2,23 @@
 
 ## Scope
 
-This handoff captures the repository state after Stage 47A-47Z was merged to
-`main` and the project-memory plan was reconciled against repository evidence.
-The reconciliation pass is recorded in
+This handoff captures the repository state while Stage 48A-48Z is being
+implemented as a real repository scope batch after the post-Stage 47 plan
+reconciliation. The reconciliation pass is recorded in
 `docs/project-memory/PLAN_RECONCILIATION.md`.
 
 ## Confirmed state
+
+0. Stage 48A-48Z is defined as a repository scope batch:
+   - `deploy/self-hosted/clinical-followup-stage48-scope.stage48a-48z.json`
+     records Stage 48A-48Z as ready scope after Stage 47A-47Z;
+   - runtime behavior added: false;
+   - database migration added: false;
+   - OpenAPI contract added: false;
+   - Stage 49A-49Z is not defined;
+   - next repository action: final backlog / terminal completion criterion;
+   - no managed notification provider dependency, no external governance proof,
+     no legal archive sufficiency proof, and no medical correctness proof.
 
 0. Stage 47A-47Z is merged to main as SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt:
    - PostgreSQL Stage 47 archive readiness closure receipt handoff receipt reconciliation closure receipt fields on `clinical_follow_up_tasks`;
@@ -669,11 +680,11 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Hypothesis
 
-- `Stage 48A-48Z` is the current unconfirmed hypothesis after Stage 47A-47Z.
-  Repository files do not define Stage 48A-48Z yet.
-- A terminal stage count is not defined in repository files. The plan needs
-  either explicit Stage 48 scope or a final backlog/terminal completion
-  criterion before another numbered batch is treated as approved.
+- Final backlog / terminal completion criterion is the next repository action
+  after Stage 48A-48Z. Its contents remain a hypothesis until repository files
+  define them.
+- A terminal stage count is not defined in repository files. Stage 48A-48Z
+  defines scope only and does not define Stage 49A-49Z.
 - `Stage 33A-33Z` is the next hypothesis after Stage 32A-32Z until repository
   files define it.
 - `Stage 32A-32Z` closes the previous hypothesis with local SOP policy
@@ -705,17 +716,17 @@ expected to produce a false "missing files" result because Lovable follows
 
 ## Immediate continuation recommendation
 
-1. Verify local `main` after Stage 47A-47Z and this reconciliation pass.
+1. Verify local `main` after Stage 48A-48Z is merged.
 2. Run or verify:
-   - `npm run preflight:stage47a-47z`
+   - `npm run preflight:stage48a-48z`
    - `npm run check:project-memory`
    - `npm run preflight:all -- --dry-run`
    - `node scripts/check-no-deno-locks.mjs`
-3. Send the Stage 47A-47Z Lovable sync prompt only after the Pull request is
+3. Send the Stage 48A-48Z Lovable sync prompt only after the Pull request is
    merged to `main` and local `main` is verified.
-4. Do not treat Stage 48A-48Z as approved scope until repository files define
-   its objective, artifacts, guard, workflow, package scripts, and Lovable
-   prompt.
+4. Implement final backlog / terminal completion criterion as the next
+   repository action. Do not treat Stage 49A-49Z as approved scope unless
+   repository files define it later.
 
 ## Stage 17A-17Z confirmed product cycle
 

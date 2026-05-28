@@ -1,3 +1,9 @@
+## 2026-05-28
+
+- Created Stage 48A-48Z clinical follow-up scope definition after the post-Stage 47 plan reconciliation.
+- Recorded Stage 48A-48Z as repository-defined scope only: no runtime behavior, no database migration, no OpenAPI contract, and no frontend workflow.
+- Updated project-memory so the next repository action is final backlog / terminal completion criterion and Stage 49A-49Z is not defined.
+
 ## 2026-05-27
 
 - Added a short post-Stage 47 plan reconciliation pass in `docs/project-memory/PLAN_RECONCILIATION.md`.

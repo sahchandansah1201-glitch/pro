@@ -3,8 +3,18 @@
 ## Plan reconciliation risks
 
 1. **Risk: an unbounded Stage count can be mistaken for a confirmed development plan.**
-   - Evidence: repository files confirm Stage 47A-47Z as the latest merged batch and record Stage 48A-48Z only as a hypothesis; no terminal Stage count is defined.
-   - Mitigation: `docs/project-memory/PLAN_RECONCILIATION.md` separates completed repository-backed plan blocks from unconfirmed hypotheses and requires explicit Stage 48 scope or a final backlog/terminal criterion before more numbered work is treated as approved.
+   - Evidence: repository files confirm Stage 47A-47Z as the latest runtime batch and Stage 48A-48Z as scope definition only; no terminal Stage count is defined.
+   - Mitigation: `docs/project-memory/PLAN_RECONCILIATION.md` separates completed repository-backed blocks from unconfirmed terminal-planning work and requires explicit final backlog / terminal completion criterion before more numbered work is treated as approved.
+
+## Stage 48A-48Z scope risks
+
+1. **Risk: a scope definition batch can be mistaken for new clinical runtime behavior.**
+   - Evidence: Stage 48A-48Z deliberately records no runtime behavior, no database migration, no OpenAPI contract, and no frontend workflow.
+   - Mitigation: manifest, docs, guard, and project-memory label Stage 48A-48Z as repository metadata only.
+
+2. **Risk: Stage 49A-49Z can be assumed from numbering momentum.**
+   - Evidence: Stage 48A-48Z defines the next repository action as final backlog / terminal completion criterion and explicitly does not define Stage 49A-49Z.
+   - Mitigation: guard blocks a Stage 49 next-batch hypothesis and requires final backlog / terminal completion criterion wording.
 
 ## Stage 45A-45Z follow-up SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation risks
 
