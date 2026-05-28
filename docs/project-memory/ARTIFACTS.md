@@ -9,6 +9,14 @@
    - [PLAN_RECONCILIATION.md](PLAN_RECONCILIATION.md)
    - [LOVABLE_PROGRESS_LEDGER.md](LOVABLE_PROGRESS_LEDGER.md)
 
+2. Operator Acceptance / Clinic Go-No-Go checklist artifacts:
+   - [operator-acceptance-clinic-go-no-go.json](../../deploy/self-hosted/operator-acceptance-clinic-go-no-go.json)
+   - [OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md](OPERATOR_ACCEPTANCE_CLINIC_GO_NO_GO.md)
+   - [operator-acceptance-clinic-go-no-go.md](../backend/operator-acceptance-clinic-go-no-go.md)
+   - [check-operator-acceptance-clinic-go-no-go.mjs](../../scripts/check-operator-acceptance-clinic-go-no-go.mjs)
+   - [check-operator-acceptance-clinic-go-no-go.test.mjs](../../scripts/check-operator-acceptance-clinic-go-no-go.test.mjs)
+   - [operator-acceptance-clinic-go-no-go.yml](../../.github/workflows/operator-acceptance-clinic-go-no-go.yml)
+
 2. Final backlog / terminal completion criterion artifacts:
    - [final-backlog-terminal-completion-criterion.json](../../deploy/self-hosted/final-backlog-terminal-completion-criterion.json)
    - [FINAL_BACKLOG_TERMINAL_COMPLETION.md](FINAL_BACKLOG_TERMINAL_COMPLETION.md)

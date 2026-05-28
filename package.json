@@ -537,7 +537,10 @@
     "preflight:stage48a-48z": "npm run test:stage48a-48z && npm run check:stage48a-48z && npm run preflight:stage47a-47z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
     "test:final-backlog": "node --test scripts/check-final-backlog-terminal-completion-criterion.test.mjs",
     "check:final-backlog": "node scripts/check-final-backlog-terminal-completion-criterion.mjs",
-    "preflight:final-backlog": "npm run test:final-backlog && npm run check:final-backlog && npm run preflight:stage48a-48z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check"
+    "preflight:final-backlog": "npm run test:final-backlog && npm run check:final-backlog && npm run preflight:stage48a-48z && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check",
+    "test:operator-acceptance": "node --test scripts/check-operator-acceptance-clinic-go-no-go.test.mjs",
+    "check:operator-acceptance": "node scripts/check-operator-acceptance-clinic-go-no-go.mjs",
+    "preflight:operator-acceptance": "npm run test:operator-acceptance && npm run check:operator-acceptance && npm run preflight:final-backlog && npm run test:project-memory && npm run check:project-memory && npm run typecheck && node scripts/check-no-deno-locks.mjs && git diff --check"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

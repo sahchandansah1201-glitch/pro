@@ -1,0 +1,97 @@
+{
+  "id": "operator-acceptance-clinic-go-no-go",
+  "project": "Dermatolog Pro",
+  "status": "ready",
+  "previousRepositoryArtifact": "final-backlog-terminal-completion-criterion",
+  "purpose": "Define the clinic operator acceptance and go/no-go checklist that must be completed outside repository evidence before real operational use.",
+  "planBoundary": {
+    "isStage49": false,
+    "stage49Defined": false,
+    "automaticNextStageDisabled": true,
+    "futureNumberedBatchRequiresNewPlanDecision": true,
+    "repositoryOwnedChecklistOnly": true
+  },
+  "operatorAcceptanceScope": {
+    "operatorRole": "clinic operator",
+    "decision": "go/no-go for real clinic operation",
+    "environment": "self-hosted Dermatolog Pro deployment",
+    "requiresExternalExecution": true,
+    "repositoryCanRecordTemplateOnly": true
+  },
+  "goCriteria": [
+    {
+      "id": "roles-and-access",
+      "criterion": "Clinic operator verifies production users, RBAC roles, and least-privilege access for doctors, operators, system admins, and patient portal users.",
+      "repositoryEvidence": "self-hosted RBAC and portal contracts exist in repository",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "patient-and-visit-workflow",
+      "criterion": "Clinic operator verifies patient lookup, visit workspace, lesion/report workflow, follow-up queue, and patient portal flows with clinic-approved test data.",
+      "repositoryEvidence": "clinical workspace and follow-up tests exist in repository",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "sop-policy-governance",
+      "criterion": "Clinic operator verifies local SOP policy templates, application, exceptions, audit rollup, governance, archive readiness, and handoff receipt workflow match clinic process.",
+      "repositoryEvidence": "Stage 22A-47Z local SOP policy governance chain exists in repository",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "privacy-and-data-handling",
+      "criterion": "Clinic operator verifies privacy posture, local data handling, backups, audit retention, and no secrets or PHI are stored in git.",
+      "repositoryEvidence": "guards protect repository artifacts from secret-like and storage-object markers",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "operations-and-recovery",
+      "criterion": "Clinic operator verifies deployment readiness, health/readiness checks, backup restore, incident path, and Device Bridge operational boundaries where applicable.",
+      "repositoryEvidence": "self-hosted ops, release archive, and Device Bridge readiness artifacts exist in repository",
+      "externalEvidenceRequired": true
+    },
+    {
+      "id": "legal-clinical-approval",
+      "criterion": "Clinic operator obtains external legal/compliance and clinical-owner approval before real use.",
+      "repositoryEvidence": "repository explicitly does not prove external legal approval, clinical approval, or medical correctness",
+      "externalEvidenceRequired": true
+    }
+  ],
+  "noGoCriteria": [
+    "Any required role, portal, clinical workspace, SOP governance, privacy, backup, or recovery check is unverified.",
+    "Clinic operator cannot identify accountable owners for legal/compliance and clinical approval.",
+    "Production users or patient data are used before external clinic approval.",
+    "A repository artifact is treated as proof of medical correctness or legal sufficiency.",
+    "A future numbered batch is started without a new explicit plan decision."
+  ],
+  "acceptanceRecordTemplate": {
+    "operatorName": "external",
+    "clinicName": "external",
+    "reviewDate": "external",
+    "decision": "go | no-go | conditional-go",
+    "conditions": "external",
+    "approverSignoff": "external"
+  },
+  "repoOwnedVerification": [
+    "npm run test:operator-acceptance",
+    "npm run check:operator-acceptance",
+    "npm run preflight:operator-acceptance",
+    "npm run preflight:all -- --dry-run",
+    "node scripts/check-no-deno-locks.mjs",
+    "git diff --check"
+  ],
+  "runtimeBoundary": {
+    "runtimeBehaviorAdded": false,
+    "databaseMigrationAdded": false,
+    "openApiContractAdded": false,
+    "frontendWorkflowAdded": false
+  },
+  "privacy": {
+    "repositoryMetadataOnly": true,
+    "containsSecrets": false,
+    "containsPatientData": false,
+    "medicalCorrectnessProof": false,
+    "externalApprovalProof": false,
+    "legalSufficiencyProof": false
+  },
+  "expectedConfirmation": "Confirmed: Operator Acceptance / Clinic Go-No-Go checklist synced from main, no conflicts."
+}

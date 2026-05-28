@@ -1,5 +1,13 @@
 ## 2026-05-28
 
+- Defined Operator Acceptance / Clinic Go-No-Go checklist after the final backlog / terminal completion criterion.
+- Recorded go/no-go criteria, no-go criteria, external execution boundary,
+  guard, workflow, package scripts, preflight-all wiring, and project-memory
+  markers.
+- Kept the checklist as repository metadata only: no runtime behavior, no
+  database migration, no OpenAPI contract, no frontend workflow, no external
+  approval proof, no legal sufficiency proof, and no medical correctness proof.
+
 - Added `docs/project-memory/LOVABLE_PROGRESS_LEDGER.md` as the required table format for every Lovable prompt/response summary.
 - Logged the final backlog / terminal completion criterion Lovable confirmation with plan, done, future work, evidence, and truth boundary.
 
