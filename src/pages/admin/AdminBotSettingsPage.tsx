@@ -1,97 +1,148 @@
 import { useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Bot,
+  Camera,
+  CheckCircle2,
+  ClipboardList,
+  Headphones,
+  ShieldCheck,
+} from "lucide-react";
+
 import { PageHeader } from "@/components/shell/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   CLINICS,
   getAnalysisCards,
   getDialogs,
   getLeads,
 } from "@/lib/mock-data";
+import type {
+  AnalysisCard,
+  BotDialogState,
+  LeadStatus,
+  RiskLevel,
+} from "@/lib/domain";
 
-// ─────────────────────────────────────────────────────────────────────
-// Безопасные шаблоны (RU). Все формулировки — без диагнозов и обещаний.
-// ─────────────────────────────────────────────────────────────────────
+/**
+ * Bot Control Center.
+ *
+ * SAFETY:
+ *   - The bot is modeled as intake/routing/escalation, not diagnosis.
+ *   - Do not render patient names, photo refs, raw protected-link tokens,
+ *     external messenger user refs, model versions, or AI feature details.
+ *   - All actions are local demo events: no network calls, no message sending.
+ */
 
 type TemplateKey =
   | "greeting"
   | "photo_instruction"
   | "quality_failed"
-  | "safe_recommendation"
+  | "operator_handoff"
   | "booking_cta"
-  | "operator_escalation"
   | "follow_up";
 
 const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   greeting: "Приветствие",
   photo_instruction: "Инструкция по фото",
-  quality_failed: "Не прошло проверку качества",
-  safe_recommendation: "Безопасная рекомендация",
-  booking_cta: "Призыв к записи",
-  operator_escalation: "Эскалация на оператора",
-  follow_up: "Напоминание о повторе",
+  quality_failed: "Запрос повторного фото",
+  operator_handoff: "Передача оператору",
+  booking_cta: "Запись на приём",
+  follow_up: "Напоминание",
 };
 
 const DEFAULT_TEMPLATES: Record<TemplateKey, string> = {
   greeting:
-    "Здравствуйте. Это бот клиники «Дерма-Про». Помогу подготовить материалы для очного приёма. Это не диагноз, решение принимает врач.",
+    "Здравствуйте. Я помогу подготовить данные для очного приёма: вопросы, фото и запись. Предварительный ответ не является диагнозом.",
   photo_instruction:
-    "Сделайте снимок при ровном дневном свете, без вспышки, на расстоянии ~15 см. Кадр без бликов и теней. Это нужно только для подготовки к очному осмотру.",
+    "Сделайте общий снимок и крупный план при ровном дневном свете. Без вспышки, бликов и теней. Это нужно только для подготовки к приёму.",
   quality_failed:
-    "Снимок не подходит для предварительной оценки. Пожалуйста, повторите фото по инструкции. Это не диагноз: решение всё равно принимает врач очно.",
-  safe_recommendation:
-    "Спасибо. Рекомендуем очный осмотр у дерматолога. Это не диагноз — итоговое решение принимает врач после личного приёма.",
+    "Фото нужно повторить: качество снимка недостаточно для подготовки материалов. Предварительный ответ не является диагнозом.",
+  operator_handoff:
+    "Передаю диалог оператору клиники. Оператор поможет с записью и организационными вопросами; медицинские выводы делает врач.",
   booking_cta:
-    "Можно записаться на ближайший приём в партнёрской клинике. Запись подтвердит администратор.",
-  operator_escalation:
-    "Передаю диалог оператору поддержки. Он поможет с записью и ответит на вопросы. Медицинские выводы делает только врач.",
+    "Можно выбрать удобный слот для очного приёма. Запись подтвердит администратор клиники.",
   follow_up:
-    "Напоминание: рекомендован контрольный осмотр. Это не диагноз — оценку состояния делает врач очно.",
+    "Напоминание: если вопрос сохраняется, запишитесь на очный осмотр. Предварительный ответ не является диагнозом.",
 };
 
-// ─────────────────────────────────────────────────────────────────────
-// Меню бота
-// ─────────────────────────────────────────────────────────────────────
-
-type MenuKey =
-  | "new_analysis"
-  | "instruction"
-  | "why"
-  | "booking"
-  | "help"
-  | "about";
-
-interface MenuItem {
-  key: MenuKey;
+interface IntakeStep {
+  id: string;
   label: string;
-  purpose: string;
-  enabled: boolean;
+  detail: string;
+  required: boolean;
 }
 
-const DEFAULT_MENU: MenuItem[] = [
-  { key: "new_analysis", label: "Новый анализ", purpose: "Запуск сценария подготовки фото", enabled: true },
-  { key: "instruction", label: "Инструкция", purpose: "Как сделать корректный снимок", enabled: true },
-  { key: "why", label: "Зачем это", purpose: "Объяснение цели и ограничений", enabled: true },
-  { key: "booking", label: "Запись", purpose: "Переход к записи в клинику", enabled: true },
-  { key: "help", label: "Помощь", purpose: "Передача оператору поддержки", enabled: true },
-  { key: "about", label: "О проекте", purpose: "Кратко о клинике и о боте", enabled: true },
+const INTAKE_STEPS: IntakeStep[] = [
+  {
+    id: "consent",
+    label: "Согласие и ограничение",
+    detail: "ПДн, медицинская съёмка, бот не делает медицинский вывод.",
+    required: true,
+  },
+  {
+    id: "location",
+    label: "Локализация",
+    detail: "Где находится очаг: зона тела, сторона, привязка к карте тела.",
+    required: true,
+  },
+  {
+    id: "timeline",
+    label: "Срок и изменение",
+    detail: "Когда заметили, менялся ли размер, цвет, форма или ощущения.",
+    required: true,
+  },
+  {
+    id: "photo",
+    label: "Фото",
+    detail: "Общий вид + крупный план; quality gate до маршрутизации.",
+    required: true,
+  },
+  {
+    id: "contact",
+    label: "Запись",
+    detail: "Клиника, слот, операторская проверка перед подтверждением.",
+    required: false,
+  },
 ];
 
-// ─────────────────────────────────────────────────────────────────────
-// Аудит (локальный, без сети)
-// ─────────────────────────────────────────────────────────────────────
+const DIALOG_STATE_LABEL: Record<BotDialogState, string> = {
+  new: "Новый",
+  awaiting_photo: "Ждёт фото",
+  awaiting_quality: "Ждёт качество",
+  recommendation_sent: "Ответ отправлен",
+  with_operator: "У оператора",
+  booked: "Записан",
+  closed: "Закрыт",
+};
+
+const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
+  new: "Новый",
+  qualified: "Квалифицирован",
+  booked: "Записан",
+  lost: "Потерян",
+  duplicate: "Дубль",
+};
+
+const PRIORITY_LABEL: Record<RiskLevel, string> = {
+  low: "Планово",
+  moderate: "Нужна проверка",
+  high: "Приоритетно",
+  urgent: "Срочно",
+};
+
+const PRIORITY_TONE: Record<RiskLevel, string> = {
+  low: "border-info/40 bg-info/10 text-info",
+  moderate: "border-warning/40 bg-warning/10 text-warning",
+  high: "border-destructive/40 bg-destructive/10 text-destructive",
+  urgent: "border-destructive/40 bg-destructive/10 text-destructive",
+};
 
 interface AuditEntry {
   id: string;
@@ -99,411 +150,552 @@ interface AuditEntry {
   text: string;
 }
 
-function nowIso() {
+function nowIso(): string {
   return new Date().toISOString();
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Страница
-// ─────────────────────────────────────────────────────────────────────
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "--";
+  return d.toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function pct(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function dialogLabel(dialogId: string): string {
+  const suffix = dialogId.split("-").at(-1) ?? dialogId;
+  return `Диалог ${suffix}`;
+}
+
+function cardLabel(card: AnalysisCard): string {
+  return dialogLabel(card.dialogId);
+}
+
+function clinicName(id: string): string {
+  return CLINICS.find((clinic) => clinic.id === id)?.name ?? "Клиника не выбрана";
+}
 
 export default function AdminBotSettingsPage() {
-  const [menu, setMenu] = useState<MenuItem[]>(DEFAULT_MENU);
-  const [templates, setTemplates] =
-    useState<Record<TemplateKey, string>>(DEFAULT_TEMPLATES);
-  const [defaultClinicId, setDefaultClinicId] = useState<string>(
-    CLINICS[0]?.id ?? "",
-  );
-  const [urgentClinicId, setUrgentClinicId] = useState<string>(
-    CLINICS[0]?.id ?? "",
+  const dialogs = getDialogs();
+  const leads = getLeads();
+  const cards = getAnalysisCards();
+
+  const [templates, setTemplates] = useState<Record<TemplateKey, string>>(DEFAULT_TEMPLATES);
+  const [enabledSteps, setEnabledSteps] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(INTAKE_STEPS.map((step) => [step.id, true])),
   );
   const [audit, setAudit] = useState<AuditEntry[]>([
     {
       id: "init",
       ts: nowIso(),
-      text: "Открыт раздел «Настройки бота» (локальная сессия, без отправки).",
+      text: "Открыт центр управления ботом: локальная сессия, сообщения не отправляются.",
     },
   ]);
+  const [lastAction, setLastAction] = useState<string | null>(null);
   const [dryRun, setDryRun] = useState<string | null>(null);
 
-  // KPI — только агрегаты
-  const kpi = useMemo(() => {
-    const dialogs = getDialogs();
-    const leads = getLeads();
-    const cards = getAnalysisCards();
-    const total = dialogs.length;
-    const active = dialogs.filter((d) => d.state !== "closed").length;
-    const botLeads = leads.filter(
-      (l) => l.source === "telegram" || l.source === "whatsapp",
-    ).length;
-    const repeat = cards.filter((c) => c.ctaType === "repeat_photo").length;
-    const urgent = cards.filter(
-      (c) => c.routingRisk === "high" || c.routingRisk === "urgent",
-    ).length;
-    return { total, active, botLeads, repeat, urgent };
-  }, []);
+  const activeDialogs = useMemo(
+    () => dialogs.filter((dialog) => dialog.state !== "closed"),
+    [dialogs],
+  );
+
+  const photoQueue = useMemo(
+    () =>
+      cards.filter(
+        (card) =>
+          !card.qualityGate.passed ||
+          card.qualityGate.score < 0.8 ||
+          card.ctaType === "repeat_photo",
+      ),
+    [cards],
+  );
+
+  const escalationQueue = useMemo(
+    () =>
+      cards.filter((card) => {
+        const dialog = dialogs.find((item) => item.id === card.dialogId);
+        return (
+          card.routingRisk === "urgent" ||
+          card.routingRisk === "high" ||
+          card.routingRisk === "moderate" ||
+          dialog?.state === "with_operator"
+        );
+      }),
+    [cards, dialogs],
+  );
+
+  const botLeads = useMemo(
+    () => leads.filter((lead) => lead.source === "telegram" || lead.source === "whatsapp"),
+    [leads],
+  );
+
+  const statusCards = [
+    {
+      label: "Активные диалоги",
+      value: activeDialogs.length,
+      hint: "кроме закрытых",
+      tone: "info",
+    },
+    {
+      label: "Нужно фото лучше",
+      value: photoQueue.length,
+      hint: "quality gate",
+      tone: "warn",
+    },
+    {
+      label: "Эскалация",
+      value: escalationQueue.length,
+      hint: "оператор/врач",
+      tone: "danger",
+    },
+    {
+      label: "Лиды из бота",
+      value: botLeads.length,
+      hint: "telegram + whatsapp",
+      tone: "ok",
+    },
+  ] as const;
 
   function appendAudit(text: string) {
-    setAudit((a) => [
-      { id: `${Date.now()}-${a.length}`, ts: nowIso(), text },
-      ...a,
-    ].slice(0, 30));
+    setAudit((items) => [
+      { id: `${Date.now()}-${items.length}`, ts: nowIso(), text },
+      ...items,
+    ].slice(0, 24));
   }
 
-  function toggleMenu(key: MenuKey) {
-    setMenu((items) =>
-      items.map((it) =>
-        it.key === key ? { ...it, enabled: !it.enabled } : it,
-      ),
-    );
-    const item = menu.find((m) => m.key === key);
-    if (item) {
-      appendAudit(
-        `Пункт меню «${item.label}» — ${item.enabled ? "выключен" : "включён"} (локально).`,
-      );
-    }
+  function localAction(text: string) {
+    setLastAction(text);
+    appendAudit(`${text}; сообщения не отправляются.`);
+  }
+
+  function requestRetake(card: AnalysisCard) {
+    localAction(`Запрос повторного фото сформирован локально для ${cardLabel(card)}`);
+  }
+
+  function handoffOperator(card: AnalysisCard) {
+    localAction(`Передача оператору подготовлена локально для ${cardLabel(card)}`);
+  }
+
+  function toggleStep(step: IntakeStep) {
+    setEnabledSteps((current) => {
+      const nextValue = !current[step.id];
+      appendAudit(`Шаг intake «${step.label}» ${nextValue ? "включён" : "выключен"} локально.`);
+      return { ...current, [step.id]: nextValue };
+    });
   }
 
   function updateTemplate(key: TemplateKey, value: string) {
-    setTemplates((t) => ({ ...t, [key]: value }));
+    setTemplates((current) => ({ ...current, [key]: value }));
   }
 
   function resetTemplates() {
     setTemplates(DEFAULT_TEMPLATES);
-    appendAudit("Шаблоны сброшены к значениям по умолчанию (локально).");
-  }
-
-  function checkMenu() {
-    const enabled = menu.filter((m) => m.enabled).length;
-    appendAudit(`Проверка меню: включено ${enabled} из ${menu.length} пунктов.`);
-  }
-
-  function checkTemplates() {
-    const need = ["safe_recommendation", "quality_failed", "follow_up"] as const;
-    const ok = need.every((k) =>
-      /это не диагноз|решение принимает врач/i.test(templates[k]),
-    );
-    appendAudit(
-      ok
-        ? "Проверка шаблонов: все ключевые шаблоны содержат безопасную оговорку."
-        : "Проверка шаблонов: в одном из ключевых шаблонов отсутствует безопасная оговорка.",
-    );
+    appendAudit("Безопасные шаблоны сброшены локально.");
   }
 
   function buildDryRun() {
     const payload = {
-      event: "bot.settings.dry_run",
-      menu: menu.filter((m) => m.enabled).map((m) => m.key),
-      templatesChecked: true,
-      routing: {
-        defaultClinicId,
-        urgentClinicId,
-      },
-      externalCalls: false,
+      event: "bot.control_center.dry_run",
+      mode: "local_only",
       sendsMessages: false,
+      externalCalls: false,
+      enabledIntakeSteps: INTAKE_STEPS.filter((step) => enabledSteps[step.id]).map(
+        (step) => step.id,
+      ),
+      queueCounts: {
+        photoQuality: photoQueue.length,
+        escalation: escalationQueue.length,
+        botLeads: botLeads.length,
+      },
+      safety: {
+        patientVisibleDiagnosis: false,
+        rawTokensRendered: false,
+        messengerUserRefsRendered: false,
+      },
     };
     setDryRun(JSON.stringify(payload, null, 2));
-    appendAudit("Сформирован DryRun-сценарий (локально, без отправки).");
+    appendAudit("DryRun сценария сформирован локально.");
   }
 
-  const greetingPreview = templates.greeting;
-  const qualityFailedPreview = templates.quality_failed;
-  const safeRecommendationPreview = templates.safe_recommendation;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
-        title="Настройки бота"
-        subtitle="Меню, безопасные шаблоны, маршрутизация и эскалация"
+        title="Центр управления ботом"
+        subtitle="intake, маршрутизация, качество фото, эскалация и аудит"
       />
 
-      {/* Safety banner */}
-      <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200">
-        MVP: реальные Telegram API и рассылки отключены. Бот не ставит диагноз.
+      <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] leading-relaxed text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200">
+        MVP: бот работает как intake/routing/escalation контур. Реальные отправки
+        отключены, сообщения не отправляются, бот не ставит диагноз и не показывает
+        пациенту риск или прогноз.
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Kpi label="Всего диалогов" value={kpi.total} />
-        <Kpi label="Активные диалоги" value={kpi.active} />
-        <Kpi label="Лиды из бота" value={kpi.botLeads} />
-        <Kpi label="Нужен повтор фото" value={kpi.repeat} />
-        <Kpi label="Срочная маршрутизация" value={kpi.urgent} />
-      </div>
+      <section aria-label="Операционный статус бота" className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-[13px] font-semibold">Операционный статус бота</h2>
+          <div className="text-[11px] text-muted-foreground">демо-агрегаты</div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {statusCards.map((item) => (
+            <StatusCard
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              hint={item.hint}
+              tone={item.tone}
+            />
+          ))}
+        </div>
+      </section>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-        {/* LEFT — настройки */}
-        <div className="min-w-0 space-y-6">
-          {/* Меню бота */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Меню бота</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {menu.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-start justify-between gap-3 rounded-md border bg-card px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">{item.label}</div>
-                    <div className="text-[12px] text-muted-foreground">
-                      {item.purpose}
+      {lastAction && (
+        <div
+          role="status"
+          className="rounded-md border border-info/40 bg-info/10 px-3 py-2 text-[13px]"
+        >
+          {lastAction}. Реальная отправка отключена: сообщения не отправляются.
+        </div>
+      )}
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
+        <div className="min-w-0 space-y-5">
+          <SectionCard
+            title="Контроль качества фото"
+            hint={`${photoQueue.length} требуют действия`}
+          >
+            <div className="space-y-2">
+              {photoQueue.map((card) => (
+                <QueueRow
+                  key={card.id}
+                  card={card}
+                  primaryLabel="Запросить повтор фото"
+                  secondaryLabel="Передать оператору"
+                  onPrimary={() => requestRetake(card)}
+                  onSecondary={() => handoffOperator(card)}
+                />
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Очередь эскалации" hint={`${escalationQueue.length} в работе`}>
+            <div className="space-y-2">
+              {escalationQueue.map((card) => {
+                const dialog = dialogs.find((item) => item.id === card.dialogId);
+                return (
+                  <div
+                    key={card.id}
+                    className="rounded-md border bg-card px-3 py-3 text-[13px]"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium">{cardLabel(card)}</div>
+                        <div className="mt-0.5 text-[12px] text-muted-foreground">
+                          {dialog ? DIALOG_STATE_LABEL[dialog.state] : "Статус неизвестен"} ·{" "}
+                          {clinicName(card.recommendedClinicId)}
+                        </div>
+                      </div>
+                      <Badge className={PRIORITY_TONE[card.routingRisk]}>
+                        {PRIORITY_LABEL[card.routingRisk]}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 rounded border bg-muted/30 px-2 py-1.5 text-[12px] text-muted-foreground">
+                      Следующее действие: операторская проверка и запись без
+                      автоматического медицинского вывода.
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="min-h-[44px] sm:min-h-[32px]"
+                        onClick={() => handoffOperator(card)}
+                      >
+                        <Headphones className="size-4" aria-hidden />
+                        Передать оператору
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="min-h-[44px] sm:min-h-[32px]"
+                        onClick={() =>
+                          localAction(`Приоритетная запись подготовлена локально для ${cardLabel(card)}`)
+                        }
+                      >
+                        <ClipboardList className="size-4" aria-hidden />
+                        Подготовить запись
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant={item.enabled ? "default" : "secondary"}>
-                      {item.enabled ? "вкл" : "выкл"}
-                    </Badge>
+                );
+              })}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Сценарии intake" hint="обязательные шаги">
+            <div className="grid gap-2 md:grid-cols-2">
+              {INTAKE_STEPS.map((step) => (
+                <div key={step.id} className="rounded-md border bg-card px-3 py-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[13px] font-medium">{step.label}</span>
+                        {step.required && (
+                          <Badge variant="outline" className="text-[10px]">
+                            обязательно
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-1 text-[12px] leading-snug text-muted-foreground">
+                        {step.detail}
+                      </div>
+                    </div>
                     <Switch
-                      checked={item.enabled}
-                      onCheckedChange={() => toggleMenu(item.key)}
-                      aria-label={`Переключить пункт меню «${item.label}»`}
+                      checked={enabledSteps[step.id]}
+                      onCheckedChange={() => toggleStep(step)}
+                      aria-label={`Переключить шаг intake «${step.label}»`}
                     />
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
+        </div>
 
-          {/* Шаблоны */}
-          <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base">Безопасные шаблоны</CardTitle>
-              <Button size="sm" variant="outline" onClick={resetTemplates}>
-                Сбросить шаблоны
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-[12px] text-muted-foreground">
-                Шаблоны не отправляются пользователям в MVP. Любые правки —
-                только в локальной сессии.
-              </p>
-              {(Object.keys(TEMPLATE_LABELS) as TemplateKey[]).map((k) => (
-                <div key={k} className="space-y-1.5">
-                  <Label htmlFor={`tpl-${k}`} className="text-[13px]">
-                    {TEMPLATE_LABELS[k]}
+        <div className="min-w-0 space-y-5">
+          <SectionCard title="Безопасные шаблоны" hint="локальная редакция">
+            <div className="space-y-3">
+              <div className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-[12px]">
+                Все ключевые шаблоны содержат границу: предварительный ответ не
+                является диагнозом, медицинские выводы делает врач.
+              </div>
+              {(Object.keys(TEMPLATE_LABELS) as TemplateKey[]).map((key) => (
+                <div key={key} className="space-y-1.5">
+                  <Label htmlFor={`bot-template-${key}`} className="text-[13px]">
+                    {TEMPLATE_LABELS[key]}
                   </Label>
                   <Textarea
-                    id={`tpl-${k}`}
-                    value={templates[k]}
-                    onChange={(e) => updateTemplate(k, e.target.value)}
-                    rows={3}
-                    className="font-normal"
+                    id={`bot-template-${key}`}
+                    value={templates[key]}
+                    onChange={(event) => updateTemplate(key, event.target.value)}
+                    rows={key === "photo_instruction" ? 4 : 3}
+                    className="text-[13px] leading-snug"
                   />
                 </div>
               ))}
-            </CardContent>
-          </Card>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-[44px] sm:min-h-[32px]"
+                onClick={resetTemplates}
+              >
+                <ShieldCheck className="size-4" aria-hidden />
+                Сбросить безопасные шаблоны
+              </Button>
+            </div>
+          </SectionCard>
 
-          {/* Маршрутизация и эскалация */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                Маршрутизация и эскалация
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <RuleRow
-                cond="Качество фото < 80% или есть замечания"
-                action="Запросить повторное фото"
-              />
-              <RuleRow
-                cond="Маршрутизация: high / urgent"
-                action="Передать оператору + приоритетная запись"
-              />
-              <RuleRow
-                cond="Пользователь просит помощь"
-                action="Передать оператору"
-              />
-              <RuleRow
-                cond="Пропущено напоминание о повторе"
-                action="Передать оператору на ревью"
-              />
-              <RuleRow
-                cond="Диалог закрыт"
-                action="Никаких автоматических действий"
-              />
-
-              <Separator />
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-[13px]">Клиника по умолчанию</Label>
-                  <Select
-                    value={defaultClinicId}
-                    onValueChange={(v) => {
-                      setDefaultClinicId(v);
-                      appendAudit(`Клиника по умолчанию изменена на ${v}.`);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CLINICS.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[13px]">
-                    Клиника для срочных случаев
-                  </Label>
-                  <Select
-                    value={urgentClinicId}
-                    onValueChange={(v) => {
-                      setUrgentClinicId(v);
-                      appendAudit(`Срочная клиника изменена на ${v}.`);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CLINICS.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <p className="text-[12px] text-muted-foreground">
-                Реальный routing engine будет на этапе backend.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* RIGHT — превью + аудит */}
-        <div className="min-w-0 space-y-6">
-          {/* Превью */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Превью бота</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mx-auto w-full max-w-[320px] rounded-2xl border bg-background p-3 shadow-sm">
-                <div className="mb-2 text-center text-[11px] text-muted-foreground">
-                  Локальное превью · сообщения не отправляются
-                </div>
-                <div className="space-y-2">
-                  <BubbleBot text={greetingPreview} />
-                  <BubbleBot text={qualityFailedPreview} />
-                  <BubbleBot text={safeRecommendationPreview} />
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled
-                    aria-label="Демо-кнопка записи, в MVP неактивна"
-                  >
-                    Записаться (демо)
-                  </Button>
-                </div>
-                <Separator className="my-3" />
-                <div className="text-[11px] text-muted-foreground">
-                  Активные пункты меню:{" "}
-                  {menu
-                    .filter((m) => m.enabled)
-                    .map((m) => m.label)
-                    .join(" · ") || "—"}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Демо-аудит */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Демо-аудит</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={checkMenu}>
-                  Проверить меню
+          <SectionCard title="DryRun и аудит" hint="без внешних отправок">
+            <div className="space-y-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-[44px] sm:min-h-[32px]"
+                  onClick={() =>
+                    localAction(
+                      `Проверка сценариев: включено ${
+                        INTAKE_STEPS.filter((step) => enabledSteps[step.id]).length
+                      } из ${INTAKE_STEPS.length} шагов`,
+                    )
+                  }
+                >
+                  <CheckCircle2 className="size-4" aria-hidden />
+                  Проверить сценарии
                 </Button>
-                <Button size="sm" variant="outline" onClick={checkTemplates}>
-                  Проверить шаблоны
-                </Button>
-                <Button size="sm" onClick={buildDryRun}>
-                  Сформировать DryRun сценария
+                <Button
+                  type="button"
+                  className="min-h-[44px] sm:min-h-[32px]"
+                  onClick={buildDryRun}
+                  aria-label="Сформировать DryRun сценарий"
+                >
+                  <Bot className="size-4" aria-hidden />
+                  DryRun сценарий
                 </Button>
               </div>
 
               {dryRun && (
-                <pre className="max-h-64 overflow-auto rounded-md border bg-muted/40 p-2 text-[11px] leading-snug">
+                <pre className="max-h-56 overflow-auto rounded-md border bg-muted/40 p-2 text-[11px] leading-snug">
                   {dryRun}
                 </pre>
               )}
 
-              <div className="space-y-1">
-                <div className="text-[12px] font-medium text-muted-foreground">
-                  Журнал действий (локально)
-                </div>
-                <ul className="max-h-64 space-y-1 overflow-auto text-[12px]">
-                  {audit.map((a) => (
-                    <li
-                      key={a.id}
-                      className="rounded border bg-card px-2 py-1"
-                    >
-                      <span className="text-muted-foreground">
-                        {new Date(a.ts).toLocaleTimeString("ru-RU")}
-                      </span>{" "}
-                      — {a.text}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+              <ul className="max-h-72 space-y-1 overflow-auto text-[12px]" aria-label="Журнал аудита бота">
+                {audit.map((item) => (
+                  <li key={item.id} className="rounded border bg-card px-2 py-1">
+                    <span className="text-muted-foreground">
+                      {new Date(item.ts).toLocaleTimeString("ru-RU")}
+                    </span>{" "}
+                    — {item.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Безопасность сценария" hint="MVP boundary">
+            <div className="space-y-2 text-[12px] leading-relaxed">
+              <SafetyRow text="Нет автоматического patient-visible диагноза, риска или прогноза." />
+              <SafetyRow text="Нет отправки сообщений из демо-экрана." />
+              <SafetyRow text="Нет показа raw токенов, ссылок, внешних user refs и путей к фото." />
+              <SafetyRow text="Эскалация означает операторскую проверку, не врачебное заключение." />
+            </div>
+          </SectionCard>
         </div>
       </div>
+
+      <SectionCard title="Лиды и статусы бота" hint="агрегированный контроль">
+        <div className="grid gap-2 md:grid-cols-3">
+          {botLeads.map((lead) => {
+            const dialog = dialogs.find((item) => item.id === lead.dialogId);
+            return (
+              <div key={lead.id} className="rounded-md border bg-card px-3 py-2 text-[13px]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-medium">{lead.id}</div>
+                  <Badge variant="outline">{LEAD_STATUS_LABEL[lead.status]}</Badge>
+                </div>
+                <div className="mt-1 text-[12px] text-muted-foreground">
+                  {lead.source.toUpperCase()} ·{" "}
+                  {dialog ? DIALOG_STATE_LABEL[dialog.state] : "без диалога"} ·{" "}
+                  {formatTime(lead.createdAt)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SectionCard>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Вспомогательные компоненты
-// ─────────────────────────────────────────────────────────────────────
-
-function Kpi({ label, value }: { label: string; value: number }) {
+function SectionCard({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          {label}
-        </div>
-        <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
-      </CardContent>
+    <Card className="p-4">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-[13px] font-semibold">{title}</h2>
+        {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
+      </div>
+      {children}
     </Card>
   );
 }
 
-function RuleRow({ cond, action }: { cond: string; action: string }) {
+function StatusCard({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  tone: "ok" | "warn" | "danger" | "info";
+}) {
+  const toneClass = {
+    ok: "border-success/40 bg-success/10 text-success",
+    warn: "border-warning/40 bg-warning/10 text-warning",
+    danger: "border-destructive/40 bg-destructive/10 text-destructive",
+    info: "border-info/40 bg-info/10 text-info",
+  }[tone];
+
   return (
-    <div className="grid gap-1 rounded-md border bg-card px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3">
-      <div className="text-[13px]">
-        <span className="text-muted-foreground">Условие: </span>
-        {cond}
+    <div className={`rounded-md border p-3 ${toneClass}`}>
+      <div className="text-[11px] font-medium uppercase tracking-wide">{label}</div>
+      <div className="mt-1 text-[22px] font-semibold leading-tight tabular-nums text-foreground">
+        {value}
       </div>
-      <div className="hidden text-muted-foreground sm:block">→</div>
-      <div className="text-[13px]">
-        <span className="text-muted-foreground">Действие: </span>
-        {action}
+      <div className="text-[11px] text-muted-foreground">{hint}</div>
+    </div>
+  );
+}
+
+function QueueRow({
+  card,
+  primaryLabel,
+  secondaryLabel,
+  onPrimary,
+  onSecondary,
+}: {
+  card: AnalysisCard;
+  primaryLabel: string;
+  secondaryLabel: string;
+  onPrimary: () => void;
+  onSecondary: () => void;
+}) {
+  return (
+    <div className="rounded-md border bg-card px-3 py-3 text-[13px]">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-medium">{cardLabel(card)}</div>
+          <div className="mt-0.5 text-[12px] text-muted-foreground">
+            Качество {pct(card.qualityGate.score)} ·{" "}
+            {card.qualityGate.issues.length
+              ? card.qualityGate.issues.join(", ")
+              : "замечаний нет"}
+          </div>
+        </div>
+        <Badge
+          className={
+            card.qualityGate.passed
+              ? "border-warning/40 bg-warning/10 text-warning"
+              : "border-destructive/40 bg-destructive/10 text-destructive"
+          }
+        >
+          {card.qualityGate.passed ? "Проверить условия" : "Нужно переснять"}
+        </Badge>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          className="min-h-[44px] sm:min-h-[32px]"
+          onClick={onPrimary}
+        >
+          <Camera className="size-4" aria-hidden />
+          {primaryLabel}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="min-h-[44px] sm:min-h-[32px]"
+          onClick={onSecondary}
+        >
+          <Headphones className="size-4" aria-hidden />
+          {secondaryLabel}
+        </Button>
       </div>
     </div>
   );
 }
 
-function BubbleBot({ text }: { text: string }) {
+function SafetyRow({ text }: { text: string }) {
   return (
-    <div className="max-w-[90%] rounded-2xl rounded-bl-sm border bg-muted/40 px-3 py-2 text-[12px] leading-snug">
-      {text}
+    <div className="flex items-start gap-2 rounded border bg-card px-2 py-1.5">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+      <span>{text}</span>
     </div>
   );
 }

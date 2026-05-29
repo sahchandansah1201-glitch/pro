@@ -5,6 +5,7 @@ import AdminHomePage from "./AdminHomePage";
 import AdminDoctorsPage from "./AdminDoctorsPage";
 import AdminServicesPage from "./AdminServicesPage";
 import AdminClinicsPage from "./AdminClinicsPage";
+import AdminBotSettingsPage from "./AdminBotSettingsPage";
 
 const FORBIDDEN = [
   "birthDate",
@@ -63,6 +64,48 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText(/фото и диагнозы не выводятся/)).toBeInTheDocument();
   });
 
+  it("AdminBotSettingsPage renders the bot control center with queues, scripts and audit", () => {
+    renderRouted(<AdminBotSettingsPage />);
+    expect(screen.getByRole("heading", { name: /Центр управления ботом/ })).toBeInTheDocument();
+    expect(screen.getByText(/intake, маршрутизация, качество фото, эскалация и аудит/)).toBeInTheDocument();
+    expect(screen.getByText("Операционный статус бота")).toBeInTheDocument();
+    expect(screen.getByText("Контроль качества фото")).toBeInTheDocument();
+    expect(screen.getByText("Очередь эскалации")).toBeInTheDocument();
+    expect(screen.getByText("Сценарии intake")).toBeInTheDocument();
+    expect(screen.getByText("Безопасные шаблоны")).toBeInTheDocument();
+    expect(screen.getByText("DryRun и аудит")).toBeInTheDocument();
+    expect(screen.getByText(/бот не ставит диагноз/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Запросить повтор фото/ })[0]).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Передать оператору/ })[0]).toBeInTheDocument();
+  });
+
+  it("AdminBotSettingsPage records local retake and operator handoff actions without sending messages", () => {
+    renderRouted(<AdminBotSettingsPage />);
+    fireEvent.click(screen.getAllByRole("button", { name: /Запросить повтор фото/ })[0]);
+    expect(screen.getAllByText(/Запрос повторного фото сформирован локально/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole("button", { name: /Передать оператору/ })[0]);
+    expect(screen.getAllByText(/Передача оператору подготовлена локально/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/сообщения не отправляются/).length).toBeGreaterThan(0);
+  });
+
+  it("AdminBotSettingsPage keeps bot control safe and hides raw bot internals", () => {
+    renderRouted(<AdminBotSettingsPage />);
+    const html = document.body.innerHTML;
+    for (const token of [
+      ...FORBIDDEN,
+      "pal-tok",
+      "mock://",
+      "triage-v",
+      "tg:100",
+      "wa:200",
+      "web:300",
+    ]) {
+      expect(html, `forbidden token ${token}`).not.toContain(token);
+    }
+    expect(html).not.toMatch(/меланома|рак кожи|вероятность меланомы/i);
+    expect(screen.getAllByText(/не является диагнозом/i).length).toBeGreaterThan(0);
+  });
+
   it("AdminDoctorsPage filters narrow visible rows", () => {
     renderRouted(<AdminDoctorsPage />);
     expect(screen.getByText(/Состав, специализации/)).toBeInTheDocument();
@@ -103,6 +146,7 @@ describe("Admin clinic core pages — render & safety", () => {
       <AdminDoctorsPage />,
       <AdminServicesPage />,
       <AdminClinicsPage />,
+      <AdminBotSettingsPage />,
     ]) {
       const { container, unmount } = renderRouted(ui);
       const html = container.innerHTML;
