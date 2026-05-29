@@ -20,10 +20,10 @@ export interface RoleMeta {
 }
 
 export const ROLES: RoleMeta[] = [
-  { id: "doctor",         label: "Дерматолог",                short: "Врач",          description: "Визиты, дерматоскопия, заключение.", home: "/cockpit" },
+  { id: "doctor",         label: "Дерматолог",                short: "Врач",          description: "Визиты, дерматоскопия, заключение.", home: "/desk" },
   { id: "assistant",      label: "Ассистент",                 short: "Ассистент",     description: "Съёмка и контроль качества фото.",  home: "/capture" },
   { id: "clinic_admin",   label: "Администратор клиники",     short: "Админ клиники", description: "Расписание, услуги, лиды, интеграции.", home: "/admin" },
-  { id: "private_doctor", label: "Частный врач",              short: "Частный врач",  description: "Упрощённый режим врач + админ.",     home: "/cockpit" },
+  { id: "private_doctor", label: "Частный врач",              short: "Частный врач",  description: "Упрощённый режим врач + админ.",     home: "/desk" },
   { id: "patient",        label: "Пациент",                   short: "Пациент",       description: "Портал пациента, отчёты, напоминания.", home: "/me" },
   { id: "operator",       label: "Оператор поддержки",        short: "Оператор",      description: "Диалоги бота, эскалация к врачу.",  home: "/operator" },
   { id: "system_admin",   label: "Системный администратор",   short: "Сисадмин",      description: "Пользователи, устройства, аудит.",   home: "/sys/users" },
