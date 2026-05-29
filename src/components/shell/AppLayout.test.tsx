@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { AuthContext, type AuthContextValue } from "@/context/auth-context";
 import { RoleProvider } from "@/context/RoleContext";
+import { ROLE_STORAGE_KEY } from "@/context/role-context";
 import { AppLayout } from "@/components/shell/AppLayout";
 import {
   SELF_HOSTED_API_BASE_URL_KEY,
@@ -45,6 +46,7 @@ beforeEach(() => {
   window.localStorage.removeItem(SELF_HOSTED_API_BASE_URL_KEY);
   window.localStorage.removeItem(SELF_HOSTED_API_TOKEN_KEY);
   window.localStorage.removeItem(SELF_HOSTED_API_USER_KEY);
+  window.localStorage.removeItem(ROLE_STORAGE_KEY);
 });
 
 describe("AppLayout production mode", () => {
@@ -58,6 +60,14 @@ describe("AppLayout production mode", () => {
     renderLayout();
     const link = screen.getByRole("link", { name: /Карта тела/ });
     expect(link).toHaveAttribute("href", "/patients/p-004/visits/v-005?tab=bodymap");
+  });
+
+  it("shows the admin operating center entry for clinic admin", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "clinic_admin");
+    renderLayout();
+    const link = screen.getByRole("link", { name: /Операционный центр/ });
+    expect(link).toHaveAttribute("href", "/admin");
+    expect(screen.queryByRole("link", { name: /^Обзор$/ })).not.toBeInTheDocument();
   });
 
   it("hides demo shell controls and shows self-hosted session in production mode", () => {

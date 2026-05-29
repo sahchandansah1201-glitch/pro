@@ -23,13 +23,27 @@ const renderRouted = (ui: React.ReactElement) =>
   render(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe("Admin clinic core pages — render & safety", () => {
-  it("AdminHomePage renders KPIs, demo banner and quick links", () => {
+  it("AdminHomePage renders the admin operating dashboard, action queue and quick links", () => {
     renderRouted(<AdminHomePage />);
-    expect(screen.getByRole("heading", { name: /Администрирование клиники/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Операционный центр клиники/ })).toBeInTheDocument();
     expect(screen.getByText(/MVP: данные демонстрационные/)).toBeInTheDocument();
-    expect(screen.getByText("Лиды")).toBeInTheDocument();
-    expect(screen.getByText("Филиалы")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Аналитика/ })).toHaveAttribute(
+    expect(screen.getByText("Очередь решений администратора")).toBeInTheDocument();
+    expect(screen.getByText(/МИС отключена/)).toBeInTheDocument();
+    expect(screen.getByText(/Бот ждёт фото лучшего качества/)).toBeInTheDocument();
+    expect(screen.getByText("Операционный день")).toBeInTheDocument();
+    expect(screen.getByText("Готовность интеграций")).toBeInTheDocument();
+    expect(screen.getByText("Бот и лиды")).toBeInTheDocument();
+    expect(screen.getByText("Услуги и филиалы")).toBeInTheDocument();
+    expect(screen.getByText("Финансовый контур")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Разобрать интеграции/ })[0]).toHaveAttribute(
+      "href",
+      "/admin/integrations",
+    );
+    expect(screen.getAllByRole("link", { name: /Настроить бот/ })[0]).toHaveAttribute(
+      "href",
+      "/admin/bot",
+    );
+    expect(screen.getByRole("link", { name: /Открыть аналитику/ })).toHaveAttribute(
       "href",
       "/admin/analytics",
     );
@@ -37,6 +51,16 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(
       screen.queryByText(/Раздел будет реализован в следующих задачах/),
     ).not.toBeInTheDocument();
+  });
+
+  it("AdminHomePage keeps the operating dashboard aggregate-only", () => {
+    renderRouted(<AdminHomePage />);
+    const html = document.body.innerHTML;
+    for (const patientName of ["Иванова", "Кузнецов", "Новиков", "Григорьева"]) {
+      expect(html).not.toContain(patientName);
+    }
+    expect(screen.getByText(/Только агрегаты/)).toBeInTheDocument();
+    expect(screen.getByText(/фото и диагнозы не выводятся/)).toBeInTheDocument();
   });
 
   it("AdminDoctorsPage filters narrow visible rows", () => {
