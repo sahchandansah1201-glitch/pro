@@ -1,105 +1,73 @@
-## Stage 5P — Production patient booking requests intake (operator/clinic)
+Создать новый клинический cockpit-экран для дерматолога на маршруте `/desk` (или новый `/cockpit`), заменяющий текущий рабочий стол. Это чисто фронтенд-работа на mock-данных, без бэкенда.
 
-Логическое продолжение Stage 5O: пациент уже умеет создавать `patient_portal_booking_requests` через `POST /api/v1/me/booking-requests`. Сейчас на стороне клиники (оператор/администратор) нет production-контракта, чтобы видеть эти запросы и переводить их в реальные записи. Stage 5P закрывает эту «вторую половину» — строго в self-hosted PostgreSQL, без managed runtime.
-
-### Цель
-
-- Оператор/администратор в production-режиме видит входящие пациентские запросы на запись и меняет их статус (`reviewing` → `booked`/`cancelled`), при `booked` — связывает с уже существующей `appointment` (создаваемой через Stage 5L `/api/v1/leads/{id}/book-appointment`).
-- Demo/dev режим продолжает использовать существующий мок-консоль оператора без изменений.
-- Никакого Supabase / `api-read` / `api-write` / Edge Functions / browser hardware / signed URL / storage path / mock-data / external CRM в защищённых runtime-файлах.
-
-### Контракт API (self-hosted)
-
-- `GET  /api/v1/clinic/booking-requests` — список запросов клиники с фильтром по статусу и пагинацией.
-- `GET  /api/v1/clinic/booking-requests/{id}` — детали одного запроса (включая связку `patient_user_links`).
-- `PATCH /api/v1/clinic/booking-requests/{id}` — смена статуса оператором: `reviewing`, `cancelled`, либо `booked` с обязательным `appointmentId` (FK в `appointments` из Stage 5L).
-- `GET  /openapi.stage5p.json` — OpenAPI 3.0.3.
-
-Доступ ограничен ролями `operator`, `clinic_admin`, `system_admin`. Аудит — через существующий `audit-repository.mjs`. Никаких physician-only данных в ответах.
-
-### Данные
-
-Миграция `0019_stage5p_clinic_booking_requests_intake.sql`:
-
-- Колонки в `patient_portal_booking_requests`:
-  - `assigned_appointment_id uuid null references appointments(id) on delete set null`
-  - `reviewed_by_user_id uuid null references app_users(id) on delete set null`
-  - `reviewed_at timestamptz null`
-  - `clinic_note text null` (внутренняя пометка, не пациентская)
-- Индекс `patient_portal_booking_requests_clinic_status_idx (clinic_id, status, created_at desc)`.
-- Триггер `touch_updated_at` уже есть.
-
-### Фронтенд
-
-- Новая страница: `src/pages/operator/OperatorBookingRequestsPageLive.tsx` — production-only, монтируется через `isProductionAppMode()` в существующий operator router. Показывает таблицу: пациент, окно, причина, статус, действия.
-- `src/pages/operator/OperatorBookingRequestsPage.tsx` — диспетчер Live vs Demo.
-- `src/pages/operator/OperatorBookingRequestsPageDemo.tsx` — мок-данные (исторический формат), demo/dev only.
-- В `PRODUCTION_NAV_BY_ROLE.operator` (`AppSidebar.tsx`) добавляется пункт «Запросы на запись» рядом с «Лиды».
-- `src/lib/self-hosted-clinic-booking-api.ts` — клиент: `fetchSelfHostedClinicBookingRequests`, `fetchSelfHostedClinicBookingRequest`, `updateSelfHostedClinicBookingRequest`. Без `fetch`/`localStorage` в страницах operator — только через `self-hosted-api-session` и helper.
-
-Production-страницы делают только запросы к `/api/v1/clinic/booking-requests*`. Demo-страница не подключается к сети.
-
-### Backend
-
-- `backend/self-hosted/clinic-booking-requests-repository.mjs` + `*.test.mjs`
-- `backend/self-hosted/clinic-booking-requests-service.mjs` + `*.test.mjs` — нормализация payload, события `clinic_booking_requests.list`, `clinic_booking_requests.update`, проверка перехода статусов и FK на `appointments`.
-- `routes.mjs` — три эндпоинта + `OPENAPI_5P` + `stage: "5P"`.
-- `openapi.stage5p.json`.
-
-### Ограничения / boundary
-
-Защищённые runtime-файлы (guard сканирует):
-```
-backend/self-hosted/clinic-booking-requests-repository.mjs
-backend/self-hosted/clinic-booking-requests-service.mjs
-backend/self-hosted/openapi.stage5p.json
-src/lib/self-hosted-clinic-booking-api.ts
-src/pages/operator/OperatorBookingRequestsPage.tsx
-src/pages/operator/OperatorBookingRequestsPageLive.tsx
-src/components/shell/AppSidebar.tsx
-```
-Запрещённые паттерны: `api-read`, `api-write`, `edge function`, `SUPABASE_`, `navigator.usb|bluetooth|serial`, `signed_url`, `storage_object_path`, `mock-data`, `physician_text|physicianText|doctorVersionText`, `crm`, `external notification provider`.
-
-### Скрипты и CI
-
-- `scripts/check-stage5p-production-clinic-booking-requests-intake.mjs` + `*.test.mjs` (паттерн как в 5O).
-- `package.json`: `test:stage5p`, `check:stage5p`, `preflight:stage5p`.
-- `scripts/preflight-all.mjs`: добавить «Stage 5P production clinic booking requests intake preflight».
-- `.github/workflows/stage5p-production-clinic-booking-requests-intake.yml` — копия из 5O.
-- `docs/backend/stage-5p-production-clinic-booking-requests-intake.md` — runbook.
-
-### Файлы
+## Структура экрана
 
 ```text
-NEW backend/self-hosted/db/migrations/0019_stage5p_clinic_booking_requests_intake.sql
-NEW backend/self-hosted/clinic-booking-requests-repository.mjs (+ .test.mjs)
-NEW backend/self-hosted/clinic-booking-requests-service.mjs (+ .test.mjs)
-NEW backend/self-hosted/openapi.stage5p.json
-EDIT backend/self-hosted/routes.mjs                  # добавить 3 эндпоинта + OPENAPI_5P
-NEW src/lib/self-hosted-clinic-booking-api.ts (+ .test.ts)
-NEW src/pages/operator/OperatorBookingRequestsPage.tsx
-NEW src/pages/operator/OperatorBookingRequestsPageLive.tsx
-NEW src/pages/operator/OperatorBookingRequestsPageDemo.tsx
-NEW src/pages/operator/OperatorBookingRequestsPages.production.test.tsx
-EDIT src/components/shell/AppSidebar.tsx              # пункт «Запросы на запись» в operator production nav
-EDIT src/App.tsx                                      # маршрут /operator/booking-requests
-NEW scripts/check-stage5p-production-clinic-booking-requests-intake.mjs (+ .test.mjs)
-EDIT scripts/preflight-all.mjs                        # +Stage 5P
-EDIT package.json                                     # test/check/preflight:stage5p
-NEW .github/workflows/stage5p-production-clinic-booking-requests-intake.yml
-NEW docs/backend/stage-5p-production-clinic-booking-requests-intake.md
+┌─────────────────────────────────────────────────────────────────┐
+│  Top bar: пациент · пол/возраст · карта · визит · статусы · роль│
+├──────┬──────────────┬───────────────────────────┬───────────────┤
+│ Nav  │ Patient rail │ Active visit workspace    │ Status rail   │
+│      │  Сегодня     │  ┌─────────────────────┐  │ Недостающие   │
+│      │  Недавние    │  │ Анамнез и данные    │  │ Качество фото │
+│      │              │  │ План наблюдения     │  │ Непривязанные │
+│      │              │  │ Съёмка и фото       │  │ Нужно переснять│
+│      │              │  │ Отчёт               │  │ Статус отчёта │
+│      │              │  └─────────────────────┘  │               │
+└──────┴──────────────┴───────────────────────────┴───────────────┘
 ```
 
-`package-lock.json` не меняется. `deno.lock` не появляется.
+## Файлы
 
-### Верификация
+- `src/pages/doctor/CockpitPage.tsx` — корневая страница cockpit, склеивает rails и центр.
+- `src/pages/doctor/cockpit/` — подкомпоненты:
+  - `CockpitTopBar.tsx` — контекст пациента/визита, source-бейджи, чипы статусов.
+  - `PatientRail.tsx` — списки «Сегодня» и «Недавние».
+  - `VisitWorkspace.tsx` — центр с 4 секциями.
+  - `AnamnesisSection.tsx` — анамнез + список незаполненных полей с «Дозаполнить».
+  - `MonitoringPlanSection.tsx` — блок «План наблюдения» с 4 состояниями.
+  - `CaptureSection.tsx` — табы Телефон/Файл/Device Bridge/QR, действия съёмки.
+  - `ReportSection.tsx` — статус отчёта и причины блокировки.
+  - `StatusRail.tsx` — правый рейл: качество, непривязанные, нужно переснять, отчёт.
+  - `PhotoQualityList.tsx`, `UnassignedPhotoInbox.tsx`, `NeedsRetakeQueue.tsx` — переиспользуемые компактные блоки.
+  - `cockpit-mock.ts` — типы и мок-данные (пациенты, визиты, фото, недостающие поля, план наблюдения, отчёт).
+  - `cockpit-ui.tsx` — общие маленькие UI: `StatusChip`, `SourceBadge`, `SectionHeader`, `MissingFieldRow`, `DeviceStatusDot`.
+- Маршрут: добавить `/cockpit` в `src/App.tsx` и пункт «Кокпит врача» в `AppSidebar` для ролей `doctor` и `private_doctor`. Сделать его стартовой страницей этих ролей (через `RoleHome`).
+- Скрытие admin-разделов: для роли `doctor` уже минимальное меню; для `private_doctor` оставить admin-группу, но cockpit — основной экран.
 
-```bash
-npm run preflight:stage5p
-npm run preflight:stage5o
-npm run preflight:all -- --dry-run
-node scripts/check-no-deno-locks.mjs
-git status --short
-```
+## Состояния и mock-данные
 
-Ожидаемо: все preflight зелёные, дерево чистое, lock-файл не тронут, граница production сохранена.
+Mock включает:
+- 3 пациента в «Сегодня», 3 в «Недавние»; выбран один с неполным анамнезом.
+- Анамнез: 4 из 9 полей пустые (жалобы заполнены, anamnesis vitae пуст, и т.д.).
+- План наблюдения = «Доступен только dermoscopy-only review» (из-за неполного анамнеза), с подсказкой что требуется для перехода в «Готово к врачебной проверке».
+- 5 фото: 2 «хорошо», 1 «нужно переснять» (размыто), 1 «можно использовать с предупреждением» (блики), 1 «не привязано».
+- 1 непривязанное фото с источником «Телефон», действиями привязки.
+- Очередь «Нужно переснять» — 1 элемент.
+- Отчёт: «заблокирован: не заполнен анамнез».
+- Device status: дерматоскоп «warning», телефон «connected».
+- Source badges по визиту: `MIS`, `bot`.
+- Private doctor variant: тонкая business-полоса сверху workspace (выручка за день, визиты, без графиков), всё остальное идентично.
+
+## Дизайн-токены
+
+- Использую существующие semantic токены из `index.css`/`tailwind.config.ts` (`bg-surface-muted`, `border-border`, `text-foreground`, `text-muted-foreground`, `text-success`, `text-warning`, `text-danger`, `text-primary`).
+- Risk/quality цвета: добавлю при необходимости `--info`, `--warning`, `--danger` через существующие токены; уже есть `text-success`. Проверю и расширю осторожно через `index.css` если потребуется.
+- Плотность: `text-[12px]`/`text-[13px]`, `py-1.5`, `gap-2`, рамки `border-border`, без теней-градиентов.
+- Чипы статусов — компактный `StatusChip` с иконкой + текстом (никогда только цвет).
+- Никаких hero/marketing/декоративных карточек.
+
+## Безопасность формулировок
+
+Везде используется безопасный язык: «данных недостаточно», «требуется врачебная проверка», «техническая оценка снимка», «доступен только dermoscopy-only review». Никаких «AI диагностировал меланому».
+
+## Что НЕ делаю
+
+- Не трогаю бэкенд, self-hosted API, существующие тесты по визитам/стейджам.
+- Не удаляю существующий `DeskPage`; добавлю `/cockpit` как новый маршрут и сделаю стартовой страницей доктора через `RoleHome` (или редирект). Старый `/desk` остаётся доступным как fallback.
+- Не добавляю пациентский портал, оплаты, аналитику.
+- Без новых зависимостей; только React + Tailwind + существующий shadcn/lucide.
+
+## Проверка
+
+- `npm run typecheck` + `npm run build` (автоматически).
+- Визуально открыть `/cockpit` в превью на 1161px и убедиться, что в первом экране видно пациента, визит, недостающие данные, качество фото и следующее действие.
