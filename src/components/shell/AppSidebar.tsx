@@ -66,7 +66,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
         { title: "Пациенты", url: "/patients", icon: Users },
         { title: "Визиты", url: "/visits", icon: ClipboardList },
-        { title: "Образования", url: "/patients/demo/lesions/demo", icon: ScanSearch },
+        { title: "Карта тела", url: "/patients/p-004/visits/v-005?tab=bodymap", icon: ScanSearch },
         { title: "Съёмка", url: "/capture", icon: Camera },
       ],
     },
@@ -79,6 +79,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
         { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
         { title: "Пациенты", url: "/patients", icon: Users },
         { title: "Визиты", url: "/visits", icon: ClipboardList },
+        { title: "Карта тела", url: "/patients/p-004/visits/v-005?tab=bodymap", icon: ScanSearch },
         { title: "Съёмка", url: "/capture", icon: Camera },
       ],
     },
@@ -98,6 +99,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       label: "Съёмка",
       items: [
         { title: "Захват фото", url: "/capture", icon: Camera },
+        { title: "Карта тела", url: "/patients/p-004/visits/v-005?tab=bodymap", icon: ScanSearch },
         { title: "Пациенты", url: "/patients", icon: Users },
       ],
     },
@@ -177,8 +179,12 @@ export function AppSidebar() {
   const session = useSelfHostedApiSession();
   const productionMode = isProductionAppMode();
 
-  const isActive = (path: string) =>
-    path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/");
+  const isActive = (path: string) => {
+    const targetPath = path.split("?")[0];
+    return targetPath === "/"
+      ? pathname === "/"
+      : pathname === targetPath || pathname.startsWith(targetPath + "/");
+  };
 
   const productionRoles = selfHostedRoles(session);
   const roleGroups = productionMode

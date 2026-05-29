@@ -316,7 +316,7 @@ export default function VisitWorkspacePage() {
         <div className="border-b border-border bg-surface px-3">
           <TabsList className="h-auto overflow-x-auto bg-transparent p-0 sm:h-9">
             <TabsTrigger value="intake" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Интейк</TabsTrigger>
-            <TabsTrigger value="bodymap" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Body map</TabsTrigger>
+            <TabsTrigger value="bodymap" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Карта тела</TabsTrigger>
             <TabsTrigger value="imaging" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Снимки</TabsTrigger>
             <TabsTrigger value="assessment" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Оценка</TabsTrigger>
             <TabsTrigger value="conclusion" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Заключение</TabsTrigger>
@@ -1026,6 +1026,12 @@ function BodyMapTab({
       {/* Map pane */}
       <div className="flex min-h-0 flex-col border-b border-border lg:col-span-7 lg:border-b-0 lg:border-r">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2">
+          <div className="min-w-0">
+            <h2 className="text-[13px] font-semibold text-foreground">Полная карта тела</h2>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Создание очага, выбор поверхности, привязка к снимкам и переход в съёмку.
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-1">
             {BODY_MAP_VIEWS.map((v) => (
               <button

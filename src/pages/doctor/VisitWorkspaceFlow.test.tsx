@@ -32,7 +32,7 @@ const tabSelected = (name: RegExp) =>
 describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () => {
   it("Body Map → Imaging → Body Map preserves lesion via URL", () => {
     const view = renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
-    expect(tabSelected(/body map/i)).toBe(true);
+    expect(tabSelected(/карта тела/i)).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
     expect(tabSelected(/снимки/i)).toBe(true);
     const lesionSelect = (screen.getAllByRole("combobox") as HTMLSelectElement[]).find(
@@ -40,7 +40,7 @@ describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () 
     );
     expect(lesionSelect).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Открыть на Body Map/ }));
-    expect(tabSelected(/body map/i)).toBe(true);
+    expect(tabSelected(/карта тела/i)).toBe(true);
     view.unmount();
   });
 

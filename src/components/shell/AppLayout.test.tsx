@@ -54,6 +54,12 @@ describe("AppLayout production mode", () => {
     expect(screen.getByRole("combobox", { name: /демо-режим/i })).toBeInTheDocument();
   });
 
+  it("shows full Body Map entry in the doctor sidebar", () => {
+    renderLayout();
+    const link = screen.getByRole("link", { name: /Карта тела/ });
+    expect(link).toHaveAttribute("href", "/patients/p-004/visits/v-005?tab=bodymap");
+  });
+
   it("hides demo shell controls and shows self-hosted session in production mode", () => {
     vi.stubEnv("VITE_APP_MODE", "production");
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");

@@ -52,6 +52,76 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
   scalp: "волосистая часть",
 };
 
+function imageQualityLabel(image: ClinicalImage) {
+  if (image.quality.score >= 0.8 && image.quality.issues.length === 0) return "Готово";
+  if (image.quality.score >= 0.72) return "С предупреждением";
+  return "Нужен переснимок";
+}
+
+function imageQualityTone(image: ClinicalImage) {
+  const label = imageQualityLabel(image);
+  if (label === "Готово") return "border-risk-low/30 bg-risk-low-soft text-risk-low";
+  if (label === "С предупреждением") return "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate";
+  return "border-destructive/30 bg-destructive/10 text-destructive";
+}
+
+function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
+  const deviceA = imageA.deviceId ?? "без устройства";
+  const deviceB = imageB.deviceId ?? "без устройства";
+  const qualityA = `${imageQualityLabel(imageA)} · ${Math.round(imageA.quality.score * 100)}%`;
+  const qualityB = `${imageQualityLabel(imageB)} · ${Math.round(imageB.quality.score * 100)}%`;
+  const conditionsDiffer =
+    imageA.deviceId !== imageB.deviceId || imageA.source !== imageB.source || imageA.kind !== imageB.kind;
+
+  return [
+    {
+      label: "ID снимка",
+      a: imageA.id,
+      b: imageB.id,
+      result: "Выбраны два снимка",
+    },
+    {
+      label: "Дата",
+      a: formatDateTime(imageA.capturedAt),
+      b: formatDateTime(imageB.capturedAt),
+      result: imageA.capturedAt === imageB.capturedAt ? "Та же дата и время" : "Разная точка времени",
+    },
+    {
+      label: "Тип снимка",
+      a: IMAGE_KIND[imageA.kind],
+      b: IMAGE_KIND[imageB.kind],
+      result: imageA.kind === imageB.kind ? "Тип совпадает" : "Разный тип снимка",
+    },
+    {
+      label: "Источник",
+      a: IMAGE_SOURCE[imageA.source],
+      b: IMAGE_SOURCE[imageB.source],
+      result: imageA.source === imageB.source ? "Источник совпадает" : "Разные источники",
+    },
+    {
+      label: "Устройство",
+      a: deviceA,
+      b: deviceB,
+      result: deviceA === deviceB ? "Устройство совпадает" : "Разные устройства",
+    },
+    {
+      label: "Качество",
+      a: qualityA,
+      b: qualityB,
+      result:
+        imageA.quality.issues.length === 0 && imageB.quality.issues.length === 0
+          ? "Без технических замечаний"
+          : "Есть технические замечания",
+    },
+    {
+      label: "Сопоставимость",
+      a: conditionsDiffer ? "условия A отличаются" : "условия A совпадают",
+      b: conditionsDiffer ? "условия B отличаются" : "условия B совпадают",
+      result: conditionsDiffer ? "Разные условия съёмки" : "Сопоставимо по условиям",
+    },
+  ];
+}
+
 function BodyMapMini({ view, x, y }: { view: Lesion["mapPoint"]["view"]; x: number; y: number }) {
   const cx = Math.max(0, Math.min(1, x)) * 60;
   const cy = Math.max(0, Math.min(1, y)) * 88;
@@ -213,6 +283,9 @@ export default function LesionDetailPage() {
 
   const latestVisit = visits.find((v) => visitsWithImages.includes(v.id))
     ?? visits.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+  const bodyMapHref = latestVisit
+    ? `/patients/${patient.id}/visits/${latestVisit.id}?tab=bodymap&lesion=${lesion.id}`
+    : `/patients/${patient.id}`;
 
   const toggleCompare = (imgId: string) => {
     setCompareIds((prev) => {
@@ -221,6 +294,17 @@ export default function LesionDetailPage() {
       return next.slice(-2); // максимум 2 для сравнения
     });
   };
+
+  const compareImages = compareIds
+    .map((imgId) => images.find((img) => img.id === imgId))
+    .filter((img): img is ClinicalImage => Boolean(img));
+  const hasComparablePair = compareImages.length === 2;
+  const captureConditionsDiffer = hasComparablePair
+    ? compareImages[0].deviceId !== compareImages[1].deviceId
+      || compareImages[0].source !== compareImages[1].source
+      || compareImages[0].kind !== compareImages[1].kind
+    : false;
+  const matrixRows = hasComparablePair ? comparisonRows(compareImages[0], compareImages[1]) : [];
 
   return (
     <div className="flex h-full flex-col">
@@ -234,6 +318,11 @@ export default function LesionDetailPage() {
           <Button asChild size="sm" variant="outline" className="min-h-[44px] sm:min-h-[32px]">
             <Link to={`/patients/${patient.id}`}>
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> К карточке пациента
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="secondary" className="min-h-[44px] sm:min-h-[32px]">
+            <Link to={bodyMapHref}>
+              <MapPin className="h-3.5 w-3.5" aria-hidden /> Открыть на карте тела
             </Link>
           </Button>
           {latestVisit && (
@@ -282,6 +371,11 @@ export default function LesionDetailPage() {
               </div>
             </div>
             <div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">ID очага</div>
+              <div className="mt-1 font-mono text-[13px]">{lesion.id}</div>
+              <div className="text-[12px] text-muted-foreground">Один ID: карта, снимки, отчёт</div>
+            </div>
+            <div>
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Статус</div>
               <div className="mt-1 text-[13px]">{LESION_STATUS[lesion.status]}</div>
               <div className="text-[12px] text-muted-foreground">Первое появление: {formatDate(lesion.firstSeenAt)}</div>
@@ -301,6 +395,105 @@ export default function LesionDetailPage() {
               <div className="text-[12px] text-muted-foreground">Визитов с этим очагом: {visitsWithImages.length}</div>
             </div>
           </div>
+        </Card>
+
+        <Card className="p-3 sm:p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-[13px] font-semibold">Лента дат очага</h2>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">
+                Один очаг, даты съёмки, устройство, источник и техническое качество снимков.
+              </p>
+            </div>
+            {compareImages.length > 0 && (
+              <span className="rounded-sm border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
+                Выбрано для сравнения: {compareImages.length}/2
+              </span>
+            )}
+          </div>
+
+          {images.length === 0 ? (
+            <p className="mt-2 text-[12px] text-muted-foreground">Лента появится после привязки снимков к очагу.</p>
+          ) : (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Лента дат очага">
+              {images.map((img) => {
+                const isActive = activeImageId === img.id;
+                return (
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => setActiveImageId((prev) => (prev === img.id ? null : img.id))}
+                    aria-pressed={isActive}
+                    className={`min-w-[180px] rounded-md border p-2 text-left text-[12px] transition ${
+                      isActive ? "border-primary bg-[hsl(var(--primary-soft))]" : "border-border bg-background hover:bg-muted/30"
+                    }`}
+                  >
+                    <div className="font-medium tabular-nums">{formatDate(img.capturedAt)}</div>
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {IMAGE_KIND[img.kind]} · {IMAGE_SOURCE[img.source]}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {img.deviceId ?? "без устройства"}
+                    </div>
+                    <span className={`mt-1 inline-flex rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(img)}`}>
+                      {imageQualityLabel(img)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {compareImages.length > 0 && (
+            <div className="mt-3 rounded-md border border-border bg-muted/20 p-2">
+              <div className="text-[12px] font-semibold">Сравнение по датам</div>
+              <div className="mt-1 flex flex-wrap gap-1 text-[11px] text-muted-foreground">
+                {compareImages.map((img) => (
+                  <span key={img.id} className="rounded-sm border border-border bg-background px-1.5 py-0.5">
+                    {formatDate(img.capturedAt)} · {img.deviceId ?? "без устройства"} · {IMAGE_KIND[img.kind]}
+                  </span>
+                ))}
+              </div>
+              {hasComparablePair ? (
+                <div className="mt-2 overflow-x-auto">
+                  <div className="mb-1 text-[12px] font-semibold text-foreground">Матрица сравнения</div>
+                  <table aria-label="Матрица сравнения" className="w-full min-w-[680px] border-collapse text-left text-[12px]">
+                    <thead>
+                      <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                        <th scope="col" className="px-2 py-1 font-medium">Параметр</th>
+                        <th scope="col" className="px-2 py-1 font-medium">Снимок A</th>
+                        <th scope="col" className="px-2 py-1 font-medium">Снимок B</th>
+                        <th scope="col" className="px-2 py-1 font-medium">Вывод</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {matrixRows.map((row) => (
+                        <tr key={row.label} className="border-b border-border/70 last:border-0">
+                          <th scope="row" className="px-2 py-1.5 font-medium text-foreground">{row.label}</th>
+                          <td className="px-2 py-1.5 text-muted-foreground">{row.a}</td>
+                          <td className="px-2 py-1.5 text-muted-foreground">{row.b}</td>
+                          <td className="px-2 py-1.5 text-foreground">{row.result}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mt-2 text-[12px] text-muted-foreground">
+                  Выберите второй снимок, чтобы собрать матрицу условий съёмки.
+                </p>
+              )}
+              {captureConditionsDiffer && (
+                <p className="mt-2 flex items-start gap-2 rounded-md border px-2 py-1.5 text-[12px]"
+                  style={{ background: "hsl(var(--warning) / 0.08)", borderColor: "hsl(var(--warning) / 0.30)", color: "hsl(var(--warning))" }}>
+                  <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span>
+                    Условия съёмки не сопоставимы: разные устройства, источник или тип снимка. Нельзя оценивать динамику без врачебной проверки.
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
         </Card>
 
         <Card className="p-3 sm:p-4">

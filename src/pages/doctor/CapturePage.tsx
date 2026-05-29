@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { ShieldAlert } from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
@@ -54,7 +55,9 @@ const SOURCE_LABEL: Record<ImageSource, string> = {
   local_transfer: "Локальная передача",
 };
 
-type LinkStatus = "new" | "linked";
+type CaptureMode = "lesion_first" | "batch_first";
+type QualityStatus = "good" | "warning" | "retake";
+type LinkStatus = "new" | "linked" | "body_location_set" | "not_usable";
 
 interface QueueItem {
   id: string;
@@ -68,6 +71,9 @@ interface QueueItem {
   localFileKey: string;
   deviceId: string | null;
   linkStatus: LinkStatus;
+  bodyLocation: string | null;
+  retakeRequestedAt: string | null;
+  retakeForId: string | null;
 }
 
 const QUALITY_PRESETS: Array<{ score: number; issues: string[] }> = [
@@ -92,6 +98,23 @@ function pickQuality(seed: number, improved = false) {
 function isNeedsReview(score: number, issues: string[]) {
   return score < 0.8 || issues.length > 0;
 }
+
+function qualityStatus(score: number, issues: string[]): QualityStatus {
+  if (score >= 0.8 && issues.length === 0) return "good";
+  if (score >= 0.72) return "warning";
+  return "retake";
+}
+
+const QUALITY_STATUS_LABEL: Record<QualityStatus, string> = {
+  good: "Готово",
+  warning: "С предупреждением",
+  retake: "Нужен переснимок",
+};
+
+const CAPTURE_MODE_LABEL: Record<CaptureMode, string> = {
+  lesion_first: "Сначала очаг",
+  batch_first: "Серия без привязки",
+};
 
 const QR_PATTERN: number[][] = [
   [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1],
@@ -131,6 +154,7 @@ export default function CapturePage() {
   );
   const [kind, setKind] = useState<ImageKind>("dermoscopy");
   const [tab, setTab] = useState("phone");
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("lesion_first");
   const [selectedDevice, setSelectedDevice] = useState("d-003");
   const [localStep, setLocalStep] = useState(0);
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -154,40 +178,88 @@ export default function CapturePage() {
 
   function addItem(source: ImageSource, opts?: { improved?: boolean; deviceId?: string | null }) {
     const q = pickQuality(queue.length + 1, opts?.improved);
+    const autoLinked = captureMode === "lesion_first" && !!lesionId;
     const item: QueueItem = {
       id: nextId("cap"),
       source,
       kind,
       patientId,
       visitId,
-      lesionId: lesionId || null,
+      lesionId: autoLinked ? lesionId : null,
       createdAt: DEMO_NOW,
       quality: q,
       localFileKey: `local-mock://capture/${source}/${nextId("f")}.jpg`,
       deviceId: opts?.deviceId ?? null,
-      linkStatus: "new",
+      linkStatus: autoLinked ? "linked" : "new",
+      bodyLocation: autoLinked ? lesion?.bodyZone ?? null : null,
+      retakeRequestedAt: null,
+      retakeForId: null,
     };
     setQueue((prev) => [item, ...prev]);
   }
 
-  function linkItem(id: string) {
-    setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, linkStatus: "linked" } : q)));
+  function assignToCurrentLesion(id: string) {
+    setQueue((prev) =>
+      prev.map((q) =>
+        q.id === id
+          ? {
+              ...q,
+              lesionId: lesionId || q.lesionId,
+              bodyLocation: lesion?.bodyZone ?? q.bodyLocation,
+              linkStatus: "linked",
+            }
+          : q,
+      ),
+    );
+  }
+  function assignBodyLocation(id: string) {
+    setQueue((prev) =>
+      prev.map((q) =>
+        q.id === id
+          ? {
+              ...q,
+              bodyLocation: lesion?.bodyZone ?? "локализация уточняется",
+              linkStatus: q.lesionId ? "linked" : "body_location_set",
+            }
+          : q,
+      ),
+    );
+  }
+  function markNotUsable(id: string) {
+    setQueue((prev) =>
+      prev.map((q) =>
+        q.id === id
+          ? {
+              ...q,
+              linkStatus: "not_usable",
+              quality: {
+                ...q.quality,
+                issues: Array.from(new Set([...q.quality.issues, "не использовать"])),
+              },
+            }
+          : q,
+      ),
+    );
   }
   function repeatItem(id: string) {
-    const src = queue.find((q) => q.id === id);
-    if (!src) return;
-    const newItem: QueueItem = {
-      ...src,
-      id: nextId("cap"),
-      createdAt: DEMO_NOW,
-      quality: { score: 0.91, issues: [] },
-      localFileKey: `local-mock://capture/${src.source}/${nextId("f")}.jpg`,
-      linkStatus: "new",
-    };
-    setQueue((prev) => [newItem, ...prev]);
-  }
-  function deleteItem(id: string) {
-    setQueue((prev) => prev.filter((q) => q.id !== id));
+    setQueue((prev) => {
+      const src = prev.find((q) => q.id === id);
+      if (!src) return prev;
+      const newItem: QueueItem = {
+        ...src,
+        id: nextId("cap"),
+        createdAt: DEMO_NOW,
+        quality: { score: 0.91, issues: [] },
+        localFileKey: `local-mock://capture/${src.source}/${nextId("f")}.jpg`,
+        linkStatus: src.lesionId ? "linked" : src.linkStatus === "body_location_set" ? "body_location_set" : "new",
+        retakeRequestedAt: null,
+        retakeForId: src.id,
+      };
+      return [
+        newItem,
+        ...prev.map((q) => (q.id === id ? { ...q, retakeRequestedAt: DEMO_NOW } : q)),
+      ];
+    });
   }
 
   function handleLocalTransfer() {
@@ -198,6 +270,12 @@ export default function CapturePage() {
   const latest = queue[0];
   const reviewCount = queue.filter((q) => isNeedsReview(q.quality.score, q.quality.issues)).length;
   const linkedCount = queue.filter((q) => q.linkStatus === "linked").length;
+  const unassignedCount = queue.filter((q) => !q.lesionId && q.linkStatus !== "not_usable").length;
+  const needsBetterItems = queue.filter(
+    (q) => q.linkStatus !== "not_usable" && isNeedsReview(q.quality.score, q.quality.issues),
+  );
+  const openRetakeCount = needsBetterItems.filter((q) => !q.retakeRequestedAt).length;
+  const bodyMapHref = `/patients/${patientId}/visits/${visitId}?tab=bodymap${lesionId ? `&lesion=${lesionId}` : ""}`;
 
   return (
     <div className="flex h-full flex-col">
@@ -243,6 +321,37 @@ export default function CapturePage() {
                 <div><span className="text-foreground">Образование:</span> {lesion ? `${lesion.label} · ${lesion.bodyZone}` : "—"}</div>
                 <div><span className="text-foreground">Клиника:</span> {clinic?.name ?? "—"}</div>
               </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-8">
+                  <Link to={bodyMapHref}>Открыть карту тела</Link>
+                </Button>
+              </div>
+              <div className="mt-3 rounded-md border border-border bg-background p-2">
+                <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">Режим съёмки</div>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Режим съёмки">
+                  {(Object.keys(CAPTURE_MODE_LABEL) as CaptureMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={captureMode === mode}
+                      onClick={() => setCaptureMode(mode)}
+                      className={cn(
+                        "min-h-[44px] rounded-md border px-3 py-2 text-left text-[12px] sm:min-h-[32px]",
+                        captureMode === mode
+                          ? "border-primary bg-[hsl(var(--primary-soft))] text-foreground"
+                          : "border-border bg-surface text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <span className="block font-medium">{CAPTURE_MODE_LABEL[mode]}</span>
+                      <span className="block text-[11px]">
+                        {mode === "lesion_first"
+                          ? "выбранный очаг получает снимок сразу"
+                          : "снимки попадают в очередь непривязанных"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </section>
 
             {/* Source tabs */}
@@ -264,8 +373,8 @@ export default function CapturePage() {
                       <Row k="Код сопряжения" v={<code className="font-mono">482 913</code>} />
                       <Row k="Статус" v="ожидает подключение" />
                       <p className="text-[12px] text-muted-foreground">
-                        В реальной версии приложение телефона передаст снимок в текущий визит. В MVP снимок
-                        создаётся локально в интерфейсе.
+                        В реальной версии приложение телефона передаст снимок в текущий визит и выбранный режим:
+                        {` ${CAPTURE_MODE_LABEL[captureMode].toLowerCase()}`}.
                       </p>
                       <Button size="sm" className="min-h-11 w-full sm:w-auto" onClick={() => addItem("phone")}>
                         Сымитировать фото с телефона
@@ -366,7 +475,8 @@ export default function CapturePage() {
                       </ol>
                       <p className="text-[12px] text-muted-foreground">
                         Цель сценария — передача внутри одной локальной сети без промежуточной отправки изображения
-                        на сервер. В MVP это только UI-симуляция.
+                        на сервер. Сессия привязана к визиту {visitId || "—"} и режиму
+                        {` ${CAPTURE_MODE_LABEL[captureMode].toLowerCase()}`}.
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <Button size="sm" className="min-h-11" onClick={handleLocalTransfer}>
@@ -383,15 +493,34 @@ export default function CapturePage() {
             </section>
 
             {/* Queue */}
-            <section className="rounded-md border border-border bg-surface p-3">
-              <h2 className="mb-2 text-[13px] font-semibold text-foreground">Очередь снимков ({queue.length})</h2>
+            <section className="rounded-md border border-border bg-surface p-3" role="region" aria-label="Очередь снимков">
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-[13px] font-semibold text-foreground">Очередь снимков ({queue.length})</h2>
+                <div className="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
+                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
+                    Непривязано: {unassignedCount}
+                  </span>
+                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
+                    Привязано: {linkedCount}
+                  </span>
+                </div>
+              </div>
               {queue.length === 0 ? (
                 <p className="text-[12px] text-muted-foreground">Очередь пуста. Сымитируйте захват из любой вкладки.</p>
               ) : (
                 <ul className="grid gap-2 sm:grid-cols-2">
                   {queue.map((q) => {
                     const review = isNeedsReview(q.quality.score, q.quality.issues);
+                    const status = qualityStatus(q.quality.score, q.quality.issues);
                     const itemLesion = LESIONS.find((l) => l.id === q.lesionId);
+                    const linkText =
+                      q.linkStatus === "linked"
+                        ? "привязано к очагу"
+                        : q.linkStatus === "body_location_set"
+                          ? "локализация выбрана"
+                          : q.linkStatus === "not_usable"
+                            ? "не использовать"
+                            : "требует привязки";
                     return (
                       <li key={q.id} className="flex flex-col gap-2 rounded-md border border-border bg-background p-2">
                         <div className="aspect-[4/3] w-full rounded-sm bg-muted/40 ring-1 ring-inset ring-border" aria-hidden />
@@ -400,38 +529,59 @@ export default function CapturePage() {
                           <span
                             className={cn(
                               "rounded-sm border px-1.5 py-0.5 text-[11px]",
-                              review
+                              status === "good"
+                                ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
+                                : status === "warning"
                                 ? "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate"
-                                : "border-risk-low/30 bg-risk-low-soft text-risk-low",
+                                : "border-destructive/30 bg-destructive/10 text-destructive",
                             )}
                           >
-                            {review ? "нужен пересмотр" : "ок"} · {Math.round(q.quality.score * 100)}%
+                            {QUALITY_STATUS_LABEL[status]} · {Math.round(q.quality.score * 100)}%
                           </span>
                         </div>
                         <div className="text-[11px] text-muted-foreground">
                           {itemLesion ? `${itemLesion.label} · ${itemLesion.bodyZone}` : "без образования"}
+                          {q.bodyLocation && !itemLesion ? ` · ${q.bodyLocation}` : ""}
                           <br />
                           {formatDateTime(q.createdAt)}
                           {q.deviceId ? ` · ${q.deviceId}` : ""}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          {q.linkStatus === "linked" ? "привязано (демо)" : "новый"}
+                          {linkText}
                         </div>
                         <div className="flex flex-wrap gap-1">
+                          {q.linkStatus !== "linked" && q.linkStatus !== "not_usable" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="min-h-11 flex-1"
+                              onClick={() => assignToCurrentLesion(q.id)}
+                            >
+                              Привязать к очагу
+                            </Button>
+                          )}
                           <Button
+                            asChild
                             size="sm"
                             variant="outline"
                             className="min-h-11 flex-1"
-                            disabled={q.linkStatus === "linked"}
-                            onClick={() => linkItem(q.id)}
+                            disabled={q.linkStatus === "not_usable"}
                           >
-                            Привязать к визиту
+                            <Link to={bodyMapHref} onClick={() => assignBodyLocation(q.id)}>
+                              Локализация на карте тела
+                            </Link>
                           </Button>
                           <Button size="sm" variant="outline" className="min-h-11 flex-1" onClick={() => repeatItem(q.id)}>
-                            Повторить
+                            Запросить переснимок
                           </Button>
-                          <Button size="sm" variant="ghost" className="min-h-11" onClick={() => deleteItem(q.id)}>
-                            Удалить
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="min-h-11"
+                            disabled={q.linkStatus === "not_usable"}
+                            onClick={() => markNotUsable(q.id)}
+                          >
+                            Не использовать
                           </Button>
                         </div>
                       </li>
@@ -456,6 +606,72 @@ export default function CapturePage() {
               </p>
             </section>
 
+            <section className="rounded-md border border-border bg-surface p-3" role="region" aria-label="Нужно переснять">
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-[13px] font-semibold text-foreground">Нужно переснять</h2>
+                <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                  Открыто: {openRetakeCount}
+                </span>
+              </div>
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                Только техническое качество: фокус, блики, тени, сопоставимость.
+              </p>
+              {needsBetterItems.length === 0 ? (
+                <p className="text-[12px] text-muted-foreground">Нет снимков, ожидающих пересъёмку.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {needsBetterItems.map((item) => {
+                    const itemLesion = LESIONS.find((l) => l.id === item.lesionId);
+                    return (
+                      <li key={item.id} className="rounded-md border border-border bg-background p-2 text-[12px]">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-medium text-foreground">
+                              {SOURCE_LABEL[item.source]} · {KIND_LABEL[item.kind]}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {itemLesion ? `${itemLesion.label} · ${itemLesion.bodyZone}` : "без образования"}
+                            </div>
+                          </div>
+                          <span className="rounded-sm border border-risk-moderate/30 bg-risk-moderate-soft px-1.5 py-0.5 text-[11px] text-risk-moderate">
+                            {Math.round(item.quality.score * 100)}%
+                          </span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          Причина: {item.quality.issues.length === 0 ? "низкий quality score" : item.quality.issues.join(", ")}
+                        </div>
+                        {item.retakeRequestedAt && (
+                          <div className="mt-1 text-[11px]" style={{ color: "hsl(var(--info))" }}>
+                            Переснимок запрошен · {formatDateTime(item.retakeRequestedAt)}
+                          </div>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="min-h-11 flex-1"
+                            disabled={Boolean(item.retakeRequestedAt)}
+                            onClick={() => repeatItem(item.id)}
+                          >
+                            Запросить переснимок
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="min-h-11"
+                            disabled={item.linkStatus === "not_usable"}
+                            onClick={() => markNotUsable(item.id)}
+                          >
+                            Не использовать
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
             <section className="rounded-md border border-border bg-surface p-3 text-[12px]">
               <h2 className="mb-2 text-[13px] font-semibold text-foreground">Статус</h2>
               <ul className="space-y-1 text-muted-foreground">
@@ -465,7 +681,9 @@ export default function CapturePage() {
                 <li>Клиника: <span className="text-foreground">{clinic?.name ?? CLINICS[0].name}</span></li>
                 <li>В очереди: <span className="text-foreground">{queue.length}</span></li>
                 <li>Нужен пересмотр: <span className="text-foreground">{reviewCount}</span></li>
+                <li>{`Ожидают пересъёмки: ${openRetakeCount}`}</li>
                 <li>Привязано (демо): <span className="text-foreground">{linkedCount}</span></li>
+                <li>Непривязано: <span className="text-foreground">{unassignedCount}</span></li>
               </ul>
               <p className="mt-2 text-[11px] text-muted-foreground">
                 В MVP журнал аудита и запись в хранилище не выполняются.
@@ -548,6 +766,7 @@ function QrBlock() {
 
 function QualityPanel({ item }: { item: QueueItem }) {
   const review = isNeedsReview(item.quality.score, item.quality.issues);
+  const status = qualityStatus(item.quality.score, item.quality.issues);
   return (
     <div className="space-y-2 text-[12px]">
       <div className="flex items-center justify-between">
@@ -559,6 +778,10 @@ function QualityPanel({ item }: { item: QueueItem }) {
           className={cn("h-full", review ? "bg-risk-moderate" : "bg-risk-low")}
           style={{ width: `${Math.round(item.quality.score * 100)}%` }}
         />
+      </div>
+      <div>
+        <span className="text-muted-foreground">Статус: </span>
+        <span className="text-foreground">{QUALITY_STATUS_LABEL[status]}</span>
       </div>
       <div>
         <span className="text-muted-foreground">Замечания: </span>

@@ -79,6 +79,57 @@ describe("LesionDetailPage", () => {
     expect(compareBtn).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("показывает stable lesion ID, date strip и предупреждение о несопоставимых снимках", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    expect(screen.getByText(/ID очага/)).toBeInTheDocument();
+    expect(screen.getByText("l-008")).toBeInTheDocument();
+    expect(screen.getByText(/Лента дат очага/)).toBeInTheDocument();
+    expect(screen.getAllByText(/d-003/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/без устройства/)).toBeInTheDocument();
+    expect(screen.getByText(/С предупреждением/)).toBeInTheDocument();
+    expect(screen.getByText(/Нужен переснимок/)).toBeInTheDocument();
+
+    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
+    fireEvent.click(compareButtons[0]);
+    fireEvent.click(compareButtons[1]);
+
+    expect(screen.getByText(/Сравнение по датам/)).toBeInTheDocument();
+    expect(screen.getByText(/условия съёмки не сопоставимы/i)).toBeInTheDocument();
+  });
+
+  it("shows a richer Comparison Matrix with capture-condition differences and safety boundary", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
+    fireEvent.click(compareButtons[0]);
+    fireEvent.click(compareButtons[1]);
+
+    const matrix = screen.getByRole("table", { name: /Матрица сравнения/ });
+    expect(within(matrix).getByText(/Снимок A/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Снимок B/)).toBeInTheDocument();
+    expect(within(matrix).getByText("i-011")).toBeInTheDocument();
+    expect(within(matrix).getByText("i-012")).toBeInTheDocument();
+    expect(within(matrix).getByText(/Дата/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Тип снимка/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Источник/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Устройство/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Качество/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Сопоставимость/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Разные условия съёмки/)).toBeInTheDocument();
+    expect(screen.getByText(/Нельзя оценивать динамику без врачебной проверки/i)).toBeInTheDocument();
+  });
+
+  it("links the lesion to the full Body Map in the source visit", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const bodyMapLink = screen.getByRole("link", { name: /Открыть на карте тела/ });
+    expect(bodyMapLink).toHaveAttribute(
+      "href",
+      "/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008",
+    );
+  });
+
   it("в DOM нет запрещённых токенов", () => {
     const { container } = renderAt("/patients/p-004/lesions/l-008");
     const html = container.innerHTML;

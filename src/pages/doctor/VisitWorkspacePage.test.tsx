@@ -42,7 +42,7 @@ const renderAt = (path: string) =>
   );
 
 function openBodyMap() {
-  const t = screen.getByRole("tab", { name: /body map/i });
+  const t = screen.getByRole("tab", { name: /карта тела/i });
   fireEvent.pointerDown(t, { button: 0 });
   fireEvent.mouseDown(t, { button: 0 });
   fireEvent.click(t);
@@ -60,6 +60,8 @@ describe("VisitWorkspacePage · Body map", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     fireEvent.click(screen.getByRole("button", { name: "Спереди" }));
+    expect(screen.getByRole("tab", { name: /Карта тела/i })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText(/Полная карта тела/)).toBeInTheDocument();
     expect(screen.getByText(/Тип карты:\s*Женщина/)).toBeInTheDocument();
     expect(screen.getByText(/Передняя поверхность/)).toBeInTheDocument();
     const svg = screen.getByRole("img", { name: /Body map/ });
@@ -163,7 +165,7 @@ describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
   it("регрессия: round-trip Body Map → Imaging → Body Map сохраняет lesion и переключает таб", async () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
 
-    const bodymapTab = screen.getByRole("tab", { name: /body map/i });
+    const bodymapTab = screen.getByRole("tab", { name: /карта тела/i });
     const imagingTab = screen.getByRole("tab", { name: /снимки/i });
     expect(bodymapTab.getAttribute("aria-selected")).toBe("true");
     expect(imagingTab.getAttribute("aria-selected")).toBe("false");
@@ -273,7 +275,7 @@ describe("VisitWorkspacePage · acceptance — URL params and isolation", () => 
 
   it("invalid ?lesion is safely ignored on Body Map (no crash, tab opens)", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=does-not-exist");
-    const tab = screen.getByRole("tab", { name: /body map/i });
+    const tab = screen.getByRole("tab", { name: /карта тела/i });
     expect(tab.getAttribute("aria-selected")).toBe("true");
     // map renders
     expect(screen.getByRole("img", { name: /Body map/ })).toBeInTheDocument();
