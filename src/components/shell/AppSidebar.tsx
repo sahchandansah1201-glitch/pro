@@ -74,6 +74,12 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
   ],
   private_doctor: [
     {
+      label: "Частная практика",
+      items: [
+        { title: "Центр практики", url: "/practice", icon: Building2 },
+      ],
+    },
+    {
       label: "Клиника",
       items: [
         { title: "Рабочее место врача", url: "/cockpit", icon: Stethoscope },

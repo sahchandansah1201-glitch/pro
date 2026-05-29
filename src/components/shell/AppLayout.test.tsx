@@ -76,6 +76,20 @@ describe("AppLayout production mode", () => {
     expect(screen.queryByRole("link", { name: /^Обзор$/ })).not.toBeInTheDocument();
   });
 
+  it("shows the private practice center entry only for private doctor", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "private_doctor");
+    const { unmount } = renderLayout();
+    expect(screen.getByRole("link", { name: /Центр практики/ })).toHaveAttribute(
+      "href",
+      "/practice",
+    );
+
+    unmount();
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "doctor");
+    renderLayout();
+    expect(screen.queryByRole("link", { name: /Центр практики/ })).not.toBeInTheDocument();
+  });
+
   it("hides demo shell controls and shows self-hosted session in production mode", () => {
     vi.stubEnv("VITE_APP_MODE", "production");
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:8080");

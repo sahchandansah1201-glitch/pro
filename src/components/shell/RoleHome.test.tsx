@@ -18,6 +18,7 @@ function renderHome() {
         <Routes>
           <Route path="/" element={<RoleHome />} />
           <Route path="/desk" element={<div data-testid="desk">desk</div>} />
+          <Route path="/practice" element={<div data-testid="practice">practice</div>} />
           <Route path="/sys/users" element={<div data-testid="sys">sys</div>} />
           <Route path="/self-hosted/login" element={<div data-testid="login">login</div>} />
         </Routes>
@@ -39,6 +40,12 @@ describe("RoleHome", () => {
     window.localStorage.setItem(ROLE_STORAGE_KEY, "doctor");
     renderHome();
     expect(screen.getByTestId("desk")).toBeInTheDocument();
+  });
+
+  it("uses private practice center as the demo home for private doctor", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "private_doctor");
+    renderHome();
+    expect(screen.getByTestId("practice")).toBeInTheDocument();
   });
 
   it("requires self-hosted login in production mode", () => {
