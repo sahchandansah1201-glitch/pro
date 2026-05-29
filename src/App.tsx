@@ -19,6 +19,7 @@ import CockpitPage from "./pages/doctor/CockpitPage";
 import PatientsPage from "./pages/doctor/PatientsPage";
 import PatientDetailPage from "./pages/doctor/PatientDetailPage";
 import VisitsPage from "./pages/doctor/VisitsPage";
+import DoctorReportsPage from "./pages/doctor/DoctorReportsPage";
 import VisitWorkspacePage from "./pages/doctor/VisitWorkspacePage";
 import CapturePage from "./pages/doctor/CapturePage";
 import LesionDetailPage from "./pages/doctor/LesionDetailPage";
@@ -77,6 +78,7 @@ const App = () => (
               <Route path="/desk" element={<G><DeskPage /></G>} />
               <Route path="/patients" element={<G><PatientsPage /></G>} />
               <Route path="/visits" element={<G><VisitsPage /></G>} />
+              <Route path="/reports" element={<G><DoctorReportsPage /></G>} />
               <Route path="/patients/:id" element={<G><PatientDetailPage /></G>} />
               <Route path="/patients/:id/visits/:visitId" element={<G><VisitWorkspacePage /></G>} />
               <Route path="/patients/:id/lesions/:lesionId" element={<G><LesionDetailPage /></G>} />

@@ -62,6 +62,12 @@ describe("AppLayout production mode", () => {
     expect(link).toHaveAttribute("href", "/patients/p-004/visits/v-005?tab=bodymap");
   });
 
+  it("shows the doctor reports center entry in the doctor sidebar", () => {
+    renderLayout();
+    const link = screen.getByRole("link", { name: /^Отчёты$/ });
+    expect(link).toHaveAttribute("href", "/reports");
+  });
+
   it("shows the admin operating center entry for clinic admin", () => {
     window.localStorage.setItem(ROLE_STORAGE_KEY, "clinic_admin");
     renderLayout();

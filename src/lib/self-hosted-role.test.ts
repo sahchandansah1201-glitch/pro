@@ -36,6 +36,9 @@ describe("self-hosted-role", () => {
 
   it("checks route access against every backend role", () => {
     expect(canSelfHostedSessionAccessPath(session(["doctor"]), "/desk")).toBe(true);
+    expect(canSelfHostedSessionAccessPath(session(["doctor"]), "/reports")).toBe(true);
+    expect(canSelfHostedSessionAccessPath(session(["private_doctor"]), "/reports")).toBe(true);
+    expect(canSelfHostedSessionAccessPath(session(["clinic_admin"]), "/reports")).toBe(false);
     expect(canSelfHostedSessionAccessPath(session(["doctor"]), "/sys/users")).toBe(false);
     expect(canSelfHostedSessionAccessPath(session(["system_admin"]), "/sys/users")).toBe(true);
     expect(canSelfHostedSessionAccessPath(session(["unknown"]), "/desk")).toBe(false);
