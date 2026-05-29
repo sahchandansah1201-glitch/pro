@@ -1,4 +1,4 @@
-// Mock-данные для клинического cockpit врача.
+// Mock-данные для клинического рабочего места врача.
 // UX-only, без бэкенда. Никаких реальных данных пациентов.
 
 export type SourceTag = "manual" | "MIS" | "bot" | "patient" | "device";
@@ -125,7 +125,7 @@ export const activeVisit: CockpitVisit = {
     { id: "ph-1", thumbHue: 18, source: "device", capturedAt: "09:34", quality: "good", lesionLabel: "Очаг #1", bodyLocation: "Спина, левая лопатка" },
     { id: "ph-2", thumbHue: 32, source: "device", capturedAt: "09:35", quality: "good", lesionLabel: "Очаг #1", bodyLocation: "Спина, левая лопатка" },
     { id: "ph-3", thumbHue: 200, source: "phone", capturedAt: "09:38", quality: "retake", reason: "Размыто, плохое освещение", lesionLabel: "Очаг #2", bodyLocation: "Плечо" },
-    { id: "ph-4", thumbHue: 45, source: "device", capturedAt: "09:40", quality: "warning", reason: "Блики", lesionLabel: "Очаг #2", bodyLocation: "Плечо" },
+    { id: "ph-4", thumbHue: 45, source: "device", capturedAt: "09:40", quality: "incomparable", reason: "Другое устройство или условия съёмки", lesionLabel: "Очаг #2", bodyLocation: "Плечо" },
     { id: "ph-5", thumbHue: 120, source: "phone", capturedAt: "09:42", quality: "unassigned", reason: "Локализация не указана" },
   ],
   state: "in_progress",
@@ -165,7 +165,7 @@ export const MONITORING_LABEL: Record<MonitoringPlanState, string> = {
 export const REPORT_LABEL: Record<ReportState, string> = {
   not_started: "Не начат",
   draft: "Черновик",
-  blocked_intake: "Заблокирован: не заполнен анамнез",
+  blocked_intake: "Заблокирован: анамнез",
   blocked_quality: "Заблокирован: качество фото",
   ready_for_review: "Готов к врачебной проверке",
   confirmed: "Подтверждён врачом",

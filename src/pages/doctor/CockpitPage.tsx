@@ -13,7 +13,6 @@ import {
   Smartphone,
   Stethoscope,
   Upload,
-  Wifi,
 } from "lucide-react";
 
 import { useRole } from "@/context/role-context";
@@ -108,6 +107,10 @@ function CockpitTopBar({ visit }: { visit: CockpitVisit }) {
         <StatusChip tone={REPORT_TONE[visit.reportStatus]}>
           Отчёт: {REPORT_LABEL[visit.reportStatus]}
         </StatusChip>
+        <div className="flex flex-wrap items-center gap-1.5 border-l border-border pl-1.5">
+          <DeviceStatusDot label="Телефон" state="connected" />
+          <DeviceStatusDot label="Дерматоскоп" state="warning" />
+        </div>
         <div className="ml-1 flex items-center gap-1">
           {visit.sources.map((s) => (
             <span
@@ -380,10 +383,73 @@ function PhotoTile({ photo }: { photo: CockpitPhoto }) {
           <span className="truncate">{photo.lesionLabel ?? "—"}</span>
         </div>
         <div className="truncate text-[11px] text-muted-foreground">
-          {photo.bodyLocation ?? photo.reason ?? "Локализация не указана"}
+          {photo.reason ?? photo.bodyLocation ?? "Локализация не указана"}
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------- Center: lesion summary ----------
+
+function LesionsSection({ visit }: { visit: CockpitVisit }) {
+  const lesions = Array.from(
+    visit.photos.reduce((map, photo) => {
+      if (!photo.lesionLabel) return map;
+      const current = map.get(photo.lesionLabel) ?? {
+        label: photo.lesionLabel,
+        bodyLocation: photo.bodyLocation ?? "Локализация не указана",
+        photoCount: 0,
+        issueCount: 0,
+      };
+      current.photoCount += 1;
+      if (photo.quality !== "good") current.issueCount += 1;
+      if (photo.bodyLocation) current.bodyLocation = photo.bodyLocation;
+      map.set(photo.lesionLabel, current);
+      return map;
+    }, new Map<string, { label: string; bodyLocation: string; photoCount: number; issueCount: number }>()),
+  ).map(([, lesion]) => lesion);
+
+  const assignedPhotoCount = visit.photos.filter((photo) => photo.lesionLabel).length;
+  const unassignedCount = visit.photos.filter((photo) => !photo.lesionLabel || !photo.bodyLocation).length;
+  const lesionCountLabel = `${lesions.length} ${lesions.length === 1 ? "очаг" : "очага"}`;
+
+  return (
+    <section className="surface-card">
+      <SectionHeader
+        title="Очаги и локализация"
+        hint={`${lesionCountLabel} · ${assignedPhotoCount} фото привязано`}
+        right={<StatusChip tone={unassignedCount ? "info" : "success"}>{unassignedCount} без локализации</StatusChip>}
+      />
+      <div className="px-4 py-3">
+        <div className="divide-y divide-border rounded-md border border-border bg-surface">
+          {lesions.map((lesion) => (
+            <div key={lesion.label} className="flex flex-wrap items-center gap-2 px-3 py-2">
+              <div className="min-w-[150px] flex-1">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-[hsl(var(--primary))]" aria-hidden />
+                  <span className="text-[13px] font-medium text-foreground">{lesion.label}</span>
+                  <span className="text-[11px] tabular-nums text-muted-foreground">{lesion.photoCount} фото</span>
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{lesion.bodyLocation}</div>
+              </div>
+              <StatusChip tone={lesion.issueCount ? "warning" : "success"}>
+                {lesion.issueCount ? `${lesion.issueCount} требует проверки` : "готово"}
+              </StatusChip>
+              <Button size="sm" variant="outline" className="h-6 px-1.5 text-[11px]">
+                К снимкам очага
+              </Button>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted-foreground">
+          <span>Body Map показан как готовность и счётчики. Полный редактор вынесен в следующий batch.</span>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]" disabled>
+            Body Map · следующий этап
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -423,20 +489,11 @@ function StatusRail({ visit }: { visit: CockpitVisit }) {
   const missingCount = visit.intake.filter((f) => !f.filled).length;
   const retake = visit.photos.filter((p) => p.quality === "retake");
   const unassigned = visit.photos.filter((p) => p.quality === "unassigned");
+  const incomparable = visit.photos.filter((p) => p.quality === "incomparable");
   const warning = visit.photos.filter((p) => p.quality === "warning");
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Devices */}
-      <div className="surface-card">
-        <SectionHeader title="Устройства" />
-        <div className="flex flex-wrap gap-1.5 px-3 py-2">
-          <DeviceStatusDot label="Телефон" state="connected" />
-          <DeviceStatusDot label="Дерматоскоп" state="warning" />
-          <StatusChip tone="info" icon={Wifi}>Локальная сеть: ок</StatusChip>
-        </div>
-      </div>
-
       {/* Missing data */}
       <div className="surface-card">
         <SectionHeader
@@ -467,9 +524,36 @@ function StatusRail({ visit }: { visit: CockpitVisit }) {
           <QualityCounter label="Хорошо" count={visit.photos.filter((p) => p.quality === "good").length} tone="success" />
           <QualityCounter label="С предупреждением" count={warning.length} tone="warning" />
           <QualityCounter label="Нужно переснять" count={retake.length} tone="danger" />
+          <QualityCounter label="Не сопоставимо" count={incomparable.length} tone="danger" />
           <QualityCounter label="Не привязано" count={unassigned.length} tone="info" />
         </div>
       </div>
+
+      {/* Comparability warning */}
+      {incomparable.length > 0 ? (
+        <div className="surface-card">
+          <SectionHeader
+            title="Сопоставимость"
+            right={<StatusChip tone="danger">{incomparable.length}</StatusChip>}
+          />
+          <ul className="divide-y divide-border">
+            {incomparable.map((p) => (
+              <li key={p.id} className="flex items-start gap-2 px-3 py-2">
+                <div className="h-10 w-10 shrink-0 rounded border border-border" style={thumb(p.thumbHue)} aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12px] text-foreground">{p.lesionLabel ?? "Очаг"} · {p.bodyLocation ?? ""}</div>
+                  <div className="truncate text-[11px] text-muted-foreground">Причина: {p.reason}</div>
+                  <div className="mt-1 flex gap-1">
+                    <Button size="sm" variant="outline" className="h-6 px-1.5 text-[11px]">
+                      Проверить условия
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* Unassigned inbox */}
       <div className="surface-card">
@@ -614,6 +698,7 @@ export default function CockpitPage() {
             <AnamnesisSection visit={visit} />
             <MonitoringPlanSection visit={visit} />
             <CaptureSection visit={visit} />
+            <LesionsSection visit={visit} />
             <ReportSection visit={visit} />
           </main>
 

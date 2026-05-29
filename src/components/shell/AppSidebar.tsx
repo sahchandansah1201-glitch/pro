@@ -62,7 +62,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
     {
       label: "Клиника",
       items: [
-        { title: "Кокпит врача", url: "/cockpit", icon: Stethoscope },
+        { title: "Рабочее место врача", url: "/cockpit", icon: Stethoscope },
         { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
         { title: "Пациенты", url: "/patients", icon: Users },
         { title: "Визиты", url: "/visits", icon: ClipboardList },
@@ -75,7 +75,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
     {
       label: "Клиника",
       items: [
-        { title: "Кокпит врача", url: "/cockpit", icon: Stethoscope },
+        { title: "Рабочее место врача", url: "/cockpit", icon: Stethoscope },
         { title: "Рабочий стол", url: "/desk", icon: LayoutDashboard },
         { title: "Пациенты", url: "/patients", icon: Users },
         { title: "Визиты", url: "/visits", icon: ClipboardList },
