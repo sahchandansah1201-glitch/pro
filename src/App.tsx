@@ -15,6 +15,7 @@ import SelfHostedLoginPage from "./pages/SelfHostedLoginPage";
 import NotFound from "./pages/NotFound.tsx";
 import AnalysisPublicPage from "./pages/public/AnalysisPublicPage";
 import DeskPage from "./pages/doctor/DeskPage";
+import CockpitPage from "./pages/doctor/CockpitPage";
 import PatientsPage from "./pages/doctor/PatientsPage";
 import PatientDetailPage from "./pages/doctor/PatientDetailPage";
 import VisitsPage from "./pages/doctor/VisitsPage";
@@ -72,6 +73,7 @@ const App = () => (
               <Route path="/" element={<RoleHome />} />
 
               {/* Doctor / clinical */}
+              <Route path="/cockpit" element={<G><CockpitPage /></G>} />
               <Route path="/desk" element={<G><DeskPage /></G>} />
               <Route path="/patients" element={<G><PatientsPage /></G>} />
               <Route path="/visits" element={<G><VisitsPage /></G>} />
