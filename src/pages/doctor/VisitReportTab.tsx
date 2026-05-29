@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { z } from "zod";
 
@@ -7,12 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getAssessmentsByVisitId,
+  getAuditLogs,
   getClinicById,
   getImagesByVisitId,
+  getReportByVisitId,
 } from "@/lib/mock-data";
-import type { Assessment, ClinicalImage, Lesion, Patient, Visit } from "@/lib/domain";
+import type { Assessment, ClinicalImage, Lesion, Patient, Report, Visit } from "@/lib/domain";
 import { DEMO_USERS } from "@/lib/users";
 import { formatDate, formatDateTime } from "@/lib/format";
+import { getReportLinkExpiry, getReportSafeText } from "@/lib/report-access";
 import { BODY_MAP_DEMO_NOW, bodyMapSurfaceLabel } from "@/pages/doctor/body-map-model";
 
 const VISIT_STATUS: Record<Visit["status"], string> = {
@@ -63,6 +66,7 @@ interface Props {
 export function VisitReportTab({ patient, visit, lesions }: Props) {
   const assessments = useMemo(() => getAssessmentsByVisitId(visit.id), [visit.id]);
   const visitImages = useMemo(() => getImagesByVisitId(visit.id), [visit.id]);
+  const report = useMemo(() => getReportByVisitId(visit.id), [visit.id]);
   const clinic = getClinicById(visit.clinicId);
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -179,6 +183,15 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
 
           <DemoReportForm
             key={selectedLesion?.id ?? "none"}
+            assessment={selAssessment}
+          />
+
+          <VisitPacketPanel
+            patient={patient}
+            visit={visit}
+            lesion={selectedLesion}
+            report={report}
+            images={selImages}
             assessment={selAssessment}
           />
         </section>
@@ -720,6 +733,282 @@ function DemoReportForm({
         </div>
       )}
     </section>
+  );
+}
+
+// ───────── Patient Visit Packet (local-only release gate) ─────────
+
+type PacketState = "draft" | "released" | "revoked";
+
+const QR_PATTERN: number[][] = [
+  [1, 1, 1, 0, 1, 0, 1, 1, 1],
+  [1, 0, 1, 0, 0, 1, 1, 0, 1],
+  [1, 1, 1, 1, 0, 1, 1, 1, 1],
+  [0, 0, 1, 0, 1, 0, 0, 1, 0],
+  [1, 0, 0, 1, 1, 1, 0, 0, 1],
+  [0, 1, 0, 0, 1, 0, 1, 0, 0],
+  [1, 1, 1, 0, 1, 1, 1, 1, 1],
+  [1, 0, 1, 1, 0, 0, 1, 0, 1],
+  [1, 1, 1, 0, 1, 0, 1, 1, 1],
+];
+
+function VisitPacketPanel({
+  patient,
+  visit,
+  lesion,
+  report,
+  images,
+  assessment,
+}: {
+  patient: Patient;
+  visit: Visit;
+  lesion: Lesion | null;
+  report: Report | undefined;
+  images: ClinicalImage[];
+  assessment: Assessment | null;
+}) {
+  const imageIds = useMemo(() => images.map((image) => image.id), [images]);
+  const [selectedImageIds, setSelectedImageIds] = useState<string[]>(() =>
+    images.map((image) => image.id),
+  );
+  const [packetState, setPacketState] = useState<PacketState>("draft");
+  const [auditRows, setAuditRows] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSelectedImageIds(imageIds);
+    setPacketState("draft");
+    setAuditRows([]);
+  }, [imageIds]);
+
+  const selectedImages = images.filter((image) => selectedImageIds.includes(image.id));
+  const selectedQuality = qualityStatus(selectedImages);
+  const patientText = report ? getReportSafeText(report) : "";
+  const expiresAt = report ? getReportLinkExpiry(report) : "";
+  const generatedAuditRows = useMemo(() => {
+    if (!report) return [];
+    const actions = getAuditLogs().filter(
+      (row) => row.entity === "report" && row.entityId === report.id,
+    );
+    return actions.map((row) => {
+      const label = row.action === "report.generate"
+        ? "Отчёт сформирован"
+        : row.action === "report.share"
+          ? "Доступ пациенту выдан"
+          : "Действие с отчётом";
+      return `${label} · ${formatDateTime(row.createdAt)}`;
+    });
+  }, [report]);
+
+  const missing = [
+    !report || !patientText ? "нет безопасного текста для пациента" : null,
+    !assessment ? "нет врачебной оценки очага" : null,
+    selectedImages.length === 0 ? "выберите снимки для пакета" : null,
+    selectedQuality === "review" ? "Нужно переснять или проверить качество" : null,
+    selectedQuality === "none" ? "нет выбранных снимков" : null,
+    !patient.consents.telemed ? "нет согласия на дистанционный доступ" : null,
+    visit.status !== "closed" ? "визит ещё не закрыт" : null,
+  ].filter(Boolean) as string[];
+  const canRelease = missing.length === 0 && packetState !== "released";
+
+  const selectedLabel = selectedImages.length === 0
+    ? "нет выбранных снимков"
+    : `${selectedImages.length} из ${images.length}`;
+  const qualityCopy =
+    selectedQuality === "ok"
+      ? "ок"
+      : selectedQuality === "review"
+        ? "проверка качества требуется"
+        : "нет снимков";
+  const stateLabel =
+    packetState === "released"
+      ? "Выпущен"
+      : packetState === "revoked"
+        ? "Отозван"
+        : canRelease
+          ? "Готов к выпуску"
+          : "Выпуск заблокирован";
+
+  const toggleImage = (imageId: string) => {
+    setSelectedImageIds((prev) =>
+      prev.includes(imageId) ? prev.filter((id) => id !== imageId) : [...prev, imageId],
+    );
+  };
+
+  const releasePacket = () => {
+    if (!canRelease) return;
+    setPacketState("released");
+    setAuditRows((prev) => [`Доступ пациенту выдан · ${formatDateTime(BODY_MAP_DEMO_NOW)}`, ...prev]);
+  };
+
+  const revokePacket = () => {
+    setPacketState("revoked");
+    setAuditRows((prev) => [`Отзыв доступа · ${formatDateTime(BODY_MAP_DEMO_NOW)}`, ...prev]);
+  };
+
+  return (
+    <section
+      aria-label="Пакет визита пациенту"
+      className="rounded-md border border-border bg-surface p-3"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[13px] font-semibold">Пакет визита пациенту</h2>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Врач выпускает пациенту только проверенный текст, выбранные снимки и срок доступа.
+          </p>
+        </div>
+        <span
+          className={`rounded-sm border px-2 py-1 text-[12px] font-medium ${
+            canRelease || packetState === "released"
+              ? "border-border bg-surface-muted text-foreground"
+              : "border-[hsl(var(--risk-medium))] bg-surface-muted text-foreground"
+          }`}
+        >
+          {stateLabel}
+        </span>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+        <Field term="Очаг" value={lesion ? `${lesion.label} · ${lesion.id}` : "—"} />
+        <Field term="Выбранные снимки" value={selectedLabel} />
+        <Field term="Качество снимков" value={qualityCopy} />
+        <Field term="Текст для пациента" value={patientText ? "есть" : "нет"} />
+        <Field term="Согласие на доступ" value={patient.consents.telemed ? "есть" : "нет"} />
+        <Field term="Срок ссылки" value={expiresAt ? formatDateTime(expiresAt) : "—"} />
+      </dl>
+
+      {missing.length > 0 ? (
+        <div className="mt-3 rounded-sm border border-dashed border-[hsl(var(--risk-medium))] bg-surface-muted p-2">
+          <div className="text-[12px] font-medium">Что нужно закрыть перед выпуском</div>
+          <ul className="mt-1 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
+            {missing.map((item) => (
+              <li key={item} className="flex items-start gap-1.5">
+                <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground" aria-hidden />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-sm border border-border bg-surface-muted p-2 text-[12px] text-muted-foreground">
+          Пакет готов: есть врачебная оценка, безопасный текст, выбранные снимки и согласие на доступ.
+        </div>
+      )}
+
+      <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[1fr_180px]">
+        <div className="rounded-sm border border-border bg-surface-muted p-2">
+          <div className="text-[12px] font-medium">Состав пакета</div>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {images.length === 0 ? (
+              <p className="text-[12px] text-muted-foreground">Для выбранного очага нет снимков.</p>
+            ) : (
+              images.map((image) => (
+                <label
+                  key={image.id}
+                  className="flex min-h-[44px] items-start gap-2 rounded-sm border border-border bg-surface px-2 py-2 text-[12px]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedImageIds.includes(image.id)}
+                    onChange={() => toggleImage(image.id)}
+                    className="mt-0.5 h-4 w-4 shrink-0"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-medium">{image.id} · {image.kind}</span>
+                    <span className="block text-muted-foreground">
+                      {formatDateTime(image.capturedAt)} · качество {Math.round(image.quality.score * 100)}%
+                    </span>
+                    {image.quality.issues.length > 0 && (
+                      <span className="block text-muted-foreground">
+                        {image.quality.issues.join(", ")}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-sm border border-border bg-surface p-3">
+          <div className="text-[12px] font-medium">QR для пациента</div>
+          <DemoQr />
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Токен доступа скрыт. В demo-пакете отображается только факт выпуска и срок.
+          </p>
+        </div>
+      </div>
+
+      {packetState === "released" && (
+        <div
+          role="status"
+          className="mt-3 rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
+        >
+          Пакет выпущен пациенту. Доступ действует до {expiresAt ? formatDateTime(expiresAt) : "заданного срока"}.
+        </div>
+      )}
+      {packetState === "revoked" && (
+        <div
+          role="status"
+          className="mt-3 rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
+        >
+          Доступ отозван. Повторный выпуск создаст новую запись аудита.
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="min-h-[44px] sm:min-h-[32px]"
+          disabled={!canRelease}
+          onClick={releasePacket}
+        >
+          Выпустить пакет пациенту
+        </Button>
+        {packetState === "released" && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] sm:min-h-[32px]"
+            onClick={revokePacket}
+          >
+            Отозвать доступ
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-3 rounded-sm border border-border bg-surface-muted p-2">
+        <div className="text-[12px] font-medium">Аудит пакета</div>
+        <ul className="mt-1 space-y-1 text-[12px] text-muted-foreground">
+          {[...auditRows, ...generatedAuditRows].length === 0 ? (
+            <li>Действий по пакету пока нет.</li>
+          ) : (
+            [...auditRows, ...generatedAuditRows].map((row, index) => (
+              <li key={`${row}-${index}`}>{row}</li>
+            ))
+          )}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function DemoQr() {
+  return (
+    <div
+      className="mt-2 grid w-[108px] grid-cols-9 rounded-sm border border-border bg-white p-1"
+      aria-hidden="true"
+    >
+      {QR_PATTERN.flat().map((cell, index) => (
+        <span
+          key={index}
+          className={`h-3 w-3 ${cell ? "bg-foreground" : "bg-white"}`}
+        />
+      ))}
+    </div>
   );
 }
 

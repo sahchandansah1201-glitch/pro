@@ -164,3 +164,40 @@ describe("VisitReportTab · demo report form", () => {
     }
   });
 });
+
+describe("VisitReportTab · Patient Visit Packet", () => {
+  it("blocks packet release when selected photos need quality review", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
+
+    const packet = screen.getByRole("region", { name: /Пакет визита пациенту/ });
+    expect(within(packet).getByText(/Выпуск заблокирован/)).toBeInTheDocument();
+    expect(within(packet).getByText(/Нужно переснять или проверить качество/)).toBeInTheDocument();
+    expect(
+      within(packet).getByRole("button", { name: /Выпустить пакет пациенту/ }),
+    ).toBeDisabled();
+  });
+
+  it("releases a ready visit packet without exposing raw access token", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
+
+    const packet = screen.getByRole("region", { name: /Пакет визита пациенту/ });
+    expect(within(packet).getByText(/Готов к выпуску/)).toBeInTheDocument();
+    fireEvent.click(within(packet).getByRole("button", { name: /Выпустить пакет пациенту/ }));
+
+    expect(within(packet).getByText(/Пакет выпущен пациенту/)).toBeInTheDocument();
+    expect(within(packet).getByText(/QR для пациента/)).toBeInTheDocument();
+    expect(within(packet).getByText(/Доступ пациенту выдан/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("tok-r001-demo");
+  });
+
+  it("lets the doctor revoke a released visit packet and records audit state", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
+
+    const packet = screen.getByRole("region", { name: /Пакет визита пациенту/ });
+    fireEvent.click(within(packet).getByRole("button", { name: /Выпустить пакет пациенту/ }));
+    fireEvent.click(within(packet).getByRole("button", { name: /Отозвать доступ/ }));
+
+    expect(within(packet).getByText(/Доступ отозван/)).toBeInTheDocument();
+    expect(within(packet).getByText(/Повторный выпуск создаст новую запись аудита/)).toBeInTheDocument();
+  });
+});
