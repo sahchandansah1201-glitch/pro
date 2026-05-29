@@ -52,6 +52,20 @@ const LEAD_LABEL: Record<string, string> = {
   duplicate: "Дубль",
 };
 
+const CHANNEL_LABEL: Record<BotChannel, string> = {
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+  web: "Web",
+};
+
+function getDialogLabel(id: string) {
+  return `Диалог ${id.replace(/^bd-/, "") || id}`;
+}
+
+function getSafeChannelText(channel: BotChannel) {
+  return `${CHANNEL_LABEL[channel]} · ID скрыт`;
+}
+
 export default function OperatorConsolePageDemo() {
   const dialogs = getDialogs();
   const leads = getLeads();
@@ -60,6 +74,7 @@ export default function OperatorConsolePageDemo() {
   const [channelFilter, setChannelFilter] = useState<"all" | BotChannel>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(dialogs[0]?.id ?? null);
+  const [handoffStatus, setHandoffStatus] = useState("Ожидает выбора");
 
   const leadsByDialog = useMemo(() => {
     const map = new Map<string, typeof leads[number]>();
@@ -97,6 +112,46 @@ export default function OperatorConsolePageDemo() {
     return { dialogs: dialogs.length, newLeads, booked, urgent };
   }, [dialogs, leads]);
 
+  const handoffQueue = useMemo(() => {
+    return dialogs.flatMap((d) => {
+      const lead = leadsByDialog.get(d.id);
+      const card = cardsByDialog.get(d.id);
+      const needsPhoto =
+        d.state === "awaiting_photo" ||
+        d.state === "awaiting_quality" ||
+        card?.ctaType === "repeat_photo" ||
+        card?.qualityGate.passed === false ||
+        (card?.qualityGate.score ?? 1) < 0.72;
+      const needsDoctor =
+        d.state === "with_operator" ||
+        card?.routingRisk === "moderate" ||
+        card?.routingRisk === "high" ||
+        card?.routingRisk === "urgent";
+
+      if (!needsPhoto && !needsDoctor) return [];
+
+      const actionLabel =
+        d.state === "with_operator" || !needsPhoto ? "Передать врачу" : "Нужно фото лучше";
+      const detail =
+        actionLabel === "Передать врачу"
+          ? "Проверить контекст, закрыть организационные вопросы и передать врачу без диагноза."
+          : "Попросить повторный снимок: свет, фокус, расстояние и привязка к обращению.";
+
+      return [
+        {
+          id: d.id,
+          label: getDialogLabel(d.id),
+          channel: getSafeChannelText(d.channel),
+          actionLabel,
+          detail,
+          leadStatus: lead ? LEAD_LABEL[lead.status] ?? lead.status : "Лид не создан",
+          quality: card ? `${Math.round(card.qualityGate.score * 100)}%` : "нет снимка",
+          state: STATE_LABEL[d.state],
+        },
+      ];
+    });
+  }, [dialogs, leadsByDialog, cardsByDialog]);
+
   const selected = filtered.find((d) => d.id === selectedId) ?? filtered[0];
   const selectedLead = selected ? leadsByDialog.get(selected.id) : undefined;
   const selectedCard = selected ? cardsByDialog.get(selected.id) : undefined;
@@ -109,6 +164,75 @@ export default function OperatorConsolePageDemo() {
         title="Консоль оператора"
         subtitle={`Диалогов: ${totals.dialogs} · Новых лидов: ${totals.newLeads} · Запись: ${totals.booked} · Срочных/высоких: ${totals.urgent}`}
       />
+
+      <section
+        aria-labelledby="operator-handoff-title"
+        className="mx-4 mt-4 shrink-0 rounded-lg border bg-card p-3 shadow-sm"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="operator-handoff-title" className="text-[15px] font-semibold">
+              Центр передачи оператору
+            </h2>
+            <p className="mt-1 max-w-[760px] text-[12px] leading-5 text-muted-foreground">
+              Оператор закрывает организационные задачи: качество фото, запись, контактный
+              контекст и ручную передачу врачу. Сообщения не отправляются из демо-интерфейса.
+            </p>
+          </div>
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-label="Статус handoff"
+            className="min-h-[36px] rounded-md border bg-background px-3 py-2 text-[12px] font-medium"
+          >
+            <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
+              Статус handoff
+            </span>
+            <span>{handoffStatus}</span>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-[180px_minmax(0,1fr)]">
+          <div className="rounded-md bg-muted p-3 text-[12px]">
+            <div className="font-medium">Очередь handoff</div>
+            <div className="mt-1 text-muted-foreground">
+              {handoffQueue.length} задач · локальный demo-state
+            </div>
+          </div>
+          <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
+            {handoffQueue.map((item) => (
+              <article key={item.id} className="min-w-0 rounded-md border bg-background p-3">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-mono text-[12px] font-semibold">{item.label}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {item.channel} · {item.state} · {item.leadStatus}
+                    </div>
+                  </div>
+                  <span className="rounded-sm border px-1.5 py-0.5 text-[11px]">
+                    {item.actionLabel}
+                  </span>
+                </div>
+                <div className="mt-2 text-[12px] leading-5 text-muted-foreground">
+                  {item.detail}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <span>Качество: {item.quality}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto min-h-[36px]"
+                    onClick={() => setHandoffStatus(`В работе: ${item.label}`)}
+                  >
+                    Принять в работу {item.label}
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-3 overflow-hidden">
@@ -171,7 +295,7 @@ export default function OperatorConsolePageDemo() {
                       <span className="rounded-sm border px-1.5 py-0.5 uppercase text-muted-foreground">
                         {d.channel}
                       </span>
-                      <span className="text-muted-foreground">{getDialogUserHandle(d)}</span>
+                      <span className="text-muted-foreground">{getSafeChannelText(d.channel)}</span>
                       <span className="rounded-sm bg-muted px-1.5 py-0.5">{STATE_LABEL[d.state]}</span>
                       {lead && (
                         <span className="rounded-sm border px-1.5 py-0.5">
@@ -203,7 +327,7 @@ export default function OperatorConsolePageDemo() {
                   Превью диалога
                 </div>
                 <div className="font-mono">{selected.id}</div>
-                <div className="text-muted-foreground">{getDialogUserHandle(selected)}</div>
+                <div className="text-muted-foreground">{getSafeChannelText(selected.channel)}</div>
                 <div className="mt-1">{STATE_LABEL[selected.state]}</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   {formatDateTime(selected.lastMessageAt)}
@@ -255,13 +379,10 @@ export default function OperatorConsolePageDemo() {
                     <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
                       Защищённая ссылка анализа
                     </div>
-                    <code
-                      tabIndex={0}
-                      aria-label={`Токен ссылки: ${selectedLink.token}`}
-                      className="block rounded-sm font-mono text-[11px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    >
-                      {selectedLink.token}
-                    </code>
+                    <div className="rounded-md bg-muted p-2 text-[12px] text-muted-foreground">
+                      Доступ скрыт в операторском списке: оператор видит только статус и срок
+                      действия.
+                    </div>
                     <div className="text-muted-foreground">
                       Действует до {formatDateTime(selectedLink.expiresAt)}
                       {" · "}
@@ -308,14 +429,7 @@ export default function OperatorConsolePageDemo() {
                         variant="outline"
                         className="min-h-[36px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       >
-                        <Link
-                          to={`/analysis/${selectedLink.token}`}
-                          aria-label="Открыть защищённый просмотр анализа в новой вкладке"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Открыть защищённый просмотр
-                        </Link>
+                        <Link to={`/operator/dialogs/${selected.id}`}>Открыть карточку диалога</Link>
                       </Button>
                     </div>
                   </Card>

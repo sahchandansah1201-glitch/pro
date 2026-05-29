@@ -14,8 +14,8 @@ import {
   getAnalysisCardForLead,
   ANALYSIS_CARDS,
 } from "@/lib/mock-data";
-import { getDialogUserHandle, getLeadLink } from "@/lib/operator-adapters";
-import type { BotMessage, LeadStatus } from "@/lib/domain";
+import { getLeadLink } from "@/lib/operator-adapters";
+import type { BotChannel, BotMessage, LeadStatus } from "@/lib/domain";
 
 const DEMO_NOW = new Date("2026-05-04T00:00:00Z");
 
@@ -29,6 +29,16 @@ const LEAD_LABEL: Record<LeadStatus, string> = {
 
 const SAFETY_NOTE =
   "Предварительный анализ не является диагнозом. Окончательное решение принимает врач.";
+
+const CHANNEL_LABEL: Record<BotChannel, string> = {
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+  web: "Web",
+};
+
+function getSafeChannelText(channel: BotChannel) {
+  return `${CHANNEL_LABEL[channel]} · ID скрыт`;
+}
 
 function MessageBubble({ m }: { m: BotMessage }) {
   const isIn = m.direction === "in";
@@ -110,7 +120,7 @@ export default function OperatorDialogPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title={`Диалог ${dialog.id}`}
-        subtitle={`${dialog.channel.toUpperCase()} · ${getDialogUserHandle(dialog)} · ${dialog.state} · ${formatDateTime(
+        subtitle={`${getSafeChannelText(dialog.channel)} · ${dialog.state} · ${formatDateTime(
           dialog.lastMessageAt,
         )} · оператор: ${dialog.assignedOperatorId ?? "не назначен"}`}
         actions={
@@ -281,7 +291,9 @@ export default function OperatorDialogPage() {
               <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
                 Защищённая ссылка анализа
               </div>
-              <div className="font-mono text-[11px] break-all">{link.token}</div>
+              <div className="rounded-md bg-muted p-2 text-[12px] text-muted-foreground">
+                Доступ скрыт в операторском интерфейсе. Видны только статус и срок действия.
+              </div>
               <div className="mt-1">
                 Статус:{" "}
                 <span className={linkActive ? "text-foreground" : "text-muted-foreground"}>
@@ -293,7 +305,7 @@ export default function OperatorDialogPage() {
               </div>
               {linkActive && (
                 <Button asChild size="sm" variant="outline" className="mt-2 min-h-[44px]">
-                  <Link to={`/analysis/${link.token}`}>Открыть защищённый просмотр</Link>
+                  <Link to={`/operator/dialogs/${dialog.id}`}>Остаться в карточке диалога</Link>
                 </Button>
               )}
             </Card>
