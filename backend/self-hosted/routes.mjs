@@ -2535,6 +2535,40 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const patientPortalPhotoProtocolPath = "/api/v1/me/photo-protocols";
+  const patientPortalPhotoProtocolMatch = url.pathname.startsWith(`${patientPortalPhotoProtocolPath}/`)
+    ? [null, url.pathname.slice(`${patientPortalPhotoProtocolPath}/`.length)]
+    : null;
+  if (patientPortalPhotoProtocolMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientPortalService.getPhotoProtocol(
+        decodeURIComponent(patientPortalPhotoProtocolMatch[1]),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5N",
+          source: "postgres",
+          item: result.photoProtocol,
+          auth: {
+            userId: result.scope.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   if (url.pathname === "/api/v1/me/booking-requests" && method === "POST") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);

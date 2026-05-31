@@ -5,6 +5,7 @@ import { createPatientPortalService } from "./patient-portal-service.mjs";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const REPORT_ID = "22222222-2222-4222-8222-222222222222";
+const VISIT_ID = "33333333-3333-4333-8333-333333333333";
 
 function createService(overrides = {}) {
   const auditEvents = [];
@@ -26,6 +27,28 @@ function createService(overrides = {}) {
               visitId: "v-1",
               patientSafeText: "Отчёт для пациента",
               clinic: { id: "c-1" },
+            };
+      },
+      async getPhotoProtocol({ visitId }) {
+        return overrides.photoProtocol === null
+          ? null
+          : overrides.photoProtocol || {
+              id: "ppr-1",
+              visitId,
+              reportId: REPORT_ID,
+              status: "prepared",
+              selectedPhotoCount: 2,
+              counts: {
+                selectedPhotos: 2,
+                overviewPhotos: 1,
+                dermoscopyPhotos: 1,
+                reportAttachments: 0,
+              },
+              clinic: { id: "c-1" },
+              deliveryBoundary: {
+                patientDeliveryAllowed: false,
+              },
+              photos: [{ sequence: 1, kind: "overview_photo", previewAvailable: false }],
             };
       },
       async createBookingRequest() {
@@ -64,12 +87,15 @@ test("Stage 5N service allows patient role and audits overview/report reads", as
 
   const overview = await service.getOverview(authContext, { correlationId: "corr-1" });
   const report = await service.getReport(REPORT_ID, authContext, { correlationId: "corr-2" });
+  const photoProtocol = await service.getPhotoProtocol(VISIT_ID, authContext, { correlationId: "corr-5" });
 
   assert.equal(overview.scope.userId, USER_ID);
   assert.equal(report.report.patientSafeText, "Отчёт для пациента");
+  assert.equal(photoProtocol.photoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
   assert.deepEqual(auditEvents.map((event) => event.action), [
     "patient_portal.overview.read",
     "patient_portal.report.read",
+    "patient_portal.photo_protocol.read",
   ]);
 });
 
@@ -135,6 +161,20 @@ test("Stage 5N service validates report id and maps missing report to public 404
   );
   await assert.rejects(
     () => service.getReport(REPORT_ID, authContext),
+    (error) => error.publicCode === "not_found" && error.publicStatus === 404,
+  );
+});
+
+test("Stage 5N service validates photo protocol visit id and maps missing protocol to public 404", async () => {
+  const { service } = createService({ photoProtocol: null });
+  const authContext = { userId: USER_ID, roles: ["patient"] };
+
+  await assert.rejects(
+    () => service.getPhotoProtocol("bad-id", authContext),
+    (error) => error.publicCode === "invalid_uuid" && error.publicStatus === 400,
+  );
+  await assert.rejects(
+    () => service.getPhotoProtocol(VISIT_ID, authContext),
     (error) => error.publicCode === "not_found" && error.publicStatus === 404,
   );
 });

@@ -17,6 +17,51 @@
         "scheme": "bearer",
         "bearerFormat": "JWT"
       }
+    },
+    "schemas": {
+      "PatientPortalPhotoProtocol": {
+        "type": "object",
+        "description": "Metadata-only patient photo protocol. Files, storage paths, temporary links, tokens, and doctor-only text are not exposed.",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string" },
+          "reportId": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["prepared", "revoked"] },
+          "accessStatus": { "type": "string" },
+          "selectedPhotoCount": { "type": "integer", "minimum": 0 },
+          "counts": { "type": "object" },
+          "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+          "patientSafeTextAvailable": { "type": "boolean" },
+          "deliveryBoundary": {
+            "type": "object",
+            "properties": {
+              "patientDeliveryAllowed": { "type": "boolean", "const": false },
+              "rawFilesExposed": { "type": "boolean", "const": false },
+              "signedUrlsIssued": { "type": "boolean", "const": false },
+              "storagePathsExposed": { "type": "boolean", "const": false },
+              "tokensExposed": { "type": "boolean", "const": false },
+              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
+              "fileProxyReady": { "type": "boolean", "const": false }
+            }
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sequence": { "type": "integer", "minimum": 1 },
+                "kind": { "type": "string" },
+                "contentType": { "type": ["string", "null"] },
+                "capturedAt": { "type": ["string", "null"], "format": "date-time" },
+                "lesionLabel": { "type": ["string", "null"] },
+                "bodyZone": { "type": ["string", "null"] },
+                "bodySurface": { "type": ["string", "null"] },
+                "previewAvailable": { "type": "boolean", "const": false }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "security": [
@@ -66,6 +111,41 @@
           },
           "404": {
             "description": "Report not found in linked patient scope"
+          }
+        }
+      }
+    },
+    "/api/v1/me/photo-protocols/{visitId}": {
+      "get": {
+        "summary": "Read one patient-safe photo protocol",
+        "description": "Returns metadata for a prepared or revoked photo protocol linked to the authenticated patient account. The response is count and descriptor only; files, storage paths, temporary links, tokens, and doctor-only text are not exposed.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient-safe photo protocol metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPortalPhotoProtocol"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid visit identifier"
+          },
+          "404": {
+            "description": "Photo protocol is not available in linked patient scope"
           }
         }
       }

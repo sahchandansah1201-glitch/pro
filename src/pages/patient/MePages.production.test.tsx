@@ -83,6 +83,43 @@ function mockFetch() {
         },
       });
     }
+    if (href.endsWith("/api/v1/me/photo-protocols/visit-live-1")) {
+      return response({
+        item: {
+          id: "photo-protocol-live-1",
+          visitId: "visit-live-1",
+          reportId: "report-live-1",
+          status: "prepared",
+          accessStatus: "metadata_ready_delivery_blocked",
+          selectedPhotoCount: 2,
+          counts: {
+            selectedPhotos: 2,
+            overviewPhotos: 1,
+            dermoscopyPhotos: 1,
+            reportAttachments: 0,
+          },
+          expiresAt: "2026-06-20T10:00:00.000Z",
+          deliveryBoundary: {
+            patientDeliveryAllowed: false,
+            rawFilesExposed: false,
+            signedUrlsIssued: false,
+            storagePathsExposed: false,
+            tokensExposed: false,
+            doctorOnlyTextExposed: false,
+            fileProxyReady: false,
+          },
+          photos: [{
+            sequence: 1,
+            kind: "overview_photo",
+            contentType: "image/jpeg",
+            capturedAt: "2026-05-20T10:10:00.000Z",
+            lesionLabel: "Очаг A",
+            bodyZone: "спина",
+            previewAvailable: false,
+          }],
+        },
+      });
+    }
     if (href.endsWith("/api/v1/me/booking-requests")) {
       return response({
         item: {
@@ -192,6 +229,9 @@ describe("Patient portal · Stage 5N production", () => {
     expect(screen.getByRole("region", { name: /Безопасность доступа/ })).toBeInTheDocument();
     expect(screen.getByText(/Токен доступа скрыт/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
+    expect(screen.getByText(/метаданные готовы, файлы закрыты backend-контуром/)).toBeInTheDocument();
+    expect(screen.getByText(/Сырые файлы, защищённые ссылки/)).toBeInTheDocument();
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
   });
 

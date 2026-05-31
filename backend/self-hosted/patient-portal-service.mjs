@@ -181,6 +181,32 @@ export function createPatientPortalService({
       return { report, scope };
     },
 
+    async getPhotoProtocol(visitId, authContext, { correlationId } = {}) {
+      const scope = patientPortalScope(authContext);
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const photoProtocol = await patientPortalRepository.getPhotoProtocol({
+        userId: scope.userId,
+        visitId: safeVisitId,
+      });
+      if (!photoProtocol) throw new PatientPortalNotFoundError();
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: photoProtocol.clinic?.id || null,
+        actorUserId: scope.userId,
+        action: "patient_portal.photo_protocol.read",
+        entityType: "patient_photo_protocol_release",
+        entityId: photoProtocol.id,
+        correlationId,
+        metadata: {
+          visitId: photoProtocol.visitId,
+          status: photoProtocol.status,
+          selectedPhotoCount: photoProtocol.selectedPhotoCount,
+          blockerCount: photoProtocol.blockerCount,
+          patientDeliveryAllowed: false,
+        },
+      });
+      return { photoProtocol, scope };
+    },
+
     async createBookingRequest(input, authContext, { correlationId } = {}) {
       const scope = patientPortalScope(authContext);
       const payload = normalizePatientPortalBookingRequestPayload(input);

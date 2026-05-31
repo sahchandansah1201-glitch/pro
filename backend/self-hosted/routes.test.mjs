@@ -34,6 +34,7 @@ function createRuntime({
   leadsAppointmentsError = null,
   patientPortalOverview = null,
   patientPortalReport = null,
+  patientPortalPhotoProtocol = null,
   patientPortalBookingRequest = null,
   patientPortalReminderPreferences = null,
   patientPortalError = null,
@@ -352,6 +353,49 @@ function createRuntime({
             status: "signed",
             patientSafeText: "Patient-safe report text",
             clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+          },
+          scope: {
+            userId: authContext?.userId,
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async getPhotoProtocol(visitId) {
+        if (patientPortalError) throw patientPortalError;
+        return {
+          photoProtocol: patientPortalPhotoProtocol || {
+            id: "10000000-0000-4000-8000-000000000601",
+            visitId,
+            reportId: "10000000-0000-4000-8000-000000000401",
+            status: "prepared",
+            selectedPhotoCount: 2,
+            counts: {
+              selectedPhotos: 2,
+              overviewPhotos: 1,
+              dermoscopyPhotos: 1,
+              reportAttachments: 0,
+            },
+            accessStatus: "metadata_ready_delivery_blocked",
+            deliveryBoundary: {
+              patientDeliveryAllowed: false,
+              rawFilesExposed: false,
+              signedUrlsIssued: false,
+              storagePathsExposed: false,
+              tokensExposed: false,
+              doctorOnlyTextExposed: false,
+              fileProxyReady: false,
+            },
+            photos: [
+              {
+                sequence: 1,
+                kind: "overview_photo",
+                contentType: "image/jpeg",
+                capturedAt: "2026-06-01T10:00:00.000Z",
+                lesionLabel: "Очаг A",
+                bodyZone: "спина",
+                previewAvailable: false,
+              },
+            ],
           },
           scope: {
             userId: authContext?.userId,
@@ -4858,6 +4902,20 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
   assert.equal(report.status, 200);
   assert.equal(report.json.item.patientSafeText, "Patient-safe text");
   assert.doesNotMatch(report.body, /physicianText|physician_text|storage_object_path|signed_url|access_token/i);
+
+  const photoProtocol = await request(
+    "/api/v1/me/photo-protocols/10000000-0000-4000-8000-000000000301",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(photoProtocol.status, 200);
+  assert.equal(photoProtocol.json.stage, "5N");
+  assert.equal(photoProtocol.json.item.deliveryBoundary.patientDeliveryAllowed, false);
+  assert.equal(photoProtocol.json.item.photos[0].previewAvailable, false);
+  assert.doesNotMatch(
+    photoProtocol.body,
+    /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token/i,
+  );
 });
 
 test("Stage 5N · patient portal endpoint maps forbidden access safely", async () => {
@@ -4884,6 +4942,7 @@ test("Stage 5N · /openapi.stage5n.json documents patient portal contracts", asy
   assert.equal(response.json.info.version, "5N-patient-portal");
   assert.ok(response.json.paths["/api/v1/me/portal"].get);
   assert.ok(response.json.paths["/api/v1/me/reports/{reportId}"].get);
+  assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}"].get);
 });
 
 test("Stage 5O · patient portal write endpoints create booking requests and update reminder preferences", async () => {

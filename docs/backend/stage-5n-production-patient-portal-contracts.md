@@ -8,6 +8,9 @@ self-hosted product boundary in production mode.
 - Backend owns patient portal reads through PostgreSQL.
 - Frontend production mode reads `/api/v1/me/portal` and
   `/api/v1/me/reports/{reportId}`.
+- Batch S extends the same patient portal boundary with
+  `/api/v1/me/photo-protocols/{visitId}` for metadata-only SD-MF-046
+  photo/protocol reads.
 - Demo/dev mode keeps the existing mock patient portal.
 - Patient self-booking writes are intentionally out of scope; booking is
   read-only until a dedicated write contract is added.
@@ -24,10 +27,19 @@ Endpoints:
 
 - `GET /api/v1/me/portal`
 - `GET /api/v1/me/reports/{reportId}`
+- `GET /api/v1/me/photo-protocols/{visitId}`
 - `GET /openapi.stage5n.json`
 
 The repository selects `patient_safe_text` only. Physician-only report
 text is not selected or returned to the browser.
+
+The photo-protocol endpoint is not file delivery. It reads prepared or revoked
+`patient_photo_protocol_releases` rows through `patient_user_links` and returns
+safe counts, status, expiry, and per-photo descriptors such as sequence,
+content type, capture time, and lesion label. It keeps delivery blocked with
+`patientDeliveryAllowed: false`, `rawFilesExposed: false`,
+`signedUrlsIssued: false`, `storagePathsExposed: false`, and
+`tokensExposed: false`.
 
 ## 3. Frontend
 

@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createSelfHostedPatientPortalBookingRequest,
   fetchSelfHostedPatientPortal,
+  fetchSelfHostedPatientPortalPhotoProtocol,
   fetchSelfHostedPatientPortalReport,
   updateSelfHostedPatientPortalReminderPreferences,
   toSelfHostedPatientPortalOverview,
+  toSelfHostedPatientPortalPhotoProtocol,
   toSelfHostedPatientPortalReport,
 } from "./self-hosted-patient-portal-api";
 
@@ -48,6 +50,42 @@ describe("self-hosted-patient-portal-api", () => {
     expect(report).not.toHaveProperty("physicianText");
     expect(report).not.toHaveProperty("token");
     expect(report).not.toHaveProperty("sharedLink");
+
+    const photoProtocol = toSelfHostedPatientPortalPhotoProtocol({
+      id: "ppr-1",
+      visitId: "v-1",
+      reportId: "r-1",
+      status: "prepared",
+      selectedPhotoCount: 2,
+      patientDeliveryAllowed: true,
+      rawFilesExposed: true,
+      signedUrlsIssued: true,
+      storagePathsExposed: true,
+      tokensExposed: true,
+      physicianText: "Не выводить",
+      photos: [
+        {
+          sequence: 1,
+          kind: "dermoscopy",
+          contentType: "image/jpeg",
+          capturedAt: "2026-06-01T10:00:00.000Z",
+          lesionLabel: "Очаг A",
+          bodyZone: "спина",
+          objectBucket: "hidden",
+          objectKey: "hidden",
+          signedUrl: "hidden",
+          accessToken: "hidden",
+          checksumSha256: "hidden",
+        },
+      ],
+    });
+    expect(photoProtocol.deliveryBoundary.patientDeliveryAllowed).toBe(false);
+    expect(photoProtocol.deliveryBoundary.signedUrlsIssued).toBe(false);
+    expect(photoProtocol.photos[0].previewAvailable).toBe(false);
+    expect(photoProtocol.photos[0].lesionLabel).toBe("Очаг A");
+    expect(photoProtocol.photos[0]).not.toHaveProperty("objectKey");
+    expect(photoProtocol.photos[0]).not.toHaveProperty("signedUrl");
+    expect(photoProtocol).not.toHaveProperty("physicianText");
   });
 
   it("fetches portal overview with bearer token", async () => {
@@ -104,6 +142,45 @@ describe("self-hosted-patient-portal-api", () => {
     });
     expect(fail.ok).toBe(false);
     expect(fail.error.code).toBe("not_found");
+  });
+
+  it("fetches one patient photo protocol without protected file fields", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "ppr-1",
+            visitId: "v-1",
+            status: "prepared",
+            selectedPhotoCount: 1,
+            deliveryBoundary: {
+              patientDeliveryAllowed: false,
+              rawFilesExposed: false,
+              signedUrlsIssued: false,
+            },
+            photos: [{ sequence: 1, kind: "overview_photo", contentType: "image/jpeg" }],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await fetchSelfHostedPatientPortalPhotoProtocol({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-1",
+      visitId: "v-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value.deliveryBoundary.patientDeliveryAllowed).toBe(false);
+    expect(result.value.photos[0].previewAvailable).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/v-1",
+      expect.objectContaining({
+        method: "GET",
+        headers: { Accept: "application/json", Authorization: "Bearer token-1" },
+      }),
+    );
   });
 
   it("creates booking requests and updates reminder preferences with bearer token", async () => {

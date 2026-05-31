@@ -138,6 +138,81 @@ function normalizeBookingRequest(input = {}) {
   };
 }
 
+function numberOrZero(value) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizePhotoProtocolPhoto(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    sequence: numberOrZero(source.sequence),
+    kind: String(source.kind ?? "photo"),
+    contentType: textOrNull(source.contentType),
+    capturedAt: textOrNull(source.capturedAt),
+    lesionLabel: textOrNull(source.lesionLabel),
+    bodyZone: textOrNull(source.bodyZone),
+    bodySurface: textOrNull(source.bodySurface),
+    previewAvailable: false,
+  };
+}
+
+export function normalizePatientPortalPhotoProtocol(input) {
+  if (!input || typeof input !== "object" || !input.id) return null;
+  const clinic = safeNested(input, "clinic");
+  const counts = safeNested(input, "counts");
+  const selectedPhotoCount = numberOrZero(input.selectedPhotoCount ?? counts.selectedPhotos);
+  const overviewPhotoCount = numberOrZero(input.overviewPhotoCount ?? counts.overviewPhotos);
+  const dermoscopyPhotoCount = numberOrZero(input.dermoscopyPhotoCount ?? counts.dermoscopyPhotos);
+  const reportAttachmentCount = numberOrZero(input.reportAttachmentCount ?? counts.reportAttachments);
+  const status = String(input.status ?? "prepared");
+  const accessStatus = textOrNull(input.accessStatus) || (
+    status === "prepared" ? "metadata_ready_delivery_blocked" : status
+  );
+  return {
+    id: String(input.id),
+    visitId: textOrNull(input.visitId),
+    reportId: textOrNull(input.reportId),
+    status,
+    accessStatus,
+    selectedPhotoCount,
+    counts: {
+      selectedPhotos: selectedPhotoCount,
+      overviewPhotos: overviewPhotoCount,
+      dermoscopyPhotos: dermoscopyPhotoCount,
+      reportAttachments: reportAttachmentCount,
+    },
+    preparedAt: textOrNull(input.preparedAt),
+    revokedAt: textOrNull(input.revokedAt),
+    expiresAt: textOrNull(input.expiresAt),
+    blockerCount: numberOrZero(input.blockerCount),
+    patientSafeTextAvailable: Boolean(input.patientSafeTextAvailable),
+    availabilityMessages: Array.isArray(input.availabilityMessages)
+      ? input.availabilityMessages.map(String)
+      : ["Файлы фото закрыты backend-контуром до включения защищённой выдачи."],
+    deliveryBoundary: {
+      patientDeliveryAllowed: false,
+      rawFilesExposed: false,
+      signedUrlsIssued: false,
+      storagePathsExposed: false,
+      tokensExposed: false,
+      doctorOnlyTextExposed: false,
+      fileProxyReady: false,
+      requiresIdentityCheck: true,
+      requiresRetentionPolicy: true,
+      requiresApprovedPatientCopy: true,
+    },
+    clinic: {
+      id: textOrNull(clinic.id),
+      slug: textOrNull(clinic.slug),
+      name: textOrNull(clinic.name),
+    },
+    photos: Array.isArray(input.photos)
+      ? input.photos.map(normalizePhotoProtocolPhoto).filter((item) => item.sequence > 0)
+      : [],
+  };
+}
+
 export function normalizePatientPortalOverview(input) {
   const source = input && typeof input === "object" ? input : {};
   return {
@@ -403,6 +478,112 @@ from (
 `.trim();
 }
 
+export function buildPatientPortalPhotoProtocolSql({ userId, visitId } = {}) {
+  const safeUserId = safeUuid(userId);
+  const safeVisitId = safeUuid(visitId);
+  return `
+with linked_release as (
+  select
+    r.id,
+    r.clinic_id,
+    r.patient_id,
+    r.visit_id,
+    r.report_id,
+    r.status,
+    r.selected_photo_count,
+    r.overview_photo_count,
+    r.dermoscopy_photo_count,
+    r.report_attachment_count,
+    cardinality(r.release_blockers) as blocker_count,
+    r.prepared_at,
+    r.revoked_at,
+    r.expires_at,
+    c.slug as clinic_slug,
+    c.name as clinic_name,
+    nullif(trim(coalesce(rep.patient_safe_text, '')), '') is not null as patient_safe_text_available
+  from patient_photo_protocol_releases r
+  join patient_user_links pul on pul.patient_id = r.patient_id
+  join visits v on v.id = r.visit_id and v.patient_id = r.patient_id and v.clinic_id = r.clinic_id
+  join clinics c on c.id = r.clinic_id
+  left join reports rep on rep.id = r.report_id and rep.patient_id = r.patient_id and rep.clinic_id = r.clinic_id
+  where pul.user_id = ${sqlUuid(safeUserId)}
+    and r.visit_id = ${sqlUuid(safeVisitId)}
+    and r.status in ('prepared', 'revoked')
+  limit 1
+),
+safe_assets as (
+  select
+    row_number() over (order by a.captured_at asc nulls last, a.created_at asc) as sequence,
+    a.kind::text as kind,
+    a.content_type,
+    a.captured_at,
+    l.label as lesion_label,
+    l.body_zone,
+    l.body_surface
+  from clinical_assets a
+  join linked_release lr on lr.visit_id = a.visit_id and lr.patient_id = a.patient_id and lr.clinic_id = a.clinic_id
+  left join lesions l on l.id = a.lesion_id and l.patient_id = a.patient_id and l.clinic_id = a.clinic_id
+  where a.kind in ('overview_photo', 'dermoscopy', 'report_attachment')
+  order by a.captured_at asc nulls last, a.created_at asc
+  limit 200
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    lr.id::text as "id",
+    lr.visit_id::text as "visitId",
+    lr.report_id::text as "reportId",
+    lr.status as "status",
+    case
+      when lr.status = 'prepared' then 'metadata_ready_delivery_blocked'
+      else lr.status
+    end as "accessStatus",
+    lr.selected_photo_count as "selectedPhotoCount",
+    lr.overview_photo_count as "overviewPhotoCount",
+    lr.dermoscopy_photo_count as "dermoscopyPhotoCount",
+    lr.report_attachment_count as "reportAttachmentCount",
+    lr.blocker_count as "blockerCount",
+    lr.prepared_at as "preparedAt",
+    lr.revoked_at as "revokedAt",
+    lr.expires_at as "expiresAt",
+    lr.patient_safe_text_available as "patientSafeTextAvailable",
+    jsonb_build_object(
+      'id', lr.clinic_id::text,
+      'slug', lr.clinic_slug,
+      'name', lr.clinic_name
+    ) as "clinic",
+    jsonb_build_array('Файлы фото закрыты backend-контуром до включения защищённой выдачи.') as "availabilityMessages",
+    jsonb_build_object(
+      'patientDeliveryAllowed', false,
+      'rawFilesExposed', false,
+      'signedUrlsIssued', false,
+      'storagePathsExposed', false,
+      'tokensExposed', false,
+      'doctorOnlyTextExposed', false,
+      'fileProxyReady', false,
+      'requiresIdentityCheck', true,
+      'requiresRetentionPolicy', true,
+      'requiresApprovedPatientCopy', true
+    ) as "deliveryBoundary",
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'sequence', sa.sequence,
+        'kind', sa.kind,
+        'contentType', sa.content_type,
+        'capturedAt', sa.captured_at,
+        'lesionLabel', sa.lesion_label,
+        'bodyZone', sa.body_zone,
+        'bodySurface', sa.body_surface,
+        'previewAvailable', false
+      ) order by sa.sequence)
+      from safe_assets sa
+    ), '[]'::jsonb) as "photos"
+  from linked_release lr
+  limit 1
+) result;
+`.trim();
+}
+
 export function buildCreatePatientPortalBookingRequestSql({
   userId,
   preferredFrom,
@@ -522,6 +703,11 @@ export function createPatientPortalRepository(dbClient) {
       const rows = await dbClient.queryJson(buildPatientPortalReportSql({ userId, reportId }));
       const first = Array.isArray(rows) ? rows[0] : rows;
       return normalizePatientPortalReport(first);
+    },
+    async getPhotoProtocol({ userId, visitId }) {
+      const rows = await dbClient.queryJson(buildPatientPortalPhotoProtocolSql({ userId, visitId }));
+      const first = Array.isArray(rows) ? rows[0] : rows;
+      return normalizePatientPortalPhotoProtocol(first);
     },
     async createBookingRequest(input) {
       const rows = await dbClient.queryJson(buildCreatePatientPortalBookingRequestSql(input));

@@ -88,6 +88,51 @@ export interface SelfHostedPatientPortalBookingRequest {
   };
 }
 
+export interface SelfHostedPatientPortalPhotoProtocolPhoto {
+  sequence: number;
+  kind: string;
+  contentType: string | null;
+  capturedAt: string | null;
+  lesionLabel: string | null;
+  bodyZone: string | null;
+  bodySurface: string | null;
+  previewAvailable: false;
+}
+
+export interface SelfHostedPatientPortalPhotoProtocol {
+  id: string;
+  visitId: string | null;
+  reportId: string | null;
+  status: string;
+  accessStatus: string;
+  selectedPhotoCount: number;
+  counts: {
+    selectedPhotos: number;
+    overviewPhotos: number;
+    dermoscopyPhotos: number;
+    reportAttachments: number;
+  };
+  preparedAt: string | null;
+  revokedAt: string | null;
+  expiresAt: string | null;
+  blockerCount: number;
+  patientSafeTextAvailable: boolean;
+  availabilityMessages: string[];
+  deliveryBoundary: {
+    patientDeliveryAllowed: false;
+    rawFilesExposed: false;
+    signedUrlsIssued: false;
+    storagePathsExposed: false;
+    tokensExposed: false;
+    doctorOnlyTextExposed: false;
+    fileProxyReady: false;
+    requiresIdentityCheck: boolean;
+    requiresRetentionPolicy: boolean;
+    requiresApprovedPatientCopy: boolean;
+  };
+  photos: SelfHostedPatientPortalPhotoProtocolPhoto[];
+}
+
 export interface SelfHostedPatientPortalOverview {
   patient: SelfHostedPatientPortalPatient;
   nextAppointment: SelfHostedPatientPortalAppointment | null;
@@ -195,6 +240,11 @@ async function requestJson(
 
 function textOrNull(value: unknown): string | null {
   return value == null ? null : String(value);
+}
+
+function numberOrZero(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function nested(input: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -310,6 +360,67 @@ export function toSelfHostedPatientPortalBookingRequest(input: unknown): SelfHos
   };
 }
 
+function toSelfHostedPatientPortalPhotoProtocolPhoto(input: unknown): SelfHostedPatientPortalPhotoProtocolPhoto {
+  const row = isRecord(input) ? input : {};
+  return {
+    sequence: numberOrZero(row.sequence),
+    kind: String(row.kind ?? "photo"),
+    contentType: textOrNull(row.contentType),
+    capturedAt: textOrNull(row.capturedAt),
+    lesionLabel: textOrNull(row.lesionLabel),
+    bodyZone: textOrNull(row.bodyZone),
+    bodySurface: textOrNull(row.bodySurface),
+    previewAvailable: false,
+  };
+}
+
+export function toSelfHostedPatientPortalPhotoProtocol(input: unknown): SelfHostedPatientPortalPhotoProtocol {
+  const row = isRecord(input) ? input : {};
+  const counts = nested(row, "counts");
+  const deliveryBoundary = nested(row, "deliveryBoundary");
+  const selectedPhotoCount = numberOrZero(row.selectedPhotoCount ?? counts.selectedPhotos);
+  const status = String(row.status ?? "prepared");
+  return {
+    id: String(row.id ?? ""),
+    visitId: textOrNull(row.visitId),
+    reportId: textOrNull(row.reportId),
+    status,
+    accessStatus: String(
+      row.accessStatus ?? (status === "prepared" ? "metadata_ready_delivery_blocked" : status),
+    ),
+    selectedPhotoCount,
+    counts: {
+      selectedPhotos: selectedPhotoCount,
+      overviewPhotos: numberOrZero(row.overviewPhotoCount ?? counts.overviewPhotos),
+      dermoscopyPhotos: numberOrZero(row.dermoscopyPhotoCount ?? counts.dermoscopyPhotos),
+      reportAttachments: numberOrZero(row.reportAttachmentCount ?? counts.reportAttachments),
+    },
+    preparedAt: textOrNull(row.preparedAt),
+    revokedAt: textOrNull(row.revokedAt),
+    expiresAt: textOrNull(row.expiresAt),
+    blockerCount: numberOrZero(row.blockerCount),
+    patientSafeTextAvailable: Boolean(row.patientSafeTextAvailable),
+    availabilityMessages: Array.isArray(row.availabilityMessages)
+      ? row.availabilityMessages.map(String)
+      : ["Файлы фото закрыты backend-контуром до включения защищённой выдачи."],
+    deliveryBoundary: {
+      patientDeliveryAllowed: false,
+      rawFilesExposed: false,
+      signedUrlsIssued: false,
+      storagePathsExposed: false,
+      tokensExposed: false,
+      doctorOnlyTextExposed: false,
+      fileProxyReady: false,
+      requiresIdentityCheck: deliveryBoundary.requiresIdentityCheck !== false,
+      requiresRetentionPolicy: deliveryBoundary.requiresRetentionPolicy !== false,
+      requiresApprovedPatientCopy: deliveryBoundary.requiresApprovedPatientCopy !== false,
+    },
+    photos: Array.isArray(row.photos)
+      ? row.photos.map(toSelfHostedPatientPortalPhotoProtocolPhoto).filter((item) => item.sequence > 0)
+      : [],
+  };
+}
+
 export function toSelfHostedPatientPortalOverview(input: unknown): SelfHostedPatientPortalOverview {
   const source = isRecord(input) ? input : {};
   return {
@@ -344,6 +455,15 @@ export async function fetchSelfHostedPatientPortalReport(
   if (!response.ok) return fail(response.error);
   const body = isRecord(response.value) ? response.value : {};
   return ok(toSelfHostedPatientPortalReport(body.item));
+}
+
+export async function fetchSelfHostedPatientPortalPhotoProtocol(
+  args: BaseArgs & { visitId: string },
+): Promise<SelfHostedApiResult<SelfHostedPatientPortalPhotoProtocol>> {
+  const response = await requestJson(args, `/api/v1/me/photo-protocols/${encodeURIComponent(args.visitId)}`);
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedPatientPortalPhotoProtocol(body.item));
 }
 
 export async function createSelfHostedPatientPortalBookingRequest(

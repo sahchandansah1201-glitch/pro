@@ -3,16 +3,19 @@ import { test } from "node:test";
 
 import {
   buildPatientPortalOverviewSql,
+  buildPatientPortalPhotoProtocolSql,
   buildPatientPortalReportSql,
   buildCreatePatientPortalBookingRequestSql,
   buildUpdatePatientPortalReminderPreferencesSql,
   createPatientPortalRepository,
   normalizePatientPortalOverview,
+  normalizePatientPortalPhotoProtocol,
   normalizePatientPortalReport,
 } from "./patient-portal-repository.mjs";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const REPORT_ID = "22222222-2222-4222-8222-222222222222";
+const VISIT_ID = "33333333-3333-4333-8333-333333333333";
 
 test("Stage 5N SQL scopes patient portal reads through patient_user_links and safe report text", () => {
   const overviewSql = buildPatientPortalOverviewSql({ userId: USER_ID });
@@ -24,6 +27,17 @@ test("Stage 5N SQL scopes patient portal reads through patient_user_links and sa
   assert.match(reportSql, /pul\.user_id/);
   assert.match(reportSql, /r\.patient_safe_text/);
   assert.doesNotMatch(reportSql, /physician_text/);
+});
+
+test("Stage 5N SQL scopes patient photo protocol reads and excludes protected asset fields", () => {
+  const photoProtocolSql = buildPatientPortalPhotoProtocolSql({ userId: USER_ID, visitId: VISIT_ID });
+
+  assert.match(photoProtocolSql, /patient_user_links/);
+  assert.match(photoProtocolSql, /patient_photo_protocol_releases/);
+  assert.match(photoProtocolSql, /clinical_assets/);
+  assert.match(photoProtocolSql, /patientDeliveryAllowed/);
+  assert.match(photoProtocolSql, /previewAvailable/);
+  assert.doesNotMatch(photoProtocolSql, /object_bucket|object_key|checksum_sha256|signed_url|access_token|physician_text/i);
 });
 
 test("Stage 5O SQL writes booking requests and reminder preferences through patient_user_links", () => {
@@ -90,6 +104,44 @@ test("Stage 5N normalizers expose patient-safe portal DTOs only", () => {
   });
   assert.equal(report.patientSafeText, "Безопасное заключение");
   assert.equal("physicianText" in report, false);
+
+  const photoProtocol = normalizePatientPortalPhotoProtocol({
+    id: "ppr-1",
+    visitId: VISIT_ID,
+    reportId: REPORT_ID,
+    status: "prepared",
+    selectedPhotoCount: 2,
+    overviewPhotoCount: 1,
+    dermoscopyPhotoCount: 1,
+    reportAttachmentCount: 0,
+    expiresAt: "2026-06-20T10:00:00.000Z",
+    patientDeliveryAllowed: true,
+    rawFilesExposed: true,
+    signedUrlsIssued: true,
+    objectBucket: "hidden",
+    objectKey: "hidden",
+    physicianText: "Не отдавать",
+    photos: [
+      {
+        sequence: 1,
+        kind: "dermoscopy",
+        contentType: "image/jpeg",
+        capturedAt: "2026-06-01T10:00:00.000Z",
+        lesionLabel: "Очаг A",
+        bodyZone: "спина",
+        objectKey: "hidden",
+        signedUrl: "hidden",
+      },
+    ],
+  });
+  assert.equal(photoProtocol.status, "prepared");
+  assert.equal(photoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
+  assert.equal(photoProtocol.deliveryBoundary.signedUrlsIssued, false);
+  assert.equal(photoProtocol.photos[0].previewAvailable, false);
+  assert.equal(photoProtocol.photos[0].lesionLabel, "Очаг A");
+  assert.equal("objectKey" in photoProtocol.photos[0], false);
+  assert.equal("signedUrl" in photoProtocol.photos[0], false);
+  assert.equal("physicianText" in photoProtocol, false);
 });
 
 test("Stage 5N repository reads overview and report through db client", async () => {
@@ -106,12 +158,26 @@ test("Stage 5N repository reads overview and report through db client", async ()
       if (sql.includes("r.id =")) {
         return [{ id: REPORT_ID, patientSafeText: "Отчёт" }];
       }
+      if (sql.includes("patient_photo_protocol_releases")) {
+        return [{
+          id: "ppr-1",
+          visitId: VISIT_ID,
+          reportId: REPORT_ID,
+          status: "prepared",
+          selectedPhotoCount: 2,
+          overviewPhotoCount: 1,
+          dermoscopyPhotoCount: 1,
+          reportAttachmentCount: 0,
+          photos: [{ sequence: 1, kind: "overview_photo", contentType: "image/jpeg" }],
+        }];
+      }
       return [{ patient: { id: "p-1" }, reports: [] }];
     },
   });
 
   const overview = await repository.getOverview({ userId: USER_ID });
   const report = await repository.getReport({ userId: USER_ID, reportId: REPORT_ID });
+  const photoProtocol = await repository.getPhotoProtocol({ userId: USER_ID, visitId: VISIT_ID });
   const booking = await repository.createBookingRequest({
     userId: USER_ID,
     preferredFrom: "2026-06-15T10:00:00.000Z",
@@ -126,7 +192,9 @@ test("Stage 5N repository reads overview and report through db client", async ()
 
   assert.equal(overview.patient.id, "p-1");
   assert.equal(report.id, REPORT_ID);
+  assert.equal(photoProtocol.visitId, VISIT_ID);
+  assert.equal(photoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
   assert.equal(booking.id, "br-1");
   assert.equal(preferences.preferredChannel, "phone");
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
 });
