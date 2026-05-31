@@ -17,6 +17,9 @@ self-hosted product boundary in production mode.
 - Batch V adds patient-visible revoke/audit review: `/me/reports/:id` shows
   `Отзыв и журнал доступа`, disables photo preparation after `revoked`, and
   renders only safe audit labels/dates derived from release metadata.
+- Batch AA extends `/api/v1/me/history` and `/me/history` with two safe
+  aggregates: longitudinal `comparisonOperations` and
+  access `sessionLifecycle` governance counters.
 - Demo/dev mode keeps the existing mock patient portal.
 - Patient self-booking writes are intentionally out of scope; booking is
   read-only until a dedicated write contract is added.
@@ -66,8 +69,10 @@ attempts are audit-recorded.
 
 `GET /api/v1/me/history` returns a patient-safe longitudinal history model:
 lesion cards, visit timeline, and aggregate photo-protocol policy/retention
-counters. It does not expose diagnosis strings, doctor-only text, raw files,
-storage paths, signed links, access tokens, or object identifiers.
+counters. Batch AA adds `comparisonOperations` (series readiness for doctor
+review) and `sessionLifecycle` (prepared/active/expiring/revoked windows with
+policy gates). It does not expose diagnosis strings, doctor-only text, raw
+files, storage paths, signed links, access tokens, or object identifiers.
 
 ## 3. Frontend
 
@@ -99,7 +104,8 @@ reason, and service payload remain backend-only.
 
 The production `/me/history` screen reads only `/api/v1/me/history` and keeps
 the same safety boundary: comparison remains doctor-reviewed, and raw access
-artifacts stay hidden from the patient DOM.
+artifacts stay hidden from the patient DOM. Batch AA also renders
+`Операции сравнения` and `Жизненный цикл доступа` with aggregate counters only.
 
 ## 4. Product Boundary
 

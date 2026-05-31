@@ -222,6 +222,9 @@ export function createPatientPortalService({
           timelineCount: Array.isArray(history.timeline) ? history.timeline.length : 0,
           releasesTotal: Number(history.retentionGovernance?.releasesTotal ?? 0),
           policyReady: Number(history.retentionGovernance?.policyReady ?? 0),
+          readyForDoctorReview: Number(history.comparisonOperations?.readyForDoctorReview ?? 0),
+          activeAccessWindows: Number(history.sessionLifecycle?.activeAccessWindows ?? 0),
+          sessionLifecycleStatus: String(history.sessionLifecycle?.status ?? "no_access_windows"),
         },
       });
       return { history, scope };

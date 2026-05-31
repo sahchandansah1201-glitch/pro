@@ -52,8 +52,12 @@ test("Stage 5N SQL scopes patient-safe history reads and policy counters", () =>
   assert.match(historySql, /patient_user_links/);
   assert.match(historySql, /lesion_history/);
   assert.match(historySql, /visit_timeline/);
+  assert.match(historySql, /compare_stats/);
   assert.match(historySql, /patient_photo_protocol_releases/);
   assert.match(historySql, /retentionPolicyApproved/);
+  assert.match(historySql, /prepared_access_windows/);
+  assert.match(historySql, /comparisonOperations/);
+  assert.match(historySql, /sessionLifecycle/);
   assert.match(historySql, /longitudinalBoundary/);
   assert.doesNotMatch(historySql, /physician_text|object_bucket|object_key|checksum_sha256|signed_url|access_token|revoke_reason/i);
 });
@@ -221,6 +225,27 @@ test("Stage 5N normalizers expose patient-safe portal DTOs only", () => {
       expiresConfigured: 1,
       policyReady: 1,
     },
+    comparisonOperations: {
+      lesionsTotal: 3,
+      readyForDoctorReview: 2,
+      requiresNextCapture: 1,
+      visitsWithComparableSeries: 2,
+      comparableCoveragePercent: 67,
+      doctorReviewRequired: false,
+    },
+    sessionLifecycle: {
+      preparedAccessWindows: 2,
+      revokedAccessWindows: 1,
+      activeAccessWindows: 1,
+      expiringIn24h: 1,
+      expiredAccessWindows: 0,
+      missingExpiry: 0,
+      identityCheckEnabled: 2,
+      policyReadyAccessWindows: 2,
+      temporaryCredentialsExposed: true,
+      qrSessionExposed: true,
+      rawTokensExposed: true,
+    },
     longitudinalBoundary: {
       comparisonRequiresDoctorReview: true,
       diagnosisExposed: true,
@@ -231,6 +256,10 @@ test("Stage 5N normalizers expose patient-safe portal DTOs only", () => {
   assert.equal(history.lesions[0].stateLabel, "Врачебная проверка");
   assert.equal(history.timeline[0].stateLabel, "Завершён");
   assert.equal(history.retentionGovernance.status, "policy_in_progress");
+  assert.equal(history.comparisonOperations.status, "partial_ready");
+  assert.equal(history.comparisonOperations.doctorReviewRequired, true);
+  assert.equal(history.sessionLifecycle.status, "governance_ready");
+  assert.equal(history.sessionLifecycle.sessionBoundary.rawTokensExposed, false);
   assert.equal(history.longitudinalBoundary.clinicalDecisionExposed, false);
   assert.equal("physicianText" in history.lesions[0], false);
 });
@@ -261,6 +290,23 @@ test("Stage 5N repository reads overview and report through db client", async ()
             fileProxyEnabled: 1,
             expiresConfigured: 1,
             policyReady: 1,
+          },
+          comparisonOperations: {
+            lesionsTotal: 1,
+            readyForDoctorReview: 0,
+            requiresNextCapture: 1,
+            visitsWithComparableSeries: 0,
+            comparableCoveragePercent: 0,
+          },
+          sessionLifecycle: {
+            preparedAccessWindows: 1,
+            revokedAccessWindows: 0,
+            activeAccessWindows: 1,
+            expiringIn24h: 0,
+            expiredAccessWindows: 0,
+            missingExpiry: 0,
+            identityCheckEnabled: 1,
+            policyReadyAccessWindows: 1,
           },
           longitudinalBoundary: {
             comparisonRequiresDoctorReview: true,
@@ -308,6 +354,8 @@ test("Stage 5N repository reads overview and report through db client", async ()
   assert.equal(photoProtocol.visitId, VISIT_ID);
   assert.equal(photoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
   assert.equal(history.retentionGovernance.releasesTotal, 1);
+  assert.equal(history.comparisonOperations.status, "needs_capture");
+  assert.equal(history.sessionLifecycle.status, "governance_ready");
   assert.equal(booking.id, "br-1");
   assert.equal(preferences.preferredChannel, "phone");
   assert.equal(calls.length, 6);

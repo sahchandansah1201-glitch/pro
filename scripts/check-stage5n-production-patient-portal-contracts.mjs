@@ -60,12 +60,17 @@ const REQUIRED_TEXT = {
     "patient_photo_protocol_releases",
     "patientDeliveryAllowed",
     "auditTrail",
+    "comparisonOperations",
+    "sessionLifecycle",
+    "prepared_access_windows",
   ],
   "backend/self-hosted/patient-portal-service.mjs": [
     "patientPortalScope",
     "patient_portal.overview.read",
     "patient_portal.report.read",
     "patient_portal.photo_protocol.read",
+    "patient_portal.history.read",
+    "sessionLifecycleStatus",
   ],
   "backend/self-hosted/patient-photo-protocol-delivery-repository.mjs": [
     "buildGetPatientPhotoProtocolDeliveryAssetSql",
@@ -100,6 +105,8 @@ const REQUIRED_TEXT = {
     "PatientPortalPhotoProtocol",
     "PatientPortalHistory",
     "auditTrail",
+    "comparisonOperations",
+    "sessionLifecycle",
   ],
   "src/lib/self-hosted-patient-portal-api.ts": [
     "fetchSelfHostedPatientPortal",
@@ -113,6 +120,8 @@ const REQUIRED_TEXT = {
     "/api/v1/me/photo-protocols/",
     "/photos/",
     "Accept: \"image/*\"",
+    "comparisonOperations",
+    "sessionLifecycle",
   ],
   "src/pages/patient/MeHomePage.tsx": [
     "isProductionAppMode",
@@ -128,6 +137,8 @@ const REQUIRED_TEXT = {
     "Очаги под наблюдением",
     "Хронология визитов",
     "Контур политики доступа к фото",
+    "Операции сравнения",
+    "Жизненный цикл доступа",
   ],
   "src/pages/patient/MeReportsPageLive.tsx": [
     "patient-safe reports",
@@ -159,6 +170,7 @@ const REQUIRED_TEXT = {
     "/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download",
     "Patient-visible photo controls",
     "Batch V",
+    "Batch AA",
     "Отзыв и журнал доступа",
   ],
   ".github/workflows/stage5n-production-patient-portal-contracts.yml": [

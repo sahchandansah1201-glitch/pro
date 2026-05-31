@@ -434,6 +434,31 @@ function createRuntime({
               policyReady: 1,
               status: "policy_ready",
             },
+            comparisonOperations: {
+              lesionsTotal: 1,
+              readyForDoctorReview: 1,
+              requiresNextCapture: 0,
+              visitsWithComparableSeries: 1,
+              comparableCoveragePercent: 100,
+              status: "ready_for_review",
+              doctorReviewRequired: true,
+            },
+            sessionLifecycle: {
+              preparedAccessWindows: 1,
+              revokedAccessWindows: 0,
+              activeAccessWindows: 1,
+              expiringIn24h: 0,
+              expiredAccessWindows: 0,
+              missingExpiry: 0,
+              identityCheckEnabled: 1,
+              policyReadyAccessWindows: 1,
+              status: "governance_ready",
+              sessionBoundary: {
+                temporaryCredentialsExposed: false,
+                qrSessionExposed: false,
+                rawTokensExposed: false,
+              },
+            },
             longitudinalBoundary: {
               comparisonRequiresDoctorReview: true,
               clinicalDecisionExposed: false,
@@ -5114,6 +5139,9 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
   assert.equal(history.json.stage, "5N");
   assert.equal(history.json.history.lesions[0].title, "Очаг A");
   assert.equal(history.json.history.retentionGovernance.policyReady, 1);
+  assert.equal(history.json.history.comparisonOperations.status, "ready_for_review");
+  assert.equal(history.json.history.sessionLifecycle.status, "governance_ready");
+  assert.equal(history.json.history.sessionLifecycle.sessionBoundary.rawTokensExposed, false);
   assert.doesNotMatch(
     history.body,
     /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token|diagnosis/i,

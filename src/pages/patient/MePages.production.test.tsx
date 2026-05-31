@@ -178,6 +178,31 @@ function mockFetch(options: { revokedPhotoProtocol?: boolean } = {}) {
             policyReady: 1,
             status: "policy_ready",
           },
+          comparisonOperations: {
+            lesionsTotal: 1,
+            readyForDoctorReview: 1,
+            requiresNextCapture: 0,
+            visitsWithComparableSeries: 1,
+            comparableCoveragePercent: 100,
+            status: "ready_for_review",
+            doctorReviewRequired: true,
+          },
+          sessionLifecycle: {
+            preparedAccessWindows: 1,
+            revokedAccessWindows: 0,
+            activeAccessWindows: 1,
+            expiringIn24h: 0,
+            expiredAccessWindows: 0,
+            missingExpiry: 0,
+            identityCheckEnabled: 1,
+            policyReadyAccessWindows: 1,
+            status: "governance_ready",
+            sessionBoundary: {
+              temporaryCredentialsExposed: false,
+              qrSessionExposed: false,
+              rawTokensExposed: false,
+            },
+          },
           longitudinalBoundary: {
             comparisonRequiresDoctorReview: true,
             clinicalDecisionExposed: false,
@@ -377,9 +402,14 @@ describe("Patient portal · Stage 5N production", () => {
     expect(screen.getByText(/Есть серия снимков для врачебного сравнения/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Хронология визитов/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Контур политики доступа к фото/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Операции сравнения/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Жизненный цикл доступа/ })).toBeInTheDocument();
+    expect(screen.getByText("Серия готова к проверке")).toBeInTheDocument();
+    expect(screen.getByText("Контур доступа стабилен")).toBeInTheDocument();
     expect(screen.getAllByText("Policy ready").length).toBeGreaterThan(0);
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
     expect(document.body).not.toHaveTextContent("physicianText");
+    expect(document.body).not.toHaveTextContent("patient-token");
   });
 
   it("shows production booking state and creates a self-hosted booking request", async () => {

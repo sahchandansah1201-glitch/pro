@@ -60,6 +60,31 @@ function createService(overrides = {}) {
             releasesTotal: 1,
             policyReady: 0,
           },
+          comparisonOperations: {
+            lesionsTotal: 1,
+            readyForDoctorReview: 0,
+            requiresNextCapture: 1,
+            visitsWithComparableSeries: 0,
+            comparableCoveragePercent: 0,
+            status: "needs_capture",
+            doctorReviewRequired: true,
+          },
+          sessionLifecycle: {
+            preparedAccessWindows: 1,
+            revokedAccessWindows: 0,
+            activeAccessWindows: 1,
+            expiringIn24h: 0,
+            expiredAccessWindows: 0,
+            missingExpiry: 0,
+            identityCheckEnabled: 1,
+            policyReadyAccessWindows: 1,
+            status: "governance_ready",
+            sessionBoundary: {
+              temporaryCredentialsExposed: false,
+              qrSessionExposed: false,
+              rawTokensExposed: false,
+            },
+          },
         };
       },
       async createBookingRequest() {
@@ -105,6 +130,11 @@ test("Stage 5N service allows patient role and audits overview/report reads", as
   assert.equal(report.report.patientSafeText, "Отчёт для пациента");
   assert.equal(photoProtocol.photoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
   assert.equal(history.history.retentionGovernance.releasesTotal, 1);
+  assert.equal(history.history.comparisonOperations.status, "needs_capture");
+  assert.equal(history.history.sessionLifecycle.status, "governance_ready");
+  assert.equal(auditEvents[3].metadata.readyForDoctorReview, 0);
+  assert.equal(auditEvents[3].metadata.activeAccessWindows, 1);
+  assert.equal(auditEvents[3].metadata.sessionLifecycleStatus, "governance_ready");
   assert.deepEqual(auditEvents.map((event) => event.action), [
     "patient_portal.overview.read",
     "patient_portal.report.read",

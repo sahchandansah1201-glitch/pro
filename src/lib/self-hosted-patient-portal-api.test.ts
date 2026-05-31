@@ -144,10 +144,34 @@ describe("self-hosted-patient-portal-api", () => {
         expiresConfigured: 1,
         policyReady: 1,
       },
+      comparisonOperations: {
+        lesionsTotal: 2,
+        readyForDoctorReview: 1,
+        requiresNextCapture: 1,
+        visitsWithComparableSeries: 1,
+        comparableCoveragePercent: 50,
+      },
+      sessionLifecycle: {
+        preparedAccessWindows: 2,
+        revokedAccessWindows: 1,
+        activeAccessWindows: 1,
+        expiringIn24h: 1,
+        expiredAccessWindows: 0,
+        missingExpiry: 0,
+        identityCheckEnabled: 2,
+        policyReadyAccessWindows: 2,
+        temporaryCredentialsExposed: true,
+        qrSessionExposed: true,
+        rawTokensExposed: true,
+      },
     });
     expect(history.lesions[0].stateLabel).toBe("Врачебная проверка");
     expect(history.timeline[0].stateLabel).toBe("Завершён");
     expect(history.retentionGovernance.status).toBe("policy_in_progress");
+    expect(history.comparisonOperations.status).toBe("partial_ready");
+    expect(history.comparisonOperations.doctorReviewRequired).toBe(true);
+    expect(history.sessionLifecycle.status).toBe("governance_ready");
+    expect(history.sessionLifecycle.sessionBoundary.rawTokensExposed).toBe(false);
     expect(history.longitudinalBoundary.comparisonRequiresDoctorReview).toBe(true);
     expect(history.lesions[0]).not.toHaveProperty("diagnosis");
     expect(history.timeline[0]).not.toHaveProperty("physicianText");
@@ -264,6 +288,23 @@ describe("self-hosted-patient-portal-api", () => {
               expiresConfigured: 1,
               policyReady: 1,
             },
+            comparisonOperations: {
+              lesionsTotal: 1,
+              readyForDoctorReview: 0,
+              requiresNextCapture: 1,
+              visitsWithComparableSeries: 0,
+              comparableCoveragePercent: 0,
+            },
+            sessionLifecycle: {
+              preparedAccessWindows: 1,
+              revokedAccessWindows: 0,
+              activeAccessWindows: 1,
+              expiringIn24h: 0,
+              expiredAccessWindows: 0,
+              missingExpiry: 0,
+              identityCheckEnabled: 1,
+              policyReadyAccessWindows: 1,
+            },
             longitudinalBoundary: {
               comparisonRequiresDoctorReview: true,
             },
@@ -281,6 +322,8 @@ describe("self-hosted-patient-portal-api", () => {
     expect(result.ok).toBe(true);
     expect(result.value.lesions[0].title).toBe("Очаг A");
     expect(result.value.retentionGovernance.status).toBe("policy_ready");
+    expect(result.value.comparisonOperations.status).toBe("needs_capture");
+    expect(result.value.sessionLifecycle.status).toBe("governance_ready");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/me/history",
       expect.objectContaining({

@@ -81,7 +81,7 @@
       },
       "PatientPortalHistory": {
         "type": "object",
-        "description": "Patient-safe longitudinal lesion history. Diagnosis, doctor-only text, raw files, storage paths, temporary links, and tokens are not exposed.",
+        "description": "Patient-safe longitudinal lesion history with comparison operations and access-session governance aggregates. Diagnosis, doctor-only text, raw files, storage paths, temporary links, and tokens are not exposed.",
         "properties": {
           "clinic": {
             "type": "object",
@@ -140,6 +140,40 @@
               "status": { "type": "string", "enum": ["no_releases", "policy_in_progress", "policy_ready"] }
             }
           },
+          "comparisonOperations": {
+            "type": "object",
+            "properties": {
+              "lesionsTotal": { "type": "integer", "minimum": 0 },
+              "readyForDoctorReview": { "type": "integer", "minimum": 0 },
+              "requiresNextCapture": { "type": "integer", "minimum": 0 },
+              "visitsWithComparableSeries": { "type": "integer", "minimum": 0 },
+              "comparableCoveragePercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "status": { "type": "string", "enum": ["no_series", "needs_capture", "partial_ready", "ready_for_review"] },
+              "doctorReviewRequired": { "type": "boolean", "const": true }
+            }
+          },
+          "sessionLifecycle": {
+            "type": "object",
+            "properties": {
+              "preparedAccessWindows": { "type": "integer", "minimum": 0 },
+              "revokedAccessWindows": { "type": "integer", "minimum": 0 },
+              "activeAccessWindows": { "type": "integer", "minimum": 0 },
+              "expiringIn24h": { "type": "integer", "minimum": 0 },
+              "expiredAccessWindows": { "type": "integer", "minimum": 0 },
+              "missingExpiry": { "type": "integer", "minimum": 0 },
+              "identityCheckEnabled": { "type": "integer", "minimum": 0 },
+              "policyReadyAccessWindows": { "type": "integer", "minimum": 0 },
+              "status": { "type": "string", "enum": ["no_access_windows", "governance_attention", "governance_ready"] },
+              "sessionBoundary": {
+                "type": "object",
+                "properties": {
+                  "temporaryCredentialsExposed": { "type": "boolean", "const": false },
+                  "qrSessionExposed": { "type": "boolean", "const": false },
+                  "rawTokensExposed": { "type": "boolean", "const": false }
+                }
+              }
+            }
+          },
           "longitudinalBoundary": {
             "type": "object",
             "properties": {
@@ -179,7 +213,7 @@
     "/api/v1/me/history": {
       "get": {
         "summary": "Read patient-safe lesion history",
-        "description": "Returns a longitudinal patient-safe history: lesion list, visit timeline, and aggregate retention-policy governance counters. Diagnosis, doctor-only text, raw files, storage paths, temporary links, and tokens are not exposed.",
+        "description": "Returns a longitudinal patient-safe history: lesion list, visit timeline, comparison-operations aggregates, and access-session governance counters. Diagnosis, doctor-only text, raw files, storage paths, temporary links, and tokens are not exposed.",
         "responses": {
           "200": {
             "description": "Patient-safe lesion history",

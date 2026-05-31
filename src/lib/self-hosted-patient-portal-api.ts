@@ -191,6 +191,33 @@ export interface SelfHostedPatientPortalHistoryBoundary {
   doctorOnlyTextExposed: false;
 }
 
+export interface SelfHostedPatientPortalHistoryComparisonOperations {
+  lesionsTotal: number;
+  readyForDoctorReview: number;
+  requiresNextCapture: number;
+  visitsWithComparableSeries: number;
+  comparableCoveragePercent: number;
+  status: "no_series" | "needs_capture" | "partial_ready" | "ready_for_review";
+  doctorReviewRequired: true;
+}
+
+export interface SelfHostedPatientPortalHistorySessionLifecycle {
+  preparedAccessWindows: number;
+  revokedAccessWindows: number;
+  activeAccessWindows: number;
+  expiringIn24h: number;
+  expiredAccessWindows: number;
+  missingExpiry: number;
+  identityCheckEnabled: number;
+  policyReadyAccessWindows: number;
+  status: "no_access_windows" | "governance_attention" | "governance_ready";
+  sessionBoundary: {
+    temporaryCredentialsExposed: false;
+    qrSessionExposed: false;
+    rawTokensExposed: false;
+  };
+}
+
 export interface SelfHostedPatientPortalHistory {
   clinic: {
     id: string | null;
@@ -200,6 +227,8 @@ export interface SelfHostedPatientPortalHistory {
   lesions: SelfHostedPatientPortalHistoryLesion[];
   timeline: SelfHostedPatientPortalHistoryTimelineItem[];
   retentionGovernance: SelfHostedPatientPortalHistoryRetentionGovernance;
+  comparisonOperations: SelfHostedPatientPortalHistoryComparisonOperations;
+  sessionLifecycle: SelfHostedPatientPortalHistorySessionLifecycle;
   longitudinalBoundary: SelfHostedPatientPortalHistoryBoundary;
 }
 
@@ -622,6 +651,67 @@ function toSelfHostedPatientPortalHistoryBoundary(input: unknown): SelfHostedPat
   };
 }
 
+function toSelfHostedPatientPortalHistoryComparisonOperations(
+  input: unknown,
+): SelfHostedPatientPortalHistoryComparisonOperations {
+  const row = isRecord(input) ? input : {};
+  const lesionsTotal = numberOrZero(row.lesionsTotal);
+  const readyForDoctorReview = numberOrZero(row.readyForDoctorReview);
+  const status =
+    lesionsTotal === 0
+      ? "no_series"
+      : readyForDoctorReview === 0
+        ? "needs_capture"
+        : readyForDoctorReview >= lesionsTotal
+          ? "ready_for_review"
+          : "partial_ready";
+  return {
+    lesionsTotal,
+    readyForDoctorReview,
+    requiresNextCapture: numberOrZero(row.requiresNextCapture),
+    visitsWithComparableSeries: numberOrZero(row.visitsWithComparableSeries),
+    comparableCoveragePercent: numberOrZero(row.comparableCoveragePercent),
+    status,
+    doctorReviewRequired: true,
+  };
+}
+
+function toSelfHostedPatientPortalHistorySessionLifecycle(
+  input: unknown,
+): SelfHostedPatientPortalHistorySessionLifecycle {
+  const row = isRecord(input) ? input : {};
+  const preparedAccessWindows = numberOrZero(row.preparedAccessWindows);
+  const revokedAccessWindows = numberOrZero(row.revokedAccessWindows);
+  const missingExpiry = numberOrZero(row.missingExpiry);
+  const identityCheckEnabled = numberOrZero(row.identityCheckEnabled);
+  const policyReadyAccessWindows = numberOrZero(row.policyReadyAccessWindows);
+  const status = preparedAccessWindows === 0 && revokedAccessWindows === 0
+    ? "no_access_windows"
+    : (
+      missingExpiry > 0
+      || identityCheckEnabled < preparedAccessWindows
+      || policyReadyAccessWindows < preparedAccessWindows
+    )
+      ? "governance_attention"
+      : "governance_ready";
+  return {
+    preparedAccessWindows,
+    revokedAccessWindows,
+    activeAccessWindows: numberOrZero(row.activeAccessWindows),
+    expiringIn24h: numberOrZero(row.expiringIn24h),
+    expiredAccessWindows: numberOrZero(row.expiredAccessWindows),
+    missingExpiry,
+    identityCheckEnabled,
+    policyReadyAccessWindows,
+    status,
+    sessionBoundary: {
+      temporaryCredentialsExposed: false,
+      qrSessionExposed: false,
+      rawTokensExposed: false,
+    },
+  };
+}
+
 export function toSelfHostedPatientPortalPhotoProtocol(input: unknown): SelfHostedPatientPortalPhotoProtocol {
   const row = isRecord(input) ? input : {};
   const counts = nested(row, "counts");
@@ -688,6 +778,8 @@ export function toSelfHostedPatientPortalHistory(input: unknown): SelfHostedPati
       ? row.timeline.map(toSelfHostedPatientPortalHistoryTimelineItem).filter((item) => item.id)
       : [],
     retentionGovernance: toSelfHostedPatientPortalHistoryRetentionGovernance(row.retentionGovernance),
+    comparisonOperations: toSelfHostedPatientPortalHistoryComparisonOperations(row.comparisonOperations),
+    sessionLifecycle: toSelfHostedPatientPortalHistorySessionLifecycle(row.sessionLifecycle),
     longitudinalBoundary: toSelfHostedPatientPortalHistoryBoundary(row.longitudinalBoundary),
   };
 }

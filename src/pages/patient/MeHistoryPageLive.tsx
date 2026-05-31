@@ -52,6 +52,30 @@ function retentionStatusLabel(status: SelfHostedPatientPortalHistory["retentionG
   }
 }
 
+function comparisonStatusLabel(status: SelfHostedPatientPortalHistory["comparisonOperations"]["status"]): string {
+  switch (status) {
+    case "ready_for_review":
+      return "Серия готова к проверке";
+    case "partial_ready":
+      return "Серия частично собрана";
+    case "needs_capture":
+      return "Нужны контрольные фото";
+    default:
+      return "Серия пока не собрана";
+  }
+}
+
+function sessionLifecycleStatusLabel(status: SelfHostedPatientPortalHistory["sessionLifecycle"]["status"]): string {
+  switch (status) {
+    case "governance_ready":
+      return "Контур доступа стабилен";
+    case "governance_attention":
+      return "Нужна проверка срока доступа";
+    default:
+      return "Окна доступа не подготовлены";
+  }
+}
+
 export default function MeHistoryPageLive() {
   const session = useSelfHostedApiSession();
   const [status, setStatus] = useState<LoadStatus>(() => session.apiToken ? "loading" : "missing_session");
@@ -258,6 +282,62 @@ export default function MeHistoryPageLive() {
                   <Button asChild variant="outline" className="mt-3 w-full min-h-[44px] text-[12px] sm:min-h-[36px]">
                     <Link to="/me/reports">Открыть заключения</Link>
                   </Button>
+                </Card>
+
+                <Card className="min-w-0 p-4" aria-label="Операции сравнения">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-[15px] font-semibold">Операции сравнения</h2>
+                    <StatePill>{comparisonStatusLabel(history.comparisonOperations.status)}</StatePill>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-2 text-[12px]">
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <dt className="text-muted-foreground">Очагов в протоколе</dt>
+                      <dd className="font-medium">{history.comparisonOperations.lesionsTotal}</dd>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <dt className="text-muted-foreground">Готово к проверке</dt>
+                      <dd className="font-medium">{history.comparisonOperations.readyForDoctorReview}</dd>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <dt className="text-muted-foreground">Нужен следующий кадр</dt>
+                      <dd className="font-medium">{history.comparisonOperations.requiresNextCapture}</dd>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <dt className="text-muted-foreground">Покрытие серии</dt>
+                      <dd className="font-medium">{history.comparisonOperations.comparableCoveragePercent}%</dd>
+                    </div>
+                  </dl>
+                  <p className="mt-2 text-[12px] text-muted-foreground">
+                    Автосравнение не публикуется пациенту: динамику подтверждает врач на визите.
+                  </p>
+                </Card>
+
+                <Card className="min-w-0 p-4" aria-label="Жизненный цикл доступа">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-[15px] font-semibold">Жизненный цикл доступа</h2>
+                    <StatePill>{sessionLifecycleStatusLabel(history.sessionLifecycle.status)}</StatePill>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-2 text-[12px]">
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <dt className="text-muted-foreground">Активные окна</dt>
+                      <dd className="font-medium">{history.sessionLifecycle.activeAccessWindows}</dd>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <dt className="text-muted-foreground">Истекают ≤24ч</dt>
+                      <dd className="font-medium">{history.sessionLifecycle.expiringIn24h}</dd>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <dt className="text-muted-foreground">Отозвано</dt>
+                      <dd className="font-medium">{history.sessionLifecycle.revokedAccessWindows}</dd>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <dt className="text-muted-foreground">Без срока</dt>
+                      <dd className="font-medium">{history.sessionLifecycle.missingExpiry}</dd>
+                    </div>
+                  </dl>
+                  <p className="mt-2 text-[12px] text-muted-foreground">
+                    Временные коды, QR-сессии и токены не показываются в пациентском интерфейсе.
+                  </p>
                 </Card>
               </div>
             </div>

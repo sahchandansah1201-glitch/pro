@@ -260,6 +260,70 @@ function normalizeHistoryRetentionGovernance(input = {}) {
   };
 }
 
+function normalizeHistoryComparisonOperations(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const lesionsTotal = numberOrZero(source.lesionsTotal);
+  const readyForDoctorReview = numberOrZero(source.readyForDoctorReview);
+  const requiresNextCapture = numberOrZero(source.requiresNextCapture);
+  const visitsWithComparableSeries = numberOrZero(source.visitsWithComparableSeries);
+  const comparableCoveragePercent = lesionsTotal === 0
+    ? 0
+    : Math.round((readyForDoctorReview / lesionsTotal) * 100);
+  const status = lesionsTotal === 0
+    ? "no_series"
+    : readyForDoctorReview === 0
+      ? "needs_capture"
+      : readyForDoctorReview >= lesionsTotal
+        ? "ready_for_review"
+        : "partial_ready";
+  return {
+    lesionsTotal,
+    readyForDoctorReview,
+    requiresNextCapture,
+    visitsWithComparableSeries,
+    comparableCoveragePercent,
+    status,
+    doctorReviewRequired: true,
+  };
+}
+
+function normalizeHistorySessionLifecycle(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const preparedAccessWindows = numberOrZero(source.preparedAccessWindows);
+  const revokedAccessWindows = numberOrZero(source.revokedAccessWindows);
+  const activeAccessWindows = numberOrZero(source.activeAccessWindows);
+  const expiringIn24h = numberOrZero(source.expiringIn24h);
+  const expiredAccessWindows = numberOrZero(source.expiredAccessWindows);
+  const missingExpiry = numberOrZero(source.missingExpiry);
+  const identityCheckEnabled = numberOrZero(source.identityCheckEnabled);
+  const policyReadyAccessWindows = numberOrZero(source.policyReadyAccessWindows);
+  const status = preparedAccessWindows === 0 && revokedAccessWindows === 0
+    ? "no_access_windows"
+    : (
+      missingExpiry > 0
+      || policyReadyAccessWindows < preparedAccessWindows
+      || identityCheckEnabled < preparedAccessWindows
+    )
+      ? "governance_attention"
+      : "governance_ready";
+  return {
+    preparedAccessWindows,
+    revokedAccessWindows,
+    activeAccessWindows,
+    expiringIn24h,
+    expiredAccessWindows,
+    missingExpiry,
+    identityCheckEnabled,
+    policyReadyAccessWindows,
+    status,
+    sessionBoundary: {
+      temporaryCredentialsExposed: false,
+      qrSessionExposed: false,
+      rawTokensExposed: false,
+    },
+  };
+}
+
 function normalizeHistoryBoundary(input = {}) {
   const source = input && typeof input === "object" ? input : {};
   return {
@@ -286,6 +350,8 @@ export function normalizePatientPortalHistory(input) {
       ? source.timeline.map(normalizeHistoryTimelineItem).filter((item) => item.id)
       : [],
     retentionGovernance: normalizeHistoryRetentionGovernance(source.retentionGovernance || {}),
+    comparisonOperations: normalizeHistoryComparisonOperations(source.comparisonOperations || {}),
+    sessionLifecycle: normalizeHistorySessionLifecycle(source.sessionLifecycle || {}),
     longitudinalBoundary: normalizeHistoryBoundary(source.longitudinalBoundary || {}),
   };
 }
@@ -433,6 +499,14 @@ visit_timeline as (
   order by v.started_at desc
   limit 20
 ),
+compare_stats as (
+  select
+    count(*)::int as lesions_total,
+    count(*) filter (where lh.comparable_snapshot_count >= 2)::int as ready_for_doctor_review,
+    count(*) filter (where lh.comparable_snapshot_count < 2)::int as requires_next_capture,
+    count(*) filter (where lh.snapshot_count >= 2)::int as lesions_with_series
+  from lesion_history lh
+),
 release_stats as (
   select
     count(*)::int as releases_total,
@@ -440,13 +514,34 @@ release_stats as (
     count(*) filter (where coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false))::int as patient_copy_approved,
     count(*) filter (where coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false))::int as file_proxy_enabled,
     count(*) filter (where r.expires_at is not null)::int as expires_configured,
+    count(*) filter (where r.status = 'prepared')::int as prepared_access_windows,
+    count(*) filter (where r.status = 'revoked')::int as revoked_access_windows,
+    count(*) filter (where r.status = 'prepared' and r.expires_at > now())::int as active_access_windows,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at > now()
+        and r.expires_at <= now() + interval '24 hours'
+    )::int as expiring_in_24h,
+    count(*) filter (where r.status = 'prepared' and r.expires_at <= now())::int as expired_access_windows,
+    count(*) filter (where r.status = 'prepared' and r.expires_at is null)::int as missing_expiry,
+    count(*) filter (
+      where r.status = 'prepared'
+        and coalesce((r.metadata_json ->> 'requiresIdentityCheck')::boolean, true)
+    )::int as identity_check_enabled,
     count(*) filter (
       where r.status = 'prepared'
         and coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false)
         and coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false)
         and coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false)
         and r.expires_at is not null
-    )::int as policy_ready
+    )::int as policy_ready,
+    count(*) filter (
+      where r.status = 'prepared'
+        and coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false)
+        and coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false)
+        and coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false)
+        and r.expires_at is not null
+    )::int as policy_ready_access_windows
   from patient_photo_protocol_releases r
   join portal_patient pp on pp.patient_id = r.patient_id and pp.clinic_id = r.clinic_id
   where r.status in ('prepared', 'revoked')
@@ -512,6 +607,63 @@ select jsonb_build_object(
     'fileProxyEnabled', 0,
     'expiresConfigured', 0,
     'policyReady', 0
+  )),
+  'comparisonOperations', coalesce((
+    select jsonb_build_object(
+      'lesionsTotal', cs.lesions_total,
+      'readyForDoctorReview', cs.ready_for_doctor_review,
+      'requiresNextCapture', cs.requires_next_capture,
+      'visitsWithComparableSeries', (
+        select count(*)::int
+        from visit_timeline vt
+        where vt.snapshot_count >= 2
+      ),
+      'comparableCoveragePercent', case
+        when cs.lesions_total = 0 then 0
+        else round((cs.ready_for_doctor_review::numeric / cs.lesions_total::numeric) * 100)::int
+      end,
+      'doctorReviewRequired', true
+    )
+    from compare_stats cs
+  ), jsonb_build_object(
+    'lesionsTotal', 0,
+    'readyForDoctorReview', 0,
+    'requiresNextCapture', 0,
+    'visitsWithComparableSeries', 0,
+    'comparableCoveragePercent', 0,
+    'doctorReviewRequired', true
+  )),
+  'sessionLifecycle', coalesce((
+    select jsonb_build_object(
+      'preparedAccessWindows', rs.prepared_access_windows,
+      'revokedAccessWindows', rs.revoked_access_windows,
+      'activeAccessWindows', rs.active_access_windows,
+      'expiringIn24h', rs.expiring_in_24h,
+      'expiredAccessWindows', rs.expired_access_windows,
+      'missingExpiry', rs.missing_expiry,
+      'identityCheckEnabled', rs.identity_check_enabled,
+      'policyReadyAccessWindows', rs.policy_ready_access_windows,
+      'sessionBoundary', jsonb_build_object(
+        'temporaryCredentialsExposed', false,
+        'qrSessionExposed', false,
+        'rawTokensExposed', false
+      )
+    )
+    from release_stats rs
+  ), jsonb_build_object(
+    'preparedAccessWindows', 0,
+    'revokedAccessWindows', 0,
+    'activeAccessWindows', 0,
+    'expiringIn24h', 0,
+    'expiredAccessWindows', 0,
+    'missingExpiry', 0,
+    'identityCheckEnabled', 0,
+    'policyReadyAccessWindows', 0,
+    'sessionBoundary', jsonb_build_object(
+      'temporaryCredentialsExposed', false,
+      'qrSessionExposed', false,
+      'rawTokensExposed', false
+    )
   )),
   'longitudinalBoundary', jsonb_build_object(
     'comparisonRequiresDoctorReview', true,
