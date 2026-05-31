@@ -248,6 +248,42 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
     expect(card.textContent ?? "").toMatch(/оценка:/);
     expect(card.textContent ?? "").not.toMatch(/Иван|Петров|Сидор|@|\+7\s?\(?\d/);
   });
+
+  it("Batch L: показывает агрегатный срез периода без пациентских строк", () => {
+    const { getByText } = renderPage();
+    const card = getByText("Срез периода").closest("div.p-4") as HTMLElement;
+    expect(card).toBeTruthy();
+    expect(card.textContent ?? "").toContain("Все данные");
+    expect(card.textContent ?? "").toMatch(/лиды:/i);
+    expect(card.textContent ?? "").toMatch(/записи:/i);
+    expect(card.textContent ?? "").toMatch(/карточки:/i);
+    expect(card.textContent ?? "").toMatch(/диалоги:/i);
+    expect(card.textContent ?? "").toMatch(/только агрегаты/i);
+    expect(card.textContent ?? "").not.toMatch(/Иван|Петров|Сидор|@|\+7\s?\(?\d/);
+  });
+
+  it("Batch L: показывает операционный разбор по узким местам", () => {
+    const { getByText } = renderPage();
+    const card = getByText("Операционный разбор").closest("div.p-4") as HTMLElement;
+    expect(card).toBeTruthy();
+
+    const cards = getAnalysisCards();
+    const dialogs = getDialogs();
+    const leads = getLeads();
+    const needsRepeat = cards.filter((c) => !c.qualityGate.passed).length;
+    const handoff = dialogs.filter((d) => d.state === "with_operator").length;
+    const lost = leads.filter((l) => l.status === "lost").length;
+    const highUrgent = cards.filter((c) => c.routingRisk === "high" || c.routingRisk === "urgent").length;
+
+    expect(card.textContent ?? "").toMatch(/Повтор фото/);
+    expect(card.textContent ?? "").toMatch(/Передача оператору/);
+    expect(card.textContent ?? "").toMatch(/Потерянные лиды/);
+    expect(card.textContent ?? "").toMatch(/Высокий\/срочный маршрут/);
+    for (const n of [needsRepeat, handoff, lost, highUrgent]) {
+      expect(card.textContent ?? "").toContain(String(n));
+    }
+    expect(card.textContent ?? "").toMatch(/без персональных строк/i);
+  });
 });
 
 describe("AdminAnalyticsPage — фильтр периода", () => {
@@ -309,6 +345,9 @@ describe("AdminAnalyticsPage — демо-действия", () => {
     expect(json).toMatch(/"financeAssumptions"/);
     expect(json).toMatch(/"clinicValue"/);
     expect(json).toMatch(/"methodologyStatus": "demo_needs_validation"/);
+    expect(json).toMatch(/"periodSlice"/);
+    expect(json).toMatch(/"operationalBottlenecks"/);
+    expect(json).toMatch(/"scope": "aggregate_only"/);
 
     // Запрещённые токены не должны утечь и в JSON.
     for (const t of FORBIDDEN_TOKENS) {

@@ -40,6 +40,11 @@ const RANGES: { key: RangeKey; label: string }[] = [
   { key: "march_2026", label: "Март 2026" },
   { key: "last_90d", label: "Последние 90 дней" },
 ];
+const RANGE_META: Record<RangeKey, { label: string; windowLabel: string }> = {
+  all: { label: "Все данные", windowLabel: "полный демо-набор" },
+  march_2026: { label: "Март 2026", windowLabel: "01.03-31.03.2026" },
+  last_90d: { label: "Последние 90 дней", windowLabel: "03.02-04.05.2026" },
+};
 
 /**
  * Фиксированный «сейчас» для детерминированных демо-данных.
@@ -432,6 +437,7 @@ export default function AdminAnalyticsPage() {
         )
       : 0;
   const repeatCta = data.cards.filter((c) => c.ctaType === "repeat_photo").length;
+  const withOperator = data.dialogs.filter((d) => d.state === "with_operator").length;
 
   // Bot dialog state aggregates
   const dialogStates = useMemo(() => {
@@ -493,9 +499,51 @@ export default function AdminAnalyticsPage() {
       .sort((a, b) => b.estimatedRub - a.estimatedRub || b.completed - a.completed);
   }, [data.appointments, data.clinics]);
 
+  const periodSlice = {
+    label: RANGE_META[range].label,
+    windowLabel: RANGE_META[range].windowLabel,
+    scope: "aggregate_only",
+    leads: totalLeads,
+    appointments: data.appointments.length,
+    analysisCards: totalCards,
+    dialogs: data.dialogs.length,
+  };
+
+  const operationalBottlenecks = [
+    {
+      key: "repeat_photo",
+      label: "Повтор фото",
+      count: needsRepeat,
+      share: pct(needsRepeat, totalCards),
+      basis: "от карточек",
+    },
+    {
+      key: "operator_handoff",
+      label: "Передача оператору",
+      count: withOperator,
+      share: pct(withOperator, data.dialogs.length),
+      basis: "от диалогов",
+    },
+    {
+      key: "lost_leads",
+      label: "Потерянные лиды",
+      count: lostLeads.length,
+      share: pct(lostLeads.length, totalLeads),
+      basis: "от лидов",
+    },
+    {
+      key: "high_urgent",
+      label: "Высокий/срочный маршрут",
+      count: highOrUrgent,
+      share: pct(highOrUrgent, totalCards),
+      basis: "от карточек",
+    },
+  ];
+
   const onGenerateReport = () => {
     const safeAggregate = {
       range,
+      periodSlice,
       kpi: {
         leads: totalLeads,
         qualified: qualifiedLeads,
@@ -556,6 +604,7 @@ export default function AdminAnalyticsPage() {
         planned: row.planned,
         estimatedRub: row.estimatedRub,
       })),
+      operationalBottlenecks,
     };
     setReportPreview(JSON.stringify(safeAggregate, null, 2));
   };
@@ -631,6 +680,72 @@ export default function AdminAnalyticsPage() {
               />
             </>
           )}
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <SectionCard title="Срез периода" hint="только агрегаты">
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-md border border-border bg-surface-muted px-3 py-2">
+                  <div className="text-[12px] font-medium">{periodSlice.label}</div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    Окно: {periodSlice.windowLabel}. Граница: только агрегаты.
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[12px] sm:grid-cols-4">
+                  <div className="rounded-md border border-border px-3 py-2">
+                    <div className="text-muted-foreground">лиды:</div>
+                    <div className="text-[18px] font-semibold tabular-nums">
+                      {periodSlice.leads}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border px-3 py-2">
+                    <div className="text-muted-foreground">записи:</div>
+                    <div className="text-[18px] font-semibold tabular-nums">
+                      {periodSlice.appointments}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border px-3 py-2">
+                    <div className="text-muted-foreground">карточки:</div>
+                    <div className="text-[18px] font-semibold tabular-nums">
+                      {periodSlice.analysisCards}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border px-3 py-2">
+                    <div className="text-muted-foreground">диалоги:</div>
+                    <div className="text-[18px] font-semibold tabular-nums">
+                      {periodSlice.dialogs}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Операционный разбор" hint="без персональных строк">
+            {isLoading ? (
+              <SectionSkeleton rows={4} />
+            ) : (
+              <div className="divide-y divide-border rounded-md border border-border">
+                {operationalBottlenecks.map((row) => (
+                  <div
+                    key={row.key}
+                    className="grid grid-cols-1 gap-1 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto_auto]"
+                  >
+                    <span className="font-medium">{row.label}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {row.count}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {fmtPct(row.share)} · {row.basis}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
