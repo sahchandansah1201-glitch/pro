@@ -32,6 +32,7 @@ New PostgreSQL contract:
 Endpoints:
 
 - `GET /api/v1/me/portal`
+- `GET /api/v1/me/history`
 - `GET /api/v1/me/reports/{reportId}`
 - `GET /api/v1/me/photo-protocols/{visitId}`
 - `GET /api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download`
@@ -63,11 +64,17 @@ object storage without returning object bucket/key values, storage paths,
 signed URLs, access tokens, or doctor-only text. Denied and successful proxy
 attempts are audit-recorded.
 
+`GET /api/v1/me/history` returns a patient-safe longitudinal history model:
+lesion cards, visit timeline, and aggregate photo-protocol policy/retention
+counters. It does not expose diagnosis strings, doctor-only text, raw files,
+storage paths, signed links, access tokens, or object identifiers.
+
 ## 3. Frontend
 
 Production pages:
 
 - `/me`
+- `/me/history`
 - `/me/reports`
 - `/me/reports/:id`
 - `/me/booking`
@@ -89,6 +96,10 @@ When the photo protocol is revoked, `/me/reports/:id` shows
 controls stay visible but disabled, so the patient can understand what changed
 without triggering the download proxy. Detailed append-only audit, revoke
 reason, and service payload remain backend-only.
+
+The production `/me/history` screen reads only `/api/v1/me/history` and keeps
+the same safety boundary: comparison remains doctor-reviewed, and raw access
+artifacts stay hidden from the patient DOM.
 
 ## 4. Product Boundary
 

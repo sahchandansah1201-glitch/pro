@@ -51,6 +51,17 @@ function createService(overrides = {}) {
               photos: [{ sequence: 1, kind: "overview_photo", previewAvailable: false }],
             };
       },
+      async getHistory() {
+        return overrides.history || {
+          clinic: { id: "c-1" },
+          lesions: [{ id: "lesion-1" }],
+          timeline: [{ id: "visit-1" }],
+          retentionGovernance: {
+            releasesTotal: 1,
+            policyReady: 0,
+          },
+        };
+      },
       async createBookingRequest() {
         return overrides.bookingRequest === null
           ? null
@@ -88,14 +99,17 @@ test("Stage 5N service allows patient role and audits overview/report reads", as
   const overview = await service.getOverview(authContext, { correlationId: "corr-1" });
   const report = await service.getReport(REPORT_ID, authContext, { correlationId: "corr-2" });
   const photoProtocol = await service.getPhotoProtocol(VISIT_ID, authContext, { correlationId: "corr-5" });
+  const history = await service.getHistory(authContext, { correlationId: "corr-6" });
 
   assert.equal(overview.scope.userId, USER_ID);
   assert.equal(report.report.patientSafeText, "Отчёт для пациента");
   assert.equal(photoProtocol.photoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
+  assert.equal(history.history.retentionGovernance.releasesTotal, 1);
   assert.deepEqual(auditEvents.map((event) => event.action), [
     "patient_portal.overview.read",
     "patient_portal.report.read",
     "patient_portal.photo_protocol.read",
+    "patient_portal.history.read",
   ]);
 });
 

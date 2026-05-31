@@ -35,6 +35,7 @@ function createRuntime({
   patientPortalOverview = null,
   patientPortalReport = null,
   patientPortalPhotoProtocol = null,
+  patientPortalHistory = null,
   patientPhotoProtocolDownload = null,
   patientPortalBookingRequest = null,
   patientPortalReminderPreferences = null,
@@ -397,6 +398,48 @@ function createRuntime({
                 previewAvailable: false,
               },
             ],
+          },
+          scope: {
+            userId: authContext?.userId,
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async getHistory() {
+        if (patientPortalError) throw patientPortalError;
+        return {
+          history: patientPortalHistory || {
+            clinic: { id: "10000000-0000-4000-8000-000000000001", name: "Live Clinic" },
+            lesions: [{
+              id: "10000000-0000-4000-8000-000000000701",
+              title: "Очаг A",
+              bodyZone: "спина",
+              snapshotCount: 2,
+              comparableSnapshotCount: 2,
+              comparisonState: "Есть серия снимков для врачебного сравнения.",
+            }],
+            timeline: [{
+              id: "10000000-0000-4000-8000-000000000301",
+              visitId: "10000000-0000-4000-8000-000000000301",
+              visitDate: "2026-06-01T10:00:00.000Z",
+              summary: "Patient-safe text",
+              observedCount: 1,
+            }],
+            retentionGovernance: {
+              releasesTotal: 1,
+              retentionApproved: 1,
+              patientCopyApproved: 1,
+              fileProxyEnabled: 1,
+              expiresConfigured: 1,
+              policyReady: 1,
+              status: "policy_ready",
+            },
+            longitudinalBoundary: {
+              comparisonRequiresDoctorReview: true,
+              clinicalDecisionExposed: false,
+              rawFilesExposed: false,
+              doctorOnlyTextExposed: false,
+            },
           },
           scope: {
             userId: authContext?.userId,
@@ -5062,6 +5105,20 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
     /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token/i,
   );
 
+  const history = await request(
+    "/api/v1/me/history",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(history.status, 200);
+  assert.equal(history.json.stage, "5N");
+  assert.equal(history.json.history.lesions[0].title, "Очаг A");
+  assert.equal(history.json.history.retentionGovernance.policyReady, 1);
+  assert.doesNotMatch(
+    history.body,
+    /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token|diagnosis/i,
+  );
+
   const photoDownload = await request(
     "/api/v1/me/photo-protocols/10000000-0000-4000-8000-000000000301/photos/1/download",
     configuredEnv,
@@ -5101,6 +5158,7 @@ test("Stage 5N · /openapi.stage5n.json documents patient portal contracts", asy
   assert.equal(response.status, 200);
   assert.equal(response.json.info.version, "5N-patient-portal");
   assert.ok(response.json.paths["/api/v1/me/portal"].get);
+  assert.ok(response.json.paths["/api/v1/me/history"].get);
   assert.ok(response.json.paths["/api/v1/me/reports/{reportId}"].get);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}"].get);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download"].get);

@@ -3,11 +3,13 @@ import { test } from "node:test";
 
 import {
   buildPatientPortalOverviewSql,
+  buildPatientPortalHistorySql,
   buildPatientPortalPhotoProtocolSql,
   buildPatientPortalReportSql,
   buildCreatePatientPortalBookingRequestSql,
   buildUpdatePatientPortalReminderPreferencesSql,
   createPatientPortalRepository,
+  normalizePatientPortalHistory,
   normalizePatientPortalOverview,
   normalizePatientPortalPhotoProtocol,
   normalizePatientPortalReport,
@@ -42,6 +44,18 @@ test("Stage 5N SQL scopes patient photo protocol reads and excludes protected as
   assert.match(photoProtocolSql, /previewAvailable/);
   assert.match(photoProtocolSql, /auditTrail/);
   assert.doesNotMatch(photoProtocolSql, /object_bucket|object_key|checksum_sha256|signed_url|access_token|physician_text|revoke_reason/i);
+});
+
+test("Stage 5N SQL scopes patient-safe history reads and policy counters", () => {
+  const historySql = buildPatientPortalHistorySql({ userId: USER_ID });
+
+  assert.match(historySql, /patient_user_links/);
+  assert.match(historySql, /lesion_history/);
+  assert.match(historySql, /visit_timeline/);
+  assert.match(historySql, /patient_photo_protocol_releases/);
+  assert.match(historySql, /retentionPolicyApproved/);
+  assert.match(historySql, /longitudinalBoundary/);
+  assert.doesNotMatch(historySql, /physician_text|object_bucket|object_key|checksum_sha256|signed_url|access_token|revoke_reason/i);
 });
 
 test("Stage 5O SQL writes booking requests and reminder preferences through patient_user_links", () => {
@@ -180,6 +194,45 @@ test("Stage 5N normalizers expose patient-safe portal DTOs only", () => {
   assert.equal("objectKey" in photoProtocol.photos[0], false);
   assert.equal("signedUrl" in photoProtocol.photos[0], false);
   assert.equal("physicianText" in photoProtocol, false);
+
+  const history = normalizePatientPortalHistory({
+    clinic: { id: "c-1", name: "Клиника" },
+    lesions: [{
+      id: "lesion-1",
+      title: "Очаг A",
+      status: "active",
+      snapshotCount: 2,
+      comparableSnapshotCount: 2,
+      nextStep: "Покажите серию врачу на контрольном визите.",
+      comparisonState: "Есть серия снимков для врачебного сравнения.",
+      physicianText: "hidden",
+    }],
+    timeline: [{
+      id: "visit-1",
+      visitStatus: "closed",
+      summary: "Безопасный итог",
+      diagnosis: "hidden",
+    }],
+    retentionGovernance: {
+      releasesTotal: 2,
+      retentionApproved: 1,
+      patientCopyApproved: 1,
+      fileProxyEnabled: 1,
+      expiresConfigured: 1,
+      policyReady: 1,
+    },
+    longitudinalBoundary: {
+      comparisonRequiresDoctorReview: true,
+      diagnosisExposed: true,
+      rawFilesExposed: true,
+      doctorOnlyTextExposed: true,
+    },
+  });
+  assert.equal(history.lesions[0].stateLabel, "Врачебная проверка");
+  assert.equal(history.timeline[0].stateLabel, "Завершён");
+  assert.equal(history.retentionGovernance.status, "policy_in_progress");
+  assert.equal(history.longitudinalBoundary.clinicalDecisionExposed, false);
+  assert.equal("physicianText" in history.lesions[0], false);
 });
 
 test("Stage 5N repository reads overview and report through db client", async () => {
@@ -195,6 +248,27 @@ test("Stage 5N repository reads overview and report through db client", async ()
       }
       if (sql.includes("r.id =")) {
         return [{ id: REPORT_ID, patientSafeText: "Отчёт" }];
+      }
+      if (sql.includes("longitudinalBoundary")) {
+        return [{
+          clinic: { id: "c-1", name: "Клиника" },
+          lesions: [{ id: "lesion-1", title: "Очаг A", status: "active" }],
+          timeline: [{ id: VISIT_ID, visitStatus: "closed" }],
+          retentionGovernance: {
+            releasesTotal: 1,
+            retentionApproved: 1,
+            patientCopyApproved: 1,
+            fileProxyEnabled: 1,
+            expiresConfigured: 1,
+            policyReady: 1,
+          },
+          longitudinalBoundary: {
+            comparisonRequiresDoctorReview: true,
+            diagnosisExposed: false,
+            rawFilesExposed: false,
+            doctorOnlyTextExposed: false,
+          },
+        }];
       }
       if (sql.includes("patient_photo_protocol_releases")) {
         return [{
@@ -216,6 +290,7 @@ test("Stage 5N repository reads overview and report through db client", async ()
   const overview = await repository.getOverview({ userId: USER_ID });
   const report = await repository.getReport({ userId: USER_ID, reportId: REPORT_ID });
   const photoProtocol = await repository.getPhotoProtocol({ userId: USER_ID, visitId: VISIT_ID });
+  const history = await repository.getHistory({ userId: USER_ID });
   const booking = await repository.createBookingRequest({
     userId: USER_ID,
     preferredFrom: "2026-06-15T10:00:00.000Z",
@@ -232,7 +307,8 @@ test("Stage 5N repository reads overview and report through db client", async ()
   assert.equal(report.id, REPORT_ID);
   assert.equal(photoProtocol.visitId, VISIT_ID);
   assert.equal(photoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
+  assert.equal(history.retentionGovernance.releasesTotal, 1);
   assert.equal(booking.id, "br-1");
   assert.equal(preferences.preferredChannel, "phone");
-  assert.equal(calls.length, 5);
+  assert.equal(calls.length, 6);
 });

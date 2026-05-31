@@ -78,6 +78,78 @@
             }
           }
         }
+      },
+      "PatientPortalHistory": {
+        "type": "object",
+        "description": "Patient-safe longitudinal lesion history. Diagnosis, doctor-only text, raw files, storage paths, temporary links, and tokens are not exposed.",
+        "properties": {
+          "clinic": {
+            "type": "object",
+            "properties": {
+              "id": { "type": ["string", "null"] },
+              "slug": { "type": ["string", "null"] },
+              "name": { "type": ["string", "null"] }
+            }
+          },
+          "lesions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "title": { "type": "string" },
+                "bodyZone": { "type": ["string", "null"] },
+                "bodySurface": { "type": ["string", "null"] },
+                "status": { "type": "string" },
+                "stateLabel": { "type": "string" },
+                "firstSeenAt": { "type": ["string", "null"], "format": "date-time" },
+                "checkedAt": { "type": ["string", "null"], "format": "date-time" },
+                "snapshotCount": { "type": "integer", "minimum": 0 },
+                "comparableSnapshotCount": { "type": "integer", "minimum": 0 },
+                "nextStep": { "type": "string" },
+                "comparisonState": { "type": "string" }
+              }
+            }
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "visitId": { "type": ["string", "null"] },
+                "visitDate": { "type": ["string", "null"], "format": "date-time" },
+                "visitStatus": { "type": "string" },
+                "stateLabel": { "type": "string" },
+                "clinicName": { "type": ["string", "null"] },
+                "summary": { "type": ["string", "null"] },
+                "observedCount": { "type": "integer", "minimum": 0 },
+                "snapshotCount": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "retentionGovernance": {
+            "type": "object",
+            "properties": {
+              "releasesTotal": { "type": "integer", "minimum": 0 },
+              "retentionApproved": { "type": "integer", "minimum": 0 },
+              "patientCopyApproved": { "type": "integer", "minimum": 0 },
+              "fileProxyEnabled": { "type": "integer", "minimum": 0 },
+              "expiresConfigured": { "type": "integer", "minimum": 0 },
+              "policyReady": { "type": "integer", "minimum": 0 },
+              "status": { "type": "string", "enum": ["no_releases", "policy_in_progress", "policy_ready"] }
+            }
+          },
+          "longitudinalBoundary": {
+            "type": "object",
+            "properties": {
+              "comparisonRequiresDoctorReview": { "type": "boolean", "const": true },
+              "clinicalDecisionExposed": { "type": "boolean", "const": false },
+              "rawFilesExposed": { "type": "boolean", "const": false },
+              "doctorOnlyTextExposed": { "type": "boolean", "const": false }
+            }
+          }
+        }
       }
     }
   },
@@ -94,6 +166,30 @@
         "responses": {
           "200": {
             "description": "Patient portal overview"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Only patient role may read this endpoint"
+          }
+        }
+      }
+    },
+    "/api/v1/me/history": {
+      "get": {
+        "summary": "Read patient-safe lesion history",
+        "description": "Returns a longitudinal patient-safe history: lesion list, visit timeline, and aggregate retention-policy governance counters. Diagnosis, doctor-only text, raw files, storage paths, temporary links, and tokens are not exposed.",
+        "responses": {
+          "200": {
+            "description": "Patient-safe lesion history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPortalHistory"
+                }
+              }
+            }
           },
           "401": {
             "description": "Authentication required"

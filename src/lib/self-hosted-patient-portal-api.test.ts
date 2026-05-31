@@ -3,10 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createSelfHostedPatientPortalBookingRequest,
   fetchSelfHostedPatientPortal,
+  fetchSelfHostedPatientPortalHistory,
   fetchSelfHostedPatientPortalPhotoProtocolPhoto,
   fetchSelfHostedPatientPortalPhotoProtocol,
   fetchSelfHostedPatientPortalReport,
   updateSelfHostedPatientPortalReminderPreferences,
+  toSelfHostedPatientPortalHistory,
   toSelfHostedPatientPortalOverview,
   toSelfHostedPatientPortalPhotoProtocol,
   toSelfHostedPatientPortalReport,
@@ -117,6 +119,38 @@ describe("self-hosted-patient-portal-api", () => {
     expect(photoProtocol.photos[0]).not.toHaveProperty("objectKey");
     expect(photoProtocol.photos[0]).not.toHaveProperty("signedUrl");
     expect(photoProtocol).not.toHaveProperty("physicianText");
+
+    const history = toSelfHostedPatientPortalHistory({
+      clinic: { id: "c-1", name: "Клиника" },
+      lesions: [{
+        id: "lesion-1",
+        title: "Очаг A",
+        status: "active",
+        snapshotCount: 2,
+        comparableSnapshotCount: 2,
+        diagnosis: "hidden",
+      }],
+      timeline: [{
+        id: "visit-1",
+        visitStatus: "closed",
+        summary: "Безопасный итог",
+        physicianText: "hidden",
+      }],
+      retentionGovernance: {
+        releasesTotal: 2,
+        retentionApproved: 1,
+        patientCopyApproved: 1,
+        fileProxyEnabled: 1,
+        expiresConfigured: 1,
+        policyReady: 1,
+      },
+    });
+    expect(history.lesions[0].stateLabel).toBe("Врачебная проверка");
+    expect(history.timeline[0].stateLabel).toBe("Завершён");
+    expect(history.retentionGovernance.status).toBe("policy_in_progress");
+    expect(history.longitudinalBoundary.comparisonRequiresDoctorReview).toBe(true);
+    expect(history.lesions[0]).not.toHaveProperty("diagnosis");
+    expect(history.timeline[0]).not.toHaveProperty("physicianText");
   });
 
   it("fetches portal overview with bearer token", async () => {
@@ -207,6 +241,48 @@ describe("self-hosted-patient-portal-api", () => {
     expect(result.value.photos[0].previewAvailable).toBe(false);
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/me/photo-protocols/v-1",
+      expect.objectContaining({
+        method: "GET",
+        headers: { Accept: "application/json", Authorization: "Bearer token-1" },
+      }),
+    );
+  });
+
+  it("fetches patient-safe history with policy governance counters", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          history: {
+            clinic: { id: "c-1", name: "Клиника" },
+            lesions: [{ id: "lesion-1", title: "Очаг A", status: "active" }],
+            timeline: [{ id: "visit-1", visitStatus: "closed", summary: "Безопасный итог" }],
+            retentionGovernance: {
+              releasesTotal: 1,
+              retentionApproved: 1,
+              patientCopyApproved: 1,
+              fileProxyEnabled: 1,
+              expiresConfigured: 1,
+              policyReady: 1,
+            },
+            longitudinalBoundary: {
+              comparisonRequiresDoctorReview: true,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await fetchSelfHostedPatientPortalHistory({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value.lesions[0].title).toBe("Очаг A");
+    expect(result.value.retentionGovernance.status).toBe("policy_ready");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/history",
       expect.objectContaining({
         method: "GET",
         headers: { Accept: "application/json", Authorization: "Bearer token-1" },

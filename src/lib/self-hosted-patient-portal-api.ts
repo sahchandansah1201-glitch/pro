@@ -147,6 +147,62 @@ export interface SelfHostedPatientPortalPhotoProtocolPhotoFile {
   fileName: string;
 }
 
+export interface SelfHostedPatientPortalHistoryLesion {
+  id: string;
+  title: string;
+  bodyZone: string | null;
+  bodySurface: string | null;
+  status: string;
+  stateLabel: string;
+  firstSeenAt: string | null;
+  checkedAt: string | null;
+  snapshotCount: number;
+  comparableSnapshotCount: number;
+  nextStep: string;
+  comparisonState: string;
+}
+
+export interface SelfHostedPatientPortalHistoryTimelineItem {
+  id: string;
+  visitId: string | null;
+  visitDate: string | null;
+  visitStatus: string;
+  stateLabel: string;
+  clinicName: string | null;
+  summary: string | null;
+  observedCount: number;
+  snapshotCount: number;
+}
+
+export interface SelfHostedPatientPortalHistoryRetentionGovernance {
+  releasesTotal: number;
+  retentionApproved: number;
+  patientCopyApproved: number;
+  fileProxyEnabled: number;
+  expiresConfigured: number;
+  policyReady: number;
+  status: "no_releases" | "policy_in_progress" | "policy_ready";
+}
+
+export interface SelfHostedPatientPortalHistoryBoundary {
+  comparisonRequiresDoctorReview: true;
+  clinicalDecisionExposed: false;
+  rawFilesExposed: false;
+  doctorOnlyTextExposed: false;
+}
+
+export interface SelfHostedPatientPortalHistory {
+  clinic: {
+    id: string | null;
+    slug: string | null;
+    name: string | null;
+  };
+  lesions: SelfHostedPatientPortalHistoryLesion[];
+  timeline: SelfHostedPatientPortalHistoryTimelineItem[];
+  retentionGovernance: SelfHostedPatientPortalHistoryRetentionGovernance;
+  longitudinalBoundary: SelfHostedPatientPortalHistoryBoundary;
+}
+
 export interface SelfHostedPatientPortalOverview {
   patient: SelfHostedPatientPortalPatient;
   nextAppointment: SelfHostedPatientPortalAppointment | null;
@@ -464,6 +520,108 @@ function toSelfHostedPatientPortalPhotoProtocolAuditEntry(
   };
 }
 
+function lesionStateLabel(status: string): string {
+  switch (status) {
+    case "active":
+      return "Врачебная проверка";
+    case "monitoring":
+      return "Плановое наблюдение";
+    case "removed":
+    case "archived":
+      return "Архив";
+    default:
+      return "Под наблюдением";
+  }
+}
+
+function visitStateLabel(status: string): string {
+  switch (status) {
+    case "scheduled":
+      return "Запланирован";
+    case "in_progress":
+      return "Открыт";
+    case "closed":
+      return "Завершён";
+    case "cancelled":
+      return "Отменён";
+    default:
+      return "В работе";
+  }
+}
+
+function toSelfHostedPatientPortalHistoryLesion(input: unknown): SelfHostedPatientPortalHistoryLesion {
+  const row = isRecord(input) ? input : {};
+  const status = String(row.status ?? "active");
+  const comparableSnapshotCount = numberOrZero(row.comparableSnapshotCount);
+  return {
+    id: String(row.id ?? ""),
+    title: String(row.title ?? row.label ?? "Очаг"),
+    bodyZone: textOrNull(row.bodyZone),
+    bodySurface: textOrNull(row.bodySurface),
+    status,
+    stateLabel: String(row.stateLabel ?? lesionStateLabel(status)),
+    firstSeenAt: textOrNull(row.firstSeenAt),
+    checkedAt: textOrNull(row.checkedAt),
+    snapshotCount: numberOrZero(row.snapshotCount),
+    comparableSnapshotCount,
+    nextStep: String(row.nextStep ?? "Покажите динамику врачу на контрольном визите."),
+    comparisonState: String(
+      row.comparisonState
+      ?? (comparableSnapshotCount >= 2
+        ? "Есть серия снимков для врачебного сравнения."
+        : "Динамика появится после следующего контрольного визита."),
+    ),
+  };
+}
+
+function toSelfHostedPatientPortalHistoryTimelineItem(input: unknown): SelfHostedPatientPortalHistoryTimelineItem {
+  const row = isRecord(input) ? input : {};
+  const visitStatus = String(row.visitStatus ?? row.status ?? "closed");
+  return {
+    id: String(row.id ?? ""),
+    visitId: textOrNull(row.visitId ?? row.id),
+    visitDate: textOrNull(row.visitDate),
+    visitStatus,
+    stateLabel: String(row.stateLabel ?? visitStateLabel(visitStatus)),
+    clinicName: textOrNull(row.clinicName),
+    summary: textOrNull(row.summary),
+    observedCount: numberOrZero(row.observedCount),
+    snapshotCount: numberOrZero(row.snapshotCount),
+  };
+}
+
+function toSelfHostedPatientPortalHistoryRetentionGovernance(
+  input: unknown,
+): SelfHostedPatientPortalHistoryRetentionGovernance {
+  const row = isRecord(input) ? input : {};
+  const releasesTotal = numberOrZero(row.releasesTotal);
+  const policyReady = numberOrZero(row.policyReady);
+  const status =
+    releasesTotal === 0
+      ? "no_releases"
+      : policyReady >= releasesTotal
+        ? "policy_ready"
+        : "policy_in_progress";
+  return {
+    releasesTotal,
+    retentionApproved: numberOrZero(row.retentionApproved),
+    patientCopyApproved: numberOrZero(row.patientCopyApproved),
+    fileProxyEnabled: numberOrZero(row.fileProxyEnabled),
+    expiresConfigured: numberOrZero(row.expiresConfigured),
+    policyReady,
+    status,
+  };
+}
+
+function toSelfHostedPatientPortalHistoryBoundary(input: unknown): SelfHostedPatientPortalHistoryBoundary {
+  return {
+    comparisonRequiresDoctorReview: true,
+    clinicalDecisionExposed: false,
+    rawFilesExposed: false,
+    doctorOnlyTextExposed: false,
+  };
+}
+
 export function toSelfHostedPatientPortalPhotoProtocol(input: unknown): SelfHostedPatientPortalPhotoProtocol {
   const row = isRecord(input) ? input : {};
   const counts = nested(row, "counts");
@@ -514,6 +672,26 @@ export function toSelfHostedPatientPortalPhotoProtocol(input: unknown): SelfHost
   };
 }
 
+export function toSelfHostedPatientPortalHistory(input: unknown): SelfHostedPatientPortalHistory {
+  const row = isRecord(input) ? input : {};
+  const clinic = nested(row, "clinic");
+  return {
+    clinic: {
+      id: textOrNull(clinic.id),
+      slug: textOrNull(clinic.slug),
+      name: textOrNull(clinic.name),
+    },
+    lesions: Array.isArray(row.lesions)
+      ? row.lesions.map(toSelfHostedPatientPortalHistoryLesion).filter((item) => item.id)
+      : [],
+    timeline: Array.isArray(row.timeline)
+      ? row.timeline.map(toSelfHostedPatientPortalHistoryTimelineItem).filter((item) => item.id)
+      : [],
+    retentionGovernance: toSelfHostedPatientPortalHistoryRetentionGovernance(row.retentionGovernance),
+    longitudinalBoundary: toSelfHostedPatientPortalHistoryBoundary(row.longitudinalBoundary),
+  };
+}
+
 export function toSelfHostedPatientPortalOverview(input: unknown): SelfHostedPatientPortalOverview {
   const source = isRecord(input) ? input : {};
   return {
@@ -548,6 +726,15 @@ export async function fetchSelfHostedPatientPortalReport(
   if (!response.ok) return fail(response.error);
   const body = isRecord(response.value) ? response.value : {};
   return ok(toSelfHostedPatientPortalReport(body.item));
+}
+
+export async function fetchSelfHostedPatientPortalHistory(
+  args: BaseArgs,
+): Promise<SelfHostedApiResult<SelfHostedPatientPortalHistory>> {
+  const response = await requestJson(args, "/api/v1/me/history");
+  if (!response.ok) return fail(response.error);
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedPatientPortalHistory(body.history ?? body.item));
 }
 
 export async function fetchSelfHostedPatientPortalPhotoProtocol(

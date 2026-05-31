@@ -2592,6 +2592,34 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  if (url.pathname === "/api/v1/me/history" && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientPortalService.getHistory(authContext, {
+        correlationId,
+      });
+      return jsonResponse(
+        200,
+        {
+          stage: "5N",
+          source: "postgres",
+          history: result.history,
+          auth: {
+            userId: result.scope.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   const patientPortalReportMatch = url.pathname.match(/^\/api\/v1\/me\/reports\/([^/]+)$/);
   if (patientPortalReportMatch && method === "GET") {
     try {
@@ -5395,6 +5423,7 @@ export async function handleSelfHostedRequest(
           externalBookingImportStatus: "/api/v1/integrations/booking-imports/status",
           clinicAvailableSlots: "/api/v1/clinic/available-slots",
           patientPortal: "/api/v1/me/portal",
+          patientPortalHistory: "/api/v1/me/history",
           patientPortalReport: "/api/v1/me/reports/{reportId}",
           patientPortalBookingRequests: "/api/v1/me/booking-requests",
           patientPortalReminderPreferences: "/api/v1/me/reminder-preferences",

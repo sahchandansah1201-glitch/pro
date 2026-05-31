@@ -145,6 +145,48 @@ function mockFetch(options: { revokedPhotoProtocol?: boolean } = {}) {
         },
       });
     }
+    if (href.endsWith("/api/v1/me/history")) {
+      return response({
+        history: {
+          clinic: { id: "clinic-1", name: "Live Clinic" },
+          lesions: [{
+            id: "lesion-live-1",
+            title: "Очаг A",
+            status: "active",
+            bodyZone: "спина",
+            snapshotCount: 2,
+            comparableSnapshotCount: 2,
+            nextStep: "Покажите серию врачу на контрольном визите.",
+            comparisonState: "Есть серия снимков для врачебного сравнения.",
+          }],
+          timeline: [{
+            id: "visit-live-1",
+            visitId: "visit-live-1",
+            visitDate: "2026-05-20T10:00:00.000Z",
+            visitStatus: "closed",
+            clinicName: "Live Clinic",
+            summary: "Текст для пациента без врачебных внутренних данных.",
+            observedCount: 1,
+            snapshotCount: 2,
+          }],
+          retentionGovernance: {
+            releasesTotal: 1,
+            retentionApproved: 1,
+            patientCopyApproved: 1,
+            fileProxyEnabled: 1,
+            expiresConfigured: 1,
+            policyReady: 1,
+            status: "policy_ready",
+          },
+          longitudinalBoundary: {
+            comparisonRequiresDoctorReview: true,
+            clinicalDecisionExposed: false,
+            rawFilesExposed: false,
+            doctorOnlyTextExposed: false,
+          },
+        },
+      });
+    }
     if (href.endsWith("/api/v1/me/photo-protocols/visit-live-1/photos/1/download")) {
       return Promise.resolve(new Response("patient-photo", {
         status: 200,
@@ -325,15 +367,19 @@ describe("Patient portal · Stage 5N production", () => {
     expect(document.body).not.toHaveTextContent("patient-token");
   });
 
-  it("shows production-safe lesion history boundary without internal content", async () => {
+  it("shows production-safe lesion history data without internal content", async () => {
     mockFetch();
     renderRoute("/me/history");
 
     expect(await screen.findByText(/История очагов/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Контур безопасного протокола/ })).toBeInTheDocument();
-    expect(screen.getByText(/self-hosted backend пока не отдаёт проверенный протокол очагов/)).toBeInTheDocument();
-    expect(screen.getByText(/История доступна через выпущенные заключения/)).toBeInTheDocument();
+    expect(screen.getByText("Очаг A")).toBeInTheDocument();
+    expect(screen.getByText(/Есть серия снимков для врачебного сравнения/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Хронология визитов/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Контур политики доступа к фото/ })).toBeInTheDocument();
+    expect(screen.getAllByText("Policy ready").length).toBeGreaterThan(0);
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
+    expect(document.body).not.toHaveTextContent("physicianText");
   });
 
   it("shows production booking state and creates a self-hosted booking request", async () => {

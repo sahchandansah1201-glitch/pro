@@ -207,6 +207,26 @@ export function createPatientPortalService({
       return { photoProtocol, scope };
     },
 
+    async getHistory(authContext, { correlationId } = {}) {
+      const scope = patientPortalScope(authContext);
+      const history = await patientPortalRepository.getHistory({ userId: scope.userId });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: history.clinic?.id || null,
+        actorUserId: scope.userId,
+        action: "patient_portal.history.read",
+        entityType: "patient_portal",
+        entityId: scope.userId,
+        correlationId,
+        metadata: {
+          lesionCount: Array.isArray(history.lesions) ? history.lesions.length : 0,
+          timelineCount: Array.isArray(history.timeline) ? history.timeline.length : 0,
+          releasesTotal: Number(history.retentionGovernance?.releasesTotal ?? 0),
+          policyReady: Number(history.retentionGovernance?.policyReady ?? 0),
+        },
+      });
+      return { history, scope };
+    },
+
     async createBookingRequest(input, authContext, { correlationId } = {}) {
       const scope = patientPortalScope(authContext);
       const payload = normalizePatientPortalBookingRequestPayload(input);

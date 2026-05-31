@@ -171,6 +171,125 @@ function normalizePhotoProtocolAuditEntry(input = {}) {
   };
 }
 
+function lesionStateLabel(status) {
+  switch (String(status || "")) {
+    case "active":
+      return "Врачебная проверка";
+    case "monitoring":
+      return "Плановое наблюдение";
+    case "removed":
+    case "archived":
+      return "Архив";
+    default:
+      return "Под наблюдением";
+  }
+}
+
+function visitStateLabel(status) {
+  switch (String(status || "")) {
+    case "scheduled":
+      return "Запланирован";
+    case "in_progress":
+      return "Открыт";
+    case "closed":
+      return "Завершён";
+    case "cancelled":
+      return "Отменён";
+    default:
+      return "В работе";
+  }
+}
+
+function normalizeHistoryLesion(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const status = String(source.status ?? "active");
+  const snapshotCount = numberOrZero(source.snapshotCount);
+  const comparableSnapshotCount = numberOrZero(source.comparableSnapshotCount);
+  return {
+    id: String(source.id ?? ""),
+    title: String(source.title ?? source.label ?? "Очаг"),
+    bodyZone: textOrNull(source.bodyZone),
+    bodySurface: textOrNull(source.bodySurface),
+    status,
+    stateLabel: textOrNull(source.stateLabel) || lesionStateLabel(status),
+    firstSeenAt: textOrNull(source.firstSeenAt),
+    checkedAt: textOrNull(source.checkedAt),
+    snapshotCount,
+    comparableSnapshotCount,
+    nextStep: textOrNull(source.nextStep) || "Покажите динамику врачу на контрольном визите.",
+    comparisonState: textOrNull(source.comparisonState) || (
+      comparableSnapshotCount >= 2
+        ? "Есть серия снимков для врачебного сравнения."
+        : "Динамика появится после следующего контрольного визита."
+    ),
+  };
+}
+
+function normalizeHistoryTimelineItem(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const visitStatus = String(source.visitStatus ?? source.status ?? "closed");
+  return {
+    id: String(source.id ?? ""),
+    visitId: textOrNull(source.visitId) || textOrNull(source.id),
+    visitDate: textOrNull(source.visitDate),
+    clinicName: textOrNull(source.clinicName),
+    visitStatus,
+    stateLabel: textOrNull(source.stateLabel) || visitStateLabel(visitStatus),
+    summary: textOrNull(source.summary),
+    observedCount: numberOrZero(source.observedCount),
+    snapshotCount: numberOrZero(source.snapshotCount),
+  };
+}
+
+function normalizeHistoryRetentionGovernance(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const releasesTotal = numberOrZero(source.releasesTotal);
+  const policyReady = numberOrZero(source.policyReady);
+  return {
+    releasesTotal,
+    retentionApproved: numberOrZero(source.retentionApproved),
+    patientCopyApproved: numberOrZero(source.patientCopyApproved),
+    fileProxyEnabled: numberOrZero(source.fileProxyEnabled),
+    expiresConfigured: numberOrZero(source.expiresConfigured),
+    policyReady,
+    status: releasesTotal === 0
+      ? "no_releases"
+      : policyReady >= releasesTotal
+        ? "policy_ready"
+        : "policy_in_progress",
+  };
+}
+
+function normalizeHistoryBoundary(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    comparisonRequiresDoctorReview: source.comparisonRequiresDoctorReview !== false,
+    clinicalDecisionExposed: false,
+    rawFilesExposed: false,
+    doctorOnlyTextExposed: false,
+  };
+}
+
+export function normalizePatientPortalHistory(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const clinic = safeNested(source, "clinic");
+  return {
+    clinic: {
+      id: textOrNull(clinic.id),
+      slug: textOrNull(clinic.slug),
+      name: textOrNull(clinic.name),
+    },
+    lesions: Array.isArray(source.lesions)
+      ? source.lesions.map(normalizeHistoryLesion).filter((item) => item.id)
+      : [],
+    timeline: Array.isArray(source.timeline)
+      ? source.timeline.map(normalizeHistoryTimelineItem).filter((item) => item.id)
+      : [],
+    retentionGovernance: normalizeHistoryRetentionGovernance(source.retentionGovernance || {}),
+    longitudinalBoundary: normalizeHistoryBoundary(source.longitudinalBoundary || {}),
+  };
+}
+
 export function normalizePatientPortalPhotoProtocol(input) {
   if (!input || typeof input !== "object" || !input.id) return null;
   const clinic = safeNested(input, "clinic");
@@ -251,6 +370,157 @@ export function normalizePatientPortalOverview(input) {
 
 export function normalizePatientPortalReport(input) {
   return normalizeReport(input);
+}
+
+export function buildPatientPortalHistorySql({ userId } = {}) {
+  const safeUserId = safeUuid(userId);
+  return `
+with portal_patient as (
+  select
+    p.id as patient_id,
+    p.clinic_id,
+    c.slug as clinic_slug,
+    c.name as clinic_name
+  from patient_user_links pul
+  join patients p on p.id = pul.patient_id and p.deleted_at is null
+  join clinics c on c.id = p.clinic_id
+  where pul.user_id = ${sqlUuid(safeUserId)}
+  order by pul.created_at asc
+  limit 1
+),
+lesion_history as (
+  select
+    l.id,
+    l.label,
+    l.body_zone,
+    l.body_surface,
+    l.status,
+    min(coalesce(v.started_at, l.created_at)) as first_seen_at,
+    max(coalesce(v.signed_at, v.started_at, l.updated_at)) as checked_at,
+    count(a.id) filter (where a.kind in ('overview_photo', 'dermoscopy', 'report_attachment'))::int as snapshot_count,
+    count(a.id) filter (where a.kind in ('overview_photo', 'dermoscopy') and a.captured_at is not null)::int as comparable_snapshot_count
+  from lesions l
+  join portal_patient pp on pp.patient_id = l.patient_id and pp.clinic_id = l.clinic_id
+  left join visits v on v.id = l.visit_id and v.patient_id = l.patient_id and v.clinic_id = l.clinic_id
+  left join clinical_assets a on a.lesion_id = l.id and a.patient_id = l.patient_id and a.clinic_id = l.clinic_id
+  group by l.id, l.label, l.body_zone, l.body_surface, l.status
+),
+visit_timeline as (
+  select
+    v.id,
+    v.status,
+    v.started_at as visit_date,
+    c.name as clinic_name,
+    coalesce(
+      left(nullif(trim(r.patient_safe_text), ''), 180),
+      case
+        when v.status = 'in_progress' then 'Визит в работе: итог появится после врачебной проверки.'
+        when v.status = 'draft' then 'Визит запланирован: безопасный итог появится после проверки.'
+        else 'Безопасный итог появится после врачебной проверки.'
+      end
+    ) as summary,
+    count(distinct l.id)::int as observed_count,
+    count(a.id) filter (where a.kind in ('overview_photo', 'dermoscopy', 'report_attachment'))::int as snapshot_count
+  from visits v
+  join portal_patient pp on pp.patient_id = v.patient_id and pp.clinic_id = v.clinic_id
+  join clinics c on c.id = v.clinic_id
+  left join reports r on r.visit_id = v.id and r.patient_id = v.patient_id and r.clinic_id = v.clinic_id
+    and r.status = 'signed' and r.patient_safe_text is not null
+  left join lesions l on l.visit_id = v.id and l.patient_id = v.patient_id and l.clinic_id = v.clinic_id
+  left join clinical_assets a on a.visit_id = v.id and a.patient_id = v.patient_id and a.clinic_id = v.clinic_id
+  where v.started_at is not null
+  group by v.id, v.status, v.started_at, c.name, r.patient_safe_text
+  order by v.started_at desc
+  limit 20
+),
+release_stats as (
+  select
+    count(*)::int as releases_total,
+    count(*) filter (where coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false))::int as retention_approved,
+    count(*) filter (where coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false))::int as patient_copy_approved,
+    count(*) filter (where coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false))::int as file_proxy_enabled,
+    count(*) filter (where r.expires_at is not null)::int as expires_configured,
+    count(*) filter (
+      where r.status = 'prepared'
+        and coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false)
+        and coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false)
+        and coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false)
+        and r.expires_at is not null
+    )::int as policy_ready
+  from patient_photo_protocol_releases r
+  join portal_patient pp on pp.patient_id = r.patient_id and pp.clinic_id = r.clinic_id
+  where r.status in ('prepared', 'revoked')
+)
+select jsonb_build_object(
+  'clinic', coalesce((
+    select jsonb_build_object(
+      'id', pp.clinic_id::text,
+      'slug', pp.clinic_slug,
+      'name', pp.clinic_name
+    )
+    from portal_patient pp
+  ), '{}'::jsonb),
+  'lesions', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', lh.id::text,
+      'title', lh.label,
+      'bodyZone', lh.body_zone,
+      'bodySurface', lh.body_surface,
+      'status', lh.status,
+      'firstSeenAt', lh.first_seen_at,
+      'checkedAt', lh.checked_at,
+      'snapshotCount', lh.snapshot_count,
+      'comparableSnapshotCount', lh.comparable_snapshot_count,
+      'nextStep', case
+        when lh.comparable_snapshot_count >= 2 then 'Покажите серию врачу на контрольном визите.'
+        else 'Добавьте следующий контрольный снимок на визите.'
+      end,
+      'comparisonState', case
+        when lh.comparable_snapshot_count >= 2 then 'Есть серия снимков для врачебного сравнения.'
+        else 'Динамика появится после следующего контрольного визита.'
+      end
+    ) order by lh.first_seen_at asc nulls last)
+    from lesion_history lh
+  ), '[]'::jsonb),
+  'timeline', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', vt.id::text,
+      'visitId', vt.id::text,
+      'visitDate', vt.visit_date,
+      'visitStatus', vt.status,
+      'clinicName', vt.clinic_name,
+      'summary', vt.summary,
+      'observedCount', vt.observed_count,
+      'snapshotCount', vt.snapshot_count
+    ) order by vt.visit_date desc nulls last)
+    from visit_timeline vt
+  ), '[]'::jsonb),
+  'retentionGovernance', coalesce((
+    select jsonb_build_object(
+      'releasesTotal', rs.releases_total,
+      'retentionApproved', rs.retention_approved,
+      'patientCopyApproved', rs.patient_copy_approved,
+      'fileProxyEnabled', rs.file_proxy_enabled,
+      'expiresConfigured', rs.expires_configured,
+      'policyReady', rs.policy_ready
+    )
+    from release_stats rs
+  ), jsonb_build_object(
+    'releasesTotal', 0,
+    'retentionApproved', 0,
+    'patientCopyApproved', 0,
+    'fileProxyEnabled', 0,
+    'expiresConfigured', 0,
+    'policyReady', 0
+  )),
+  'longitudinalBoundary', jsonb_build_object(
+    'comparisonRequiresDoctorReview', true,
+    'clinicalDecisionExposed', false,
+    'rawFilesExposed', false,
+    'doctorOnlyTextExposed', false
+  )
+)::text;
+`.trim();
 }
 
 export function buildPatientPortalOverviewSql({ userId } = {}) {
@@ -760,6 +1030,11 @@ export function createPatientPortalRepository(dbClient) {
       const rows = await dbClient.queryJson(buildPatientPortalPhotoProtocolSql({ userId, visitId }));
       const first = Array.isArray(rows) ? rows[0] : rows;
       return normalizePatientPortalPhotoProtocol(first);
+    },
+    async getHistory({ userId }) {
+      const rows = await dbClient.queryJson(buildPatientPortalHistorySql({ userId }));
+      const first = Array.isArray(rows) ? rows[0] : rows;
+      return normalizePatientPortalHistory(first);
     },
     async createBookingRequest(input) {
       const rows = await dbClient.queryJson(buildCreatePatientPortalBookingRequestSql(input));
