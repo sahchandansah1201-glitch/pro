@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CalendarClock, FileText, Bell, ShieldAlert, ArrowRight } from "lucide-react";
+import { CalendarClock, FileText, Bell, ShieldAlert, ArrowRight, ScanSearch } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ export default function MeHomePage() {
           <span>{DEMO_BANNER}</span>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
           <Card className="p-4">
             <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
               <CalendarClock className="h-4 w-4" aria-hidden />
@@ -97,6 +97,22 @@ export default function MeHomePage() {
             <Button asChild variant="outline" className="mt-3 w-full min-h-[44px] text-[12px] sm:min-h-[36px]">
               <Link to="/me/reminders">Все напоминания</Link>
             </Button>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+              <ScanSearch className="h-4 w-4" aria-hidden />
+              История очагов
+            </div>
+            <div className="mt-2">
+              <div className="text-[13px] font-medium">Протокол наблюдения</div>
+              <p className="mt-1 line-clamp-3 text-[12px] text-muted-foreground">
+                Только врачом проверенные сведения, без внутренних полей и технических ссылок.
+              </p>
+              <Button asChild variant="outline" className="mt-3 w-full min-h-[44px] text-[12px] sm:min-h-[36px]">
+                <Link to="/me/history">Открыть историю очагов</Link>
+              </Button>
+            </div>
           </Card>
         </div>
 

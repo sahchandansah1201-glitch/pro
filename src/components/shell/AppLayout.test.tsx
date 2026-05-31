@@ -68,6 +68,20 @@ describe("AppLayout production mode", () => {
     expect(link).toHaveAttribute("href", "/reports");
   });
 
+  it("shows patient lesion history entry only in patient sidebar", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "patient");
+    const { unmount } = renderLayout();
+    expect(screen.getByRole("link", { name: /История очагов/ })).toHaveAttribute(
+      "href",
+      "/me/history",
+    );
+
+    unmount();
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "doctor");
+    renderLayout();
+    expect(screen.queryByRole("link", { name: /История очагов/ })).not.toBeInTheDocument();
+  });
+
   it("shows the admin operating center entry for clinic admin", () => {
     window.localStorage.setItem(ROLE_STORAGE_KEY, "clinic_admin");
     renderLayout();

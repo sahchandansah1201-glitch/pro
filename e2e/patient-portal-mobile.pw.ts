@@ -13,6 +13,7 @@ if (process.env.PW_CHROMIUM_PATH) {
 
 const ROUTES = [
   "/me",
+  "/me/history",
   "/me/booking",
   "/me/reminders",
   "/me/reports/r-001",

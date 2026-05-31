@@ -3,8 +3,11 @@
 
 import {
   getAppointments,
+  getAssessmentsByLesionId,
   getAssessmentsByVisitId,
   getClinicById,
+  getImagesByLesionId,
+  getLesionsByPatientId,
   getReportsByPatientId,
   getVisitsByPatientId,
 } from "@/lib/mock-data";
@@ -54,6 +57,94 @@ export function getSafeReports(): SafeReportRow[] {
 
 export function getSafeReportById(id: string): SafeReportRow | undefined {
   return getSafeReports().find((r) => r.id === id);
+}
+
+export interface SafeLesionHistoryItem {
+  id: string;
+  title: string;
+  bodyZone: string;
+  firstSeenAt: string;
+  stateLabel: string;
+  checkedAt: string;
+  snapshotCount: number;
+  nextStep: string;
+  comparisonState: string;
+}
+
+export interface SafeProtocolTimelineItem {
+  id: string;
+  visitDate: string;
+  clinicName: string;
+  stateLabel: string;
+  summary: string;
+  observedCount: number;
+}
+
+const LESION_STATE_LABEL: Record<string, string> = {
+  active: "Врачебная проверка",
+  monitoring: "Плановое наблюдение",
+  removed: "Архив",
+  archived: "Архив",
+};
+
+const VISIT_STATE_LABEL: Record<string, string> = {
+  scheduled: "Запланирован",
+  in_progress: "Открыт",
+  closed: "Завершён",
+  cancelled: "Отменён",
+};
+
+export function getSafeLesionHistory(): SafeLesionHistoryItem[] {
+  const visits = getVisitsByPatientId(DEMO_PATIENT_ID);
+  const visitIds = new Set(visits.map((v) => v.id));
+
+  return getLesionsByPatientId(DEMO_PATIENT_ID)
+    .map((item) => {
+      const assessments = getAssessmentsByLesionId(item.id)
+        .filter((a) => visitIds.has(a.visitId))
+        .sort((a, b) => a.decidedAt.localeCompare(b.decidedAt));
+      const snapshots = getImagesByLesionId(item.id).filter((image) => visitIds.has(image.visitId));
+      const latest = assessments[assessments.length - 1];
+      const checkedAt = latest?.decidedAt ?? item.firstSeenAt;
+
+      return {
+        id: item.id,
+        title: item.label,
+        bodyZone: item.bodyZone,
+        firstSeenAt: item.firstSeenAt,
+        stateLabel: LESION_STATE_LABEL[item.status] ?? "Под наблюдением",
+        checkedAt,
+        snapshotCount: snapshots.length,
+        nextStep: latest?.followUpPlan ?? "Следующий шаг уточняется на очном приёме.",
+        comparisonState:
+          snapshots.length > 1
+            ? "Базовые снимки сохранены для врачебного сравнения."
+            : "Динамика появится после следующего контрольного визита.",
+      };
+    })
+    .sort((a, b) => a.firstSeenAt.localeCompare(b.firstSeenAt));
+}
+
+export function getSafeProtocolTimeline(): SafeProtocolTimelineItem[] {
+  const reports = getSafeReports();
+  return getVisitsByPatientId(DEMO_PATIENT_ID)
+    .map((visit) => {
+      const report = reports.find((r) => r.visitId === visit.id);
+      const assessments = getAssessmentsByVisitId(visit.id);
+      return {
+        id: visit.id,
+        visitDate: visit.startedAt,
+        clinicName: getClinicById(visit.clinicId)?.name ?? "—",
+        stateLabel: VISIT_STATE_LABEL[visit.status] ?? "В работе",
+        summary:
+          report?.summary ??
+          (visit.status === "scheduled"
+            ? "Запланирован контрольный приём."
+            : "Безопасный текст появится после врачебной проверки."),
+        observedCount: assessments.length,
+      };
+    })
+    .sort((a, b) => b.visitDate.localeCompare(a.visitDate));
 }
 
 export interface SafeAppointment {

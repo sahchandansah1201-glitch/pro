@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import MeHomePage from "./MeHomePage";
+import MeHistoryPage from "./MeHistoryPage";
 import MeReportPage from "./MeReportPage";
 import MeReportsPage from "./MeReportsPage";
 import MeBookingPage from "./MeBookingPage";
@@ -26,6 +27,7 @@ const renderRouted = (ui: React.ReactElement, path = "/") =>
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/me" element={<MeHomePage />} />
+        <Route path="/me/history" element={<MeHistoryPage />} />
         <Route path="/me/reports" element={<MeReportsPage />} />
         <Route path="/me/reports/:id" element={<MeReportPage />} />
         <Route path="/me/booking" element={<MeBookingPage />} />
@@ -49,7 +51,20 @@ describe("Patient portal pages", () => {
     expect(screen.queryByText(/Раздел будет реализован/)).not.toBeInTheDocument();
     expect(screen.getByText(/Ближайший приём/)).toBeInTheDocument();
     expect(screen.getByText(/Последнее заключение/)).toBeInTheDocument();
+    expect(screen.getByText(/История очагов/)).toBeInTheDocument();
     expect(screen.getByText(/Напоминания/)).toBeInTheDocument();
+    expectClean(container.innerHTML);
+  });
+
+  it("MeHistoryPage показывает безопасный протокол очагов", () => {
+    const { container } = renderRouted(<MeHistoryPage />, "/me/history");
+    expect(screen.getByRole("heading", { name: /История очагов/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Контур безопасного протокола/ })).toBeInTheDocument();
+    expect(screen.getByText(/Показываются только врачом проверенные сведения/)).toBeInTheDocument();
+    expect(screen.getByText(/Очаги под наблюдением/)).toBeInTheDocument();
+    expect(screen.getByText(/Хронология визитов/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Врачебная проверка/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /Записаться на контроль/ })).toHaveAttribute("href", "/me/booking");
     expectClean(container.innerHTML);
   });
 

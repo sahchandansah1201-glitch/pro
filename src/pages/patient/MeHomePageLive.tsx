@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Bell, CalendarClock, FileText, ShieldCheck } from "lucide-react";
+import { ArrowRight, Bell, CalendarClock, FileText, ScanSearch, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -57,7 +57,7 @@ export default function MeHomePageLive() {
 
           {overview && (
             <>
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
                 <Card className="p-4">
                   <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
                     <CalendarClock className="h-4 w-4" aria-hidden />
@@ -116,6 +116,22 @@ export default function MeHomePageLive() {
                   <Button asChild variant="outline" className="mt-3 w-full min-h-[44px] text-[12px] sm:min-h-[36px]">
                     <Link to="/me/reminders">Все напоминания</Link>
                   </Button>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <ScanSearch className="h-4 w-4" aria-hidden />
+                    История очагов
+                  </div>
+                  <div className="mt-2">
+                    <div className="text-[13px] font-medium">Проверенный протокол</div>
+                    <p className="mt-1 line-clamp-3 text-[12px] text-muted-foreground">
+                      История доступна только в безопасном patient-facing контуре.
+                    </p>
+                    <Button asChild variant="outline" className="mt-3 w-full min-h-[44px] text-[12px] sm:min-h-[36px]">
+                      <Link to="/me/history">Открыть историю очагов</Link>
+                    </Button>
+                  </div>
                 </Card>
               </div>
 

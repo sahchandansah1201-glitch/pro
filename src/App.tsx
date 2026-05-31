@@ -45,6 +45,7 @@ import SysApiKeysPage from "./pages/sys/SysApiKeysPage";
 import SysReleaseStatusPage from "./pages/sys/SysReleaseStatusPage";
 import SysSelfHostedOpsPage from "./pages/sys/SysSelfHostedOpsPage";
 import MeHomePage from "./pages/patient/MeHomePage";
+import MeHistoryPage from "./pages/patient/MeHistoryPage";
 import MeReportPage from "./pages/patient/MeReportPage";
 import MeReportsPage from "./pages/patient/MeReportsPage";
 import MeBookingPage from "./pages/patient/MeBookingPage";
@@ -112,6 +113,7 @@ const App = () => (
 
               {/* Patient portal */}
               <Route path="/me" element={<G><MeHomePage /></G>} />
+              <Route path="/me/history" element={<G><MeHistoryPage /></G>} />
               <Route path="/me/reports" element={<G><MeReportsPage /></G>} />
               <Route path="/me/reports/:id" element={<G><MeReportPage /></G>} />
               <Route path="/me/booking" element={<G><MeBookingPage /></G>} />

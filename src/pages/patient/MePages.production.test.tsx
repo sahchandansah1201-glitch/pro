@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import MeHomePage from "./MeHomePage";
+import MeHistoryPage from "./MeHistoryPage";
 import MeReportPage from "./MeReportPage";
 import MeReportsPage from "./MeReportsPage";
 import MeBookingPage from "./MeBookingPage";
@@ -145,6 +146,7 @@ function renderRoute(path: string) {
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/me" element={<MeHomePage />} />
+        <Route path="/me/history" element={<MeHistoryPage />} />
         <Route path="/me/reports" element={<MeReportsPage />} />
         <Route path="/me/reports/:id" element={<MeReportPage />} />
         <Route path="/me/booking" element={<MeBookingPage />} />
@@ -191,6 +193,17 @@ describe("Patient portal · Stage 5N production", () => {
     expect(screen.getByText(/Токен доступа скрыт/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
+  });
+
+  it("shows production-safe lesion history boundary without internal content", async () => {
+    mockFetch();
+    renderRoute("/me/history");
+
+    expect(await screen.findByText(/История очагов/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Контур безопасного протокола/ })).toBeInTheDocument();
+    expect(screen.getByText(/self-hosted backend пока не отдаёт проверенный протокол очагов/)).toBeInTheDocument();
+    expect(screen.getByText(/История доступна через выпущенные заключения/)).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
   });
 
   it("shows production booking state and creates a self-hosted booking request", async () => {
