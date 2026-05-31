@@ -284,6 +284,21 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
     }
     expect(card.textContent ?? "").toMatch(/без персональных строк/i);
   });
+
+  it("Batch N: показывает проверку финансовой методики перед production", () => {
+    const { getByText } = renderPage();
+    const card = getByText("Проверка методики").closest("div.p-4") as HTMLElement;
+    expect(card).toBeTruthy();
+    expect(card.textContent ?? "").toMatch(/методика не утверждена/i);
+    expect(card.textContent ?? "").toMatch(/Интервью с клиникой/);
+    expect(card.textContent ?? "").toMatch(/Стоимость услуги/);
+    expect(card.textContent ?? "").toMatch(/Стоимость сервиса/);
+    expect(card.textContent ?? "").toMatch(/Сверка с записью\/оплатой/);
+    expect(card.textContent ?? "").toMatch(/Утверждение методики/);
+    expect(card.textContent ?? "").toMatch(/только агрегаты/i);
+    expect(card.textContent ?? "").toMatch(/без пациентских строк/i);
+    expect(card.textContent ?? "").not.toMatch(/Иван|Петров|Сидор|@|\+7\s?\(?\d/);
+  });
 });
 
 describe("AdminAnalyticsPage — фильтр периода", () => {
@@ -347,6 +362,10 @@ describe("AdminAnalyticsPage — демо-действия", () => {
     expect(json).toMatch(/"methodologyStatus": "demo_needs_validation"/);
     expect(json).toMatch(/"periodSlice"/);
     expect(json).toMatch(/"operationalBottlenecks"/);
+    expect(json).toMatch(/"financeMethodologyValidation"/);
+    expect(json).toMatch(/"methodologyStatus": "needs_clinic_validation"/);
+    expect(json).toMatch(/"brainstormTask": "SD-MF-048"/);
+    expect(json).toMatch(/"blockedUntil": "clinic_methodology_approved"/);
     expect(json).toMatch(/"scope": "aggregate_only"/);
 
     // Запрещённые токены не должны утечь и в JSON.

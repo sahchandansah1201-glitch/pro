@@ -258,6 +258,38 @@ const FINANCE_ASSUMPTIONS = {
   plannedVisitRub: 2800,
   lostLeadRub: 1800,
 } as const;
+const FINANCE_VALIDATION_STEPS = [
+  {
+    key: "clinic_interview",
+    label: "Интервью с клиникой",
+    statusLabel: "Нужно подтвердить",
+    detail: "Какая ценность нужна: приведённые пациенты, повторные визиты, стоимость сервиса.",
+  },
+  {
+    key: "service_prices",
+    label: "Стоимость услуги",
+    statusLabel: "Не подключено",
+    detail: "Сверить цены услуг из МИС или справочника перед реальным расчётом.",
+  },
+  {
+    key: "service_cost",
+    label: "Стоимость сервиса",
+    statusLabel: "Не подключено",
+    detail: "Зафиксировать модель оплаты SkinDoctor для врача или клиники.",
+  },
+  {
+    key: "booking_payment_match",
+    label: "Сверка с записью/оплатой",
+    statusLabel: "Нужно сверить",
+    detail: "Проверить атрибуцию лида к записи и оплате без пациентских строк.",
+  },
+  {
+    key: "approval",
+    label: "Утверждение методики",
+    statusLabel: "Блокер production",
+    detail: "Утвердить методику до реальных финансовых заявлений в интерфейсе.",
+  },
+] as const;
 
 function money(value: number): string {
   return `${value.toLocaleString("ru-RU")} ₽`;
@@ -539,6 +571,17 @@ export default function AdminAnalyticsPage() {
       basis: "от карточек",
     },
   ];
+  const financeMethodologyValidation = {
+    methodologyStatus: "needs_clinic_validation",
+    brainstormTask: "SD-MF-048",
+    scope: "aggregate_only",
+    blockedUntil: "clinic_methodology_approved",
+    steps: FINANCE_VALIDATION_STEPS.map((step) => ({
+      key: step.key,
+      label: step.label,
+      status: step.statusLabel,
+    })),
+  };
 
   const onGenerateReport = () => {
     const safeAggregate = {
@@ -605,6 +648,7 @@ export default function AdminAnalyticsPage() {
         estimatedRub: row.estimatedRub,
       })),
       operationalBottlenecks,
+      financeMethodologyValidation,
     };
     setReportPreview(JSON.stringify(safeAggregate, null, 2));
   };
@@ -998,6 +1042,44 @@ export default function AdminAnalyticsPage() {
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Проверка методики" hint="SD-MF-048 · до production">
+            {isLoading ? (
+              <SectionSkeleton rows={5} />
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-[12px]">
+                  <div className="font-medium">
+                    Статус: методика не утверждена
+                  </div>
+                  <div className="mt-1 text-muted-foreground">
+                    Финансовые числа остаются демо-оценкой до интервью с клиникой,
+                    сверки стоимости услуг, стоимости сервиса и факта записи/оплаты.
+                  </div>
+                </div>
+                <div className="divide-y divide-border rounded-md border border-border">
+                  {FINANCE_VALIDATION_STEPS.map((step) => (
+                    <div
+                      key={step.key}
+                      className="grid grid-cols-1 gap-1 px-3 py-2 text-[12px] sm:grid-cols-[160px_130px_1fr]"
+                    >
+                      <span className="font-medium">{step.label}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {step.statusLabel}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {step.detail}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Граница: только агрегаты, без пациентских строк, без бухгалтерской
+                  выручки и без финансового прогноза.
+                </div>
               </div>
             )}
           </SectionCard>
