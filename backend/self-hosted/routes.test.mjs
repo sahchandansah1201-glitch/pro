@@ -3793,6 +3793,7 @@ function clinicalWorkspaceRuntime({
   report = null,
   reportPackage = null,
   photoProtocolRelease = null,
+  photoProtocolReleaseAudit = null,
   authContext,
   auditEvents = [],
   authError,
@@ -3837,6 +3838,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           release: { ...photoProtocolRelease, status: "revoked", revokeReason: "Пациент попросил закрыть доступ" },
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async getReleaseAudit() {
+        if (clinicalError) throw clinicalError;
+        return {
+          audit: photoProtocolReleaseAudit,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -4633,6 +4641,64 @@ test("Batch R · patient photo protocol release prepare/revoke persists metadata
   assert.doesNotMatch(revoke.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|revokedByUserId|physician_text/i);
 });
 
+test("Batch W · patient photo protocol release audit returns staff-safe immutable ledger", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/patient-photo-protocol-release/audit`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      photoProtocolReleaseAudit: {
+        releaseId: "20000000-0000-4000-8000-000000000001",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "revoked",
+        summary: {
+          eventCount: 2,
+          preparedEvents: 1,
+          revokedEvents: 1,
+          patientReadEvents: 0,
+          proxyDownloadEvents: 0,
+          proxyDeniedEvents: 0,
+        },
+        events: [
+          {
+            kind: "release_prepared",
+            label: "Подготовка выдачи",
+            occurredAt: "2026-05-31T09:30:00.000Z",
+            actorType: "staff",
+            reasonPresent: false,
+          },
+          {
+            kind: "release_revoked",
+            label: "Отзыв выдачи",
+            occurredAt: "2026-05-31T09:35:00.000Z",
+            actorType: "staff",
+            reasonPresent: true,
+          },
+        ],
+        boundaries: {
+          immutableLedger: true,
+          rawPayloadExposed: false,
+          revokeReasonExposed: false,
+          actorIdsExposed: false,
+          correlationIdsExposed: false,
+          storagePathsExposed: false,
+          tokensExposed: false,
+          signedUrlsIssued: false,
+          doctorOnlyTextExposed: false,
+        },
+      },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "8G-8I");
+  assert.equal(response.json.item.summary.eventCount, 2);
+  assert.equal(response.json.item.boundaries.immutableLedger, true);
+  assert.equal(response.json.item.boundaries.rawPayloadExposed, false);
+  assert.equal(response.json.item.events[1].reasonPresent, true);
+  assert.doesNotMatch(response.body, /"revokeReason"\s*:|"rawPayload"\s*:|"actorUserId"\s*:|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
+});
+
 test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package", async () => {
   const response = await request("/openapi.stage8g-8i.json");
   assert.equal(response.status, 200);
@@ -4640,6 +4706,7 @@ test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report-package"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release"].post);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/revoke"].post);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/audit"].get);
 });
 
 // =====================================================================

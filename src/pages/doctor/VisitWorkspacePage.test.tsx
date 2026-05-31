@@ -579,6 +579,62 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/patient-photo-protocol-release/audit")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              releaseId: "release-live-1",
+              visitId: "live-visit",
+              status: "revoked",
+              summary: {
+                eventCount: 3,
+                preparedEvents: 1,
+                revokedEvents: 1,
+                patientReadEvents: 0,
+                proxyDownloadEvents: 1,
+                proxyDeniedEvents: 0,
+              },
+              events: [
+                {
+                  kind: "release_prepared",
+                  label: "Подготовка выдачи",
+                  occurredAt: "2026-05-31T09:30:00.000Z",
+                  actorType: "staff",
+                  reasonPresent: false,
+                },
+                {
+                  kind: "release_revoked",
+                  label: "Отзыв выдачи",
+                  occurredAt: "2026-05-31T09:35:00.000Z",
+                  actorType: "staff",
+                  reasonPresent: true,
+                  revokeReason: "SENSITIVE_INTERNAL_REASON",
+                  actorUserId: "SENSITIVE_ACTOR_ID",
+                  correlationId: "SENSITIVE_CORRELATION_ID",
+                },
+                {
+                  kind: "proxy_download",
+                  label: "Открытие фото пациентом",
+                  occurredAt: "2026-05-31T09:40:00.000Z",
+                  actorType: "patient",
+                  reasonPresent: false,
+                  rawPayload: { unsafe: "SENSITIVE_RAW_PAYLOAD" },
+                },
+              ],
+              boundaries: {
+                immutableLedger: true,
+                rawPayloadExposed: false,
+                revokeReasonExposed: false,
+                actorIdsExposed: false,
+                correlationIdsExposed: false,
+              },
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
     return Promise.resolve(new Response(JSON.stringify({ items: [] })));
   });
 }
@@ -649,6 +705,20 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getAllByText(/Фото-протокол/).length).toBeGreaterThan(0);
     expect(screen.getByText(/metadata ready, backend blocked/)).toBeInTheDocument();
     expect(screen.getByText(/нет backend-контракта выдачи фото/)).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Журнал выдачи фото" })).toBeInTheDocument();
+    expect(screen.getByText(/Неизменяемый backend-аудит/)).toBeInTheDocument();
+    expect(screen.getByText(/Подготовка выдачи/)).toBeInTheDocument();
+    expect(screen.getByText(/Отзыв выдачи/)).toBeInTheDocument();
+    expect(screen.getByText(/Открытие фото пациентом/)).toBeInTheDocument();
+    expect(screen.getByText(/причины отзыва и служебные идентификаторы скрыты/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("SENSITIVE_INTERNAL_REASON");
+    expect(document.body.textContent).not.toContain("SENSITIVE_ACTOR_ID");
+    expect(document.body.textContent).not.toContain("SENSITIVE_CORRELATION_ID");
+    expect(document.body.textContent).not.toContain("SENSITIVE_RAW_PAYLOAD");
+    expect(document.body.textContent).not.toContain("revokeReason");
+    expect(document.body.textContent).not.toContain("correlationId");
+    expect(document.body.textContent).not.toContain("actorUserId");
+    expect(document.body.textContent).not.toContain("rawPayload");
     expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
   });
 

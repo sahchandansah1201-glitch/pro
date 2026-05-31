@@ -77,6 +77,46 @@ export interface SelfHostedClinicalReportPackageDTO {
   };
 }
 
+export interface SelfHostedPatientPhotoProtocolReleaseAuditEvent {
+  kind: string;
+  label: string;
+  occurredAt: string | null;
+  actorType: "staff" | "patient" | string;
+  status: string | null;
+  selectedPhotoCount: number;
+  blockerCount: number;
+  patientDeliveryAllowed: boolean;
+  reasonPresent: boolean;
+}
+
+export interface SelfHostedPatientPhotoProtocolReleaseAuditDTO {
+  releaseId: string | null;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  status: string;
+  summary: {
+    eventCount: number;
+    preparedEvents: number;
+    revokedEvents: number;
+    patientReadEvents: number;
+    proxyDownloadEvents: number;
+    proxyDeniedEvents: number;
+  };
+  events: SelfHostedPatientPhotoProtocolReleaseAuditEvent[];
+  boundaries: {
+    immutableLedger: boolean;
+    rawPayloadExposed: boolean;
+    revokeReasonExposed: boolean;
+    actorIdsExposed: boolean;
+    correlationIdsExposed: boolean;
+    storagePathsExposed: boolean;
+    tokensExposed: boolean;
+    signedUrlsIssued: boolean;
+    doctorOnlyTextExposed: boolean;
+  };
+}
+
 interface Args {
   apiBaseUrl: string | null | undefined;
   apiToken: string | null | undefined;
@@ -140,6 +180,10 @@ function bool(value: unknown): boolean {
 
 function arrayOfStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
+}
+
+function arrayOfRecords(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
 }
 
 export function toSelfHostedClinicalReportPackage(
@@ -247,6 +291,50 @@ export function clinicalReportMissingLabel(key: string): string {
   return labels[key] ?? key;
 }
 
+export function toSelfHostedPatientPhotoProtocolReleaseAudit(
+  input: Record<string, unknown>,
+): SelfHostedPatientPhotoProtocolReleaseAuditDTO {
+  const summary = isRecord(input.summary) ? input.summary : {};
+  const boundaries = isRecord(input.boundaries) ? input.boundaries : {};
+  return {
+    releaseId: textOrNull(input.releaseId),
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    visitId: textOrNull(input.visitId),
+    status: String(input.status ?? "blocked"),
+    summary: {
+      eventCount: Number(summary.eventCount ?? 0),
+      preparedEvents: Number(summary.preparedEvents ?? 0),
+      revokedEvents: Number(summary.revokedEvents ?? 0),
+      patientReadEvents: Number(summary.patientReadEvents ?? 0),
+      proxyDownloadEvents: Number(summary.proxyDownloadEvents ?? 0),
+      proxyDeniedEvents: Number(summary.proxyDeniedEvents ?? 0),
+    },
+    events: arrayOfRecords(input.events).map((event) => ({
+      kind: String(event.kind ?? "audit_event"),
+      label: String(event.label ?? "Событие аудита"),
+      occurredAt: textOrNull(event.occurredAt),
+      actorType: String(event.actorType ?? "staff"),
+      status: textOrNull(event.status),
+      selectedPhotoCount: Number(event.selectedPhotoCount ?? 0),
+      blockerCount: Number(event.blockerCount ?? 0),
+      patientDeliveryAllowed: bool(event.patientDeliveryAllowed),
+      reasonPresent: bool(event.reasonPresent),
+    })),
+    boundaries: {
+      immutableLedger: bool(boundaries.immutableLedger),
+      rawPayloadExposed: false,
+      revokeReasonExposed: false,
+      actorIdsExposed: false,
+      correlationIdsExposed: false,
+      storagePathsExposed: false,
+      tokensExposed: false,
+      signedUrlsIssued: false,
+      doctorOnlyTextExposed: false,
+    },
+  };
+}
+
 export async function getSelfHostedClinicalReportPackage(
   args: Args,
 ): Promise<SelfHostedApiResult<SelfHostedClinicalReportPackageDTO | null>> {
@@ -271,4 +359,33 @@ export async function getSelfHostedClinicalReportPackage(
   if (!response.ok) return fail(apiErrorFromBody(response, body));
   const item = isRecord(body) && isRecord(body.item) ? body.item : null;
   return ok(item ? toSelfHostedClinicalReportPackage(item) : null);
+}
+
+export async function getSelfHostedPatientPhotoProtocolReleaseAudit(
+  args: Args,
+): Promise<SelfHostedApiResult<SelfHostedPatientPhotoProtocolReleaseAuditDTO | null>> {
+  if (!args.apiToken) return fail(NOT_CONFIGURED);
+  let response: Response;
+  try {
+    response = await fetch(
+      buildSelfHostedApiUrl(
+        args.apiBaseUrl,
+        `/api/v1/visits/${encodeURIComponent(args.visitId)}/patient-photo-protocol-release/audit`,
+      ),
+      {
+        method: "GET",
+        headers: { Accept: "application/json", Authorization: `Bearer ${args.apiToken}` },
+      },
+    );
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при обращении к self-hosted backend.",
+    });
+  }
+  const body = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, body));
+  const item = isRecord(body) && isRecord(body.item) ? body.item : null;
+  return ok(item ? toSelfHostedPatientPhotoProtocolReleaseAudit(item) : null);
 }

@@ -91,3 +91,76 @@ test("Batch R service revokes release ledger and requires doctor write scope", a
     ForbiddenError,
   );
 });
+
+test("Batch W service exposes release audit to staff read scope and hides internals", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async getReleaseAudit() {
+        return {
+          releaseId: "20000000-0000-4000-8000-000000000001",
+          clinicId: CLINIC_ID,
+          patientId: "10000000-0000-4000-8000-000000000201",
+          visitId: VISIT_ID,
+          status: "revoked",
+          summary: {
+            eventCount: 2,
+            preparedEvents: 1,
+            revokedEvents: 1,
+            patientReadEvents: 0,
+            proxyDownloadEvents: 0,
+            proxyDeniedEvents: 0,
+          },
+          events: [
+            {
+              kind: "release_prepared",
+              label: "Подготовка выдачи",
+              occurredAt: "2026-05-31T09:30:00.000Z",
+              actorType: "staff",
+              reasonPresent: false,
+            },
+            {
+              kind: "release_revoked",
+              label: "Отзыв выдачи",
+              occurredAt: "2026-05-31T09:35:00.000Z",
+              actorType: "staff",
+              reasonPresent: true,
+            },
+          ],
+          boundaries: {
+            immutableLedger: true,
+            rawPayloadExposed: false,
+            revokeReasonExposed: false,
+            actorIdsExposed: false,
+            correlationIdsExposed: false,
+          },
+        };
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-read" };
+      },
+    },
+  });
+
+  const result = await service.getReleaseAudit(
+    VISIT_ID,
+    { userId: "admin-user", roles: ["clinic_admin"], clinicIds: [CLINIC_ID] },
+    { correlationId: "corr-audit-read" },
+  );
+  assert.equal(result.audit.status, "revoked");
+  assert.equal(result.audit.boundaries.immutableLedger, true);
+  assert.equal(result.audit.boundaries.rawPayloadExposed, false);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release_audit.read");
+  assert.equal(auditEvents[0].metadata.eventCount, 2);
+  assert.equal("correlationId" in result.audit.events[0], false);
+  assert.equal("actorUserId" in result.audit.events[0], false);
+  assert.equal("revokeReason" in result.audit.events[1], false);
+
+  await assert.rejects(
+    () => service.getReleaseAudit(VISIT_ID, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});

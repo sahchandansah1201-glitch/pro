@@ -49,7 +49,9 @@ import {
 import {
   clinicalReportMissingLabel,
   getSelfHostedClinicalReportPackage,
+  getSelfHostedPatientPhotoProtocolReleaseAudit,
   type SelfHostedClinicalReportPackageDTO,
+  type SelfHostedPatientPhotoProtocolReleaseAuditDTO,
 } from "@/lib/self-hosted-clinical-report-package-api";
 import type { SelfHostedVisitReportDTO, VisitReportPayload } from "@/lib/self-hosted-visit-write-api";
 import {
@@ -425,6 +427,7 @@ type ClinicalPanelState =
       conclusion: SelfHostedClinicalConclusionDTO | null;
       report: SelfHostedVisitReportDTO | null;
       reportPackage: SelfHostedClinicalReportPackageDTO | null;
+      releaseAudit: SelfHostedPatientPhotoProtocolReleaseAuditDTO | null;
     };
 
 function textFrom(value: string | number | null | undefined): string {
@@ -488,7 +491,7 @@ function ProductionClinicalWorkspacePanel({
         summary: item?.summary ?? "",
         recommendation: item?.recommendation ?? "",
       });
-      setState({ kind: "ready", assessment: item, conclusion: null, report: null, reportPackage: null });
+      setState({ kind: "ready", assessment: item, conclusion: null, report: null, reportPackage: null, releaseAudit: null });
       return;
     }
     if (kind === "conclusion") {
@@ -499,11 +502,12 @@ function ProductionClinicalWorkspacePanel({
         nextStep: item?.nextStep ?? "",
         followUpAt: item?.followUpAt ?? "",
       });
-      setState({ kind: "ready", assessment: null, conclusion: item, report: null, reportPackage: null });
+      setState({ kind: "ready", assessment: null, conclusion: item, report: null, reportPackage: null, releaseAudit: null });
       return;
     }
     const item = result.value as SelfHostedVisitReportDTO | null;
     const packageResult = await getSelfHostedClinicalReportPackage(args);
+    const auditResult = await getSelfHostedPatientPhotoProtocolReleaseAudit(args);
     setReportForm({
       status: item?.status ?? "draft",
       physicianText: item?.physicianText ?? "",
@@ -515,6 +519,7 @@ function ProductionClinicalWorkspacePanel({
       conclusion: null,
       report: item,
       reportPackage: packageResult.ok ? packageResult.value : null,
+      releaseAudit: auditResult.ok ? auditResult.value : null,
     });
   }, [apiBaseUrl, apiToken, kind, visitId]);
 
@@ -604,7 +609,7 @@ function ProductionClinicalWorkspacePanel({
         </div>
 
         {kind === "report" && state.reportPackage && (
-          <ClinicalReportCompletionSummary reportPackage={state.reportPackage} />
+          <ClinicalReportCompletionSummary reportPackage={state.reportPackage} releaseAudit={state.releaseAudit} />
         )}
 
         {kind === "assessment" && (
@@ -745,8 +750,10 @@ function ProductionClinicalWorkspacePanel({
 
 function ClinicalReportCompletionSummary({
   reportPackage,
+  releaseAudit,
 }: {
   reportPackage: SelfHostedClinicalReportPackageDTO;
+  releaseAudit: SelfHostedPatientPhotoProtocolReleaseAuditDTO | null;
 }) {
   const readiness = reportPackage.readiness;
   const photoProtocol = reportPackage.patientPhotoProtocol;
@@ -807,6 +814,7 @@ function ClinicalReportCompletionSummary({
           </ul>
         )}
       </div>
+      {releaseAudit && <PhotoProtocolReleaseAuditSummary audit={releaseAudit} />}
       {readiness.missing.length > 0 ? (
         <ul className="mt-3 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
           {readiness.missing.map((item) => (
@@ -820,6 +828,67 @@ function ClinicalReportCompletionSummary({
         <p className="mt-3 text-[12px] text-muted-foreground">
           Все report gates закрыты. Внешние сервисы, storage paths и signed URLs не используются.
         </p>
+      )}
+    </section>
+  );
+}
+
+function PhotoProtocolReleaseAuditSummary({
+  audit,
+}: {
+  audit: SelfHostedPatientPhotoProtocolReleaseAuditDTO;
+}) {
+  const statusLabel = audit.status === "revoked"
+    ? "Отозван"
+    : audit.status === "prepared"
+      ? "Подготовлен"
+      : "Блокирован";
+  return (
+    <section
+      role="region"
+      aria-label="Журнал выдачи фото"
+      className="mt-3 rounded-sm border border-border bg-surface px-2.5 py-2 text-[12px]"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h4 className="text-[13px] font-semibold">Журнал выдачи фото</h4>
+          <p className="text-muted-foreground">
+            Неизменяемый backend-аудит · raw payload, причины отзыва и служебные идентификаторы скрыты.
+          </p>
+        </div>
+        <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 font-medium">
+          {statusLabel} · {audit.summary.eventCount}
+        </span>
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Field term="Подготовка" value={audit.summary.preparedEvents} />
+        <Field term="Отзыв" value={audit.summary.revokedEvents} />
+        <Field term="Просмотры" value={audit.summary.patientReadEvents} />
+        <Field term="Открытия фото" value={audit.summary.proxyDownloadEvents} />
+        <Field term="Отказы proxy" value={audit.summary.proxyDeniedEvents} />
+      </dl>
+      {audit.events.length > 0 ? (
+        <ol className="mt-2 grid grid-cols-1 gap-1.5">
+          {audit.events.slice(0, 5).map((event, index) => (
+            <li
+              key={`${event.kind}-${event.occurredAt ?? index}`}
+              className="grid grid-cols-1 gap-1 rounded-sm border border-border/70 bg-surface-muted px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_auto]"
+            >
+              <div className="min-w-0">
+                <span className="font-medium">{event.label}</span>
+                <span className="ml-2 text-muted-foreground">
+                  {event.actorType === "patient" ? "пациентский контур" : "контур клиники"}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-muted-foreground sm:justify-end">
+                <span>{event.occurredAt ? formatDateTime(event.occurredAt) : "время скрыто"}</span>
+                {event.reasonPresent && <span>причина есть, текст скрыт</span>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-2 text-muted-foreground">Событий выдачи пока нет.</p>
       )}
     </section>
   );

@@ -146,6 +146,44 @@
           "422": { "description": "Invalid payload" }
         }
       }
+    },
+    "/api/v1/visits/{visitId}/patient-photo-protocol-release/audit": {
+      "get": {
+        "summary": "Read staff/admin photo protocol release audit",
+        "description": "Returns a safe immutable audit review for patient photo/protocol release operations. It exposes event labels, counts, timestamps and reason-present flags only; it does not expose raw audit payloads, actor identifiers, internal request identifiers, revoke reason text, tokens, storage paths, signed links, object storage identifiers, or physician-only text.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Staff-safe immutable audit review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item", "correlationId"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["8G-8I"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/PatientPhotoProtocolReleaseAudit" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Auth required" },
+          "403": { "description": "Role or clinic scope denied" },
+          "404": { "description": "Release audit not found" },
+          "422": { "description": "Invalid visit id" }
+        }
+      }
     }
   },
   "components": {
@@ -318,6 +356,62 @@
               "requiresRevoke": { "type": "boolean" },
               "requiresIdentityCheck": { "type": "boolean" },
               "requiresRetentionPolicy": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "PatientPhotoProtocolReleaseAudit": {
+        "type": "object",
+        "description": "Staff/admin safe audit review. The audit ledger remains append-only; raw payloads and internal identifiers remain backend-only.",
+        "properties": {
+          "releaseId": { "type": ["string", "null"] },
+          "clinicId": { "type": ["string", "null"] },
+          "patientId": { "type": ["string", "null"] },
+          "visitId": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["blocked", "prepared", "revoked"] },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "eventCount": { "type": "integer" },
+              "preparedEvents": { "type": "integer" },
+              "revokedEvents": { "type": "integer" },
+              "patientReadEvents": { "type": "integer" },
+              "proxyDownloadEvents": { "type": "integer" },
+              "proxyDeniedEvents": { "type": "integer" }
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": ["release_prepared", "release_revoked", "patient_read", "proxy_download", "proxy_denied", "audit_event"]
+                },
+                "label": { "type": "string" },
+                "occurredAt": { "type": ["string", "null"] },
+                "actorType": { "type": "string", "enum": ["staff", "patient"] },
+                "status": { "type": ["string", "null"] },
+                "selectedPhotoCount": { "type": "integer" },
+                "blockerCount": { "type": "integer" },
+                "patientDeliveryAllowed": { "type": "boolean" },
+                "reasonPresent": { "type": "boolean" }
+              }
+            }
+          },
+          "boundaries": {
+            "type": "object",
+            "properties": {
+              "immutableLedger": { "type": "boolean" },
+              "rawPayloadExposed": { "type": "boolean", "enum": [false] },
+              "revokeReasonExposed": { "type": "boolean", "enum": [false] },
+              "actorIdsExposed": { "type": "boolean", "enum": [false] },
+              "correlationIdsExposed": { "type": "boolean", "enum": [false] },
+              "storagePathsExposed": { "type": "boolean", "enum": [false] },
+              "tokensExposed": { "type": "boolean", "enum": [false] },
+              "signedUrlsIssued": { "type": "boolean", "enum": [false] },
+              "doctorOnlyTextExposed": { "type": "boolean", "enum": [false] }
             }
           }
         }

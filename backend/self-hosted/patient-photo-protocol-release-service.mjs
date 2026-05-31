@@ -2,7 +2,7 @@
 // Doctor-write RBAC + audit for metadata-only prepare/revoke operations.
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { visitWriteScope } from "./rbac.mjs";
+import { visitReadScope, visitWriteScope } from "./rbac.mjs";
 import {
   assertUuid,
   VisitWorkspaceNotFoundError,
@@ -73,6 +73,21 @@ function auditMetadata(release) {
   };
 }
 
+function auditReviewMetadata(audit) {
+  return {
+    visitId: audit.visitId,
+    status: audit.status,
+    eventCount: audit.summary.eventCount,
+    preparedEvents: audit.summary.preparedEvents,
+    revokedEvents: audit.summary.revokedEvents,
+    patientReadEvents: audit.summary.patientReadEvents,
+    proxyDownloadEvents: audit.summary.proxyDownloadEvents,
+    proxyDeniedEvents: audit.summary.proxyDeniedEvents,
+    immutableLedger: audit.boundaries.immutableLedger === true,
+    rawPayloadExposed: audit.boundaries.rawPayloadExposed === true,
+  };
+}
+
 export function createPatientPhotoProtocolReleaseService({
   patientPhotoProtocolReleaseRepository,
   auditRepository,
@@ -133,6 +148,30 @@ export function createPatientPhotoProtocolReleaseService({
         },
       });
       return { release, scope };
+    },
+
+    async getReleaseAudit(visitId, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitReadScope(authContext);
+      const audit = await patientPhotoProtocolReleaseRepository.getReleaseAudit({
+        visitId: safeVisitId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!audit) {
+        throw new VisitWorkspaceNotFoundError("Patient photo protocol release audit was not found.");
+      }
+      ensureScopeAllowsClinic(scope, audit.clinicId);
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: audit.clinicId,
+        actorUserId: authContext.userId,
+        action: "patient_photo_protocol.release_audit.read",
+        entityType: "patient_photo_protocol_release",
+        entityId: audit.releaseId,
+        correlationId,
+        metadata: auditReviewMetadata(audit),
+      });
+      return { audit, scope };
     },
   };
 }

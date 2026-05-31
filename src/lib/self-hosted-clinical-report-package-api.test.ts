@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   clinicalReportMissingLabel,
+  getSelfHostedPatientPhotoProtocolReleaseAudit,
   getSelfHostedClinicalReportPackage,
+  toSelfHostedPatientPhotoProtocolReleaseAudit,
   toSelfHostedClinicalReportPackage,
 } from "@/lib/self-hosted-clinical-report-package-api";
 
@@ -108,6 +110,91 @@ describe("self-hosted-clinical-report-package-api", () => {
     expect(clinicalReportMissingLabel("patient_safe_text_missing")).toBe("нет patient-safe текста");
     expect(clinicalReportMissingLabel("self_hosted_photo_delivery_contract_missing")).toBe(
       "нет backend-контракта выдачи фото",
+    );
+  });
+
+  it("normalizes staff audit review without protected audit internals", () => {
+    const audit = toSelfHostedPatientPhotoProtocolReleaseAudit({
+      releaseId: "release-1",
+      visitId: "visit-1",
+      status: "revoked",
+      summary: {
+        eventCount: 2,
+        preparedEvents: 1,
+        revokedEvents: 1,
+        patientReadEvents: 0,
+        proxyDownloadEvents: 0,
+        proxyDeniedEvents: 0,
+      },
+      events: [
+        {
+          kind: "release_prepared",
+          label: "Подготовка выдачи",
+          occurredAt: "2026-05-31T09:30:00.000Z",
+          actorType: "staff",
+          reasonPresent: false,
+          correlationId: "hidden",
+          actorUserId: "hidden",
+          rawPayload: { unsafe: true },
+        },
+        {
+          kind: "release_revoked",
+          label: "Отзыв выдачи",
+          occurredAt: "2026-05-31T09:35:00.000Z",
+          actorType: "staff",
+          reasonPresent: true,
+          revokeReason: "hidden",
+        },
+      ],
+      boundaries: {
+        immutableLedger: true,
+        rawPayloadExposed: false,
+        revokeReasonExposed: false,
+        actorIdsExposed: false,
+        correlationIdsExposed: false,
+      },
+    });
+
+    expect(audit.status).toBe("revoked");
+    expect(audit.summary.eventCount).toBe(2);
+    expect(audit.events[0].label).toBe("Подготовка выдачи");
+    expect(audit.events[1].reasonPresent).toBe(true);
+    expect(audit.boundaries.immutableLedger).toBe(true);
+    expect(audit.events[0]).not.toHaveProperty("correlationId");
+    expect(audit.events[0]).not.toHaveProperty("actorUserId");
+    expect(audit.events[0]).not.toHaveProperty("rawPayload");
+    expect(audit.events[1]).not.toHaveProperty("revokeReason");
+  });
+
+  it("fetches staff audit review from the self-hosted visit route", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            visitId: "visit-1",
+            status: "prepared",
+            summary: { eventCount: 1, preparedEvents: 1 },
+            events: [{ kind: "release_prepared", label: "Подготовка выдачи" }],
+            boundaries: { immutableLedger: true },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await getSelfHostedPatientPhotoProtocolReleaseAudit({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.boundaries.immutableLedger).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/patient-photo-protocol-release/audit",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
     );
   });
 });

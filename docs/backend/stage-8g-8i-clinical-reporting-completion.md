@@ -91,6 +91,7 @@ release workflow:
 - migration: `0055_patient_photo_protocol_releases.sql`;
 - `POST /api/v1/visits/{visitId}/patient-photo-protocol-release`;
 - `POST /api/v1/visits/{visitId}/patient-photo-protocol-release/revoke`;
+- `GET /api/v1/visits/{visitId}/patient-photo-protocol-release/audit`;
 - repository/service tests for prepare, revoke, RBAC, and protected-field
   hygiene.
 
@@ -102,6 +103,25 @@ metadata gate is ready and the only remaining blocker is
 `self_hosted_photo_delivery_contract_missing`; patient delivery remains
 blocked until a real self-hosted file proxy, identity check, patient portal read
 model, retention policy, and approved patient-safe copy gates are implemented.
+
+## Staff/admin immutable audit review
+
+Batch W adds a staff/admin read-model for the release ledger:
+
+- `GET /api/v1/visits/{visitId}/patient-photo-protocol-release/audit`;
+- repository SQL reads `patient_photo_protocol_releases` plus append-only
+  `audit_log` events for prepare, revoke, patient read, proxy download, and
+  proxy denial;
+- service uses visit read scope, so doctor, clinic admin, and system admin can
+  review the safe ledger inside their clinic scope;
+- production `VisitWorkspacePage` report tab shows `Журнал выдачи фото` with
+  immutable audit counts and event labels.
+
+The audit review is intentionally safe and not a raw audit export. It returns
+event labels, timestamps, actor type (`staff` or `patient`), counters, status,
+and reason-present booleans. It does not expose raw audit payloads, actor
+identifiers, internal request identifiers, revoke reason text, object storage
+identifiers, storage paths, signed links, tokens, or physician-only text.
 
 ## Audit
 
@@ -121,6 +141,13 @@ Prepare/revoke operations record separate metadata-only audit events:
 - action: `patient_photo_protocol.release.revoke`;
 - metadata: visit id, status, selected-photo count, blocker count, delivery
   allowed flag, and revoke reason presence only.
+
+Audit-review reads record:
+
+- action: `patient_photo_protocol.release_audit.read`;
+- entity type: `patient_photo_protocol_release`;
+- metadata: visit id, status, immutable-ledger flag, event counts, and protected
+  payload exposure flag only.
 
 ## Validation
 
