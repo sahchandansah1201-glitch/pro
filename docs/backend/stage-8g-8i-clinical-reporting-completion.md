@@ -149,13 +149,20 @@ private-practice operating screens:
   file-proxy and expiry gates;
 - metadata-only queue rows with queue number, status, policy status, selected
   photo count, blocker count, expiry, update time and attention flags.
+- Batch AC extends the same response with aggregate-only `operations` readiness:
+  retention review due/ready counts, revoke-review readiness, and patient
+  session lifecycle counters. These fields support the admin UI blocks
+  `Операционный контур`, `Retention-разбор`, `Отзыв доступа`, and
+  `Жизненный цикл сессий`.
 
 The governance read model is not patient delivery and not a patient-level
 export. It deliberately omits patient names, raw identifiers, release
 identifiers, visit identifiers, report identifiers, revoke reason text, raw
 policy payloads, files, storage locations, signed links, tokens, and
-doctor-only text. Its purpose is to make policy/session lifecycle work visible
-without weakening the Stage 5N patient portal boundary.
+doctor-only text. The operations readiness also forces
+`temporaryCredentialsExposed`, `qrTokensExposed`, `sessionIdsExposed`, and
+`revokeReasonExposed` to false. Its purpose is to make policy/session
+lifecycle work visible without weakening the Stage 5N patient portal boundary.
 
 ## Audit
 

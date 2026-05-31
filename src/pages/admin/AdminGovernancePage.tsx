@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock3,
   FileCheck2,
+  KeyRound,
   ListChecks,
   LockKeyhole,
   RotateCcw,
@@ -90,6 +91,46 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
     signedUrlsIssued: false,
     doctorOnlyTextExposed: false,
     rawPolicyPayloadExposed: false,
+  },
+  operations: {
+    retention: {
+      reviewDue: 4,
+      ready: 1,
+      blocked: 4,
+      requiresClinicSignoff: true,
+      nextAction: "review_retention_policy",
+    },
+    revokeReadiness: {
+      activeWindows: 5,
+      expiringIn24h: 2,
+      revoked: 3,
+      canPrepareRevokeReview: 5,
+      requiresManualReason: true,
+      revokeReasonExposed: false,
+    },
+    sessionLifecycle: {
+      active: 5,
+      expiringIn24h: 2,
+      missingExpiry: 4,
+      revoked: 3,
+      temporaryCredentialsExposed: false,
+      qrTokensExposed: false,
+      sessionIdsExposed: false,
+    },
+    allowedOperations: [
+      "review_retention_policy",
+      "review_patient_copy",
+      "prepare_revoke_review",
+      "inspect_session_lifecycle",
+    ],
+    blockedOperations: [
+      "block_secret_issue",
+      "block_external_link_issue",
+      "block_file_location_exposure",
+      "block_patient_identity_view",
+      "block_clinical_text_view",
+      "direct_patient_delivery",
+    ],
   },
 };
 
@@ -244,6 +285,80 @@ function BoundaryList({ governance }: { governance: SelfHostedPatientPhotoProtoc
   );
 }
 
+function OperationLine({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string | number;
+  tone?: "default" | "warning" | "success";
+}) {
+  const toneClass = tone === "warning" ? "text-warning" : tone === "success" ? "text-success" : "text-foreground";
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-[12px]">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-semibold tabular-nums ${toneClass}`}>{value}</span>
+    </div>
+  );
+}
+
+function GovernanceOperations({
+  governance,
+  onRetentionReview,
+  onRevokeReview,
+}: {
+  governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  onRetentionReview: () => void;
+  onRevokeReview: () => void;
+}) {
+  const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
+  return (
+    <SectionCard title="Операционный контур" hint="Batch AC · хранение, отзыв, сессии">
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-2 rounded-md border p-3">
+          <div className="flex items-center gap-2 text-[12px] font-semibold">
+            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            Разбор хранения
+          </div>
+          <OperationLine label="Требуют разбора" value={retention.reviewDue} tone={retention.reviewDue > 0 ? "warning" : "success"} />
+          <OperationLine label="Готовы по хранению" value={retention.ready} tone="success" />
+          <OperationLine label="Блокированы" value={retention.blocked} />
+          <Button variant="outline" className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]" onClick={onRetentionReview}>
+            Подготовить разбор хранения
+          </Button>
+        </div>
+
+        <div className="grid gap-2 rounded-md border p-3">
+          <div className="flex items-center gap-2 text-[12px] font-semibold">
+            <LockKeyhole className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            Отзыв доступа
+          </div>
+          <OperationLine label="Окна доступа" value={revokeReadiness.activeWindows} />
+          <OperationLine label="Истекают за 24ч" value={revokeReadiness.expiringIn24h} tone={revokeReadiness.expiringIn24h > 0 ? "warning" : "default"} />
+          <OperationLine label="Причина отзыва" value={revokeReadiness.revokeReasonExposed ? "видна" : "скрыта"} tone="success" />
+          <Button variant="outline" className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]" onClick={onRevokeReview}>
+            Подготовить отзыв доступа
+          </Button>
+        </div>
+
+        <div className="grid gap-2 rounded-md border p-3">
+          <div className="flex items-center gap-2 text-[12px] font-semibold">
+            <KeyRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            Жизненный цикл сессий
+          </div>
+          <OperationLine label="Активные" value={sessionLifecycle.active} />
+          <OperationLine label="Без срока" value={sessionLifecycle.missingExpiry} tone={sessionLifecycle.missingExpiry > 0 ? "warning" : "success"} />
+          <OperationLine label="QR/токены/ID" value="скрыты" tone="success" />
+          <div className="text-[11px] text-muted-foreground">
+            Разрешены только операционные проверки. Секреты доступа, внешние ссылки и файловые пути заблокированы контрактом.
+          </div>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 export default function AdminGovernancePage() {
   const session = useSelfHostedApiSession();
   const configured = isSelfHostedApiConfigured(session);
@@ -288,11 +403,19 @@ export default function AdminGovernancePage() {
     setLastAction(`Разбор политики подготовлен локально: строка #${item.queueNumber}`);
   }
 
+  function recordRetentionReview() {
+    setLastAction("Разбор хранения подготовлен локально: без patient rows и без raw ID");
+  }
+
+  function recordRevokeReview() {
+    setLastAction("Разбор отзыва доступа подготовлен локально: причина остаётся скрытой");
+  }
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         title="Управление доступом"
-        subtitle="Пациентская выдача фото-протокола: политики, сроки, retention и аудит."
+        subtitle="Пациентская выдача фото-протокола: политики, сроки хранения и аудит."
       />
       <div className="space-y-3 p-3 sm:p-4">
         <section
@@ -349,7 +472,7 @@ export default function AdminGovernancePage() {
           />
           <Metric
             icon={LockKeyhole}
-            label="Retention"
+            label="Хранение"
             value={governance.summary.retentionMissing}
             hint="требуют утверждения хранения"
           />
@@ -360,6 +483,12 @@ export default function AdminGovernancePage() {
             hint="не готовы к выдаче"
           />
         </div>
+
+        <GovernanceOperations
+          governance={governance}
+          onRetentionReview={recordRetentionReview}
+          onRevokeReview={recordRevokeReview}
+        />
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
           <SectionCard title="Очередь утверждений" hint="metadata-only строки без пациентов и raw ID">

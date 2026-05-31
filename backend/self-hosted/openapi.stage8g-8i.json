@@ -507,6 +507,53 @@
               }
             }
           },
+          "operations": {
+            "type": "object",
+            "description": "Aggregate-only operations readiness for retention review, revoke review and session lifecycle. Does not expose patient rows, raw IDs, QR tokens, temporary credentials, storage paths, signed URLs or doctor-only text.",
+            "properties": {
+              "retention": {
+                "type": "object",
+                "properties": {
+                  "reviewDue": { "type": "integer" },
+                  "ready": { "type": "integer" },
+                  "blocked": { "type": "integer" },
+                  "requiresClinicSignoff": { "type": "boolean" },
+                  "nextAction": { "type": "string", "enum": ["review_retention_policy"] }
+                }
+              },
+              "revokeReadiness": {
+                "type": "object",
+                "properties": {
+                  "activeWindows": { "type": "integer" },
+                  "expiringIn24h": { "type": "integer" },
+                  "revoked": { "type": "integer" },
+                  "canPrepareRevokeReview": { "type": "integer" },
+                  "requiresManualReason": { "type": "boolean", "enum": [true] },
+                  "revokeReasonExposed": { "type": "boolean", "enum": [false] }
+                }
+              },
+              "sessionLifecycle": {
+                "type": "object",
+                "properties": {
+                  "active": { "type": "integer" },
+                  "expiringIn24h": { "type": "integer" },
+                  "missingExpiry": { "type": "integer" },
+                  "revoked": { "type": "integer" },
+                  "temporaryCredentialsExposed": { "type": "boolean", "enum": [false] },
+                  "qrTokensExposed": { "type": "boolean", "enum": [false] },
+                  "sessionIdsExposed": { "type": "boolean", "enum": [false] }
+                }
+              },
+              "allowedOperations": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "blockedOperations": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          },
           "boundaries": {
             "type": "object",
             "properties": {

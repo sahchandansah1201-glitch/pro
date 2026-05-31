@@ -298,6 +298,11 @@ test("Batch AB repository builds safe release governance SQL and normalizes meta
   assert.match(sql, /retentionPolicyApproved/);
   assert.match(sql, /patientCopyApproved/);
   assert.match(sql, /patientFileProxyEnabled/);
+  assert.match(sql, /review_retention_policy/);
+  assert.match(sql, /prepare_revoke_review/);
+  assert.match(sql, /temporaryCredentialsExposed/);
+  assert.match(sql, /qrTokensExposed/);
+  assert.match(sql, /sessionIdsExposed/);
   assert.match(sql, /queue/);
   assert.match(sql, /where sr\.queue_number <= 10/);
   assert.doesNotMatch(sql, /limit 10/);
@@ -342,6 +347,34 @@ test("Batch AB repository builds safe release governance SQL and normalizes meta
           signedUrlsIssued: true,
           doctorOnlyTextExposed: true,
         },
+        operations: {
+          retention: {
+            reviewDue: 2,
+            ready: 1,
+            blocked: 1,
+            requiresClinicSignoff: true,
+            nextAction: "review_retention_policy",
+          },
+          revokeReadiness: {
+            activeWindows: 1,
+            expiringIn24h: 1,
+            revoked: 1,
+            canPrepareRevokeReview: 1,
+            requiresManualReason: true,
+            revokeReasonExposed: true,
+          },
+          sessionLifecycle: {
+            active: 1,
+            expiringIn24h: 1,
+            missingExpiry: 1,
+            revoked: 1,
+            temporaryCredentialsExposed: true,
+            qrTokensExposed: true,
+            sessionIdsExposed: true,
+          },
+          allowedOperations: ["review_retention_policy", "prepare_revoke_review"],
+          blockedOperations: ["issue_raw_token", "issue_signed_url"],
+        },
       }];
     },
   });
@@ -350,6 +383,15 @@ test("Batch AB repository builds safe release governance SQL and normalizes meta
   assert.equal(governance.summary.retentionMissing, 2);
   assert.equal(governance.queue[0].policyStatus, "patient_copy_required");
   assert.equal(governance.queue[0].selectedPhotoCount, 3);
+  assert.equal(governance.operations.retention.reviewDue, 2);
+  assert.equal(governance.operations.retention.nextAction, "review_retention_policy");
+  assert.equal(governance.operations.revokeReadiness.canPrepareRevokeReview, 1);
+  assert.equal(governance.operations.revokeReadiness.revokeReasonExposed, false);
+  assert.equal(governance.operations.sessionLifecycle.missingExpiry, 1);
+  assert.equal(governance.operations.sessionLifecycle.temporaryCredentialsExposed, false);
+  assert.equal(governance.operations.sessionLifecycle.qrTokensExposed, false);
+  assert.equal(governance.operations.sessionLifecycle.sessionIdsExposed, false);
+  assert.deepEqual(governance.operations.allowedOperations, ["review_retention_policy", "prepare_revoke_review"]);
   assert.equal("patientId" in governance.queue[0], false);
   assert.equal("storagePath" in governance.queue[0], false);
   assert.equal(governance.boundaries.patientNamesExposed, false);

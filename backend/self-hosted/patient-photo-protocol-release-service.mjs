@@ -162,6 +162,10 @@ function auditGovernanceMetadata(governance) {
     fileProxyMissing: governance.summary.fileProxyMissing,
     activeAccessWindows: governance.summary.activeAccessWindows,
     expiringIn24h: governance.summary.expiringIn24h,
+    retentionReviewDue: governance.operations?.retention?.reviewDue ?? 0,
+    revokeReviewReady: governance.operations?.revokeReadiness?.canPrepareRevokeReview ?? 0,
+    sessionMissingExpiry: governance.operations?.sessionLifecycle?.missingExpiry ?? 0,
+    sessionIdsExposed: governance.operations?.sessionLifecycle?.sessionIdsExposed === true,
     metadataOnly: governance.boundaries.metadataOnly === true,
     rawIdentifiersExposed: governance.boundaries.rawIdentifiersExposed === true,
   };

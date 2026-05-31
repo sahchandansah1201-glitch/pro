@@ -530,6 +530,46 @@ from (
       '[]'::jsonb
     ) as "queue",
     jsonb_build_object(
+      'retention', jsonb_build_object(
+        'reviewDue', coalesce(s.retention_missing, 0),
+        'ready', greatest(coalesce(s.prepared, 0) - coalesce(s.retention_missing, 0), 0),
+        'blocked', coalesce(s.blocked, 0),
+        'requiresClinicSignoff', coalesce(s.retention_missing, 0) > 0,
+        'nextAction', 'review_retention_policy'
+      ),
+      'revokeReadiness', jsonb_build_object(
+        'activeWindows', coalesce(s.active_access_windows, 0),
+        'expiringIn24h', coalesce(s.expiring_in_24h, 0),
+        'revoked', coalesce(s.revoked, 0),
+        'canPrepareRevokeReview', coalesce(s.active_access_windows, 0),
+        'requiresManualReason', true,
+        'revokeReasonExposed', false
+      ),
+      'sessionLifecycle', jsonb_build_object(
+        'active', coalesce(s.active_access_windows, 0),
+        'expiringIn24h', coalesce(s.expiring_in_24h, 0),
+        'missingExpiry', coalesce(s.expiry_missing, 0),
+        'revoked', coalesce(s.revoked, 0),
+        'temporaryCredentialsExposed', false,
+        'qrTokensExposed', false,
+        'sessionIdsExposed', false
+      ),
+      'allowedOperations', jsonb_build_array(
+        'review_retention_policy',
+        'review_patient_copy',
+        'prepare_revoke_review',
+        'inspect_session_lifecycle'
+      ),
+      'blockedOperations', jsonb_build_array(
+        'block_secret_issue',
+        'block_external_link_issue',
+        'block_file_location_exposure',
+        'block_patient_identity_view',
+        'block_clinical_text_view',
+        'direct_patient_delivery'
+      )
+    ) as "operations",
+    jsonb_build_object(
       'metadataOnly', true,
       'patientNamesExposed', false,
       'rawIdentifiersExposed', false,
@@ -747,6 +787,10 @@ function normalizeGovernanceQueue(row) {
 
 function normalizeGovernance(row = {}) {
   const summary = row.summary ?? {};
+  const operations = row.operations ?? {};
+  const retention = operations.retention ?? {};
+  const revokeReadiness = operations.revokeReadiness ?? {};
+  const sessionLifecycle = operations.sessionLifecycle ?? {};
   return {
     summary: {
       releasesTotal: number(summary.releasesTotal),
@@ -761,6 +805,34 @@ function normalizeGovernance(row = {}) {
       expiringIn24h: number(summary.expiringIn24h),
     },
     queue: parseEvents(row.queue).map(normalizeGovernanceQueue),
+    operations: {
+      retention: {
+        reviewDue: number(retention.reviewDue),
+        ready: number(retention.ready),
+        blocked: number(retention.blocked),
+        requiresClinicSignoff: bool(retention.requiresClinicSignoff),
+        nextAction: textOrNull(retention.nextAction) ?? "review_retention_policy",
+      },
+      revokeReadiness: {
+        activeWindows: number(revokeReadiness.activeWindows),
+        expiringIn24h: number(revokeReadiness.expiringIn24h),
+        revoked: number(revokeReadiness.revoked),
+        canPrepareRevokeReview: number(revokeReadiness.canPrepareRevokeReview),
+        requiresManualReason: true,
+        revokeReasonExposed: false,
+      },
+      sessionLifecycle: {
+        active: number(sessionLifecycle.active),
+        expiringIn24h: number(sessionLifecycle.expiringIn24h),
+        missingExpiry: number(sessionLifecycle.missingExpiry),
+        revoked: number(sessionLifecycle.revoked),
+        temporaryCredentialsExposed: false,
+        qrTokensExposed: false,
+        sessionIdsExposed: false,
+      },
+      allowedOperations: arrayOfStrings(operations.allowedOperations),
+      blockedOperations: arrayOfStrings(operations.blockedOperations),
+    },
     boundaries: {
       metadataOnly: true,
       patientNamesExposed: false,

@@ -282,6 +282,34 @@ describe("self-hosted-clinical-report-package-api", () => {
           accessToken: "hidden",
         },
       ],
+      operations: {
+        retention: {
+          reviewDue: "2",
+          ready: 1,
+          blocked: 1,
+          requiresClinicSignoff: true,
+          nextAction: "review_retention_policy",
+        },
+        revokeReadiness: {
+          activeWindows: 1,
+          expiringIn24h: 1,
+          revoked: 1,
+          canPrepareRevokeReview: 1,
+          requiresManualReason: false,
+          revokeReasonExposed: true,
+        },
+        sessionLifecycle: {
+          active: 1,
+          expiringIn24h: 1,
+          missingExpiry: 1,
+          revoked: 1,
+          temporaryCredentialsExposed: true,
+          qrTokensExposed: true,
+          sessionIdsExposed: true,
+        },
+        allowedOperations: ["review_retention_policy", "prepare_revoke_review"],
+        blockedOperations: ["block_secret_issue", "block_external_link_issue"],
+      },
       boundaries: {
         metadataOnly: true,
         patientNamesExposed: true,
@@ -294,6 +322,13 @@ describe("self-hosted-clinical-report-package-api", () => {
     });
     expect(governance.summary.releasesTotal).toBe(4);
     expect(governance.queue[0].policyStatus).toBe("patient_copy_required");
+    expect(governance.operations.retention.reviewDue).toBe(2);
+    expect(governance.operations.retention.nextAction).toBe("review_retention_policy");
+    expect(governance.operations.revokeReadiness.canPrepareRevokeReview).toBe(1);
+    expect(governance.operations.revokeReadiness.revokeReasonExposed).toBe(false);
+    expect(governance.operations.sessionLifecycle.sessionIdsExposed).toBe(false);
+    expect(governance.operations.sessionLifecycle.qrTokensExposed).toBe(false);
+    expect(governance.operations.allowedOperations).toEqual(["review_retention_policy", "prepare_revoke_review"]);
     expect(governance.queue[0]).not.toHaveProperty("patientId");
     expect(governance.queue[0]).not.toHaveProperty("visitId");
     expect(governance.queue[0]).not.toHaveProperty("storagePath");
@@ -310,6 +345,11 @@ describe("self-hosted-clinical-report-package-api", () => {
           item: {
             summary: { releasesTotal: 1, prepared: 1 },
             queue: [{ queueNumber: 1, status: "prepared", policyStatus: "ready_for_access_window" }],
+            operations: {
+              retention: { reviewDue: 0, ready: 1 },
+              revokeReadiness: { canPrepareRevokeReview: 1 },
+              sessionLifecycle: { active: 1, sessionIdsExposed: false },
+            },
             boundaries: { metadataOnly: true },
           },
         }),

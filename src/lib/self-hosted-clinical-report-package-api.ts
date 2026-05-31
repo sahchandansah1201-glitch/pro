@@ -156,6 +156,34 @@ export interface SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
     expiringIn24h: number;
   };
   queue: SelfHostedPatientPhotoProtocolReleaseGovernanceQueueRow[];
+  operations: {
+    retention: {
+      reviewDue: number;
+      ready: number;
+      blocked: number;
+      requiresClinicSignoff: boolean;
+      nextAction: string;
+    };
+    revokeReadiness: {
+      activeWindows: number;
+      expiringIn24h: number;
+      revoked: number;
+      canPrepareRevokeReview: number;
+      requiresManualReason: boolean;
+      revokeReasonExposed: boolean;
+    };
+    sessionLifecycle: {
+      active: number;
+      expiringIn24h: number;
+      missingExpiry: number;
+      revoked: number;
+      temporaryCredentialsExposed: boolean;
+      qrTokensExposed: boolean;
+      sessionIdsExposed: boolean;
+    };
+    allowedOperations: string[];
+    blockedOperations: string[];
+  };
   boundaries: {
     metadataOnly: boolean;
     patientNamesExposed: boolean;
@@ -415,6 +443,10 @@ export function toSelfHostedPatientPhotoProtocolReleaseGovernance(
   input: Record<string, unknown>,
 ): SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
   const summary = isRecord(input.summary) ? input.summary : {};
+  const operations = isRecord(input.operations) ? input.operations : {};
+  const retention = isRecord(operations.retention) ? operations.retention : {};
+  const revokeReadiness = isRecord(operations.revokeReadiness) ? operations.revokeReadiness : {};
+  const sessionLifecycle = isRecord(operations.sessionLifecycle) ? operations.sessionLifecycle : {};
   return {
     summary: {
       releasesTotal: Number(summary.releasesTotal ?? 0),
@@ -441,6 +473,34 @@ export function toSelfHostedPatientPhotoProtocolReleaseGovernance(
       retentionPolicyApproved: bool(row.retentionPolicyApproved),
       attention: arrayOfStrings(row.attention),
     })),
+    operations: {
+      retention: {
+        reviewDue: Number(retention.reviewDue ?? 0),
+        ready: Number(retention.ready ?? 0),
+        blocked: Number(retention.blocked ?? 0),
+        requiresClinicSignoff: bool(retention.requiresClinicSignoff),
+        nextAction: String(retention.nextAction ?? "review_retention_policy"),
+      },
+      revokeReadiness: {
+        activeWindows: Number(revokeReadiness.activeWindows ?? 0),
+        expiringIn24h: Number(revokeReadiness.expiringIn24h ?? 0),
+        revoked: Number(revokeReadiness.revoked ?? 0),
+        canPrepareRevokeReview: Number(revokeReadiness.canPrepareRevokeReview ?? 0),
+        requiresManualReason: true,
+        revokeReasonExposed: false,
+      },
+      sessionLifecycle: {
+        active: Number(sessionLifecycle.active ?? 0),
+        expiringIn24h: Number(sessionLifecycle.expiringIn24h ?? 0),
+        missingExpiry: Number(sessionLifecycle.missingExpiry ?? 0),
+        revoked: Number(sessionLifecycle.revoked ?? 0),
+        temporaryCredentialsExposed: false,
+        qrTokensExposed: false,
+        sessionIdsExposed: false,
+      },
+      allowedOperations: arrayOfStrings(operations.allowedOperations),
+      blockedOperations: arrayOfStrings(operations.blockedOperations),
+    },
     boundaries: {
       metadataOnly: true,
       patientNamesExposed: false,

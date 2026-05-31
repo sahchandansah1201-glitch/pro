@@ -265,6 +265,11 @@ test("Batch AB service exposes aggregate release governance to clinic admin and 
             signedUrlsIssued: false,
             doctorOnlyTextExposed: false,
           },
+          operations: {
+            retention: { reviewDue: 2 },
+            revokeReadiness: { canPrepareRevokeReview: 1 },
+            sessionLifecycle: { missingExpiry: 1, sessionIdsExposed: false },
+          },
         };
       },
     },
@@ -294,6 +299,10 @@ test("Batch AB service exposes aggregate release governance to clinic admin and 
     fileProxyMissing: 2,
     activeAccessWindows: 1,
     expiringIn24h: 1,
+    retentionReviewDue: 2,
+    revokeReviewReady: 1,
+    sessionMissingExpiry: 1,
+    sessionIdsExposed: false,
     metadataOnly: true,
     rawIdentifiersExposed: false,
   });
