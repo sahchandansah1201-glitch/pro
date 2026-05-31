@@ -28,6 +28,7 @@ Endpoints:
 - `GET /api/v1/me/portal`
 - `GET /api/v1/me/reports/{reportId}`
 - `GET /api/v1/me/photo-protocols/{visitId}`
+- `GET /api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download`
 - `GET /openapi.stage5n.json`
 
 The repository selects `patient_safe_text` only. Physician-only report
@@ -40,6 +41,15 @@ content type, capture time, and lesion label. It keeps delivery blocked with
 `patientDeliveryAllowed: false`, `rawFilesExposed: false`,
 `signedUrlsIssued: false`, `storagePathsExposed: false`, and
 `tokensExposed: false`.
+
+Batch T adds a backend photo proxy endpoint for the same patient scope. It is
+closed by default: bytes stream only when the release is `prepared`, the linked
+patient identity matches, imaging consent exists, `expires_at` is present and
+future, and backend metadata explicitly sets
+`patientFileProxyEnabled: true`. The proxy streams bytes from backend-owned
+object storage without returning object bucket/key values, storage paths,
+signed URLs, access tokens, or doctor-only text. Denied and successful proxy
+attempts are audit-recorded.
 
 ## 3. Frontend
 

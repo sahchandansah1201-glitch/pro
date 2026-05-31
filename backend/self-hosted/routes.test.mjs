@@ -35,6 +35,7 @@ function createRuntime({
   patientPortalOverview = null,
   patientPortalReport = null,
   patientPortalPhotoProtocol = null,
+  patientPhotoProtocolDownload = null,
   patientPortalBookingRequest = null,
   patientPortalReminderPreferences = null,
   patientPortalError = null,
@@ -428,6 +429,32 @@ function createRuntime({
             reportNotificationsEnabled: true,
             preferredChannel: "phone",
             updatedAt: "2026-05-01T10:00:00.000Z",
+          },
+          scope: {
+            userId: authContext?.userId,
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+    },
+    patientPhotoProtocolDeliveryService: {
+      async downloadPhoto() {
+        if (patientPortalError) throw patientPortalError;
+        return patientPhotoProtocolDownload || {
+          asset: {
+            id: "10000000-0000-4000-8000-000000000902",
+            sequence: 1,
+            kind: "overview_photo",
+            contentType: "image/jpeg",
+            byteSize: Buffer.byteLength("patient-photo"),
+          },
+          object: {
+            bytes: Buffer.from("patient-photo"),
+            byteSize: Buffer.byteLength("patient-photo"),
+            contentType: "image/jpeg",
+          },
+          download: {
+            fileName: "photo-protocol-1.jpg",
           },
           scope: {
             userId: authContext?.userId,
@@ -4916,6 +4943,21 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
     photoProtocol.body,
     /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token/i,
   );
+
+  const photoDownload = await request(
+    "/api/v1/me/photo-protocols/10000000-0000-4000-8000-000000000301/photos/1/download",
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(photoDownload.status, 200);
+  assert.equal(photoDownload.headers["content-type"], "image/jpeg");
+  assert.equal(photoDownload.headers["cache-control"], "no-store");
+  assert.equal(photoDownload.headers["content-disposition"], 'inline; filename="photo-protocol-1.jpg"');
+  assert.equal(String(photoDownload.body), "patient-photo");
+  assert.doesNotMatch(
+    String(photoDownload.body) + JSON.stringify(photoDownload.headers),
+    /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token/i,
+  );
 });
 
 test("Stage 5N · patient portal endpoint maps forbidden access safely", async () => {
@@ -4943,6 +4985,7 @@ test("Stage 5N · /openapi.stage5n.json documents patient portal contracts", asy
   assert.ok(response.json.paths["/api/v1/me/portal"].get);
   assert.ok(response.json.paths["/api/v1/me/reports/{reportId}"].get);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}"].get);
+  assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download"].get);
 });
 
 test("Stage 5O · patient portal write endpoints create booking requests and update reminder preferences", async () => {

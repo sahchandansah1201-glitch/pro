@@ -49,6 +49,8 @@ import {
 } from "./patient-write-service.mjs";
 import { createPatientPortalRepository } from "./patient-portal-repository.mjs";
 import { createPatientPortalService } from "./patient-portal-service.mjs";
+import { createPatientPhotoProtocolDeliveryRepository } from "./patient-photo-protocol-delivery-repository.mjs";
+import { createPatientPhotoProtocolDeliveryService } from "./patient-photo-protocol-delivery-service.mjs";
 import { createAssetWriteRepository } from "./asset-write-repository.mjs";
 import {
   createAssetWriteService,
@@ -420,12 +422,22 @@ function getRuntime(config, runtime = {}) {
       patientRepository,
       auditRepository,
     });
+  const objectStore = runtime.objectStore || createLocalObjectStore(config);
   const patientPortalRepository =
     runtime.patientPortalRepository || createPatientPortalRepository(dbClient);
   const patientPortalService =
     runtime.patientPortalService ||
     createPatientPortalService({
       patientPortalRepository,
+      auditRepository,
+    });
+  const patientPhotoProtocolDeliveryRepository =
+    runtime.patientPhotoProtocolDeliveryRepository || createPatientPhotoProtocolDeliveryRepository(dbClient);
+  const patientPhotoProtocolDeliveryService =
+    runtime.patientPhotoProtocolDeliveryService ||
+    createPatientPhotoProtocolDeliveryService({
+      patientPhotoProtocolDeliveryRepository,
+      objectStore,
       auditRepository,
     });
   const visitWorkspaceRepository =
@@ -474,7 +486,6 @@ function getRuntime(config, runtime = {}) {
     });
   const assetWriteRepository =
     runtime.assetWriteRepository || createAssetWriteRepository(dbClient);
-  const objectStore = runtime.objectStore || createLocalObjectStore(config);
   const assetWriteService =
     runtime.assetWriteService ||
     createAssetWriteService({
@@ -523,6 +534,8 @@ function getRuntime(config, runtime = {}) {
     patientRepository,
     patientPortalRepository,
     patientPortalService,
+    patientPhotoProtocolDeliveryRepository,
+    patientPhotoProtocolDeliveryService,
     patientPhotoProtocolReleaseRepository,
     patientPhotoProtocolReleaseService,
     patientWriteService,
@@ -2535,10 +2548,39 @@ export async function handleSelfHostedRequest(
     }
   }
 
-  const patientPortalPhotoProtocolPath = "/api/v1/me/photo-protocols";
-  const patientPortalPhotoProtocolMatch = url.pathname.startsWith(`${patientPortalPhotoProtocolPath}/`)
-    ? [null, url.pathname.slice(`${patientPortalPhotoProtocolPath}/`.length)]
-    : null;
+  const patientPortalPhotoProxyMatch = url.pathname.match(
+    /^\/api\/v1\/me\/photo-protocols\/([^/]+)\/photos\/([^/]+)\/download$/,
+  );
+  if (patientPortalPhotoProxyMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientPhotoProtocolDeliveryService.downloadPhoto(
+        {
+          visitId: decodeURIComponent(patientPortalPhotoProxyMatch[1]),
+          sequence: decodeURIComponent(patientPortalPhotoProxyMatch[2]),
+        },
+        authContext,
+        { correlationId },
+      );
+      return binaryResponse(
+        200,
+        {
+          body: result.object.bytes,
+          contentType: result.object.contentType,
+          fileName: result.download.fileName,
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  // Patient photo protocol routes live under /api/v1/me/photo-protocols.
+  const patientPortalPhotoProtocolMatch = url.pathname.match(/^\/api\/v1\/me\/photo-protocols\/([^/]+)$/);
   if (patientPortalPhotoProtocolMatch && method === "GET") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
