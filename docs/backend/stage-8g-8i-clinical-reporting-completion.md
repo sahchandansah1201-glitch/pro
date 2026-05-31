@@ -83,6 +83,26 @@ If any metadata gate is missing, the object is `blocked` and returns stable
 keys such as `imaging_consent_missing`, `patient_photo_assets_missing`,
 `report_not_signed`, or `patient_safe_text_missing`.
 
+## Patient photo/protocol release ledger
+
+Batch R adds the first persistence layer for the SD-MF-046 photo/protocol
+release workflow:
+
+- migration: `0055_patient_photo_protocol_releases.sql`;
+- `POST /api/v1/visits/{visitId}/patient-photo-protocol-release`;
+- `POST /api/v1/visits/{visitId}/patient-photo-protocol-release/revoke`;
+- repository/service tests for prepare, revoke, RBAC, and protected-field
+  hygiene.
+
+This is still not patient photo delivery. The release ledger records
+doctor-write prepare/revoke metadata, safe selected-photo counts, blockers,
+expiry, and audit actions. It does not expose raw files, storage paths, signed
+links, access tokens, or physician-only text. A `prepared` ledger row means the
+metadata gate is ready and the only remaining blocker is
+`self_hosted_photo_delivery_contract_missing`; patient delivery remains
+blocked until a real self-hosted file proxy, identity check, patient portal read
+model, retention policy, and approved patient-safe copy gates are implemented.
+
 ## Audit
 
 Every read records:
@@ -94,6 +114,13 @@ Every read records:
   delivery allowed flag
 
 Audit metadata is count-only and safe for logs.
+
+Prepare/revoke operations record separate metadata-only audit events:
+
+- action: `patient_photo_protocol.release.prepare`;
+- action: `patient_photo_protocol.release.revoke`;
+- metadata: visit id, status, selected-photo count, blocker count, delivery
+  allowed flag, and revoke reason presence only.
 
 ## Validation
 

@@ -520,6 +520,15 @@
 
 ## 2026-05-31
 
+- Реализован Batch R: metadata-only release/revoke ledger для фото-протокола
+  пациента по SD-MF-046.
+- Добавлена таблица `patient_photo_protocol_releases`, backend endpoints
+  prepare/revoke, OpenAPI-схема, RBAC doctor-write, audit actions
+  `patient_photo_protocol.release.prepare` и
+  `patient_photo_protocol.release.revoke`.
+- Patient delivery всё ещё заблокирована: нет выдачи файлов, storage paths,
+  signed links, токенов или physician-only text.
+
 - Реализован Batch Q: безопасный backend-контракт `patientPhotoProtocol` для
   SD-MF-046 внутри `GET /api/v1/visits/{visitId}/report-package`.
 - Контракт читает только `imaging_consent` и безопасные агрегаты по фото

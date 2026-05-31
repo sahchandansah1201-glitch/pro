@@ -725,6 +725,15 @@
      returns `self_hosted_photo_delivery_contract_missing`, and exposes counts
      plus booleans only; no raw files, storage paths, signed URLs, tokens, or
      physician-only text are returned.
+11b. **Patient photo/protocol release ledger can be mistaken for patient access**
+   - Evidence: Batch R adds `patient_photo_protocol_releases` and doctor-write
+     prepare/revoke endpoints.
+   - Impact: a `prepared` ledger row could be misread as released patient
+     access before the patient portal read model and file proxy exist.
+   - Mitigation: the release response keeps `patientDeliveryAllowed: false`,
+     retains `self_hosted_photo_delivery_contract_missing`, and persists only
+     counts, blockers, expiry, revoke reason, and audit metadata. No files,
+     storage paths, signed links, tokens, or physician-only text are exposed.
 12. **Device Bridge production readiness can be mistaken for live hardware proof**
    - Evidence: Stage 8J-8O aggregates safe PostgreSQL worker telemetry,
      hardening, recovery, audit, and export metadata.

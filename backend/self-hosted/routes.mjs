@@ -58,6 +58,8 @@ import { createClinicalWorkspaceRepository } from "./clinical-workspace-reposito
 import { createClinicalWorkspaceService } from "./clinical-workspace-service.mjs";
 import { createClinicalReportPackageRepository } from "./clinical-report-package-repository.mjs";
 import { createClinicalReportPackageService } from "./clinical-report-package-service.mjs";
+import { createPatientPhotoProtocolReleaseRepository } from "./patient-photo-protocol-release-repository.mjs";
+import { createPatientPhotoProtocolReleaseService } from "./patient-photo-protocol-release-service.mjs";
 import {
   createClinicalFollowUpRepository,
   normalizeClinicalFollowUpOperationsParams,
@@ -454,6 +456,14 @@ function getRuntime(config, runtime = {}) {
       clinicalReportPackageRepository,
       auditRepository,
     });
+  const patientPhotoProtocolReleaseRepository =
+    runtime.patientPhotoProtocolReleaseRepository || createPatientPhotoProtocolReleaseRepository(dbClient);
+  const patientPhotoProtocolReleaseService =
+    runtime.patientPhotoProtocolReleaseService ||
+    createPatientPhotoProtocolReleaseService({
+      patientPhotoProtocolReleaseRepository,
+      auditRepository,
+    });
   const clinicalFollowUpRepository =
     runtime.clinicalFollowUpRepository || createClinicalFollowUpRepository(dbClient);
   const clinicalFollowUpService =
@@ -513,6 +523,8 @@ function getRuntime(config, runtime = {}) {
     patientRepository,
     patientPortalRepository,
     patientPortalService,
+    patientPhotoProtocolReleaseRepository,
+    patientPhotoProtocolReleaseService,
     patientWriteService,
     visitWorkspaceRepository,
     visitWorkspaceWriteRepository,
@@ -1815,6 +1827,51 @@ export async function handleSelfHostedRequest(
           stage: "8G-8I",
           source: "postgres",
           item: result.reportPackage,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  // Batch R · patient photo/protocol release ledger. Metadata only; no file delivery.
+  const patientPhotoProtocolReleaseMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/patient-photo-protocol-release(?:\/(revoke))?$/,
+  );
+  if (patientPhotoProtocolReleaseMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const visitIdFromPath = decodeURIComponent(patientPhotoProtocolReleaseMatch[1]);
+      const body = parseJsonBody(request.body);
+      const result = patientPhotoProtocolReleaseMatch[2] === "revoke"
+        ? await runtimeServices.patientPhotoProtocolReleaseService.revokeRelease(
+            visitIdFromPath,
+            body,
+            authContext,
+            { correlationId },
+          )
+        : await runtimeServices.patientPhotoProtocolReleaseService.prepareRelease(
+            visitIdFromPath,
+            body,
+            authContext,
+            { correlationId },
+          );
+      return jsonResponse(
+        200,
+        {
+          stage: "8G-8I",
+          source: "postgres",
+          item: result.release,
           auth: {
             userId: authContext.userId,
             roles: authContext.roles,

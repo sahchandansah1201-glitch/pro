@@ -43,6 +43,109 @@
           "422": { "description": "Invalid visit id" }
         }
       }
+    },
+    "/api/v1/visits/{visitId}/patient-photo-protocol-release": {
+      "post": {
+        "summary": "Prepare patient photo/protocol release ledger",
+        "description": "Persists metadata-only release readiness for doctor-selected patient photo/protocol access. It does not deliver files, issue signed URLs, expose storage paths, or create patient access tokens.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metadata-only release ledger",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item", "correlationId"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["8G-8I"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/PatientPhotoProtocolRelease" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Auth required" },
+          "403": { "description": "Role or clinic scope denied" },
+          "404": { "description": "Visit/release not found" },
+          "422": { "description": "Invalid payload" }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/patient-photo-protocol-release/revoke": {
+      "post": {
+        "summary": "Revoke patient photo/protocol release ledger",
+        "description": "Revokes metadata-only patient photo/protocol release state. It does not revoke external links because this contract never issues links or tokens.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reason"],
+                "properties": {
+                  "reason": { "type": "string", "maxLength": 500 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revoked metadata-only release ledger",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item", "correlationId"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["8G-8I"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/PatientPhotoProtocolRelease" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Auth required" },
+          "403": { "description": "Role or clinic scope denied" },
+          "404": { "description": "Visit/release not found" },
+          "422": { "description": "Invalid payload" }
+        }
+      }
     }
   },
   "components": {
@@ -169,6 +272,52 @@
               "managedDatabaseDependency": { "type": "string", "enum": ["none"] },
               "externalRuntimeCalls": { "type": "boolean" },
               "rawPatientDataInReport": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "PatientPhotoProtocolRelease": {
+        "type": "object",
+        "description": "Metadata-only release/revoke ledger. It never exposes raw files, storage paths, signed URLs, access tokens, object storage identifiers, or physician-only text.",
+        "properties": {
+          "id": { "type": "string" },
+          "clinicId": { "type": ["string", "null"] },
+          "patientId": { "type": ["string", "null"] },
+          "visitId": { "type": ["string", "null"] },
+          "reportId": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["blocked", "prepared", "revoked"] },
+          "selectedPhotoCount": { "type": "integer" },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "selectedPhotos": { "type": "integer" },
+              "overviewPhotos": { "type": "integer" },
+              "dermoscopyPhotos": { "type": "integer" },
+              "reportAttachments": { "type": "integer" }
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "preparedAt": { "type": ["string", "null"] },
+          "revokedAt": { "type": ["string", "null"] },
+          "revokeReason": { "type": ["string", "null"] },
+          "expiresAt": { "type": ["string", "null"] },
+          "deliveryBoundary": {
+            "type": "object",
+            "properties": {
+              "patientDeliveryAllowed": { "type": "boolean" },
+              "rawFilesExposed": { "type": "boolean" },
+              "signedUrlsIssued": { "type": "boolean" },
+              "storagePathsExposed": { "type": "boolean" },
+              "tokensExposed": { "type": "boolean" },
+              "physicianTextExposed": { "type": "boolean" },
+              "requiresSelfHostedFileProxy": { "type": "boolean" },
+              "requiresReleaseAudit": { "type": "boolean" },
+              "requiresRevoke": { "type": "boolean" },
+              "requiresIdentityCheck": { "type": "boolean" },
+              "requiresRetentionPolicy": { "type": "boolean" }
             }
           }
         }

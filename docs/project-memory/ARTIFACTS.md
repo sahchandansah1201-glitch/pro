@@ -491,6 +491,12 @@
    - Batch Q extension: `patientPhotoProtocol` metadata-only contract for
      SD-MF-046, with file delivery blocked until backend file proxy, audit,
      revoke, identity, retention, and patient-safe-copy gates are implemented.
+   - Batch R extension: patient photo/protocol release ledger for SD-MF-046.
+   - [0055_patient_photo_protocol_releases.sql](../../backend/self-hosted/db/migrations/0055_patient_photo_protocol_releases.sql)
+   - [patient-photo-protocol-release-repository.mjs](../../backend/self-hosted/patient-photo-protocol-release-repository.mjs)
+   - [patient-photo-protocol-release-repository.test.mjs](../../backend/self-hosted/patient-photo-protocol-release-repository.test.mjs)
+   - [patient-photo-protocol-release-service.mjs](../../backend/self-hosted/patient-photo-protocol-release-service.mjs)
+   - [patient-photo-protocol-release-service.test.mjs](../../backend/self-hosted/patient-photo-protocol-release-service.test.mjs)
    - [stage8g-8i-clinical-reporting-completion.yml](../../.github/workflows/stage8g-8i-clinical-reporting-completion.yml)
 
 ## Verification outputs captured during black-box creation

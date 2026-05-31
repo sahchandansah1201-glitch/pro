@@ -2,14 +2,14 @@
 
 ## Current confirmed state
 
-Batch Q is the current local implementation batch for Dermatolog PRO / SkinDoctor.
-It extends the Stage 8G-8I report package with `patientPhotoProtocol` for
-SD-MF-046. The contract is metadata-only: it proves readiness and blockers for
-patient photo/protocol delivery, but does not deliver files or links.
+Batch R is the current local implementation batch for Dermatolog PRO / SkinDoctor.
+It extends Stage 8G-8I with a metadata-only patient photo/protocol release
+ledger for SD-MF-046. The ledger persists doctor prepare/revoke decisions and
+audit metadata, but still does not deliver files or links.
 
-Next logical product action after Batch Q is to implement the real self-hosted
-release/revoke/audit table and patient portal read model for selected photos,
-while preserving identity, consent, retention, and patient-safe-copy gates.
+Next logical product action after Batch R is to implement the patient portal read model for selected photos,
+while preserving identity, consent, retention, file-proxy, revoke, audit, and
+patient-safe-copy gates.
 
 External Clinic Operator Execution Record is now the current repository
 planning artifact. It follows the Operator Acceptance / Clinic Go-No-Go

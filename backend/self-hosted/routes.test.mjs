@@ -3721,6 +3721,7 @@ function clinicalWorkspaceRuntime({
   conclusion = null,
   report = null,
   reportPackage = null,
+  photoProtocolRelease = null,
   authContext,
   auditEvents = [],
   authError,
@@ -3754,6 +3755,19 @@ function clinicalWorkspaceRuntime({
       async getReportPackage() {
         if (clinicalError) throw clinicalError;
         return { reportPackage, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+    },
+    patientPhotoProtocolReleaseService: {
+      async prepareRelease() {
+        if (clinicalError) throw clinicalError;
+        return { release: photoProtocolRelease, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async revokeRelease() {
+        if (clinicalError) throw clinicalError;
+        return {
+          release: { ...photoProtocolRelease, status: "revoked", revokeReason: "Пациент попросил закрыть доступ" },
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
       },
     },
   };
@@ -4488,11 +4502,73 @@ test("Stage 8G-8I · GET /api/v1/visits/{id}/report-package returns readiness wi
   assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|patientFullName|physician_text/i);
 });
 
+test("Batch R · patient photo protocol release prepare/revoke persists metadata only", async () => {
+  const photoProtocolRelease = {
+    id: "20000000-0000-4000-8000-000000000001",
+    clinicId: STAGE4G_CLINIC_ID,
+    patientId: STAGE4G_PATIENT_ID,
+    visitId: STAGE4G_VISIT_ID,
+    reportId: "30000000-0000-4000-8000-000000000001",
+    status: "prepared",
+    selectedPhotoCount: 2,
+    counts: {
+      selectedPhotos: 2,
+      overviewPhotos: 1,
+      dermoscopyPhotos: 1,
+      reportAttachments: 0,
+    },
+    blockers: ["self_hosted_photo_delivery_contract_missing"],
+    preparedAt: "2026-05-31T09:30:00.000Z",
+    revokedAt: null,
+    revokeReason: null,
+    expiresAt: "2026-06-07T10:00:00.000Z",
+    deliveryBoundary: {
+      patientDeliveryAllowed: false,
+      rawFilesExposed: false,
+      signedUrlsIssued: false,
+      storagePathsExposed: false,
+      tokensExposed: false,
+      physicianTextExposed: false,
+      requiresSelfHostedFileProxy: true,
+      requiresReleaseAudit: true,
+      requiresRevoke: true,
+      requiresIdentityCheck: true,
+      requiresRetentionPolicy: true,
+    },
+  };
+  const prepare = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/patient-photo-protocol-release`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({ photoProtocolRelease }),
+    "POST",
+    JSON.stringify({ expiresAt: "2026-06-07T10:00:00.000Z" }),
+  );
+  assert.equal(prepare.status, 200);
+  assert.equal(prepare.json.item.status, "prepared");
+  assert.equal(prepare.json.item.deliveryBoundary.patientDeliveryAllowed, false);
+  assert.equal(prepare.json.item.selectedPhotoCount, 2);
+  assert.doesNotMatch(prepare.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|preparedByUserId|physician_text/i);
+
+  const revoke = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/patient-photo-protocol-release/revoke`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({ photoProtocolRelease }),
+    "POST",
+    JSON.stringify({ reason: "Пациент попросил закрыть доступ" }),
+  );
+  assert.equal(revoke.status, 200);
+  assert.equal(revoke.json.item.status, "revoked");
+  assert.equal(revoke.json.item.revokeReason, "Пациент попросил закрыть доступ");
+  assert.doesNotMatch(revoke.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|revokedByUserId|physician_text/i);
+});
+
 test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package", async () => {
   const response = await request("/openapi.stage8g-8i.json");
   assert.equal(response.status, 200);
   assert.equal(response.json.info.version, "8G-8I-clinical-reporting-completion");
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report-package"].get);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release"].post);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/revoke"].post);
 });
 
 // =====================================================================

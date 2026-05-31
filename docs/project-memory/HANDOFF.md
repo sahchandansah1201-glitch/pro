@@ -449,6 +449,13 @@ Go-No-Go checklist. The reconciliation pass is recorded in
      gates exist;
    - no raw files, storage paths, signed URLs, tokens, or physician-only text
      are exposed.
+11b. Batch R extends Stage 8G-8I with a patient photo/protocol release ledger:
+   - creates `patient_photo_protocol_releases` for prepare/revoke metadata;
+   - adds doctor-write endpoints for prepare and revoke under `/api/v1/visits`;
+   - records `patient_photo_protocol.release.prepare` and
+     `patient_photo_protocol.release.revoke` audit actions;
+   - patient delivery remains blocked: no files, links, storage paths, tokens,
+     or physician-only text are exposed.
 12. Stage 8J-8O implements Device Bridge production readiness and the server
     operations handbook:
    - Stage 8J: self-hosted `GET /api/v1/device-bridge-worker/production-readiness`;
