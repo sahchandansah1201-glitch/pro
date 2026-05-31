@@ -3862,6 +3862,7 @@ function clinicalWorkspaceRuntime({
   reportPackage = null,
   photoProtocolRelease = null,
   photoProtocolReleaseAudit = null,
+  photoProtocolReleaseGovernance = null,
   authContext,
   auditEvents = [],
   authError,
@@ -3934,6 +3935,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           audit: photoProtocolReleaseAudit,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async getGovernance() {
+        if (clinicalError) throw clinicalError;
+        return {
+          governance: photoProtocolReleaseGovernance,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -4817,6 +4825,56 @@ test("Batch W · patient photo protocol release audit returns staff-safe immutab
   assert.doesNotMatch(response.body, /"revokeReason"\s*:|"rawPayload"\s*:|"actorUserId"\s*:|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
 });
 
+test("Batch AB · patient photo protocol release governance returns aggregate metadata only", async () => {
+  const response = await request(
+    "/api/v1/patient-photo-protocol-release/governance",
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      photoProtocolReleaseGovernance: {
+        summary: {
+          releasesTotal: 4,
+          prepared: 2,
+          blocked: 1,
+          revoked: 1,
+          retentionMissing: 2,
+          patientCopyMissing: 1,
+          fileProxyMissing: 2,
+          expiryMissing: 1,
+          activeAccessWindows: 1,
+          expiringIn24h: 1,
+        },
+        queue: [
+          {
+            queueNumber: 1,
+            status: "prepared",
+            policyStatus: "patient_copy_required",
+            selectedPhotoCount: 3,
+            blockerCount: 1,
+            expiresAt: "2026-06-01T10:00:00.000Z",
+            updatedAt: "2026-05-31T10:00:00.000Z",
+            attention: ["patient_copy_required"],
+          },
+        ],
+        boundaries: {
+          metadataOnly: true,
+          patientNamesExposed: false,
+          rawIdentifiersExposed: false,
+          rawTokensExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          doctorOnlyTextExposed: false,
+        },
+      },
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "8G-8I");
+  assert.equal(response.json.item.summary.releasesTotal, 4);
+  assert.equal(response.json.item.queue[0].policyStatus, "patient_copy_required");
+  assert.equal(response.json.item.boundaries.metadataOnly, true);
+  assert.doesNotMatch(response.body, /patientFullName|patient_id|visitId|releaseId|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text|doctorVersionText/i);
+});
+
 test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package", async () => {
   const response = await request("/openapi.stage8g-8i.json");
   assert.equal(response.status, 200);
@@ -4826,6 +4884,8 @@ test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/policy"].post);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/revoke"].post);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/audit"].get);
+  assert.ok(response.json.paths["/api/v1/patient-photo-protocol-release/governance"].get);
+  assert.ok(response.json.components.schemas.PatientPhotoProtocolReleaseGovernance);
 });
 
 // =====================================================================

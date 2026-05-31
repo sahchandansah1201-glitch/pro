@@ -151,6 +151,22 @@ function auditReviewMetadata(audit) {
   };
 }
 
+function auditGovernanceMetadata(governance) {
+  return {
+    releasesTotal: governance.summary.releasesTotal,
+    prepared: governance.summary.prepared,
+    blocked: governance.summary.blocked,
+    revoked: governance.summary.revoked,
+    retentionMissing: governance.summary.retentionMissing,
+    patientCopyMissing: governance.summary.patientCopyMissing,
+    fileProxyMissing: governance.summary.fileProxyMissing,
+    activeAccessWindows: governance.summary.activeAccessWindows,
+    expiringIn24h: governance.summary.expiringIn24h,
+    metadataOnly: governance.boundaries.metadataOnly === true,
+    rawIdentifiersExposed: governance.boundaries.rawIdentifiersExposed === true,
+  };
+}
+
 export function createPatientPhotoProtocolReleaseService({
   patientPhotoProtocolReleaseRepository,
   auditRepository,
@@ -269,6 +285,24 @@ export function createPatientPhotoProtocolReleaseService({
         metadata: auditReviewMetadata(audit),
       });
       return { audit, scope };
+    },
+
+    async getGovernance(authContext, { correlationId } = {}) {
+      const scope = visitReadScope(authContext);
+      const governance = await patientPhotoProtocolReleaseRepository.getGovernance({
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "patient_photo_protocol.release_governance.read",
+        entityType: "patient_photo_protocol_release_governance",
+        entityId: null,
+        correlationId,
+        metadata: auditGovernanceMetadata(governance),
+      });
+      return { governance, scope };
     },
   };
 }

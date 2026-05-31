@@ -128,10 +128,56 @@ export interface SelfHostedPatientPhotoProtocolReleaseAuditDTO {
   };
 }
 
+export interface SelfHostedPatientPhotoProtocolReleaseGovernanceQueueRow {
+  queueNumber: number;
+  status: string;
+  policyStatus: string;
+  selectedPhotoCount: number;
+  blockerCount: number;
+  expiresAt: string | null;
+  updatedAt: string | null;
+  patientFileProxyEnabled: boolean;
+  patientCopyApproved: boolean;
+  retentionPolicyApproved: boolean;
+  attention: string[];
+}
+
+export interface SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
+  summary: {
+    releasesTotal: number;
+    prepared: number;
+    blocked: number;
+    revoked: number;
+    retentionMissing: number;
+    patientCopyMissing: number;
+    fileProxyMissing: number;
+    expiryMissing: number;
+    activeAccessWindows: number;
+    expiringIn24h: number;
+  };
+  queue: SelfHostedPatientPhotoProtocolReleaseGovernanceQueueRow[];
+  boundaries: {
+    metadataOnly: boolean;
+    patientNamesExposed: boolean;
+    rawIdentifiersExposed: boolean;
+    rawTokensExposed: boolean;
+    rawFilesExposed: boolean;
+    storagePathsExposed: boolean;
+    signedUrlsIssued: boolean;
+    doctorOnlyTextExposed: boolean;
+    rawPolicyPayloadExposed: boolean;
+  };
+}
+
 interface Args {
   apiBaseUrl: string | null | undefined;
   apiToken: string | null | undefined;
   visitId: string;
+}
+
+interface SessionArgs {
+  apiBaseUrl: string | null | undefined;
+  apiToken: string | null | undefined;
 }
 
 export interface SelfHostedPatientPhotoProtocolReleasePolicyPayload {
@@ -365,6 +411,50 @@ export function toSelfHostedPatientPhotoProtocolReleaseAudit(
   };
 }
 
+export function toSelfHostedPatientPhotoProtocolReleaseGovernance(
+  input: Record<string, unknown>,
+): SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
+  const summary = isRecord(input.summary) ? input.summary : {};
+  return {
+    summary: {
+      releasesTotal: Number(summary.releasesTotal ?? 0),
+      prepared: Number(summary.prepared ?? 0),
+      blocked: Number(summary.blocked ?? 0),
+      revoked: Number(summary.revoked ?? 0),
+      retentionMissing: Number(summary.retentionMissing ?? 0),
+      patientCopyMissing: Number(summary.patientCopyMissing ?? 0),
+      fileProxyMissing: Number(summary.fileProxyMissing ?? 0),
+      expiryMissing: Number(summary.expiryMissing ?? 0),
+      activeAccessWindows: Number(summary.activeAccessWindows ?? 0),
+      expiringIn24h: Number(summary.expiringIn24h ?? 0),
+    },
+    queue: arrayOfRecords(input.queue).map((row) => ({
+      queueNumber: Number(row.queueNumber ?? 0),
+      status: String(row.status ?? "blocked"),
+      policyStatus: String(row.policyStatus ?? "blocked"),
+      selectedPhotoCount: Number(row.selectedPhotoCount ?? 0),
+      blockerCount: Number(row.blockerCount ?? 0),
+      expiresAt: textOrNull(row.expiresAt),
+      updatedAt: textOrNull(row.updatedAt),
+      patientFileProxyEnabled: bool(row.patientFileProxyEnabled),
+      patientCopyApproved: bool(row.patientCopyApproved),
+      retentionPolicyApproved: bool(row.retentionPolicyApproved),
+      attention: arrayOfStrings(row.attention),
+    })),
+    boundaries: {
+      metadataOnly: true,
+      patientNamesExposed: false,
+      rawIdentifiersExposed: false,
+      rawTokensExposed: false,
+      rawFilesExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      doctorOnlyTextExposed: false,
+      rawPolicyPayloadExposed: false,
+    },
+  };
+}
+
 export async function getSelfHostedClinicalReportPackage(
   args: Args,
 ): Promise<SelfHostedApiResult<SelfHostedClinicalReportPackageDTO | null>> {
@@ -418,6 +508,32 @@ export async function getSelfHostedPatientPhotoProtocolReleaseAudit(
   if (!response.ok) return fail(apiErrorFromBody(response, body));
   const item = isRecord(body) && isRecord(body.item) ? body.item : null;
   return ok(item ? toSelfHostedPatientPhotoProtocolReleaseAudit(item) : null);
+}
+
+export async function getSelfHostedPatientPhotoProtocolReleaseGovernance(
+  args: SessionArgs,
+): Promise<SelfHostedApiResult<SelfHostedPatientPhotoProtocolReleaseGovernanceDTO | null>> {
+  if (!args.apiToken) return fail(NOT_CONFIGURED);
+  let response: Response;
+  try {
+    response = await fetch(
+      buildSelfHostedApiUrl(args.apiBaseUrl, "/api/v1/patient-photo-protocol-release/governance"),
+      {
+        method: "GET",
+        headers: { Accept: "application/json", Authorization: `Bearer ${args.apiToken}` },
+      },
+    );
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при обращении к self-hosted backend.",
+    });
+  }
+  const body = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, body));
+  const item = isRecord(body) && isRecord(body.item) ? body.item : null;
+  return ok(item ? toSelfHostedPatientPhotoProtocolReleaseGovernance(item) : null);
 }
 
 export async function reviewSelfHostedPatientPhotoProtocolReleasePolicy(

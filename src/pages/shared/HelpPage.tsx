@@ -42,7 +42,7 @@ const ROLES: RoleRef[] = [
     title: "Администратор клиники",
     responsibilities:
       "Доктора, услуги, расписание, маршрутизация, интеграции, бот-настройки, аналитика клиники.",
-    routes: ["/admin", "/admin/doctors", "/admin/services", "/admin/clinics", "/admin/integrations", "/admin/bot", "/admin/analytics"],
+    routes: ["/admin", "/admin/doctors", "/admin/services", "/admin/clinics", "/admin/integrations", "/admin/bot", "/admin/analytics", "/admin/governance"],
     safe: [
       "Управлять докторами, услугами и расписанием.",
       "Настраивать маршрутизацию лидов и тексты бота.",
@@ -136,6 +136,7 @@ const ADMIN_ROUTES: RouteRef[] = [
   { path: "/admin/integrations", description: "CRM/ERP/мессенджер-интеграции." },
   { path: "/admin/bot", description: "Настройки бота, тексты, маршрутизация." },
   { path: "/admin/analytics", description: "Аналитика клиники." },
+  { path: "/admin/governance", description: "Политики доступа, сессии, retention-согласования, журнал решений." },
 ];
 
 const SYS_ROUTES: RouteRef[] = [

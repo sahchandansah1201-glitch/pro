@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildGetPatientPhotoProtocolReleaseGovernanceSql,
   buildGetPatientPhotoProtocolReleaseAuditSql,
   buildPreparePatientPhotoProtocolReleaseSql,
   buildReviewPatientPhotoProtocolReleasePolicySql,
@@ -286,4 +287,72 @@ test("Batch W repository builds staff audit SQL and returns safe immutable summa
   assert.equal("rawPayload" in audit.events[0], false);
   assert.equal("revokeReason" in revokedEvent, false);
   assert.equal("storagePath" in proxyDownloadEvent, false);
+});
+
+test("Batch AB repository builds safe release governance SQL and normalizes metadata-only queue", async () => {
+  const sql = buildGetPatientPhotoProtocolReleaseGovernanceSql({
+    clinicIds: [CLINIC_ID],
+    limit: 10,
+  });
+  assert.match(sql, /patient_photo_protocol_releases/);
+  assert.match(sql, /retentionPolicyApproved/);
+  assert.match(sql, /patientCopyApproved/);
+  assert.match(sql, /patientFileProxyEnabled/);
+  assert.match(sql, /queue/);
+  assert.match(sql, /where sr\.queue_number <= 10/);
+  assert.doesNotMatch(sql, /limit 10/);
+  assert.doesNotMatch(sql, /patient_id::text|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
+
+  const repository = createPatientPhotoProtocolReleaseRepository({
+    async queryJson() {
+      return [{
+        summary: {
+          releasesTotal: 4,
+          prepared: 2,
+          blocked: 1,
+          revoked: 1,
+          retentionMissing: 2,
+          patientCopyMissing: 1,
+          fileProxyMissing: 2,
+          expiryMissing: 1,
+          activeAccessWindows: 1,
+          expiringIn24h: 1,
+        },
+        queue: [
+          {
+            queueNumber: 1,
+            status: "prepared",
+            selectedPhotoCount: 3,
+            blockers: ["self_hosted_photo_delivery_contract_missing"],
+            expiresAt: "2026-06-01T10:00:00.000Z",
+            updatedAt: "2026-05-31T10:00:00.000Z",
+            patientFileProxyEnabled: true,
+            patientCopyApproved: false,
+            retentionPolicyApproved: true,
+            patientId: "hidden",
+            storagePath: "hidden",
+            accessToken: "hidden",
+          },
+        ],
+        boundaries: {
+          patientNamesExposed: true,
+          rawIdentifiersExposed: true,
+          rawTokensExposed: true,
+          storagePathsExposed: true,
+          signedUrlsIssued: true,
+          doctorOnlyTextExposed: true,
+        },
+      }];
+    },
+  });
+  const governance = await repository.getGovernance({ clinicIds: [CLINIC_ID] });
+  assert.equal(governance.summary.releasesTotal, 4);
+  assert.equal(governance.summary.retentionMissing, 2);
+  assert.equal(governance.queue[0].policyStatus, "patient_copy_required");
+  assert.equal(governance.queue[0].selectedPhotoCount, 3);
+  assert.equal("patientId" in governance.queue[0], false);
+  assert.equal("storagePath" in governance.queue[0], false);
+  assert.equal(governance.boundaries.patientNamesExposed, false);
+  assert.equal(governance.boundaries.rawIdentifiersExposed, false);
+  assert.equal(governance.boundaries.rawTokensExposed, false);
 });

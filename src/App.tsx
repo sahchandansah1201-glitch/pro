@@ -33,6 +33,7 @@ import AdminIntegrationsPage from "./pages/admin/AdminIntegrationsPage";
 import AdminIntegrationDetailPage from "./pages/admin/AdminIntegrationDetailPage";
 import AdminBotSettingsPage from "./pages/admin/AdminBotSettingsPage";
 import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
+import AdminGovernancePage from "./pages/admin/AdminGovernancePage";
 import AdminHomePage from "./pages/admin/AdminHomePage";
 import AdminDoctorsPage from "./pages/admin/AdminDoctorsPage";
 import AdminServicesPage from "./pages/admin/AdminServicesPage";
@@ -96,6 +97,7 @@ const App = () => (
               <Route path="/admin/integrations/crm/:id" element={<G><AdminIntegrationDetailPage /></G>} />
               <Route path="/admin/bot" element={<G><AdminBotSettingsPage /></G>} />
               <Route path="/admin/analytics" element={<G><AdminAnalyticsPage /></G>} />
+              <Route path="/admin/governance" element={<G><AdminGovernancePage /></G>} />
 
               {/* Operator */}
               <Route path="/operator" element={<G><OperatorConsolePage /></G>} />

@@ -87,6 +87,10 @@ describe("AppLayout production mode", () => {
     renderLayout();
     const link = screen.getByRole("link", { name: /Операционный центр/ });
     expect(link).toHaveAttribute("href", "/admin");
+    expect(screen.getByRole("link", { name: /Управление доступом/ })).toHaveAttribute(
+      "href",
+      "/admin/governance",
+    );
     expect(screen.queryByRole("link", { name: /^Обзор$/ })).not.toBeInTheDocument();
   });
 

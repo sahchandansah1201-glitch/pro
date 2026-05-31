@@ -43,6 +43,12 @@ function clinicScopeWhere({ alias = "v", clinicIds = [], allClinics = false } = 
   return `and ${alias}.clinic_id in (${ids.map(sqlUuid).join(", ")})`;
 }
 
+function safeLimit(value, fallback = 20, max = 100) {
+  const limit = Number(value ?? fallback);
+  if (!Number.isFinite(limit) || limit <= 0) return fallback;
+  return Math.min(Math.floor(limit), max);
+}
+
 function releaseSafeColumns(alias = "r") {
   return `
     ${alias}.id::text as "id",
@@ -412,6 +418,134 @@ from (
 `.trim();
 }
 
+export function buildGetPatientPhotoProtocolReleaseGovernanceSql({
+  clinicIds = [],
+  allClinics = false,
+  limit = 20,
+} = {}) {
+  return `
+with scoped_releases as (
+  select
+    row_number() over (order by r.updated_at desc, r.created_at desc)::int as queue_number,
+    r.status,
+    coalesce(r.selected_photo_count, 0)::int as selected_photo_count,
+    cardinality(coalesce(r.release_blockers, '{}'::text[]))::int as blocker_count,
+    r.expires_at,
+    r.updated_at,
+    coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false) as patient_file_proxy_enabled,
+    coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false) as patient_copy_approved,
+    coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where true
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+),
+queue as (
+  select
+    sr.queue_number,
+    sr.status,
+    case
+      when sr.status = 'revoked' then 'revoked'
+      when sr.status = 'blocked' then 'blocked'
+      when not sr.patient_file_proxy_enabled then 'file_proxy_required'
+      when not sr.retention_policy_approved or sr.expires_at is null then 'retention_required'
+      when not sr.patient_copy_approved then 'patient_copy_required'
+      else 'ready_for_access_window'
+    end as policy_status,
+    sr.selected_photo_count,
+    sr.blocker_count,
+    sr.expires_at,
+    sr.updated_at,
+    sr.patient_file_proxy_enabled,
+    sr.patient_copy_approved,
+    sr.retention_policy_approved,
+    array_remove(array[
+      case when sr.status = 'blocked' then 'blocked_release' end,
+      case when sr.status = 'revoked' then 'revoked_release' end,
+      case when not sr.patient_file_proxy_enabled then 'file_proxy_required' end,
+      case when not sr.retention_policy_approved then 'retention_required' end,
+      case when sr.expires_at is null then 'expiry_required' end,
+      case when not sr.patient_copy_approved then 'patient_copy_required' end,
+      case when sr.expires_at is not null and sr.expires_at <= now() + interval '24 hours' and sr.status = 'prepared'
+        then 'expires_soon'
+      end
+    ], null)::text[] as attention
+  from scoped_releases sr
+  where sr.queue_number <= ${safeLimit(limit)}
+),
+summary as (
+  select
+    count(*)::int as releases_total,
+    count(*) filter (where status = 'prepared')::int as prepared,
+    count(*) filter (where status = 'blocked')::int as blocked,
+    count(*) filter (where status = 'revoked')::int as revoked,
+    count(*) filter (where not retention_policy_approved or expires_at is null)::int as retention_missing,
+    count(*) filter (where not patient_copy_approved)::int as patient_copy_missing,
+    count(*) filter (where not patient_file_proxy_enabled)::int as file_proxy_missing,
+    count(*) filter (where expires_at is null)::int as expiry_missing,
+    count(*) filter (where status = 'prepared' and expires_at > now())::int as active_access_windows,
+    count(*) filter (
+      where status = 'prepared'
+        and expires_at is not null
+        and expires_at > now()
+        and expires_at <= now() + interval '24 hours'
+    )::int as expiring_in_24h
+  from scoped_releases
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    jsonb_build_object(
+      'releasesTotal', coalesce(s.releases_total, 0),
+      'prepared', coalesce(s.prepared, 0),
+      'blocked', coalesce(s.blocked, 0),
+      'revoked', coalesce(s.revoked, 0),
+      'retentionMissing', coalesce(s.retention_missing, 0),
+      'patientCopyMissing', coalesce(s.patient_copy_missing, 0),
+      'fileProxyMissing', coalesce(s.file_proxy_missing, 0),
+      'expiryMissing', coalesce(s.expiry_missing, 0),
+      'activeAccessWindows', coalesce(s.active_access_windows, 0),
+      'expiringIn24h', coalesce(s.expiring_in_24h, 0)
+    ) as "summary",
+    coalesce(
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'queueNumber', q.queue_number,
+            'status', q.status,
+            'policyStatus', q.policy_status,
+            'selectedPhotoCount', q.selected_photo_count,
+            'blockerCount', q.blocker_count,
+            'expiresAt', q.expires_at,
+            'updatedAt', q.updated_at,
+            'patientFileProxyEnabled', q.patient_file_proxy_enabled,
+            'patientCopyApproved', q.patient_copy_approved,
+            'retentionPolicyApproved', q.retention_policy_approved,
+            'attention', q.attention
+          )
+          order by q.queue_number asc
+        )
+        from queue q
+      ),
+      '[]'::jsonb
+    ) as "queue",
+    jsonb_build_object(
+      'metadataOnly', true,
+      'patientNamesExposed', false,
+      'rawIdentifiersExposed', false,
+      'rawTokensExposed', false,
+      'rawFilesExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'doctorOnlyTextExposed', false,
+      'rawPolicyPayloadExposed', false
+    ) as "boundaries"
+  from summary s
+  limit 1
+) result;
+`.trim();
+}
+
 function arrayOfStrings(value) {
   return Array.isArray(value) ? value.map(String) : [];
 }
@@ -583,6 +717,64 @@ function normalizeReleaseAudit(row) {
   };
 }
 
+function governancePolicyStatus(row) {
+  const explicit = textOrNull(row.policyStatus);
+  if (explicit) return explicit;
+  const status = String(row.status ?? "blocked");
+  if (status === "revoked") return "revoked";
+  if (status === "blocked") return "blocked";
+  if (!bool(row.patientFileProxyEnabled)) return "file_proxy_required";
+  if (!bool(row.retentionPolicyApproved) || !row.expiresAt) return "retention_required";
+  if (!bool(row.patientCopyApproved)) return "patient_copy_required";
+  return "ready_for_access_window";
+}
+
+function normalizeGovernanceQueue(row) {
+  return {
+    queueNumber: number(row.queueNumber),
+    status: String(row.status ?? "blocked"),
+    policyStatus: governancePolicyStatus(row),
+    selectedPhotoCount: number(row.selectedPhotoCount),
+    blockerCount: number(row.blockerCount),
+    expiresAt: row.expiresAt ?? null,
+    updatedAt: row.updatedAt ?? null,
+    patientFileProxyEnabled: bool(row.patientFileProxyEnabled),
+    patientCopyApproved: bool(row.patientCopyApproved),
+    retentionPolicyApproved: bool(row.retentionPolicyApproved),
+    attention: arrayOfStrings(row.attention),
+  };
+}
+
+function normalizeGovernance(row = {}) {
+  const summary = row.summary ?? {};
+  return {
+    summary: {
+      releasesTotal: number(summary.releasesTotal),
+      prepared: number(summary.prepared),
+      blocked: number(summary.blocked),
+      revoked: number(summary.revoked),
+      retentionMissing: number(summary.retentionMissing),
+      patientCopyMissing: number(summary.patientCopyMissing),
+      fileProxyMissing: number(summary.fileProxyMissing),
+      expiryMissing: number(summary.expiryMissing),
+      activeAccessWindows: number(summary.activeAccessWindows),
+      expiringIn24h: number(summary.expiringIn24h),
+    },
+    queue: parseEvents(row.queue).map(normalizeGovernanceQueue),
+    boundaries: {
+      metadataOnly: true,
+      patientNamesExposed: false,
+      rawIdentifiersExposed: false,
+      rawTokensExposed: false,
+      rawFilesExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      doctorOnlyTextExposed: false,
+      rawPolicyPayloadExposed: false,
+    },
+  };
+}
+
 export function createPatientPhotoProtocolReleaseRepository(dbClient) {
   return {
     async prepareRelease(params) {
@@ -600,6 +792,10 @@ export function createPatientPhotoProtocolReleaseRepository(dbClient) {
     async getReleaseAudit(params) {
       const rows = await dbClient.queryJson(buildGetPatientPhotoProtocolReleaseAuditSql(params));
       return Array.isArray(rows) && rows[0] ? normalizeReleaseAudit(rows[0]) : null;
+    },
+    async getGovernance(params) {
+      const rows = await dbClient.queryJson(buildGetPatientPhotoProtocolReleaseGovernanceSql(params));
+      return Array.isArray(rows) && rows[0] ? normalizeGovernance(rows[0]) : normalizeGovernance();
     },
   };
 }

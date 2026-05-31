@@ -225,3 +225,81 @@ test("Batch W service exposes release audit to staff read scope and hides intern
     ForbiddenError,
   );
 });
+
+test("Batch AB service exposes aggregate release governance to clinic admin and audits read", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async getGovernance() {
+        return {
+          summary: {
+            releasesTotal: 4,
+            prepared: 2,
+            blocked: 1,
+            revoked: 1,
+            retentionMissing: 2,
+            patientCopyMissing: 1,
+            fileProxyMissing: 2,
+            expiryMissing: 1,
+            activeAccessWindows: 1,
+            expiringIn24h: 1,
+          },
+          queue: [
+            {
+              queueNumber: 1,
+              status: "prepared",
+              policyStatus: "patient_copy_required",
+              selectedPhotoCount: 3,
+              blockerCount: 1,
+              expiresAt: "2026-06-01T10:00:00.000Z",
+              updatedAt: "2026-05-31T10:00:00.000Z",
+              attention: ["patient_copy_required"],
+            },
+          ],
+          boundaries: {
+            metadataOnly: true,
+            patientNamesExposed: false,
+            rawIdentifiersExposed: false,
+            rawTokensExposed: false,
+            storagePathsExposed: false,
+            signedUrlsIssued: false,
+            doctorOnlyTextExposed: false,
+          },
+        };
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-governance" };
+      },
+    },
+  });
+
+  const result = await service.getGovernance(
+    { userId: "admin-user", roles: ["clinic_admin"], clinicIds: [CLINIC_ID] },
+    { correlationId: "corr-governance" },
+  );
+  assert.equal(result.governance.summary.releasesTotal, 4);
+  assert.equal(result.governance.queue[0].policyStatus, "patient_copy_required");
+  assert.equal(result.governance.boundaries.metadataOnly, true);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release_governance.read");
+  assert.deepEqual(auditEvents[0].metadata, {
+    releasesTotal: 4,
+    prepared: 2,
+    blocked: 1,
+    revoked: 1,
+    retentionMissing: 2,
+    patientCopyMissing: 1,
+    fileProxyMissing: 2,
+    activeAccessWindows: 1,
+    expiringIn24h: 1,
+    metadataOnly: true,
+    rawIdentifiersExposed: false,
+  });
+
+  await assert.rejects(
+    () => service.getGovernance({ userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});

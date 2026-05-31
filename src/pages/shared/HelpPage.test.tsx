@@ -52,7 +52,7 @@ describe("HelpPage", () => {
 
   it("содержит ссылки на ключевые группы маршрутов", () => {
     renderHelp();
-    const expected = ["/patients", "/capture", "/operator", "/admin", "/sys/users", "/me"];
+    const expected = ["/patients", "/capture", "/operator", "/admin", "/admin/governance", "/sys/users", "/me"];
     for (const path of expected) {
       const link = screen.getAllByRole("link").find((a) => a.getAttribute("href") === path);
       expect(link, `link for ${path}`).toBeTruthy();

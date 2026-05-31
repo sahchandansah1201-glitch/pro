@@ -6,6 +6,7 @@ import AdminDoctorsPage from "./AdminDoctorsPage";
 import AdminServicesPage from "./AdminServicesPage";
 import AdminClinicsPage from "./AdminClinicsPage";
 import AdminBotSettingsPage from "./AdminBotSettingsPage";
+import AdminGovernancePage from "./AdminGovernancePage";
 
 const FORBIDDEN = [
   "birthDate",
@@ -86,6 +87,39 @@ describe("Admin clinic core pages — render & safety", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /Передать оператору/ })[0]);
     expect(screen.getAllByText(/Передача оператору подготовлена локально/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/сообщения не отправляются/).length).toBeGreaterThan(0);
+  });
+
+  it("AdminGovernancePage renders aggregate access governance and local review actions", () => {
+    renderRouted(<AdminGovernancePage />);
+    expect(screen.getByRole("heading", { name: /Управление доступом/ })).toBeInTheDocument();
+    expect(screen.getByText(/Только агрегаты/)).toBeInTheDocument();
+    expect(screen.getByText("Политики выдачи")).toBeInTheDocument();
+    expect(screen.getAllByText("Сессии пациента").length).toBeGreaterThan(0);
+    expect(screen.getByText("Очередь утверждений")).toBeInTheDocument();
+    expect(screen.getByText("Границы данных")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: /Зафиксировать разбор/ })[0]);
+    expect(screen.getByText(/Разбор политики подготовлен локально/)).toBeInTheDocument();
+  });
+
+  it("AdminGovernancePage keeps release governance metadata-only", () => {
+    const { container } = renderRouted(<AdminGovernancePage />);
+    const html = container.innerHTML;
+    for (const token of [
+      ...FORBIDDEN,
+      "patientId",
+      "visitId",
+      "releaseId",
+      "objectBucket",
+      "objectKey",
+      "signedUrl",
+      "accessToken",
+      "revokeReason",
+      "Иванова",
+      "Кузнецов",
+    ]) {
+      expect(html, `forbidden token ${token}`).not.toContain(token);
+    }
+    expect(html).not.toMatch(/меланома|рак кожи|вероятность меланомы/i);
   });
 
   it("AdminBotSettingsPage keeps bot control safe and hides raw bot internals", () => {
@@ -185,6 +219,7 @@ describe("Admin clinic core pages — render & safety", () => {
       <AdminServicesPage />,
       <AdminClinicsPage />,
       <AdminBotSettingsPage />,
+      <AdminGovernancePage />,
     ]) {
       const { container, unmount } = renderRouted(ui);
       const html = container.innerHTML;

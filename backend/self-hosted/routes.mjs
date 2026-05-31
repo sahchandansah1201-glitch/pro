@@ -1977,6 +1977,39 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Batch AB · aggregate admin governance for patient photo/protocol release.
+  const patientPhotoProtocolReleaseGovernanceMatch =
+    url.pathname === "/api/v1/patient-photo-protocol-release/governance";
+  if (patientPhotoProtocolReleaseGovernanceMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientPhotoProtocolReleaseService.getGovernance(
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "8G-8I",
+          source: "postgres",
+          item: result.governance,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Stage 4R · self-hosted Device Bridge command queue endpoints.
   const bridgeCommandMatch = url.pathname.match(/^\/api\/v1\/device-bridges\/([^/]+)\/commands$/);
   if (bridgeCommandMatch && method === "POST") {

@@ -93,6 +93,7 @@ release workflow:
 - `POST /api/v1/visits/{visitId}/patient-photo-protocol-release/policy`;
 - `POST /api/v1/visits/{visitId}/patient-photo-protocol-release/revoke`;
 - `GET /api/v1/visits/{visitId}/patient-photo-protocol-release/audit`;
+- `GET /api/v1/patient-photo-protocol-release/governance`;
 - repository/service tests for prepare, revoke, RBAC, and protected-field
   hygiene.
 
@@ -136,6 +137,26 @@ and reason-present booleans. It does not expose raw audit payloads, actor
 identifiers, internal request identifiers, revoke reason text, object storage
 identifiers, storage paths, signed links, tokens, or physician-only text.
 
+## Staff/admin aggregate governance
+
+Batch AB adds a clinic-scope governance read model for administrator and
+private-practice operating screens:
+
+- `GET /api/v1/patient-photo-protocol-release/governance`;
+- production admin route `/admin/governance`;
+- UI title: `Управление доступом`;
+- aggregate summary for prepared, blocked, revoked, retention, patient-copy,
+  file-proxy and expiry gates;
+- metadata-only queue rows with queue number, status, policy status, selected
+  photo count, blocker count, expiry, update time and attention flags.
+
+The governance read model is not patient delivery and not a patient-level
+export. It deliberately omits patient names, raw identifiers, release
+identifiers, visit identifiers, report identifiers, revoke reason text, raw
+policy payloads, files, storage locations, signed links, tokens, and
+doctor-only text. Its purpose is to make policy/session lifecycle work visible
+without weakening the Stage 5N patient portal boundary.
+
 ## Audit
 
 Every read records:
@@ -161,6 +182,13 @@ Audit-review reads record:
 - entity type: `patient_photo_protocol_release`;
 - metadata: visit id, status, immutable-ledger flag, event counts, and protected
   payload exposure flag only.
+
+Aggregate governance reads record:
+
+- action: `patient_photo_protocol.release_governance.read`;
+- entity type: `patient_photo_protocol_release_governance`;
+- metadata: release totals, prepared/blocked/revoked counts, policy blocker
+  counts, active access-window counts, and metadata-only boundary flags.
 
 ## Validation
 

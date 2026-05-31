@@ -236,6 +236,34 @@
           "422": { "description": "Invalid visit id" }
         }
       }
+    },
+    "/api/v1/patient-photo-protocol-release/governance": {
+      "get": {
+        "summary": "Read aggregate photo protocol release governance",
+        "description": "Returns aggregate clinic-scope governance for patient photo/protocol release policies and access windows. The response is metadata-only and does not expose patients, photos, raw identifiers, tokens, storage paths, signed links, or doctor-only text.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Aggregate metadata-only release governance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item", "correlationId"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["8G-8I"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/PatientPhotoProtocolReleaseGovernance" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Auth required" },
+          "403": { "description": "Role or clinic scope denied" }
+        }
+      }
     }
   },
   "components": {
@@ -431,6 +459,66 @@
               "patientFileProxyEnabled": { "type": "boolean" },
               "patientCopyApproved": { "type": "boolean" },
               "retentionPolicyApproved": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "PatientPhotoProtocolReleaseGovernance": {
+        "type": "object",
+        "description": "Aggregate staff/admin governance for release policies and patient access windows. Queue rows are metadata-only and omit patient names, raw identifiers, files, storage paths, links, tokens, and doctor-only text.",
+        "properties": {
+          "summary": {
+            "type": "object",
+            "properties": {
+              "releasesTotal": { "type": "integer" },
+              "prepared": { "type": "integer" },
+              "blocked": { "type": "integer" },
+              "revoked": { "type": "integer" },
+              "retentionMissing": { "type": "integer" },
+              "patientCopyMissing": { "type": "integer" },
+              "fileProxyMissing": { "type": "integer" },
+              "expiryMissing": { "type": "integer" },
+              "activeAccessWindows": { "type": "integer" },
+              "expiringIn24h": { "type": "integer" }
+            }
+          },
+          "queue": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "queueNumber": { "type": "integer" },
+                "status": { "type": "string", "enum": ["blocked", "prepared", "revoked"] },
+                "policyStatus": {
+                  "type": "string",
+                  "enum": ["ready_for_access_window", "retention_required", "patient_copy_required", "file_proxy_required", "blocked", "revoked"]
+                },
+                "selectedPhotoCount": { "type": "integer" },
+                "blockerCount": { "type": "integer" },
+                "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+                "updatedAt": { "type": ["string", "null"], "format": "date-time" },
+                "patientFileProxyEnabled": { "type": "boolean" },
+                "patientCopyApproved": { "type": "boolean" },
+                "retentionPolicyApproved": { "type": "boolean" },
+                "attention": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "boundaries": {
+            "type": "object",
+            "properties": {
+              "metadataOnly": { "type": "boolean", "enum": [true] },
+              "patientNamesExposed": { "type": "boolean", "enum": [false] },
+              "rawIdentifiersExposed": { "type": "boolean", "enum": [false] },
+              "rawTokensExposed": { "type": "boolean", "enum": [false] },
+              "rawFilesExposed": { "type": "boolean", "enum": [false] },
+              "storagePathsExposed": { "type": "boolean", "enum": [false] },
+              "signedUrlsIssued": { "type": "boolean", "enum": [false] },
+              "doctorOnlyTextExposed": { "type": "boolean", "enum": [false] },
+              "rawPolicyPayloadExposed": { "type": "boolean", "enum": [false] }
             }
           }
         }

@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   clinicalReportMissingLabel,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
+  getSelfHostedPatientPhotoProtocolReleaseGovernance,
   getSelfHostedClinicalReportPackage,
   reviewSelfHostedPatientPhotoProtocolReleasePolicy,
   toSelfHostedPatientPhotoProtocolReleaseAudit,
+  toSelfHostedPatientPhotoProtocolReleaseGovernance,
   toSelfHostedClinicalReportPackage,
 } from "@/lib/self-hosted-clinical-report-package-api";
 
@@ -245,6 +247,87 @@ describe("self-hosted-clinical-report-package-api", () => {
       "http://localhost:3001/api/v1/visits/visit-1/patient-photo-protocol-release/policy",
       expect.objectContaining({
         method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+  });
+
+  it("normalizes aggregate release governance without protected identifiers", () => {
+    const governance = toSelfHostedPatientPhotoProtocolReleaseGovernance({
+      summary: {
+        releasesTotal: "4",
+        prepared: 2,
+        blocked: 1,
+        revoked: 1,
+        retentionMissing: 2,
+        patientCopyMissing: 1,
+        fileProxyMissing: 2,
+        expiryMissing: 1,
+        activeAccessWindows: 1,
+        expiringIn24h: 1,
+      },
+      queue: [
+        {
+          queueNumber: "1",
+          status: "prepared",
+          policyStatus: "patient_copy_required",
+          selectedPhotoCount: "3",
+          blockerCount: "1",
+          expiresAt: "2026-06-01T10:00:00.000Z",
+          updatedAt: "2026-05-31T10:00:00.000Z",
+          attention: ["patient_copy_required"],
+          patientId: "hidden",
+          visitId: "hidden",
+          storagePath: "hidden",
+          accessToken: "hidden",
+        },
+      ],
+      boundaries: {
+        metadataOnly: true,
+        patientNamesExposed: true,
+        rawIdentifiersExposed: true,
+        rawTokensExposed: true,
+        storagePathsExposed: true,
+        signedUrlsIssued: true,
+        doctorOnlyTextExposed: true,
+      },
+    });
+    expect(governance.summary.releasesTotal).toBe(4);
+    expect(governance.queue[0].policyStatus).toBe("patient_copy_required");
+    expect(governance.queue[0]).not.toHaveProperty("patientId");
+    expect(governance.queue[0]).not.toHaveProperty("visitId");
+    expect(governance.queue[0]).not.toHaveProperty("storagePath");
+    expect(governance.boundaries.metadataOnly).toBe(true);
+    expect(governance.boundaries.patientNamesExposed).toBe(false);
+    expect(governance.boundaries.rawIdentifiersExposed).toBe(false);
+    expect(governance.boundaries.rawTokensExposed).toBe(false);
+  });
+
+  it("fetches aggregate release governance from the self-hosted admin route", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            summary: { releasesTotal: 1, prepared: 1 },
+            queue: [{ queueNumber: 1, status: "prepared", policyStatus: "ready_for_access_window" }],
+            boundaries: { metadataOnly: true },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await getSelfHostedPatientPhotoProtocolReleaseGovernance({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.summary.releasesTotal).toBe(1);
+    expect(result.value?.queue[0].policyStatus).toBe("ready_for_access_window");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patient-photo-protocol-release/governance",
+      expect.objectContaining({
+        method: "GET",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
       }),
     );
