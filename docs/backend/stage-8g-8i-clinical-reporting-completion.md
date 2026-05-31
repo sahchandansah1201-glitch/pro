@@ -90,6 +90,7 @@ release workflow:
 
 - migration: `0055_patient_photo_protocol_releases.sql`;
 - `POST /api/v1/visits/{visitId}/patient-photo-protocol-release`;
+- `POST /api/v1/visits/{visitId}/patient-photo-protocol-release/policy`;
 - `POST /api/v1/visits/{visitId}/patient-photo-protocol-release/revoke`;
 - `GET /api/v1/visits/{visitId}/patient-photo-protocol-release/audit`;
 - repository/service tests for prepare, revoke, RBAC, and protected-field
@@ -103,6 +104,18 @@ metadata gate is ready and the only remaining blocker is
 `self_hosted_photo_delivery_contract_missing`; patient delivery remains
 blocked until a real self-hosted file proxy, identity check, patient portal read
 model, retention policy, and approved patient-safe copy gates are implemented.
+
+## Policy governance review
+
+Batch Y adds doctor-side policy governance for the same release ledger:
+
+- `POST /api/v1/visits/{visitId}/patient-photo-protocol-release/policy`;
+- payload can update `patientFileProxyEnabled`, `patientCopyApproved`,
+  `retentionPolicyApproved`, and `expiresAt`;
+- write stays metadata-only: no raw files, storage paths, signed links, tokens,
+  object identifiers, or revoke reason text are exposed;
+- audit adds `patient_photo_protocol.release.policy_review` and is visible in
+  immutable staff/admin release audit counters.
 
 ## Staff/admin immutable audit review
 

@@ -32,6 +32,15 @@ function validateIsoDateTime(value, field, details) {
   return date.toISOString();
 }
 
+function validateOptionalBoolean(value, field, details) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") {
+    details.push({ field, message: `${field} must be boolean.` });
+    return undefined;
+  }
+  return value;
+}
+
 export function normalizePreparePatientPhotoProtocolReleasePayload(input = {}) {
   if (!isPlainObject(input)) {
     throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
@@ -56,6 +65,56 @@ export function normalizeRevokePatientPhotoProtocolReleasePayload(input = {}) {
   return { reason };
 }
 
+export function normalizeReviewPatientPhotoProtocolReleasePolicyPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  const details = [];
+  const expiresAtProvided = Object.prototype.hasOwnProperty.call(input, "expiresAt");
+  let expiresAt = null;
+  if (expiresAtProvided) {
+    if (input.expiresAt === null || input.expiresAt === "") {
+      expiresAt = null;
+    } else {
+      expiresAt = validateIsoDateTime(input.expiresAt, "expiresAt", details);
+    }
+  }
+  const patientFileProxyEnabled = validateOptionalBoolean(
+    input.patientFileProxyEnabled,
+    "patientFileProxyEnabled",
+    details,
+  );
+  const patientCopyApproved = validateOptionalBoolean(
+    input.patientCopyApproved,
+    "patientCopyApproved",
+    details,
+  );
+  const retentionPolicyApproved = validateOptionalBoolean(
+    input.retentionPolicyApproved,
+    "retentionPolicyApproved",
+    details,
+  );
+  if (
+    !expiresAtProvided &&
+    patientFileProxyEnabled === undefined &&
+    patientCopyApproved === undefined &&
+    retentionPolicyApproved === undefined
+  ) {
+    details.push({
+      field: "body",
+      message: "At least one policy field is required.",
+    });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    expiresAtProvided,
+    expiresAt,
+    patientFileProxyEnabled,
+    patientCopyApproved,
+    retentionPolicyApproved,
+  };
+}
+
 function ensureScopeAllowsClinic(scope, clinicId) {
   if (scope.allClinics) return;
   if (!clinicId || !scope.clinicIds.includes(clinicId)) {
@@ -70,6 +129,9 @@ function auditMetadata(release) {
     selectedPhotoCount: release.selectedPhotoCount,
     blockerCount: release.blockers.length,
     patientDeliveryAllowed: release.deliveryBoundary.patientDeliveryAllowed === true,
+    fileProxyReady: release.deliveryBoundary.fileProxyReady === true,
+    requiresRetentionPolicy: release.deliveryBoundary.requiresRetentionPolicy === true,
+    requiresApprovedPatientCopy: release.deliveryBoundary.requiresApprovedPatientCopy === true,
   };
 }
 
@@ -83,6 +145,7 @@ function auditReviewMetadata(audit) {
     patientReadEvents: audit.summary.patientReadEvents,
     proxyDownloadEvents: audit.summary.proxyDownloadEvents,
     proxyDeniedEvents: audit.summary.proxyDeniedEvents,
+    policyReviewEvents: audit.summary.policyReviewEvents ?? 0,
     immutableLedger: audit.boundaries.immutableLedger === true,
     rawPayloadExposed: audit.boundaries.rawPayloadExposed === true,
   };
@@ -145,6 +208,40 @@ export function createPatientPhotoProtocolReleaseService({
         metadata: {
           ...auditMetadata(release),
           reasonPresent: Boolean(release.revokeReason),
+        },
+      });
+      return { release, scope };
+    },
+
+    async reviewPolicy(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeReviewPatientPhotoProtocolReleasePolicyPayload(input);
+      const release = await patientPhotoProtocolReleaseRepository.reviewPolicy({
+        visitId: safeVisitId,
+        actorUserId: authContext.userId,
+        expiresAtProvided: payload.expiresAtProvided,
+        expiresAt: payload.expiresAt,
+        patientFileProxyEnabled: payload.patientFileProxyEnabled,
+        patientCopyApproved: payload.patientCopyApproved,
+        retentionPolicyApproved: payload.retentionPolicyApproved,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!release) {
+        throw new VisitWorkspaceNotFoundError("Patient photo protocol release policy could not be updated.");
+      }
+      ensureScopeAllowsClinic(scope, release.clinicId);
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: release.clinicId,
+        actorUserId: authContext.userId,
+        action: "patient_photo_protocol.release.policy_review",
+        entityType: "patient_photo_protocol_release",
+        entityId: release.id,
+        correlationId,
+        metadata: {
+          ...auditMetadata(release),
+          expiresAtPresent: Boolean(release.expiresAt),
         },
       });
       return { release, scope };

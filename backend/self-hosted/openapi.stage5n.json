@@ -55,7 +55,10 @@
               "storagePathsExposed": { "type": "boolean", "const": false },
               "tokensExposed": { "type": "boolean", "const": false },
               "doctorOnlyTextExposed": { "type": "boolean", "const": false },
-              "fileProxyReady": { "type": "boolean", "const": false }
+              "fileProxyReady": { "type": "boolean" },
+              "requiresIdentityCheck": { "type": "boolean" },
+              "requiresRetentionPolicy": { "type": "boolean" },
+              "requiresApprovedPatientCopy": { "type": "boolean" }
             }
           },
           "photos": {

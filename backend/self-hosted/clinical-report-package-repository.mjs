@@ -110,6 +110,19 @@ asset_counts as (
     count(*) filter (where a.kind = 'report_attachment')::int as report_attachment_count
   from clinical_assets a
   join scoped_visit sv on sv.id = a.visit_id and sv.clinic_id = a.clinic_id
+),
+release_policy as (
+  select
+    true as release_exists,
+    r.expires_at as release_expires_at,
+    coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false) as patient_file_proxy_enabled,
+    coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false) as patient_copy_approved,
+    coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved
+  from patient_photo_protocol_releases r
+  join scoped_visit sv on sv.id = r.visit_id and sv.clinic_id = r.clinic_id
+  where r.status in ('prepared', 'revoked', 'blocked')
+  order by r.updated_at desc
+  limit 1
 )
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
@@ -148,7 +161,12 @@ from (
     coalesce(ac.patient_photo_count, 0) as "patientPhotoAssetCount",
     coalesce(ac.overview_photo_count, 0) as "overviewPhotoCount",
     coalesce(ac.dermoscopy_photo_count, 0) as "dermoscopyPhotoCount",
-    coalesce(ac.report_attachment_count, 0) as "reportAttachmentCount"
+    coalesce(ac.report_attachment_count, 0) as "reportAttachmentCount",
+    coalesce(rp.release_exists, false) as "photoReleaseExists",
+    rp.release_expires_at as "photoReleaseExpiresAt",
+    coalesce(rp.patient_file_proxy_enabled, false) as "patientFileProxyEnabled",
+    coalesce(rp.patient_copy_approved, false) as "patientCopyApproved",
+    coalesce(rp.retention_policy_approved, false) as "retentionPolicyApproved"
   from scoped_visit sv
   left join assessment a on true
   left join conclusion c on true
@@ -156,6 +174,7 @@ from (
   left join patient_flags pf on true
   left join lesion_counts lc on true
   left join asset_counts ac on true
+  left join release_policy rp on true
   limit 1
 ) result;
 `.trim();
@@ -213,6 +232,12 @@ function buildPatientPhotoProtocolMissing(row) {
 function normalizePatientPhotoProtocol(row) {
   const missing = buildPatientPhotoProtocolMissing(row);
   const readyForBackendContract = missing.every((key) => key === "self_hosted_photo_delivery_contract_missing");
+  const fileProxyReady = bool(row.patientFileProxyEnabled);
+  const retentionPolicyApproved = bool(row.retentionPolicyApproved);
+  const patientCopyApproved = bool(row.patientCopyApproved);
+  const releaseExpiresAt = textOrNull(row.photoReleaseExpiresAt);
+  const requiresRetentionPolicy = !retentionPolicyApproved || !releaseExpiresAt;
+  const requiresApprovedPatientCopy = !patientCopyApproved || !bool(row.reportPatientSafeTextPresent);
   return {
     brainstormTask: "SD-MF-046",
     status: readyForBackendContract ? "metadata_ready_backend_blocked" : "blocked",
@@ -225,6 +250,13 @@ function normalizePatientPhotoProtocol(row) {
       reportAttachments: count(row.reportAttachmentCount),
     },
     missing,
+    policy: {
+      releasePrepared: bool(row.photoReleaseExists),
+      patientFileProxyEnabled: fileProxyReady,
+      patientCopyApproved,
+      retentionPolicyApproved,
+      expiresAt: releaseExpiresAt,
+    },
     deliveryBoundary: {
       patientDeliveryAllowed: false,
       rawFilesExposed: false,
@@ -232,10 +264,13 @@ function normalizePatientPhotoProtocol(row) {
       storagePathsExposed: false,
       tokensExposed: false,
       physicianTextExposed: false,
-      requiresSelfHostedFileProxy: true,
+      fileProxyReady,
+      requiresSelfHostedFileProxy: !fileProxyReady,
       requiresReleaseAudit: true,
       requiresRevoke: true,
       requiresIdentityCheck: true,
+      requiresRetentionPolicy,
+      requiresApprovedPatientCopy,
     },
   };
 }

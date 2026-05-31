@@ -37,6 +37,7 @@ test("Stage 5N SQL scopes patient photo protocol reads and excludes protected as
   assert.match(photoProtocolSql, /clinical_assets/);
   assert.match(photoProtocolSql, /patientFileProxyEnabled/);
   assert.match(photoProtocolSql, /patientCopyApproved/);
+  assert.match(photoProtocolSql, /retentionPolicyApproved/);
   assert.match(photoProtocolSql, /patientDeliveryAllowed/);
   assert.match(photoProtocolSql, /previewAvailable/);
   assert.match(photoProtocolSql, /auditTrail/);

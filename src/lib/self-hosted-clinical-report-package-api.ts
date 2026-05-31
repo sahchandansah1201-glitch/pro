@@ -63,10 +63,20 @@ export interface SelfHostedClinicalReportPackageDTO {
       storagePathsExposed: boolean;
       tokensExposed: boolean;
       physicianTextExposed: boolean;
+      fileProxyReady: boolean;
       requiresSelfHostedFileProxy: boolean;
       requiresReleaseAudit: boolean;
       requiresRevoke: boolean;
       requiresIdentityCheck: boolean;
+      requiresRetentionPolicy: boolean;
+      requiresApprovedPatientCopy: boolean;
+    };
+    policy: {
+      releasePrepared: boolean;
+      patientFileProxyEnabled: boolean;
+      patientCopyApproved: boolean;
+      retentionPolicyApproved: boolean;
+      expiresAt: string | null;
     };
   };
   productBoundary: {
@@ -98,6 +108,7 @@ export interface SelfHostedPatientPhotoProtocolReleaseAuditDTO {
   summary: {
     eventCount: number;
     preparedEvents: number;
+    policyReviewEvents: number;
     revokedEvents: number;
     patientReadEvents: number;
     proxyDownloadEvents: number;
@@ -121,6 +132,13 @@ interface Args {
   apiBaseUrl: string | null | undefined;
   apiToken: string | null | undefined;
   visitId: string;
+}
+
+export interface SelfHostedPatientPhotoProtocolReleasePolicyPayload {
+  expiresAt?: string | null;
+  patientFileProxyEnabled?: boolean;
+  patientCopyApproved?: boolean;
+  retentionPolicyApproved?: boolean;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -197,6 +215,7 @@ export function toSelfHostedClinicalReportPackage(
   const patientPhotoProtocol = isRecord(input.patientPhotoProtocol) ? input.patientPhotoProtocol : {};
   const patientPhotoProtocolCounts = isRecord(patientPhotoProtocol.counts) ? patientPhotoProtocol.counts : {};
   const deliveryBoundary = isRecord(patientPhotoProtocol.deliveryBoundary) ? patientPhotoProtocol.deliveryBoundary : {};
+  const photoPolicy = isRecord(patientPhotoProtocol.policy) ? patientPhotoProtocol.policy : {};
   const productBoundary = isRecord(input.productBoundary) ? input.productBoundary : {};
   return {
     visitId: String(input.visitId ?? ""),
@@ -257,10 +276,20 @@ export function toSelfHostedClinicalReportPackage(
         storagePathsExposed: bool(deliveryBoundary.storagePathsExposed),
         tokensExposed: bool(deliveryBoundary.tokensExposed),
         physicianTextExposed: bool(deliveryBoundary.physicianTextExposed),
+        fileProxyReady: bool(deliveryBoundary.fileProxyReady),
         requiresSelfHostedFileProxy: bool(deliveryBoundary.requiresSelfHostedFileProxy),
         requiresReleaseAudit: bool(deliveryBoundary.requiresReleaseAudit),
         requiresRevoke: bool(deliveryBoundary.requiresRevoke),
         requiresIdentityCheck: bool(deliveryBoundary.requiresIdentityCheck),
+        requiresRetentionPolicy: bool(deliveryBoundary.requiresRetentionPolicy),
+        requiresApprovedPatientCopy: bool(deliveryBoundary.requiresApprovedPatientCopy),
+      },
+      policy: {
+        releasePrepared: bool(photoPolicy.releasePrepared ?? patientPhotoProtocol.photoReleaseExists),
+        patientFileProxyEnabled: bool(photoPolicy.patientFileProxyEnabled ?? patientPhotoProtocol.patientFileProxyEnabled),
+        patientCopyApproved: bool(photoPolicy.patientCopyApproved ?? patientPhotoProtocol.patientCopyApproved),
+        retentionPolicyApproved: bool(photoPolicy.retentionPolicyApproved ?? patientPhotoProtocol.retentionPolicyApproved),
+        expiresAt: textOrNull(photoPolicy.expiresAt ?? patientPhotoProtocol.photoReleaseExpiresAt),
       },
     },
     productBoundary: {
@@ -305,6 +334,7 @@ export function toSelfHostedPatientPhotoProtocolReleaseAudit(
     summary: {
       eventCount: Number(summary.eventCount ?? 0),
       preparedEvents: Number(summary.preparedEvents ?? 0),
+      policyReviewEvents: Number(summary.policyReviewEvents ?? 0),
       revokedEvents: Number(summary.revokedEvents ?? 0),
       patientReadEvents: Number(summary.patientReadEvents ?? 0),
       proxyDownloadEvents: Number(summary.proxyDownloadEvents ?? 0),
@@ -388,4 +418,37 @@ export async function getSelfHostedPatientPhotoProtocolReleaseAudit(
   if (!response.ok) return fail(apiErrorFromBody(response, body));
   const item = isRecord(body) && isRecord(body.item) ? body.item : null;
   return ok(item ? toSelfHostedPatientPhotoProtocolReleaseAudit(item) : null);
+}
+
+export async function reviewSelfHostedPatientPhotoProtocolReleasePolicy(
+  args: Args & { payload: SelfHostedPatientPhotoProtocolReleasePolicyPayload },
+): Promise<SelfHostedApiResult<boolean>> {
+  if (!args.apiToken) return fail(NOT_CONFIGURED);
+  let response: Response;
+  try {
+    response = await fetch(
+      buildSelfHostedApiUrl(
+        args.apiBaseUrl,
+        `/api/v1/visits/${encodeURIComponent(args.visitId)}/patient-photo-protocol-release/policy`,
+      ),
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${args.apiToken}`,
+        },
+        body: JSON.stringify(args.payload ?? {}),
+      },
+    );
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при сохранении политики выдачи фото.",
+    });
+  }
+  const body = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, body));
+  return ok(true);
 }

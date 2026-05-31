@@ -23,7 +23,12 @@ function release(overrides = {}) {
     status: "prepared",
     selectedPhotoCount: 2,
     blockers: ["self_hosted_photo_delivery_contract_missing"],
-    deliveryBoundary: { patientDeliveryAllowed: false },
+    deliveryBoundary: {
+      patientDeliveryAllowed: false,
+      fileProxyReady: false,
+      requiresRetentionPolicy: true,
+      requiresApprovedPatientCopy: true,
+    },
     ...overrides,
   };
 }
@@ -58,6 +63,9 @@ test("Batch R service prepares release ledger and writes aggregate audit metadat
     selectedPhotoCount: 2,
     blockerCount: 1,
     patientDeliveryAllowed: false,
+    fileProxyReady: false,
+    requiresRetentionPolicy: true,
+    requiresApprovedPatientCopy: true,
   });
 });
 
@@ -92,6 +100,57 @@ test("Batch R service revokes release ledger and requires doctor write scope", a
   );
 });
 
+test("Batch Y service reviews release policy and writes governance audit metadata", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async reviewPolicy() {
+        return release({
+          expiresAt: "2026-06-10T10:00:00.000Z",
+          policy: {
+            patientFileProxyEnabled: true,
+            patientCopyApproved: true,
+            retentionPolicyApproved: true,
+          },
+          deliveryBoundary: {
+            patientDeliveryAllowed: false,
+            fileProxyReady: true,
+            requiresRetentionPolicy: false,
+            requiresApprovedPatientCopy: false,
+          },
+        });
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-policy" };
+      },
+    },
+  });
+  const result = await service.reviewPolicy(
+    VISIT_ID,
+    {
+      expiresAt: "2026-06-10T10:00:00.000Z",
+      patientFileProxyEnabled: true,
+      patientCopyApproved: true,
+      retentionPolicyApproved: true,
+    },
+    doctorAuth,
+    { correlationId: "corr-policy" },
+  );
+  assert.equal(result.release.deliveryBoundary.fileProxyReady, true);
+  assert.equal(result.release.deliveryBoundary.requiresRetentionPolicy, false);
+  assert.equal(result.release.deliveryBoundary.requiresApprovedPatientCopy, false);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release.policy_review");
+  assert.equal(auditEvents[0].metadata.expiresAtPresent, true);
+
+  await assert.rejects(
+    () => service.reviewPolicy(VISIT_ID, { patientFileProxyEnabled: true }, { userId: USER_ID, roles: ["operator"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});
+
 test("Batch W service exposes release audit to staff read scope and hides internals", async () => {
   const auditEvents = [];
   const service = createPatientPhotoProtocolReleaseService({
@@ -106,6 +165,7 @@ test("Batch W service exposes release audit to staff read scope and hides intern
           summary: {
             eventCount: 2,
             preparedEvents: 1,
+            policyReviewEvents: 0,
             revokedEvents: 1,
             patientReadEvents: 0,
             proxyDownloadEvents: 0,
@@ -155,6 +215,7 @@ test("Batch W service exposes release audit to staff read scope and hides intern
   assert.equal(result.audit.boundaries.rawPayloadExposed, false);
   assert.equal(auditEvents[0].action, "patient_photo_protocol.release_audit.read");
   assert.equal(auditEvents[0].metadata.eventCount, 2);
+  assert.equal(auditEvents[0].metadata.policyReviewEvents, 0);
   assert.equal("correlationId" in result.audit.events[0], false);
   assert.equal("actorUserId" in result.audit.events[0], false);
   assert.equal("revokeReason" in result.audit.events[1], false);

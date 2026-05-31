@@ -19,6 +19,7 @@ test("Stage 8G-8I repository builds scoped report package SQL without protected 
   assert.match(sql, /from clinical_conclusions c/);
   assert.match(sql, /from reports r/);
   assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /from patient_photo_protocol_releases r/);
   assert.match(sql, /p\.imaging_consent as "imagingConsent"/);
   assert.match(sql, /patient_photo_count/);
   assert.match(sql, /and v\.clinic_id in/);
@@ -55,6 +56,11 @@ test("Stage 8G-8I repository normalizes readiness from safe counts and statuses"
         overviewPhotoCount: 1,
         dermoscopyPhotoCount: 1,
         reportAttachmentCount: 1,
+        photoReleaseExists: true,
+        photoReleaseExpiresAt: "2026-06-10T10:00:00.000Z",
+        patientFileProxyEnabled: true,
+        patientCopyApproved: true,
+        retentionPolicyApproved: true,
       }];
     },
   });
@@ -75,8 +81,17 @@ test("Stage 8G-8I repository normalizes readiness from safe counts and statuses"
   assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.signedUrlsIssued, false);
   assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.storagePathsExposed, false);
   assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.physicianTextExposed, false);
+  assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.fileProxyReady, true);
+  assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.requiresSelfHostedFileProxy, false);
+  assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.requiresRetentionPolicy, false);
+  assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.requiresApprovedPatientCopy, false);
   assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.requiresReleaseAudit, true);
   assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.requiresRevoke, true);
+  assert.equal(reportPackage.patientPhotoProtocol.policy.releasePrepared, true);
+  assert.equal(reportPackage.patientPhotoProtocol.policy.patientFileProxyEnabled, true);
+  assert.equal(reportPackage.patientPhotoProtocol.policy.patientCopyApproved, true);
+  assert.equal(reportPackage.patientPhotoProtocol.policy.retentionPolicyApproved, true);
+  assert.equal(reportPackage.patientPhotoProtocol.policy.expiresAt, "2026-06-10T10:00:00.000Z");
 });
 
 test("Stage 8G-8I repository reports missing clinical pieces as blocked", async () => {
@@ -100,6 +115,11 @@ test("Stage 8G-8I repository reports missing clinical pieces as blocked", async 
         overviewPhotoCount: 0,
         dermoscopyPhotoCount: 0,
         reportAttachmentCount: 1,
+        photoReleaseExists: true,
+        photoReleaseExpiresAt: null,
+        patientFileProxyEnabled: false,
+        patientCopyApproved: false,
+        retentionPolicyApproved: false,
       }];
     },
   });
@@ -113,5 +133,8 @@ test("Stage 8G-8I repository reports missing clinical pieces as blocked", async 
   assert.ok(reportPackage.patientPhotoProtocol.missing.includes("patient_photo_assets_missing"));
   assert.ok(reportPackage.patientPhotoProtocol.missing.includes("patient_safe_text_missing"));
   assert.ok(reportPackage.patientPhotoProtocol.missing.includes("self_hosted_photo_delivery_contract_missing"));
+  assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.requiresSelfHostedFileProxy, true);
+  assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.requiresRetentionPolicy, true);
+  assert.equal(reportPackage.patientPhotoProtocol.deliveryBoundary.requiresApprovedPatientCopy, true);
   assert.equal(reportPackage.productBoundary.externalRuntimeCalls, false);
 });

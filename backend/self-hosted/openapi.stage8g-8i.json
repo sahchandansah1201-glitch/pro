@@ -147,6 +147,58 @@
         }
       }
     },
+    "/api/v1/visits/{visitId}/patient-photo-protocol-release/policy": {
+      "post": {
+        "summary": "Review patient photo protocol release policy",
+        "description": "Doctor-only policy governance update for patient photo delivery gates. Updates metadata flags and optional expiry without exposing raw file artifacts.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+                  "patientFileProxyEnabled": { "type": "boolean" },
+                  "patientCopyApproved": { "type": "boolean" },
+                  "retentionPolicyApproved": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Policy review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["8G-8I"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/PatientPhotoProtocolRelease" },
+                    "generatedAt": { "type": "string", "format": "date-time" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Doctor role is required" },
+          "422": { "description": "Validation error" }
+        }
+      }
+    },
     "/api/v1/visits/{visitId}/patient-photo-protocol-release/audit": {
       "get": {
         "summary": "Read staff/admin photo protocol release audit",
@@ -295,10 +347,23 @@
                   "storagePathsExposed": { "type": "boolean" },
                   "tokensExposed": { "type": "boolean" },
                   "physicianTextExposed": { "type": "boolean" },
+                  "fileProxyReady": { "type": "boolean" },
                   "requiresSelfHostedFileProxy": { "type": "boolean" },
                   "requiresReleaseAudit": { "type": "boolean" },
                   "requiresRevoke": { "type": "boolean" },
-                  "requiresIdentityCheck": { "type": "boolean" }
+                  "requiresIdentityCheck": { "type": "boolean" },
+                  "requiresRetentionPolicy": { "type": "boolean" },
+                  "requiresApprovedPatientCopy": { "type": "boolean" }
+                }
+              },
+              "policy": {
+                "type": "object",
+                "properties": {
+                  "releasePrepared": { "type": "boolean" },
+                  "patientFileProxyEnabled": { "type": "boolean" },
+                  "patientCopyApproved": { "type": "boolean" },
+                  "retentionPolicyApproved": { "type": "boolean" },
+                  "expiresAt": { "type": ["string", "null"], "format": "date-time" }
                 }
               }
             }
@@ -351,11 +416,21 @@
               "storagePathsExposed": { "type": "boolean" },
               "tokensExposed": { "type": "boolean" },
               "physicianTextExposed": { "type": "boolean" },
+              "fileProxyReady": { "type": "boolean" },
               "requiresSelfHostedFileProxy": { "type": "boolean" },
               "requiresReleaseAudit": { "type": "boolean" },
               "requiresRevoke": { "type": "boolean" },
               "requiresIdentityCheck": { "type": "boolean" },
-              "requiresRetentionPolicy": { "type": "boolean" }
+              "requiresRetentionPolicy": { "type": "boolean" },
+              "requiresApprovedPatientCopy": { "type": "boolean" }
+            }
+          },
+          "policy": {
+            "type": "object",
+            "properties": {
+              "patientFileProxyEnabled": { "type": "boolean" },
+              "patientCopyApproved": { "type": "boolean" },
+              "retentionPolicyApproved": { "type": "boolean" }
             }
           }
         }
@@ -374,6 +449,7 @@
             "properties": {
               "eventCount": { "type": "integer" },
               "preparedEvents": { "type": "integer" },
+              "policyReviewEvents": { "type": "integer" },
               "revokedEvents": { "type": "integer" },
               "patientReadEvents": { "type": "integer" },
               "proxyDownloadEvents": { "type": "integer" },
@@ -387,7 +463,7 @@
               "properties": {
                 "kind": {
                   "type": "string",
-                  "enum": ["release_prepared", "release_revoked", "patient_read", "proxy_download", "proxy_denied", "audit_event"]
+                  "enum": ["release_prepared", "policy_reviewed", "release_revoked", "patient_read", "proxy_download", "proxy_denied", "audit_event"]
                 },
                 "label": { "type": "string" },
                 "occurredAt": { "type": ["string", "null"] },

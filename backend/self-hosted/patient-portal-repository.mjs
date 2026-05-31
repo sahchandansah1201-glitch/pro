@@ -518,6 +518,7 @@ with linked_release as (
     r.expires_at,
     coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false) as file_proxy_enabled,
     coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false) as patient_copy_approved,
+    coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved,
     c.slug as clinic_slug,
     c.name as clinic_name,
     nullif(trim(coalesce(rep.patient_safe_text, '')), '') is not null as patient_safe_text_available
@@ -558,6 +559,7 @@ from (
       when lr.status = 'revoked' then 'revoked'
       when lr.file_proxy_enabled
         and lr.expires_at is not null
+        and lr.retention_policy_approved
         and lr.patient_copy_approved
         and lr.patient_safe_text_available
         then 'delivery_policy_ready'
@@ -582,6 +584,7 @@ from (
       case when lr.status = 'revoked' then 'Доступ к фото отозван клиникой.' end,
       case when not lr.file_proxy_enabled then 'Клиника не включила защищённую выдачу фото.' end,
       case when lr.expires_at is null then 'Клиника не задала срок доступа к фото.' end,
+      case when not lr.retention_policy_approved then 'Клиника не подтвердила политику срока доступа к фото.' end,
       case
         when not lr.patient_copy_approved or not lr.patient_safe_text_available
           then 'Клиника не завершила проверку безопасного текста для пациента.'
@@ -611,7 +614,7 @@ from (
       'doctorOnlyTextExposed', false,
       'fileProxyReady', lr.file_proxy_enabled,
       'requiresIdentityCheck', true,
-      'requiresRetentionPolicy', lr.expires_at is null,
+      'requiresRetentionPolicy', lr.expires_at is null or not lr.retention_policy_approved,
       'requiresApprovedPatientCopy', (not lr.patient_copy_approved) or (not lr.patient_safe_text_available)
     ) as "deliveryBoundary",
     coalesce((

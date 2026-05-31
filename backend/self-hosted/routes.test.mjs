@@ -3834,6 +3834,27 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return { release: photoProtocolRelease, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
       },
+      async reviewPolicy() {
+        if (clinicalError) throw clinicalError;
+        return {
+          release: {
+            ...photoProtocolRelease,
+            policy: {
+              patientFileProxyEnabled: true,
+              patientCopyApproved: true,
+              retentionPolicyApproved: true,
+            },
+            deliveryBoundary: {
+              ...photoProtocolRelease.deliveryBoundary,
+              fileProxyReady: true,
+              requiresSelfHostedFileProxy: false,
+              requiresRetentionPolicy: false,
+              requiresApprovedPatientCopy: false,
+            },
+          },
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
       async revokeRelease() {
         if (clinicalError) throw clinicalError;
         return {
@@ -4608,11 +4629,18 @@ test("Batch R · patient photo protocol release prepare/revoke persists metadata
       storagePathsExposed: false,
       tokensExposed: false,
       physicianTextExposed: false,
+      fileProxyReady: false,
       requiresSelfHostedFileProxy: true,
       requiresReleaseAudit: true,
       requiresRevoke: true,
       requiresIdentityCheck: true,
       requiresRetentionPolicy: true,
+      requiresApprovedPatientCopy: true,
+    },
+    policy: {
+      patientFileProxyEnabled: false,
+      patientCopyApproved: false,
+      retentionPolicyApproved: false,
     },
   };
   const prepare = await request(
@@ -4627,6 +4655,28 @@ test("Batch R · patient photo protocol release prepare/revoke persists metadata
   assert.equal(prepare.json.item.deliveryBoundary.patientDeliveryAllowed, false);
   assert.equal(prepare.json.item.selectedPhotoCount, 2);
   assert.doesNotMatch(prepare.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|preparedByUserId|physician_text/i);
+
+  const policy = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/patient-photo-protocol-release/policy`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({ photoProtocolRelease }),
+    "POST",
+    JSON.stringify({
+      patientFileProxyEnabled: true,
+      patientCopyApproved: true,
+      retentionPolicyApproved: true,
+      expiresAt: "2026-06-07T10:00:00.000Z",
+    }),
+  );
+  assert.equal(policy.status, 200);
+  assert.equal(policy.json.item.deliveryBoundary.fileProxyReady, true);
+  assert.equal(policy.json.item.deliveryBoundary.requiresSelfHostedFileProxy, false);
+  assert.equal(policy.json.item.deliveryBoundary.requiresRetentionPolicy, false);
+  assert.equal(policy.json.item.deliveryBoundary.requiresApprovedPatientCopy, false);
+  assert.equal(policy.json.item.policy.patientFileProxyEnabled, true);
+  assert.equal(policy.json.item.policy.patientCopyApproved, true);
+  assert.equal(policy.json.item.policy.retentionPolicyApproved, true);
+  assert.doesNotMatch(policy.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
 
   const revoke = await request(
     `/api/v1/visits/${STAGE4G_VISIT_ID}/patient-photo-protocol-release/revoke`,
@@ -4705,6 +4755,7 @@ test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package"
   assert.equal(response.json.info.version, "8G-8I-clinical-reporting-completion");
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report-package"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release"].post);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/policy"].post);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/revoke"].post);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/patient-photo-protocol-release/audit"].get);
 });

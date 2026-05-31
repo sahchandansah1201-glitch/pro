@@ -396,7 +396,7 @@ describe("VisitWorkspacePage · Stage 1I-A · authenticated API session smoke", 
 });
 
 function createLiveWorkspaceFetchMock() {
-  return vi.fn((url: RequestInfo | URL, _init?: RequestInit) => {
+  return vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
     const href = String(url);
     if (href.endsWith("/api/v1/visits/live-visit")) {
       return Promise.resolve(
@@ -448,7 +448,7 @@ function createLiveWorkspaceFetchMock() {
       );
     }
     if (href.endsWith("/api/v1/visits/live-visit/assessment")) {
-      const method = (_init?.method ?? "GET").toUpperCase();
+      const method = (init?.method ?? "GET").toUpperCase();
       return Promise.resolve(
         new Response(
           JSON.stringify({
@@ -470,7 +470,7 @@ function createLiveWorkspaceFetchMock() {
       );
     }
     if (href.endsWith("/api/v1/visits/live-visit/conclusion")) {
-      const method = (_init?.method ?? "GET").toUpperCase();
+      const method = (init?.method ?? "GET").toUpperCase();
       return Promise.resolve(
         new Response(
           JSON.stringify({
@@ -489,7 +489,7 @@ function createLiveWorkspaceFetchMock() {
       );
     }
     if (href.endsWith("/api/v1/visits/live-visit/report")) {
-      const method = (_init?.method ?? "GET").toUpperCase();
+      const method = (init?.method ?? "GET").toUpperCase();
       return Promise.resolve(
         new Response(
           JSON.stringify({
@@ -561,10 +561,20 @@ function createLiveWorkspaceFetchMock() {
                   storagePathsExposed: false,
                   tokensExposed: false,
                   physicianTextExposed: false,
+                  fileProxyReady: false,
                   requiresSelfHostedFileProxy: true,
                   requiresReleaseAudit: true,
                   requiresRevoke: true,
                   requiresIdentityCheck: true,
+                  requiresRetentionPolicy: true,
+                  requiresApprovedPatientCopy: true,
+                },
+                policy: {
+                  releasePrepared: true,
+                  patientFileProxyEnabled: false,
+                  patientCopyApproved: false,
+                  retentionPolicyApproved: false,
+                  expiresAt: "2026-06-20T10:00:00.000Z",
                 },
               },
               productBoundary: {
@@ -632,6 +642,31 @@ function createLiveWorkspaceFetchMock() {
             },
           }),
           { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
+    if (href.endsWith("/api/v1/visits/live-visit/patient-photo-protocol-release/policy")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "release-live-1",
+              status: "prepared",
+              deliveryBoundary: {
+                patientDeliveryAllowed: false,
+                fileProxyReady: true,
+                requiresSelfHostedFileProxy: false,
+                requiresRetentionPolicy: false,
+                requiresApprovedPatientCopy: false,
+              },
+              policy: {
+                patientFileProxyEnabled: true,
+                patientCopyApproved: true,
+                retentionPolicyApproved: true,
+              },
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "POST" ? 200 : 405 },
         ),
       );
     }
@@ -705,6 +740,8 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getAllByText(/Фото-протокол/).length).toBeGreaterThan(0);
     expect(screen.getByText(/metadata ready, backend blocked/)).toBeInTheDocument();
     expect(screen.getByText(/нет backend-контракта выдачи фото/)).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Проверка политики выдачи фото" })).toBeInTheDocument();
+    expect(screen.getByText(/Требует проверки/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Журнал выдачи фото" })).toBeInTheDocument();
     expect(screen.getByText(/Неизменяемый backend-аудит/)).toBeInTheDocument();
     expect(screen.getByText(/Подготовка выдачи/)).toBeInTheDocument();
@@ -720,6 +757,32 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("actorUserId");
     expect(document.body.textContent).not.toContain("rawPayload");
     expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
+  });
+
+  it("posts policy governance updates for photo release in production report tab", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Проверка политики выдачи фото" })).toBeInTheDocument();
+    const retention = screen.getByLabelText(/Утверждён срок доступа \(retention\)/);
+    fireEvent.click(retention);
+    const patientCopy = screen.getByLabelText(/Проверен patient-safe текст для фото-протокола/);
+    fireEvent.click(patientCopy);
+    const fileProxy = screen.getByLabelText(/Включён защищённый file-proxy/);
+    fireEvent.click(fileProxy);
+    fireEvent.change(screen.getByLabelText("Photo policy expires at"), {
+      target: { value: "2026-06-25T12:00:00.000Z" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить политику выдачи/ }));
+    await screen.findByText(/Политика выдачи фото сохранена в self-hosted backend/);
+
+    const policyCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith("/api/v1/visits/live-visit/patient-photo-protocol-release/policy")
+        && (requestInit as RequestInit | undefined)?.method === "POST",
+    );
+    expect(policyCall).toBeTruthy();
   });
 
   it("saves production assessment, conclusion and report through self-hosted backend contracts", async () => {

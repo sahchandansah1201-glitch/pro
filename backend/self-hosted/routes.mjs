@@ -1902,6 +1902,45 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Batch Y · doctor policy-governance review for patient photo/protocol release.
+  // Marker: patient-photo-protocol-release/policy
+  const patientPhotoProtocolReleasePolicyMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/patient-photo-protocol-release\/policy$/,
+  );
+  if (patientPhotoProtocolReleasePolicyMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const visitIdFromPath = decodeURIComponent(patientPhotoProtocolReleasePolicyMatch[1]);
+      const body = parseJsonBody(request.body);
+      const result = await runtimeServices.patientPhotoProtocolReleaseService.reviewPolicy(
+        visitIdFromPath,
+        body,
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "8G-8I",
+          source: "postgres",
+          item: result.release,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Batch W · staff/admin immutable audit review for patient photo/protocol release.
   const patientPhotoProtocolReleaseAuditMatch = url.pathname.match(
     /^\/api\/v1\/visits\/([^/]+)\/patient-photo-protocol-release\/audit$/,

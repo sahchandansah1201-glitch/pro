@@ -25,6 +25,10 @@ function sqlNullableTimestamp(value) {
   return value == null ? "null" : `${sqlLiteral(value)}::timestamptz`;
 }
 
+function sqlBoolean(value) {
+  return value ? "true" : "false";
+}
+
 function safeClinicIds(values = []) {
   return (Array.isArray(values) ? values : [])
     .map(String)
@@ -56,6 +60,9 @@ function releaseSafeColumns(alias = "r") {
     ${alias}.revoked_at as "revokedAt",
     ${alias}.revoke_reason as "revokeReason",
     ${alias}.expires_at as "expiresAt",
+    coalesce((${alias}.metadata_json ->> 'patientFileProxyEnabled')::boolean, false) as "patientFileProxyEnabled",
+    coalesce((${alias}.metadata_json ->> 'patientCopyApproved')::boolean, false) as "patientCopyApproved",
+    coalesce((${alias}.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as "retentionPolicyApproved",
     ${alias}.created_at as "createdAt",
     ${alias}.updated_at as "updatedAt"
   `;
@@ -171,7 +178,10 @@ upserted as (
       'brainstormTask', 'SD-MF-046',
       'patientDeliveryAllowed', false,
       'rawFilesExposed', false,
-      'signedUrlsIssued', false
+      'signedUrlsIssued', false,
+      'patientFileProxyEnabled', false,
+      'patientCopyApproved', false,
+      'retentionPolicyApproved', false
     )
   from gate g
   on conflict (visit_id) do update
@@ -197,6 +207,54 @@ select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
   select ${releaseSafeColumns("r")}
   from upserted r
+  limit 1
+) result;
+`.trim();
+}
+
+export function buildReviewPatientPhotoProtocolReleasePolicySql({
+  visitId,
+  expiresAtProvided = false,
+  expiresAt = null,
+  patientFileProxyEnabled,
+  patientCopyApproved,
+  retentionPolicyApproved,
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const metadataPatch = {
+    ...(patientFileProxyEnabled === undefined ? {} : { patientFileProxyEnabled: Boolean(patientFileProxyEnabled) }),
+    ...(patientCopyApproved === undefined ? {} : { patientCopyApproved: Boolean(patientCopyApproved) }),
+    ...(retentionPolicyApproved === undefined ? {} : { retentionPolicyApproved: Boolean(retentionPolicyApproved) }),
+  };
+  return `
+with scoped_release as (
+  select r.id
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where r.visit_id = ${sqlUuid(visitId)}
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+  limit 1
+),
+updated as (
+  update patient_photo_protocol_releases r
+  set
+    expires_at = case
+      when ${sqlBoolean(expiresAtProvided)} then ${sqlNullableTimestamp(expiresAt)}
+      else r.expires_at
+    end,
+    metadata_json = coalesce(r.metadata_json, '{}'::jsonb)
+      || ${sqlLiteral(JSON.stringify(metadataPatch))}::jsonb
+      || jsonb_build_object('policyReviewedAt', now()),
+    updated_at = now()
+  from scoped_release s
+  where r.id = s.id
+  returning r.*
+)
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select ${releaseSafeColumns("r")}
+  from updated r
   limit 1
 ) result;
 `.trim();
@@ -282,6 +340,7 @@ scoped_events as (
     and a.entity_id = sr.id
   where a.action in (
     'patient_photo_protocol.release.prepare',
+    'patient_photo_protocol.release.policy_review',
     'patient_photo_protocol.release.revoke',
     'patient_portal.photo_protocol.read',
     'patient_portal.photo_protocol.proxy.download',
@@ -294,6 +353,7 @@ rollup as (
   select
     count(*)::int as event_count,
     count(*) filter (where "action" = 'patient_photo_protocol.release.prepare')::int as prepared_event_count,
+    count(*) filter (where "action" = 'patient_photo_protocol.release.policy_review')::int as policy_review_event_count,
     count(*) filter (where "action" = 'patient_photo_protocol.release.revoke')::int as revoked_event_count,
     count(*) filter (where "action" = 'patient_portal.photo_protocol.read')::int as patient_read_event_count,
     count(*) filter (where "action" = 'patient_portal.photo_protocol.proxy.download')::int as proxy_download_event_count,
@@ -310,6 +370,7 @@ from (
     sr.status as "status",
     coalesce(ro.event_count, 0) as "eventCount",
     coalesce(ro.prepared_event_count, 0) as "preparedEventCount",
+    coalesce(ro.policy_review_event_count, 0) as "policyReviewEventCount",
     coalesce(ro.revoked_event_count, 0) as "revokedEventCount",
     coalesce(ro.patient_read_event_count, 0) as "patientReadEventCount",
     coalesce(ro.proxy_download_event_count, 0) as "proxyDownloadEventCount",
@@ -341,6 +402,7 @@ from (
     sr.status,
     ro.event_count,
     ro.prepared_event_count,
+    ro.policy_review_event_count,
     ro.revoked_event_count,
     ro.patient_read_event_count,
     ro.proxy_download_event_count,
@@ -384,6 +446,8 @@ function eventKind(action) {
   switch (action) {
     case "patient_photo_protocol.release.prepare":
       return "release_prepared";
+    case "patient_photo_protocol.release.policy_review":
+      return "policy_reviewed";
     case "patient_photo_protocol.release.revoke":
       return "release_revoked";
     case "patient_portal.photo_protocol.read":
@@ -401,6 +465,8 @@ function eventLabel(kind) {
   switch (kind) {
     case "release_prepared":
       return "Подготовка выдачи";
+    case "policy_reviewed":
+      return "Проверка политики выдачи";
     case "release_revoked":
       return "Отзыв выдачи";
     case "patient_read":
@@ -436,6 +502,12 @@ function normalizeAuditEvent(row) {
 }
 
 function normalizeRelease(row) {
+  const fileProxyEnabled = bool(row.patientFileProxyEnabled);
+  const patientCopyApproved = bool(row.patientCopyApproved);
+  const retentionPolicyApproved = bool(row.retentionPolicyApproved);
+  const expiresAt = row.expiresAt ?? null;
+  const requiresRetentionPolicy = !retentionPolicyApproved || !expiresAt;
+  const requiresApprovedPatientCopy = !patientCopyApproved;
   return {
     id: String(row.id),
     clinicId: textOrNull(row.clinicId),
@@ -454,9 +526,14 @@ function normalizeRelease(row) {
     preparedAt: row.preparedAt ?? null,
     revokedAt: row.revokedAt ?? null,
     revokeReason: textOrNull(row.revokeReason),
-    expiresAt: row.expiresAt ?? null,
+    expiresAt,
     createdAt: row.createdAt ?? null,
     updatedAt: row.updatedAt ?? null,
+    policy: {
+      patientFileProxyEnabled: fileProxyEnabled,
+      patientCopyApproved,
+      retentionPolicyApproved,
+    },
     deliveryBoundary: {
       patientDeliveryAllowed: false,
       rawFilesExposed: false,
@@ -464,11 +541,13 @@ function normalizeRelease(row) {
       storagePathsExposed: false,
       tokensExposed: false,
       physicianTextExposed: false,
-      requiresSelfHostedFileProxy: true,
+      fileProxyReady: fileProxyEnabled,
+      requiresSelfHostedFileProxy: !fileProxyEnabled,
       requiresReleaseAudit: true,
       requiresRevoke: true,
       requiresIdentityCheck: true,
-      requiresRetentionPolicy: true,
+      requiresRetentionPolicy,
+      requiresApprovedPatientCopy,
     },
   };
 }
@@ -483,6 +562,7 @@ function normalizeReleaseAudit(row) {
     summary: {
       eventCount: number(row.eventCount),
       preparedEvents: number(row.preparedEventCount),
+      policyReviewEvents: number(row.policyReviewEventCount),
       revokedEvents: number(row.revokedEventCount),
       patientReadEvents: number(row.patientReadEventCount),
       proxyDownloadEvents: number(row.proxyDownloadEventCount),
@@ -511,6 +591,10 @@ export function createPatientPhotoProtocolReleaseRepository(dbClient) {
     },
     async revokeRelease(params) {
       const rows = await dbClient.queryJson(buildRevokePatientPhotoProtocolReleaseSql(params));
+      return Array.isArray(rows) && rows[0] ? normalizeRelease(rows[0]) : null;
+    },
+    async reviewPolicy(params) {
+      const rows = await dbClient.queryJson(buildReviewPatientPhotoProtocolReleasePolicySql(params));
       return Array.isArray(rows) && rows[0] ? normalizeRelease(rows[0]) : null;
     },
     async getReleaseAudit(params) {

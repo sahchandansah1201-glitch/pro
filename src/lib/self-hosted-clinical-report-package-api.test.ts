@@ -4,6 +4,7 @@ import {
   clinicalReportMissingLabel,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
   getSelfHostedClinicalReportPackage,
+  reviewSelfHostedPatientPhotoProtocolReleasePolicy,
   toSelfHostedPatientPhotoProtocolReleaseAudit,
   toSelfHostedClinicalReportPackage,
 } from "@/lib/self-hosted-clinical-report-package-api";
@@ -60,10 +61,20 @@ describe("self-hosted-clinical-report-package-api", () => {
                 storagePathsExposed: false,
                 tokensExposed: false,
                 physicianTextExposed: false,
+                fileProxyReady: true,
                 requiresSelfHostedFileProxy: true,
                 requiresReleaseAudit: true,
                 requiresRevoke: true,
                 requiresIdentityCheck: true,
+                requiresRetentionPolicy: false,
+                requiresApprovedPatientCopy: false,
+              },
+              policy: {
+                releasePrepared: true,
+                patientFileProxyEnabled: true,
+                patientCopyApproved: true,
+                retentionPolicyApproved: true,
+                expiresAt: "2026-06-10T10:00:00.000Z",
               },
             },
             productBoundary: {
@@ -89,6 +100,10 @@ describe("self-hosted-clinical-report-package-api", () => {
     expect(result.value?.patientPhotoProtocol.status).toBe("metadata_ready_backend_blocked");
     expect(result.value?.patientPhotoProtocol.selectedPhotoCount).toBe(2);
     expect(result.value?.patientPhotoProtocol.deliveryBoundary.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.patientPhotoProtocol.deliveryBoundary.fileProxyReady).toBe(true);
+    expect(result.value?.patientPhotoProtocol.deliveryBoundary.requiresRetentionPolicy).toBe(false);
+    expect(result.value?.patientPhotoProtocol.deliveryBoundary.requiresApprovedPatientCopy).toBe(false);
+    expect(result.value?.patientPhotoProtocol.policy.patientCopyApproved).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/visits/visit-1/report-package",
       expect.objectContaining({
@@ -121,6 +136,7 @@ describe("self-hosted-clinical-report-package-api", () => {
       summary: {
         eventCount: 2,
         preparedEvents: 1,
+        policyReviewEvents: 1,
         revokedEvents: 1,
         patientReadEvents: 0,
         proxyDownloadEvents: 0,
@@ -157,6 +173,7 @@ describe("self-hosted-clinical-report-package-api", () => {
 
     expect(audit.status).toBe("revoked");
     expect(audit.summary.eventCount).toBe(2);
+    expect(audit.summary.policyReviewEvents).toBe(1);
     expect(audit.events[0].label).toBe("Подготовка выдачи");
     expect(audit.events[1].reasonPresent).toBe(true);
     expect(audit.boundaries.immutableLedger).toBe(true);
@@ -173,7 +190,7 @@ describe("self-hosted-clinical-report-package-api", () => {
           item: {
             visitId: "visit-1",
             status: "prepared",
-            summary: { eventCount: 1, preparedEvents: 1 },
+            summary: { eventCount: 1, preparedEvents: 1, policyReviewEvents: 0 },
             events: [{ kind: "release_prepared", label: "Подготовка выдачи" }],
             boundaries: { immutableLedger: true },
           },
@@ -193,6 +210,41 @@ describe("self-hosted-clinical-report-package-api", () => {
       "http://localhost:3001/api/v1/visits/visit-1/patient-photo-protocol-release/audit",
       expect.objectContaining({
         method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+  });
+
+  it("posts policy-governance updates through the self-hosted release route", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "release-1",
+            status: "prepared",
+            deliveryBoundary: { patientDeliveryAllowed: false },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await reviewSelfHostedPatientPhotoProtocolReleasePolicy({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        expiresAt: "2026-06-10T10:00:00.000Z",
+        patientFileProxyEnabled: true,
+        patientCopyApproved: true,
+        retentionPolicyApproved: true,
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/patient-photo-protocol-release/policy",
+      expect.objectContaining({
+        method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
       }),
     );

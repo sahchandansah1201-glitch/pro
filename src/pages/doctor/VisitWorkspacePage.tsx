@@ -50,6 +50,7 @@ import {
   clinicalReportMissingLabel,
   getSelfHostedClinicalReportPackage,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
+  reviewSelfHostedPatientPhotoProtocolReleasePolicy,
   type SelfHostedClinicalReportPackageDTO,
   type SelfHostedPatientPhotoProtocolReleaseAuditDTO,
 } from "@/lib/self-hosted-clinical-report-package-api";
@@ -467,6 +468,13 @@ function ProductionClinicalWorkspacePanel({
     physicianText: "",
     patientText: "",
   });
+  const [policySaving, setPolicySaving] = useState(false);
+  const [photoPolicyForm, setPhotoPolicyForm] = useState({
+    expiresAt: "",
+    patientFileProxyEnabled: false,
+    patientCopyApproved: false,
+    retentionPolicyApproved: false,
+  });
 
   const load = useCallback(async () => {
     setStatus("");
@@ -508,17 +516,24 @@ function ProductionClinicalWorkspacePanel({
     const item = result.value as SelfHostedVisitReportDTO | null;
     const packageResult = await getSelfHostedClinicalReportPackage(args);
     const auditResult = await getSelfHostedPatientPhotoProtocolReleaseAudit(args);
+    const packageItem = packageResult.ok ? packageResult.value : null;
     setReportForm({
       status: item?.status ?? "draft",
       physicianText: item?.physicianText ?? "",
       patientText: String((item as unknown as Record<string, unknown>)?.["patient" + "SafeText"] ?? ""),
+    });
+    setPhotoPolicyForm({
+      expiresAt: packageItem?.patientPhotoProtocol.policy.expiresAt ?? "",
+      patientFileProxyEnabled: packageItem?.patientPhotoProtocol.policy.patientFileProxyEnabled ?? false,
+      patientCopyApproved: packageItem?.patientPhotoProtocol.policy.patientCopyApproved ?? false,
+      retentionPolicyApproved: packageItem?.patientPhotoProtocol.policy.retentionPolicyApproved ?? false,
     });
     setState({
       kind: "ready",
       assessment: null,
       conclusion: null,
       report: item,
-      reportPackage: packageResult.ok ? packageResult.value : null,
+      reportPackage: packageItem,
       releaseAudit: auditResult.ok ? auditResult.value : null,
     });
   }, [apiBaseUrl, apiToken, kind, visitId]);
@@ -579,6 +594,30 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Production clinical workspace сохранён в self-hosted backend.");
   };
 
+  const savePhotoPolicy = async () => {
+    if (kind !== "report") return;
+    setPolicySaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedPatientPhotoProtocolReleasePolicy({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        expiresAt: photoPolicyForm.expiresAt || null,
+        patientFileProxyEnabled: photoPolicyForm.patientFileProxyEnabled,
+        patientCopyApproved: photoPolicyForm.patientCopyApproved,
+        retentionPolicyApproved: photoPolicyForm.retentionPolicyApproved,
+      },
+    });
+    setPolicySaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить политику выдачи фото.");
+      return;
+    }
+    await load();
+    setStatus("Политика выдачи фото сохранена в self-hosted backend.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -609,7 +648,16 @@ function ProductionClinicalWorkspacePanel({
         </div>
 
         {kind === "report" && state.reportPackage && (
-          <ClinicalReportCompletionSummary reportPackage={state.reportPackage} releaseAudit={state.releaseAudit} />
+          <>
+            <ClinicalReportCompletionSummary reportPackage={state.reportPackage} releaseAudit={state.releaseAudit} />
+            <PhotoProtocolPolicyGovernancePanel
+              photoProtocol={state.reportPackage.patientPhotoProtocol}
+              form={photoPolicyForm}
+              saving={policySaving}
+              onChange={setPhotoPolicyForm}
+              onSave={savePhotoPolicy}
+            />
+          </>
         )}
 
         {kind === "assessment" && (
@@ -862,6 +910,7 @@ function PhotoProtocolReleaseAuditSummary({
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <Field term="Подготовка" value={audit.summary.preparedEvents} />
+        <Field term="Политика" value={audit.summary.policyReviewEvents} />
         <Field term="Отзыв" value={audit.summary.revokedEvents} />
         <Field term="Просмотры" value={audit.summary.patientReadEvents} />
         <Field term="Открытия фото" value={audit.summary.proxyDownloadEvents} />
@@ -890,6 +939,121 @@ function PhotoProtocolReleaseAuditSummary({
       ) : (
         <p className="mt-2 text-muted-foreground">Событий выдачи пока нет.</p>
       )}
+    </section>
+  );
+}
+
+function PhotoProtocolPolicyGovernancePanel({
+  photoProtocol,
+  form,
+  saving,
+  onChange,
+  onSave,
+}: {
+  photoProtocol: SelfHostedClinicalReportPackageDTO["patientPhotoProtocol"];
+  form: {
+    expiresAt: string;
+    patientFileProxyEnabled: boolean;
+    patientCopyApproved: boolean;
+    retentionPolicyApproved: boolean;
+  };
+  saving: boolean;
+  onChange: (
+    updater: (
+      prev: {
+        expiresAt: string;
+        patientFileProxyEnabled: boolean;
+        patientCopyApproved: boolean;
+        retentionPolicyApproved: boolean;
+      },
+    ) => {
+      expiresAt: string;
+      patientFileProxyEnabled: boolean;
+      patientCopyApproved: boolean;
+      retentionPolicyApproved: boolean;
+    },
+  ) => void;
+  onSave: () => void;
+}) {
+  return (
+    <section
+      role="region"
+      aria-label="Проверка политики выдачи фото"
+      className="rounded-sm border border-border bg-surface px-3 py-3"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="text-[13px] font-semibold">Проверка политики выдачи фото</h4>
+          <p className="text-[12px] text-muted-foreground">
+            До patient-выдачи нужны: защищённый file-proxy, утверждённый срок доступа и проверенный patient-safe текст.
+          </p>
+        </div>
+        <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 text-[12px] font-medium">
+          {photoProtocol.deliveryBoundary.requiresSelfHostedFileProxy ||
+          photoProtocol.deliveryBoundary.requiresRetentionPolicy ||
+          photoProtocol.deliveryBoundary.requiresApprovedPatientCopy
+            ? "Требует проверки"
+            : "Проверка закрыта"}
+        </span>
+      </div>
+      <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+        <Field term="Release ledger" value={photoProtocol.policy.releasePrepared ? "есть" : "нет"} />
+        <Field term="File proxy" value={photoProtocol.deliveryBoundary.requiresSelfHostedFileProxy ? "не готов" : "готов"} />
+        <Field term="Retention" value={photoProtocol.deliveryBoundary.requiresRetentionPolicy ? "не подтверждён" : "подтверждён"} />
+        <Field term="Patient copy" value={photoProtocol.deliveryBoundary.requiresApprovedPatientCopy ? "нужна проверка" : "проверен"} />
+      </dl>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="flex min-h-[44px] items-center gap-2 rounded-sm border border-border bg-surface-muted px-2 py-2 text-[12px]">
+          <input
+            type="checkbox"
+            checked={form.patientFileProxyEnabled}
+            onChange={(event) => onChange((prev) => ({ ...prev, patientFileProxyEnabled: event.target.checked }))}
+          />
+          <span>Включён защищённый file-proxy</span>
+        </label>
+        <label className="flex min-h-[44px] items-center gap-2 rounded-sm border border-border bg-surface-muted px-2 py-2 text-[12px]">
+          <input
+            type="checkbox"
+            checked={form.retentionPolicyApproved}
+            onChange={(event) => onChange((prev) => ({ ...prev, retentionPolicyApproved: event.target.checked }))}
+          />
+          <span>Утверждён срок доступа (retention)</span>
+        </label>
+        <label className="flex min-h-[44px] items-center gap-2 rounded-sm border border-border bg-surface-muted px-2 py-2 text-[12px] sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={form.patientCopyApproved}
+            onChange={(event) => onChange((prev) => ({ ...prev, patientCopyApproved: event.target.checked }))}
+          />
+          <span>Проверен patient-safe текст для фото-протокола</span>
+        </label>
+      </div>
+      <div className="mt-2">
+        <label className="space-y-1 text-[12px] font-medium">
+          Срок доступа (ISO)
+          <Input
+            aria-label="Photo policy expires at"
+            value={form.expiresAt}
+            onChange={(event) => onChange((prev) => ({ ...prev, expiresAt: event.target.value }))}
+            placeholder="2026-06-10T10:00:00.000Z"
+          />
+        </label>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="min-h-[44px] sm:min-h-[32px]"
+          disabled={saving}
+          onClick={onSave}
+        >
+          {saving ? "Сохраняем политику…" : "Сохранить политику выдачи"}
+        </Button>
+        <span className="text-[11px] text-muted-foreground">
+          Политика меняет только metadata/gates. Ссылки, токены и raw file-path остаются скрыты.
+        </span>
+      </div>
     </section>
   );
 }
