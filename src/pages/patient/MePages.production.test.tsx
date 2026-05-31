@@ -264,7 +264,8 @@ describe("Patient portal · Stage 5N production", () => {
     expect(screen.getByText(/Токен доступа скрыт/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
-    expect(screen.getByText(/метаданные готовы, файлы закрыты backend-контуром/)).toBeInTheDocument();
+    expect(screen.getByText(/метаданные готовы, политика доступа ограничивает выдачу/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Контур политики доступа к фото/ })).toBeInTheDocument();
     expect(screen.getByText(/Сырые файлы, защищённые ссылки/)).toBeInTheDocument();
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
   });

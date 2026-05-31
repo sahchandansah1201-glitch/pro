@@ -36,10 +36,20 @@ function isPhotoProtocolRevoked(photoProtocol: SelfHostedPatientPortalPhotoProto
   return photoProtocol.status === "revoked" || Boolean(photoProtocol.revokedAt);
 }
 
+function isPhotoPolicyReady(photoProtocol: SelfHostedPatientPortalPhotoProtocol): boolean {
+  return (
+    photoProtocol.deliveryBoundary.fileProxyReady &&
+    !photoProtocol.deliveryBoundary.requiresRetentionPolicy &&
+    !photoProtocol.deliveryBoundary.requiresApprovedPatientCopy &&
+    Boolean(photoProtocol.expiresAt)
+  );
+}
+
 function photoProtocolStatusText(photoProtocol: SelfHostedPatientPortalPhotoProtocol): string {
-  return isPhotoProtocolRevoked(photoProtocol)
-    ? "Фото-протокол отозван"
-    : "метаданные готовы, файлы закрыты backend-контуром";
+  if (isPhotoProtocolRevoked(photoProtocol)) return "Фото-протокол отозван";
+  return isPhotoPolicyReady(photoProtocol)
+    ? "готов к защищённой выдаче"
+    : "метаданные готовы, политика доступа ограничивает выдачу";
 }
 
 function photoProtocolAuditStateText(photoProtocol: SelfHostedPatientPortalPhotoProtocol): string {
@@ -250,6 +260,41 @@ export default function MeReportPageLive() {
                         <dt className="text-muted-foreground">Срок доступа</dt>
                         <dd>{photoProtocol.expiresAt ? formatDateTime(photoProtocol.expiresAt) : "управляется backend"}</dd>
                       </dl>
+                      <section
+                        aria-label="Контур политики доступа к фото"
+                        className="mt-3 rounded border border-border bg-background px-2 py-2 text-[12px]"
+                      >
+                        <h4 className="font-medium">Контур политики доступа к фото</h4>
+                        <ul className="mt-1 space-y-1">
+                          <li className="flex items-start justify-between gap-2">
+                            <span className="text-muted-foreground">Идентификация пациента</span>
+                            <span>только личный кабинет</span>
+                          </li>
+                          <li className="flex items-start justify-between gap-2">
+                            <span className="text-muted-foreground">Защищённая выдача</span>
+                            <span>{photoProtocol.deliveryBoundary.fileProxyReady ? "включена" : "не включена"}</span>
+                          </li>
+                          <li className="flex items-start justify-between gap-2">
+                            <span className="text-muted-foreground">Срок доступа</span>
+                            <span>{photoProtocol.expiresAt ? "задан" : "не задан"}</span>
+                          </li>
+                          <li className="flex items-start justify-between gap-2">
+                            <span className="text-muted-foreground">Безопасный текст</span>
+                            <span>
+                              {photoProtocol.deliveryBoundary.requiresApprovedPatientCopy
+                                ? "нужна проверка"
+                                : "проверен"}
+                            </span>
+                          </li>
+                        </ul>
+                        {photoProtocol.availabilityMessages.length > 0 && (
+                          <ul className="mt-2 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                            {photoProtocol.availabilityMessages.slice(0, 3).map((message) => (
+                              <li key={message}>{message}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </section>
                       <section
                         aria-label="Отзыв и журнал доступа"
                         className="mt-3 rounded border border-border bg-background px-2 py-2 text-[12px]"

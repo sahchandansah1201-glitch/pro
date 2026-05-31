@@ -143,6 +143,11 @@ function numberOrZero(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function booleanValue(value, fallback = false) {
+  if (value == null) return fallback;
+  return value === true || value === "true" || value === 1 || value === "1";
+}
+
 function normalizePhotoProtocolPhoto(input = {}) {
   const source = input && typeof input === "object" ? input : {};
   return {
@@ -170,6 +175,7 @@ export function normalizePatientPortalPhotoProtocol(input) {
   if (!input || typeof input !== "object" || !input.id) return null;
   const clinic = safeNested(input, "clinic");
   const counts = safeNested(input, "counts");
+  const deliveryBoundary = safeNested(input, "deliveryBoundary");
   const selectedPhotoCount = numberOrZero(input.selectedPhotoCount ?? counts.selectedPhotos);
   const overviewPhotoCount = numberOrZero(input.overviewPhotoCount ?? counts.overviewPhotos);
   const dermoscopyPhotoCount = numberOrZero(input.dermoscopyPhotoCount ?? counts.dermoscopyPhotos);
@@ -209,10 +215,10 @@ export function normalizePatientPortalPhotoProtocol(input) {
       storagePathsExposed: false,
       tokensExposed: false,
       doctorOnlyTextExposed: false,
-      fileProxyReady: false,
-      requiresIdentityCheck: true,
-      requiresRetentionPolicy: true,
-      requiresApprovedPatientCopy: true,
+      fileProxyReady: booleanValue(deliveryBoundary.fileProxyReady),
+      requiresIdentityCheck: deliveryBoundary.requiresIdentityCheck !== false,
+      requiresRetentionPolicy: deliveryBoundary.requiresRetentionPolicy !== false,
+      requiresApprovedPatientCopy: deliveryBoundary.requiresApprovedPatientCopy !== false,
     },
     clinic: {
       id: textOrNull(clinic.id),
@@ -510,6 +516,8 @@ with linked_release as (
     r.prepared_at,
     r.revoked_at,
     r.expires_at,
+    coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false) as file_proxy_enabled,
+    coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false) as patient_copy_approved,
     c.slug as clinic_slug,
     c.name as clinic_name,
     nullif(trim(coalesce(rep.patient_safe_text, '')), '') is not null as patient_safe_text_available
@@ -547,7 +555,13 @@ from (
     lr.report_id::text as "reportId",
     lr.status as "status",
     case
-      when lr.status = 'prepared' then 'metadata_ready_delivery_blocked'
+      when lr.status = 'revoked' then 'revoked'
+      when lr.file_proxy_enabled
+        and lr.expires_at is not null
+        and lr.patient_copy_approved
+        and lr.patient_safe_text_available
+        then 'delivery_policy_ready'
+      when lr.status = 'prepared' then 'metadata_ready_policy_blocked'
       else lr.status
     end as "accessStatus",
     lr.selected_photo_count as "selectedPhotoCount",
@@ -564,7 +578,16 @@ from (
       'slug', lr.clinic_slug,
       'name', lr.clinic_name
     ) as "clinic",
-    jsonb_build_array('Файлы фото закрыты backend-контуром до включения защищённой выдачи.') as "availabilityMessages",
+    array_remove(array[
+      case when lr.status = 'revoked' then 'Доступ к фото отозван клиникой.' end,
+      case when not lr.file_proxy_enabled then 'Клиника не включила защищённую выдачу фото.' end,
+      case when lr.expires_at is null then 'Клиника не задала срок доступа к фото.' end,
+      case
+        when not lr.patient_copy_approved or not lr.patient_safe_text_available
+          then 'Клиника не завершила проверку безопасного текста для пациента.'
+      end,
+      'Открытие фото выполняется только через защищённый backend-контур.'
+    ], null)::text[] as "availabilityMessages",
     coalesce((
       select jsonb_agg(jsonb_build_object(
         'kind', event.kind,
@@ -586,10 +609,10 @@ from (
       'storagePathsExposed', false,
       'tokensExposed', false,
       'doctorOnlyTextExposed', false,
-      'fileProxyReady', false,
+      'fileProxyReady', lr.file_proxy_enabled,
       'requiresIdentityCheck', true,
-      'requiresRetentionPolicy', true,
-      'requiresApprovedPatientCopy', true
+      'requiresRetentionPolicy', lr.expires_at is null,
+      'requiresApprovedPatientCopy', (not lr.patient_copy_approved) or (not lr.patient_safe_text_available)
     ) as "deliveryBoundary",
     coalesce((
       select jsonb_agg(jsonb_build_object(

@@ -132,7 +132,7 @@ export interface SelfHostedPatientPortalPhotoProtocol {
     storagePathsExposed: false;
     tokensExposed: false;
     doctorOnlyTextExposed: false;
-    fileProxyReady: false;
+    fileProxyReady: boolean;
     requiresIdentityCheck: boolean;
     requiresRetentionPolicy: boolean;
     requiresApprovedPatientCopy: boolean;
@@ -295,6 +295,30 @@ function imageExtension(contentType: string): string {
   if (text.includes("heic")) return "heic";
   if (text.includes("heif")) return "heif";
   return "jpg";
+}
+
+function patientPhotoProtocolDownloadErrorMessage(error: SelfHostedApiError): string {
+  switch (error.code) {
+    case "photo_protocol_revoked":
+      return "Доступ к фото отозван клиникой.";
+    case "photo_protocol_not_prepared":
+      return "Фото-протокол ещё не подготовлен клиникой.";
+    case "photo_protocol_proxy_disabled":
+      return "Клиника ещё не включила защищённую выдачу фото.";
+    case "photo_protocol_consent_missing":
+      return "Клиника не подтвердила согласие на медицинскую съёмку.";
+    case "photo_protocol_retention_required":
+      return "Клиника не задала срок доступа к фото.";
+    case "photo_protocol_expired":
+      return "Срок доступа к фото истёк.";
+    case "photo_protocol_photo_not_found":
+    case "photo_protocol_binary_not_found":
+      return "Фото сейчас недоступно в защищённом контуре.";
+    case "photo_protocol_object_store_unavailable":
+      return "Сервис выдачи фото временно недоступен.";
+    default:
+      return error.message || "Фото сейчас недоступно: доступ управляется клиникой.";
+  }
 }
 
 function fileNameFromDisposition(value: string | null, fallback: string): string {
@@ -479,7 +503,7 @@ export function toSelfHostedPatientPortalPhotoProtocol(input: unknown): SelfHost
       storagePathsExposed: false,
       tokensExposed: false,
       doctorOnlyTextExposed: false,
-      fileProxyReady: false,
+      fileProxyReady: deliveryBoundary.fileProxyReady === true,
       requiresIdentityCheck: deliveryBoundary.requiresIdentityCheck !== false,
       requiresRetentionPolicy: deliveryBoundary.requiresRetentionPolicy !== false,
       requiresApprovedPatientCopy: deliveryBoundary.requiresApprovedPatientCopy !== false,
@@ -556,7 +580,12 @@ export async function fetchSelfHostedPatientPortalPhotoProtocolPhoto(
     args,
     `/api/v1/me/photo-protocols/${encodeURIComponent(args.visitId)}/photos/${encodeURIComponent(String(args.sequence))}/download`,
   );
-  if (!result.ok) return fail(result.error);
+  if (!result.ok) {
+    return fail({
+      ...result.error,
+      message: patientPhotoProtocolDownloadErrorMessage(result.error),
+    });
+  }
   const contentType = result.value.response.headers.get("content-type") || result.value.blob.type || "image/jpeg";
   const fileName = fileNameFromDisposition(
     result.value.response.headers.get("content-disposition"),

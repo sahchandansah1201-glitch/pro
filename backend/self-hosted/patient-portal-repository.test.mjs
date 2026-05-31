@@ -35,6 +35,8 @@ test("Stage 5N SQL scopes patient photo protocol reads and excludes protected as
   assert.match(photoProtocolSql, /patient_user_links/);
   assert.match(photoProtocolSql, /patient_photo_protocol_releases/);
   assert.match(photoProtocolSql, /clinical_assets/);
+  assert.match(photoProtocolSql, /patientFileProxyEnabled/);
+  assert.match(photoProtocolSql, /patientCopyApproved/);
   assert.match(photoProtocolSql, /patientDeliveryAllowed/);
   assert.match(photoProtocolSql, /previewAvailable/);
   assert.match(photoProtocolSql, /auditTrail/);
@@ -124,6 +126,14 @@ test("Stage 5N normalizers expose patient-safe portal DTOs only", () => {
     objectKey: "hidden",
     physicianText: "Не отдавать",
     revokeReason: "Внутренняя причина не для пациента",
+    deliveryBoundary: {
+      fileProxyReady: true,
+      requiresRetentionPolicy: false,
+      requiresApprovedPatientCopy: false,
+    },
+    availabilityMessages: [
+      "Открытие фото выполняется только через защищённый backend-контур.",
+    ],
     auditTrail: [
       {
         kind: "prepared",
@@ -155,6 +165,10 @@ test("Stage 5N normalizers expose patient-safe portal DTOs only", () => {
   assert.equal(photoProtocol.status, "prepared");
   assert.equal(photoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
   assert.equal(photoProtocol.deliveryBoundary.signedUrlsIssued, false);
+  assert.equal(photoProtocol.deliveryBoundary.fileProxyReady, true);
+  assert.equal(photoProtocol.deliveryBoundary.requiresRetentionPolicy, false);
+  assert.equal(photoProtocol.deliveryBoundary.requiresApprovedPatientCopy, false);
+  assert.equal(photoProtocol.availabilityMessages[0], "Открытие фото выполняется только через защищённый backend-контур.");
   assert.equal(photoProtocol.auditTrail.length, 2);
   assert.equal(photoProtocol.auditTrail[1].label, "Доступ отозван клиникой");
   assert.equal("rawPayload" in photoProtocol.auditTrail[0], false);

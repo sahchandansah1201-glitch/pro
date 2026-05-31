@@ -66,6 +66,11 @@ describe("self-hosted-patient-portal-api", () => {
       physicianText: "Не выводить",
       revokedAt: "2026-06-18T10:00:00.000Z",
       revokeReason: "Внутренняя причина не для пациента",
+      deliveryBoundary: {
+        fileProxyReady: true,
+        requiresRetentionPolicy: false,
+        requiresApprovedPatientCopy: false,
+      },
       auditTrail: [
         {
           kind: "prepared",
@@ -99,6 +104,9 @@ describe("self-hosted-patient-portal-api", () => {
     });
     expect(photoProtocol.deliveryBoundary.patientDeliveryAllowed).toBe(false);
     expect(photoProtocol.deliveryBoundary.signedUrlsIssued).toBe(false);
+    expect(photoProtocol.deliveryBoundary.fileProxyReady).toBe(true);
+    expect(photoProtocol.deliveryBoundary.requiresRetentionPolicy).toBe(false);
+    expect(photoProtocol.deliveryBoundary.requiresApprovedPatientCopy).toBe(false);
     expect(photoProtocol.auditTrail).toHaveLength(2);
     expect(photoProtocol.auditTrail[1].label).toBe("Доступ отозван клиникой");
     expect(photoProtocol.auditTrail[0]).not.toHaveProperty("rawPayload");
@@ -236,6 +244,26 @@ describe("self-hosted-patient-portal-api", () => {
         headers: { Accept: "image/*", Authorization: "Bearer token-1" },
       },
     );
+  });
+
+  it("maps backend proxy deny codes to patient-safe messages", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: { code: "photo_protocol_retention_required", message: "hidden" } }),
+        { status: 423, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await fetchSelfHostedPatientPortalPhotoProtocolPhoto({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-1",
+      visitId: "visit-1",
+      sequence: 1,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error.code).toBe("photo_protocol_retention_required");
+    expect(result.error.message).toBe("Клиника не задала срок доступа к фото.");
   });
 
   it("creates booking requests and updates reminder preferences with bearer token", async () => {
