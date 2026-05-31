@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import MeHomePage from "./MeHomePage";
 import MeReportPage from "./MeReportPage";
+import MeReportsPage from "./MeReportsPage";
 import MeBookingPage from "./MeBookingPage";
 import MeRemindersPage from "./MeRemindersPage";
 
@@ -25,6 +26,7 @@ const renderRouted = (ui: React.ReactElement, path = "/") =>
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/me" element={<MeHomePage />} />
+        <Route path="/me/reports" element={<MeReportsPage />} />
         <Route path="/me/reports/:id" element={<MeReportPage />} />
         <Route path="/me/booking" element={<MeBookingPage />} />
         <Route path="/me/reminders" element={<MeRemindersPage />} />
@@ -55,10 +57,23 @@ describe("Patient portal pages", () => {
     const { container } = renderRouted(<MeReportPage />, "/me/reports/r-001");
     expect(screen.getByRole("heading", { name: /Заключение/ })).toBeInTheDocument();
     expect(screen.getByText(/доброкачественным изменениям/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Безопасность доступа/ })).toBeInTheDocument();
+    expect(screen.getByText(/Токен доступа скрыт/)).toBeInTheDocument();
+    expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
     expect(screen.queryByText(/Раздел будет реализован/)).not.toBeInTheDocument();
     // Печать/PDF — демо и disabled
     const print = screen.getByRole("button", { name: /Печать \/ PDF \(демо\)/ });
     expect(print).toBeDisabled();
+    expectClean(container.innerHTML);
+  });
+
+  it("MeReportsPage показывает безопасный контур выдачи без раскрытия доступа", () => {
+    const { container } = renderRouted(<MeReportsPage />, "/me/reports");
+    expect(screen.getByRole("heading", { name: /Мои заключения/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Контур безопасной выдачи/ })).toBeInTheDocument();
+    expect(screen.getByText(/Доступ: только личный кабинет/)).toBeInTheDocument();
+    expect(screen.getByText(/Сырые токены и врачебная версия скрыты/)).toBeInTheDocument();
+    expect(screen.getByText(/Нужен повторный осмотр или вопрос врачу/)).toBeInTheDocument();
     expectClean(container.innerHTML);
   });
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FileText, ShieldAlert, Search, X, Download, Printer } from "lucide-react";
+import { FileText, ShieldAlert, Search, X, Download, Printer, LockKeyhole } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/shell/PageHeader";
@@ -139,6 +139,29 @@ export default function MeReportsPage() {
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{DEMO_BANNER}</span>
         </div>
+
+        <Card role="region" aria-label="Контур безопасной выдачи" className="p-3">
+          <div className="flex flex-wrap items-start gap-3">
+            <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[13px] font-semibold">Контур безопасной выдачи</h2>
+              <div className="mt-2 grid grid-cols-1 gap-2 text-[12px] text-muted-foreground md:grid-cols-3">
+                <div>
+                  <div className="font-medium text-foreground">Доступ: только личный кабинет</div>
+                  <div>Открывается внутри роли пациента, без показа ссылки или кода доступа.</div>
+                </div>
+                <div>
+                  <div className="font-medium text-foreground">Сырые токены и врачебная версия скрыты</div>
+                  <div>В списке видны только дата, клиника, врач и безопасный текст.</div>
+                </div>
+                <div>
+                  <div className="font-medium text-foreground">Нужен повторный осмотр или вопрос врачу</div>
+                  <div>Откройте заключение и перейдите к записи на контроль.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Button

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { FileText } from "lucide-react";
+import { FileText, LockKeyhole } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -40,6 +40,28 @@ export default function MeReportsPageLive() {
         {status === "error" && <Card className="p-4 text-[13px] text-destructive" role="alert">{error}</Card>}
         {overview && (
           <>
+            <Card role="region" aria-label="Контур безопасной выдачи" className="p-3">
+              <div className="flex flex-wrap items-start gap-3">
+                <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-[13px] font-semibold">Контур безопасной выдачи</h2>
+                  <div className="mt-2 grid grid-cols-1 gap-2 text-[12px] text-muted-foreground md:grid-cols-3">
+                    <div>
+                      <div className="font-medium text-foreground">Доступ: self-hosted кабинет</div>
+                      <div>Страница читает только patient-safe endpoint текущего пациента.</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-foreground">Сырые токены и врачебная версия скрыты</div>
+                      <div>Список не показывает ссылку доступа, внутренний текст и AI/XAI-детали.</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-foreground">Нужен повторный осмотр или вопрос врачу</div>
+                      <div>Откройте заключение или отправьте запрос на запись.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
             <Input
               aria-label="Поиск по заключениям"
               value={query}

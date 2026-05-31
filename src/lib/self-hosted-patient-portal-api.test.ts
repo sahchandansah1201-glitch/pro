@@ -39,9 +39,15 @@ describe("self-hosted-patient-portal-api", () => {
       id: "r-2",
       patientSafeText: "Безопасно",
       physicianText: "Не выводить",
+      token: "raw-token",
+      sharedLink: "hidden-link",
+      accessExpiresAt: "2026-06-20T10:00:00.000Z",
     });
     expect(report.patientSafeText).toBe("Безопасно");
+    expect(report.accessExpiresAt).toBe("2026-06-20T10:00:00.000Z");
     expect(report).not.toHaveProperty("physicianText");
+    expect(report).not.toHaveProperty("token");
+    expect(report).not.toHaveProperty("sharedLink");
   });
 
   it("fetches portal overview with bearer token", async () => {

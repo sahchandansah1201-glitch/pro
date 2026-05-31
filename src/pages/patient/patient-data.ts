@@ -8,6 +8,7 @@ import {
   getReportsByPatientId,
   getVisitsByPatientId,
 } from "@/lib/mock-data";
+import { getReportLinkExpiry } from "@/lib/report-access";
 import { DEMO_USERS } from "@/lib/users";
 
 /** Постоянный демо-пациент портала. */
@@ -31,6 +32,7 @@ export interface SafeReportRow {
   clinicName: string;
   doctorName: string;
   summary: string;
+  accessExpiresAt: string;
 }
 
 export function getSafeReports(): SafeReportRow[] {
@@ -45,6 +47,7 @@ export function getSafeReports(): SafeReportRow[] {
       clinicName: v ? getClinicById(v.clinicId)?.name ?? "—" : "—",
       doctorName: v ? DOCTOR_NAME_BY_ID[v.doctorId] ?? "—" : "—",
       summary: r.patientSafeText,
+      accessExpiresAt: getReportLinkExpiry(r),
     };
   });
 }

@@ -1,9 +1,9 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Printer, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Printer, ShieldAlert, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { getSafeReportById } from "./patient-data";
 
 const DEMO_BANNER =
@@ -51,6 +51,35 @@ export default function MeReportPage() {
               <dt className="text-muted-foreground">Клиника</dt>
               <dd>{report.clinicName}</dd>
             </dl>
+
+            <section
+              aria-label="Безопасность доступа"
+              className="mt-4 rounded-md border border-border bg-surface-muted p-3"
+            >
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <div className="min-w-0">
+                  <h3 className="text-[13px] font-semibold">Безопасность доступа</h3>
+                  <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+                    <dt className="text-muted-foreground">Доступ</dt>
+                    <dd>только личный кабинет</dd>
+                    <dt className="text-muted-foreground">Срок доступа</dt>
+                    <dd>{report.accessExpiresAt ? formatDateTime(report.accessExpiresAt) : "управляется клиникой"}</dd>
+                    <dt className="text-muted-foreground">Состав</dt>
+                    <dd>безопасный текст, дата визита, клиника</dd>
+                    <dt className="text-muted-foreground">Исключено</dt>
+                    <dd>внутренняя версия врача, сырые токены, AI/XAI-детали</dd>
+                  </dl>
+                  <p className="mt-2 text-[12px] text-muted-foreground">
+                    Токен доступа скрыт. Врачебная версия скрыта. Если нужен повторный осмотр или вопрос врачу, запишитесь на контроль.
+                  </p>
+                  <Button asChild variant="outline" size="sm" className="mt-3 min-h-[44px] sm:min-h-[32px]">
+                    <Link to="/me/booking">Записаться на контроль</Link>
+                  </Button>
+                </div>
+              </div>
+            </section>
+
             <p className="mt-4 text-[12px] text-muted-foreground">
               Этот текст не заменяет очную консультацию. Подробности и план лечения обсудит лечащий врач.
             </p>

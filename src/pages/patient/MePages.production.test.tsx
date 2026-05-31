@@ -178,12 +178,18 @@ describe("Patient portal · Stage 5N production", () => {
     mockFetch();
     const list = renderRoute("/me/reports");
     expect(await screen.findByText("Пациентское заключение")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Контур безопасной выдачи/ })).toBeInTheDocument();
+    expect(screen.getByText(/Доступ: self-hosted кабинет/)).toBeInTheDocument();
+    expect(screen.getByText(/Сырые токены и врачебная версия скрыты/)).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
     list.unmount();
 
     renderRoute("/me/reports/report-live-1");
     expect(await screen.findByText("Заключение для пациента")).toBeInTheDocument();
     expect(screen.getByText(/Текст для пациента/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Безопасность доступа/ })).toBeInTheDocument();
+    expect(screen.getByText(/Токен доступа скрыт/)).toBeInTheDocument();
+    expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
   });
 

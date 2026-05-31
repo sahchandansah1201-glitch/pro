@@ -44,6 +44,8 @@ export interface SelfHostedPatientPortalReport {
   status: string;
   visitDate: string | null;
   signedAt: string | null;
+  accessExpiresAt: string | null;
+  accessStatus: string;
   summary: string | null;
   patientSafeText: string | null;
   clinic: {
@@ -247,6 +249,8 @@ export function toSelfHostedPatientPortalReport(input: unknown): SelfHostedPatie
     status: String(row.status ?? "signed"),
     visitDate: textOrNull(row.visitDate),
     signedAt: textOrNull(row.signedAt),
+    accessExpiresAt: textOrNull(row.accessExpiresAt ?? row.expiresAt),
+    accessStatus: String(row.accessStatus ?? "released"),
     summary: textOrNull(row.summary) || patientSafeText?.slice(0, 160) || null,
     patientSafeText,
     clinic: {

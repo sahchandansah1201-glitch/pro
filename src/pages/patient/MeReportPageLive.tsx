@@ -1,9 +1,10 @@
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   fetchSelfHostedPatientPortalReport,
@@ -66,6 +67,30 @@ export default function MeReportPageLive() {
             <div className="text-[12px] text-muted-foreground">{formatDate(report.visitDate)} · {report.clinic.name || "Клиника"}</div>
             <h2 className="mt-2 text-[18px] font-semibold">Заключение для пациента</h2>
             <p className="mt-3 whitespace-pre-line text-[14px] leading-6">{report.patientSafeText || "Текст заключения пока не опубликован."}</p>
+            <section
+              aria-label="Безопасность доступа"
+              className="mt-4 rounded-md border border-border bg-surface-muted p-3"
+            >
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <div className="min-w-0">
+                  <h3 className="text-[13px] font-semibold">Безопасность доступа</h3>
+                  <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+                    <dt className="text-muted-foreground">Доступ</dt>
+                    <dd>self-hosted кабинет пациента</dd>
+                    <dt className="text-muted-foreground">Срок доступа</dt>
+                    <dd>{report.accessExpiresAt ? formatDateTime(report.accessExpiresAt) : "управляется backend"}</dd>
+                    <dt className="text-muted-foreground">Состав</dt>
+                    <dd>безопасный текст, дата визита, клиника</dd>
+                    <dt className="text-muted-foreground">Исключено</dt>
+                    <dd>внутренняя версия врача, сырые токены, AI/XAI-детали</dd>
+                  </dl>
+                  <p className="mt-2 text-[12px] text-muted-foreground">
+                    Токен доступа скрыт. Врачебная версия скрыта. Все действия выдачи и отзыва должны фиксироваться на backend.
+                  </p>
+                </div>
+              </div>
+            </section>
             <div className="mt-4 text-[12px] text-muted-foreground">
               Врачебная версия заключения не отображается в пациентском кабинете.
             </div>
