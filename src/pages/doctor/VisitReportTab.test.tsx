@@ -201,3 +201,51 @@ describe("VisitReportTab · Patient Visit Packet", () => {
     expect(within(packet).getByText(/Повторный выпуск создаст новую запись аудита/)).toBeInTheDocument();
   });
 });
+
+describe("VisitReportTab · PDF/backend preparation", () => {
+  it("blocks PDF backend preparation when report gates are incomplete", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
+
+    const backend = screen.getByRole("region", { name: /Backend-подготовка отчёта/ });
+    expect(within(backend).getByText(/PDF заблокирован/)).toBeInTheDocument();
+    expect(
+      within(backend).getByText(/качество снимков требует проверки/),
+    ).toBeInTheDocument();
+    expect(
+      within(backend).getByRole("button", { name: /Подготовить backend-задачу/ }),
+    ).toBeDisabled();
+  });
+
+  it("prepares a local backend job for a ready report without exposing protected fields", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
+
+    const backend = screen.getByRole("region", { name: /Backend-подготовка отчёта/ });
+    expect(within(backend).getByText(/PDF готов к backend-сборке/)).toBeInTheDocument();
+
+    fireEvent.click(within(backend).getByRole("button", { name: /Подготовить backend-задачу/ }));
+
+    expect(
+      within(backend).getByText(/Backend-задача подготовлена локально/),
+    ).toBeInTheDocument();
+    expect(
+      within(backend).getByText(/PDF-задача ожидает self-hosted backend/),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("tok-r001-demo");
+
+    const j = (...p: string[]) => p.join("");
+    const forbidden = [
+      j("doctor", "Version", "Text"),
+      j("patient", "Safe", "Text"),
+      j("shared", "Link"),
+      j("storage", "Path"),
+      j("photo", "Ref"),
+      j("model", "Version"),
+      j("external", "User", "Ref"),
+      j("protected", "Analysis", "Link"),
+    ];
+    const html = document.body.innerHTML;
+    for (const token of forbidden) {
+      expect(html.includes(token)).toBe(false);
+    }
+  });
+});

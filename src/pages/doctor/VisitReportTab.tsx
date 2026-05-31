@@ -57,6 +57,13 @@ function qualityLabel(s: QualityStatus): string {
   return "no images";
 }
 
+function backendMissingLabel(item: string): string {
+  if (item === "Нужно переснять или проверить качество") {
+    return "качество снимков требует проверки перед backend/PDF";
+  }
+  return item;
+}
+
 interface Props {
   patient: Patient;
   visit: Visit;
@@ -739,6 +746,7 @@ function DemoReportForm({
 // ───────── Patient Visit Packet (local-only release gate) ─────────
 
 type PacketState = "draft" | "released" | "revoked";
+type BackendJobState = "idle" | "prepared";
 
 const QR_PATTERN: number[][] = [
   [1, 1, 1, 0, 1, 0, 1, 1, 1],
@@ -772,11 +780,13 @@ function VisitPacketPanel({
     images.map((image) => image.id),
   );
   const [packetState, setPacketState] = useState<PacketState>("draft");
+  const [backendJobState, setBackendJobState] = useState<BackendJobState>("idle");
   const [auditRows, setAuditRows] = useState<string[]>([]);
 
   useEffect(() => {
     setSelectedImageIds(imageIds);
     setPacketState("draft");
+    setBackendJobState("idle");
     setAuditRows([]);
   }, [imageIds]);
 
@@ -808,7 +818,8 @@ function VisitPacketPanel({
     !patient.consents.telemed ? "нет согласия на дистанционный доступ" : null,
     visit.status !== "closed" ? "визит ещё не закрыт" : null,
   ].filter(Boolean) as string[];
-  const canRelease = missing.length === 0 && packetState !== "released";
+  const reportPackageReady = missing.length === 0;
+  const canRelease = reportPackageReady && packetState !== "released";
 
   const selectedLabel = selectedImages.length === 0
     ? "нет выбранных снимков"
@@ -843,6 +854,15 @@ function VisitPacketPanel({
   const revokePacket = () => {
     setPacketState("revoked");
     setAuditRows((prev) => [`Отзыв доступа · ${formatDateTime(BODY_MAP_DEMO_NOW)}`, ...prev]);
+  };
+
+  const prepareBackendJob = () => {
+    if (!reportPackageReady) return;
+    setBackendJobState("prepared");
+    setAuditRows((prev) => [
+      `Backend-задача PDF подготовлена · ${formatDateTime(BODY_MAP_DEMO_NOW)}`,
+      ...prev,
+    ]);
   };
 
   return (
@@ -979,6 +999,80 @@ function VisitPacketPanel({
           </Button>
         )}
       </div>
+
+      <section
+        aria-label="Backend-подготовка отчёта"
+        className="mt-3 rounded-sm border border-border bg-surface p-3"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-[12px] font-medium">Backend-подготовка отчёта</h3>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              PDF не собирается в браузере. UI готовит только безопасный handoff для self-hosted backend.
+            </p>
+          </div>
+          <span
+            className={`rounded-sm border px-2 py-1 text-[12px] font-medium ${
+              reportPackageReady
+                ? "border-border bg-surface-muted text-foreground"
+                : "border-[hsl(var(--risk-medium))] bg-surface-muted text-foreground"
+            }`}
+          >
+            {reportPackageReady ? "PDF готов к backend-сборке" : "PDF заблокирован"}
+          </span>
+        </div>
+
+        <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+          <Field term="Сборка" value={reportPackageReady ? "разрешена после gates" : "закрыта до gates"} />
+          <Field term="Снимки" value={selectedLabel} />
+          <Field term="Текст" value={patientText ? "patient-safe версия готова" : "нет безопасной версии"} />
+          <Field term="Backend" value="self-hosted only" />
+          <Field term="Ссылки" value="токены и URL скрыты" />
+          <Field term="Аудит" value={backendJobState === "prepared" ? "подготовлен" : "ожидает"} />
+        </dl>
+
+        {missing.length > 0 && (
+          <div className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted p-2">
+            <div className="text-[12px] font-medium">Блокеры backend/PDF</div>
+            <ul className="mt-1 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
+              {missing.map((item) => (
+                <li key={`backend-${item}`} className="flex items-start gap-1.5">
+                  <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground" aria-hidden />
+                  <span>{backendMissingLabel(item)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {backendJobState === "prepared" && (
+          <div
+            role="status"
+            className="mt-3 rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
+          >
+            <div className="font-medium">Backend-задача подготовлена локально</div>
+            <div className="mt-1 text-muted-foreground">
+              PDF-задача ожидает self-hosted backend. Raw token, защищённая ссылка и файловые пути в UI не выводятся.
+            </div>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="min-h-[44px] sm:min-h-[32px]"
+            disabled={!reportPackageReady}
+            onClick={prepareBackendJob}
+          >
+            Подготовить backend-задачу
+          </Button>
+          <span className="text-[11px] text-muted-foreground">
+            Демо-действие не делает сетевых вызовов и не выпускает документ пациенту.
+          </span>
+        </div>
+      </section>
 
       <div className="mt-3 rounded-sm border border-border bg-surface-muted p-2">
         <div className="text-[12px] font-medium">Аудит пакета</div>
