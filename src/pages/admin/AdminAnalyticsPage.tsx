@@ -248,6 +248,15 @@ function KpiSkeleton() {
  * В тестах перекрывается через `window.__ANALYTICS_LOADING_MS__`.
  */
 const DEFAULT_LOADING_MS = 250;
+const FINANCE_ASSUMPTIONS = {
+  completedVisitRub: 3200,
+  plannedVisitRub: 2800,
+  lostLeadRub: 1800,
+} as const;
+
+function money(value: number): string {
+  return `${value.toLocaleString("ru-RU")} ₽`;
+}
 
 export default function AdminAnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("all");
@@ -442,6 +451,48 @@ export default function AdminAnalyticsPage() {
     }));
   }, [data.dialogs]);
 
+  const completedAppointments = data.appointments.filter((a) => a.status === "completed");
+  const plannedAppointments = data.appointments.filter(
+    (a) => a.status === "planned" || a.status === "confirmed",
+  );
+  const lostLeads = data.leads.filter((l) => l.status === "lost");
+  const botAttributedAppointments = data.appointments.filter((a) => Boolean(a.leadId));
+  const completedVisitValueRub =
+    completedAppointments.length * FINANCE_ASSUMPTIONS.completedVisitRub;
+  const bookedPotentialRub =
+    plannedAppointments.length * FINANCE_ASSUMPTIONS.plannedVisitRub;
+  const lostPotentialRub = lostLeads.length * FINANCE_ASSUMPTIONS.lostLeadRub;
+  const botAttributedValueRub = botAttributedAppointments.reduce((sum, appointment) => {
+    if (appointment.status === "completed") return sum + FINANCE_ASSUMPTIONS.completedVisitRub;
+    if (appointment.status === "planned" || appointment.status === "confirmed") {
+      return sum + FINANCE_ASSUMPTIONS.plannedVisitRub;
+    }
+    return sum;
+  }, 0);
+
+  const clinicValue = useMemo(() => {
+    return data.clinics
+      .map((clinic) => {
+        const appointments = data.appointments.filter((a) => a.clinicId === clinic.id);
+        const completed = appointments.filter((a) => a.status === "completed").length;
+        const planned = appointments.filter(
+          (a) => a.status === "planned" || a.status === "confirmed",
+        ).length;
+        const estimatedRub =
+          completed * FINANCE_ASSUMPTIONS.completedVisitRub +
+          planned * FINANCE_ASSUMPTIONS.plannedVisitRub;
+        return {
+          id: clinic.id,
+          name: clinic.name,
+          partnerTier: clinic.partnerTier,
+          completed,
+          planned,
+          estimatedRub,
+        };
+      })
+      .sort((a, b) => b.estimatedRub - a.estimatedRub || b.completed - a.completed);
+  }, [data.appointments, data.clinics]);
+
   const onGenerateReport = () => {
     const safeAggregate = {
       range,
@@ -484,6 +535,26 @@ export default function AdminAnalyticsPage() {
         state: s.key,
         label: s.label,
         count: s.count,
+      })),
+      financialValue: {
+        methodologyStatus: "demo_needs_validation",
+        completedVisitValueRub,
+        bookedPotentialRub,
+        lostPotentialRub,
+        botAttributedValueRub,
+      },
+      financeAssumptions: {
+        methodologyStatus: "demo_needs_validation",
+        completedVisitRub: FINANCE_ASSUMPTIONS.completedVisitRub,
+        plannedVisitRub: FINANCE_ASSUMPTIONS.plannedVisitRub,
+        lostLeadRub: FINANCE_ASSUMPTIONS.lostLeadRub,
+      },
+      clinicValue: clinicValue.map((row) => ({
+        name: row.name,
+        partnerTier: row.partnerTier,
+        completed: row.completed,
+        planned: row.planned,
+        estimatedRub: row.estimatedRub,
       })),
     };
     setReportPreview(JSON.stringify(safeAggregate, null, 2));
@@ -756,6 +827,59 @@ export default function AdminAnalyticsPage() {
                     <span className="font-medium">{s.label}</span>
                     <span className="tabular-nums text-muted-foreground">
                       {s.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Financial value */}
+          <SectionCard
+            title="Финансовый контур"
+            hint="оценка вклада, не бухгалтерская выручка"
+          >
+            {isLoading ? (
+              <div className="grid grid-cols-2 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <KpiSkeleton key={i} />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <KpiCard label="Завершённые визиты" value={money(completedVisitValueRub)} />
+                  <KpiCard label="Плановый потенциал" value={money(bookedPotentialRub)} />
+                  <KpiCard label="Потерянный потенциал" value={money(lostPotentialRub)} />
+                  <KpiCard label="Вклад bot/operator" value={money(botAttributedValueRub)} />
+                </div>
+                <div className="rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
+                  Демо-оценка вклада: коэффициенты фиксированы для прототипа, методика требует проверки с клиникой.
+                  Это не бухгалтерская выручка и не финансовый прогноз.
+                </div>
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Ценность по филиалам" hint="только агрегаты">
+            {isLoading ? (
+              <SectionSkeleton rows={3} />
+            ) : (
+              <div className="divide-y divide-border rounded-md border border-border">
+                {clinicValue.map((row) => (
+                  <div
+                    key={row.id}
+                    className="grid grid-cols-1 gap-1 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto_auto_auto]"
+                  >
+                    <span className="font-medium">{row.name}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      завершено: {row.completed}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      план: {row.planned}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      оценка: {money(row.estimatedRub)}
                     </span>
                   </div>
                 ))}

@@ -216,6 +216,38 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
       .filter((n) => !Number.isNaN(n));
     expect(numbers.reduce((a, b) => a + b, 0)).toBe(total);
   });
+
+  it("Batch K: показывает финансовую ценность как демо-оценку, не бухгалтерскую выручку", () => {
+    const { getByText } = renderPage();
+    const card = getByText("Финансовый контур").closest("div.p-4") as HTMLElement;
+    expect(card).toBeTruthy();
+    expect(card.textContent ?? "").toMatch(/оценка вклада/i);
+    expect(card.textContent ?? "").toMatch(/не бухгалтерская выручка/i);
+
+    const appointments = getAppointments();
+    const completedValue = appointments.filter((a) => a.status === "completed").length * 3200;
+    const bookedPotential = appointments.filter((a) => a.status === "planned" || a.status === "confirmed").length * 2800;
+    const lostPotential = getLeads().filter((l) => l.status === "lost").length * 1800;
+    const rub = (value: number) => `${value.toLocaleString("ru-RU")} ₽`;
+
+    expect(card.textContent ?? "").toContain(rub(completedValue));
+    expect(card.textContent ?? "").toContain(rub(bookedPotential));
+    expect(card.textContent ?? "").toContain(rub(lostPotential));
+    expect(card.textContent ?? "").toMatch(/методика требует проверки/i);
+  });
+
+  it("Batch K: показывает ценность по филиалам агрегатами без пациентских данных", () => {
+    const { getByText } = renderPage();
+    const card = getByText("Ценность по филиалам").closest("div.p-4") as HTMLElement;
+    expect(card).toBeTruthy();
+    for (const c of getClinics()) {
+      expect(within(card).getByText(c.name)).toBeInTheDocument();
+    }
+    expect(card.textContent ?? "").toMatch(/завершено:/);
+    expect(card.textContent ?? "").toMatch(/план:/);
+    expect(card.textContent ?? "").toMatch(/оценка:/);
+    expect(card.textContent ?? "").not.toMatch(/Иван|Петров|Сидор|@|\+7\s?\(?\d/);
+  });
 });
 
 describe("AdminAnalyticsPage — фильтр периода", () => {
@@ -273,6 +305,10 @@ describe("AdminAnalyticsPage — демо-действия", () => {
     expect(json).toMatch(/"risk"/);
     expect(json).toMatch(/"imageQuality"/);
     expect(json).toMatch(/"botDialogStates"/);
+    expect(json).toMatch(/"financialValue"/);
+    expect(json).toMatch(/"financeAssumptions"/);
+    expect(json).toMatch(/"clinicValue"/);
+    expect(json).toMatch(/"methodologyStatus": "demo_needs_validation"/);
 
     // Запрещённые токены не должны утечь и в JSON.
     for (const t of FORBIDDEN_TOKENS) {
