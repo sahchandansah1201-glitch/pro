@@ -120,6 +120,15 @@ function mockFetch() {
         },
       });
     }
+    if (href.endsWith("/api/v1/me/photo-protocols/visit-live-1/photos/1/download")) {
+      return Promise.resolve(new Response("patient-photo", {
+        status: 200,
+        headers: {
+          "content-type": "image/jpeg",
+          "content-disposition": "inline; filename=\"photo-protocol-1.jpg\"",
+        },
+      }));
+    }
     if (href.endsWith("/api/v1/me/booking-requests")) {
       return response({
         item: {
@@ -233,6 +242,40 @@ describe("Patient portal · Stage 5N production", () => {
     expect(screen.getByText(/метаданные готовы, файлы закрыты backend-контуром/)).toBeInTheDocument();
     expect(screen.getByText(/Сырые файлы, защищённые ссылки/)).toBeInTheDocument();
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
+  });
+
+  it("prepares one photo through the secure backend proxy without exposing backend paths", async () => {
+    const createObjectURL = vi.fn(() => "blob:patient-photo-protocol-1");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+    const fetchMock = mockFetch();
+    const view = renderRoute("/me/reports/report-live-1");
+
+    expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Подготовить фото 1" }));
+
+    const openLink = await screen.findByRole("link", { name: "Открыть фото 1" });
+    expect(openLink).toHaveAttribute("href", "blob:patient-photo-protocol-1");
+    expect(screen.getByText(/Фото 1 подготовлено через защищённый backend/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/visit-live-1/photos/1/download",
+      {
+        method: "GET",
+        headers: { Accept: "image/*", Authorization: "Bearer patient-token" },
+      },
+    );
+    expect(document.body).not.toHaveTextContent("/api/v1/me/photo-protocols/visit-live-1/photos/1/download");
+    expect(document.body).not.toHaveTextContent("patient-token");
+    expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
+    view.unmount();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:patient-photo-protocol-1");
   });
 
   it("shows production-safe lesion history boundary without internal content", async () => {

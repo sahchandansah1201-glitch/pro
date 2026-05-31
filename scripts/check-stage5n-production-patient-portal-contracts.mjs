@@ -97,9 +97,12 @@ const REQUIRED_TEXT = {
     "fetchSelfHostedPatientPortal",
     "fetchSelfHostedPatientPortalReport",
     "fetchSelfHostedPatientPortalPhotoProtocol",
+    "fetchSelfHostedPatientPortalPhotoProtocolPhoto",
     "/api/v1/me/portal",
     "/api/v1/me/reports/",
     "/api/v1/me/photo-protocols/",
+    "/photos/",
+    "Accept: \"image/*\"",
   ],
   "src/pages/patient/MeHomePage.tsx": [
     "isProductionAppMode",
@@ -116,6 +119,10 @@ const REQUIRED_TEXT = {
   ],
   "src/pages/patient/MeReportPageLive.tsx": [
     "fetchSelfHostedPatientPortalReport",
+    "fetchSelfHostedPatientPortalPhotoProtocolPhoto",
+    "Подготовить фото",
+    "Открыть фото",
+    "URL.createObjectURL",
     "Врачебная версия заключения не отображается",
   ],
   "src/pages/patient/MeBookingPageLive.tsx": [
@@ -132,6 +139,7 @@ const REQUIRED_TEXT = {
     "managed runtime/database: none",
     "/api/v1/me/photo-protocols/{visitId}",
     "/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download",
+    "Patient-visible photo controls",
   ],
   ".github/workflows/stage5n-production-patient-portal-contracts.yml": [
     "name: stage5n-production-patient-portal-contracts",

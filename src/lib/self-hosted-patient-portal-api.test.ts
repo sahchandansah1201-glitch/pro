@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createSelfHostedPatientPortalBookingRequest,
   fetchSelfHostedPatientPortal,
+  fetchSelfHostedPatientPortalPhotoProtocolPhoto,
   fetchSelfHostedPatientPortalPhotoProtocol,
   fetchSelfHostedPatientPortalReport,
   updateSelfHostedPatientPortalReminderPreferences,
@@ -180,6 +181,38 @@ describe("self-hosted-patient-portal-api", () => {
         method: "GET",
         headers: { Accept: "application/json", Authorization: "Bearer token-1" },
       }),
+    );
+  });
+
+  it("fetches one patient photo protocol image through the backend proxy", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("patient-photo", {
+        status: 200,
+        headers: {
+          "Content-Type": "image/jpeg",
+          "Content-Disposition": "inline; filename=\"photo-protocol-1.jpg\"",
+        },
+      }),
+    );
+
+    const result = await fetchSelfHostedPatientPortalPhotoProtocolPhoto({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-1",
+      visitId: "visit-1",
+      sequence: 1,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value.contentType).toBe("image/jpeg");
+    expect(result.value.fileName).toBe("photo-protocol-1.jpg");
+    expect(result.value.blob).toBeInstanceOf(Blob);
+    expect(result.value.blob.size).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/visit-1/photos/1/download",
+      {
+        method: "GET",
+        headers: { Accept: "image/*", Authorization: "Bearer token-1" },
+      },
     );
   });
 

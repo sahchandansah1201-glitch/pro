@@ -133,6 +133,13 @@ export interface SelfHostedPatientPortalPhotoProtocol {
   photos: SelfHostedPatientPortalPhotoProtocolPhoto[];
 }
 
+export interface SelfHostedPatientPortalPhotoProtocolPhotoFile {
+  sequence: number;
+  blob: Blob;
+  contentType: string;
+  fileName: string;
+}
+
 export interface SelfHostedPatientPortalOverview {
   patient: SelfHostedPatientPortalPatient;
   nextAppointment: SelfHostedPatientPortalAppointment | null;
@@ -238,6 +245,33 @@ async function requestJson(
   return ok(body);
 }
 
+async function requestBlob(
+  args: BaseArgs,
+  path: string,
+): Promise<SelfHostedApiResult<{ response: Response; blob: Blob }>> {
+  const configError = ensureConfigured(args);
+  if (configError) return fail(configError);
+  const url = buildSelfHostedApiUrl(args.apiBaseUrl, path);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "image/*", Authorization: `Bearer ${String(args.apiToken)}` },
+    });
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при загрузке фото из self-hosted backend.",
+    });
+  }
+  if (!response.ok) {
+    const body = await parseJsonSafe(response);
+    return fail(apiErrorFromBody(response, body));
+  }
+  return ok({ response, blob: await response.blob() });
+}
+
 function textOrNull(value: unknown): string | null {
   return value == null ? null : String(value);
 }
@@ -245,6 +279,20 @@ function textOrNull(value: unknown): string | null {
 function numberOrZero(value: unknown): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function imageExtension(contentType: string): string {
+  const text = contentType.toLowerCase();
+  if (text.includes("png")) return "png";
+  if (text.includes("webp")) return "webp";
+  if (text.includes("heic")) return "heic";
+  if (text.includes("heif")) return "heif";
+  return "jpg";
+}
+
+function fileNameFromDisposition(value: string | null, fallback: string): string {
+  const match = value?.match(/filename="?([^";]+)"?/i);
+  return match?.[1] ? match[1] : fallback;
 }
 
 function nested(input: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -464,6 +512,41 @@ export async function fetchSelfHostedPatientPortalPhotoProtocol(
   if (!response.ok) return fail(response.error);
   const body = isRecord(response.value) ? response.value : {};
   return ok(toSelfHostedPatientPortalPhotoProtocol(body.item));
+}
+
+export async function fetchSelfHostedPatientPortalPhotoProtocolPhoto(
+  args: BaseArgs & { visitId: string; sequence: number },
+): Promise<SelfHostedApiResult<SelfHostedPatientPortalPhotoProtocolPhotoFile>> {
+  if (!args.visitId) {
+    return fail({
+      kind: "validation",
+      code: "missing_visit_id",
+      message: "visitId обязателен.",
+    });
+  }
+  if (!Number.isInteger(args.sequence) || args.sequence < 1 || args.sequence > 200) {
+    return fail({
+      kind: "validation",
+      code: "invalid_sequence",
+      message: "Номер фото должен быть от 1 до 200.",
+    });
+  }
+  const result = await requestBlob(
+    args,
+    `/api/v1/me/photo-protocols/${encodeURIComponent(args.visitId)}/photos/${encodeURIComponent(String(args.sequence))}/download`,
+  );
+  if (!result.ok) return fail(result.error);
+  const contentType = result.value.response.headers.get("content-type") || result.value.blob.type || "image/jpeg";
+  const fileName = fileNameFromDisposition(
+    result.value.response.headers.get("content-disposition"),
+    `photo-protocol-${args.sequence}.${imageExtension(contentType)}`,
+  );
+  return ok({
+    sequence: args.sequence,
+    blob: result.value.blob,
+    contentType,
+    fileName,
+  });
 }
 
 export async function createSelfHostedPatientPortalBookingRequest(

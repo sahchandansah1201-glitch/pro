@@ -11,6 +11,9 @@ self-hosted product boundary in production mode.
 - Batch S extends the same patient portal boundary with
   `/api/v1/me/photo-protocols/{visitId}` for metadata-only SD-MF-046
   photo/protocol reads.
+- Batch U adds patient-visible photo controls on `/me/reports/:id` that call the
+  Batch T backend proxy with the patient bearer session and expose only a local
+  browser object URL after the backend authorizes the request.
 - Demo/dev mode keeps the existing mock patient portal.
 - Patient self-booking writes are intentionally out of scope; booking is
   read-only until a dedicated write contract is added.
@@ -63,6 +66,14 @@ Production pages:
 
 Production mode renders live components that read only from the
 self-hosted backend. Demo mode renders the preserved `*Demo` pages.
+
+Patient-visible photo controls are deliberately narrow. The patient sees the
+doctor-selected photo metadata and a `Подготовить фото` action. The browser then
+fetches `/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download` with
+the patient bearer token and creates a temporary local object URL for
+`Открыть фото`. The DOM must not render backend paths, object bucket/key values,
+storage paths, signed links, access tokens, object identifiers, doctor-only
+text, or clinical diagnosis/risk wording.
 
 ## 4. Product Boundary
 

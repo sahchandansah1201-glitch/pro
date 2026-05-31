@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { Images, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ExternalLink, Images, Loader2, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,10 +8,29 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
   fetchSelfHostedPatientPortalPhotoProtocol,
+  fetchSelfHostedPatientPortalPhotoProtocolPhoto,
   fetchSelfHostedPatientPortalReport,
   type SelfHostedPatientPortalPhotoProtocol,
+  type SelfHostedPatientPortalPhotoProtocolPhoto,
   type SelfHostedPatientPortalReport,
 } from "@/lib/self-hosted-patient-portal-api";
+
+type PhotoDownloadState = {
+  status: "idle" | "loading" | "ready" | "error";
+  objectUrl?: string;
+  fileName?: string;
+  message?: string;
+};
+
+const PHOTO_KIND_LABEL: Record<string, string> = {
+  overview_photo: "обзорное фото",
+  dermoscopy: "дерматоскопия",
+  report_attachment: "вложение отчёта",
+};
+
+function photoKindLabel(kind: string): string {
+  return PHOTO_KIND_LABEL[kind] || "фото";
+}
 
 export default function MeReportPageLive() {
   const { id = "" } = useParams();
@@ -20,7 +39,16 @@ export default function MeReportPageLive() {
   const [photoStatus, setPhotoStatus] = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
   const [report, setReport] = useState<SelfHostedPatientPortalReport | null>(null);
   const [photoProtocol, setPhotoProtocol] = useState<SelfHostedPatientPortalPhotoProtocol | null>(null);
+  const [photoDownloads, setPhotoDownloads] = useState<Record<number, PhotoDownloadState>>({});
   const [error, setError] = useState<string | null>(null);
+  const photoObjectUrls = useRef<Record<number, string>>({});
+
+  useEffect(() => () => {
+    for (const objectUrl of Object.values(photoObjectUrls.current)) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    photoObjectUrls.current = {};
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +61,7 @@ export default function MeReportPageLive() {
       setStatus("loading");
       setPhotoStatus("idle");
       setPhotoProtocol(null);
+      setPhotoDownloads({});
       const result = await fetchSelfHostedPatientPortalReport({
         apiBaseUrl: session.apiBaseUrl,
         apiToken: session.apiToken,
@@ -53,15 +82,18 @@ export default function MeReportPageLive() {
           if (cancelled) return;
           if (photoResult.ok) {
             setPhotoProtocol(photoResult.value);
+            setPhotoDownloads({});
             setPhotoStatus("ready");
           } else {
             setPhotoProtocol(null);
+            setPhotoDownloads({});
             setPhotoStatus("unavailable");
           }
         }
       } else {
         setReport(null);
         setPhotoProtocol(null);
+        setPhotoDownloads({});
         setPhotoStatus("idle");
         setError(result.error.message);
         setStatus("error");
@@ -72,6 +104,54 @@ export default function MeReportPageLive() {
       cancelled = true;
     };
   }, [id, session.apiBaseUrl, session.apiToken]);
+
+  async function preparePhoto(photo: SelfHostedPatientPortalPhotoProtocolPhoto) {
+    const visitId = photoProtocol?.visitId || report?.visitId;
+    if (!visitId) {
+      setPhotoDownloads((current) => ({
+        ...current,
+        [photo.sequence]: {
+          status: "error",
+          message: "Фото сейчас недоступно: backend не вернул визит.",
+        },
+      }));
+      return;
+    }
+    setPhotoDownloads((current) => ({
+      ...current,
+      [photo.sequence]: { status: "loading" },
+    }));
+    const result = await fetchSelfHostedPatientPortalPhotoProtocolPhoto({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      visitId,
+      sequence: photo.sequence,
+    });
+    if (!result.ok) {
+      setPhotoDownloads((current) => ({
+        ...current,
+        [photo.sequence]: {
+          status: "error",
+          message: result.error.message || "Фото сейчас недоступно: доступ управляется клиникой.",
+        },
+      }));
+      return;
+    }
+    if (photoObjectUrls.current[photo.sequence]) {
+      URL.revokeObjectURL(photoObjectUrls.current[photo.sequence]);
+    }
+    const objectUrl = URL.createObjectURL(result.value.blob);
+    photoObjectUrls.current[photo.sequence] = objectUrl;
+    setPhotoDownloads((current) => ({
+      ...current,
+      [photo.sequence]: {
+        status: "ready",
+        objectUrl,
+        fileName: result.value.fileName,
+        message: `Фото ${photo.sequence} подготовлено через защищённый backend.`,
+      },
+    }));
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -148,16 +228,57 @@ export default function MeReportPageLive() {
                       </dl>
                       <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                         {photoProtocol.photos.slice(0, 4).map((photo) => (
-                          <div key={`${photo.sequence}-${photo.kind}`} className="rounded border border-border bg-background px-2 py-1.5 text-[12px]">
-                            <div className="font-medium">Фото {photo.sequence} · {photo.kind}</div>
+                          <div
+                            key={`${photo.sequence}-${photo.kind}`}
+                            className="rounded border border-border bg-background px-2 py-1.5 text-[12px]"
+                          >
+                            <div className="font-medium">Фото {photo.sequence} · {photoKindLabel(photo.kind)}</div>
                             <div className="text-muted-foreground">
-                              {photo.lesionLabel || "Без названия"} · превью скрыто
+                              {photo.lesionLabel || "Без названия"} · {photo.bodyZone || "зона не указана"}
                             </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="min-h-[44px] sm:min-h-[32px]"
+                                disabled={photoDownloads[photo.sequence]?.status === "loading"}
+                                onClick={() => void preparePhoto(photo)}
+                              >
+                                {photoDownloads[photo.sequence]?.status === "loading" && (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                                )}
+                                Подготовить фото {photo.sequence}
+                              </Button>
+                              {photoDownloads[photo.sequence]?.status === "ready" && photoDownloads[photo.sequence]?.objectUrl && (
+                                <Button asChild variant="secondary" size="sm" className="min-h-[44px] sm:min-h-[32px]">
+                                  <a
+                                    href={photoDownloads[photo.sequence]?.objectUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    download={photoDownloads[photo.sequence]?.fileName}
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                                    Открыть фото {photo.sequence}
+                                  </a>
+                                </Button>
+                              )}
+                            </div>
+                            <div className="mt-1 text-[12px] text-muted-foreground" aria-live="polite">
+                              {photoDownloads[photo.sequence]?.status === "ready"
+                                ? photoDownloads[photo.sequence]?.message
+                                : "Открытие идёт через защищённый backend после проверки доступа."}
+                            </div>
+                            {photoDownloads[photo.sequence]?.status === "error" && (
+                              <div className="mt-1 text-[12px] text-destructive" role="alert">
+                                {photoDownloads[photo.sequence]?.message}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                       <p className="mt-2 text-[12px] text-muted-foreground">
-                        Сырые файлы, защищённые ссылки и внутренняя версия врача не отображаются.
+                        Сырые файлы, защищённые ссылки и внутренняя версия врача не отображаются. Подготовленное фото открывается только как локальная ссылка браузера.
                       </p>
                     </>
                   )}
