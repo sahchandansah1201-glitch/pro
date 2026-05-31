@@ -749,6 +749,10 @@ function ClinicalReportCompletionSummary({
   reportPackage: SelfHostedClinicalReportPackageDTO;
 }) {
   const readiness = reportPackage.readiness;
+  const photoProtocol = reportPackage.patientPhotoProtocol;
+  const photoProtocolStatus = photoProtocol.status === "metadata_ready_backend_blocked"
+    ? "metadata ready, backend blocked"
+    : "blocked";
   return (
     <section
       aria-label="Stage 8G-8I clinical report completion"
@@ -774,7 +778,35 @@ function ClinicalReportCompletionSummary({
         <Field term="Текст для пациента" value={reportPackage.report.patientTextPresent ? "есть" : "нет"} />
         <Field term="Export" value={readiness.exportAllowed ? "разрешён" : "закрыт"} />
         <Field term="Delivery" value={readiness.patientDeliveryAllowed ? "разрешена" : "закрыта"} />
+        <Field term="Фото-протокол" value={`${photoProtocol.selectedPhotoCount} фото`} />
+        <Field
+          term="Фото delivery"
+          value={photoProtocol.deliveryBoundary.patientDeliveryAllowed ? "разрешена" : "закрыта"}
+        />
       </dl>
+      <div
+        aria-label="Patient photo protocol backend contract"
+        className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted px-2.5 py-2 text-[12px]"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-medium">Фото-протокол</span>
+          <span>{photoProtocolStatus}</span>
+        </div>
+        <p className="mt-1 text-muted-foreground">
+          SD-MF-046 · фото выбирает врач; сырые файлы, служебные пути, временные ссылки, токены и врачебная
+          версия не выдаются пациенту.
+        </p>
+        {photoProtocol.missing.length > 0 && (
+          <ul className="mt-2 grid grid-cols-1 gap-1 text-muted-foreground sm:grid-cols-2">
+            {photoProtocol.missing.map((item) => (
+              <li key={item} className="flex items-start gap-1.5">
+                <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground" aria-hidden />
+                <span>{clinicalReportMissingLabel(item)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {readiness.missing.length > 0 ? (
         <ul className="mt-3 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
           {readiness.missing.map((item) => (

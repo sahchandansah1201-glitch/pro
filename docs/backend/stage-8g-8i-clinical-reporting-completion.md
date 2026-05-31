@@ -17,8 +17,14 @@ Stage 5H assessment/conclusion/report contracts.
 - `VisitWorkspacePage` production report tab
 
 The report package is a safe, count-oriented readiness snapshot. It includes
-statuses, presence booleans, missing gate keys, lesion count, asset count, and
-the self-hosted product boundary.
+statuses, presence booleans, missing gate keys, lesion count, asset count, the
+self-hosted product boundary, and a `patientPhotoProtocol` metadata contract
+for Batch Q / SD-MF-046.
+
+`patientPhotoProtocol` is not a file-delivery feature. It only states whether
+doctor-selected photo/protocol metadata is ready for a future backend contract
+and records why patient delivery remains blocked. It exposes photo counts,
+consent/readiness blockers, and safe delivery-boundary booleans.
 
 ## Runtime boundary
 
@@ -31,6 +37,17 @@ the self-hosted product boundary.
 The endpoint does not expose object storage paths, signed URLs, access tokens,
 raw external payloads, or raw patient identifiers beyond scoped internal ids
 already used by the self-hosted API.
+
+For the patient photo/protocol contract specifically, the endpoint also marks:
+
+- raw files exposed: false;
+- storage paths exposed: false;
+- signed URLs issued: false;
+- tokens exposed: false;
+- physician text exposed: false;
+- release audit required: true;
+- revoke required: true;
+- patient identity check required: true.
 
 ## Readiness gates
 
@@ -47,13 +64,34 @@ The package is `ready` only when:
 Otherwise the package is `blocked` and returns stable missing keys such as
 `assessment_missing`, `report_not_signed`, or `patient_safe_text_missing`.
 
+## Patient photo/protocol metadata gate
+
+The `patientPhotoProtocol` object uses a separate gate from report readiness.
+It is `metadata_ready_backend_blocked` only when:
+
+- imaging consent exists;
+- at least one patient photo asset exists (`overview_photo` or `dermoscopy`);
+- the report exists and is signed;
+- report patient-safe text is present.
+
+Even in that state, `deliveryBoundary.patientDeliveryAllowed` remains `false`
+and `self_hosted_photo_delivery_contract_missing` remains in `missing` until a
+real self-hosted file proxy, release audit, revoke flow, patient identity gate,
+and retention contract are implemented.
+
+If any metadata gate is missing, the object is `blocked` and returns stable
+keys such as `imaging_consent_missing`, `patient_photo_assets_missing`,
+`report_not_signed`, or `patient_safe_text_missing`.
+
 ## Audit
 
 Every read records:
 
 - action: `clinical_report.package.read`
 - entity type: `visit`
-- metadata: ready flag, missing count, lesion count, asset count
+- metadata: ready flag, missing count, lesion count, asset count,
+  patient photo protocol status, patient photo count, and patient photo
+  delivery allowed flag
 
 Audit metadata is count-only and safe for logs.
 

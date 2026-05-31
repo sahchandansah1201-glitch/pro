@@ -63,6 +63,7 @@
           "report",
           "counts",
           "readiness",
+          "patientPhotoProtocol",
           "productBoundary"
         ],
         "properties": {
@@ -118,6 +119,47 @@
               },
               "exportAllowed": { "type": "boolean" },
               "patientDeliveryAllowed": { "type": "boolean" }
+            }
+          },
+          "patientPhotoProtocol": {
+            "type": "object",
+            "description": "Safe backend contract for doctor-selected patient photo/protocol metadata. It never exposes raw files, object storage paths, signed URLs, tokens, or physician-only text.",
+            "properties": {
+              "brainstormTask": { "type": "string", "enum": ["SD-MF-046"] },
+              "status": {
+                "type": "string",
+                "enum": ["metadata_ready_backend_blocked", "blocked"]
+              },
+              "readyForBackendContract": { "type": "boolean" },
+              "selectedPhotoCount": { "type": "integer" },
+              "counts": {
+                "type": "object",
+                "properties": {
+                  "selectedPhotos": { "type": "integer" },
+                  "overviewPhotos": { "type": "integer" },
+                  "dermoscopyPhotos": { "type": "integer" },
+                  "reportAttachments": { "type": "integer" }
+                }
+              },
+              "missing": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "deliveryBoundary": {
+                "type": "object",
+                "properties": {
+                  "patientDeliveryAllowed": { "type": "boolean" },
+                  "rawFilesExposed": { "type": "boolean" },
+                  "signedUrlsIssued": { "type": "boolean" },
+                  "storagePathsExposed": { "type": "boolean" },
+                  "tokensExposed": { "type": "boolean" },
+                  "physicianTextExposed": { "type": "boolean" },
+                  "requiresSelfHostedFileProxy": { "type": "boolean" },
+                  "requiresReleaseAudit": { "type": "boolean" },
+                  "requiresRevoke": { "type": "boolean" },
+                  "requiresIdentityCheck": { "type": "boolean" }
+                }
+              }
             }
           },
           "productBoundary": {

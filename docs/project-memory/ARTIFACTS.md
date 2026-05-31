@@ -488,6 +488,9 @@
    - [stage-8g-8i-clinical-reporting-completion.md](../backend/stage-8g-8i-clinical-reporting-completion.md)
    - [check-stage8g-8i-clinical-reporting-completion.mjs](../../scripts/check-stage8g-8i-clinical-reporting-completion.mjs)
    - [check-stage8g-8i-clinical-reporting-completion.test.mjs](../../scripts/check-stage8g-8i-clinical-reporting-completion.test.mjs)
+   - Batch Q extension: `patientPhotoProtocol` metadata-only contract for
+     SD-MF-046, with file delivery blocked until backend file proxy, audit,
+     revoke, identity, retention, and patient-safe-copy gates are implemented.
    - [stage8g-8i-clinical-reporting-completion.yml](../../.github/workflows/stage8g-8i-clinical-reporting-completion.yml)
 
 ## Verification outputs captured during black-box creation

@@ -542,6 +542,31 @@ function createLiveWorkspaceFetchMock() {
                 exportAllowed: true,
                 patientDeliveryAllowed: true,
               },
+              patientPhotoProtocol: {
+                brainstormTask: "SD-MF-046",
+                status: "metadata_ready_backend_blocked",
+                readyForBackendContract: true,
+                selectedPhotoCount: 2,
+                counts: {
+                  selectedPhotos: 2,
+                  overviewPhotos: 1,
+                  dermoscopyPhotos: 1,
+                  reportAttachments: 0,
+                },
+                missing: ["self_hosted_photo_delivery_contract_missing"],
+                deliveryBoundary: {
+                  patientDeliveryAllowed: false,
+                  rawFilesExposed: false,
+                  signedUrlsIssued: false,
+                  storagePathsExposed: false,
+                  tokensExposed: false,
+                  physicianTextExposed: false,
+                  requiresSelfHostedFileProxy: true,
+                  requiresReleaseAudit: true,
+                  requiresRevoke: true,
+                  requiresIdentityCheck: true,
+                },
+              },
               productBoundary: {
                 managedRuntimeDependency: "none",
                 managedDatabaseDependency: "none",
@@ -621,6 +646,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(await screen.findByText(/Clinical report completion/)).toBeInTheDocument();
     expect(screen.getByText(/Stage 8G-8I/)).toBeInTheDocument();
     expect(screen.getByText(/Готов · 100%/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Фото-протокол/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/metadata ready, backend blocked/)).toBeInTheDocument();
+    expect(screen.getByText(/нет backend-контракта выдачи фото/)).toBeInTheDocument();
     expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
   });
 

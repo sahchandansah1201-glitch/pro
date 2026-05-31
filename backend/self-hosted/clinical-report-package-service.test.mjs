@@ -20,6 +20,11 @@ function readyPackage(overrides = {}) {
     clinicId: CLINIC_ID,
     counts: { lesions: 2, assets: 3 },
     readiness: { ready: true, missing: [], status: "ready" },
+    patientPhotoProtocol: {
+      status: "metadata_ready_backend_blocked",
+      selectedPhotoCount: 2,
+      deliveryBoundary: { patientDeliveryAllowed: false },
+    },
     ...overrides,
   };
 }
@@ -47,6 +52,9 @@ test("Stage 8G-8I service returns report package and writes safe audit metadata"
     missingCount: 0,
     lesionCount: 2,
     assetCount: 3,
+    patientPhotoProtocolStatus: "metadata_ready_backend_blocked",
+    patientPhotoAssetCount: 2,
+    patientPhotoDeliveryAllowed: false,
   });
 });
 

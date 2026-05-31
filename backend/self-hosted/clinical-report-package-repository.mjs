@@ -88,6 +88,13 @@ report as (
   join scoped_visit sv on sv.id = r.visit_id and sv.clinic_id = r.clinic_id
   limit 1
 ),
+patient_flags as (
+  select
+    p.imaging_consent as "imagingConsent"
+  from patients p
+  join scoped_visit sv on sv.patient_id = p.id and sv.clinic_id = p.clinic_id
+  limit 1
+),
 lesion_counts as (
   select count(*)::int as count
   from lesions l
@@ -95,7 +102,12 @@ lesion_counts as (
   where l.deleted_at is null
 ),
 asset_counts as (
-  select count(*)::int as count
+  select
+    count(*)::int as count,
+    count(*) filter (where a.kind in ('overview_photo', 'dermoscopy'))::int as patient_photo_count,
+    count(*) filter (where a.kind = 'overview_photo')::int as overview_photo_count,
+    count(*) filter (where a.kind = 'dermoscopy')::int as dermoscopy_photo_count,
+    count(*) filter (where a.kind = 'report_attachment')::int as report_attachment_count
   from clinical_assets a
   join scoped_visit sv on sv.id = a.visit_id and sv.clinic_id = a.clinic_id
 )
@@ -131,11 +143,17 @@ from (
     r.signed_at as "reportSignedAt",
     r.updated_at as "reportUpdatedAt",
     coalesce(lc.count, 0) as "lesionCount",
-    coalesce(ac.count, 0) as "assetCount"
+    coalesce(ac.count, 0) as "assetCount",
+    coalesce(pf."imagingConsent", false) as "imagingConsent",
+    coalesce(ac.patient_photo_count, 0) as "patientPhotoAssetCount",
+    coalesce(ac.overview_photo_count, 0) as "overviewPhotoCount",
+    coalesce(ac.dermoscopy_photo_count, 0) as "dermoscopyPhotoCount",
+    coalesce(ac.report_attachment_count, 0) as "reportAttachmentCount"
   from scoped_visit sv
   left join assessment a on true
   left join conclusion c on true
   left join report r on true
+  left join patient_flags pf on true
   left join lesion_counts lc on true
   left join asset_counts ac on true
   limit 1
@@ -161,6 +179,11 @@ function statusReady(status) {
   return status === "ready" || status === "signed";
 }
 
+function count(value) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) && number > 0 ? Math.trunc(number) : 0;
+}
+
 function buildMissing(row) {
   const missing = [];
   if (!row.assessmentId) missing.push("assessment_missing");
@@ -174,6 +197,47 @@ function buildMissing(row) {
   if (!bool(row.reportPatientSafeTextPresent)) missing.push("patient_safe_text_missing");
   if (!bool(row.reportPhysicianTextPresent)) missing.push("physician_text_missing");
   return missing;
+}
+
+function buildPatientPhotoProtocolMissing(row) {
+  const missing = [];
+  if (!bool(row.imagingConsent)) missing.push("imaging_consent_missing");
+  if (count(row.patientPhotoAssetCount) === 0) missing.push("patient_photo_assets_missing");
+  if (!row.reportId) missing.push("report_missing");
+  if (row.reportId && row.reportStatus !== "signed") missing.push("report_not_signed");
+  if (!bool(row.reportPatientSafeTextPresent)) missing.push("patient_safe_text_missing");
+  missing.push("self_hosted_photo_delivery_contract_missing");
+  return Array.from(new Set(missing));
+}
+
+function normalizePatientPhotoProtocol(row) {
+  const missing = buildPatientPhotoProtocolMissing(row);
+  const readyForBackendContract = missing.every((key) => key === "self_hosted_photo_delivery_contract_missing");
+  return {
+    brainstormTask: "SD-MF-046",
+    status: readyForBackendContract ? "metadata_ready_backend_blocked" : "blocked",
+    readyForBackendContract,
+    selectedPhotoCount: count(row.patientPhotoAssetCount),
+    counts: {
+      selectedPhotos: count(row.patientPhotoAssetCount),
+      overviewPhotos: count(row.overviewPhotoCount),
+      dermoscopyPhotos: count(row.dermoscopyPhotoCount),
+      reportAttachments: count(row.reportAttachmentCount),
+    },
+    missing,
+    deliveryBoundary: {
+      patientDeliveryAllowed: false,
+      rawFilesExposed: false,
+      signedUrlsIssued: false,
+      storagePathsExposed: false,
+      tokensExposed: false,
+      physicianTextExposed: false,
+      requiresSelfHostedFileProxy: true,
+      requiresReleaseAudit: true,
+      requiresRevoke: true,
+      requiresIdentityCheck: true,
+    },
+  };
 }
 
 function normalizeReportPackage(row) {
@@ -228,6 +292,7 @@ function normalizeReportPackage(row) {
       exportAllowed: ready,
       patientDeliveryAllowed: ready,
     },
+    patientPhotoProtocol: normalizePatientPhotoProtocol(row),
     productBoundary: {
       managedRuntimeDependency: "none",
       managedDatabaseDependency: "none",

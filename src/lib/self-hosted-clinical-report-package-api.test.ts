@@ -39,6 +39,31 @@ describe("self-hosted-clinical-report-package-api", () => {
               exportAllowed: true,
               patientDeliveryAllowed: true,
             },
+            patientPhotoProtocol: {
+              brainstormTask: "SD-MF-046",
+              status: "metadata_ready_backend_blocked",
+              readyForBackendContract: true,
+              selectedPhotoCount: 2,
+              counts: {
+                selectedPhotos: 2,
+                overviewPhotos: 1,
+                dermoscopyPhotos: 1,
+                reportAttachments: 0,
+              },
+              missing: ["self_hosted_photo_delivery_contract_missing"],
+              deliveryBoundary: {
+                patientDeliveryAllowed: false,
+                rawFilesExposed: false,
+                signedUrlsIssued: false,
+                storagePathsExposed: false,
+                tokensExposed: false,
+                physicianTextExposed: false,
+                requiresSelfHostedFileProxy: true,
+                requiresReleaseAudit: true,
+                requiresRevoke: true,
+                requiresIdentityCheck: true,
+              },
+            },
             productBoundary: {
               managedRuntimeDependency: "none",
               managedDatabaseDependency: "none",
@@ -59,6 +84,9 @@ describe("self-hosted-clinical-report-package-api", () => {
     expect(result.ok).toBe(true);
     expect(result.value?.readiness.status).toBe("ready");
     expect(result.value?.assessment.abcdTotal).toBe(3.4);
+    expect(result.value?.patientPhotoProtocol.status).toBe("metadata_ready_backend_blocked");
+    expect(result.value?.patientPhotoProtocol.selectedPhotoCount).toBe(2);
+    expect(result.value?.patientPhotoProtocol.deliveryBoundary.patientDeliveryAllowed).toBe(false);
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/visits/visit-1/report-package",
       expect.objectContaining({
@@ -78,5 +106,8 @@ describe("self-hosted-clinical-report-package-api", () => {
     });
     expect(dto.readiness.missing).toEqual(["patient_safe_text_missing"]);
     expect(clinicalReportMissingLabel("patient_safe_text_missing")).toBe("нет patient-safe текста");
+    expect(clinicalReportMissingLabel("self_hosted_photo_delivery_contract_missing")).toBe(
+      "нет backend-контракта выдачи фото",
+    );
   });
 });

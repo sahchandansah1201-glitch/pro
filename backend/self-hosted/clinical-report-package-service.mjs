@@ -44,6 +44,9 @@ export function createClinicalReportPackageService({
           missingCount: reportPackage.readiness.missing.length,
           lesionCount: reportPackage.counts.lesions,
           assetCount: reportPackage.counts.assets,
+          patientPhotoProtocolStatus: reportPackage.patientPhotoProtocol?.status ?? "unknown",
+          patientPhotoAssetCount: reportPackage.patientPhotoProtocol?.selectedPhotoCount ?? 0,
+          patientPhotoDeliveryAllowed: reportPackage.patientPhotoProtocol?.deliveryBoundary?.patientDeliveryAllowed === true,
         },
       });
       return { reportPackage, scope };

@@ -715,6 +715,16 @@
    - Mitigation: Stage 8G-8I returns counts, statuses, booleans, missing gate
      keys, and safe product-boundary flags only; the guard scans protected files
      for token, storage path, signed URL, and managed-runtime markers.
+11a. **Patient photo/protocol metadata can be mistaken for real file delivery**
+   - Evidence: Batch Q adds `patientPhotoProtocol` for SD-MF-046 inside the
+     report package.
+   - Impact: treating metadata readiness as patient delivery could expose raw
+     photos before file proxy, audit, revoke, identity, and retention controls
+     exist.
+   - Mitigation: the contract keeps `patientDeliveryAllowed: false`, always
+     returns `self_hosted_photo_delivery_contract_missing`, and exposes counts
+     plus booleans only; no raw files, storage paths, signed URLs, tokens, or
+     physician-only text are returned.
 12. **Device Bridge production readiness can be mistaken for live hardware proof**
    - Evidence: Stage 8J-8O aggregates safe PostgreSQL worker telemetry,
      hardening, recovery, audit, and export metadata.

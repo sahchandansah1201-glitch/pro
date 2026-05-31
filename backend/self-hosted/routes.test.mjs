@@ -4445,6 +4445,31 @@ test("Stage 8G-8I · GET /api/v1/visits/{id}/report-package returns readiness wi
           exportAllowed: true,
           patientDeliveryAllowed: true,
         },
+        patientPhotoProtocol: {
+          brainstormTask: "SD-MF-046",
+          status: "metadata_ready_backend_blocked",
+          readyForBackendContract: true,
+          selectedPhotoCount: 2,
+          counts: {
+            selectedPhotos: 2,
+            overviewPhotos: 1,
+            dermoscopyPhotos: 1,
+            reportAttachments: 1,
+          },
+          missing: ["self_hosted_photo_delivery_contract_missing"],
+          deliveryBoundary: {
+            patientDeliveryAllowed: false,
+            rawFilesExposed: false,
+            signedUrlsIssued: false,
+            storagePathsExposed: false,
+            tokensExposed: false,
+            physicianTextExposed: false,
+            requiresSelfHostedFileProxy: true,
+            requiresReleaseAudit: true,
+            requiresRevoke: true,
+            requiresIdentityCheck: true,
+          },
+        },
         productBoundary: {
           managedRuntimeDependency: "none",
           managedDatabaseDependency: "none",
@@ -4458,7 +4483,9 @@ test("Stage 8G-8I · GET /api/v1/visits/{id}/report-package returns readiness wi
   assert.equal(response.json.stage, "8G-8I");
   assert.equal(response.json.item.readiness.status, "ready");
   assert.equal(response.json.item.counts.assets, 3);
-  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|patientFullName/i);
+  assert.equal(response.json.item.patientPhotoProtocol.brainstormTask, "SD-MF-046");
+  assert.equal(response.json.item.patientPhotoProtocol.deliveryBoundary.patientDeliveryAllowed, false);
+  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|patientFullName|physician_text/i);
 });
 
 test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package", async () => {

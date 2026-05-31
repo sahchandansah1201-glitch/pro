@@ -44,6 +44,31 @@ export interface SelfHostedClinicalReportPackageDTO {
     exportAllowed: boolean;
     patientDeliveryAllowed: boolean;
   };
+  patientPhotoProtocol: {
+    brainstormTask: string;
+    status: "metadata_ready_backend_blocked" | "blocked" | string;
+    readyForBackendContract: boolean;
+    selectedPhotoCount: number;
+    counts: {
+      selectedPhotos: number;
+      overviewPhotos: number;
+      dermoscopyPhotos: number;
+      reportAttachments: number;
+    };
+    missing: string[];
+    deliveryBoundary: {
+      patientDeliveryAllowed: boolean;
+      rawFilesExposed: boolean;
+      signedUrlsIssued: boolean;
+      storagePathsExposed: boolean;
+      tokensExposed: boolean;
+      physicianTextExposed: boolean;
+      requiresSelfHostedFileProxy: boolean;
+      requiresReleaseAudit: boolean;
+      requiresRevoke: boolean;
+      requiresIdentityCheck: boolean;
+    };
+  };
   productBoundary: {
     managedRuntimeDependency: "none" | string;
     managedDatabaseDependency: "none" | string;
@@ -125,6 +150,9 @@ export function toSelfHostedClinicalReportPackage(
   const report = isRecord(input.report) ? input.report : {};
   const counts = isRecord(input.counts) ? input.counts : {};
   const readiness = isRecord(input.readiness) ? input.readiness : {};
+  const patientPhotoProtocol = isRecord(input.patientPhotoProtocol) ? input.patientPhotoProtocol : {};
+  const patientPhotoProtocolCounts = isRecord(patientPhotoProtocol.counts) ? patientPhotoProtocol.counts : {};
+  const deliveryBoundary = isRecord(patientPhotoProtocol.deliveryBoundary) ? patientPhotoProtocol.deliveryBoundary : {};
   const productBoundary = isRecord(input.productBoundary) ? input.productBoundary : {};
   return {
     visitId: String(input.visitId ?? ""),
@@ -166,6 +194,31 @@ export function toSelfHostedClinicalReportPackage(
       exportAllowed: bool(readiness.exportAllowed),
       patientDeliveryAllowed: bool(readiness.patientDeliveryAllowed),
     },
+    patientPhotoProtocol: {
+      brainstormTask: String(patientPhotoProtocol.brainstormTask ?? "SD-MF-046"),
+      status: String(patientPhotoProtocol.status ?? "blocked"),
+      readyForBackendContract: bool(patientPhotoProtocol.readyForBackendContract),
+      selectedPhotoCount: Number(patientPhotoProtocol.selectedPhotoCount ?? 0),
+      counts: {
+        selectedPhotos: Number(patientPhotoProtocolCounts.selectedPhotos ?? 0),
+        overviewPhotos: Number(patientPhotoProtocolCounts.overviewPhotos ?? 0),
+        dermoscopyPhotos: Number(patientPhotoProtocolCounts.dermoscopyPhotos ?? 0),
+        reportAttachments: Number(patientPhotoProtocolCounts.reportAttachments ?? 0),
+      },
+      missing: arrayOfStrings(patientPhotoProtocol.missing),
+      deliveryBoundary: {
+        patientDeliveryAllowed: bool(deliveryBoundary.patientDeliveryAllowed),
+        rawFilesExposed: bool(deliveryBoundary.rawFilesExposed),
+        signedUrlsIssued: bool(deliveryBoundary.signedUrlsIssued),
+        storagePathsExposed: bool(deliveryBoundary.storagePathsExposed),
+        tokensExposed: bool(deliveryBoundary.tokensExposed),
+        physicianTextExposed: bool(deliveryBoundary.physicianTextExposed),
+        requiresSelfHostedFileProxy: bool(deliveryBoundary.requiresSelfHostedFileProxy),
+        requiresReleaseAudit: bool(deliveryBoundary.requiresReleaseAudit),
+        requiresRevoke: bool(deliveryBoundary.requiresRevoke),
+        requiresIdentityCheck: bool(deliveryBoundary.requiresIdentityCheck),
+      },
+    },
     productBoundary: {
       managedRuntimeDependency: String(productBoundary.managedRuntimeDependency ?? "none"),
       managedDatabaseDependency: String(productBoundary.managedDatabaseDependency ?? "none"),
@@ -187,6 +240,9 @@ export function clinicalReportMissingLabel(key: string): string {
     report_not_signed: "отчёт не подписан",
     patient_safe_text_missing: "нет patient-safe текста",
     physician_text_missing: "нет врачебного текста",
+    imaging_consent_missing: "нет согласия на медицинскую съёмку",
+    patient_photo_assets_missing: "нет фото для patient-пакета",
+    self_hosted_photo_delivery_contract_missing: "нет backend-контракта выдачи фото",
   };
   return labels[key] ?? key;
 }

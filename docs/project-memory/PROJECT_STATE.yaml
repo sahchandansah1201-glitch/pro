@@ -784,6 +784,9 @@ verification:
       clinical_report_package_confirmed: true
       report_readiness_gate_confirmed: true
       production_report_ui_confirmed: true
+      patient_photo_protocol_contract_confirmed: true
+      patient_photo_delivery_blocked_until_backend_confirmed: true
+      brainstorm_task: "SD-MF-046"
       minimum_related_stages_per_batch: 3
       next_stage_hypothesis: "Stage 8J-8L"
       product_runtime_change: true

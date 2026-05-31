@@ -518,6 +518,17 @@
 - Updated project-memory so Stage 8J-8O is confirmed in the current branch and
   Stage 8P-8R remains an explicit hypothesis until repository files define it.
 
+## 2026-05-31
+
+- Реализован Batch Q: безопасный backend-контракт `patientPhotoProtocol` для
+  SD-MF-046 внутри `GET /api/v1/visits/{visitId}/report-package`.
+- Контракт читает только `imaging_consent` и безопасные агрегаты по фото
+  (`overview_photo`, `dermoscopy`, `report_attachment`), не отдаёт raw files,
+  storage paths, signed URLs, токены или physician-only text.
+- UI `VisitWorkspacePage` показывает отдельный статус «Фото-протокол»:
+  metadata готова к backend-контракту, но patient delivery заблокирована до
+  self-hosted file proxy, release audit, revoke, identity and retention gates.
+
 ## 2026-05-21
 
 - Создан Stage 8G-8I Clinical reporting completion batch as one Pull request.

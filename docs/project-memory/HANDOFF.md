@@ -441,6 +441,14 @@ Go-No-Go checklist. The reconciliation pass is recorded in
    - no browser hardware API coupling;
    - no raw patient report body, signed URL, object storage path, or token
      output in the report package.
+11a. Batch Q extends Stage 8G-8I with SD-MF-046 `patientPhotoProtocol`:
+   - doctor-selected patient photo/protocol metadata is represented as counts,
+     consent/readiness blockers, and delivery-boundary booleans only;
+   - patient photo delivery remains blocked until self-hosted file proxy,
+     release audit, revoke, identity check, retention, and approved medical-copy
+     gates exist;
+   - no raw files, storage paths, signed URLs, tokens, or physician-only text
+     are exposed.
 12. Stage 8J-8O implements Device Bridge production readiness and the server
     operations handbook:
    - Stage 8J: self-hosted `GET /api/v1/device-bridge-worker/production-readiness`;
