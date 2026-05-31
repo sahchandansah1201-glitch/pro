@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { ListEmptyState } from "@/components/admin/ListEmptyState";
+import { AdminMetric, AdminOpsCard } from "@/components/admin/AdminOpsCard";
 import { useListPagination } from "@/lib/use-list-pagination";
 
 /**
@@ -153,6 +154,10 @@ export default function AdminServicesPage() {
     setFilter("all");
     setQuery("");
   };
+  const activeCount = SERVICES.filter((s) => s.active).length;
+  const onlineCount = SERVICES.filter((s) => s.onlineBooking).length;
+  const imagingCount = SERVICES.filter((s) => s.category === "imaging").length;
+  const blockedForOnline = SERVICES.filter((s) => s.active && !s.onlineBooking).length;
   const isEmpty = rows.length === 0;
   const emptyState = (
     <ListEmptyState
@@ -181,6 +186,80 @@ export default function AdminServicesPage() {
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{DEMO_NOTICE}</span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.9fr_1fr_1fr]">
+          <AdminOpsCard
+            title="Создание услуги"
+            hint="Ручной сценарий для клиник без полной МИС-интеграции."
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                onClick={() =>
+                  setActionNote("Черновик ручной услуги создан локально. Реальное сохранение появится с бэкендом.")
+                }
+              >
+                Создать услугу вручную (демо)
+              </Button>
+            }
+          >
+            <p className="text-[12px] text-muted-foreground">
+              Форма должна покрывать название, категория, длительность, цена, согласие/условия и доступность онлайн-записи.
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <AdminMetric label="Активны" value={activeCount} tone="success" />
+              <AdminMetric label="Онлайн" value={onlineCount} tone="info" />
+              <AdminMetric label="Съёмка" value={imagingCount} tone="neutral" />
+            </div>
+          </AdminOpsCard>
+
+          <AdminOpsCard title="Импорт из МИС" hint="Источник услуги должен быть виден администратору.">
+            <div className="grid gap-2 text-[12px]">
+              <div className="rounded-md border border-border bg-surface px-2.5 py-2">
+                <div className="font-medium">Синхронизация услуг</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Импорт обновляет код, длительность и цену; ручные правки не перетирают импорт без подтверждения.
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <span className="rounded-md border border-border bg-muted px-2 py-1 text-[11px]">
+                  Источник: МИС
+                </span>
+                <span className="rounded-md border border-border bg-muted px-2 py-1 text-[11px]">
+                  Источник: ручной
+                </span>
+              </div>
+            </div>
+          </AdminOpsCard>
+
+          <AdminOpsCard
+            title="Проверка перед публикацией"
+            hint="Услуга не должна попадать в запись без правил и согласий."
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                onClick={() => setActionNote("Проверка правил записи подготовлена локально. Сообщения пациентам не отправляются.")}
+              >
+                Проверить правила записи
+              </Button>
+            }
+          >
+            <div className="grid grid-cols-2 gap-2 text-[12px]">
+              <AdminMetric label="Без онлайн" value={blockedForOnline} tone="warning" />
+              <AdminMetric label="Согласия" value="4/6" tone="info" />
+            </div>
+            <ul className="mt-3 grid gap-1.5 text-[12px] text-muted-foreground">
+              <li>Цена и длительность заполнены.</li>
+              <li>Согласие на съёмку требуется для imaging-услуг.</li>
+              <li>Онлайн-запись включается только после проверки условий.</li>
+            </ul>
+          </AdminOpsCard>
         </div>
 
         <Card className="p-3">

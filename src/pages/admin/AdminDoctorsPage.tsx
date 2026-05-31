@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { ListEmptyState } from "@/components/admin/ListEmptyState";
+import { AdminMetric, AdminOpsCard } from "@/components/admin/AdminOpsCard";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { getClinics, getAppointments } from "@/lib/mock-data";
 import { DEMO_USERS } from "@/lib/users";
@@ -169,6 +170,10 @@ export default function AdminDoctorsPage() {
     setFilter("all");
     setQuery("");
   };
+  const activeDoctors = DOCTOR_ROWS.filter((r) => r.active).length;
+  const licenseIssues = DOCTOR_ROWS.filter((r) => r.license !== "valid").length;
+  const profileReady = DOCTOR_ROWS.length - DOCTOR_ROWS.filter((r) => r.license === "needs_check").length;
+  const scheduleColumns = DOCTOR_ROWS.filter((r) => r.active).slice(0, 4);
   const isEmpty = rows.length === 0;
   const emptyState = (
     <ListEmptyState
@@ -197,6 +202,77 @@ export default function AdminDoctorsPage() {
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{DEMO_NOTICE}</span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_1fr_0.9fr]">
+          <AdminOpsCard
+            title="Готовность врачей"
+            hint="Только операционная готовность: профили, лицензии, расписание; клинические данные не выводятся."
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                onClick={() => note("Проверка готовности врачей подготовлена локально. Синхронизация появится с бэкендом.")}
+              >
+                Проверить готовность врачей
+              </Button>
+            }
+          >
+            <div className="grid grid-cols-3 gap-2">
+              <AdminMetric label="Активны" value={activeDoctors} tone="success" />
+              <AdminMetric label="Лицензии" value={licenseIssues} tone={licenseIssues ? "warning" : "success"} />
+              <AdminMetric label="Профили" value={`${profileReady}/${DOCTOR_ROWS.length}`} tone="info" />
+            </div>
+            <ul className="mt-3 grid gap-1.5 text-[12px] text-muted-foreground">
+              <li>
+                <span className="font-medium text-foreground">Лицензии и профили</span> — срок действия, заполненность,
+                блокеры допуска.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Смены</span> — расписание врача и ближайший доступный слот.
+              </li>
+            </ul>
+          </AdminOpsCard>
+
+          <AdminOpsCard
+            title="MIS-style расписание"
+            hint="Администратор видит управляемую сетку дня без ухода в клиническую карточку."
+          >
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Колонки по врачам
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {scheduleColumns.map((r) => (
+                <div key={r.id} className="rounded-md border border-border bg-surface p-2">
+                  <div className="truncate text-[12px] font-medium">{r.fullName}</div>
+                  <div className="truncate text-[11px] text-muted-foreground">{r.nextSlot}</div>
+                  <div className="mt-1 grid grid-cols-2 gap-1 text-[11px]">
+                    <span className="rounded bg-muted px-1.5 py-1">09:30 · прием</span>
+                    <span className="rounded bg-muted px-1.5 py-1">12:00 · съемка</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </AdminOpsCard>
+
+          <AdminOpsCard title="Права и роли" hint="MVP-разделение доступа, не security boundary.">
+            <div className="space-y-2 text-[12px]">
+              <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 py-2">
+                <span>Дерматолог</span>
+                <span className="text-[11px] text-muted-foreground">визиты, съёмка, отчёты</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 py-2">
+                <span>Администратор</span>
+                <span className="text-[11px] text-muted-foreground">расписание, услуги, филиалы</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 py-2">
+                <span>Ассистент</span>
+                <span className="text-[11px] text-muted-foreground">может быть выключен в MVP</span>
+              </div>
+            </div>
+          </AdminOpsCard>
         </div>
 
         {/* Фильтры + поиск */}

@@ -117,6 +117,18 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getAllByText(/Никитина/).length).toBeGreaterThan(0);
   });
 
+  it("AdminDoctorsPage exposes an admin-ready doctors schedule and role-readiness cockpit", () => {
+    renderRouted(<AdminDoctorsPage />);
+    expect(screen.getByRole("heading", { name: "Готовность врачей" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "MIS-style расписание" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Права и роли" })).toBeInTheDocument();
+    expect(screen.getByText("Колонки по врачам")).toBeInTheDocument();
+    expect(screen.getByText("Лицензии и профили")).toBeInTheDocument();
+    expect(screen.getByText(/Только операционная готовность/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Проверить готовность врачей" }));
+    expect(screen.getByText(/Проверка готовности врачей подготовлена локально/)).toBeInTheDocument();
+  });
+
   it("AdminServicesPage search narrows rows and main button is tap-target friendly", () => {
     renderRouted(<AdminServicesPage />);
     expect(screen.getByText("Услуги и тарифы")).toBeInTheDocument();
@@ -129,6 +141,17 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(btn.className).toMatch(/min-h-\[44px\]/);
   });
 
+  it("AdminServicesPage exposes manual service creation, MIS import and pre-publish checks", () => {
+    renderRouted(<AdminServicesPage />);
+    expect(screen.getByRole("heading", { name: "Создание услуги" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Импорт из МИС" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Проверка перед публикацией" })).toBeInTheDocument();
+    expect(screen.getByText(/название, категория, длительность, цена/)).toBeInTheDocument();
+    expect(screen.getByText(/ручные правки не перетирают импорт/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Создать услугу вручную (демо)" }));
+    expect(screen.getByText(/Черновик ручной услуги создан локально/)).toBeInTheDocument();
+  });
+
   it("AdminClinicsPage filter and sort change visible cards", () => {
     renderRouted(<AdminClinicsPage />);
     expect(screen.getByText("Клиники и филиалы")).toBeInTheDocument();
@@ -138,6 +161,21 @@ describe("Admin clinic core pages — render & safety", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Все" }));
     fireEvent.click(screen.getByRole("tab", { name: "По конверсии" }));
     expect(screen.getByText(/Дерма-Про · Центр/)).toBeInTheDocument();
+  });
+
+  it("AdminClinicsPage exposes branch readiness, routing and data-boundary controls", () => {
+    renderRouted(<AdminClinicsPage />);
+    expect(screen.getByRole("heading", { name: "Готовность филиалов" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Связь с врачами и услугами" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Маршрутизация лидов" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ограничения передачи данных" })).toBeInTheDocument();
+    expect(screen.getByText(/без фото, диагнозов и raw ID/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Открыть интеграции" })).toHaveAttribute(
+      "href",
+      "/admin/integrations",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Проверить филиалы" }));
+    expect(screen.getByText(/Проверка филиалов подготовлена локально/)).toBeInTheDocument();
   });
 
   it("none of the new admin pages render forbidden patient-level tokens", () => {

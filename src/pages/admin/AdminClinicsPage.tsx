@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ListPagination } from "@/components/admin/ListPagination";
 import { ListEmptyState } from "@/components/admin/ListEmptyState";
+import { AdminMetric, AdminOpsCard } from "@/components/admin/AdminOpsCard";
 import { useListPagination } from "@/lib/use-list-pagination";
 import { getAppointments, getClinics, getIntegrations, getLeads } from "@/lib/mock-data";
 import type { PartnerTier } from "@/lib/domain";
@@ -138,6 +139,12 @@ export default function AdminClinicsPage() {
     });
   }, [clinics, leads, appointments, integrationsActive]);
 
+  const readyBranches = enriched.filter(
+    (row) => row.integration === "ready" && row.bridge === "ready",
+  ).length;
+  const needsBridge = enriched.filter((row) => row.bridge !== "ready").length;
+  const totalLeads = enriched.reduce((sum, row) => sum + row.leads, 0);
+
   const visible = useMemo(() => {
     const filtered = enriched.filter((row) =>
       filter === "all" ? true : row.clinic.partnerTier === filter,
@@ -192,6 +199,72 @@ export default function AdminClinicsPage() {
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{DEMO_NOTICE}</span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
+          <AdminOpsCard title="Готовность филиалов" hint="Филиал готов, только если есть интеграция и устройство/кабинет.">
+            <div className="grid grid-cols-3 gap-2">
+              <AdminMetric label="Филиалы" value={enriched.length} />
+              <AdminMetric label="Готовы" value={readyBranches} tone={readyBranches ? "success" : "warning"} />
+              <AdminMetric label="Bridge" value={needsBridge} tone={needsBridge ? "warning" : "success"} />
+            </div>
+            <p className="mt-3 text-[12px] text-muted-foreground">
+              Готовность показывает только инфраструктуру филиала: кабинет, device bridge, интеграции и правила записи.
+            </p>
+          </AdminOpsCard>
+
+          <AdminOpsCard title="Связь с врачами и услугами" hint="Справочник мест, где реально работают врачи.">
+            <div className="grid gap-2 text-[12px]">
+              <div className="rounded-md border border-border bg-surface px-2.5 py-2">
+                <div className="font-medium">Врач → филиал → услуга</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Дерматолог, дерматоскопия и цифровая карта кожи должны быть привязаны к конкретному месту приема.
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                <span className="rounded bg-muted px-2 py-1">3 филиала</span>
+                <span className="rounded bg-muted px-2 py-1">6 услуг</span>
+              </div>
+            </div>
+          </AdminOpsCard>
+
+          <AdminOpsCard
+            title="Маршрутизация лидов"
+            hint="Приоритет филиала, доступность врачей и качество интеграций."
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                onClick={() =>
+                  setActionNote("Проверка филиалов подготовлена локально. Реальный пересчет маршрутов появится с бэкендом.")
+                }
+              >
+                Проверить филиалы
+              </Button>
+            }
+          >
+            <div className="grid grid-cols-2 gap-2">
+              <AdminMetric label="Лиды" value={totalLeads} tone="info" />
+              <AdminMetric label="Сортировка" value={sort === "priority" ? "приоритет" : "конверсия"} />
+            </div>
+            <p className="mt-3 text-[12px] text-muted-foreground">
+              Лиды направляются в филиал только по операционным признакам: расписание, услуга, интеграция, кабинет.
+            </p>
+          </AdminOpsCard>
+
+          <AdminOpsCard title="Ограничения передачи данных" hint="Админский слой остается aggregate/config only.">
+            <p className="text-[12px] text-muted-foreground">
+              В интеграции и маршрутизацию передаются только служебные статусы: без фото, диагнозов и raw ID.
+            </p>
+            <Link
+              to="/admin/integrations"
+              className="mt-3 inline-flex min-h-[44px] items-center rounded-md border border-border px-3 text-[12px] font-medium hover:bg-muted sm:min-h-[32px]"
+            >
+              Открыть интеграции
+            </Link>
+          </AdminOpsCard>
         </div>
 
         <Card className="p-3">
