@@ -157,6 +157,15 @@ function normalizePhotoProtocolPhoto(input = {}) {
   };
 }
 
+function normalizePhotoProtocolAuditEntry(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    kind: String(source.kind ?? "event"),
+    label: String(source.label ?? "Событие доступа"),
+    occurredAt: textOrNull(source.occurredAt),
+  };
+}
+
 export function normalizePatientPortalPhotoProtocol(input) {
   if (!input || typeof input !== "object" || !input.id) return null;
   const clinic = safeNested(input, "clinic");
@@ -190,6 +199,9 @@ export function normalizePatientPortalPhotoProtocol(input) {
     availabilityMessages: Array.isArray(input.availabilityMessages)
       ? input.availabilityMessages.map(String)
       : ["Файлы фото закрыты backend-контуром до включения защищённой выдачи."],
+    auditTrail: Array.isArray(input.auditTrail)
+      ? input.auditTrail.map(normalizePhotoProtocolAuditEntry)
+      : [],
     deliveryBoundary: {
       patientDeliveryAllowed: false,
       rawFilesExposed: false,
@@ -553,6 +565,20 @@ from (
       'name', lr.clinic_name
     ) as "clinic",
     jsonb_build_array('Файлы фото закрыты backend-контуром до включения защищённой выдачи.') as "availabilityMessages",
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'kind', event.kind,
+        'label', event.label,
+        'occurredAt', event.occurred_at
+      ) order by event.sort_order)
+      from (
+        values
+          (1, 'prepared', lr.prepared_at, 'Фото-протокол подготовлен клиникой'),
+          (2, 'expires', lr.expires_at, 'Срок доступа установлен backend'),
+          (3, 'revoked', lr.revoked_at, 'Доступ отозван клиникой')
+      ) as event(sort_order, kind, occurred_at, label)
+      where event.occurred_at is not null
+    ), '[]'::jsonb) as "auditTrail",
     jsonb_build_object(
       'patientDeliveryAllowed', false,
       'rawFilesExposed', false,

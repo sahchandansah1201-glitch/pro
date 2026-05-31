@@ -31,7 +31,21 @@
           "selectedPhotoCount": { "type": "integer", "minimum": 0 },
           "counts": { "type": "object" },
           "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+          "preparedAt": { "type": ["string", "null"], "format": "date-time" },
+          "revokedAt": { "type": ["string", "null"], "format": "date-time" },
           "patientSafeTextAvailable": { "type": "boolean" },
+          "auditTrail": {
+            "type": "array",
+            "description": "Patient-safe audit summary derived from release metadata. Raw audit payloads, correlation ids, actor ids, and revoke reasons are not exposed.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "enum": ["prepared", "expires", "revoked", "event"] },
+                "label": { "type": "string" },
+                "occurredAt": { "type": ["string", "null"], "format": "date-time" }
+              }
+            }
+          },
           "deliveryBoundary": {
             "type": "object",
             "properties": {

@@ -56,6 +56,7 @@ const REQUIRED_TEXT = {
     "buildPatientPortalPhotoProtocolSql",
     "patient_photo_protocol_releases",
     "patientDeliveryAllowed",
+    "auditTrail",
   ],
   "backend/self-hosted/patient-portal-service.mjs": [
     "patientPortalScope",
@@ -92,6 +93,7 @@ const REQUIRED_TEXT = {
     "/api/v1/me/photo-protocols/{visitId}",
     "/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download",
     "PatientPortalPhotoProtocol",
+    "auditTrail",
   ],
   "src/lib/self-hosted-patient-portal-api.ts": [
     "fetchSelfHostedPatientPortal",
@@ -122,6 +124,7 @@ const REQUIRED_TEXT = {
     "fetchSelfHostedPatientPortalPhotoProtocolPhoto",
     "Подготовить фото",
     "Открыть фото",
+    "Отзыв и журнал доступа",
     "URL.createObjectURL",
     "Врачебная версия заключения не отображается",
   ],
@@ -140,6 +143,8 @@ const REQUIRED_TEXT = {
     "/api/v1/me/photo-protocols/{visitId}",
     "/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download",
     "Patient-visible photo controls",
+    "Batch V",
+    "Отзыв и журнал доступа",
   ],
   ".github/workflows/stage5n-production-patient-portal-contracts.yml": [
     "name: stage5n-production-patient-portal-contracts",

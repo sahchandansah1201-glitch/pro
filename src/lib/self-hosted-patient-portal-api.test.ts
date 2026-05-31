@@ -64,6 +64,23 @@ describe("self-hosted-patient-portal-api", () => {
       storagePathsExposed: true,
       tokensExposed: true,
       physicianText: "Не выводить",
+      revokedAt: "2026-06-18T10:00:00.000Z",
+      revokeReason: "Внутренняя причина не для пациента",
+      auditTrail: [
+        {
+          kind: "prepared",
+          label: "Фото-протокол подготовлен клиникой",
+          occurredAt: "2026-06-01T10:00:00.000Z",
+          rawPayload: "hidden",
+          correlationId: "hidden",
+        },
+        {
+          kind: "revoked",
+          label: "Доступ отозван клиникой",
+          occurredAt: "2026-06-18T10:00:00.000Z",
+          revokeReason: "hidden",
+        },
+      ],
       photos: [
         {
           sequence: 1,
@@ -82,6 +99,11 @@ describe("self-hosted-patient-portal-api", () => {
     });
     expect(photoProtocol.deliveryBoundary.patientDeliveryAllowed).toBe(false);
     expect(photoProtocol.deliveryBoundary.signedUrlsIssued).toBe(false);
+    expect(photoProtocol.auditTrail).toHaveLength(2);
+    expect(photoProtocol.auditTrail[1].label).toBe("Доступ отозван клиникой");
+    expect(photoProtocol.auditTrail[0]).not.toHaveProperty("rawPayload");
+    expect(photoProtocol.auditTrail[0]).not.toHaveProperty("correlationId");
+    expect(photoProtocol.auditTrail[1]).not.toHaveProperty("revokeReason");
     expect(photoProtocol.photos[0].previewAvailable).toBe(false);
     expect(photoProtocol.photos[0].lesionLabel).toBe("Очаг A");
     expect(photoProtocol.photos[0]).not.toHaveProperty("objectKey");

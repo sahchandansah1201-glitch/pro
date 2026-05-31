@@ -71,7 +71,8 @@ function response(body: unknown, status = 200) {
   }));
 }
 
-function mockFetch() {
+function mockFetch(options: { revokedPhotoProtocol?: boolean } = {}) {
+  const revokedPhotoProtocol = Boolean(options.revokedPhotoProtocol);
   const fetchMock = vi.fn((url: string | URL | Request) => {
     const href = String(url);
     if (href.endsWith("/api/v1/me/portal")) return response(portal);
@@ -89,8 +90,8 @@ function mockFetch() {
           id: "photo-protocol-live-1",
           visitId: "visit-live-1",
           reportId: "report-live-1",
-          status: "prepared",
-          accessStatus: "metadata_ready_delivery_blocked",
+          status: revokedPhotoProtocol ? "revoked" : "prepared",
+          accessStatus: revokedPhotoProtocol ? "revoked" : "metadata_ready_delivery_blocked",
           selectedPhotoCount: 2,
           counts: {
             selectedPhotos: 2,
@@ -98,7 +99,31 @@ function mockFetch() {
             dermoscopyPhotos: 1,
             reportAttachments: 0,
           },
+          preparedAt: "2026-05-20T12:00:00.000Z",
+          revokedAt: revokedPhotoProtocol ? "2026-05-21T09:00:00.000Z" : null,
           expiresAt: "2026-06-20T10:00:00.000Z",
+          auditTrail: revokedPhotoProtocol
+            ? [
+                {
+                  kind: "prepared",
+                  label: "Фото-протокол подготовлен клиникой",
+                  occurredAt: "2026-05-20T12:00:00.000Z",
+                  rawPayload: "hidden",
+                },
+                {
+                  kind: "revoked",
+                  label: "Доступ отозван клиникой",
+                  occurredAt: "2026-05-21T09:00:00.000Z",
+                  revokeReason: "hidden",
+                },
+              ]
+            : [
+                {
+                  kind: "prepared",
+                  label: "Фото-протокол подготовлен клиникой",
+                  occurredAt: "2026-05-20T12:00:00.000Z",
+                },
+              ],
           deliveryBoundary: {
             patientDeliveryAllowed: false,
             rawFilesExposed: false,
@@ -276,6 +301,27 @@ describe("Patient portal · Stage 5N production", () => {
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
     view.unmount();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:patient-photo-protocol-1");
+  });
+
+  it("shows revoked photo-protocol access and safe audit review without downloading photos", async () => {
+    const fetchMock = mockFetch({ revokedPhotoProtocol: true });
+    renderRoute("/me/reports/report-live-1");
+
+    expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Отзыв и журнал доступа/ })).toBeInTheDocument();
+    expect(screen.getByText("Доступ отозван клиникой")).toBeInTheDocument();
+    expect(screen.getByText(/Фото-протокол отозван/)).toBeInTheDocument();
+    const prepareButton = screen.getByRole("button", { name: "Подготовить фото 1" });
+    expect(prepareButton).toBeDisabled();
+    fireEvent.click(prepareButton);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/visit-live-1/photos/1/download",
+      expect.any(Object),
+    );
+    expect(document.body).not.toHaveTextContent("hidden");
+    expect(document.body).not.toHaveTextContent("revokeReason");
+    expect(document.body).not.toHaveTextContent("rawPayload");
+    expect(document.body).not.toHaveTextContent("patient-token");
   });
 
   it("shows production-safe lesion history boundary without internal content", async () => {

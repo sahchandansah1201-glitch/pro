@@ -32,6 +32,20 @@ function photoKindLabel(kind: string): string {
   return PHOTO_KIND_LABEL[kind] || "фото";
 }
 
+function isPhotoProtocolRevoked(photoProtocol: SelfHostedPatientPortalPhotoProtocol): boolean {
+  return photoProtocol.status === "revoked" || Boolean(photoProtocol.revokedAt);
+}
+
+function photoProtocolStatusText(photoProtocol: SelfHostedPatientPortalPhotoProtocol): string {
+  return isPhotoProtocolRevoked(photoProtocol)
+    ? "Фото-протокол отозван"
+    : "метаданные готовы, файлы закрыты backend-контуром";
+}
+
+function photoProtocolAuditStateText(photoProtocol: SelfHostedPatientPortalPhotoProtocol): string {
+  return isPhotoProtocolRevoked(photoProtocol) ? "отозван клиникой" : "активен до срока доступа";
+}
+
 export default function MeReportPageLive() {
   const { id = "" } = useParams();
   const session = useSelfHostedApiSession();
@@ -106,6 +120,16 @@ export default function MeReportPageLive() {
   }, [id, session.apiBaseUrl, session.apiToken]);
 
   async function preparePhoto(photo: SelfHostedPatientPortalPhotoProtocolPhoto) {
+    if (photoProtocol && isPhotoProtocolRevoked(photoProtocol)) {
+      setPhotoDownloads((current) => ({
+        ...current,
+        [photo.sequence]: {
+          status: "error",
+          message: "Открытие фото заблокировано после отзыва доступа клиникой.",
+        },
+      }));
+      return;
+    }
     const visitId = photoProtocol?.visitId || report?.visitId;
     if (!visitId) {
       setPhotoDownloads((current) => ({
@@ -216,7 +240,7 @@ export default function MeReportPageLive() {
                     <>
                       <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
                         <dt className="text-muted-foreground">Статус</dt>
-                        <dd>метаданные готовы, файлы закрыты backend-контуром</dd>
+                        <dd>{photoProtocolStatusText(photoProtocol)}</dd>
                         <dt className="text-muted-foreground">Фото</dt>
                         <dd>{photoProtocol.selectedPhotoCount}</dd>
                         <dt className="text-muted-foreground">Состав</dt>
@@ -226,6 +250,37 @@ export default function MeReportPageLive() {
                         <dt className="text-muted-foreground">Срок доступа</dt>
                         <dd>{photoProtocol.expiresAt ? formatDateTime(photoProtocol.expiresAt) : "управляется backend"}</dd>
                       </dl>
+                      <section
+                        aria-label="Отзыв и журнал доступа"
+                        className="mt-3 rounded border border-border bg-background px-2 py-2 text-[12px]"
+                      >
+                        <h4 className="font-medium">Отзыв и журнал доступа</h4>
+                        <dl className="mt-1 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                          <dt className="text-muted-foreground">Состояние</dt>
+                          <dd>{photoProtocolAuditStateText(photoProtocol)}</dd>
+                          <dt className="text-muted-foreground">Подготовлен</dt>
+                          <dd>{photoProtocol.preparedAt ? formatDateTime(photoProtocol.preparedAt) : "нет данных"}</dd>
+                          <dt className="text-muted-foreground">Отозван</dt>
+                          <dd>{photoProtocol.revokedAt ? formatDateTime(photoProtocol.revokedAt) : "нет"}</dd>
+                          <dt className="text-muted-foreground">Аудит</dt>
+                          <dd>события фиксируются на backend</dd>
+                        </dl>
+                        {photoProtocol.auditTrail.length > 0 && (
+                          <ul className="mt-2 space-y-1">
+                            {photoProtocol.auditTrail.map((entry) => (
+                              <li key={`${entry.kind}-${entry.occurredAt || entry.label}`} className="flex flex-wrap gap-x-2 gap-y-0.5">
+                                <span className="font-medium">{entry.label}</span>
+                                <span className="text-muted-foreground">
+                                  {entry.occurredAt ? formatDateTime(entry.occurredAt) : "время управляется backend"}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <p className="mt-2 text-muted-foreground">
+                          Подробный неизменяемый журнал, причины отзыва и служебные данные скрыты в backend.
+                        </p>
+                      </section>
                       <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                         {photoProtocol.photos.slice(0, 4).map((photo) => (
                           <div
@@ -242,7 +297,7 @@ export default function MeReportPageLive() {
                                 variant="outline"
                                 size="sm"
                                 className="min-h-[44px] sm:min-h-[32px]"
-                                disabled={photoDownloads[photo.sequence]?.status === "loading"}
+                                disabled={isPhotoProtocolRevoked(photoProtocol) || photoDownloads[photo.sequence]?.status === "loading"}
                                 onClick={() => void preparePhoto(photo)}
                               >
                                 {photoDownloads[photo.sequence]?.status === "loading" && (
@@ -265,9 +320,11 @@ export default function MeReportPageLive() {
                               )}
                             </div>
                             <div className="mt-1 text-[12px] text-muted-foreground" aria-live="polite">
-                              {photoDownloads[photo.sequence]?.status === "ready"
-                                ? photoDownloads[photo.sequence]?.message
-                                : "Открытие идёт через защищённый backend после проверки доступа."}
+                              {isPhotoProtocolRevoked(photoProtocol)
+                                ? "Открытие фото заблокировано после отзыва доступа клиникой."
+                                : photoDownloads[photo.sequence]?.status === "ready"
+                                  ? photoDownloads[photo.sequence]?.message
+                                  : "Открытие идёт через защищённый backend после проверки доступа."}
                             </div>
                             {photoDownloads[photo.sequence]?.status === "error" && (
                               <div className="mt-1 text-[12px] text-destructive" role="alert">

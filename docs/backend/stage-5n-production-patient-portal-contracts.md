@@ -14,6 +14,9 @@ self-hosted product boundary in production mode.
 - Batch U adds patient-visible photo controls on `/me/reports/:id` that call the
   Batch T backend proxy with the patient bearer session and expose only a local
   browser object URL after the backend authorizes the request.
+- Batch V adds patient-visible revoke/audit review: `/me/reports/:id` shows
+  `Отзыв и журнал доступа`, disables photo preparation after `revoked`, and
+  renders only safe audit labels/dates derived from release metadata.
 - Demo/dev mode keeps the existing mock patient portal.
 - Patient self-booking writes are intentionally out of scope; booking is
   read-only until a dedicated write contract is added.
@@ -45,6 +48,12 @@ content type, capture time, and lesion label. It keeps delivery blocked with
 `signedUrlsIssued: false`, `storagePathsExposed: false`, and
 `tokensExposed: false`.
 
+Batch V adds an `auditTrail` summary to the same metadata response. It is
+patient-safe only: `prepared`, `expires`, and `revoked` labels with dates.
+It does not expose raw audit payloads, correlation ids, actor ids, revoke
+reasons, object identifiers, storage paths, signed links, access tokens, or
+doctor-only text.
+
 Batch T adds a backend photo proxy endpoint for the same patient scope. It is
 closed by default: bytes stream only when the release is `prepared`, the linked
 patient identity matches, imaging consent exists, `expires_at` is present and
@@ -74,6 +83,12 @@ the patient bearer token and creates a temporary local object URL for
 `Открыть фото`. The DOM must not render backend paths, object bucket/key values,
 storage paths, signed links, access tokens, object identifiers, doctor-only
 text, or clinical diagnosis/risk wording.
+
+When the photo protocol is revoked, `/me/reports/:id` shows
+`Фото-протокол отозван` and the `Отзыв и журнал доступа` section. Photo opening
+controls stay visible but disabled, so the patient can understand what changed
+without triggering the download proxy. Detailed append-only audit, revoke
+reason, and service payload remain backend-only.
 
 ## 4. Product Boundary
 

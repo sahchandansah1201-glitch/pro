@@ -99,6 +99,12 @@ export interface SelfHostedPatientPortalPhotoProtocolPhoto {
   previewAvailable: false;
 }
 
+export interface SelfHostedPatientPortalPhotoProtocolAuditEntry {
+  kind: string;
+  label: string;
+  occurredAt: string | null;
+}
+
 export interface SelfHostedPatientPortalPhotoProtocol {
   id: string;
   visitId: string | null;
@@ -118,6 +124,7 @@ export interface SelfHostedPatientPortalPhotoProtocol {
   blockerCount: number;
   patientSafeTextAvailable: boolean;
   availabilityMessages: string[];
+  auditTrail: SelfHostedPatientPortalPhotoProtocolAuditEntry[];
   deliveryBoundary: {
     patientDeliveryAllowed: false;
     rawFilesExposed: false;
@@ -422,6 +429,17 @@ function toSelfHostedPatientPortalPhotoProtocolPhoto(input: unknown): SelfHosted
   };
 }
 
+function toSelfHostedPatientPortalPhotoProtocolAuditEntry(
+  input: unknown,
+): SelfHostedPatientPortalPhotoProtocolAuditEntry {
+  const row = isRecord(input) ? input : {};
+  return {
+    kind: String(row.kind ?? "event"),
+    label: String(row.label ?? "Событие доступа"),
+    occurredAt: textOrNull(row.occurredAt),
+  };
+}
+
 export function toSelfHostedPatientPortalPhotoProtocol(input: unknown): SelfHostedPatientPortalPhotoProtocol {
   const row = isRecord(input) ? input : {};
   const counts = nested(row, "counts");
@@ -451,6 +469,9 @@ export function toSelfHostedPatientPortalPhotoProtocol(input: unknown): SelfHost
     availabilityMessages: Array.isArray(row.availabilityMessages)
       ? row.availabilityMessages.map(String)
       : ["Файлы фото закрыты backend-контуром до включения защищённой выдачи."],
+    auditTrail: Array.isArray(row.auditTrail)
+      ? row.auditTrail.map(toSelfHostedPatientPortalPhotoProtocolAuditEntry)
+      : [],
     deliveryBoundary: {
       patientDeliveryAllowed: false,
       rawFilesExposed: false,
