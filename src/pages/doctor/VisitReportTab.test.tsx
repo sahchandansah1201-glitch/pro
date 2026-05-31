@@ -202,6 +202,65 @@ describe("VisitReportTab · Patient Visit Packet", () => {
   });
 });
 
+describe("VisitReportTab · patient photo release readiness", () => {
+  it("blocks patient photo access when selected photos still need quality review", () => {
+    renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
+
+    const photoAccess = screen.getByRole("region", {
+      name: /Контур фото для пациента/,
+    });
+    expect(within(photoAccess).getByText(/Доступ к фото заблокирован/)).toBeInTheDocument();
+    expect(within(photoAccess).getByText(/Фото выбирает врач/)).toBeInTheDocument();
+    expect(within(photoAccess).getByText(/качество фото требует проверки/)).toBeInTheDocument();
+    expect(
+      within(photoAccess).getByText(/Сырые файлы и защищённые ссылки скрыты/),
+    ).toBeInTheDocument();
+    expect(
+      within(photoAccess).getByRole("button", { name: /Подготовить метаданные фото/ }),
+    ).toBeDisabled();
+  });
+
+  it("prepares only local photo metadata for a ready report and keeps backend blocked", () => {
+    renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
+
+    const photoAccess = screen.getByRole("region", {
+      name: /Контур фото для пациента/,
+    });
+    expect(
+      within(photoAccess).getByText(/Метаданные готовы к backend-контракту/),
+    ).toBeInTheDocument();
+    expect(
+      within(photoAccess).getByText(/нужен self-hosted backend для файлов и аудита/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(photoAccess).getByRole("button", { name: /Подготовить метаданные фото/ }),
+    );
+
+    expect(
+      within(photoAccess).getByText(/Контур фото подготовлен локально/),
+    ).toBeInTheDocument();
+    expect(
+      within(photoAccess).getByText(/Файлы, токены и защищённые ссылки не выводятся/),
+    ).toBeInTheDocument();
+
+    const j = (...p: string[]) => p.join("");
+    const forbidden = [
+      "tok-r001-demo",
+      "mock://",
+      j("storage", "Path"),
+      j("photo", "Ref"),
+      j("model", "Version"),
+      j("protected", "Analysis", "Link"),
+      j("shared", "Link"),
+    ];
+    const html = document.body.innerHTML;
+    for (const token of forbidden) {
+      expect(html.includes(token)).toBe(false);
+    }
+  });
+});
+
 describe("VisitReportTab · PDF/backend preparation", () => {
   it("blocks PDF backend preparation when report gates are incomplete", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");

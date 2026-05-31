@@ -64,6 +64,29 @@ function backendMissingLabel(item: string): string {
   return item;
 }
 
+const IMAGE_KIND_LABEL: Record<ClinicalImage["kind"], string> = {
+  overview: "обзор",
+  dermoscopy: "дерматоскопия",
+  macro: "крупный план",
+  body_map: "карта тела",
+};
+
+function imageKindSummary(images: ClinicalImage[]): string {
+  if (images.length === 0) return "нет выбранных снимков";
+  const counts = images.reduce<Record<ClinicalImage["kind"], number>>(
+    (acc, image) => {
+      acc[image.kind] += 1;
+      return acc;
+    },
+    { overview: 0, dermoscopy: 0, macro: 0, body_map: 0 },
+  );
+
+  return (Object.keys(counts) as ClinicalImage["kind"][])
+    .filter((kind) => counts[kind] > 0)
+    .map((kind) => `${IMAGE_KIND_LABEL[kind]} ${counts[kind]}`)
+    .join(" · ");
+}
+
 interface Props {
   patient: Patient;
   visit: Visit;
@@ -747,6 +770,7 @@ function DemoReportForm({
 
 type PacketState = "draft" | "released" | "revoked";
 type BackendJobState = "idle" | "prepared";
+type PhotoHandoffState = "idle" | "prepared";
 
 const QR_PATTERN: number[][] = [
   [1, 1, 1, 0, 1, 0, 1, 1, 1],
@@ -781,12 +805,14 @@ function VisitPacketPanel({
   );
   const [packetState, setPacketState] = useState<PacketState>("draft");
   const [backendJobState, setBackendJobState] = useState<BackendJobState>("idle");
+  const [photoHandoffState, setPhotoHandoffState] = useState<PhotoHandoffState>("idle");
   const [auditRows, setAuditRows] = useState<string[]>([]);
 
   useEffect(() => {
     setSelectedImageIds(imageIds);
     setPacketState("draft");
     setBackendJobState("idle");
+    setPhotoHandoffState("idle");
     setAuditRows([]);
   }, [imageIds]);
 
@@ -820,6 +846,21 @@ function VisitPacketPanel({
   ].filter(Boolean) as string[];
   const reportPackageReady = missing.length === 0;
   const canRelease = reportPackageReady && packetState !== "released";
+  const photoReleaseMissing = [
+    !report || !patientText ? "нет безопасного текста для пациента" : null,
+    !assessment ? "нет врачебной оценки очага" : null,
+    selectedImages.length === 0 ? "врач не выбрал снимки" : null,
+    selectedQuality === "review" ? "качество фото требует проверки" : null,
+    selectedQuality === "none" ? "нет выбранных снимков" : null,
+    !patient.consents.imaging ? "нет согласия на медицинскую съёмку" : null,
+    !patient.consents.telemed ? "нет согласия на дистанционный доступ" : null,
+    !expiresAt ? "не задан срок доступа" : null,
+  ].filter(Boolean) as string[];
+  const photoMetadataReady = photoReleaseMissing.length === 0;
+  const photoBackendBlocker = "нужен self-hosted backend для файлов и аудита";
+  const photoAccessStatus = photoMetadataReady
+    ? "Метаданные готовы к backend-контракту"
+    : "Доступ к фото заблокирован";
 
   const selectedLabel = selectedImages.length === 0
     ? "нет выбранных снимков"
@@ -861,6 +902,15 @@ function VisitPacketPanel({
     setBackendJobState("prepared");
     setAuditRows((prev) => [
       `Backend-задача PDF подготовлена · ${formatDateTime(BODY_MAP_DEMO_NOW)}`,
+      ...prev,
+    ]);
+  };
+
+  const preparePhotoHandoff = () => {
+    if (!photoMetadataReady) return;
+    setPhotoHandoffState("prepared");
+    setAuditRows((prev) => [
+      `Метаданные фото подготовлены · ${formatDateTime(BODY_MAP_DEMO_NOW)}`,
       ...prev,
     ]);
   };
@@ -958,6 +1008,88 @@ function VisitPacketPanel({
           </p>
         </div>
       </div>
+
+      <section
+        aria-label="Контур фото для пациента"
+        className="mt-3 rounded-sm border border-border bg-surface p-3"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-[12px] font-medium">Контур фото для пациента</h3>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              UI готовит только метаданные выбранных врачом снимков. Реальная выдача
+              файлов должна идти через self-hosted backend с аудитом и отзывом доступа.
+            </p>
+          </div>
+          <span
+            className={`rounded-sm border px-2 py-1 text-[12px] font-medium ${
+              photoMetadataReady
+                ? "border-border bg-surface-muted text-foreground"
+                : "border-[hsl(var(--risk-medium))] bg-surface-muted text-foreground"
+            }`}
+          >
+            {photoAccessStatus}
+          </span>
+        </div>
+
+        <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+          <Field term="Фото выбирает врач" value={selectedLabel} />
+          <Field term="Состав" value={imageKindSummary(selectedImages)} />
+          <Field term="Сырые файлы и защищённые ссылки" value="скрыты" />
+          <Field term="Срок доступа" value={expiresAt ? formatDateTime(expiresAt) : "—"} />
+          <Field term="Контур" value="только метаданные" />
+          <Field term="Brainstorm" value="SD-MF-046 · фото и протокол" />
+        </dl>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Сырые файлы и защищённые ссылки скрыты. Пациентский доступ появится только
+          после backend-gates.
+        </p>
+
+        <div className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted p-2">
+          <div className="text-[12px] font-medium">Что блокирует выдачу фото</div>
+          <ul className="mt-1 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
+            {photoReleaseMissing.map((item) => (
+              <li key={`photo-${item}`} className="flex items-start gap-1.5">
+                <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground" aria-hidden />
+                <span>{item}</span>
+              </li>
+            ))}
+            <li className="flex items-start gap-1.5">
+              <span className="mt-1.5 h-1 w-1 rounded-full bg-muted-foreground" aria-hidden />
+              <span>{photoBackendBlocker}</span>
+            </li>
+          </ul>
+        </div>
+
+        {photoHandoffState === "prepared" && (
+          <div
+            role="status"
+            className="mt-3 rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
+          >
+            <div className="font-medium">Контур фото подготовлен локально</div>
+            <div className="mt-1 text-muted-foreground">
+              Файлы, токены и защищённые ссылки не выводятся. Следующий шаг —
+              backend-контракт выдачи, аудит открытия и отзыв доступа.
+            </div>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="min-h-[44px] sm:min-h-[32px]"
+            disabled={!photoMetadataReady}
+            onClick={preparePhotoHandoff}
+          >
+            Подготовить метаданные фото
+          </Button>
+          <span className="text-[11px] text-muted-foreground">
+            Демо-действие не открывает фото пациенту и не создаёт ссылку.
+          </span>
+        </div>
+      </section>
 
       {packetState === "released" && (
         <div
