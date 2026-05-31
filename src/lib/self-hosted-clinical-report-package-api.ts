@@ -197,6 +197,29 @@ export interface SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
   };
 }
 
+export interface SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO {
+  operation: "revoke_expired_access_windows" | string;
+  status: "executed" | "no_op" | string;
+  affectedCount: number;
+  skippedActiveCount: number;
+  expiringIn24hCount: number;
+  skippedMissingExpiryCount: number;
+  limit: number;
+  auditAction: "patient_photo_protocol.release_governance.revoke_expired" | string;
+  boundaries: {
+    metadataOnly: boolean;
+    patientRowsExposed: boolean;
+    rawIdentifiersExposed: boolean;
+    revokeReasonExposed: boolean;
+    temporaryCredentialsExposed: boolean;
+    qrTokensExposed: boolean;
+    sessionIdsExposed: boolean;
+    storagePathsExposed: boolean;
+    signedUrlsIssued: boolean;
+    patientDeliveryAllowed: boolean;
+  };
+}
+
 interface Args {
   apiBaseUrl: string | null | undefined;
   apiToken: string | null | undefined;
@@ -213,6 +236,11 @@ export interface SelfHostedPatientPhotoProtocolReleasePolicyPayload {
   patientFileProxyEnabled?: boolean;
   patientCopyApproved?: boolean;
   retentionPolicyApproved?: boolean;
+}
+
+export interface SelfHostedPatientPhotoProtocolGovernanceRevokeExpiredPayload {
+  confirm: true;
+  limit?: number;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -515,6 +543,33 @@ export function toSelfHostedPatientPhotoProtocolReleaseGovernance(
   };
 }
 
+export function toSelfHostedPatientPhotoProtocolGovernanceOperationResult(
+  input: Record<string, unknown>,
+): SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO {
+  return {
+    operation: String(input.operation ?? "revoke_expired_access_windows"),
+    status: String(input.status ?? "no_op"),
+    affectedCount: Number(input.affectedCount ?? 0),
+    skippedActiveCount: Number(input.skippedActiveCount ?? 0),
+    expiringIn24hCount: Number(input.expiringIn24hCount ?? 0),
+    skippedMissingExpiryCount: Number(input.skippedMissingExpiryCount ?? 0),
+    limit: Number(input.limit ?? 0),
+    auditAction: String(input.auditAction ?? "patient_photo_protocol.release_governance.revoke_expired"),
+    boundaries: {
+      metadataOnly: true,
+      patientRowsExposed: false,
+      rawIdentifiersExposed: false,
+      revokeReasonExposed: false,
+      temporaryCredentialsExposed: false,
+      qrTokensExposed: false,
+      sessionIdsExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      patientDeliveryAllowed: false,
+    },
+  };
+}
+
 export async function getSelfHostedClinicalReportPackage(
   args: Args,
 ): Promise<SelfHostedApiResult<SelfHostedClinicalReportPackageDTO | null>> {
@@ -627,4 +682,35 @@ export async function reviewSelfHostedPatientPhotoProtocolReleasePolicy(
   const body = await parseJsonSafe(response);
   if (!response.ok) return fail(apiErrorFromBody(response, body));
   return ok(true);
+}
+
+export async function executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired(
+  args: SessionArgs & { payload: SelfHostedPatientPhotoProtocolGovernanceRevokeExpiredPayload },
+): Promise<SelfHostedApiResult<SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null>> {
+  if (!args.apiToken) return fail(NOT_CONFIGURED);
+  let response: Response;
+  try {
+    response = await fetch(
+      buildSelfHostedApiUrl(args.apiBaseUrl, "/api/v1/patient-photo-protocol-release/governance/revoke-expired"),
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${args.apiToken}`,
+        },
+        body: JSON.stringify(args.payload),
+      },
+    );
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при отзыве истёкших окон доступа.",
+    });
+  }
+  const body = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, body));
+  const item = isRecord(body) && isRecord(body.item) ? body.item : null;
+  return ok(item ? toSelfHostedPatientPhotoProtocolGovernanceOperationResult(item) : null);
 }

@@ -94,6 +94,7 @@ release workflow:
 - `POST /api/v1/visits/{visitId}/patient-photo-protocol-release/revoke`;
 - `GET /api/v1/visits/{visitId}/patient-photo-protocol-release/audit`;
 - `GET /api/v1/patient-photo-protocol-release/governance`;
+- `POST /api/v1/patient-photo-protocol-release/governance/revoke-expired`;
 - repository/service tests for prepare, revoke, RBAC, and protected-field
   hygiene.
 
@@ -164,6 +165,27 @@ doctor-only text. The operations readiness also forces
 `revokeReasonExposed` to false. Its purpose is to make policy/session
 lifecycle work visible without weakening the Stage 5N patient portal boundary.
 
+## Production-safe lifecycle execution
+
+Batch AD moves SD-MF-046/045 beyond readiness for one narrow operation:
+
+- `POST /api/v1/patient-photo-protocol-release/governance/revoke-expired`;
+- payload requires `confirm: true` and an optional bounded `limit` from 1 to
+  200;
+- backend updates only release rows already in `prepared` state with
+  `expires_at <= now()` inside the caller clinic scope;
+- each affected row is marked `revoked` with a fixed system reason code
+  `expired_access_window`;
+- the route returns only an aggregate operation result: affected count, active
+  windows skipped, expiring windows remaining, missing-expiry count, limit, and
+  boundary booleans.
+
+The operation is a production lifecycle control, not a data export. It does
+not expose patient rows, raw identifiers, revoke reason text, credentials,
+QR tokens, session identifiers, storage paths, signed links, files, or
+doctor-only text. Admin UI `/admin/governance` calls it only when a
+self-hosted session is configured; demo mode stays local-only.
+
 ## Audit
 
 Every read records:
@@ -196,6 +218,14 @@ Aggregate governance reads record:
 - entity type: `patient_photo_protocol_release_governance`;
 - metadata: release totals, prepared/blocked/revoked counts, policy blocker
   counts, active access-window counts, and metadata-only boundary flags.
+
+Production-safe lifecycle operations record:
+
+- action: `patient_photo_protocol.release_governance.revoke_expired`;
+- entity type: `patient_photo_protocol_release_governance_operation`;
+- metadata: operation name, execution status, affected/skipped counts, and
+  false exposure flags for patient rows, raw identifiers, revoke reason,
+  temporary credentials, QR tokens, session identifiers, and delivery.
 
 ## Validation
 

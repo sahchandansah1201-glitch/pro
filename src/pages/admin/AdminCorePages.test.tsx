@@ -103,8 +103,9 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Границы данных")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Подготовить разбор хранения/ }));
     expect(screen.getByText(/Разбор хранения подготовлен локально/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Подготовить отзыв доступа/ }));
-    expect(screen.getByText(/Разбор отзыва доступа подготовлен локально/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Отозвать истёкшие окна/ }));
+    expect(screen.getByText(/Demo: отзыв истёкших окон подготовлен локально/)).toBeInTheDocument();
+    expect(screen.getByText("Последняя backend-операция")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /Зафиксировать разбор/ })[0]);
     expect(screen.getByText(/Разбор политики подготовлен локально/)).toBeInTheDocument();
   });

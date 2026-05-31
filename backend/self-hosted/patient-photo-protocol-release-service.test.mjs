@@ -14,6 +14,12 @@ const doctorAuth = {
   clinicIds: [CLINIC_ID],
 };
 
+const clinicAdminAuth = {
+  userId: "10000000-0000-4000-8000-000000000102",
+  roles: ["clinic_admin"],
+  clinicIds: [CLINIC_ID],
+};
+
 function release(overrides = {}) {
   return {
     id: "20000000-0000-4000-8000-000000000001",
@@ -309,6 +315,82 @@ test("Batch AB service exposes aggregate release governance to clinic admin and 
 
   await assert.rejects(
     () => service.getGovernance({ userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});
+
+test("Batch AD service executes expired revoke operation with aggregate audit and confirm gate", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async executeGovernanceRevokeExpired(params) {
+        assert.equal(params.limit, 50);
+        assert.deepEqual(params.clinicIds, [CLINIC_ID]);
+        return {
+          operation: "revoke_expired_access_windows",
+          status: "executed",
+          affectedCount: 2,
+          skippedActiveCount: 3,
+          expiringIn24hCount: 1,
+          skippedMissingExpiryCount: 4,
+          limit: 50,
+          auditAction: "patient_photo_protocol.release_governance.revoke_expired",
+          boundaries: {
+            metadataOnly: true,
+            patientRowsExposed: false,
+            rawIdentifiersExposed: false,
+            revokeReasonExposed: false,
+            temporaryCredentialsExposed: false,
+            qrTokensExposed: false,
+            sessionIdsExposed: false,
+            storagePathsExposed: false,
+            signedUrlsIssued: false,
+            patientDeliveryAllowed: false,
+          },
+        };
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-revoke-expired" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceRevokeExpired({ confirm: false }, clinicAdminAuth),
+    (error) => error.name === "VisitWorkspaceValidationError" && error.publicDetails?.[0]?.field === "confirm",
+  );
+
+  const result = await service.executeGovernanceRevokeExpired(
+    { confirm: true, limit: 50 },
+    clinicAdminAuth,
+    { correlationId: "corr-revoke-expired" },
+  );
+  assert.equal(result.operation.affectedCount, 2);
+  assert.equal(result.operation.boundaries.revokeReasonExposed, false);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release_governance.revoke_expired");
+  assert.equal(auditEvents[0].entityType, "patient_photo_protocol_release_governance_operation");
+  assert.deepEqual(auditEvents[0].metadata, {
+    operation: "revoke_expired_access_windows",
+    status: "executed",
+    affectedCount: 2,
+    skippedActiveCount: 3,
+    expiringIn24hCount: 1,
+    skippedMissingExpiryCount: 4,
+    metadataOnly: true,
+    patientRowsExposed: false,
+    rawIdentifiersExposed: false,
+    revokeReasonExposed: false,
+    temporaryCredentialsExposed: false,
+    qrTokensExposed: false,
+    sessionIdsExposed: false,
+    patientDeliveryAllowed: false,
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceRevokeExpired({ confirm: true }, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
     ForbiddenError,
   );
 });

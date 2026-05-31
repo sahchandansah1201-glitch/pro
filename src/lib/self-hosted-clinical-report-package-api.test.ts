@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   clinicalReportMissingLabel,
+  executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
   getSelfHostedClinicalReportPackage,
   reviewSelfHostedPatientPhotoProtocolReleasePolicy,
+  toSelfHostedPatientPhotoProtocolGovernanceOperationResult,
   toSelfHostedPatientPhotoProtocolReleaseAudit,
   toSelfHostedPatientPhotoProtocolReleaseGovernance,
   toSelfHostedClinicalReportPackage,
@@ -369,6 +371,86 @@ describe("self-hosted-clinical-report-package-api", () => {
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+  });
+
+  it("normalizes governance revoke execution as aggregate-only lifecycle result", () => {
+    const operation = toSelfHostedPatientPhotoProtocolGovernanceOperationResult({
+      operation: "revoke_expired_access_windows",
+      status: "executed",
+      affectedCount: "2",
+      skippedActiveCount: 3,
+      expiringIn24hCount: 1,
+      skippedMissingExpiryCount: 4,
+      limit: 50,
+      auditAction: "patient_photo_protocol.release_governance.revoke_expired",
+      patientId: "hidden",
+      visitId: "hidden",
+      releaseId: "hidden",
+      revokeReason: "hidden",
+      boundaries: {
+        metadataOnly: false,
+        patientRowsExposed: true,
+        rawIdentifiersExposed: true,
+        revokeReasonExposed: true,
+        temporaryCredentialsExposed: true,
+        qrTokensExposed: true,
+        sessionIdsExposed: true,
+        storagePathsExposed: true,
+        signedUrlsIssued: true,
+        patientDeliveryAllowed: true,
+      },
+    });
+    expect(operation.affectedCount).toBe(2);
+    expect(operation.skippedMissingExpiryCount).toBe(4);
+    expect(operation.boundaries.metadataOnly).toBe(true);
+    expect(operation.boundaries.patientRowsExposed).toBe(false);
+    expect(operation.boundaries.rawIdentifiersExposed).toBe(false);
+    expect(operation.boundaries.revokeReasonExposed).toBe(false);
+    expect(operation.boundaries.temporaryCredentialsExposed).toBe(false);
+    expect(operation.boundaries.qrTokensExposed).toBe(false);
+    expect(operation.boundaries.sessionIdsExposed).toBe(false);
+    expect(operation).not.toHaveProperty("patientId");
+    expect(operation).not.toHaveProperty("visitId");
+    expect(operation).not.toHaveProperty("releaseId");
+    expect(operation).not.toHaveProperty("revokeReason");
+  });
+
+  it("executes expired access-window revoke through the self-hosted governance route", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            operation: "revoke_expired_access_windows",
+            status: "executed",
+            affectedCount: 2,
+            skippedActiveCount: 3,
+            expiringIn24hCount: 1,
+            skippedMissingExpiryCount: 4,
+            limit: 50,
+            boundaries: { metadataOnly: true, revokeReasonExposed: false },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      payload: { confirm: true, limit: 50 },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.operation).toBe("revoke_expired_access_windows");
+    expect(result.value?.affectedCount).toBe(2);
+    expect(result.value?.boundaries.revokeReasonExposed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patient-photo-protocol-release/governance/revoke-expired",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+        body: JSON.stringify({ confirm: true, limit: 50 }),
       }),
     );
   });

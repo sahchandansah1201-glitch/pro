@@ -1,6 +1,7 @@
 export const PATIENT_READ_ROLES = ["system_admin", "clinic_admin", "doctor"];
 export const PATIENT_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
 export const PATIENT_PORTAL_ROLES = ["patient"];
+export const PATIENT_PHOTO_PROTOCOL_GOVERNANCE_WRITE_ROLES = ["system_admin", "clinic_admin", "doctor"];
 export const OPS_STATUS_ROLES = ["system_admin"];
 export const DEVICE_READ_ROLES = ["system_admin", "clinic_admin"];
 export const DEVICE_COMMAND_ROLES = ["system_admin", "clinic_admin"];
@@ -94,6 +95,18 @@ export function patientPortalScope(authContext) {
     userId: scoped.userId,
     roles: scoped.roles,
   };
+}
+
+export function patientPhotoProtocolGovernanceWriteScope(authContext) {
+  const scoped = requireAnyRole(authContext, PATIENT_PHOTO_PROTOCOL_GOVERNANCE_WRITE_ROLES);
+  if (scoped.roles.includes("system_admin")) {
+    return { allClinics: true, clinicIds: [], roles: scoped.roles };
+  }
+  const clinicIds = normalizeRoles(scoped.clinicIds);
+  if (clinicIds.length === 0) {
+    throw new ForbiddenError("The authenticated user has no clinic scope.");
+  }
+  return { allClinics: false, clinicIds, roles: scoped.roles };
 }
 
 // Stage 4G · Visit workspace read scope. Reuses the patient read RBAC: doctors,

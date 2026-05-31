@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql,
   buildGetPatientPhotoProtocolReleaseGovernanceSql,
   buildGetPatientPhotoProtocolReleaseAuditSql,
   buildPreparePatientPhotoProtocolReleaseSql,
@@ -397,4 +398,64 @@ test("Batch AB repository builds safe release governance SQL and normalizes meta
   assert.equal(governance.boundaries.patientNamesExposed, false);
   assert.equal(governance.boundaries.rawIdentifiersExposed, false);
   assert.equal(governance.boundaries.rawTokensExposed, false);
+});
+
+test("Batch AD repository executes expired revoke operation as aggregate-only lifecycle control", async () => {
+  const sql = buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 25,
+  });
+  assert.match(sql, /revoke_expired_access_windows/);
+  assert.match(sql, /status = 'revoked'/);
+  assert.match(sql, /expires_at <= now\(\)/);
+  assert.match(sql, /patient_photo_protocol\.release_governance\.revoke_expired/);
+  assert.match(sql, /temporaryCredentialsExposed/);
+  assert.match(sql, /qrTokensExposed/);
+  assert.match(sql, /sessionIdsExposed/);
+  assert.doesNotMatch(sql, /patient_id::text|visit_id::text|revoke_reason as|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
+
+  const repository = createPatientPhotoProtocolReleaseRepository({
+    async queryJson() {
+      return [{
+        operation: "revoke_expired_access_windows",
+        status: "executed",
+        affectedCount: 3,
+        skippedActiveCount: 2,
+        expiringIn24hCount: 1,
+        skippedMissingExpiryCount: 4,
+        limit: 25,
+        auditAction: "patient_photo_protocol.release_governance.revoke_expired",
+        boundaries: {
+          metadataOnly: false,
+          patientRowsExposed: true,
+          rawIdentifiersExposed: true,
+          revokeReasonExposed: true,
+          temporaryCredentialsExposed: true,
+          qrTokensExposed: true,
+          sessionIdsExposed: true,
+          storagePathsExposed: true,
+          signedUrlsIssued: true,
+          patientDeliveryAllowed: true,
+        },
+      }];
+    },
+  });
+  const result = await repository.executeGovernanceRevokeExpired({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 25,
+  });
+  assert.equal(result.operation, "revoke_expired_access_windows");
+  assert.equal(result.status, "executed");
+  assert.equal(result.affectedCount, 3);
+  assert.equal(result.skippedMissingExpiryCount, 4);
+  assert.equal(result.boundaries.metadataOnly, true);
+  assert.equal(result.boundaries.patientRowsExposed, false);
+  assert.equal(result.boundaries.rawIdentifiersExposed, false);
+  assert.equal(result.boundaries.revokeReasonExposed, false);
+  assert.equal(result.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.boundaries.qrTokensExposed, false);
+  assert.equal(result.boundaries.sessionIdsExposed, false);
+  assert.equal(result.boundaries.patientDeliveryAllowed, false);
 });

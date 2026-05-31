@@ -264,6 +264,51 @@
           "403": { "description": "Role or clinic scope denied" }
         }
       }
+    },
+    "/api/v1/patient-photo-protocol-release/governance/revoke-expired": {
+      "post": {
+        "summary": "Execute aggregate revoke for expired access windows",
+        "description": "Production-safe lifecycle operation that revokes expired patient photo/protocol release rows inside the caller's clinic scope. The response is aggregate-only and never exposes patient rows, raw identifiers, revoke reason text, credentials, QR tokens, session identifiers, file paths, or signed links.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["confirm"],
+                "properties": {
+                  "confirm": { "type": "boolean", "enum": [true] },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Aggregate operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item", "correlationId"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["8G-8I"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/PatientPhotoProtocolGovernanceOperationResult" },
+                    "generatedAt": { "type": "string", "format": "date-time" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Auth required" },
+          "403": { "description": "Role or clinic scope denied" },
+          "422": { "description": "Confirm or limit validation failed" }
+        }
+      }
     }
   },
   "components": {
@@ -566,6 +611,38 @@
               "signedUrlsIssued": { "type": "boolean", "enum": [false] },
               "doctorOnlyTextExposed": { "type": "boolean", "enum": [false] },
               "rawPolicyPayloadExposed": { "type": "boolean", "enum": [false] }
+            }
+          }
+        }
+      },
+      "PatientPhotoProtocolGovernanceOperationResult": {
+        "type": "object",
+        "description": "Aggregate-only execution result for patient photo/protocol lifecycle operations. It does not expose patient rows, raw identifiers, revoke reason text, credentials, QR tokens, session identifiers, storage paths, signed links, or doctor-only text.",
+        "properties": {
+          "operation": { "type": "string", "enum": ["revoke_expired_access_windows"] },
+          "status": { "type": "string", "enum": ["executed", "no_op"] },
+          "affectedCount": { "type": "integer" },
+          "skippedActiveCount": { "type": "integer" },
+          "expiringIn24hCount": { "type": "integer" },
+          "skippedMissingExpiryCount": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "auditAction": {
+            "type": "string",
+            "enum": ["patient_photo_protocol.release_governance.revoke_expired"]
+          },
+          "boundaries": {
+            "type": "object",
+            "properties": {
+              "metadataOnly": { "type": "boolean", "enum": [true] },
+              "patientRowsExposed": { "type": "boolean", "enum": [false] },
+              "rawIdentifiersExposed": { "type": "boolean", "enum": [false] },
+              "revokeReasonExposed": { "type": "boolean", "enum": [false] },
+              "temporaryCredentialsExposed": { "type": "boolean", "enum": [false] },
+              "qrTokensExposed": { "type": "boolean", "enum": [false] },
+              "sessionIdsExposed": { "type": "boolean", "enum": [false] },
+              "storagePathsExposed": { "type": "boolean", "enum": [false] },
+              "signedUrlsIssued": { "type": "boolean", "enum": [false] },
+              "patientDeliveryAllowed": { "type": "boolean", "enum": [false] }
             }
           }
         }

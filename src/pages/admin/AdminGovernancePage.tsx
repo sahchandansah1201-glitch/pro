@@ -16,7 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
+  type SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO,
   type SelfHostedPatientPhotoProtocolReleaseGovernanceDTO,
   type SelfHostedPatientPhotoProtocolReleaseGovernanceQueueRow,
 } from "@/lib/self-hosted-clinical-report-package-api";
@@ -305,16 +307,20 @@ function OperationLine({
 
 function GovernanceOperations({
   governance,
+  operationResult,
+  revokeOperationBusy,
   onRetentionReview,
   onRevokeReview,
 }: {
   governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
+  operationResult: SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null;
+  revokeOperationBusy: boolean;
   onRetentionReview: () => void;
   onRevokeReview: () => void;
 }) {
   const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
   return (
-    <SectionCard title="Операционный контур" hint="Batch AC · хранение, отзыв, сессии">
+    <SectionCard title="Операционный контур" hint="Batch AD · production-safe хранение, отзыв, сессии">
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="grid gap-2 rounded-md border p-3">
           <div className="flex items-center gap-2 text-[12px] font-semibold">
@@ -337,8 +343,13 @@ function GovernanceOperations({
           <OperationLine label="Окна доступа" value={revokeReadiness.activeWindows} />
           <OperationLine label="Истекают за 24ч" value={revokeReadiness.expiringIn24h} tone={revokeReadiness.expiringIn24h > 0 ? "warning" : "default"} />
           <OperationLine label="Причина отзыва" value={revokeReadiness.revokeReasonExposed ? "видна" : "скрыта"} tone="success" />
-          <Button variant="outline" className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]" onClick={onRevokeReview}>
-            Подготовить отзыв доступа
+          <Button
+            variant="outline"
+            className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]"
+            onClick={onRevokeReview}
+            disabled={revokeOperationBusy}
+          >
+            {revokeOperationBusy ? "Отзываем окна..." : "Отозвать истёкшие окна"}
           </Button>
         </div>
 
@@ -355,6 +366,19 @@ function GovernanceOperations({
           </div>
         </div>
       </div>
+      {operationResult && (
+        <div role="status" className="mt-3 rounded-md border px-3 py-2 text-[12px] text-muted-foreground">
+          <div className="font-semibold text-foreground">Последняя backend-операция</div>
+          <div className="mt-1 grid gap-1 sm:grid-cols-3">
+            <span>Отозвано: <b className="tabular-nums text-foreground">{operationResult.affectedCount}</b></span>
+            <span>Активные пропущены: <b className="tabular-nums text-foreground">{operationResult.skippedActiveCount}</b></span>
+            <span>Без срока: <b className="tabular-nums text-foreground">{operationResult.skippedMissingExpiryCount}</b></span>
+          </div>
+          <div className="mt-1">
+            Только агрегаты: пациентские строки, причина отзыва, QR/токены, ID сессий и файловые пути не раскрывались.
+          </div>
+        </div>
+      )}
     </SectionCard>
   );
 }
@@ -366,6 +390,9 @@ export default function AdminGovernancePage() {
   const [governance, setGovernance] = useState<SelfHostedPatientPhotoProtocolReleaseGovernanceDTO>(DEMO_GOVERNANCE);
   const [error, setError] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
+  const [operationResult, setOperationResult] =
+    useState<SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null>(null);
+  const [revokeOperationBusy, setRevokeOperationBusy] = useState(false);
 
   const loadGovernance = useCallback(async () => {
     if (!isSelfHostedApiConfigured(session)) {
@@ -404,11 +431,52 @@ export default function AdminGovernancePage() {
   }
 
   function recordRetentionReview() {
-    setLastAction("Разбор хранения подготовлен локально: без patient rows и без raw ID");
+    setLastAction("Разбор хранения подготовлен локально: без пациентских строк и без raw ID");
   }
 
-  function recordRevokeReview() {
-    setLastAction("Разбор отзыва доступа подготовлен локально: причина остаётся скрытой");
+  async function recordRevokeReview() {
+    if (!configured) {
+      setLastAction("Demo: отзыв истёкших окон подготовлен локально, причина остаётся скрытой");
+      setOperationResult({
+        operation: "revoke_expired_access_windows",
+        status: "no_op",
+        affectedCount: 0,
+        skippedActiveCount: governance.operations.revokeReadiness.activeWindows,
+        expiringIn24hCount: governance.operations.revokeReadiness.expiringIn24h,
+        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
+        limit: 50,
+        auditAction: "patient_photo_protocol.release_governance.revoke_expired",
+        boundaries: {
+          metadataOnly: true,
+          patientRowsExposed: false,
+          rawIdentifiersExposed: false,
+          revokeReasonExposed: false,
+          temporaryCredentialsExposed: false,
+          qrTokensExposed: false,
+          sessionIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          patientDeliveryAllowed: false,
+        },
+      });
+      return;
+    }
+    setRevokeOperationBusy(true);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: { confirm: true, limit: 50 },
+    });
+    setRevokeOperationBusy(false);
+    if (!result.ok || !result.value) {
+      setLastAction(result.error?.message ?? "Backend не выполнил отзыв истёкших окон доступа.");
+      return;
+    }
+    setOperationResult(result.value);
+    setLastAction(
+      `Отзыв истёкших окон выполнен: ${result.value.affectedCount} отозвано, причина и пациентские строки скрыты`,
+    );
+    await loadGovernance();
   }
 
   return (
@@ -486,8 +554,10 @@ export default function AdminGovernancePage() {
 
         <GovernanceOperations
           governance={governance}
+          operationResult={operationResult}
+          revokeOperationBusy={revokeOperationBusy}
           onRetentionReview={recordRetentionReview}
-          onRevokeReview={recordRevokeReview}
+          onRevokeReview={() => void recordRevokeReview()}
         />
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">

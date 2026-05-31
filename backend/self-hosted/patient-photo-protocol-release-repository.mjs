@@ -303,6 +303,103 @@ from (
 `.trim();
 }
 
+export function buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql({
+  actorUserId,
+  clinicIds = [],
+  allClinics = false,
+  limit = 50,
+} = {}) {
+  const operationLimit = safeLimit(limit, 50, 200);
+  return `
+with eligible as (
+  select r.id
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where r.status = 'prepared'
+    and r.expires_at is not null
+    and r.expires_at <= now()
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+  order by r.expires_at asc, r.updated_at asc
+  limit ${operationLimit}
+),
+updated as (
+  update patient_photo_protocol_releases r
+  set
+    status = 'revoked',
+    revoked_by_user_id = ${sqlNullableUuid(actorUserId)},
+    revoked_at = now(),
+    revoke_reason = 'expired_access_window',
+    metadata_json = coalesce(r.metadata_json, '{}'::jsonb)
+      || jsonb_build_object(
+        'governanceOperation', 'revoke_expired_access_windows',
+        'systemReasonStored', true,
+        'revokeReasonExposed', false,
+        'operationExecutedAt', now()
+      ),
+    updated_at = now()
+  from eligible e
+  where r.id = e.id
+  returning r.id
+),
+scope_rollup as (
+  select
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+    )::int as active_remaining_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+        and r.expires_at <= now() + interval '24 hours'
+    )::int as expiring_in_24h_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is null
+    )::int as missing_expiry_count
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where true
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+),
+result as (
+  select
+    (select count(*)::int from updated) as affected_count,
+    coalesce(sr.active_remaining_count, 0) as active_remaining_count,
+    coalesce(sr.expiring_in_24h_count, 0) as expiring_in_24h_count,
+    coalesce(sr.missing_expiry_count, 0) as missing_expiry_count
+  from scope_rollup sr
+)
+select coalesce(jsonb_agg(row_to_json(output)), '[]'::jsonb)::text
+from (
+  select
+    'revoke_expired_access_windows' as "operation",
+    case when result.affected_count > 0 then 'executed' else 'no_op' end as "status",
+    result.affected_count as "affectedCount",
+    result.active_remaining_count as "skippedActiveCount",
+    result.expiring_in_24h_count as "expiringIn24hCount",
+    result.missing_expiry_count as "skippedMissingExpiryCount",
+    ${operationLimit} as "limit",
+    'patient_photo_protocol.release_governance.revoke_expired' as "auditAction",
+    jsonb_build_object(
+      'metadataOnly', true,
+      'patientRowsExposed', false,
+      'rawIdentifiersExposed', false,
+      'revokeReasonExposed', false,
+      'temporaryCredentialsExposed', false,
+      'qrTokensExposed', false,
+      'sessionIdsExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'patientDeliveryAllowed', false
+    ) as "boundaries"
+  from result
+  limit 1
+) output;
+`.trim();
+}
+
 export function buildGetPatientPhotoProtocolReleaseAuditSql({
   visitId,
   clinicIds = [],
@@ -847,6 +944,31 @@ function normalizeGovernance(row = {}) {
   };
 }
 
+function normalizeGovernanceOperationResult(row = {}) {
+  return {
+    operation: String(row.operation ?? "revoke_expired_access_windows"),
+    status: String(row.status ?? (number(row.affectedCount) > 0 ? "executed" : "no_op")),
+    affectedCount: number(row.affectedCount),
+    skippedActiveCount: number(row.skippedActiveCount),
+    expiringIn24hCount: number(row.expiringIn24hCount),
+    skippedMissingExpiryCount: number(row.skippedMissingExpiryCount),
+    limit: number(row.limit),
+    auditAction: String(row.auditAction ?? "patient_photo_protocol.release_governance.revoke_expired"),
+    boundaries: {
+      metadataOnly: true,
+      patientRowsExposed: false,
+      rawIdentifiersExposed: false,
+      revokeReasonExposed: false,
+      temporaryCredentialsExposed: false,
+      qrTokensExposed: false,
+      sessionIdsExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      patientDeliveryAllowed: false,
+    },
+  };
+}
+
 export function createPatientPhotoProtocolReleaseRepository(dbClient) {
   return {
     async prepareRelease(params) {
@@ -868,6 +990,12 @@ export function createPatientPhotoProtocolReleaseRepository(dbClient) {
     async getGovernance(params) {
       const rows = await dbClient.queryJson(buildGetPatientPhotoProtocolReleaseGovernanceSql(params));
       return Array.isArray(rows) && rows[0] ? normalizeGovernance(rows[0]) : normalizeGovernance();
+    },
+    async executeGovernanceRevokeExpired(params) {
+      const rows = await dbClient.queryJson(buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql(params));
+      return Array.isArray(rows) && rows[0]
+        ? normalizeGovernanceOperationResult(rows[0])
+        : normalizeGovernanceOperationResult();
     },
   };
 }

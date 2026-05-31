@@ -2,7 +2,11 @@
 // Doctor-write RBAC + audit for metadata-only prepare/revoke operations.
 
 import { recordAuditBestEffort } from "./audit-repository.mjs";
-import { visitReadScope, visitWriteScope } from "./rbac.mjs";
+import {
+  patientPhotoProtocolGovernanceWriteScope,
+  visitReadScope,
+  visitWriteScope,
+} from "./rbac.mjs";
 import {
   assertUuid,
   VisitWorkspaceNotFoundError,
@@ -115,6 +119,23 @@ export function normalizeReviewPatientPhotoProtocolReleasePolicyPayload(input = 
   };
 }
 
+export function normalizeExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  const details = [];
+  if (input.confirm !== true) {
+    details.push({ field: "confirm", message: "confirm must be true for production revoke execution." });
+  }
+  const rawLimit = input.limit ?? 50;
+  const limit = Number(rawLimit);
+  if (!Number.isFinite(limit) || limit <= 0 || Math.floor(limit) !== limit || limit > 200) {
+    details.push({ field: "limit", message: "limit must be an integer from 1 to 200." });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return { limit };
+}
+
 function ensureScopeAllowsClinic(scope, clinicId) {
   if (scope.allClinics) return;
   if (!clinicId || !scope.clinicIds.includes(clinicId)) {
@@ -168,6 +189,25 @@ function auditGovernanceMetadata(governance) {
     sessionIdsExposed: governance.operations?.sessionLifecycle?.sessionIdsExposed === true,
     metadataOnly: governance.boundaries.metadataOnly === true,
     rawIdentifiersExposed: governance.boundaries.rawIdentifiersExposed === true,
+  };
+}
+
+function auditGovernanceOperationMetadata(operation) {
+  return {
+    operation: operation.operation,
+    status: operation.status,
+    affectedCount: operation.affectedCount,
+    skippedActiveCount: operation.skippedActiveCount,
+    expiringIn24hCount: operation.expiringIn24hCount,
+    skippedMissingExpiryCount: operation.skippedMissingExpiryCount,
+    metadataOnly: operation.boundaries.metadataOnly === true,
+    patientRowsExposed: operation.boundaries.patientRowsExposed === true,
+    rawIdentifiersExposed: operation.boundaries.rawIdentifiersExposed === true,
+    revokeReasonExposed: operation.boundaries.revokeReasonExposed === true,
+    temporaryCredentialsExposed: operation.boundaries.temporaryCredentialsExposed === true,
+    qrTokensExposed: operation.boundaries.qrTokensExposed === true,
+    sessionIdsExposed: operation.boundaries.sessionIdsExposed === true,
+    patientDeliveryAllowed: operation.boundaries.patientDeliveryAllowed === true,
   };
 }
 
@@ -307,6 +347,27 @@ export function createPatientPhotoProtocolReleaseService({
         metadata: auditGovernanceMetadata(governance),
       });
       return { governance, scope };
+    },
+
+    async executeGovernanceRevokeExpired(input, authContext, { correlationId } = {}) {
+      const scope = patientPhotoProtocolGovernanceWriteScope(authContext);
+      const payload = normalizeExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredPayload(input);
+      const operation = await patientPhotoProtocolReleaseRepository.executeGovernanceRevokeExpired({
+        actorUserId: authContext.userId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+        limit: payload.limit,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "patient_photo_protocol.release_governance.revoke_expired",
+        entityType: "patient_photo_protocol_release_governance_operation",
+        entityId: null,
+        correlationId,
+        metadata: auditGovernanceOperationMetadata(operation),
+      });
+      return { operation, scope };
     },
   };
 }
