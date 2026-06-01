@@ -36,6 +36,7 @@ function createRuntime({
   patientPortalReport = null,
   patientPortalPhotoProtocol = null,
   patientPortalAccessExchange = null,
+  patientPortalSessionCookie = null,
   patientPortalHistory = null,
   patientPhotoProtocolDownload = null,
   patientPortalBookingRequest = null,
@@ -431,6 +432,15 @@ function createRuntime({
           scope: {
             userId: authContext?.userId,
             roles: authContext?.roles || [],
+          },
+          sessionCookie: patientPortalSessionCookie || {
+            name: "sd_photo_protocol_session",
+            value: "test-session-secret",
+            path: `/api/v1/me/photo-protocols/${visitId}`,
+            maxAgeSeconds: 1800,
+            httpOnly: true,
+            secure: true,
+            sameSite: "Strict",
           },
         };
       },
@@ -5544,9 +5554,19 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
   assert.equal(exchange.json.item.sessionBoundary.sessionEstablished, true);
   assert.equal(exchange.json.item.sessionBoundary.rawCredentialExposed, false);
   assert.equal(exchange.json.item.sessionBoundary.sessionHashExposed, false);
+  assert.match(exchange.headers["set-cookie"], /^sd_photo_protocol_session=/);
+  assert.match(exchange.headers["set-cookie"], /HttpOnly/);
+  assert.match(exchange.headers["set-cookie"], /Secure/);
+  assert.match(exchange.headers["set-cookie"], /SameSite=Strict/);
+  assert.match(
+    exchange.headers["set-cookie"],
+    /Path=\/api\/v1\/me\/photo-protocols\/10000000-0000-4000-8000-000000000301/,
+  );
+  assert.match(exchange.headers["set-cookie"], /Max-Age=1800/);
+  assert.equal(exchange.headers["access-control-allow-credentials"], "true");
   assert.doesNotMatch(
     exchange.body,
-    /patient one-time credential|credential_hash|credential_fingerprint|session_hash|session_fingerprint|sessionToken|signed_url|storage_object_path|object_bucket|object_key|physicianText|access_token/i,
+    /patient one-time credential|credential_hash|credential_fingerprint|session_hash|session_fingerprint|sessionToken|sd_photo_protocol_session|signed_url|storage_object_path|object_bucket|object_key|physicianText|access_token/i,
   );
 
   const history = await request(
@@ -5621,6 +5641,7 @@ test("Stage 5N · patient portal credential exchange maps denied access safely",
 
   assert.equal(denied.status, 403);
   assert.equal(denied.json.error.code, "photo_protocol_access_credential_invalid");
+  assert.equal(denied.headers["set-cookie"], undefined);
   assert.doesNotMatch(denied.body, /wrong credential|credential_hash|session_hash|stack|postgres:\/\/|secret/i);
 });
 
@@ -5633,6 +5654,10 @@ test("Stage 5N · /openapi.stage5n.json documents patient portal contracts", asy
   assert.ok(response.json.paths["/api/v1/me/reports/{reportId}"].get);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}"].get);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}/access/exchange"].post);
+  assert.equal(
+    response.json.paths["/api/v1/me/photo-protocols/{visitId}/access/exchange"].post.responses["200"].headers["Set-Cookie"].schema.type,
+    "string",
+  );
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download"].get);
 });
 

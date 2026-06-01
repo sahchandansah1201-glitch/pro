@@ -97,6 +97,16 @@ configured before production exchange is enabled. If the credential pepper is
 out of sync, valid patient credentials will be denied without exposing the
 credential or stored hash.
 
+Batch AL adds the session transport contract for that confirmed boundary. On
+successful access exchange only, the backend sets
+`sd_photo_protocol_session` as an `HttpOnly; Secure; SameSite=Strict` cookie
+scoped to `/api/v1/me/photo-protocols/{visitId}` and capped by the same
+short-lived session TTL. The session value is not returned in JSON, audit
+metadata, OpenAPI examples, browser state, or the patient DOM. Denied exchange
+attempts return no cookie. CORS responses include
+`access-control-allow-credentials: true` for configured origins so the browser
+can receive and later send the HttpOnly cookie without JavaScript access.
+
 `GET /api/v1/me/history` returns a patient-safe longitudinal history model:
 lesion cards, visit timeline, and aggregate photo-protocol policy/retention
 counters. Batch AA adds `comparisonOperations` (series readiness for doctor
@@ -128,9 +138,12 @@ text, or clinical diagnosis/risk wording.
 
 The access-exchange client uses
 `/api/v1/me/photo-protocols/{visitId}/access/exchange` only to confirm the
-server-side boundary. It must not store the submitted credential, raw session
-secret, credential hash/fingerprint, session hash/fingerprint, QR values, or
-signed links in browser state or the DOM.
+server-side boundary. Batch AL sends the request with `credentials: "include"`
+so the browser can persist the backend-set HttpOnly cookie. It must not store
+the submitted credential, raw session secret, credential hash/fingerprint,
+session hash/fingerprint, QR values, or signed links in browser state or the
+DOM. Photo downloads also use `credentials: "include"` and still receive bytes
+only from the backend proxy, not storage paths or signed URLs.
 
 When the photo protocol is revoked, `/me/reports/:id` shows
 `Фото-протокол отозван` and the `Отзыв и журнал доступа` section. Photo opening

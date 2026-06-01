@@ -11,6 +11,7 @@ const REMINDER_CHANNELS = new Set(["email", "phone", "none"]);
 const MAX_BOOKING_REASON_LENGTH = 500;
 const MIN_ACCESS_CREDENTIAL_LENGTH = 8;
 const MAX_ACCESS_CREDENTIAL_LENGTH = 512;
+const PHOTO_PROTOCOL_ACCESS_SESSION_COOKIE_NAME = "sd_photo_protocol_session";
 
 class PatientPortalNotFoundError extends Error {
   constructor(message = "Patient portal resource was not found.") {
@@ -178,6 +179,18 @@ function plusMinutes(date, minutes) {
   return new Date(date.getTime() + minutes * 60 * 1000);
 }
 
+function buildPhotoProtocolSessionCookie({ visitId, sessionSecret, maxAgeSeconds }) {
+  return {
+    name: PHOTO_PROTOCOL_ACCESS_SESSION_COOKIE_NAME,
+    value: String(sessionSecret),
+    path: `/api/v1/me/photo-protocols/${visitId}`,
+    maxAgeSeconds,
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+  };
+}
+
 function statusForAccessExchangeDeniedReason(reason) {
   switch (reason) {
     case "photo_protocol_access_credential_invalid":
@@ -297,6 +310,11 @@ export function createPatientPortalService({
       }
       const sessionSecret = randomBytesImpl(32).toString("hex");
       const sessionExpiresAt = plusMinutes(now(), sessionTtlMinutes).toISOString();
+      const sessionCookie = buildPhotoProtocolSessionCookie({
+        visitId: safeVisitId,
+        sessionSecret,
+        maxAgeSeconds: Math.max(0, Math.round(sessionTtlMinutes * 60)),
+      });
       const exchange = await patientPortalRepository.exchangePhotoProtocolAccess({
         userId: scope.userId,
         visitId: safeVisitId,
@@ -351,7 +369,7 @@ export function createPatientPortalService({
           ...safeAccessBoundaryMetadata(exchange),
         },
       });
-      return { exchange, scope };
+      return { exchange, scope, sessionCookie };
     },
 
     async getHistory(authContext, { correlationId } = {}) {

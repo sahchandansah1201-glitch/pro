@@ -269,6 +269,13 @@ test("Stage 5N service exchanges access credential without auditing or returning
   assert.equal(result.exchange.sessionBoundary.rawCredentialExposed, false);
   assert.equal(result.exchange.sessionBoundary.sessionHashExposed, false);
   assert.equal(result.exchange.sessionBoundary.sessionEstablished, true);
+  assert.equal(result.sessionCookie.name, "sd_photo_protocol_session");
+  assert.equal(result.sessionCookie.path, `/api/v1/me/photo-protocols/${VISIT_ID}`);
+  assert.equal(result.sessionCookie.maxAgeSeconds, 1800);
+  assert.equal(result.sessionCookie.httpOnly, true);
+  assert.equal(result.sessionCookie.secure, true);
+  assert.equal(result.sessionCookie.sameSite, "Strict");
+  assert.equal(result.sessionCookie.value.length, 64);
   assert.equal(exchangeCalls.length, 1);
   assert.equal(exchangeCalls[0].credentialHash.length, 64);
   assert.equal(exchangeCalls[0].sessionHash.length, 64);
@@ -281,7 +288,9 @@ test("Stage 5N service exchanges access credential without auditing or returning
   ]);
   assert.equal(auditEvents[0].metadata.rawCredentialExposed, false);
   assert.equal(auditEvents[0].metadata.sessionHashExposed, false);
+  assert.doesNotMatch(JSON.stringify(result.exchange), new RegExp(result.sessionCookie.value, "i"));
   assert.doesNotMatch(JSON.stringify(auditEvents[0]), /patient one-time credential|0123456789abcdef|credential_hash|session_hash/i);
+  assert.doesNotMatch(JSON.stringify(auditEvents[0]), new RegExp(result.sessionCookie.value, "i"));
 });
 
 test("Stage 5N service denies invalid credential with safe audit metadata", async () => {

@@ -362,6 +362,7 @@ describe("Patient portal · Stage 5N production", () => {
       {
         method: "GET",
         headers: { Accept: "image/*", Authorization: "Bearer patient-token" },
+        credentials: "include",
       },
     );
     expect(document.body).not.toHaveTextContent("/api/v1/me/photo-protocols/visit-live-1/photos/1/download");

@@ -337,7 +337,7 @@ function apiErrorFromBody(response: Response, body: unknown): SelfHostedApiError
 async function requestJson(
   args: BaseArgs,
   path: string,
-  init: { method?: "GET" | "POST" | "PATCH"; body?: unknown } = {},
+  init: { method?: "GET" | "POST" | "PATCH"; body?: unknown; credentials?: RequestCredentials } = {},
 ): Promise<SelfHostedApiResult<unknown>> {
   const configError = ensureConfigured(args);
   if (configError) return fail(configError);
@@ -349,6 +349,7 @@ async function requestJson(
       method,
       headers: method === "GET" ? authHeaders(String(args.apiToken)) : jsonHeaders(String(args.apiToken)),
       ...(method === "GET" ? {} : { body: JSON.stringify(init.body ?? {}) }),
+      ...(init.credentials ? { credentials: init.credentials } : {}),
     });
   } catch {
     return fail({
@@ -374,6 +375,7 @@ async function requestBlob(
     response = await fetch(url, {
       method: "GET",
       headers: { Accept: "image/*", Authorization: `Bearer ${String(args.apiToken)}` },
+      credentials: "include",
     });
   } catch {
     return fail({
@@ -927,6 +929,7 @@ export async function exchangeSelfHostedPatientPortalPhotoProtocolAccess(
     {
       method: "POST",
       body: args.payload,
+      credentials: "include",
     },
   );
   if (!response.ok) {

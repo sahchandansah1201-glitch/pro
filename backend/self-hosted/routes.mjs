@@ -671,6 +671,18 @@ function binaryResponse(status, { body, contentType, fileName, correlationId }, 
   };
 }
 
+function serializeHttpOnlyCookie(cookie) {
+  if (!cookie || typeof cookie !== "object") return null;
+  const name = String(cookie.name || "");
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) return null;
+  const value = String(cookie.value || "").replace(/[^A-Za-z0-9._~-]/g, "");
+  if (!value) return null;
+  const path = String(cookie.path || "/").replace(/[;\r\n]/g, "");
+  const maxAge = Math.max(0, Math.min(Number(cookie.maxAgeSeconds ?? 0) || 0, 60 * 60 * 24));
+  const sameSite = cookie.sameSite === "Lax" ? "Lax" : "Strict";
+  return `${name}=${value}; Max-Age=${maxAge}; Path=${path}; HttpOnly; Secure; SameSite=${sameSite}`;
+}
+
 function patientIdFromPath(pathname) {
   const match = pathname.match(/^\/api\/v1\/patients\/([^/]+)$/);
   return match ? decodeURIComponent(match[1]) : "";
@@ -2951,7 +2963,7 @@ export async function handleSelfHostedRequest(
         authContext,
         { correlationId },
       );
-      return jsonResponse(
+      const response = jsonResponse(
         200,
         {
           stage: "5N",
@@ -2967,6 +2979,9 @@ export async function handleSelfHostedRequest(
         config,
         requestOrigin,
       );
+      const setCookie = serializeHttpOnlyCookie(result.sessionCookie);
+      if (setCookie) response.headers["set-cookie"] = setCookie;
+      return response;
     } catch (error) {
       const publicError = publicErrorFor(error);
       return errorResponse({ ...publicError, correlationId, config, requestOrigin });

@@ -361,6 +361,14 @@
         "responses": {
           "200": {
             "description": "Access credential confirmed; backend session boundary is ready",
+            "headers": {
+              "Set-Cookie": {
+                "description": "HttpOnly Secure SameSite=Strict session boundary cookie scoped to /api/v1/me/photo-protocols/{visitId}. The cookie value is not exposed in JSON, audit payloads, or browser state.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {

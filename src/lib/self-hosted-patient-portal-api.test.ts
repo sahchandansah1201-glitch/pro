@@ -398,6 +398,7 @@ describe("self-hosted-patient-portal-api", () => {
       {
         method: "GET",
         headers: { Accept: "image/*", Authorization: "Bearer token-1" },
+        credentials: "include",
       },
     );
   });
@@ -474,6 +475,7 @@ describe("self-hosted-patient-portal-api", () => {
           Authorization: "Bearer token-1",
         },
         body: JSON.stringify({ credential: "patient one-time credential" }),
+        credentials: "include",
       },
     );
   });
