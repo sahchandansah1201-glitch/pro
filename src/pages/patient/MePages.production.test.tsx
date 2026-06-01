@@ -71,8 +71,9 @@ function response(body: unknown, status = 200) {
   }));
 }
 
-function mockFetch(options: { revokedPhotoProtocol?: boolean } = {}) {
+function mockFetch(options: { revokedPhotoProtocol?: boolean; accessExchangeDenied?: boolean } = {}) {
   const revokedPhotoProtocol = Boolean(options.revokedPhotoProtocol);
+  const accessExchangeDenied = Boolean(options.accessExchangeDenied);
   const fetchMock = vi.fn((url: string | URL | Request) => {
     const href = String(url);
     if (href.endsWith("/api/v1/me/portal")) return response(portal);
@@ -142,6 +143,28 @@ function mockFetch(options: { revokedPhotoProtocol?: boolean } = {}) {
             bodyZone: "спина",
             previewAvailable: false,
           }],
+        },
+      });
+    }
+    if (href.endsWith("/api/v1/me/photo-protocols/visit-live-1/access/exchange")) {
+      if (accessExchangeDenied) {
+        return response({ error: { code: "photo_protocol_access_credential_invalid", message: "hidden" } }, 403);
+      }
+      return response({
+        item: {
+          visitId: "visit-live-1",
+          status: "confirmed",
+          accessStatus: "session_boundary_ready",
+          sessionExpiresAt: "2026-06-20T10:00:00.000Z",
+          rawCredential: "hidden",
+          sessionHash: "hidden",
+          sessionBoundary: {
+            sessionEstablished: true,
+            rawCredentialExposed: true,
+            sessionHashExposed: true,
+            signedUrlsIssued: true,
+            storagePathsExposed: true,
+          },
         },
       });
     }
@@ -332,6 +355,8 @@ describe("Patient portal · Stage 5N production", () => {
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
     expect(screen.getByText(/метаданные готовы, политика доступа ограничивает выдачу/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Подтверждение доступа к фото/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Одноразовый код доступа")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Контур политики доступа к фото/ })).toBeInTheDocument();
     expect(screen.getByText(/Сырые файлы, защищённые ссылки/)).toBeInTheDocument();
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
@@ -352,6 +377,13 @@ describe("Patient portal · Stage 5N production", () => {
     const view = renderRoute("/me/reports/report-live-1");
 
     expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Подготовить фото 1" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Одноразовый код доступа"), {
+      target: { value: "patient one-time credential" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Подтвердить доступ" }));
+
+    expect(await screen.findByText(/Доступ подтверждён/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Подготовить фото 1" }));
 
     const openLink = await screen.findByRole("link", { name: "Открыть фото 1" });
@@ -365,11 +397,46 @@ describe("Patient portal · Stage 5N production", () => {
         credentials: "include",
       },
     );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/visit-live-1/access/exchange",
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Bearer patient-token",
+        },
+        body: JSON.stringify({ credential: "patient one-time credential" }),
+        credentials: "include",
+      },
+    );
+    expect(document.body).not.toHaveTextContent("patient one-time credential");
     expect(document.body).not.toHaveTextContent("/api/v1/me/photo-protocols/visit-live-1/photos/1/download");
     expect(document.body).not.toHaveTextContent("patient-token");
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
     view.unmount();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:patient-photo-protocol-1");
+  });
+
+  it("keeps photo opening blocked when access exchange is denied", async () => {
+    const fetchMock = mockFetch({ accessExchangeDenied: true });
+    renderRoute("/me/reports/report-live-1");
+
+    expect(await screen.findByRole("region", { name: /Подтверждение доступа к фото/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Одноразовый код доступа"), {
+      target: { value: "wrong credential" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Подтвердить доступ" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Доступ не подтверждён.");
+    expect(screen.getByRole("button", { name: "Подготовить фото 1" })).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/visit-live-1/photos/1/download",
+      expect.any(Object),
+    );
+    expect(document.body).not.toHaveTextContent("wrong credential");
+    expect(document.body).not.toHaveTextContent("patient-token");
+    expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
   });
 
   it("shows revoked photo-protocol access and safe audit review without downloading photos", async () => {

@@ -1,12 +1,14 @@
 import { Link, useParams } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ExternalLink, Images, Loader2, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
+  exchangeSelfHostedPatientPortalPhotoProtocolAccess,
   fetchSelfHostedPatientPortalPhotoProtocol,
   fetchSelfHostedPatientPortalPhotoProtocolPhoto,
   fetchSelfHostedPatientPortalReport,
@@ -20,6 +22,12 @@ type PhotoDownloadState = {
   objectUrl?: string;
   fileName?: string;
   message?: string;
+};
+
+type PhotoAccessState = {
+  status: "idle" | "submitting" | "confirmed" | "denied";
+  message?: string;
+  sessionExpiresAt?: string | null;
 };
 
 const PHOTO_KIND_LABEL: Record<string, string> = {
@@ -64,6 +72,8 @@ export default function MeReportPageLive() {
   const [report, setReport] = useState<SelfHostedPatientPortalReport | null>(null);
   const [photoProtocol, setPhotoProtocol] = useState<SelfHostedPatientPortalPhotoProtocol | null>(null);
   const [photoDownloads, setPhotoDownloads] = useState<Record<number, PhotoDownloadState>>({});
+  const [photoAccessCredential, setPhotoAccessCredential] = useState("");
+  const [photoAccess, setPhotoAccess] = useState<PhotoAccessState>({ status: "idle" });
   const [error, setError] = useState<string | null>(null);
   const photoObjectUrls = useRef<Record<number, string>>({});
 
@@ -80,12 +90,15 @@ export default function MeReportPageLive() {
       if (!session.apiToken) {
         setStatus("missing_session");
         setPhotoStatus("idle");
+        setPhotoAccess({ status: "idle" });
         return;
       }
       setStatus("loading");
       setPhotoStatus("idle");
       setPhotoProtocol(null);
       setPhotoDownloads({});
+      setPhotoAccess({ status: "idle" });
+      setPhotoAccessCredential("");
       const result = await fetchSelfHostedPatientPortalReport({
         apiBaseUrl: session.apiBaseUrl,
         apiToken: session.apiToken,
@@ -107,10 +120,12 @@ export default function MeReportPageLive() {
           if (photoResult.ok) {
             setPhotoProtocol(photoResult.value);
             setPhotoDownloads({});
+            setPhotoAccess({ status: "idle" });
             setPhotoStatus("ready");
           } else {
             setPhotoProtocol(null);
             setPhotoDownloads({});
+            setPhotoAccess({ status: "idle" });
             setPhotoStatus("unavailable");
           }
         }
@@ -118,6 +133,7 @@ export default function MeReportPageLive() {
         setReport(null);
         setPhotoProtocol(null);
         setPhotoDownloads({});
+        setPhotoAccess({ status: "idle" });
         setPhotoStatus("idle");
         setError(result.error.message);
         setStatus("error");
@@ -129,6 +145,44 @@ export default function MeReportPageLive() {
     };
   }, [id, session.apiBaseUrl, session.apiToken]);
 
+  async function confirmPhotoAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const credential = photoAccessCredential.trim();
+    const visitId = photoProtocol?.visitId || report?.visitId;
+    if (!visitId) {
+      setPhotoAccess({ status: "denied", message: "Доступ сейчас недоступен: backend не вернул визит." });
+      return;
+    }
+    if (!credential) {
+      setPhotoAccess({ status: "denied", message: "Введите одноразовый код доступа." });
+      return;
+    }
+    setPhotoAccess({ status: "submitting", message: "Проверяем доступ через self-hosted backend." });
+    const result = await exchangeSelfHostedPatientPortalPhotoProtocolAccess({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      visitId,
+      payload: { credential },
+    });
+    setPhotoAccessCredential("");
+    if (!result.ok) {
+      setPhotoAccess({ status: "denied", message: result.error.message || "Доступ сейчас не подтверждён." });
+      return;
+    }
+    if (result.value.status === "confirmed" && result.value.sessionBoundary.sessionEstablished) {
+      setPhotoAccess({
+        status: "confirmed",
+        message: "Доступ подтверждён. Фото открываются через защищённый backend.",
+        sessionExpiresAt: result.value.sessionExpiresAt,
+      });
+      return;
+    }
+    setPhotoAccess({
+      status: "denied",
+      message: result.value.deniedReason || "Доступ сейчас не подтверждён.",
+    });
+  }
+
   async function preparePhoto(photo: SelfHostedPatientPortalPhotoProtocolPhoto) {
     if (photoProtocol && isPhotoProtocolRevoked(photoProtocol)) {
       setPhotoDownloads((current) => ({
@@ -136,6 +190,16 @@ export default function MeReportPageLive() {
         [photo.sequence]: {
           status: "error",
           message: "Открытие фото заблокировано после отзыва доступа клиникой.",
+        },
+      }));
+      return;
+    }
+    if (photoAccess.status !== "confirmed") {
+      setPhotoDownloads((current) => ({
+        ...current,
+        [photo.sequence]: {
+          status: "error",
+          message: "Сначала подтвердите доступ к фото-протоколу.",
         },
       }));
       return;
@@ -261,6 +325,49 @@ export default function MeReportPageLive() {
                         <dd>{photoProtocol.expiresAt ? formatDateTime(photoProtocol.expiresAt) : "управляется backend"}</dd>
                       </dl>
                       <section
+                        aria-label="Подтверждение доступа к фото"
+                        className="mt-3 rounded border border-border bg-background px-2 py-2 text-[12px]"
+                      >
+                        <h4 className="font-medium">Подтверждение доступа к фото</h4>
+                        <p className="mt-1 text-muted-foreground">
+                          Введите одноразовый код из клиники. Код не отображается в интерфейсе, а session cookie хранится только backend/browser.
+                        </p>
+                        <form className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={(event) => void confirmPhotoAccess(event)}>
+                          <label className="min-w-0 flex-1 text-[12px] font-medium">
+                            Одноразовый код доступа
+                            <Input
+                              className="mt-1 min-h-[44px] sm:min-h-[36px]"
+                              type="password"
+                              inputMode="text"
+                              autoComplete="one-time-code"
+                              value={photoAccessCredential}
+                              disabled={photoAccess.status === "submitting" || isPhotoProtocolRevoked(photoProtocol)}
+                              onChange={(event) => setPhotoAccessCredential(event.target.value)}
+                            />
+                          </label>
+                          <Button
+                            type="submit"
+                            variant="secondary"
+                            className="min-h-[44px] sm:min-h-[36px]"
+                            disabled={photoAccess.status === "submitting" || isPhotoProtocolRevoked(photoProtocol)}
+                          >
+                            {photoAccess.status === "submitting" && (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                            )}
+                            Подтвердить доступ
+                          </Button>
+                        </form>
+                        <div
+                          className={photoAccess.status === "denied" ? "mt-2 text-destructive" : "mt-2 text-muted-foreground"}
+                          role={photoAccess.status === "denied" ? "alert" : undefined}
+                          aria-live="polite"
+                        >
+                          {photoAccess.status === "confirmed"
+                            ? `Доступ подтверждён${photoAccess.sessionExpiresAt ? ` до ${formatDateTime(photoAccess.sessionExpiresAt)}` : ""}.`
+                            : photoAccess.message || "Перед открытием фото требуется подтверждение доступа."}
+                        </div>
+                      </section>
+                      <section
                         aria-label="Контур политики доступа к фото"
                         className="mt-3 rounded border border-border bg-background px-2 py-2 text-[12px]"
                       >
@@ -342,7 +449,11 @@ export default function MeReportPageLive() {
                                 variant="outline"
                                 size="sm"
                                 className="min-h-[44px] sm:min-h-[32px]"
-                                disabled={isPhotoProtocolRevoked(photoProtocol) || photoDownloads[photo.sequence]?.status === "loading"}
+                                disabled={
+                                  isPhotoProtocolRevoked(photoProtocol) ||
+                                  photoAccess.status !== "confirmed" ||
+                                  photoDownloads[photo.sequence]?.status === "loading"
+                                }
                                 onClick={() => void preparePhoto(photo)}
                               >
                                 {photoDownloads[photo.sequence]?.status === "loading" && (

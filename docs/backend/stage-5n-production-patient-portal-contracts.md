@@ -157,6 +157,15 @@ session hash/fingerprint, QR values, or signed links in browser state or the
 DOM. Photo downloads also use `credentials: "include"` and still receive bytes
 only from the backend proxy, not storage paths or signed URLs.
 
+Batch AN makes that boundary explicit on `/me/reports/:id` with the
+`Подтверждение доступа к фото` patient workflow. The patient enters an
+`Одноразовый код доступа`; the page calls the existing exchange route, clears
+the input after the response, and enables `Подготовить фото` only after the
+backend confirms `session_boundary_ready`. The UI may show `Доступ подтверждён`
+and the session expiry timestamp, but it must not show the submitted credential,
+cookie value, raw session secret, credential/session hash, QR value, storage
+path, signed link, backend object key, or doctor-only text.
+
 When the photo protocol is revoked, `/me/reports/:id` shows
 `Фото-протокол отозван` and the `Отзыв и журнал доступа` section. Photo opening
 controls stay visible but disabled, so the patient can understand what changed
