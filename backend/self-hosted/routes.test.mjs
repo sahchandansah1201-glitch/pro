@@ -3981,6 +3981,13 @@ function clinicalWorkspaceRuntime({
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
+      async executeGovernanceIssueAccessCredentialHash() {
+        if (clinicalError) throw clinicalError;
+        return {
+          operation: photoProtocolReleaseGovernanceOperation,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
     },
   };
 }
@@ -5123,6 +5130,55 @@ test("Batch AI · patient photo protocol governance can prepare access-artifact 
   assert.doesNotMatch(response.body, /patientFullName|patient_id|visitId|releaseId|object_bucket|object_key|storage_object_path|signed_url|access_token|revokeReason"\s*:|physician_text|doctorVersionText/i);
 });
 
+test("Batch AJ · patient photo protocol governance can issue credential hash safely", async () => {
+  const response = await request(
+    "/api/v1/patient-photo-protocol-release/governance/issue-access-credential-hash",
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      photoProtocolReleaseGovernanceOperation: {
+        operation: "issue_access_credential_hash",
+        status: "executed",
+        affectedCount: 3,
+        skippedActiveCount: 4,
+        expiringIn24hCount: 1,
+        skippedMissingExpiryCount: 0,
+        limit: 7,
+        auditAction: "patient_photo_protocol.release_governance.issue_access_credential_hash",
+        boundaries: {
+          metadataOnly: true,
+          patientRowsExposed: false,
+          rawIdentifiersExposed: false,
+          revokeReasonExposed: false,
+          temporaryCredentialsExposed: false,
+          qrTokensExposed: false,
+          sessionIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          patientDeliveryAllowed: false,
+          rawCredentialExposed: false,
+          credentialHashExposed: false,
+          credentialFingerprintExposed: false,
+        },
+      },
+    }),
+    "POST",
+    JSON.stringify({ confirm: true, limit: 7 }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "8G-8I");
+  assert.equal(response.json.item.operation, "issue_access_credential_hash");
+  assert.equal(response.json.item.affectedCount, 3);
+  assert.equal(response.json.item.boundaries.metadataOnly, true);
+  assert.equal(response.json.item.boundaries.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(response.json.item.boundaries.qrTokensExposed, false);
+  assert.equal(response.json.item.boundaries.sessionIdsExposed, false);
+  assert.equal(response.json.item.boundaries.rawCredentialExposed, false);
+  assert.equal(response.json.item.boundaries.credentialHashExposed, false);
+  assert.equal(response.json.item.boundaries.credentialFingerprintExposed, false);
+  assert.doesNotMatch(response.body, /patientFullName|patient_id|visitId|releaseId|object_bucket|object_key|storage_object_path|signed_url|access_token|rawCredential"\s*:|credentialHash"\s*:|credentialFingerprint"\s*:|revokeReason"\s*:|physician_text|doctorVersionText/i);
+});
+
 test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package", async () => {
   const response = await request("/openapi.stage8g-8i.json");
   assert.equal(response.status, 200);
@@ -5138,6 +5194,7 @@ test("Stage 8G-8I · /openapi.stage8g-8i.json documents clinical report package"
   assert.ok(response.json.paths["/api/v1/patient-photo-protocol-release/governance/block-unapproved-retention"].post);
   assert.ok(response.json.paths["/api/v1/patient-photo-protocol-release/governance/block-unsafe-session-artifacts"].post);
   assert.ok(response.json.paths["/api/v1/patient-photo-protocol-release/governance/prepare-access-artifact-rotation"].post);
+  assert.ok(response.json.paths["/api/v1/patient-photo-protocol-release/governance/issue-access-credential-hash"].post);
   assert.ok(response.json.components.schemas.PatientPhotoProtocolReleaseGovernance);
   assert.ok(response.json.components.schemas.PatientPhotoProtocolGovernanceOperationResult);
 });

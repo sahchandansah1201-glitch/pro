@@ -204,6 +204,23 @@ export function normalizeExecutePatientPhotoProtocolReleaseGovernancePrepareAcce
   return { limit };
 }
 
+export function normalizeExecutePatientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  const details = [];
+  if (input.confirm !== true) {
+    details.push({ field: "confirm", message: "confirm must be true for production credential hash issuance." });
+  }
+  const rawLimit = input.limit ?? 50;
+  const limit = Number(rawLimit);
+  if (!Number.isFinite(limit) || limit <= 0 || Math.floor(limit) !== limit || limit > 200) {
+    details.push({ field: "limit", message: "limit must be an integer from 1 to 200." });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return { limit };
+}
+
 function ensureScopeAllowsClinic(scope, clinicId) {
   if (scope.allClinics) return;
   if (!clinicId || !scope.clinicIds.includes(clinicId)) {
@@ -241,6 +258,7 @@ function auditReviewMetadata(audit) {
 }
 
 function auditGovernanceMetadata(governance) {
+  const sessionLifecycle = governance.operations?.sessionLifecycle ?? {};
   return {
     releasesTotal: governance.summary.releasesTotal,
     prepared: governance.summary.prepared,
@@ -257,6 +275,12 @@ function auditGovernanceMetadata(governance) {
     unsafeSessionArtifacts: governance.operations?.sessionLifecycle?.unsafeArtifacts ?? 0,
     accessArtifactRotationPending: governance.operations?.sessionLifecycle?.rotationPending ?? 0,
     accessArtifactRotationPrepared: governance.operations?.sessionLifecycle?.rotationPrepared ?? 0,
+    ...(Object.prototype.hasOwnProperty.call(sessionLifecycle, "credentialHashPending")
+      ? { credentialHashPending: sessionLifecycle.credentialHashPending ?? 0 }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(sessionLifecycle, "credentialHashReady")
+      ? { credentialHashReady: sessionLifecycle.credentialHashReady ?? 0 }
+      : {}),
     sessionIdsExposed: governance.operations?.sessionLifecycle?.sessionIdsExposed === true,
     metadataOnly: governance.boundaries.metadataOnly === true,
     rawIdentifiersExposed: governance.boundaries.rawIdentifiersExposed === true,
@@ -279,6 +303,13 @@ function auditGovernanceOperationMetadata(operation) {
     qrTokensExposed: operation.boundaries.qrTokensExposed === true,
     sessionIdsExposed: operation.boundaries.sessionIdsExposed === true,
     patientDeliveryAllowed: operation.boundaries.patientDeliveryAllowed === true,
+    ...(operation.operation === "issue_access_credential_hash"
+      ? {
+        rawCredentialExposed: operation.boundaries.rawCredentialExposed === true,
+        credentialHashExposed: operation.boundaries.credentialHashExposed === true,
+        credentialFingerprintExposed: operation.boundaries.credentialFingerprintExposed === true,
+      }
+      : {}),
   };
 }
 
@@ -517,6 +548,27 @@ export function createPatientPhotoProtocolReleaseService({
         clinicId: null,
         actorUserId: authContext.userId,
         action: "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
+        entityType: "patient_photo_protocol_release_governance_operation",
+        entityId: null,
+        correlationId,
+        metadata: auditGovernanceOperationMetadata(operation),
+      });
+      return { operation, scope };
+    },
+
+    async executeGovernanceIssueAccessCredentialHash(input, authContext, { correlationId } = {}) {
+      const scope = patientPhotoProtocolGovernanceWriteScope(authContext);
+      const payload = normalizeExecutePatientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashPayload(input);
+      const operation = await patientPhotoProtocolReleaseRepository.executeGovernanceIssueAccessCredentialHash({
+        actorUserId: authContext.userId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+        limit: payload.limit,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "patient_photo_protocol.release_governance.issue_access_credential_hash",
         entityType: "patient_photo_protocol_release_governance_operation",
         entityId: null,
         correlationId,

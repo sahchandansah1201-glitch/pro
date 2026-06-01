@@ -5,6 +5,7 @@ import {
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpirySql,
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnapprovedRetentionSql,
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnsafeSessionArtifactsSql,
+  buildExecutePatientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashSql,
   buildExecutePatientPhotoProtocolReleaseGovernancePrepareAccessArtifactRotationSql,
   buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql,
   buildGetPatientPhotoProtocolReleaseGovernanceSql,
@@ -714,4 +715,78 @@ test("Batch AI repository prepares access-artifact rotation ledger without issui
   assert.equal(result.boundaries.qrTokensExposed, false);
   assert.equal(result.boundaries.sessionIdsExposed, false);
   assert.equal(result.boundaries.patientDeliveryAllowed, false);
+});
+
+test("Batch AJ repository issues credential hash ledger without exposing credential material", async () => {
+  const sql = buildExecutePatientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashSql({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 7,
+  });
+  assert.match(sql, /issue_access_credential_hash/);
+  assert.match(sql, /patient_photo_protocol_access_credentials/);
+  assert.match(sql, /current_setting\('app\.patient_photo_protocol_credential_pepper'/);
+  assert.match(sql, /hmac\(/);
+  assert.match(sql, /credential_hash/);
+  assert.match(sql, /credential_fingerprint/);
+  assert.match(sql, /accessArtifactRotationPrepared/);
+  assert.match(sql, /requiresSecureCredentialStore/);
+  assert.match(sql, /credentialHashStored/);
+  assert.match(sql, /credentialFingerprintStored/);
+  assert.match(sql, /credentialStoreReady/);
+  assert.match(sql, /requiresSessionExchange/);
+  assert.match(sql, /patient_photo_protocol\.release_governance\.issue_access_credential_hash/);
+  assert.match(sql, /rawCredentialExposed/);
+  assert.match(sql, /credentialHashExposed/);
+  assert.match(sql, /credentialFingerprintExposed/);
+  assert.doesNotMatch(sql, /patient_id::text|visit_id::text|revoke_reason as|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text|rawCredential"\s*:|credentialPlaintext|credentialValue/i);
+
+  const repository = createPatientPhotoProtocolReleaseRepository({
+    async queryJson() {
+      return [{
+        operation: "issue_access_credential_hash",
+        status: "executed",
+        affectedCount: 3,
+        skippedActiveCount: 4,
+        expiringIn24hCount: 1,
+        skippedMissingExpiryCount: 0,
+        limit: 7,
+        auditAction: "patient_photo_protocol.release_governance.issue_access_credential_hash",
+        boundaries: {
+          metadataOnly: false,
+          patientRowsExposed: true,
+          rawIdentifiersExposed: true,
+          revokeReasonExposed: true,
+          temporaryCredentialsExposed: true,
+          qrTokensExposed: true,
+          sessionIdsExposed: true,
+          storagePathsExposed: true,
+          signedUrlsIssued: true,
+          patientDeliveryAllowed: true,
+          rawCredentialExposed: true,
+          credentialHashExposed: true,
+          credentialFingerprintExposed: true,
+        },
+      }];
+    },
+  });
+  const result = await repository.executeGovernanceIssueAccessCredentialHash({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 7,
+  });
+  assert.equal(result.operation, "issue_access_credential_hash");
+  assert.equal(result.status, "executed");
+  assert.equal(result.affectedCount, 3);
+  assert.equal(result.auditAction, "patient_photo_protocol.release_governance.issue_access_credential_hash");
+  assert.equal(result.boundaries.metadataOnly, true);
+  assert.equal(result.boundaries.patientRowsExposed, false);
+  assert.equal(result.boundaries.rawIdentifiersExposed, false);
+  assert.equal(result.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.boundaries.qrTokensExposed, false);
+  assert.equal(result.boundaries.sessionIdsExposed, false);
+  assert.equal(result.boundaries.patientDeliveryAllowed, false);
+  assert.equal(result.boundaries.rawCredentialExposed, false);
+  assert.equal(result.boundaries.credentialHashExposed, false);
+  assert.equal(result.boundaries.credentialFingerprintExposed, false);
 });

@@ -179,12 +179,19 @@ export interface SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
       unsafeArtifacts: number;
       rotationPrepared: number;
       rotationPending: number;
+      credentialHashReady: number;
+      credentialHashPending: number;
+      credentialStoreReady: number;
+      credentialStorePending: number;
       revoked: number;
       credentialRotationRequired: boolean;
       nextAction: string;
       temporaryCredentialsExposed: boolean;
       qrTokensExposed: boolean;
       sessionIdsExposed: boolean;
+      rawCredentialExposed: boolean;
+      credentialHashExposed: boolean;
+      credentialFingerprintExposed: boolean;
     };
     allowedOperations: string[];
     blockedOperations: string[];
@@ -209,6 +216,7 @@ export interface SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO {
     | "block_unapproved_retention_windows"
     | "block_unsafe_session_artifacts"
     | "prepare_access_artifact_rotation"
+    | "issue_access_credential_hash"
     | string;
   status: "executed" | "no_op" | string;
   affectedCount: number;
@@ -222,6 +230,7 @@ export interface SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO {
     | "patient_photo_protocol.release_governance.block_unapproved_retention"
     | "patient_photo_protocol.release_governance.block_unsafe_session_artifacts"
     | "patient_photo_protocol.release_governance.prepare_access_artifact_rotation"
+    | "patient_photo_protocol.release_governance.issue_access_credential_hash"
     | string;
   boundaries: {
     metadataOnly: boolean;
@@ -234,6 +243,9 @@ export interface SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO {
     storagePathsExposed: boolean;
     signedUrlsIssued: boolean;
     patientDeliveryAllowed: boolean;
+    rawCredentialExposed: boolean;
+    credentialHashExposed: boolean;
+    credentialFingerprintExposed: boolean;
   };
 }
 
@@ -276,6 +288,11 @@ export interface SelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtif
 }
 
 export interface SelfHostedPatientPhotoProtocolGovernancePrepareAccessArtifactRotationPayload {
+  confirm: true;
+  limit?: number;
+}
+
+export interface SelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHashPayload {
   confirm: true;
   limit?: number;
 }
@@ -561,12 +578,19 @@ export function toSelfHostedPatientPhotoProtocolReleaseGovernance(
         unsafeArtifacts: Number(sessionLifecycle.unsafeArtifacts ?? 0),
         rotationPrepared: Number(sessionLifecycle.rotationPrepared ?? 0),
         rotationPending: Number(sessionLifecycle.rotationPending ?? 0),
+        credentialHashReady: Number(sessionLifecycle.credentialHashReady ?? sessionLifecycle.credentialStoreReady ?? 0),
+        credentialHashPending: Number(sessionLifecycle.credentialHashPending ?? sessionLifecycle.credentialStorePending ?? 0),
+        credentialStoreReady: Number(sessionLifecycle.credentialStoreReady ?? sessionLifecycle.credentialHashReady ?? 0),
+        credentialStorePending: Number(sessionLifecycle.credentialStorePending ?? sessionLifecycle.credentialHashPending ?? 0),
         revoked: Number(sessionLifecycle.revoked ?? 0),
         credentialRotationRequired: bool(sessionLifecycle.credentialRotationRequired),
         nextAction: String(sessionLifecycle.nextAction ?? "inspect_session_lifecycle"),
         temporaryCredentialsExposed: false,
         qrTokensExposed: false,
         sessionIdsExposed: false,
+        rawCredentialExposed: false,
+        credentialHashExposed: false,
+        credentialFingerprintExposed: false,
       },
       allowedOperations: arrayOfStrings(operations.allowedOperations),
       blockedOperations: arrayOfStrings(operations.blockedOperations),
@@ -608,6 +632,9 @@ export function toSelfHostedPatientPhotoProtocolGovernanceOperationResult(
       storagePathsExposed: false,
       signedUrlsIssued: false,
       patientDeliveryAllowed: false,
+      rawCredentialExposed: false,
+      credentialHashExposed: false,
+      credentialFingerprintExposed: false,
     },
   };
 }
@@ -882,6 +909,40 @@ export async function executeSelfHostedPatientPhotoProtocolGovernancePrepareAcce
       kind: "network",
       code: "network_error",
       message: "Сбой сети при подготовке ротации доступа.",
+    });
+  }
+  const body = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, body));
+  const item = isRecord(body) && isRecord(body.item) ? body.item : null;
+  return ok(item ? toSelfHostedPatientPhotoProtocolGovernanceOperationResult(item) : null);
+}
+
+export async function executeSelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHash(
+  args: SessionArgs & { payload: SelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHashPayload },
+): Promise<SelfHostedApiResult<SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null>> {
+  if (!args.apiToken) return fail(NOT_CONFIGURED);
+  let response: Response;
+  try {
+    response = await fetch(
+      buildSelfHostedApiUrl(
+        args.apiBaseUrl,
+        "/api/v1/patient-photo-protocol-release/governance/issue-access-credential-hash",
+      ),
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${args.apiToken}`,
+        },
+        body: JSON.stringify(args.payload),
+      },
+    );
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при создании хэша доступа.",
     });
   }
   const body = await parseJsonSafe(response);

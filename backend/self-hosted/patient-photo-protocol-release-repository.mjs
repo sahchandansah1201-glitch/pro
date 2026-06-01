@@ -882,6 +882,203 @@ from (
 `.trim();
 }
 
+export function buildExecutePatientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashSql({
+  actorUserId,
+  clinicIds = [],
+  allClinics = false,
+  limit = 50,
+} = {}) {
+  const operationLimit = safeLimit(limit, 50, 200);
+  return `
+with credential_pepper as (
+  select nullif(current_setting('app.patient_photo_protocol_credential_pepper', true), '') as pepper
+),
+eligible as (
+  select
+    r.id,
+    r.clinic_id,
+    r.visit_id,
+    r.expires_at
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  left join patient_photo_protocol_access_credentials c
+    on c.release_id = r.id
+    and c.credential_kind = 'patient_photo_protocol_access'
+    and c.status = 'active'
+  where r.status = 'blocked'
+    and coalesce((r.metadata_json ->> 'accessArtifactRotationPrepared')::boolean, false) = true
+    and coalesce((r.metadata_json ->> 'requiresSecureCredentialStore')::boolean, false) = true
+    and coalesce((r.metadata_json ->> 'credentialHashStored')::boolean, false) = false
+    and c.id is null
+    and exists (select 1 from credential_pepper cp where cp.pepper is not null)
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+  order by r.updated_at asc, r.created_at asc
+  limit ${operationLimit}
+),
+generated as (
+  select
+    e.id,
+    e.clinic_id,
+    e.visit_id,
+    e.expires_at,
+    encode(gen_random_bytes(32), 'hex') as transient_credential
+  from eligible e
+),
+stored as (
+  insert into patient_photo_protocol_access_credentials (
+    clinic_id,
+    release_id,
+    visit_id,
+    credential_kind,
+    status,
+    credential_hash,
+    credential_fingerprint,
+    hash_algorithm,
+    credential_secret_version,
+    issued_by_user_id,
+    issued_at,
+    expires_at,
+    metadata_json
+  )
+  select
+    g.clinic_id,
+    g.id,
+    g.visit_id,
+    'patient_photo_protocol_access',
+    'active',
+    encode(hmac(g.transient_credential, cp.pepper, 'sha256'), 'hex'),
+    left(encode(digest(g.transient_credential, 'sha256'), 'hex'), 16),
+    'hmac-sha256-pgcrypto-v1',
+    'app.patient_photo_protocol_credential_pepper',
+    ${sqlNullableUuid(actorUserId)},
+    now(),
+    g.expires_at,
+    jsonb_build_object(
+      'brainstormTask', 'SD-MF-045',
+      'metadataOnly', true,
+      'governanceOperation', 'issue_access_credential_hash',
+      'credentialHashStored', true,
+      'credentialFingerprintStored', true,
+      'credentialStoreReady', true,
+      'requiresSessionExchange', true,
+      'rawCredentialStored', false,
+      'rawCredentialExposed', false,
+      'credentialHashExposed', false,
+      'credentialFingerprintExposed', false,
+      'temporaryCredentialsExposed', false,
+      'qrTokensExposed', false,
+      'sessionIdsExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'patientDeliveryAllowed', false
+    )
+  from generated g
+  cross join credential_pepper cp
+  where cp.pepper is not null
+  on conflict (release_id, credential_kind) where status = 'active' do update
+  set
+    credential_hash = excluded.credential_hash,
+    credential_fingerprint = excluded.credential_fingerprint,
+    hash_algorithm = excluded.hash_algorithm,
+    credential_secret_version = excluded.credential_secret_version,
+    issued_by_user_id = excluded.issued_by_user_id,
+    issued_at = excluded.issued_at,
+    expires_at = excluded.expires_at,
+    metadata_json = excluded.metadata_json,
+    updated_at = now()
+  returning release_id
+),
+updated as (
+  update patient_photo_protocol_releases r
+  set
+    metadata_json = coalesce(r.metadata_json, '{}'::jsonb)
+      || jsonb_build_object(
+        'governanceOperation', 'issue_access_credential_hash',
+        'credentialHashStored', true,
+        'credentialFingerprintStored', true,
+        'credentialStoreReady', true,
+        'credentialHashStoredAt', now(),
+        'requiresSecureCredentialStore', false,
+        'requiresSessionExchange', true,
+        'operationActorPresent', ${sqlBoolean(actorUserId != null)},
+        'rawCredentialExposed', false,
+        'credentialHashExposed', false,
+        'credentialFingerprintExposed', false,
+        'temporaryCredentialsExposed', false,
+        'qrTokensExposed', false,
+        'sessionIdsExposed', false,
+        'storagePathsExposed', false,
+        'signedUrlsIssued', false,
+        'patientDeliveryAllowed', false,
+        'operationExecutedAt', now()
+      ),
+    updated_at = now()
+  from stored s
+  where r.id = s.release_id
+  returning r.id
+),
+scope_rollup as (
+  select
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+    )::int as active_remaining_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+        and r.expires_at <= now() + interval '24 hours'
+    )::int as expiring_in_24h_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is null
+    )::int as missing_expiry_count
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where true
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+),
+result as (
+  select
+    (select count(*)::int from updated) as affected_count,
+    coalesce(sr.active_remaining_count, 0) as active_remaining_count,
+    coalesce(sr.expiring_in_24h_count, 0) as expiring_in_24h_count,
+    coalesce(sr.missing_expiry_count, 0) as missing_expiry_count
+  from scope_rollup sr
+)
+select coalesce(jsonb_agg(row_to_json(output)), '[]'::jsonb)::text
+from (
+  select
+    'issue_access_credential_hash' as "operation",
+    case when result.affected_count > 0 then 'executed' else 'no_op' end as "status",
+    result.affected_count as "affectedCount",
+    result.active_remaining_count as "skippedActiveCount",
+    result.expiring_in_24h_count as "expiringIn24hCount",
+    result.missing_expiry_count as "skippedMissingExpiryCount",
+    ${operationLimit} as "limit",
+    'patient_photo_protocol.release_governance.issue_access_credential_hash' as "auditAction",
+    jsonb_build_object(
+      'metadataOnly', true,
+      'patientRowsExposed', false,
+      'rawIdentifiersExposed', false,
+      'revokeReasonExposed', false,
+      'temporaryCredentialsExposed', false,
+      'qrTokensExposed', false,
+      'sessionIdsExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'patientDeliveryAllowed', false,
+      'rawCredentialExposed', false,
+      'credentialHashExposed', false,
+      'credentialFingerprintExposed', false
+    ) as "boundaries"
+  from result
+  limit 1
+) output;
+`.trim();
+}
+
 export function buildGetPatientPhotoProtocolReleaseAuditSql({
   visitId,
   clinicIds = [],
@@ -1016,6 +1213,17 @@ with scoped_releases as (
     coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved,
     coalesce((r.metadata_json ->> 'accessArtifactRotationPrepared')::boolean, false) as access_artifact_rotation_prepared,
     (
+      coalesce((r.metadata_json ->> 'credentialHashStored')::boolean, false) = true
+      or exists (
+        select 1
+        from patient_photo_protocol_access_credentials c
+        where c.release_id = r.id
+          and c.credential_kind = 'patient_photo_protocol_access'
+          and c.status = 'active'
+        limit 1
+      )
+    ) as credential_hash_stored,
+    (
       'credential_rotation_required' = any(coalesce(r.release_blockers, '{}'::text[]))
       or 'session_boundary_review_required' = any(coalesce(r.release_blockers, '{}'::text[]))
       or coalesce((r.metadata_json ->> 'credentialBoundaryBlocked')::boolean, false) = true
@@ -1069,6 +1277,11 @@ queue as (
         then 'access_rotation_required'
       end,
       case when sr.access_artifact_rotation_prepared then 'access_rotation_prepared'
+      end,
+      case when sr.access_artifact_rotation_prepared and not sr.credential_hash_stored
+        then 'credential_hash_required'
+      end,
+      case when sr.credential_hash_stored then 'credential_hash_ready'
       end
     ], null)::text[] as attention
   from scoped_releases sr
@@ -1101,7 +1314,12 @@ summary as (
     count(*) filter (
       where access_artifact_rotation_needed
         and not access_artifact_rotation_prepared
-    )::int as access_artifact_rotation_pending
+    )::int as access_artifact_rotation_pending,
+    count(*) filter (where credential_hash_stored)::int as credential_hash_ready,
+    count(*) filter (
+      where access_artifact_rotation_prepared
+        and not credential_hash_stored
+    )::int as credential_hash_pending
   from scoped_releases
 )
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
@@ -1164,19 +1382,28 @@ from (
         'unsafeArtifacts', coalesce(s.unsafe_session_artifacts, 0),
         'rotationPrepared', coalesce(s.access_artifact_rotation_prepared, 0),
         'rotationPending', coalesce(s.access_artifact_rotation_pending, 0),
+        'credentialHashReady', coalesce(s.credential_hash_ready, 0),
+        'credentialHashPending', coalesce(s.credential_hash_pending, 0),
+        'credentialStoreReady', coalesce(s.credential_hash_ready, 0),
+        'credentialStorePending', coalesce(s.credential_hash_pending, 0),
         'revoked', coalesce(s.revoked, 0),
         'credentialRotationRequired',
           coalesce(s.unsafe_session_artifacts, 0) > 0
-          or coalesce(s.access_artifact_rotation_pending, 0) > 0,
+          or coalesce(s.access_artifact_rotation_pending, 0) > 0
+          or coalesce(s.credential_hash_pending, 0) > 0,
         'nextAction', case
           when coalesce(s.unsafe_session_artifacts, 0) > 0 then 'block_unsafe_session_artifacts'
           when coalesce(s.access_artifact_rotation_pending, 0) > 0 then 'prepare_access_artifact_rotation'
+          when coalesce(s.credential_hash_pending, 0) > 0 then 'issue_access_credential_hash'
           when coalesce(s.expiry_missing, 0) > 0 then 'block_missing_expiry_access_windows'
           else 'inspect_session_lifecycle'
         end,
         'temporaryCredentialsExposed', false,
         'qrTokensExposed', false,
-        'sessionIdsExposed', false
+        'sessionIdsExposed', false,
+        'rawCredentialExposed', false,
+        'credentialHashExposed', false,
+        'credentialFingerprintExposed', false
       ),
       'allowedOperations', jsonb_build_array(
         'review_retention_policy',
@@ -1184,7 +1411,8 @@ from (
         'prepare_revoke_review',
         'inspect_session_lifecycle',
         'block_unsafe_session_artifacts',
-        'prepare_access_artifact_rotation'
+        'prepare_access_artifact_rotation',
+        'issue_access_credential_hash'
       ),
       'blockedOperations', jsonb_build_array(
         'block_secret_issue',
@@ -1454,12 +1682,19 @@ function normalizeGovernance(row = {}) {
         unsafeArtifacts: number(sessionLifecycle.unsafeArtifacts),
         rotationPrepared: number(sessionLifecycle.rotationPrepared),
         rotationPending: number(sessionLifecycle.rotationPending),
+        credentialHashReady: number(sessionLifecycle.credentialHashReady ?? sessionLifecycle.credentialStoreReady),
+        credentialHashPending: number(sessionLifecycle.credentialHashPending ?? sessionLifecycle.credentialStorePending),
+        credentialStoreReady: number(sessionLifecycle.credentialStoreReady ?? sessionLifecycle.credentialHashReady),
+        credentialStorePending: number(sessionLifecycle.credentialStorePending ?? sessionLifecycle.credentialHashPending),
         revoked: number(sessionLifecycle.revoked),
         credentialRotationRequired: bool(sessionLifecycle.credentialRotationRequired),
         nextAction: textOrNull(sessionLifecycle.nextAction) ?? "inspect_session_lifecycle",
         temporaryCredentialsExposed: false,
         qrTokensExposed: false,
         sessionIdsExposed: false,
+        rawCredentialExposed: false,
+        credentialHashExposed: false,
+        credentialFingerprintExposed: false,
       },
       allowedOperations: arrayOfStrings(operations.allowedOperations),
       blockedOperations: arrayOfStrings(operations.blockedOperations),
@@ -1499,6 +1734,9 @@ function normalizeGovernanceOperationResult(row = {}) {
       storagePathsExposed: false,
       signedUrlsIssued: false,
       patientDeliveryAllowed: false,
+      rawCredentialExposed: false,
+      credentialHashExposed: false,
+      credentialFingerprintExposed: false,
     },
   };
 }
@@ -1565,6 +1803,15 @@ export function createPatientPhotoProtocolReleaseRepository(dbClient) {
         : normalizeGovernanceOperationResult({
           operation: "prepare_access_artifact_rotation",
           auditAction: "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
+        });
+    },
+    async executeGovernanceIssueAccessCredentialHash(params) {
+      const rows = await dbClient.queryJson(buildExecutePatientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashSql(params));
+      return Array.isArray(rows) && rows[0]
+        ? normalizeGovernanceOperationResult(rows[0])
+        : normalizeGovernanceOperationResult({
+          operation: "issue_access_credential_hash",
+          auditAction: "patient_photo_protocol.release_governance.issue_access_credential_hash",
         });
     },
   };

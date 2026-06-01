@@ -281,6 +281,33 @@ doctor-only text. Admin UI `/admin/governance` exposes it as
 `Подготовить ротацию доступа` inside `Артефакты доступа`; demo mode remains
 local-only.
 
+## Batch AJ · Credential hash store
+
+The next production-safe step is credential hash storage, still without
+patient delivery:
+
+- migration `0057_patient_photo_protocol_access_credentials.sql`;
+- table `patient_photo_protocol_access_credentials`;
+- endpoint
+  `POST /api/v1/patient-photo-protocol-release/governance/issue-access-credential-hash`;
+- repository builder
+  `buildExecutePatientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashSql`;
+- service method `executeGovernanceIssueAccessCredentialHash`;
+- OpenAPI, frontend client, admin UI and Stage guard markers.
+
+The operation only targets clinic-scoped blocked releases where access artifact
+rotation is prepared and a secure credential store is still required. It uses
+PostgreSQL `pgcrypto` with server-side
+`app.patient_photo_protocol_credential_pepper` to store `credential_hash` and
+`credential_fingerprint`; the transient credential material is never persisted
+or returned. Release metadata is updated with `credentialHashStored`,
+`credentialFingerprintStored`, `credentialStoreReady`, and
+`requiresSessionExchange`, while `patientDeliveryAllowed` stays false.
+
+This is still not QR generation, session issuance, signed URL creation, object
+store delivery, or patient-facing access. Admin UI exposes the aggregate action
+as `Создать хэш доступа`; demo mode remains local-only.
+
 ## Audit
 
 Every read records:
@@ -319,10 +346,14 @@ Production-safe lifecycle operations record:
 - action: `patient_photo_protocol.release_governance.revoke_expired`;
 - action: `patient_photo_protocol.release_governance.block_missing_expiry`;
 - action: `patient_photo_protocol.release_governance.block_unapproved_retention`;
+- action: `patient_photo_protocol.release_governance.block_unsafe_session_artifacts`;
+- action: `patient_photo_protocol.release_governance.prepare_access_artifact_rotation`;
+- action: `patient_photo_protocol.release_governance.issue_access_credential_hash`;
 - entity type: `patient_photo_protocol_release_governance_operation`;
 - metadata: operation name, execution status, affected/skipped counts, and
   false exposure flags for patient rows, raw identifiers, revoke reason,
-  temporary credentials, QR tokens, session identifiers, and delivery.
+  temporary credentials, raw credential material, credential hashes,
+  credential fingerprints, QR tokens, session identifiers, and delivery.
 
 ## Validation
 

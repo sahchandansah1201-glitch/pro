@@ -705,3 +705,90 @@ test("Batch AI service prepares access-artifact rotation with aggregate audit an
     ForbiddenError,
   );
 });
+
+test("Batch AJ service issues credential hash store with aggregate audit and confirm gate", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async executeGovernanceIssueAccessCredentialHash(params) {
+        assert.equal(params.limit, 7);
+        assert.deepEqual(params.clinicIds, [CLINIC_ID]);
+        return {
+          operation: "issue_access_credential_hash",
+          status: "executed",
+          affectedCount: 3,
+          skippedActiveCount: 4,
+          expiringIn24hCount: 1,
+          skippedMissingExpiryCount: 0,
+          limit: 7,
+          auditAction: "patient_photo_protocol.release_governance.issue_access_credential_hash",
+          boundaries: {
+            metadataOnly: true,
+            patientRowsExposed: false,
+            rawIdentifiersExposed: false,
+            revokeReasonExposed: false,
+            temporaryCredentialsExposed: false,
+            qrTokensExposed: false,
+            sessionIdsExposed: false,
+            storagePathsExposed: false,
+            signedUrlsIssued: false,
+            patientDeliveryAllowed: false,
+            rawCredentialExposed: false,
+            credentialHashExposed: false,
+            credentialFingerprintExposed: false,
+          },
+        };
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-issue-access-credential-hash" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceIssueAccessCredentialHash({ confirm: false }, clinicAdminAuth),
+    (error) => error.name === "VisitWorkspaceValidationError" && error.publicDetails?.[0]?.field === "confirm",
+  );
+
+  const result = await service.executeGovernanceIssueAccessCredentialHash(
+    { confirm: true, limit: 7 },
+    clinicAdminAuth,
+    { correlationId: "corr-issue-access-credential-hash" },
+  );
+  assert.equal(result.operation.affectedCount, 3);
+  assert.equal(result.operation.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.operation.boundaries.qrTokensExposed, false);
+  assert.equal(result.operation.boundaries.sessionIdsExposed, false);
+  assert.equal(result.operation.boundaries.rawCredentialExposed, false);
+  assert.equal(result.operation.boundaries.credentialHashExposed, false);
+  assert.equal(result.operation.boundaries.credentialFingerprintExposed, false);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release_governance.issue_access_credential_hash");
+  assert.equal(auditEvents[0].entityType, "patient_photo_protocol_release_governance_operation");
+  assert.deepEqual(auditEvents[0].metadata, {
+    operation: "issue_access_credential_hash",
+    status: "executed",
+    affectedCount: 3,
+    skippedActiveCount: 4,
+    expiringIn24hCount: 1,
+    skippedMissingExpiryCount: 0,
+    metadataOnly: true,
+    patientRowsExposed: false,
+    rawIdentifiersExposed: false,
+    revokeReasonExposed: false,
+    temporaryCredentialsExposed: false,
+    qrTokensExposed: false,
+    sessionIdsExposed: false,
+    patientDeliveryAllowed: false,
+    rawCredentialExposed: false,
+    credentialHashExposed: false,
+    credentialFingerprintExposed: false,
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceIssueAccessCredentialHash({ confirm: true }, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});

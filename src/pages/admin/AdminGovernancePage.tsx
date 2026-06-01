@@ -19,6 +19,7 @@ import {
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention,
+  executeSelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHash,
   executeSelfHostedPatientPhotoProtocolGovernancePrepareAccessArtifactRotation,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
@@ -122,11 +123,18 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
       unsafeArtifacts: 2,
       rotationPrepared: 1,
       rotationPending: 2,
+      credentialHashReady: 1,
+      credentialHashPending: 2,
+      credentialStoreReady: 1,
+      credentialStorePending: 2,
       credentialRotationRequired: true,
-      nextAction: "prepare_access_artifact_rotation",
+      nextAction: "issue_access_credential_hash",
       temporaryCredentialsExposed: false,
       qrTokensExposed: false,
       sessionIdsExposed: false,
+      rawCredentialExposed: false,
+      credentialHashExposed: false,
+      credentialFingerprintExposed: false,
     },
     allowedOperations: [
       "review_retention_policy",
@@ -135,6 +143,7 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
       "inspect_session_lifecycle",
       "block_unsafe_session_artifacts",
       "prepare_access_artifact_rotation",
+      "issue_access_credential_hash",
     ],
     blockedOperations: [
       "block_secret_issue",
@@ -327,11 +336,13 @@ function GovernanceOperations({
   revokeOperationBusy,
   unsafeSessionArtifactOperationBusy,
   rotationOperationBusy,
+  credentialHashOperationBusy,
   onRetentionReview,
   onBlockMissingExpiry,
   onBlockUnapprovedRetention,
   onBlockUnsafeSessionArtifacts,
   onPrepareAccessArtifactRotation,
+  onIssueAccessCredentialHash,
   onRevokeReview,
 }: {
   governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
@@ -341,11 +352,13 @@ function GovernanceOperations({
   revokeOperationBusy: boolean;
   unsafeSessionArtifactOperationBusy: boolean;
   rotationOperationBusy: boolean;
+  credentialHashOperationBusy: boolean;
   onRetentionReview: () => void;
   onBlockMissingExpiry: () => void;
   onBlockUnapprovedRetention: () => void;
   onBlockUnsafeSessionArtifacts: () => void;
   onPrepareAccessArtifactRotation: () => void;
+  onIssueAccessCredentialHash: () => void;
   onRevokeReview: () => void;
 }) {
   const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
@@ -409,6 +422,12 @@ function GovernanceOperations({
             tone={sessionLifecycle.rotationPending > 0 ? "warning" : "success"}
           />
           <OperationLine label="Ротация готова" value={sessionLifecycle.rotationPrepared} />
+          <OperationLine
+            label="Хэш нужен"
+            value={sessionLifecycle.credentialHashPending}
+            tone={sessionLifecycle.credentialHashPending > 0 ? "warning" : "success"}
+          />
+          <OperationLine label="Хэш готов" value={sessionLifecycle.credentialHashReady} />
           <OperationLine label="QR/токены/ID" value="скрыты" tone="success" />
           <div className="text-[11px] text-muted-foreground">
             Разрешены только операционные проверки. Секреты доступа, внешние ссылки и файловые пути заблокированы контрактом.
@@ -437,6 +456,14 @@ function GovernanceOperations({
           >
             {rotationOperationBusy ? "Готовим ротацию..." : "Подготовить ротацию доступа"}
           </Button>
+          <Button
+            variant="outline"
+            className="min-h-[44px] justify-center sm:min-h-[36px]"
+            onClick={onIssueAccessCredentialHash}
+            disabled={credentialHashOperationBusy}
+          >
+            {credentialHashOperationBusy ? "Создаём хэш..." : "Создать хэш доступа"}
+          </Button>
         </div>
       </div>
       {operationResult && (
@@ -448,7 +475,7 @@ function GovernanceOperations({
             <span>Без срока: <b className="tabular-nums text-foreground">{operationResult.skippedMissingExpiryCount}</b></span>
           </div>
           <div className="mt-1">
-            Только агрегаты: пациентские строки, причина отзыва, QR/токены, ID сессий и файловые пути не раскрывались.
+            Только агрегаты: пациентские строки, причина отзыва, секрет доступа, QR/токены, ID сессий и файловые пути не раскрывались.
           </div>
         </div>
       )}
@@ -470,6 +497,7 @@ export default function AdminGovernancePage() {
   const [retentionOperationBusy, setRetentionOperationBusy] = useState(false);
   const [unsafeSessionArtifactOperationBusy, setUnsafeSessionArtifactOperationBusy] = useState(false);
   const [rotationOperationBusy, setRotationOperationBusy] = useState(false);
+  const [credentialHashOperationBusy, setCredentialHashOperationBusy] = useState(false);
 
   const loadGovernance = useCallback(async () => {
     if (!isSelfHostedApiConfigured(session)) {
@@ -534,6 +562,9 @@ export default function AdminGovernancePage() {
           storagePathsExposed: false,
           signedUrlsIssued: false,
           patientDeliveryAllowed: false,
+          rawCredentialExposed: false,
+          credentialHashExposed: false,
+          credentialFingerprintExposed: false,
         },
       });
       return;
@@ -579,6 +610,9 @@ export default function AdminGovernancePage() {
           storagePathsExposed: false,
           signedUrlsIssued: false,
           patientDeliveryAllowed: false,
+          rawCredentialExposed: false,
+          credentialHashExposed: false,
+          credentialFingerprintExposed: false,
         },
       });
       return;
@@ -624,6 +658,9 @@ export default function AdminGovernancePage() {
           storagePathsExposed: false,
           signedUrlsIssued: false,
           patientDeliveryAllowed: false,
+          rawCredentialExposed: false,
+          credentialHashExposed: false,
+          credentialFingerprintExposed: false,
         },
       });
       return;
@@ -669,6 +706,9 @@ export default function AdminGovernancePage() {
           storagePathsExposed: false,
           signedUrlsIssued: false,
           patientDeliveryAllowed: false,
+          rawCredentialExposed: false,
+          credentialHashExposed: false,
+          credentialFingerprintExposed: false,
         },
       });
       return;
@@ -714,6 +754,9 @@ export default function AdminGovernancePage() {
           storagePathsExposed: false,
           signedUrlsIssued: false,
           patientDeliveryAllowed: false,
+          rawCredentialExposed: false,
+          credentialHashExposed: false,
+          credentialFingerprintExposed: false,
         },
       });
       return;
@@ -732,6 +775,54 @@ export default function AdminGovernancePage() {
     setOperationResult(result.value);
     setLastAction(
       `Ротация доступа подготовлена: ${result.value.affectedCount} записей, секреты доступа скрыты`,
+    );
+    await loadGovernance();
+  }
+
+  async function recordIssueAccessCredentialHash() {
+    if (!configured) {
+      setLastAction("Demo: хэш доступа создан локально, секрет доступа/QR/session не раскрыты");
+      setOperationResult({
+        operation: "issue_access_credential_hash",
+        status: "no_op",
+        affectedCount: 0,
+        skippedActiveCount: governance.operations.sessionLifecycle.active,
+        expiringIn24hCount: governance.operations.sessionLifecycle.expiringIn24h,
+        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
+        limit: 7,
+        auditAction: "patient_photo_protocol.release_governance.issue_access_credential_hash",
+        boundaries: {
+          metadataOnly: true,
+          patientRowsExposed: false,
+          rawIdentifiersExposed: false,
+          revokeReasonExposed: false,
+          temporaryCredentialsExposed: false,
+          qrTokensExposed: false,
+          sessionIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          patientDeliveryAllowed: false,
+          rawCredentialExposed: false,
+          credentialHashExposed: false,
+          credentialFingerprintExposed: false,
+        },
+      });
+      return;
+    }
+    setCredentialHashOperationBusy(true);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHash({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: { confirm: true, limit: 7 },
+    });
+    setCredentialHashOperationBusy(false);
+    if (!result.ok || !result.value) {
+      setLastAction(result.error?.message ?? "Backend не создал хэш доступа.");
+      return;
+    }
+    setOperationResult(result.value);
+    setLastAction(
+      `Хэш доступа создан: ${result.value.affectedCount} записей, секрет доступа/QR/session скрыты`,
     );
     await loadGovernance();
   }
@@ -817,11 +908,13 @@ export default function AdminGovernancePage() {
           revokeOperationBusy={revokeOperationBusy}
           unsafeSessionArtifactOperationBusy={unsafeSessionArtifactOperationBusy}
           rotationOperationBusy={rotationOperationBusy}
+          credentialHashOperationBusy={credentialHashOperationBusy}
           onRetentionReview={recordRetentionReview}
           onBlockMissingExpiry={() => void recordBlockMissingExpiry()}
           onBlockUnapprovedRetention={() => void recordBlockUnapprovedRetention()}
           onBlockUnsafeSessionArtifacts={() => void recordBlockUnsafeSessionArtifacts()}
           onPrepareAccessArtifactRotation={() => void recordPrepareAccessArtifactRotation()}
+          onIssueAccessCredentialHash={() => void recordIssueAccessCredentialHash()}
           onRevokeReview={() => void recordRevokeReview()}
         />
 

@@ -5,6 +5,7 @@ import {
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts,
+  executeSelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHash,
   executeSelfHostedPatientPhotoProtocolGovernancePrepareAccessArtifactRotation,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
@@ -642,6 +643,62 @@ describe("self-hosted-clinical-report-package-api", () => {
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
         body: JSON.stringify({ confirm: true, limit: 9 }),
+      }),
+    );
+  });
+
+  it("executes credential hash issuance through the self-hosted governance route without exposing secret material", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            operation: "issue_access_credential_hash",
+            status: "executed",
+            affectedCount: 3,
+            skippedActiveCount: 4,
+            expiringIn24hCount: 1,
+            skippedMissingExpiryCount: 0,
+            limit: 7,
+            auditAction: "patient_photo_protocol.release_governance.issue_access_credential_hash",
+            boundaries: {
+              metadataOnly: true,
+              patientDeliveryAllowed: false,
+              temporaryCredentialsExposed: false,
+              qrTokensExposed: false,
+              sessionIdsExposed: false,
+              rawCredentialExposed: false,
+              credentialHashExposed: false,
+              credentialFingerprintExposed: false,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHash({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      payload: { confirm: true, limit: 7 },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.operation).toBe("issue_access_credential_hash");
+    expect(result.value?.affectedCount).toBe(3);
+    expect(result.value?.boundaries.temporaryCredentialsExposed).toBe(false);
+    expect(result.value?.boundaries.qrTokensExposed).toBe(false);
+    expect(result.value?.boundaries.sessionIdsExposed).toBe(false);
+    expect(result.value?.boundaries.rawCredentialExposed).toBe(false);
+    expect(result.value?.boundaries.credentialHashExposed).toBe(false);
+    expect(result.value?.boundaries.credentialFingerprintExposed).toBe(false);
+    expect(result.value).not.toHaveProperty("rawCredential");
+    expect(result.value).not.toHaveProperty("credentialHash");
+    expect(result.value).not.toHaveProperty("credentialFingerprint");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patient-photo-protocol-release/governance/issue-access-credential-hash",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+        body: JSON.stringify({ confirm: true, limit: 7 }),
       }),
     );
   });

@@ -103,6 +103,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("button", { name: /Заблокировать без срока/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Заблокировать артефакты доступа/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Подготовить ротацию доступа/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Создать хэш доступа/ })).toBeInTheDocument();
     expect(screen.getByText("Очередь утверждений")).toBeInTheDocument();
     expect(screen.getByText("Границы данных")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Подготовить разбор хранения/ }));
@@ -118,6 +119,8 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText(/Demo: unsafe-артефакты доступа заблокированы локально/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Подготовить ротацию доступа/ }));
     expect(screen.getByText(/Demo: ротация доступа подготовлена локально/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Создать хэш доступа/ }));
+    expect(screen.getByText(/Demo: хэш доступа создан локально/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /Зафиксировать разбор/ })[0]);
     expect(screen.getByText(/Разбор политики подготовлен локально/)).toBeInTheDocument();
   });

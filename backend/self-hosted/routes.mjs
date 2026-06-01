@@ -2188,6 +2188,42 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  // Batch AJ · production-safe credential hash store issuance.
+  const patientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashMatch =
+    url.pathname === "/api/v1/patient-photo-protocol-release/governance/issue-access-credential-hash";
+  if (patientPhotoProtocolReleaseGovernanceIssueAccessCredentialHashMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const body = parseJsonBody(request.body);
+      const result =
+        await runtimeServices.patientPhotoProtocolReleaseService.executeGovernanceIssueAccessCredentialHash(
+          body,
+          authContext,
+          { correlationId },
+        );
+      return jsonResponse(
+        200,
+        {
+          stage: "8G-8I",
+          source: "postgres",
+          item: result.operation,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Stage 4R · self-hosted Device Bridge command queue endpoints.
   const bridgeCommandMatch = url.pathname.match(/^\/api\/v1\/device-bridges\/([^/]+)\/commands$/);
   if (bridgeCommandMatch && method === "POST") {

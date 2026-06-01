@@ -921,6 +921,95 @@
           }
         }
       }
+    },
+    "/api/v1/patient-photo-protocol-release/governance/issue-access-credential-hash": {
+      "post": {
+        "summary": "Issue aggregate access credential hash",
+        "description": "Production-safe lifecycle operation that creates backend-owned credential hashes and fingerprints for blocked patient photo/protocol release rows whose access artifact rotation has been prepared. The response is aggregate-only and never exposes patient rows, raw identifiers, raw credential values, credential hashes, credential fingerprints, QR values, session identifiers, file paths, signed links, or doctor-only text.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "confirm"
+                ],
+                "properties": {
+                  "confirm": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "default": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Aggregate operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "stage",
+                    "source",
+                    "item",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "stage": {
+                      "type": "string",
+                      "enum": [
+                        "8G-8I"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "postgres"
+                      ]
+                    },
+                    "item": {
+                      "$ref": "#/components/schemas/PatientPhotoProtocolGovernanceOperationResult"
+                    },
+                    "generatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Auth required"
+          },
+          "403": {
+            "description": "Role or clinic scope denied"
+          },
+          "422": {
+            "description": "Confirm or limit validation failed"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1562,7 +1651,8 @@
                       "inspect_session_lifecycle",
                       "block_missing_expiry_access_windows",
                       "block_unsafe_session_artifacts",
-                      "prepare_access_artifact_rotation"
+                      "prepare_access_artifact_rotation",
+                      "issue_access_credential_hash"
                     ]
                   },
                   "temporaryCredentialsExposed": {
@@ -1588,6 +1678,36 @@
                   },
                   "rotationPending": {
                     "type": "integer"
+                  },
+                  "credentialHashReady": {
+                    "type": "integer"
+                  },
+                  "credentialHashPending": {
+                    "type": "integer"
+                  },
+                  "credentialStoreReady": {
+                    "type": "integer"
+                  },
+                  "credentialStorePending": {
+                    "type": "integer"
+                  },
+                  "rawCredentialExposed": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "credentialHashExposed": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "credentialFingerprintExposed": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
                   }
                 }
               },
@@ -1677,7 +1797,8 @@
               "block_missing_expiry_access_windows",
               "block_unapproved_retention_windows",
               "block_unsafe_session_artifacts",
-              "prepare_access_artifact_rotation"
+              "prepare_access_artifact_rotation",
+              "issue_access_credential_hash"
             ]
           },
           "status": {
@@ -1709,7 +1830,8 @@
               "patient_photo_protocol.release_governance.block_missing_expiry",
               "patient_photo_protocol.release_governance.block_unapproved_retention",
               "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
-              "patient_photo_protocol.release_governance.prepare_access_artifact_rotation"
+              "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
+              "patient_photo_protocol.release_governance.issue_access_credential_hash"
             ]
           },
           "boundaries": {
@@ -1770,6 +1892,24 @@
                 ]
               },
               "patientDeliveryAllowed": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "rawCredentialExposed": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "credentialHashExposed": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "credentialFingerprintExposed": {
                 "type": "boolean",
                 "enum": [
                   false
