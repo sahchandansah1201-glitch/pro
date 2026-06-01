@@ -4,6 +4,7 @@ import {
   clinicalReportMissingLabel,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention,
+  executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
@@ -542,6 +543,53 @@ describe("self-hosted-clinical-report-package-api", () => {
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
         body: JSON.stringify({ confirm: true, limit: 15 }),
+      }),
+    );
+  });
+
+  it("executes unsafe session artifact blocking through the self-hosted governance route", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            operation: "block_unsafe_session_artifacts",
+            status: "executed",
+            affectedCount: 5,
+            skippedActiveCount: 2,
+            expiringIn24hCount: 1,
+            skippedMissingExpiryCount: 0,
+            limit: 12,
+            auditAction: "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
+            boundaries: {
+              metadataOnly: true,
+              patientDeliveryAllowed: false,
+              temporaryCredentialsExposed: false,
+              qrTokensExposed: false,
+              sessionIdsExposed: false,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      payload: { confirm: true, limit: 12 },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.operation).toBe("block_unsafe_session_artifacts");
+    expect(result.value?.affectedCount).toBe(5);
+    expect(result.value?.boundaries.temporaryCredentialsExposed).toBe(false);
+    expect(result.value?.boundaries.qrTokensExposed).toBe(false);
+    expect(result.value?.boundaries.sessionIdsExposed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patient-photo-protocol-release/governance/block-unsafe-session-artifacts",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+        body: JSON.stringify({ confirm: true, limit: 12 }),
       }),
     );
   });

@@ -608,6 +608,129 @@ from (
 `.trim();
 }
 
+export function buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnsafeSessionArtifactsSql({
+  actorUserId,
+  clinicIds = [],
+  allClinics = false,
+  limit = 50,
+} = {}) {
+  const operationLimit = safeLimit(limit, 50, 200);
+  return `
+with eligible as (
+  select r.id
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where r.status = 'prepared'
+    and r.expires_at is not null
+    and r.expires_at > now()
+    and (
+      (r.metadata_json ->> 'temporaryCredentialIssued') = 'true'
+      or (r.metadata_json ->> 'qrTokenIssued') = 'true'
+      or (r.metadata_json ->> 'sessionIssued') = 'true'
+      or (r.metadata_json ->> 'sessionRotationRequired') = 'true'
+      or r.metadata_json ? 'temporaryCredentialIssuedAt'
+      or r.metadata_json ? 'qrTokenIssuedAt'
+      or r.metadata_json ? 'sessionIssuedAt'
+    )
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+  order by r.expires_at asc, r.updated_at asc
+  limit ${operationLimit}
+),
+updated as (
+  update patient_photo_protocol_releases r
+  set
+    status = 'blocked',
+    release_blockers = (
+      select array_agg(distinct blocker)
+      from unnest(coalesce(r.release_blockers, '{}'::text[]) || array[
+        'credential_rotation_required',
+        'session_boundary_review_required'
+      ]) as blocker
+    ),
+    metadata_json = (
+      coalesce(r.metadata_json, '{}'::jsonb)
+      - 'temporaryCredentialIssuedAt'
+      - 'qrTokenIssuedAt'
+      - 'sessionIssuedAt'
+    )
+      || jsonb_build_object(
+        'governanceOperation', 'block_unsafe_session_artifacts',
+        'sessionLifecycleControlled', true,
+        'credentialBoundaryBlocked', true,
+        'operationActorPresent', ${sqlBoolean(actorUserId != null)},
+        'temporaryCredentialIssued', false,
+        'qrTokenIssued', false,
+        'sessionIssued', false,
+        'sessionRotationRequired', false,
+        'temporaryCredentialsExposed', false,
+        'qrTokensExposed', false,
+        'sessionIdsExposed', false,
+        'operationExecutedAt', now()
+      ),
+    updated_at = now()
+  from eligible e
+  where r.id = e.id
+  returning r.id
+),
+scope_rollup as (
+  select
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+    )::int as active_remaining_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+        and r.expires_at <= now() + interval '24 hours'
+    )::int as expiring_in_24h_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is null
+    )::int as missing_expiry_count
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where true
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+),
+result as (
+  select
+    (select count(*)::int from updated) as affected_count,
+    coalesce(sr.active_remaining_count, 0) as active_remaining_count,
+    coalesce(sr.expiring_in_24h_count, 0) as expiring_in_24h_count,
+    coalesce(sr.missing_expiry_count, 0) as missing_expiry_count
+  from scope_rollup sr
+)
+select coalesce(jsonb_agg(row_to_json(output)), '[]'::jsonb)::text
+from (
+  select
+    'block_unsafe_session_artifacts' as "operation",
+    case when result.affected_count > 0 then 'executed' else 'no_op' end as "status",
+    result.affected_count as "affectedCount",
+    result.active_remaining_count as "skippedActiveCount",
+    result.expiring_in_24h_count as "expiringIn24hCount",
+    result.missing_expiry_count as "skippedMissingExpiryCount",
+    ${operationLimit} as "limit",
+    'patient_photo_protocol.release_governance.block_unsafe_session_artifacts' as "auditAction",
+    jsonb_build_object(
+      'metadataOnly', true,
+      'patientRowsExposed', false,
+      'rawIdentifiersExposed', false,
+      'revokeReasonExposed', false,
+      'temporaryCredentialsExposed', false,
+      'qrTokensExposed', false,
+      'sessionIdsExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'patientDeliveryAllowed', false
+    ) as "boundaries"
+  from result
+  limit 1
+) output;
+`.trim();
+}
+
 export function buildGetPatientPhotoProtocolReleaseAuditSql({
   visitId,
   clinicIds = [],
@@ -739,7 +862,16 @@ with scoped_releases as (
     r.updated_at,
     coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false) as patient_file_proxy_enabled,
     coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false) as patient_copy_approved,
-    coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved
+    coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved,
+    (
+      (r.metadata_json ->> 'temporaryCredentialIssued') = 'true'
+      or (r.metadata_json ->> 'qrTokenIssued') = 'true'
+      or (r.metadata_json ->> 'sessionIssued') = 'true'
+      or (r.metadata_json ->> 'sessionRotationRequired') = 'true'
+      or r.metadata_json ? 'temporaryCredentialIssuedAt'
+      or r.metadata_json ? 'qrTokenIssuedAt'
+      or r.metadata_json ? 'sessionIssuedAt'
+    ) as unsafe_session_artifacts
   from patient_photo_protocol_releases r
   join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
   where true
@@ -773,6 +905,8 @@ queue as (
       case when not sr.patient_copy_approved then 'patient_copy_required' end,
       case when sr.expires_at is not null and sr.expires_at <= now() + interval '24 hours' and sr.status = 'prepared'
         then 'expires_soon'
+      end,
+      case when sr.unsafe_session_artifacts then 'session_artifacts_review'
       end
     ], null)::text[] as attention
   from scoped_releases sr
@@ -794,7 +928,13 @@ summary as (
         and expires_at is not null
         and expires_at > now()
         and expires_at <= now() + interval '24 hours'
-    )::int as expiring_in_24h
+    )::int as expiring_in_24h,
+    count(*) filter (
+      where status = 'prepared'
+        and expires_at is not null
+        and expires_at > now()
+        and unsafe_session_artifacts
+    )::int as unsafe_session_artifacts
   from scoped_releases
 )
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
@@ -854,7 +994,14 @@ from (
         'active', coalesce(s.active_access_windows, 0),
         'expiringIn24h', coalesce(s.expiring_in_24h, 0),
         'missingExpiry', coalesce(s.expiry_missing, 0),
+        'unsafeArtifacts', coalesce(s.unsafe_session_artifacts, 0),
         'revoked', coalesce(s.revoked, 0),
+        'credentialRotationRequired', coalesce(s.unsafe_session_artifacts, 0) > 0,
+        'nextAction', case
+          when coalesce(s.unsafe_session_artifacts, 0) > 0 then 'block_unsafe_session_artifacts'
+          when coalesce(s.expiry_missing, 0) > 0 then 'block_missing_expiry_access_windows'
+          else 'inspect_session_lifecycle'
+        end,
         'temporaryCredentialsExposed', false,
         'qrTokensExposed', false,
         'sessionIdsExposed', false
@@ -863,7 +1010,8 @@ from (
         'review_retention_policy',
         'review_patient_copy',
         'prepare_revoke_review',
-        'inspect_session_lifecycle'
+        'inspect_session_lifecycle',
+        'block_unsafe_session_artifacts'
       ),
       'blockedOperations', jsonb_build_array(
         'block_secret_issue',
@@ -1130,7 +1278,10 @@ function normalizeGovernance(row = {}) {
         active: number(sessionLifecycle.active),
         expiringIn24h: number(sessionLifecycle.expiringIn24h),
         missingExpiry: number(sessionLifecycle.missingExpiry),
+        unsafeArtifacts: number(sessionLifecycle.unsafeArtifacts),
         revoked: number(sessionLifecycle.revoked),
+        credentialRotationRequired: bool(sessionLifecycle.credentialRotationRequired),
+        nextAction: textOrNull(sessionLifecycle.nextAction) ?? "inspect_session_lifecycle",
         temporaryCredentialsExposed: false,
         qrTokensExposed: false,
         sessionIdsExposed: false,
@@ -1221,6 +1372,15 @@ export function createPatientPhotoProtocolReleaseRepository(dbClient) {
         : normalizeGovernanceOperationResult({
           operation: "block_unapproved_retention_windows",
           auditAction: "patient_photo_protocol.release_governance.block_unapproved_retention",
+        });
+    },
+    async executeGovernanceBlockUnsafeSessionArtifacts(params) {
+      const rows = await dbClient.queryJson(buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnsafeSessionArtifactsSql(params));
+      return Array.isArray(rows) && rows[0]
+        ? normalizeGovernanceOperationResult(rows[0])
+        : normalizeGovernanceOperationResult({
+          operation: "block_unsafe_session_artifacts",
+          auditAction: "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
         });
     },
   };

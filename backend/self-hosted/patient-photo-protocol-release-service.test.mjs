@@ -274,7 +274,7 @@ test("Batch AB service exposes aggregate release governance to clinic admin and 
           operations: {
             retention: { reviewDue: 2 },
             revokeReadiness: { canPrepareRevokeReview: 1 },
-            sessionLifecycle: { missingExpiry: 1, sessionIdsExposed: false },
+            sessionLifecycle: { missingExpiry: 1, unsafeArtifacts: 0, sessionIdsExposed: false },
           },
         };
       },
@@ -308,6 +308,7 @@ test("Batch AB service exposes aggregate release governance to clinic admin and 
     retentionReviewDue: 2,
     revokeReviewReady: 1,
     sessionMissingExpiry: 1,
+    unsafeSessionArtifacts: 0,
     sessionIdsExposed: false,
     metadataOnly: true,
     rawIdentifiersExposed: false,
@@ -543,6 +544,84 @@ test("Batch AF service blocks unapproved-retention windows with aggregate audit 
 
   await assert.rejects(
     () => service.executeGovernanceBlockUnapprovedRetention({ confirm: true }, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});
+
+test("Batch AH service blocks unsafe session artifacts with aggregate audit and confirm gate", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async executeGovernanceBlockUnsafeSessionArtifacts(params) {
+        assert.equal(params.limit, 12);
+        assert.deepEqual(params.clinicIds, [CLINIC_ID]);
+        return {
+          operation: "block_unsafe_session_artifacts",
+          status: "executed",
+          affectedCount: 5,
+          skippedActiveCount: 2,
+          expiringIn24hCount: 1,
+          skippedMissingExpiryCount: 0,
+          limit: 12,
+          auditAction: "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
+          boundaries: {
+            metadataOnly: true,
+            patientRowsExposed: false,
+            rawIdentifiersExposed: false,
+            revokeReasonExposed: false,
+            temporaryCredentialsExposed: false,
+            qrTokensExposed: false,
+            sessionIdsExposed: false,
+            storagePathsExposed: false,
+            signedUrlsIssued: false,
+            patientDeliveryAllowed: false,
+          },
+        };
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-block-unsafe-session" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceBlockUnsafeSessionArtifacts({ confirm: false }, clinicAdminAuth),
+    (error) => error.name === "VisitWorkspaceValidationError" && error.publicDetails?.[0]?.field === "confirm",
+  );
+
+  const result = await service.executeGovernanceBlockUnsafeSessionArtifacts(
+    { confirm: true, limit: 12 },
+    clinicAdminAuth,
+    { correlationId: "corr-block-unsafe-session" },
+  );
+  assert.equal(result.operation.affectedCount, 5);
+  assert.equal(result.operation.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.operation.boundaries.qrTokensExposed, false);
+  assert.equal(result.operation.boundaries.sessionIdsExposed, false);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release_governance.block_unsafe_session_artifacts");
+  assert.equal(auditEvents[0].entityType, "patient_photo_protocol_release_governance_operation");
+  assert.deepEqual(auditEvents[0].metadata, {
+    operation: "block_unsafe_session_artifacts",
+    status: "executed",
+    affectedCount: 5,
+    skippedActiveCount: 2,
+    expiringIn24hCount: 1,
+    skippedMissingExpiryCount: 0,
+    metadataOnly: true,
+    patientRowsExposed: false,
+    rawIdentifiersExposed: false,
+    revokeReasonExposed: false,
+    temporaryCredentialsExposed: false,
+    qrTokensExposed: false,
+    sessionIdsExposed: false,
+    patientDeliveryAllowed: false,
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceBlockUnsafeSessionArtifacts({ confirm: true }, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
     ForbiddenError,
   );
 });

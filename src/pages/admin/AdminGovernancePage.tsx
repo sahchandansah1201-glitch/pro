@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
@@ -117,6 +118,9 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
       expiringIn24h: 2,
       missingExpiry: 4,
       revoked: 3,
+      unsafeArtifacts: 2,
+      credentialRotationRequired: true,
+      nextAction: "block_unsafe_session_artifacts",
       temporaryCredentialsExposed: false,
       qrTokensExposed: false,
       sessionIdsExposed: false,
@@ -126,6 +130,7 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
       "review_patient_copy",
       "prepare_revoke_review",
       "inspect_session_lifecycle",
+      "block_unsafe_session_artifacts",
     ],
     blockedOperations: [
       "block_secret_issue",
@@ -153,6 +158,7 @@ const ATTENTION_LABEL: Record<string, string> = {
   file_proxy_required: "file proxy",
   expiry_required: "срок",
   expires_soon: "истекает",
+  session_artifacts_review: "артефакты доступа",
   blocked_release: "блокер",
   revoked_release: "отзыв",
 };
@@ -313,9 +319,11 @@ function GovernanceOperations({
   missingExpiryOperationBusy,
   retentionOperationBusy,
   revokeOperationBusy,
+  unsafeSessionArtifactOperationBusy,
   onRetentionReview,
   onBlockMissingExpiry,
   onBlockUnapprovedRetention,
+  onBlockUnsafeSessionArtifacts,
   onRevokeReview,
 }: {
   governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
@@ -323,9 +331,11 @@ function GovernanceOperations({
   missingExpiryOperationBusy: boolean;
   retentionOperationBusy: boolean;
   revokeOperationBusy: boolean;
+  unsafeSessionArtifactOperationBusy: boolean;
   onRetentionReview: () => void;
   onBlockMissingExpiry: () => void;
   onBlockUnapprovedRetention: () => void;
+  onBlockUnsafeSessionArtifacts: () => void;
   onRevokeReview: () => void;
 }) {
   const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
@@ -378,6 +388,11 @@ function GovernanceOperations({
           </div>
           <OperationLine label="Активные" value={sessionLifecycle.active} />
           <OperationLine label="Без срока" value={sessionLifecycle.missingExpiry} tone={sessionLifecycle.missingExpiry > 0 ? "warning" : "success"} />
+          <OperationLine
+            label="Артефакты доступа"
+            value={sessionLifecycle.unsafeArtifacts}
+            tone={sessionLifecycle.unsafeArtifacts > 0 ? "warning" : "success"}
+          />
           <OperationLine label="QR/токены/ID" value="скрыты" tone="success" />
           <div className="text-[11px] text-muted-foreground">
             Разрешены только операционные проверки. Секреты доступа, внешние ссылки и файловые пути заблокированы контрактом.
@@ -389,6 +404,14 @@ function GovernanceOperations({
             disabled={missingExpiryOperationBusy}
           >
             {missingExpiryOperationBusy ? "Блокируем окна..." : "Заблокировать без срока"}
+          </Button>
+          <Button
+            variant="outline"
+            className="min-h-[44px] justify-center sm:min-h-[36px]"
+            onClick={onBlockUnsafeSessionArtifacts}
+            disabled={unsafeSessionArtifactOperationBusy}
+          >
+            {unsafeSessionArtifactOperationBusy ? "Блокируем артефакты..." : "Заблокировать артефакты доступа"}
           </Button>
         </div>
       </div>
@@ -421,6 +444,7 @@ export default function AdminGovernancePage() {
   const [revokeOperationBusy, setRevokeOperationBusy] = useState(false);
   const [missingExpiryOperationBusy, setMissingExpiryOperationBusy] = useState(false);
   const [retentionOperationBusy, setRetentionOperationBusy] = useState(false);
+  const [unsafeSessionArtifactOperationBusy, setUnsafeSessionArtifactOperationBusy] = useState(false);
 
   const loadGovernance = useCallback(async () => {
     if (!isSelfHostedApiConfigured(session)) {
@@ -597,6 +621,51 @@ export default function AdminGovernancePage() {
     await loadGovernance();
   }
 
+  async function recordBlockUnsafeSessionArtifacts() {
+    if (!configured) {
+      setLastAction("Demo: unsafe-артефакты доступа заблокированы локально, QR/токены/ID не раскрыты");
+      setOperationResult({
+        operation: "block_unsafe_session_artifacts",
+        status: "no_op",
+        affectedCount: 0,
+        skippedActiveCount: governance.operations.sessionLifecycle.active,
+        expiringIn24hCount: governance.operations.sessionLifecycle.expiringIn24h,
+        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
+        limit: 12,
+        auditAction: "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
+        boundaries: {
+          metadataOnly: true,
+          patientRowsExposed: false,
+          rawIdentifiersExposed: false,
+          revokeReasonExposed: false,
+          temporaryCredentialsExposed: false,
+          qrTokensExposed: false,
+          sessionIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          patientDeliveryAllowed: false,
+        },
+      });
+      return;
+    }
+    setUnsafeSessionArtifactOperationBusy(true);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: { confirm: true, limit: 12 },
+    });
+    setUnsafeSessionArtifactOperationBusy(false);
+    if (!result.ok || !result.value) {
+      setLastAction(result.error?.message ?? "Backend не заблокировал unsafe-артефакты доступа.");
+      return;
+    }
+    setOperationResult(result.value);
+    setLastAction(
+      `Unsafe-артефакты доступа заблокированы: ${result.value.affectedCount} изменено, QR/токены/ID скрыты`,
+    );
+    await loadGovernance();
+  }
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -676,9 +745,11 @@ export default function AdminGovernancePage() {
           missingExpiryOperationBusy={missingExpiryOperationBusy}
           retentionOperationBusy={retentionOperationBusy}
           revokeOperationBusy={revokeOperationBusy}
+          unsafeSessionArtifactOperationBusy={unsafeSessionArtifactOperationBusy}
           onRetentionReview={recordRetentionReview}
           onBlockMissingExpiry={() => void recordBlockMissingExpiry()}
           onBlockUnapprovedRetention={() => void recordBlockUnapprovedRetention()}
+          onBlockUnsafeSessionArtifacts={() => void recordBlockUnsafeSessionArtifacts()}
           onRevokeReview={() => void recordRevokeReview()}
         />
 

@@ -170,6 +170,23 @@ export function normalizeExecutePatientPhotoProtocolReleaseGovernanceBlockUnappr
   return { limit };
 }
 
+export function normalizeExecutePatientPhotoProtocolReleaseGovernanceBlockUnsafeSessionArtifactsPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  const details = [];
+  if (input.confirm !== true) {
+    details.push({ field: "confirm", message: "confirm must be true for production session artifact lifecycle execution." });
+  }
+  const rawLimit = input.limit ?? 50;
+  const limit = Number(rawLimit);
+  if (!Number.isFinite(limit) || limit <= 0 || Math.floor(limit) !== limit || limit > 200) {
+    details.push({ field: "limit", message: "limit must be an integer from 1 to 200." });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return { limit };
+}
+
 function ensureScopeAllowsClinic(scope, clinicId) {
   if (scope.allClinics) return;
   if (!clinicId || !scope.clinicIds.includes(clinicId)) {
@@ -220,6 +237,7 @@ function auditGovernanceMetadata(governance) {
     retentionReviewDue: governance.operations?.retention?.reviewDue ?? 0,
     revokeReviewReady: governance.operations?.revokeReadiness?.canPrepareRevokeReview ?? 0,
     sessionMissingExpiry: governance.operations?.sessionLifecycle?.missingExpiry ?? 0,
+    unsafeSessionArtifacts: governance.operations?.sessionLifecycle?.unsafeArtifacts ?? 0,
     sessionIdsExposed: governance.operations?.sessionLifecycle?.sessionIdsExposed === true,
     metadataOnly: governance.boundaries.metadataOnly === true,
     rawIdentifiersExposed: governance.boundaries.rawIdentifiersExposed === true,
@@ -438,6 +456,27 @@ export function createPatientPhotoProtocolReleaseService({
         clinicId: null,
         actorUserId: authContext.userId,
         action: "patient_photo_protocol.release_governance.block_unapproved_retention",
+        entityType: "patient_photo_protocol_release_governance_operation",
+        entityId: null,
+        correlationId,
+        metadata: auditGovernanceOperationMetadata(operation),
+      });
+      return { operation, scope };
+    },
+
+    async executeGovernanceBlockUnsafeSessionArtifacts(input, authContext, { correlationId } = {}) {
+      const scope = patientPhotoProtocolGovernanceWriteScope(authContext);
+      const payload = normalizeExecutePatientPhotoProtocolReleaseGovernanceBlockUnsafeSessionArtifactsPayload(input);
+      const operation = await patientPhotoProtocolReleaseRepository.executeGovernanceBlockUnsafeSessionArtifacts({
+        actorUserId: authContext.userId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+        limit: payload.limit,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
         entityType: "patient_photo_protocol_release_governance_operation",
         entityId: null,
         correlationId,

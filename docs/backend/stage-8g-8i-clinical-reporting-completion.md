@@ -97,6 +97,7 @@ release workflow:
 - `POST /api/v1/patient-photo-protocol-release/governance/revoke-expired`;
 - `POST /api/v1/patient-photo-protocol-release/governance/block-missing-expiry`;
 - `POST /api/v1/patient-photo-protocol-release/governance/block-unapproved-retention`;
+- `POST /api/v1/patient-photo-protocol-release/governance/block-unsafe-session-artifacts`;
 - repository/service tests for prepare, revoke, RBAC, and protected-field
   hygiene.
 
@@ -225,6 +226,30 @@ active windows missing approved retention policy until a stricter delivery
 gate can also verify retention approval at download time. Admin UI
 `/admin/governance` exposes it as `Заблокировать без политики` inside
 `Разбор хранения`; demo mode remains local-only.
+
+Batch AH adds a credential/QR/session lifecycle safety operation:
+
+- `POST /api/v1/patient-photo-protocol-release/governance/block-unsafe-session-artifacts`;
+- payload requires `confirm: true` and an optional bounded `limit` from 1 to
+  200;
+- backend updates only release rows already in `prepared` state with a future
+  `expires_at` and backend metadata indicating temporary credential, QR, or
+  session artifacts need rotation;
+- each affected row is marked `blocked` and receives stable blockers
+  `credential_rotation_required` and `session_boundary_review_required`;
+- the row metadata is patched so issue flags become false and boundary flags
+  stay false; backend-only issue timestamp markers are removed;
+  temporary credentials, QR tokens, and session identifiers remain hidden;
+- the route returns the same aggregate-only operation result with safe
+  boundary flags.
+
+This operation is deliberately a blocking control, not credential issuance and
+not QR/session delivery. It does not expose patient rows, raw identifiers,
+temporary credential values, QR values, session identifiers, revoke reason
+text, storage paths, signed links, files, policy payloads, or doctor-only text.
+Admin UI `/admin/governance` exposes it as
+`Заблокировать артефакты доступа` inside `Жизненный цикл сессий`; demo mode
+remains local-only.
 
 ## Audit
 

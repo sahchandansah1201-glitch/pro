@@ -176,7 +176,10 @@ export interface SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
       active: number;
       expiringIn24h: number;
       missingExpiry: number;
+      unsafeArtifacts: number;
       revoked: number;
+      credentialRotationRequired: boolean;
+      nextAction: string;
       temporaryCredentialsExposed: boolean;
       qrTokensExposed: boolean;
       sessionIdsExposed: boolean;
@@ -202,6 +205,7 @@ export interface SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO {
     | "revoke_expired_access_windows"
     | "block_missing_expiry_access_windows"
     | "block_unapproved_retention_windows"
+    | "block_unsafe_session_artifacts"
     | string;
   status: "executed" | "no_op" | string;
   affectedCount: number;
@@ -213,6 +217,7 @@ export interface SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO {
     | "patient_photo_protocol.release_governance.revoke_expired"
     | "patient_photo_protocol.release_governance.block_missing_expiry"
     | "patient_photo_protocol.release_governance.block_unapproved_retention"
+    | "patient_photo_protocol.release_governance.block_unsafe_session_artifacts"
     | string;
   boundaries: {
     metadataOnly: boolean;
@@ -257,6 +262,11 @@ export interface SelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiryPaylo
 }
 
 export interface SelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetentionPayload {
+  confirm: true;
+  limit?: number;
+}
+
+export interface SelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifactsPayload {
   confirm: true;
   limit?: number;
 }
@@ -539,7 +549,10 @@ export function toSelfHostedPatientPhotoProtocolReleaseGovernance(
         active: Number(sessionLifecycle.active ?? 0),
         expiringIn24h: Number(sessionLifecycle.expiringIn24h ?? 0),
         missingExpiry: Number(sessionLifecycle.missingExpiry ?? 0),
+        unsafeArtifacts: Number(sessionLifecycle.unsafeArtifacts ?? 0),
         revoked: Number(sessionLifecycle.revoked ?? 0),
+        credentialRotationRequired: bool(sessionLifecycle.credentialRotationRequired),
+        nextAction: String(sessionLifecycle.nextAction ?? "inspect_session_lifecycle"),
         temporaryCredentialsExposed: false,
         qrTokensExposed: false,
         sessionIdsExposed: false,
@@ -790,6 +803,40 @@ export async function executeSelfHostedPatientPhotoProtocolGovernanceBlockUnappr
       kind: "network",
       code: "network_error",
       message: "Сбой сети при блокировке окон без политики хранения.",
+    });
+  }
+  const body = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, body));
+  const item = isRecord(body) && isRecord(body.item) ? body.item : null;
+  return ok(item ? toSelfHostedPatientPhotoProtocolGovernanceOperationResult(item) : null);
+}
+
+export async function executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts(
+  args: SessionArgs & { payload: SelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifactsPayload },
+): Promise<SelfHostedApiResult<SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null>> {
+  if (!args.apiToken) return fail(NOT_CONFIGURED);
+  let response: Response;
+  try {
+    response = await fetch(
+      buildSelfHostedApiUrl(
+        args.apiBaseUrl,
+        "/api/v1/patient-photo-protocol-release/governance/block-unsafe-session-artifacts",
+      ),
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${args.apiToken}`,
+        },
+        body: JSON.stringify(args.payload),
+      },
+    );
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при блокировке unsafe-артефактов доступа.",
     });
   }
   const body = await parseJsonSafe(response);

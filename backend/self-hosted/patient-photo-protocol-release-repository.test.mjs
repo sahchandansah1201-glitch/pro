@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpirySql,
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnapprovedRetentionSql,
+  buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnsafeSessionArtifactsSql,
   buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql,
   buildGetPatientPhotoProtocolReleaseGovernanceSql,
   buildGetPatientPhotoProtocolReleaseAuditSql,
@@ -578,6 +579,70 @@ test("Batch AF repository blocks unapproved-retention access windows as aggregat
   assert.equal(result.status, "executed");
   assert.equal(result.affectedCount, 3);
   assert.equal(result.auditAction, "patient_photo_protocol.release_governance.block_unapproved_retention");
+  assert.equal(result.boundaries.metadataOnly, true);
+  assert.equal(result.boundaries.patientRowsExposed, false);
+  assert.equal(result.boundaries.rawIdentifiersExposed, false);
+  assert.equal(result.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.boundaries.qrTokensExposed, false);
+  assert.equal(result.boundaries.sessionIdsExposed, false);
+  assert.equal(result.boundaries.patientDeliveryAllowed, false);
+});
+
+test("Batch AH repository blocks unsafe session artifacts without exposing credentials", async () => {
+  const sql = buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnsafeSessionArtifactsSql({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 12,
+  });
+  assert.match(sql, /block_unsafe_session_artifacts/);
+  assert.match(sql, /status = 'blocked'/);
+  assert.match(sql, /r\.status = 'prepared'/);
+  assert.match(sql, /temporaryCredentialIssued/);
+  assert.match(sql, /qrTokenIssued/);
+  assert.match(sql, /sessionIssued/);
+  assert.match(sql, /- 'temporaryCredentialIssuedAt'/);
+  assert.match(sql, /- 'qrTokenIssuedAt'/);
+  assert.match(sql, /- 'sessionIssuedAt'/);
+  assert.match(sql, /credential_rotation_required/);
+  assert.match(sql, /session_boundary_review_required/);
+  assert.match(sql, /patient_photo_protocol\.release_governance\.block_unsafe_session_artifacts/);
+  assert.doesNotMatch(sql, /patient_id::text|visit_id::text|revoke_reason as|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
+
+  const repository = createPatientPhotoProtocolReleaseRepository({
+    async queryJson() {
+      return [{
+        operation: "block_unsafe_session_artifacts",
+        status: "executed",
+        affectedCount: 5,
+        skippedActiveCount: 2,
+        expiringIn24hCount: 1,
+        skippedMissingExpiryCount: 0,
+        limit: 12,
+        auditAction: "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
+        boundaries: {
+          metadataOnly: false,
+          patientRowsExposed: true,
+          rawIdentifiersExposed: true,
+          revokeReasonExposed: true,
+          temporaryCredentialsExposed: true,
+          qrTokensExposed: true,
+          sessionIdsExposed: true,
+          storagePathsExposed: true,
+          signedUrlsIssued: true,
+          patientDeliveryAllowed: true,
+        },
+      }];
+    },
+  });
+  const result = await repository.executeGovernanceBlockUnsafeSessionArtifacts({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 12,
+  });
+  assert.equal(result.operation, "block_unsafe_session_artifacts");
+  assert.equal(result.status, "executed");
+  assert.equal(result.affectedCount, 5);
+  assert.equal(result.auditAction, "patient_photo_protocol.release_governance.block_unsafe_session_artifacts");
   assert.equal(result.boundaries.metadataOnly, true);
   assert.equal(result.boundaries.patientRowsExposed, false);
   assert.equal(result.boundaries.rawIdentifiersExposed, false);
