@@ -373,10 +373,17 @@ test("Batch AB repository builds safe release governance SQL and normalizes meta
             active: 1,
             expiringIn24h: 1,
             missingExpiry: 1,
+            sessionExchangeReady: 1,
+            sessionExchangePending: 2,
+            sessionExchangeDenied: 1,
+            sessionExchangeSuccess: 1,
             revoked: 1,
             temporaryCredentialsExposed: true,
             qrTokensExposed: true,
             sessionIdsExposed: true,
+            rawSessionIdExposed: true,
+            sessionHashExposed: true,
+            sessionFingerprintExposed: true,
           },
           allowedOperations: ["review_retention_policy", "prepare_revoke_review"],
           blockedOperations: ["issue_raw_token", "issue_signed_url"],
@@ -394,9 +401,15 @@ test("Batch AB repository builds safe release governance SQL and normalizes meta
   assert.equal(governance.operations.revokeReadiness.canPrepareRevokeReview, 1);
   assert.equal(governance.operations.revokeReadiness.revokeReasonExposed, false);
   assert.equal(governance.operations.sessionLifecycle.missingExpiry, 1);
+  assert.equal(governance.operations.sessionLifecycle.sessionExchangeReady, 1);
+  assert.equal(governance.operations.sessionLifecycle.sessionExchangePending, 2);
+  assert.equal(governance.operations.sessionLifecycle.sessionExchangeDenied, 1);
   assert.equal(governance.operations.sessionLifecycle.temporaryCredentialsExposed, false);
   assert.equal(governance.operations.sessionLifecycle.qrTokensExposed, false);
   assert.equal(governance.operations.sessionLifecycle.sessionIdsExposed, false);
+  assert.equal(governance.operations.sessionLifecycle.rawSessionIdExposed, false);
+  assert.equal(governance.operations.sessionLifecycle.sessionHashExposed, false);
+  assert.equal(governance.operations.sessionLifecycle.sessionFingerprintExposed, false);
   assert.deepEqual(governance.operations.allowedOperations, ["review_retention_policy", "prepare_revoke_review"]);
   assert.equal("patientId" in governance.queue[0], false);
   assert.equal("storagePath" in governance.queue[0], false);

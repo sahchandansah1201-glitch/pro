@@ -7,10 +7,12 @@ import {
   fetchSelfHostedPatientPortalPhotoProtocolPhoto,
   fetchSelfHostedPatientPortalPhotoProtocol,
   fetchSelfHostedPatientPortalReport,
+  exchangeSelfHostedPatientPortalPhotoProtocolAccess,
   updateSelfHostedPatientPortalReminderPreferences,
   toSelfHostedPatientPortalHistory,
   toSelfHostedPatientPortalOverview,
   toSelfHostedPatientPortalPhotoProtocol,
+  toSelfHostedPatientPortalPhotoProtocolAccessExchange,
   toSelfHostedPatientPortalReport,
 } from "./self-hosted-patient-portal-api";
 
@@ -119,6 +121,41 @@ describe("self-hosted-patient-portal-api", () => {
     expect(photoProtocol.photos[0]).not.toHaveProperty("objectKey");
     expect(photoProtocol.photos[0]).not.toHaveProperty("signedUrl");
     expect(photoProtocol).not.toHaveProperty("physicianText");
+
+    const exchange = toSelfHostedPatientPortalPhotoProtocolAccessExchange({
+      visitId: "v-1",
+      status: "confirmed",
+      accessStatus: "session_boundary_ready",
+      sessionExpiresAt: "2026-06-01T12:30:00.000Z",
+      credentialHash: "hidden",
+      credentialFingerprint: "hidden",
+      sessionHash: "hidden",
+      sessionFingerprint: "hidden",
+      sessionBoundary: {
+        sessionEstablished: true,
+        rawCredentialExposed: true,
+        credentialHashExposed: true,
+        credentialFingerprintExposed: true,
+        rawSessionIdExposed: true,
+        sessionHashExposed: true,
+        sessionFingerprintExposed: true,
+        signedUrlsIssued: true,
+        storagePathsExposed: true,
+        doctorOnlyTextExposed: true,
+      },
+    });
+    expect(exchange.accessStatus).toBe("session_boundary_ready");
+    expect(exchange.sessionBoundary.sessionEstablished).toBe(true);
+    expect(exchange.sessionBoundary.rawCredentialExposed).toBe(false);
+    expect(exchange.sessionBoundary.credentialHashExposed).toBe(false);
+    expect(exchange.sessionBoundary.credentialFingerprintExposed).toBe(false);
+    expect(exchange.sessionBoundary.rawSessionIdExposed).toBe(false);
+    expect(exchange.sessionBoundary.sessionHashExposed).toBe(false);
+    expect(exchange.sessionBoundary.sessionFingerprintExposed).toBe(false);
+    expect(exchange.sessionBoundary.signedUrlsIssued).toBe(false);
+    expect(exchange.sessionBoundary.storagePathsExposed).toBe(false);
+    expect(exchange).not.toHaveProperty("credentialHash");
+    expect(exchange).not.toHaveProperty("sessionHash");
 
     const history = toSelfHostedPatientPortalHistory({
       clinic: { id: "c-1", name: "Клиника" },
@@ -383,6 +420,82 @@ describe("self-hosted-patient-portal-api", () => {
     expect(result.ok).toBe(false);
     expect(result.error.code).toBe("photo_protocol_retention_required");
     expect(result.error.message).toBe("Клиника не подтвердила срок и политику доступа к фото.");
+  });
+
+  it("exchanges a patient photo protocol access credential without exposing secrets", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          item: {
+            visitId: "visit-1",
+            status: "confirmed",
+            accessStatus: "session_boundary_ready",
+            sessionExpiresAt: "2026-06-01T12:30:00.000Z",
+            credentialHash: "hidden",
+            sessionHash: "hidden",
+            sessionBoundary: {
+              sessionEstablished: true,
+              rawCredentialExposed: true,
+              credentialHashExposed: true,
+              credentialFingerprintExposed: true,
+              rawSessionIdExposed: true,
+              sessionHashExposed: true,
+              sessionFingerprintExposed: true,
+              signedUrlsIssued: true,
+              storagePathsExposed: true,
+              doctorOnlyTextExposed: true,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await exchangeSelfHostedPatientPortalPhotoProtocolAccess({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-1",
+      visitId: "visit-1",
+      payload: { credential: "patient one-time credential" },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value.accessStatus).toBe("session_boundary_ready");
+    expect(result.value.sessionBoundary.rawCredentialExposed).toBe(false);
+    expect(result.value.sessionBoundary.sessionHashExposed).toBe(false);
+    expect(result.value).not.toHaveProperty("credentialHash");
+    expect(result.value).not.toHaveProperty("sessionHash");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/visit-1/access/exchange",
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Bearer token-1",
+        },
+        body: JSON.stringify({ credential: "patient one-time credential" }),
+      },
+    );
+  });
+
+  it("maps credential exchange deny codes to patient-safe messages", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: { code: "photo_protocol_access_credential_invalid", message: "hidden" } }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await exchangeSelfHostedPatientPortalPhotoProtocolAccess({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-1",
+      visitId: "visit-1",
+      payload: { credential: "wrong credential" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error.code).toBe("photo_protocol_access_credential_invalid");
+    expect(result.error.message).toBe("Доступ не подтверждён.");
   });
 
   it("creates booking requests and updates reminder preferences with bearer token", async () => {

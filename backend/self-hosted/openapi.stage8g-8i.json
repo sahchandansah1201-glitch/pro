@@ -1652,7 +1652,8 @@
                       "block_missing_expiry_access_windows",
                       "block_unsafe_session_artifacts",
                       "prepare_access_artifact_rotation",
-                      "issue_access_credential_hash"
+                      "issue_access_credential_hash",
+                      "exchange_access_credential"
                     ]
                   },
                   "temporaryCredentialsExposed": {
@@ -1691,6 +1692,18 @@
                   "credentialStorePending": {
                     "type": "integer"
                   },
+                  "sessionExchangeReady": {
+                    "type": "integer"
+                  },
+                  "sessionExchangePending": {
+                    "type": "integer"
+                  },
+                  "sessionExchangeDenied": {
+                    "type": "integer"
+                  },
+                  "sessionExchangeSuccess": {
+                    "type": "integer"
+                  },
                   "rawCredentialExposed": {
                     "type": "boolean",
                     "enum": [
@@ -1704,6 +1717,24 @@
                     ]
                   },
                   "credentialFingerprintExposed": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "rawSessionIdExposed": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "sessionHashExposed": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "sessionFingerprintExposed": {
                     "type": "boolean",
                     "enum": [
                       false

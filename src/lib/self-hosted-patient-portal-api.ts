@@ -147,6 +147,27 @@ export interface SelfHostedPatientPortalPhotoProtocolPhotoFile {
   fileName: string;
 }
 
+export interface SelfHostedPatientPortalPhotoProtocolAccessExchange {
+  visitId: string | null;
+  status: "confirmed" | "denied";
+  accessStatus: string;
+  deniedReason: string | null;
+  sessionExpiresAt: string | null;
+  sessionBoundary: {
+    sessionEstablished: boolean;
+    rawCredentialExposed: false;
+    credentialHashExposed: false;
+    credentialFingerprintExposed: false;
+    rawSessionIdExposed: false;
+    sessionHashExposed: false;
+    sessionFingerprintExposed: false;
+    qrTokenExposed: false;
+    signedUrlsIssued: false;
+    storagePathsExposed: false;
+    doctorOnlyTextExposed: false;
+  };
+}
+
 export interface SelfHostedPatientPortalHistoryLesion {
   id: string;
   title: string;
@@ -251,6 +272,10 @@ export interface UpdatePatientPortalReminderPreferencesPayload {
   appointmentRemindersEnabled?: boolean;
   reportNotificationsEnabled?: boolean;
   preferredChannel?: "email" | "phone" | "none";
+}
+
+export interface ExchangePatientPortalPhotoProtocolAccessPayload {
+  credential: string;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -403,6 +428,31 @@ function patientPhotoProtocolDownloadErrorMessage(error: SelfHostedApiError): st
       return "Сервис выдачи фото временно недоступен.";
     default:
       return error.message || "Фото сейчас недоступно: доступ управляется клиникой.";
+  }
+}
+
+function patientPhotoProtocolAccessExchangeErrorMessage(error: SelfHostedApiError): string {
+  switch (error.code) {
+    case "photo_protocol_access_credential_invalid":
+      return "Доступ не подтверждён.";
+    case "photo_protocol_access_revoked":
+      return "Доступ отозван клиникой.";
+    case "photo_protocol_access_expired":
+      return "Срок доступа истёк.";
+    case "photo_protocol_access_retention_required":
+      return "Клиника не подтвердила срок и политику доступа к фото.";
+    case "photo_protocol_access_policy_blocked":
+      return "Клиника ещё не завершила проверку безопасной выдачи.";
+    case "photo_protocol_access_proxy_disabled":
+      return "Клиника ещё не включила защищённую выдачу фото.";
+    case "photo_protocol_access_consent_missing":
+      return "Клиника не подтвердила согласие на медицинскую съёмку.";
+    case "photo_protocol_access_not_configured":
+      return "Контур подтверждения доступа не настроен клиникой.";
+    case "photo_protocol_access_not_found":
+      return "Доступ к фото-протоколу не найден.";
+    default:
+      return error.message || "Доступ сейчас не подтверждён.";
   }
 }
 
@@ -762,6 +812,36 @@ export function toSelfHostedPatientPortalPhotoProtocol(input: unknown): SelfHost
   };
 }
 
+export function toSelfHostedPatientPortalPhotoProtocolAccessExchange(
+  input: unknown,
+): SelfHostedPatientPortalPhotoProtocolAccessExchange {
+  const row = isRecord(input) ? input : {};
+  const sessionBoundary = nested(row, "sessionBoundary");
+  const status = row.status === "confirmed" ? "confirmed" : "denied";
+  return {
+    visitId: textOrNull(row.visitId),
+    status,
+    accessStatus: String(
+      row.accessStatus ?? (status === "confirmed" ? "session_boundary_ready" : "photo_protocol_access_not_confirmed"),
+    ),
+    deniedReason: textOrNull(row.deniedReason),
+    sessionExpiresAt: textOrNull(row.sessionExpiresAt),
+    sessionBoundary: {
+      sessionEstablished: sessionBoundary.sessionEstablished === true,
+      rawCredentialExposed: false,
+      credentialHashExposed: false,
+      credentialFingerprintExposed: false,
+      rawSessionIdExposed: false,
+      sessionHashExposed: false,
+      sessionFingerprintExposed: false,
+      qrTokenExposed: false,
+      signedUrlsIssued: false,
+      storagePathsExposed: false,
+      doctorOnlyTextExposed: false,
+    },
+  };
+}
+
 export function toSelfHostedPatientPortalHistory(input: unknown): SelfHostedPatientPortalHistory {
   const row = isRecord(input) ? input : {};
   const clinic = nested(row, "clinic");
@@ -836,6 +916,27 @@ export async function fetchSelfHostedPatientPortalPhotoProtocol(
   if (!response.ok) return fail(response.error);
   const body = isRecord(response.value) ? response.value : {};
   return ok(toSelfHostedPatientPortalPhotoProtocol(body.item));
+}
+
+export async function exchangeSelfHostedPatientPortalPhotoProtocolAccess(
+  args: BaseArgs & { visitId: string; payload: ExchangePatientPortalPhotoProtocolAccessPayload },
+): Promise<SelfHostedApiResult<SelfHostedPatientPortalPhotoProtocolAccessExchange>> {
+  const response = await requestJson(
+    args,
+    `/api/v1/me/photo-protocols/${encodeURIComponent(args.visitId)}/access/exchange`,
+    {
+      method: "POST",
+      body: args.payload,
+    },
+  );
+  if (!response.ok) {
+    return fail({
+      ...response.error,
+      message: patientPhotoProtocolAccessExchangeErrorMessage(response.error),
+    });
+  }
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedPatientPortalPhotoProtocolAccessExchange(body.item));
 }
 
 export async function fetchSelfHostedPatientPortalPhotoProtocolPhoto(

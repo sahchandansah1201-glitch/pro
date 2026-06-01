@@ -104,6 +104,9 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByRole("button", { name: /Заблокировать артефакты доступа/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Подготовить ротацию доступа/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Создать хэш доступа/ })).toBeInTheDocument();
+    expect(screen.getByText("Обмен нужен")).toBeInTheDocument();
+    expect(screen.getByText("Сессия подтверждена")).toBeInTheDocument();
+    expect(screen.getByText("Отказы обмена")).toBeInTheDocument();
     expect(screen.getByText("Очередь утверждений")).toBeInTheDocument();
     expect(screen.getByText("Границы данных")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Подготовить разбор хранения/ }));

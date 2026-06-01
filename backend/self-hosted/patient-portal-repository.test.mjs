@@ -5,6 +5,7 @@ import {
   buildPatientPortalOverviewSql,
   buildPatientPortalHistorySql,
   buildPatientPortalPhotoProtocolSql,
+  buildExchangePatientPortalPhotoProtocolAccessSql,
   buildPatientPortalReportSql,
   buildCreatePatientPortalBookingRequestSql,
   buildUpdatePatientPortalReminderPreferencesSql,
@@ -12,6 +13,7 @@ import {
   normalizePatientPortalHistory,
   normalizePatientPortalOverview,
   normalizePatientPortalPhotoProtocol,
+  normalizePatientPortalPhotoProtocolAccessExchange,
   normalizePatientPortalReport,
 } from "./patient-portal-repository.mjs";
 
@@ -44,6 +46,31 @@ test("Stage 5N SQL scopes patient photo protocol reads and excludes protected as
   assert.match(photoProtocolSql, /previewAvailable/);
   assert.match(photoProtocolSql, /auditTrail/);
   assert.doesNotMatch(photoProtocolSql, /object_bucket|object_key|checksum_sha256|signed_url|access_token|physician_text|revoke_reason/i);
+});
+
+test("Stage 5N SQL exchanges a credential hash for a metadata-only session boundary", () => {
+  const exchangeSql = buildExchangePatientPortalPhotoProtocolAccessSql({
+    userId: USER_ID,
+    visitId: VISIT_ID,
+    credentialHash: "abc123credentialhashabc123credentialhash",
+    sessionHash: "def456sessionhashdef456sessionhash",
+    sessionFingerprint: "session-fp-001",
+    sessionExpiresAt: "2026-06-01T12:30:00.000Z",
+  });
+
+  assert.match(exchangeSql, /patient_user_links/);
+  assert.match(exchangeSql, /patient_photo_protocol_access_credentials/);
+  assert.match(exchangeSql, /patient_photo_protocol_access_sessions/);
+  assert.match(exchangeSql, /credential_hash/);
+  assert.match(exchangeSql, /session_hash/);
+  assert.match(exchangeSql, /on conflict \(release_id, patient_user_id, session_kind\)/);
+  assert.match(exchangeSql, /photo_protocol_access_credential_invalid/);
+  assert.match(exchangeSql, /session_boundary_ready/);
+  assert.match(exchangeSql, /rawCredentialExposed/);
+  assert.match(exchangeSql, /rawSessionIdExposed/);
+  assert.match(exchangeSql, /sessionHashExposed/);
+  assert.match(exchangeSql, /credentialFingerprintExposed/);
+  assert.doesNotMatch(exchangeSql, /plainCredential|credentialPlaintext|credentialValue|sessionToken|signed_url|storage_object_path|object_bucket|object_key|physician_text/i);
 });
 
 test("Stage 5N SQL scopes patient-safe history reads and policy counters", () => {
@@ -262,6 +289,46 @@ test("Stage 5N normalizers expose patient-safe portal DTOs only", () => {
   assert.equal(history.sessionLifecycle.sessionBoundary.rawTokensExposed, false);
   assert.equal(history.longitudinalBoundary.clinicalDecisionExposed, false);
   assert.equal("physicianText" in history.lesions[0], false);
+});
+
+test("Stage 5N normalizer exposes credential exchange boundaries without secrets", () => {
+  const exchange = normalizePatientPortalPhotoProtocolAccessExchange({
+    visitId: VISIT_ID,
+    status: "confirmed",
+    accessStatus: "session_boundary_ready",
+    sessionExpiresAt: "2026-06-01T12:30:00.000Z",
+    credentialHash: "hidden",
+    credentialFingerprint: "hidden",
+    sessionHash: "hidden",
+    sessionFingerprint: "hidden",
+    sessionBoundary: {
+      sessionEstablished: true,
+      rawCredentialExposed: true,
+      credentialHashExposed: true,
+      credentialFingerprintExposed: true,
+      rawSessionIdExposed: true,
+      sessionHashExposed: true,
+      sessionFingerprintExposed: true,
+      signedUrlsIssued: true,
+      storagePathsExposed: true,
+      doctorOnlyTextExposed: true,
+    },
+  });
+
+  assert.equal(exchange.status, "confirmed");
+  assert.equal(exchange.accessStatus, "session_boundary_ready");
+  assert.equal(exchange.sessionBoundary.sessionEstablished, true);
+  assert.equal(exchange.sessionBoundary.rawCredentialExposed, false);
+  assert.equal(exchange.sessionBoundary.credentialHashExposed, false);
+  assert.equal(exchange.sessionBoundary.credentialFingerprintExposed, false);
+  assert.equal(exchange.sessionBoundary.rawSessionIdExposed, false);
+  assert.equal(exchange.sessionBoundary.sessionHashExposed, false);
+  assert.equal(exchange.sessionBoundary.sessionFingerprintExposed, false);
+  assert.equal(exchange.sessionBoundary.signedUrlsIssued, false);
+  assert.equal(exchange.sessionBoundary.storagePathsExposed, false);
+  assert.equal(exchange.sessionBoundary.doctorOnlyTextExposed, false);
+  assert.equal("credentialHash" in exchange, false);
+  assert.equal("sessionHash" in exchange, false);
 });
 
 test("Stage 5N repository reads overview and report through db client", async () => {

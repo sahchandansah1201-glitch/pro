@@ -1,12 +1,16 @@
 // Stage 5N/5O · Patient portal service.
 // Only the linked patient account may read/write /api/v1/me/* resources.
 
+import { createHash, createHmac, randomBytes } from "node:crypto";
+
 import { recordAuditBestEffort } from "./audit-repository.mjs";
 import { patientPortalScope } from "./rbac.mjs";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const REMINDER_CHANNELS = new Set(["email", "phone", "none"]);
 const MAX_BOOKING_REASON_LENGTH = 500;
+const MIN_ACCESS_CREDENTIAL_LENGTH = 8;
+const MAX_ACCESS_CREDENTIAL_LENGTH = 512;
 
 class PatientPortalNotFoundError extends Error {
   constructor(message = "Patient portal resource was not found.") {
@@ -24,6 +28,15 @@ class PatientPortalValidationError extends Error {
     this.publicCode = "validation_error";
     this.publicStatus = 422;
     this.publicDetails = details;
+  }
+}
+
+class PatientPortalAccessExchangeError extends Error {
+  constructor(publicCode, publicStatus = 423, message = "Patient photo protocol access exchange failed.") {
+    super(message);
+    this.name = "PatientPortalAccessExchangeError";
+    this.publicCode = publicCode;
+    this.publicStatus = publicStatus;
   }
 }
 
@@ -125,6 +138,23 @@ export function normalizePatientPortalReminderPreferencesPayload(input = {}) {
   };
 }
 
+export function normalizePatientPortalAccessExchangePayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new PatientPortalValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  const credential = cleanString(input.credential);
+  const details = [];
+  if (!credential) {
+    details.push({ field: "credential", message: "Credential is required." });
+  } else if (credential.length < MIN_ACCESS_CREDENTIAL_LENGTH) {
+    details.push({ field: "credential", message: "Credential is too short." });
+  } else if (credential.length > MAX_ACCESS_CREDENTIAL_LENGTH) {
+    details.push({ field: "credential", message: "Credential is too long." });
+  }
+  if (details.length > 0) throw new PatientPortalValidationError(details);
+  return { credential };
+}
+
 function assertUuid(value, field = "id") {
   const text = String(value || "");
   if (!UUID_PATTERN.test(text)) {
@@ -136,9 +166,60 @@ function assertUuid(value, field = "id") {
   return text;
 }
 
+function hmacSha256Hex(secret, value) {
+  return createHmac("sha256", String(secret)).update(String(value)).digest("hex");
+}
+
+function fingerprint(value) {
+  return createHash("sha256").update(String(value)).digest("hex").slice(0, 16);
+}
+
+function plusMinutes(date, minutes) {
+  return new Date(date.getTime() + minutes * 60 * 1000);
+}
+
+function statusForAccessExchangeDeniedReason(reason) {
+  switch (reason) {
+    case "photo_protocol_access_credential_invalid":
+      return 403;
+    case "photo_protocol_access_not_found":
+      return 404;
+    case "photo_protocol_access_revoked":
+    case "photo_protocol_access_expired":
+      return 410;
+    case "photo_protocol_access_not_configured":
+      return 503;
+    default:
+      return 423;
+  }
+}
+
+function safeAccessBoundaryMetadata(exchange = {}) {
+  const boundary = exchange.sessionBoundary ?? {};
+  return {
+    accessStatus: String(exchange.accessStatus ?? exchange.deniedReason ?? "unknown"),
+    sessionEstablished: boundary.sessionEstablished === true,
+    rawCredentialExposed: false,
+    credentialHashExposed: false,
+    credentialFingerprintExposed: false,
+    rawSessionIdExposed: false,
+    sessionHashExposed: false,
+    sessionFingerprintExposed: false,
+    qrTokenExposed: false,
+    signedUrlsIssued: false,
+    storagePathsExposed: false,
+    doctorOnlyTextExposed: false,
+  };
+}
+
 export function createPatientPortalService({
   patientPortalRepository,
   auditRepository,
+  credentialPepper = process.env.PATIENT_PHOTO_PROTOCOL_CREDENTIAL_PEPPER || "",
+  sessionPepper = process.env.PATIENT_PHOTO_PROTOCOL_SESSION_PEPPER || "",
+  randomBytesImpl = randomBytes,
+  now = () => new Date(),
+  sessionTtlMinutes = 30,
 } = {}) {
   return {
     async getOverview(authContext, { correlationId } = {}) {
@@ -205,6 +286,72 @@ export function createPatientPortalService({
         },
       });
       return { photoProtocol, scope };
+    },
+
+    async exchangePhotoProtocolAccess(visitId, input, authContext, { correlationId } = {}) {
+      const scope = patientPortalScope(authContext);
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const payload = normalizePatientPortalAccessExchangePayload(input);
+      if (!credentialPepper || !sessionPepper) {
+        throw new PatientPortalAccessExchangeError("photo_protocol_access_not_configured", 503);
+      }
+      const sessionSecret = randomBytesImpl(32).toString("hex");
+      const sessionExpiresAt = plusMinutes(now(), sessionTtlMinutes).toISOString();
+      const exchange = await patientPortalRepository.exchangePhotoProtocolAccess({
+        userId: scope.userId,
+        visitId: safeVisitId,
+        credentialHash: hmacSha256Hex(credentialPepper, payload.credential),
+        sessionHash: hmacSha256Hex(sessionPepper, sessionSecret),
+        sessionFingerprint: fingerprint(sessionSecret),
+        sessionExpiresAt,
+      });
+      if (!exchange) {
+        await recordAuditBestEffort(auditRepository, {
+          clinicId: null,
+          actorUserId: scope.userId,
+          action: "patient_portal.photo_protocol.access.exchange_denied",
+          entityType: "patient_photo_protocol_release",
+          entityId: safeVisitId,
+          correlationId,
+          metadata: {
+            visitId: safeVisitId,
+            reason: "photo_protocol_access_not_found",
+            rawCredentialExposed: false,
+            rawSessionIdExposed: false,
+          },
+        });
+        throw new PatientPortalAccessExchangeError("photo_protocol_access_not_found", 404);
+      }
+      if (exchange.status !== "confirmed") {
+        const reason = exchange.deniedReason || exchange.accessStatus || "photo_protocol_access_policy_blocked";
+        await recordAuditBestEffort(auditRepository, {
+          clinicId: exchange.clinic?.id || null,
+          actorUserId: scope.userId,
+          action: "patient_portal.photo_protocol.access.exchange_denied",
+          entityType: "patient_photo_protocol_release",
+          entityId: safeVisitId,
+          correlationId,
+          metadata: {
+            visitId: safeVisitId,
+            reason,
+            ...safeAccessBoundaryMetadata(exchange),
+          },
+        });
+        throw new PatientPortalAccessExchangeError(reason, statusForAccessExchangeDeniedReason(reason));
+      }
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: exchange.clinic?.id || null,
+        actorUserId: scope.userId,
+        action: "patient_portal.photo_protocol.access.exchange",
+        entityType: "patient_photo_protocol_release",
+        entityId: safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          ...safeAccessBoundaryMetadata(exchange),
+        },
+      });
+      return { exchange, scope };
     },
 
     async getHistory(authContext, { correlationId } = {}) {

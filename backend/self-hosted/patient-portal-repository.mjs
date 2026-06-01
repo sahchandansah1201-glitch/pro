@@ -416,6 +416,37 @@ export function normalizePatientPortalPhotoProtocol(input) {
   };
 }
 
+export function normalizePatientPortalPhotoProtocolAccessExchange(input) {
+  if (!input || typeof input !== "object" || !input.visitId) return null;
+  const source = input && typeof input === "object" ? input : {};
+  const sessionBoundary = safeNested(source, "sessionBoundary");
+  const status = String(source.status ?? "denied");
+  const deniedReason = textOrNull(source.deniedReason);
+  return {
+    visitId: textOrNull(source.visitId),
+    status,
+    accessStatus: textOrNull(source.accessStatus) || (
+      status === "confirmed" ? "session_boundary_ready" : deniedReason || "photo_protocol_access_not_confirmed"
+    ),
+    deniedReason,
+    sessionExpiresAt: textOrNull(source.sessionExpiresAt),
+    sessionBoundary: {
+      sessionEstablished: booleanValue(sessionBoundary.sessionEstablished),
+      rawCredentialExposed: false,
+      credentialHashExposed: false,
+      credentialFingerprintExposed: false,
+      rawSessionIdExposed: false,
+      sessionHashExposed: false,
+      sessionFingerprintExposed: false,
+      qrTokenExposed: false,
+      signedUrlsIssued: false,
+      storagePathsExposed: false,
+      doctorOnlyTextExposed: false,
+    },
+    clinic: safeNested(source, "clinic"),
+  };
+}
+
 export function normalizePatientPortalOverview(input) {
   const source = input && typeof input === "object" ? input : {};
   return {
@@ -1058,6 +1089,159 @@ from (
 `.trim();
 }
 
+export function buildExchangePatientPortalPhotoProtocolAccessSql({
+  userId,
+  visitId,
+  credentialHash,
+  sessionHash,
+  sessionFingerprint,
+  sessionExpiresAt,
+} = {}) {
+  const safeUserId = safeUuid(userId);
+  const safeVisitId = safeUuid(visitId);
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with linked_release as (
+    select
+      r.id,
+      r.clinic_id,
+      r.patient_id,
+      r.visit_id,
+      r.status,
+      r.expires_at,
+      coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false) as file_proxy_enabled,
+      coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false) as patient_copy_approved,
+      coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved,
+      nullif(trim(coalesce(rep.patient_safe_text, '')), '') is not null as patient_safe_text_available,
+      coalesce(p.imaging_consent, false) as imaging_consent,
+      cred.id as credential_id
+    from patient_photo_protocol_releases r
+    join patient_user_links pul on pul.patient_id = r.patient_id
+    join patients p on p.id = r.patient_id and p.clinic_id = r.clinic_id and p.deleted_at is null
+    join visits v on v.id = r.visit_id and v.patient_id = r.patient_id and v.clinic_id = r.clinic_id
+    left join reports rep on rep.id = r.report_id and rep.patient_id = r.patient_id and rep.clinic_id = r.clinic_id
+    left join patient_photo_protocol_access_credentials cred
+      on cred.release_id = r.id
+      and cred.clinic_id = r.clinic_id
+      and cred.visit_id = r.visit_id
+      and cred.credential_kind = 'patient_photo_protocol_access'
+      and cred.status = 'active'
+      and (cred.expires_at is null or cred.expires_at > now())
+      and cred.credential_hash = ${sqlLiteral(credentialHash ?? "")}
+    where pul.user_id = ${sqlUuid(safeUserId)}
+      and r.visit_id = ${sqlUuid(safeVisitId)}
+      and r.status in ('prepared', 'revoked', 'blocked')
+    order by r.updated_at desc
+    limit 1
+  ),
+  decision as (
+    select
+      lr.*,
+      case
+        when lr.status = 'revoked' then 'photo_protocol_access_revoked'
+        when lr.status = 'blocked' then 'photo_protocol_access_policy_blocked'
+        when lr.status <> 'prepared' then 'photo_protocol_access_not_prepared'
+        when lr.expires_at is null or not lr.retention_policy_approved then 'photo_protocol_access_retention_required'
+        when lr.expires_at <= now() then 'photo_protocol_access_expired'
+        when not lr.file_proxy_enabled then 'photo_protocol_access_proxy_disabled'
+        when not lr.patient_copy_approved or not lr.patient_safe_text_available then 'photo_protocol_access_policy_blocked'
+        when not lr.imaging_consent then 'photo_protocol_access_consent_missing'
+        when lr.credential_id is null then 'photo_protocol_access_credential_invalid'
+        else null
+      end as denied_reason
+    from linked_release lr
+  ),
+  inserted_session as (
+    insert into patient_photo_protocol_access_sessions (
+      clinic_id,
+      release_id,
+      visit_id,
+      patient_id,
+      patient_user_id,
+      credential_id,
+      session_kind,
+      status,
+      session_hash,
+      session_fingerprint,
+      hash_algorithm,
+      session_secret_version,
+      expires_at,
+      metadata_json
+    )
+    select
+      d.clinic_id,
+      d.id,
+      d.visit_id,
+      d.patient_id,
+      ${sqlUuid(safeUserId)},
+      d.credential_id,
+      'patient_photo_protocol_access',
+      'active',
+      ${sqlLiteral(sessionHash ?? "")},
+      ${sqlLiteral(sessionFingerprint ?? "")},
+      'hmac-sha256-node-v1',
+      'PATIENT_PHOTO_PROTOCOL_SESSION_PEPPER',
+      ${sqlNullableTimestamp(sessionExpiresAt)},
+      jsonb_build_object(
+        'operation', 'access_exchange',
+        'sessionBoundaryReady', true,
+        'rawCredentialExposed', false,
+        'credentialHashExposed', false,
+        'credentialFingerprintExposed', false,
+        'rawSessionIdExposed', false,
+        'sessionHashExposed', false,
+        'sessionFingerprintExposed', false,
+        'qrTokenExposed', false,
+        'signedUrlsIssued', false,
+        'storagePathsExposed', false,
+        'doctorOnlyTextExposed', false
+      )
+    from decision d
+    where d.denied_reason is null
+    on conflict (release_id, patient_user_id, session_kind)
+      where status = 'active'
+    do update
+    set credential_id = excluded.credential_id,
+        session_hash = excluded.session_hash,
+        session_fingerprint = excluded.session_fingerprint,
+        hash_algorithm = excluded.hash_algorithm,
+        session_secret_version = excluded.session_secret_version,
+        issued_at = now(),
+        expires_at = excluded.expires_at,
+        revoked_at = null,
+        metadata_json = excluded.metadata_json,
+        updated_at = now()
+    returning expires_at
+  )
+  select
+    d.visit_id::text as "visitId",
+    case when d.denied_reason is null then 'confirmed' else 'denied' end as "status",
+    coalesce(d.denied_reason, 'session_boundary_ready') as "accessStatus",
+    d.denied_reason as "deniedReason",
+    (select max(expires_at) from inserted_session) as "sessionExpiresAt",
+    jsonb_build_object(
+      'sessionEstablished', d.denied_reason is null,
+      'rawCredentialExposed', false,
+      'credentialHashExposed', false,
+      'credentialFingerprintExposed', false,
+      'rawSessionIdExposed', false,
+      'sessionHashExposed', false,
+      'sessionFingerprintExposed', false,
+      'qrTokenExposed', false,
+      'signedUrlsIssued', false,
+      'storagePathsExposed', false,
+      'doctorOnlyTextExposed', false
+    ) as "sessionBoundary",
+    jsonb_build_object(
+      'id', d.clinic_id::text
+    ) as "clinic"
+  from decision d
+  limit 1
+) result;
+`.trim();
+}
+
 export function buildCreatePatientPortalBookingRequestSql({
   userId,
   preferredFrom,
@@ -1182,6 +1366,11 @@ export function createPatientPortalRepository(dbClient) {
       const rows = await dbClient.queryJson(buildPatientPortalPhotoProtocolSql({ userId, visitId }));
       const first = Array.isArray(rows) ? rows[0] : rows;
       return normalizePatientPortalPhotoProtocol(first);
+    },
+    async exchangePhotoProtocolAccess(input) {
+      const rows = await dbClient.queryJson(buildExchangePatientPortalPhotoProtocolAccessSql(input));
+      const first = Array.isArray(rows) ? rows[0] : rows;
+      return normalizePatientPortalPhotoProtocolAccessExchange(first);
     },
     async getHistory({ userId }) {
       const rows = await dbClient.queryJson(buildPatientPortalHistorySql({ userId }));

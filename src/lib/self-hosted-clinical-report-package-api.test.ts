@@ -311,10 +311,17 @@ describe("self-hosted-clinical-report-package-api", () => {
           missingExpiry: 1,
           rotationPrepared: 1,
           rotationPending: 2,
+          sessionExchangeReady: 1,
+          sessionExchangePending: 2,
+          sessionExchangeDenied: 1,
+          sessionExchangeSuccess: 1,
           revoked: 1,
           temporaryCredentialsExposed: true,
           qrTokensExposed: true,
           sessionIdsExposed: true,
+          rawSessionIdExposed: true,
+          sessionHashExposed: true,
+          sessionFingerprintExposed: true,
         },
         allowedOperations: ["review_retention_policy", "prepare_revoke_review"],
         blockedOperations: ["block_secret_issue", "block_external_link_issue"],
@@ -337,8 +344,14 @@ describe("self-hosted-clinical-report-package-api", () => {
     expect(governance.operations.revokeReadiness.revokeReasonExposed).toBe(false);
     expect(governance.operations.sessionLifecycle.rotationPrepared).toBe(1);
     expect(governance.operations.sessionLifecycle.rotationPending).toBe(2);
+    expect(governance.operations.sessionLifecycle.sessionExchangeReady).toBe(1);
+    expect(governance.operations.sessionLifecycle.sessionExchangePending).toBe(2);
+    expect(governance.operations.sessionLifecycle.sessionExchangeDenied).toBe(1);
     expect(governance.operations.sessionLifecycle.sessionIdsExposed).toBe(false);
     expect(governance.operations.sessionLifecycle.qrTokensExposed).toBe(false);
+    expect(governance.operations.sessionLifecycle.rawSessionIdExposed).toBe(false);
+    expect(governance.operations.sessionLifecycle.sessionHashExposed).toBe(false);
+    expect(governance.operations.sessionLifecycle.sessionFingerprintExposed).toBe(false);
     expect(governance.operations.allowedOperations).toEqual(["review_retention_policy", "prepare_revoke_review"]);
     expect(governance.queue[0]).not.toHaveProperty("patientId");
     expect(governance.queue[0]).not.toHaveProperty("visitId");

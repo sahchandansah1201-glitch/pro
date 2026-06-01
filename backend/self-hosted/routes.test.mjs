@@ -35,6 +35,7 @@ function createRuntime({
   patientPortalOverview = null,
   patientPortalReport = null,
   patientPortalPhotoProtocol = null,
+  patientPortalAccessExchange = null,
   patientPortalHistory = null,
   patientPhotoProtocolDownload = null,
   patientPortalBookingRequest = null,
@@ -398,6 +399,34 @@ function createRuntime({
                 previewAvailable: false,
               },
             ],
+          },
+          scope: {
+            userId: authContext?.userId,
+            roles: authContext?.roles || [],
+          },
+        };
+      },
+      async exchangePhotoProtocolAccess(visitId) {
+        if (patientPortalError) throw patientPortalError;
+        return {
+          exchange: patientPortalAccessExchange || {
+            visitId,
+            status: "confirmed",
+            accessStatus: "session_boundary_ready",
+            sessionExpiresAt: "2026-06-01T12:30:00.000Z",
+            sessionBoundary: {
+              sessionEstablished: true,
+              rawCredentialExposed: false,
+              credentialHashExposed: false,
+              credentialFingerprintExposed: false,
+              rawSessionIdExposed: false,
+              sessionHashExposed: false,
+              sessionFingerprintExposed: false,
+              qrTokenExposed: false,
+              signedUrlsIssued: false,
+              storagePathsExposed: false,
+              doctorOnlyTextExposed: false,
+            },
           },
           scope: {
             userId: authContext?.userId,
@@ -5501,6 +5530,25 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
     /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token/i,
   );
 
+  const exchange = await request(
+    "/api/v1/me/photo-protocols/10000000-0000-4000-8000-000000000301/access/exchange",
+    configuredEnv,
+    runtime,
+    "POST",
+    JSON.stringify({ credential: "patient one-time credential" }),
+    { "content-type": "application/json" },
+  );
+  assert.equal(exchange.status, 200);
+  assert.equal(exchange.json.stage, "5N");
+  assert.equal(exchange.json.item.accessStatus, "session_boundary_ready");
+  assert.equal(exchange.json.item.sessionBoundary.sessionEstablished, true);
+  assert.equal(exchange.json.item.sessionBoundary.rawCredentialExposed, false);
+  assert.equal(exchange.json.item.sessionBoundary.sessionHashExposed, false);
+  assert.doesNotMatch(
+    exchange.body,
+    /patient one-time credential|credential_hash|credential_fingerprint|session_hash|session_fingerprint|sessionToken|signed_url|storage_object_path|object_bucket|object_key|physicianText|access_token/i,
+  );
+
   const history = await request(
     "/api/v1/me/history",
     configuredEnv,
@@ -5552,6 +5600,30 @@ test("Stage 5N · patient portal endpoint maps forbidden access safely", async (
   assert.equal(denied.json.error.code, "forbidden");
 });
 
+test("Stage 5N · patient portal credential exchange maps denied access safely", async () => {
+  const authContext = {
+    userId: "10000000-0000-4000-8000-000000000901",
+    roles: ["patient"],
+    clinicIds: [],
+    roleBindings: [{ role: "patient", clinicId: null, clinicSlug: null }],
+  };
+  const error = new Error("invalid credential hash");
+  error.publicCode = "photo_protocol_access_credential_invalid";
+  error.publicStatus = 403;
+  const denied = await request(
+    "/api/v1/me/photo-protocols/10000000-0000-4000-8000-000000000301/access/exchange",
+    configuredEnv,
+    createRuntime({ authContext, patientPortalError: error }),
+    "POST",
+    JSON.stringify({ credential: "wrong credential" }),
+    { "content-type": "application/json" },
+  );
+
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.error.code, "photo_protocol_access_credential_invalid");
+  assert.doesNotMatch(denied.body, /wrong credential|credential_hash|session_hash|stack|postgres:\/\/|secret/i);
+});
+
 test("Stage 5N · /openapi.stage5n.json documents patient portal contracts", async () => {
   const response = await request("/openapi.stage5n.json");
   assert.equal(response.status, 200);
@@ -5560,6 +5632,7 @@ test("Stage 5N · /openapi.stage5n.json documents patient portal contracts", asy
   assert.ok(response.json.paths["/api/v1/me/history"].get);
   assert.ok(response.json.paths["/api/v1/me/reports/{reportId}"].get);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}"].get);
+  assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}/access/exchange"].post);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download"].get);
 });
 

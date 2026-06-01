@@ -281,6 +281,15 @@ function auditGovernanceMetadata(governance) {
     ...(Object.prototype.hasOwnProperty.call(sessionLifecycle, "credentialHashReady")
       ? { credentialHashReady: sessionLifecycle.credentialHashReady ?? 0 }
       : {}),
+    ...(Object.prototype.hasOwnProperty.call(sessionLifecycle, "sessionExchangePending")
+      ? { sessionExchangePending: sessionLifecycle.sessionExchangePending ?? 0 }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(sessionLifecycle, "sessionExchangeReady")
+      ? { sessionExchangeReady: sessionLifecycle.sessionExchangeReady ?? 0 }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(sessionLifecycle, "sessionExchangeDenied")
+      ? { sessionExchangeDenied: sessionLifecycle.sessionExchangeDenied ?? 0 }
+      : {}),
     sessionIdsExposed: governance.operations?.sessionLifecycle?.sessionIdsExposed === true,
     metadataOnly: governance.boundaries.metadataOnly === true,
     rawIdentifiersExposed: governance.boundaries.rawIdentifiersExposed === true,

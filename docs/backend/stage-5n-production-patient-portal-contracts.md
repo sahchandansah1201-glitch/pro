@@ -76,6 +76,27 @@ values, signed links, storage paths, credentials, QR/session identifiers, raw
 tokens, or doctor-only text. This is a download gate, not patient delivery
 expansion or retention-policy auto-approval.
 
+Batch AK adds `POST /api/v1/me/photo-protocols/{visitId}/access/exchange`.
+The patient submits a credential to the self-hosted backend; the service hashes
+the credential with the configured credential pepper, compares only hashes in
+PostgreSQL, creates a backend-owned session boundary, and stores only
+`session_hash`/`session_fingerprint` in
+`patient_photo_protocol_access_sessions`. The response contains
+`PatientPortalPhotoProtocolAccessExchange` metadata only:
+`session_boundary_ready` plus boolean `*Exposed: false` flags. It does not return
+the raw credential, credential hash/fingerprint, raw session identifier, session
+hash/fingerprint, QR value, signed URL, storage path, object key, or doctor-only
+text. Denied and successful exchange attempts are audit-recorded with safe
+reason/status metadata only.
+
+Deployment gate: `PATIENT_PHOTO_PROTOCOL_CREDENTIAL_PEPPER` must be provisioned
+from the same secret as PostgreSQL
+`app.patient_photo_protocol_credential_pepper`, which was used when Batch AJ
+stored the credential hash. `PATIENT_PHOTO_PROTOCOL_SESSION_PEPPER` must also be
+configured before production exchange is enabled. If the credential pepper is
+out of sync, valid patient credentials will be denied without exposing the
+credential or stored hash.
+
 `GET /api/v1/me/history` returns a patient-safe longitudinal history model:
 lesion cards, visit timeline, and aggregate photo-protocol policy/retention
 counters. Batch AA adds `comparisonOperations` (series readiness for doctor
@@ -104,6 +125,12 @@ the patient bearer token and creates a temporary local object URL for
 `Открыть фото`. The DOM must not render backend paths, object bucket/key values,
 storage paths, signed links, access tokens, object identifiers, doctor-only
 text, or clinical diagnosis/risk wording.
+
+The access-exchange client uses
+`/api/v1/me/photo-protocols/{visitId}/access/exchange` only to confirm the
+server-side boundary. It must not store the submitted credential, raw session
+secret, credential hash/fingerprint, session hash/fingerprint, QR values, or
+signed links in browser state or the DOM.
 
 When the photo protocol is revoked, `/me/reports/:id` shows
 `Фото-протокол отозван` and the `Отзыв и журнал доступа` section. Photo opening

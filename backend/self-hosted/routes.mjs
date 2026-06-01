@@ -602,6 +602,16 @@ function publicErrorFor(error) {
     not_found: "Resource was not found in the allowed clinic scope.",
     invalid_uuid: "The supplied identifier is not a valid UUID.",
     validation_error: "Request payload failed validation.",
+    photo_protocol_access_credential_invalid: "Patient photo protocol access was not confirmed.",
+    photo_protocol_access_not_found: "Patient photo protocol access was not found.",
+    photo_protocol_access_revoked: "Patient photo protocol access was revoked.",
+    photo_protocol_access_expired: "Patient photo protocol access expired.",
+    photo_protocol_access_retention_required: "Patient photo protocol access retention policy is not approved.",
+    photo_protocol_access_policy_blocked: "Patient photo protocol access policy is blocked.",
+    photo_protocol_access_proxy_disabled: "Patient photo protocol access proxy is not enabled.",
+    photo_protocol_access_consent_missing: "Patient photo protocol access consent is missing.",
+    photo_protocol_access_not_prepared: "Patient photo protocol access is not prepared.",
+    photo_protocol_access_not_configured: "Patient photo protocol access exchange is not configured.",
   };
   if (error instanceof DatabaseConfigError || error?.publicCode) {
     const code = error.publicCode || "database_unavailable";
@@ -2918,6 +2928,40 @@ export async function handleSelfHostedRequest(
           body: result.object.bytes,
           contentType: result.object.contentType,
           fileName: result.download.fileName,
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const patientPortalPhotoProtocolAccessExchangeMatch = url.pathname.match(
+    /^\/api\/v1\/me\/photo-protocols\/([^/]+)\/access\/exchange$/,
+  );
+  if (patientPortalPhotoProtocolAccessExchangeMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientPortalService.exchangePhotoProtocolAccess(
+        decodeURIComponent(patientPortalPhotoProtocolAccessExchangeMatch[1]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5N",
+          source: "postgres",
+          item: result.exchange,
+          auth: {
+            userId: result.scope.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
           correlationId,
         },
         config,

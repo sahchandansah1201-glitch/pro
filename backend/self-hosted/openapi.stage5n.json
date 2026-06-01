@@ -79,6 +79,33 @@
           }
         }
       },
+      "PatientPortalPhotoProtocolAccessExchange": {
+        "type": "object",
+        "description": "Metadata-only result of exchanging a patient-provided access credential for a backend session boundary. Raw credentials, credential hashes/fingerprints, raw session identifiers, session hashes/fingerprints, QR values, storage paths, signed URLs, and doctor-only text are not exposed.",
+        "properties": {
+          "visitId": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["confirmed", "denied"] },
+          "accessStatus": { "type": "string" },
+          "deniedReason": { "type": ["string", "null"] },
+          "sessionExpiresAt": { "type": ["string", "null"], "format": "date-time" },
+          "sessionBoundary": {
+            "type": "object",
+            "properties": {
+              "sessionEstablished": { "type": "boolean" },
+              "rawCredentialExposed": { "type": "boolean", "const": false },
+              "credentialHashExposed": { "type": "boolean", "const": false },
+              "credentialFingerprintExposed": { "type": "boolean", "const": false },
+              "rawSessionIdExposed": { "type": "boolean", "const": false },
+              "sessionHashExposed": { "type": "boolean", "const": false },
+              "sessionFingerprintExposed": { "type": "boolean", "const": false },
+              "qrTokenExposed": { "type": "boolean", "const": false },
+              "signedUrlsIssued": { "type": "boolean", "const": false },
+              "storagePathsExposed": { "type": "boolean", "const": false },
+              "doctorOnlyTextExposed": { "type": "boolean", "const": false }
+            }
+          }
+        }
+      },
       "PatientPortalHistory": {
         "type": "object",
         "description": "Patient-safe longitudinal lesion history with comparison operations and access-session governance aggregates. Diagnosis, doctor-only text, raw files, storage paths, temporary links, and tokens are not exposed.",
@@ -293,6 +320,66 @@
           },
           "404": {
             "description": "Photo protocol is not available in linked patient scope"
+          }
+        }
+      }
+    },
+    "/api/v1/me/photo-protocols/{visitId}/access/exchange": {
+      "post": {
+        "summary": "Confirm patient photo-protocol access credential",
+        "description": "Verifies a patient-provided credential against backend-owned hashes and creates a server-side session boundary. The response never exposes the raw credential, credential hash/fingerprint, raw session identifier, session hash/fingerprint, QR value, storage path, signed URL, or doctor-only text.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["credential"],
+                "properties": {
+                  "credential": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 512,
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access credential confirmed; backend session boundary is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPortalPhotoProtocolAccessExchange"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Credential could not be confirmed"
+          },
+          "410": {
+            "description": "Photo protocol access was revoked or expired"
+          },
+          "423": {
+            "description": "Photo protocol access policy, consent, proxy, or retention gate blocks exchange"
+          },
+          "503": {
+            "description": "Credential/session pepper is not configured"
           }
         }
       }

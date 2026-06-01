@@ -183,6 +183,10 @@ export interface SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
       credentialHashPending: number;
       credentialStoreReady: number;
       credentialStorePending: number;
+      sessionExchangeReady: number;
+      sessionExchangePending: number;
+      sessionExchangeDenied: number;
+      sessionExchangeSuccess: number;
       revoked: number;
       credentialRotationRequired: boolean;
       nextAction: string;
@@ -192,6 +196,9 @@ export interface SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
       rawCredentialExposed: boolean;
       credentialHashExposed: boolean;
       credentialFingerprintExposed: boolean;
+      rawSessionIdExposed: boolean;
+      sessionHashExposed: boolean;
+      sessionFingerprintExposed: boolean;
     };
     allowedOperations: string[];
     blockedOperations: string[];
@@ -582,6 +589,10 @@ export function toSelfHostedPatientPhotoProtocolReleaseGovernance(
         credentialHashPending: Number(sessionLifecycle.credentialHashPending ?? sessionLifecycle.credentialStorePending ?? 0),
         credentialStoreReady: Number(sessionLifecycle.credentialStoreReady ?? sessionLifecycle.credentialHashReady ?? 0),
         credentialStorePending: Number(sessionLifecycle.credentialStorePending ?? sessionLifecycle.credentialHashPending ?? 0),
+        sessionExchangeReady: Number(sessionLifecycle.sessionExchangeReady ?? 0),
+        sessionExchangePending: Number(sessionLifecycle.sessionExchangePending ?? 0),
+        sessionExchangeDenied: Number(sessionLifecycle.sessionExchangeDenied ?? 0),
+        sessionExchangeSuccess: Number(sessionLifecycle.sessionExchangeSuccess ?? 0),
         revoked: Number(sessionLifecycle.revoked ?? 0),
         credentialRotationRequired: bool(sessionLifecycle.credentialRotationRequired),
         nextAction: String(sessionLifecycle.nextAction ?? "inspect_session_lifecycle"),
@@ -591,6 +602,9 @@ export function toSelfHostedPatientPhotoProtocolReleaseGovernance(
         rawCredentialExposed: false,
         credentialHashExposed: false,
         credentialFingerprintExposed: false,
+        rawSessionIdExposed: false,
+        sessionHashExposed: false,
+        sessionFingerprintExposed: false,
       },
       allowedOperations: arrayOfStrings(operations.allowedOperations),
       blockedOperations: arrayOfStrings(operations.blockedOperations),

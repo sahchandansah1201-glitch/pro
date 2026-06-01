@@ -308,6 +308,34 @@ This is still not QR generation, session issuance, signed URL creation, object
 store delivery, or patient-facing access. Admin UI exposes the aggregate action
 as `Создать хэш доступа`; demo mode remains local-only.
 
+Production exchange depends on secret parity: the database setting
+`app.patient_photo_protocol_credential_pepper` used here must match the
+backend runtime `PATIENT_PHOTO_PROTOCOL_CREDENTIAL_PEPPER` used by Batch AK.
+
+## Batch AK · Credential exchange session boundary
+
+Batch AK connects the Stage 8G-8I governance read model to the Stage 5N
+credential-exchange endpoint. The patient-side exchange itself lives at
+`/api/v1/me/photo-protocols/{visitId}/access/exchange`; governance aggregates
+now expose only count-level session exchange state:
+
+- `sessionExchangePending`;
+- `sessionExchangeReady`;
+- `sessionExchangeDenied`;
+- `sessionExchangeSuccess`.
+
+The read model counts active rows in `patient_photo_protocol_access_sessions`
+and safe audit events for exchange success/denial. `/admin/governance` shows
+`Обмен нужен`, `Сессия подтверждена`, and `Отказы обмена` inside
+`Жизненный цикл сессий`.
+
+This is not raw credential display, QR display, signed URL issue, object-store
+path exposure, or patient row disclosure. The admin UI and API expose only
+aggregate counts plus false boundary flags such as `rawSessionIdExposed=false`,
+`sessionHashExposed=false`, and `sessionFingerprintExposed=false`.
+`PATIENT_PHOTO_PROTOCOL_SESSION_PEPPER` is required for the backend-owned
+session boundary and must not be reused as a patient-visible value.
+
 ## Audit
 
 Every read records:

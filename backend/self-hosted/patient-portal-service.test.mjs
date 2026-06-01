@@ -9,6 +9,7 @@ const VISIT_ID = "33333333-3333-4333-8333-333333333333";
 
 function createService(overrides = {}) {
   const auditEvents = [];
+  const exchangeCalls = [];
   const service = createPatientPortalService({
     patientPortalRepository: {
       async getOverview({ userId }) {
@@ -87,6 +88,30 @@ function createService(overrides = {}) {
           },
         };
       },
+      async exchangePhotoProtocolAccess(input) {
+        exchangeCalls.push(input);
+        return overrides.exchangeResult || {
+          id: "ppr-1",
+          visitId: input.visitId,
+          status: "confirmed",
+          accessStatus: "session_boundary_ready",
+          sessionExpiresAt: input.sessionExpiresAt,
+          clinic: { id: "c-1" },
+          sessionBoundary: {
+            sessionEstablished: true,
+            rawCredentialExposed: false,
+            credentialHashExposed: false,
+            credentialFingerprintExposed: false,
+            rawSessionIdExposed: false,
+            sessionHashExposed: false,
+            sessionFingerprintExposed: false,
+            qrTokenExposed: false,
+            signedUrlsIssued: false,
+            storagePathsExposed: false,
+            doctorOnlyTextExposed: false,
+          },
+        };
+      },
       async createBookingRequest() {
         return overrides.bookingRequest === null
           ? null
@@ -113,8 +138,13 @@ function createService(overrides = {}) {
         auditEvents.push(event);
       },
     },
+    credentialPepper: overrides.credentialPepper ?? "test-credential-pepper",
+    sessionPepper: overrides.sessionPepper ?? "test-session-pepper",
+    randomBytesImpl: overrides.randomBytesImpl || (() => Buffer.from("0123456789abcdef0123456789abcdef")),
+    now: overrides.now || (() => new Date("2026-06-01T12:00:00.000Z")),
+    sessionTtlMinutes: 30,
   });
-  return { service, auditEvents };
+  return { service, auditEvents, exchangeCalls };
 }
 
 test("Stage 5N service allows patient role and audits overview/report reads", async () => {
@@ -220,5 +250,84 @@ test("Stage 5N service validates photo protocol visit id and maps missing protoc
   await assert.rejects(
     () => service.getPhotoProtocol(VISIT_ID, authContext),
     (error) => error.publicCode === "not_found" && error.publicStatus === 404,
+  );
+});
+
+test("Stage 5N service exchanges access credential without auditing or returning secrets", async () => {
+  const { service, auditEvents, exchangeCalls } = createService();
+  const authContext = { userId: USER_ID, roles: ["patient"] };
+
+  const result = await service.exchangePhotoProtocolAccess(
+    VISIT_ID,
+    { credential: "patient one-time credential" },
+    authContext,
+    { correlationId: "corr-exchange-1" },
+  );
+
+  assert.equal(result.exchange.status, "confirmed");
+  assert.equal(result.exchange.accessStatus, "session_boundary_ready");
+  assert.equal(result.exchange.sessionBoundary.rawCredentialExposed, false);
+  assert.equal(result.exchange.sessionBoundary.sessionHashExposed, false);
+  assert.equal(result.exchange.sessionBoundary.sessionEstablished, true);
+  assert.equal(exchangeCalls.length, 1);
+  assert.equal(exchangeCalls[0].credentialHash.length, 64);
+  assert.equal(exchangeCalls[0].sessionHash.length, 64);
+  assert.equal(exchangeCalls[0].sessionFingerprint.length, 16);
+  assert.notEqual(exchangeCalls[0].credentialHash, "patient one-time credential");
+  assert.equal("credential" in exchangeCalls[0], false);
+  assert.equal("sessionSecret" in exchangeCalls[0], false);
+  assert.deepEqual(auditEvents.map((event) => event.action), [
+    "patient_portal.photo_protocol.access.exchange",
+  ]);
+  assert.equal(auditEvents[0].metadata.rawCredentialExposed, false);
+  assert.equal(auditEvents[0].metadata.sessionHashExposed, false);
+  assert.doesNotMatch(JSON.stringify(auditEvents[0]), /patient one-time credential|0123456789abcdef|credential_hash|session_hash/i);
+});
+
+test("Stage 5N service denies invalid credential with safe audit metadata", async () => {
+  const { service, auditEvents } = createService({
+    exchangeResult: {
+      id: "ppr-1",
+      visitId: VISIT_ID,
+      status: "denied",
+      accessStatus: "photo_protocol_access_credential_invalid",
+      deniedReason: "photo_protocol_access_credential_invalid",
+      clinic: { id: "c-1" },
+      sessionBoundary: {
+        sessionEstablished: false,
+        rawCredentialExposed: false,
+        credentialHashExposed: false,
+        credentialFingerprintExposed: false,
+        rawSessionIdExposed: false,
+        sessionHashExposed: false,
+        sessionFingerprintExposed: false,
+      },
+    },
+  });
+  const authContext = { userId: USER_ID, roles: ["patient"] };
+
+  await assert.rejects(
+    () => service.exchangePhotoProtocolAccess(
+      VISIT_ID,
+      { credential: "wrong credential" },
+      authContext,
+      { correlationId: "corr-exchange-2" },
+    ),
+    (error) => error.publicCode === "photo_protocol_access_credential_invalid" && error.publicStatus === 403,
+  );
+  assert.deepEqual(auditEvents.map((event) => event.action), [
+    "patient_portal.photo_protocol.access.exchange_denied",
+  ]);
+  assert.equal(auditEvents[0].metadata.reason, "photo_protocol_access_credential_invalid");
+  assert.doesNotMatch(JSON.stringify(auditEvents[0]), /wrong credential|credential_hash|session_hash|sessionSecret/i);
+});
+
+test("Stage 5N service requires configured credential and session peppers", async () => {
+  const { service } = createService({ credentialPepper: "", sessionPepper: "" });
+  const authContext = { userId: USER_ID, roles: ["patient"] };
+
+  await assert.rejects(
+    () => service.exchangePhotoProtocolAccess(VISIT_ID, { credential: "patient one-time credential" }, authContext),
+    (error) => error.publicCode === "photo_protocol_access_not_configured" && error.publicStatus === 503,
   );
 });

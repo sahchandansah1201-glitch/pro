@@ -1202,6 +1202,7 @@ export function buildGetPatientPhotoProtocolReleaseGovernanceSql({
   return `
 with scoped_releases as (
   select
+    r.id as release_id,
     row_number() over (order by r.updated_at desc, r.created_at desc)::int as queue_number,
     r.status,
     coalesce(r.selected_photo_count, 0)::int as selected_photo_count,
@@ -1223,6 +1224,15 @@ with scoped_releases as (
         limit 1
       )
     ) as credential_hash_stored,
+    exists (
+      select 1
+      from patient_photo_protocol_access_sessions s
+      where s.release_id = r.id
+        and s.session_kind = 'patient_photo_protocol_access'
+        and s.status = 'active'
+        and s.expires_at > now()
+      limit 1
+    ) as access_session_active,
     (
       'credential_rotation_required' = any(coalesce(r.release_blockers, '{}'::text[]))
       or 'session_boundary_review_required' = any(coalesce(r.release_blockers, '{}'::text[]))
@@ -1319,8 +1329,29 @@ summary as (
     count(*) filter (
       where access_artifact_rotation_prepared
         and not credential_hash_stored
-    )::int as credential_hash_pending
+    )::int as credential_hash_pending,
+    count(*) filter (
+      where credential_hash_stored
+        and access_session_active
+    )::int as session_exchange_ready,
+    count(*) filter (
+      where status = 'prepared'
+        and credential_hash_stored
+        and not access_session_active
+    )::int as session_exchange_pending
   from scoped_releases
+),
+exchange_audit as (
+  select
+    count(*) filter (where a.action = 'patient_portal.photo_protocol.access.exchange')::int as session_exchange_success,
+    count(*) filter (where a.action = 'patient_portal.photo_protocol.access.exchange_denied')::int as session_exchange_denied
+  from audit_log a
+  where a.entity_type = 'patient_photo_protocol_release'
+    and a.action in (
+      'patient_portal.photo_protocol.access.exchange',
+      'patient_portal.photo_protocol.access.exchange_denied'
+    )
+    ${clinicScopeWhere({ alias: "a", clinicIds, allClinics })}
 )
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
 from (
@@ -1386,15 +1417,21 @@ from (
         'credentialHashPending', coalesce(s.credential_hash_pending, 0),
         'credentialStoreReady', coalesce(s.credential_hash_ready, 0),
         'credentialStorePending', coalesce(s.credential_hash_pending, 0),
+        'sessionExchangeReady', coalesce(s.session_exchange_ready, 0),
+        'sessionExchangePending', coalesce(s.session_exchange_pending, 0),
+        'sessionExchangeDenied', coalesce(ea.session_exchange_denied, 0),
+        'sessionExchangeSuccess', coalesce(ea.session_exchange_success, 0),
         'revoked', coalesce(s.revoked, 0),
         'credentialRotationRequired',
           coalesce(s.unsafe_session_artifacts, 0) > 0
           or coalesce(s.access_artifact_rotation_pending, 0) > 0
-          or coalesce(s.credential_hash_pending, 0) > 0,
+          or coalesce(s.credential_hash_pending, 0) > 0
+          or coalesce(s.session_exchange_pending, 0) > 0,
         'nextAction', case
           when coalesce(s.unsafe_session_artifacts, 0) > 0 then 'block_unsafe_session_artifacts'
           when coalesce(s.access_artifact_rotation_pending, 0) > 0 then 'prepare_access_artifact_rotation'
           when coalesce(s.credential_hash_pending, 0) > 0 then 'issue_access_credential_hash'
+          when coalesce(s.session_exchange_pending, 0) > 0 then 'exchange_access_credential'
           when coalesce(s.expiry_missing, 0) > 0 then 'block_missing_expiry_access_windows'
           else 'inspect_session_lifecycle'
         end,
@@ -1403,7 +1440,10 @@ from (
         'sessionIdsExposed', false,
         'rawCredentialExposed', false,
         'credentialHashExposed', false,
-        'credentialFingerprintExposed', false
+        'credentialFingerprintExposed', false,
+        'rawSessionIdExposed', false,
+        'sessionHashExposed', false,
+        'sessionFingerprintExposed', false
       ),
       'allowedOperations', jsonb_build_array(
         'review_retention_policy',
@@ -1412,7 +1452,8 @@ from (
         'inspect_session_lifecycle',
         'block_unsafe_session_artifacts',
         'prepare_access_artifact_rotation',
-        'issue_access_credential_hash'
+        'issue_access_credential_hash',
+        'exchange_access_credential'
       ),
       'blockedOperations', jsonb_build_array(
         'block_secret_issue',
@@ -1435,6 +1476,7 @@ from (
       'rawPolicyPayloadExposed', false
     ) as "boundaries"
   from summary s
+  cross join exchange_audit ea
   limit 1
 ) result;
 `.trim();
@@ -1686,6 +1728,10 @@ function normalizeGovernance(row = {}) {
         credentialHashPending: number(sessionLifecycle.credentialHashPending ?? sessionLifecycle.credentialStorePending),
         credentialStoreReady: number(sessionLifecycle.credentialStoreReady ?? sessionLifecycle.credentialHashReady),
         credentialStorePending: number(sessionLifecycle.credentialStorePending ?? sessionLifecycle.credentialHashPending),
+        sessionExchangeReady: number(sessionLifecycle.sessionExchangeReady),
+        sessionExchangePending: number(sessionLifecycle.sessionExchangePending),
+        sessionExchangeDenied: number(sessionLifecycle.sessionExchangeDenied),
+        sessionExchangeSuccess: number(sessionLifecycle.sessionExchangeSuccess),
         revoked: number(sessionLifecycle.revoked),
         credentialRotationRequired: bool(sessionLifecycle.credentialRotationRequired),
         nextAction: textOrNull(sessionLifecycle.nextAction) ?? "inspect_session_lifecycle",
@@ -1695,6 +1741,9 @@ function normalizeGovernance(row = {}) {
         rawCredentialExposed: false,
         credentialHashExposed: false,
         credentialFingerprintExposed: false,
+        rawSessionIdExposed: false,
+        sessionHashExposed: false,
+        sessionFingerprintExposed: false,
       },
       allowedOperations: arrayOfStrings(operations.allowedOperations),
       blockedOperations: arrayOfStrings(operations.blockedOperations),

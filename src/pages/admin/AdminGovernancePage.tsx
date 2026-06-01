@@ -127,14 +127,21 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
       credentialHashPending: 2,
       credentialStoreReady: 1,
       credentialStorePending: 2,
+      sessionExchangeReady: 1,
+      sessionExchangePending: 2,
+      sessionExchangeDenied: 1,
+      sessionExchangeSuccess: 1,
       credentialRotationRequired: true,
-      nextAction: "issue_access_credential_hash",
+      nextAction: "exchange_access_credential",
       temporaryCredentialsExposed: false,
       qrTokensExposed: false,
       sessionIdsExposed: false,
       rawCredentialExposed: false,
       credentialHashExposed: false,
       credentialFingerprintExposed: false,
+      rawSessionIdExposed: false,
+      sessionHashExposed: false,
+      sessionFingerprintExposed: false,
     },
     allowedOperations: [
       "review_retention_policy",
@@ -144,6 +151,7 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
       "block_unsafe_session_artifacts",
       "prepare_access_artifact_rotation",
       "issue_access_credential_hash",
+      "exchange_access_credential",
     ],
     blockedOperations: [
       "block_secret_issue",
@@ -428,9 +436,20 @@ function GovernanceOperations({
             tone={sessionLifecycle.credentialHashPending > 0 ? "warning" : "success"}
           />
           <OperationLine label="Хэш готов" value={sessionLifecycle.credentialHashReady} />
+          <OperationLine
+            label="Обмен нужен"
+            value={sessionLifecycle.sessionExchangePending}
+            tone={sessionLifecycle.sessionExchangePending > 0 ? "warning" : "success"}
+          />
+          <OperationLine label="Сессия подтверждена" value={sessionLifecycle.sessionExchangeReady} tone="success" />
+          <OperationLine
+            label="Отказы обмена"
+            value={sessionLifecycle.sessionExchangeDenied}
+            tone={sessionLifecycle.sessionExchangeDenied > 0 ? "warning" : "success"}
+          />
           <OperationLine label="QR/токены/ID" value="скрыты" tone="success" />
           <div className="text-[11px] text-muted-foreground">
-            Разрешены только операционные проверки. Секреты доступа, внешние ссылки и файловые пути заблокированы контрактом.
+            Обмен credential работает только через backend-сессию. Сырые credential, hash/fingerprint и session id не выводятся.
           </div>
           <Button
             variant="outline"

@@ -274,7 +274,14 @@ test("Batch AB service exposes aggregate release governance to clinic admin and 
           operations: {
             retention: { reviewDue: 2 },
             revokeReadiness: { canPrepareRevokeReview: 1 },
-            sessionLifecycle: { missingExpiry: 1, unsafeArtifacts: 0, sessionIdsExposed: false },
+            sessionLifecycle: {
+              missingExpiry: 1,
+              unsafeArtifacts: 0,
+              sessionExchangePending: 2,
+              sessionExchangeReady: 1,
+              sessionExchangeDenied: 1,
+              sessionIdsExposed: false,
+            },
           },
         };
       },
@@ -311,6 +318,9 @@ test("Batch AB service exposes aggregate release governance to clinic admin and 
     unsafeSessionArtifacts: 0,
     accessArtifactRotationPending: 0,
     accessArtifactRotationPrepared: 0,
+    sessionExchangePending: 2,
+    sessionExchangeReady: 1,
+    sessionExchangeDenied: 1,
     sessionIdsExposed: false,
     metadataOnly: true,
     rawIdentifiersExposed: false,
