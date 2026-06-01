@@ -39,6 +39,7 @@ function createRuntime({
   patientPortalSessionCookie = null,
   patientPortalHistory = null,
   patientPhotoProtocolDownload = null,
+  patientPhotoProtocolDownloadCalls = [],
   patientPortalBookingRequest = null,
   patientPortalReminderPreferences = null,
   patientPortalError = null,
@@ -545,7 +546,8 @@ function createRuntime({
       },
     },
     patientPhotoProtocolDeliveryService: {
-      async downloadPhoto() {
+      async downloadPhoto(...args) {
+        patientPhotoProtocolDownloadCalls.push(args);
         if (patientPortalError) throw patientPortalError;
         return patientPhotoProtocolDownload || {
           asset: {
@@ -5488,8 +5490,10 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
     clinicIds: [],
     roleBindings: [{ role: "patient", clinicId: null, clinicSlug: null }],
   };
+  const patientPhotoProtocolDownloadCalls = [];
   const runtime = createRuntime({
     authContext,
+    patientPhotoProtocolDownloadCalls,
     patientPortalOverview: {
       patient: {
         id: "10000000-0000-4000-8000-000000000201",
@@ -5590,6 +5594,11 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
     "/api/v1/me/photo-protocols/10000000-0000-4000-8000-000000000301/photos/1/download",
     configuredEnv,
     runtime,
+    "GET",
+    undefined,
+    {
+      cookie: `theme=light; sd_photo_protocol_session=${"a".repeat(64)}; other=value`,
+    },
   );
   assert.equal(photoDownload.status, 200);
   assert.equal(photoDownload.headers["content-type"], "image/jpeg");
@@ -5598,8 +5607,10 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
   assert.equal(String(photoDownload.body), "patient-photo");
   assert.doesNotMatch(
     String(photoDownload.body) + JSON.stringify(photoDownload.headers),
-    /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token/i,
+    /physicianText|physician_text|storage_object_path|object_bucket|object_key|checksum_sha256|signed_url|access_token|sd_photo_protocol_session|a{64}/i,
   );
+  assert.equal(patientPhotoProtocolDownloadCalls.length, 1);
+  assert.equal(patientPhotoProtocolDownloadCalls[0][2].sessionCookieValue, "a".repeat(64));
 });
 
 test("Stage 5N · patient portal endpoint maps forbidden access safely", async () => {

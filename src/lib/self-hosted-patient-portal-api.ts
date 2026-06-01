@@ -411,6 +411,12 @@ function imageExtension(contentType: string): string {
 
 function patientPhotoProtocolDownloadErrorMessage(error: SelfHostedApiError): string {
   switch (error.code) {
+    case "photo_protocol_session_required":
+      return "Подтвердите доступ к фото-протоколу.";
+    case "photo_protocol_session_invalid":
+      return "Сессия доступа к фото-протоколу истекла или не подтверждена.";
+    case "photo_protocol_session_not_configured":
+      return "Контур подтверждения доступа не настроен клиникой.";
     case "photo_protocol_revoked":
       return "Доступ к фото отозван клиникой.";
     case "photo_protocol_not_prepared":

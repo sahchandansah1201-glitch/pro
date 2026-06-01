@@ -406,8 +406,8 @@ describe("self-hosted-patient-portal-api", () => {
   it("maps backend proxy deny codes to patient-safe messages", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
-        JSON.stringify({ error: { code: "photo_protocol_retention_required", message: "hidden" } }),
-        { status: 423, headers: { "Content-Type": "application/json" } },
+        JSON.stringify({ error: { code: "photo_protocol_session_required", message: "hidden" } }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
       ),
     );
 
@@ -419,8 +419,8 @@ describe("self-hosted-patient-portal-api", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.error.code).toBe("photo_protocol_retention_required");
-    expect(result.error.message).toBe("Клиника не подтвердила срок и политику доступа к фото.");
+    expect(result.error.code).toBe("photo_protocol_session_required");
+    expect(result.error.message).toBe("Подтвердите доступ к фото-протоколу.");
   });
 
   it("exchanges a patient photo protocol access credential without exposing secrets", async () => {

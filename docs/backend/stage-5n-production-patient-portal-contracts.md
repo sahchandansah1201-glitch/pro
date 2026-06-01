@@ -107,6 +107,18 @@ attempts return no cookie. CORS responses include
 `access-control-allow-credentials: true` for configured origins so the browser
 can receive and later send the HttpOnly cookie without JavaScript access.
 
+Batch AM turns that cookie transport into an enforced backend boundary for
+`GET /api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download`. The
+route reads only the `sd_photo_protocol_session` cookie value from the request,
+the delivery service hashes it with `PATIENT_PHOTO_PROTOCOL_SESSION_PEPPER`,
+and the repository checks only the hash against an active
+`patient_photo_protocol_access_sessions` row for the linked patient/release.
+Missing, malformed, unconfigured, expired, or unmatched sessions deny before
+object storage is read. Audit metadata stays aggregate/safe:
+`rawSessionIdExposed`, `sessionHashExposed`, and `sessionFingerprintExposed`
+remain false; no cookie value, session hash, session fingerprint, signed URL,
+object bucket/key, or doctor-only text is returned.
+
 `GET /api/v1/me/history` returns a patient-safe longitudinal history model:
 lesion cards, visit timeline, and aggregate photo-protocol policy/retention
 counters. Batch AA adds `comparisonOperations` (series readiness for doctor

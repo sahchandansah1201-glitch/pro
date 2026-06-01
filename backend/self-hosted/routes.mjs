@@ -612,6 +612,9 @@ function publicErrorFor(error) {
     photo_protocol_access_consent_missing: "Patient photo protocol access consent is missing.",
     photo_protocol_access_not_prepared: "Patient photo protocol access is not prepared.",
     photo_protocol_access_not_configured: "Patient photo protocol access exchange is not configured.",
+    photo_protocol_session_required: "Patient photo protocol session cookie is required.",
+    photo_protocol_session_invalid: "Patient photo protocol session cookie is invalid or expired.",
+    photo_protocol_session_not_configured: "Patient photo protocol session validation is not configured.",
   };
   if (error instanceof DatabaseConfigError || error?.publicCode) {
     const code = error.publicCode || "database_unavailable";
@@ -681,6 +684,19 @@ function serializeHttpOnlyCookie(cookie) {
   const maxAge = Math.max(0, Math.min(Number(cookie.maxAgeSeconds ?? 0) || 0, 60 * 60 * 24));
   const sameSite = cookie.sameSite === "Lax" ? "Lax" : "Strict";
   return `${name}=${value}; Max-Age=${maxAge}; Path=${path}; HttpOnly; Secure; SameSite=${sameSite}`;
+}
+
+function readCookieValue(headers, name) {
+  const cookieHeader = String(headers?.cookie || headers?.Cookie || "");
+  const safeName = String(name || "");
+  if (!cookieHeader || !safeName) return "";
+  for (const part of cookieHeader.split(";")) {
+    const [rawKey, ...rawValue] = part.trim().split("=");
+    if (rawKey === safeName) {
+      return rawValue.join("=").replace(/[^A-Za-z0-9._~-]/g, "");
+    }
+  }
+  return "";
 }
 
 function patientIdFromPath(pathname) {
@@ -2932,7 +2948,10 @@ export async function handleSelfHostedRequest(
           sequence: decodeURIComponent(patientPortalPhotoProxyMatch[2]),
         },
         authContext,
-        { correlationId },
+        {
+          correlationId,
+          sessionCookieValue: readCookieValue(request.headers, "sd_photo_protocol_session"),
+        },
       );
       return binaryResponse(
         200,

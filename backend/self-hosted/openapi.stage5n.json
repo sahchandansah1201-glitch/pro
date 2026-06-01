@@ -395,7 +395,7 @@
     "/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download": {
       "get": {
         "summary": "Stream one patient photo through the backend proxy",
-        "description": "Streams photo bytes only when the authenticated patient is linked to the visit, a prepared release exists, the backend proxy flag is enabled, consent is present, retention policy is approved, and the release expiry is still valid. The API does not expose storage paths, object identifiers, signed links, access tokens, or doctor-only text.",
+        "description": "Streams photo bytes only when the authenticated patient is linked to the visit, a prepared release exists, an active HttpOnly sd_photo_protocol_session cookie matches the backend session ledger, the backend proxy flag is enabled, consent is present, retention policy is approved, and the release expiry is still valid. The API does not expose raw session identifiers, session hashes/fingerprints, storage paths, object identifiers, signed links, access tokens, or doctor-only text.",
         "parameters": [
           {
             "name": "visitId",
@@ -429,11 +429,17 @@
           "400": {
             "description": "Invalid visit or photo sequence"
           },
+          "401": {
+            "description": "The HttpOnly photo-protocol session cookie is missing, invalid, or expired"
+          },
           "410": {
             "description": "Photo protocol access was revoked or expired"
           },
           "423": {
             "description": "Photo protocol proxy is blocked until backend, consent, and retention gates pass"
+          },
+          "503": {
+            "description": "Session validation is not configured on the self-hosted backend"
           }
         }
       }

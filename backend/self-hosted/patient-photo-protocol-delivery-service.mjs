@@ -3,10 +3,13 @@
 // and explicit backend proxy enablement gates pass. It never returns storage
 // paths, signed URLs, access tokens, or object identifiers to the browser.
 
+import { createHash, createHmac } from "node:crypto";
+
 import { recordAuditBestEffort } from "./audit-repository.mjs";
 import { patientPortalScope } from "./rbac.mjs";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SESSION_SECRET_PATTERN = /^[a-f0-9]{64}$/i;
 
 class PatientPhotoProtocolProxyError extends Error {
   constructor({ code, status, message }) {
@@ -53,11 +56,20 @@ function publicError(code, status, message = "Photo protocol delivery is unavail
   return new PatientPhotoProtocolProxyError({ code, status, message });
 }
 
+function hmacSha256Hex(secret, value) {
+  return createHmac("sha256", String(secret)).update(String(value)).digest("hex");
+}
+
+function fingerprint(value) {
+  return createHash("sha256").update(String(value)).digest("hex").slice(0, 16);
+}
+
 async function auditProxyEvent(auditRepository, candidate, scope, {
   action,
   correlationId,
   reason = null,
   sequence,
+  visitId = null,
 } = {}) {
   await recordAuditBestEffort(auditRepository, {
     clinicId: candidate?.release?.clinicId || null,
@@ -67,7 +79,7 @@ async function auditProxyEvent(auditRepository, candidate, scope, {
     entityId: candidate?.release?.id || null,
     correlationId,
     metadata: {
-      visitId: candidate?.release?.visitId || null,
+      visitId: candidate?.release?.visitId || visitId || null,
       assetId: candidate?.asset?.id || null,
       sequence,
       reason,
@@ -75,6 +87,9 @@ async function auditProxyEvent(auditRepository, candidate, scope, {
       signedUrlsIssued: false,
       storagePathsExposed: false,
       tokensExposed: false,
+      rawSessionIdExposed: false,
+      sessionHashExposed: false,
+      sessionFingerprintExposed: false,
       doctorOnlyTextExposed: false,
     },
   });
@@ -85,16 +100,42 @@ export function createPatientPhotoProtocolDeliveryService({
   objectStore,
   auditRepository,
   now = () => new Date(),
+  sessionPepper = process.env.PATIENT_PHOTO_PROTOCOL_SESSION_PEPPER || "",
 } = {}) {
   return {
-    async downloadPhoto({ visitId, sequence } = {}, authContext, { correlationId } = {}) {
+    async downloadPhoto({ visitId, sequence } = {}, authContext, {
+      correlationId,
+      sessionCookieValue,
+    } = {}) {
       const scope = patientPortalScope(authContext);
       const safeVisitId = assertUuid(visitId, "visitId");
       const safeSequence = assertSequence(sequence);
+      async function denyBeforeLookup(code, status, reason) {
+        await auditProxyEvent(auditRepository, null, scope, {
+          action: "patient_portal.photo_protocol.proxy.denied",
+          correlationId,
+          reason,
+          sequence: safeSequence,
+          visitId: safeVisitId,
+        });
+        throw publicError(code, status);
+      }
+      const sessionSecret = String(sessionCookieValue || "").trim();
+      if (!sessionSecret) {
+        await denyBeforeLookup("photo_protocol_session_required", 401, "session_required");
+      }
+      if (!SESSION_SECRET_PATTERN.test(sessionSecret)) {
+        await denyBeforeLookup("photo_protocol_session_invalid", 401, "session_invalid");
+      }
+      if (!sessionPepper) {
+        await denyBeforeLookup("photo_protocol_session_not_configured", 503, "session_not_configured");
+      }
       const candidate = await patientPhotoProtocolDeliveryRepository.getDeliveryAsset({
         userId: scope.userId,
         visitId: safeVisitId,
         sequence: safeSequence,
+        sessionHash: hmacSha256Hex(sessionPepper, sessionSecret),
+        sessionFingerprint: fingerprint(sessionSecret),
       });
       if (!candidate) {
         throw publicError("photo_protocol_not_found", 404, "Photo protocol was not found.");
@@ -107,6 +148,9 @@ export function createPatientPhotoProtocolDeliveryService({
           sequence: safeSequence,
         });
         throw publicError(code, status);
+      }
+      if (!candidate.release.accessSession?.matched) {
+        await deny("photo_protocol_session_invalid", 401, "session_invalid");
       }
       if (candidate.release.status === "revoked") {
         await deny("photo_protocol_revoked", 410, "revoked");

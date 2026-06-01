@@ -23,6 +23,11 @@ function safeSequence(value) {
   return parsed;
 }
 
+function safeSha256Hex(value) {
+  const text = String(value || "");
+  return /^[a-f0-9]{64}$/i.test(text) ? text.toLowerCase() : "0".repeat(64);
+}
+
 function textOrNull(value) {
   return value == null ? null : String(value);
 }
@@ -40,10 +45,12 @@ export function buildGetPatientPhotoProtocolDeliveryAssetSql({
   userId,
   visitId,
   sequence,
+  sessionHash,
 } = {}) {
   const safeUserId = safeUuid(userId);
   const safeVisitId = safeUuid(visitId);
   const safeAssetSequence = safeSequence(sequence);
+  const safeSessionHash = safeSha256Hex(sessionHash);
   return `
 with linked_release as (
   select
@@ -61,6 +68,24 @@ with linked_release as (
   join patients p on p.id = r.patient_id and p.clinic_id = r.clinic_id and p.deleted_at is null
   where pul.user_id = ${sqlUuid(safeUserId)}
     and r.visit_id = ${sqlUuid(safeVisitId)}
+  limit 1
+),
+active_session as (
+  select
+    s.release_id,
+    s.status,
+    s.expires_at
+  from patient_photo_protocol_access_sessions s
+  join linked_release lr on lr.id = s.release_id
+    and lr.clinic_id = s.clinic_id
+    and lr.patient_id = s.patient_id
+    and lr.visit_id = s.visit_id
+  where s.patient_user_id = ${sqlUuid(safeUserId)}
+    and s.session_kind = 'patient_photo_protocol_access'
+    and s.status = 'active'
+    and s.session_hash = ${sqlLiteral(safeSessionHash)}
+    and s.expires_at > now()
+  order by s.issued_at desc
   limit 1
 ),
 numbered_assets as (
@@ -93,6 +118,9 @@ from (
     lr.imaging_consent as "imagingConsent",
     lr.file_proxy_enabled as "fileProxyEnabled",
     lr.retention_policy_approved as "retentionPolicyApproved",
+    exists(select 1 from active_session) as "sessionBoundaryMatched",
+    (select status from active_session limit 1) as "sessionStatus",
+    (select expires_at from active_session limit 1) as "sessionExpiresAt",
     na.sequence as "sequence",
     na.id::text as "assetId",
     na.kind as "kind",
@@ -121,6 +149,14 @@ export function normalizePatientPhotoProtocolDeliveryAsset(row) {
       imagingConsent: booleanValue(row.imagingConsent),
       fileProxyEnabled: booleanValue(row.fileProxyEnabled),
       retentionPolicyApproved: booleanValue(row.retentionPolicyApproved),
+      accessSession: {
+        matched: booleanValue(row.sessionBoundaryMatched),
+        status: textOrNull(row.sessionStatus),
+        expiresAt: textOrNull(row.sessionExpiresAt),
+        rawSessionIdExposed: false,
+        sessionHashExposed: false,
+        sessionFingerprintExposed: false,
+      },
     },
     asset: {
       id: textOrNull(row.assetId),

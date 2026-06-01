@@ -10,11 +10,12 @@ import {
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const VISIT_ID = "22222222-2222-4222-8222-222222222222";
 
-test("Batch T SQL scopes patient photo proxy through linked patient release and internal asset storage", () => {
+test("Batch AM SQL scopes patient photo proxy through linked active session and internal asset storage", () => {
   const sql = buildGetPatientPhotoProtocolDeliveryAssetSql({
     userId: USER_ID,
     visitId: VISIT_ID,
     sequence: 1,
+    sessionHash: "a".repeat(64),
   });
 
   assert.match(sql, /patient_user_links/);
@@ -24,11 +25,17 @@ test("Batch T SQL scopes patient photo proxy through linked patient release and 
   assert.match(sql, /object_key/);
   assert.match(sql, /patientFileProxyEnabled/);
   assert.match(sql, /retentionPolicyApproved/);
+  assert.match(sql, /patient_photo_protocol_access_sessions/);
+  assert.match(sql, /session_hash/);
+  assert.match(sql, /session_kind = 'patient_photo_protocol_access'/);
+  assert.match(sql, /status = 'active'/);
+  assert.match(sql, /expires_at > now\(\)/);
+  assert.match(sql, /sessionBoundaryMatched/);
   assert.match(sql, /row_number\(\)/);
-  assert.doesNotMatch(sql, /signed_url|access_token|storage_object_path|physician_text/i);
+  assert.doesNotMatch(sql, /signed_url|access_token|storage_object_path|physician_text|rawSessionId/i);
 });
 
-test("Batch T delivery normalizer keeps storage fields backend-internal", () => {
+test("Batch AM delivery normalizer keeps session/storage fields backend-internal", () => {
   const result = normalizePatientPhotoProtocolDeliveryAsset({
     releaseId: "ppr-1",
     clinicId: "c-1",
@@ -39,6 +46,9 @@ test("Batch T delivery normalizer keeps storage fields backend-internal", () => 
     imagingConsent: true,
     fileProxyEnabled: true,
     retentionPolicyApproved: true,
+    sessionBoundaryMatched: true,
+    sessionStatus: "active",
+    sessionExpiresAt: "2026-06-01T10:30:00.000Z",
     sequence: 1,
     assetId: "asset-1",
     kind: "overview_photo",
@@ -53,6 +63,11 @@ test("Batch T delivery normalizer keeps storage fields backend-internal", () => 
   assert.equal(result.release.status, "prepared");
   assert.equal(result.release.fileProxyEnabled, true);
   assert.equal(result.release.retentionPolicyApproved, true);
+  assert.equal(result.release.accessSession.matched, true);
+  assert.equal(result.release.accessSession.status, "active");
+  assert.equal(result.release.accessSession.rawSessionIdExposed, false);
+  assert.equal(result.release.accessSession.sessionHashExposed, false);
+  assert.equal(result.release.accessSession.sessionFingerprintExposed, false);
   assert.equal(result.asset.sequence, 1);
   assert.equal(result.asset.objectBucket, "clinical-assets");
   assert.equal(result.asset.objectKey, "internal/key.jpg");
@@ -75,6 +90,9 @@ test("Batch T repository reads one delivery candidate through db client", async 
         imagingConsent: true,
         fileProxyEnabled: true,
         retentionPolicyApproved: true,
+        sessionBoundaryMatched: true,
+        sessionStatus: "active",
+        sessionExpiresAt: "2026-06-01T10:30:00.000Z",
         sequence: 1,
         assetId: "asset-1",
         kind: "overview_photo",
@@ -90,6 +108,7 @@ test("Batch T repository reads one delivery candidate through db client", async 
     userId: USER_ID,
     visitId: VISIT_ID,
     sequence: 1,
+    sessionHash: "b".repeat(64),
   });
 
   assert.equal(candidate.release.id, "ppr-1");
