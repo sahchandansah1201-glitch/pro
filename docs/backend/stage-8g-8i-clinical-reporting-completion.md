@@ -96,6 +96,7 @@ release workflow:
 - `GET /api/v1/patient-photo-protocol-release/governance`;
 - `POST /api/v1/patient-photo-protocol-release/governance/revoke-expired`;
 - `POST /api/v1/patient-photo-protocol-release/governance/block-missing-expiry`;
+- `POST /api/v1/patient-photo-protocol-release/governance/block-unapproved-retention`;
 - repository/service tests for prepare, revoke, RBAC, and protected-field
   hygiene.
 
@@ -204,6 +205,27 @@ credentials, QR tokens, session identifiers, signed links, or patient-level
 exports. Admin UI `/admin/governance` exposes it as `Заблокировать без срока`
 inside `Жизненный цикл сессий`; demo mode remains local-only.
 
+Batch AF adds a retention-policy enforcement operation:
+
+- `POST /api/v1/patient-photo-protocol-release/governance/block-unapproved-retention`;
+- payload requires `confirm: true` and an optional bounded `limit` from 1 to
+  200;
+- backend updates only release rows already in `prepared` state with a future
+  `expires_at` and `retentionPolicyApproved=false` inside the caller clinic
+  scope;
+- each affected row is marked `blocked` and receives stable blockers
+  `retention_policy_required` and `retention_review_required`;
+- the route returns the same aggregate-only operation result with safe
+  boundary flags.
+
+This intentionally does not auto-approve retention policy or extend patient
+delivery. Because the secure proxy currently gates downloads on prepared
+status, file proxy, consent, and future expiry, the safe operation is to block
+active windows missing approved retention policy until a stricter delivery
+gate can also verify retention approval at download time. Admin UI
+`/admin/governance` exposes it as `Заблокировать без политики` inside
+`Разбор хранения`; demo mode remains local-only.
+
 ## Audit
 
 Every read records:
@@ -241,6 +263,7 @@ Production-safe lifecycle operations record:
 
 - action: `patient_photo_protocol.release_governance.revoke_expired`;
 - action: `patient_photo_protocol.release_governance.block_missing_expiry`;
+- action: `patient_photo_protocol.release_governance.block_unapproved_retention`;
 - entity type: `patient_photo_protocol_release_governance_operation`;
 - metadata: operation name, execution status, affected/skipped counts, and
   false exposure flags for patient rows, raw identifiers, revoke reason,

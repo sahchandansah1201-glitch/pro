@@ -99,6 +99,7 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getByText("Разбор хранения")).toBeInTheDocument();
     expect(screen.getByText("Отзыв доступа")).toBeInTheDocument();
     expect(screen.getByText("Жизненный цикл сессий")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Заблокировать без политики/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Заблокировать без срока/ })).toBeInTheDocument();
     expect(screen.getByText("Очередь утверждений")).toBeInTheDocument();
     expect(screen.getByText("Границы данных")).toBeInTheDocument();
@@ -107,6 +108,8 @@ describe("Admin clinic core pages — render & safety", () => {
     fireEvent.click(screen.getByRole("button", { name: /Отозвать истёкшие окна/ }));
     expect(screen.getByText(/Demo: отзыв истёкших окон подготовлен локально/)).toBeInTheDocument();
     expect(screen.getByText("Последняя backend-операция")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Заблокировать без политики/ }));
+    expect(screen.getByText(/Demo: окна без политики хранения заблокированы локально/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Заблокировать без срока/ }));
     expect(screen.getByText(/Demo: окна без срока заблокированы локально/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /Зафиксировать разбор/ })[0]);

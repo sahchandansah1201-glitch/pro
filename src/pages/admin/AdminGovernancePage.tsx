@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
+  executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
   type SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO,
@@ -310,22 +311,26 @@ function GovernanceOperations({
   governance,
   operationResult,
   missingExpiryOperationBusy,
+  retentionOperationBusy,
   revokeOperationBusy,
   onRetentionReview,
   onBlockMissingExpiry,
+  onBlockUnapprovedRetention,
   onRevokeReview,
 }: {
   governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
   operationResult: SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null;
   missingExpiryOperationBusy: boolean;
+  retentionOperationBusy: boolean;
   revokeOperationBusy: boolean;
   onRetentionReview: () => void;
   onBlockMissingExpiry: () => void;
+  onBlockUnapprovedRetention: () => void;
   onRevokeReview: () => void;
 }) {
   const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
   return (
-    <SectionCard title="Операционный контур" hint="Batch AD · production-safe хранение, отзыв, сессии">
+    <SectionCard title="Операционный контур" hint="Batch AF · production-safe хранение, отзыв, сессии">
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="grid gap-2 rounded-md border p-3">
           <div className="flex items-center gap-2 text-[12px] font-semibold">
@@ -337,6 +342,14 @@ function GovernanceOperations({
           <OperationLine label="Блокированы" value={retention.blocked} />
           <Button variant="outline" className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]" onClick={onRetentionReview}>
             Подготовить разбор хранения
+          </Button>
+          <Button
+            variant="outline"
+            className="min-h-[44px] justify-center sm:min-h-[36px]"
+            onClick={onBlockUnapprovedRetention}
+            disabled={retentionOperationBusy}
+          >
+            {retentionOperationBusy ? "Блокируем окна..." : "Заблокировать без политики"}
           </Button>
         </div>
 
@@ -407,6 +420,7 @@ export default function AdminGovernancePage() {
     useState<SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null>(null);
   const [revokeOperationBusy, setRevokeOperationBusy] = useState(false);
   const [missingExpiryOperationBusy, setMissingExpiryOperationBusy] = useState(false);
+  const [retentionOperationBusy, setRetentionOperationBusy] = useState(false);
 
   const loadGovernance = useCallback(async () => {
     if (!isSelfHostedApiConfigured(session)) {
@@ -446,6 +460,51 @@ export default function AdminGovernancePage() {
 
   function recordRetentionReview() {
     setLastAction("Разбор хранения подготовлен локально: без пациентских строк и без raw ID");
+  }
+
+  async function recordBlockUnapprovedRetention() {
+    if (!configured) {
+      setLastAction("Demo: окна без политики хранения заблокированы локально, patient access не расширялся");
+      setOperationResult({
+        operation: "block_unapproved_retention_windows",
+        status: "no_op",
+        affectedCount: 0,
+        skippedActiveCount: governance.operations.revokeReadiness.activeWindows,
+        expiringIn24hCount: governance.operations.revokeReadiness.expiringIn24h,
+        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
+        limit: 15,
+        auditAction: "patient_photo_protocol.release_governance.block_unapproved_retention",
+        boundaries: {
+          metadataOnly: true,
+          patientRowsExposed: false,
+          rawIdentifiersExposed: false,
+          revokeReasonExposed: false,
+          temporaryCredentialsExposed: false,
+          qrTokensExposed: false,
+          sessionIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          patientDeliveryAllowed: false,
+        },
+      });
+      return;
+    }
+    setRetentionOperationBusy(true);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: { confirm: true, limit: 15 },
+    });
+    setRetentionOperationBusy(false);
+    if (!result.ok || !result.value) {
+      setLastAction(result.error?.message ?? "Backend не заблокировал окна без политики хранения.");
+      return;
+    }
+    setOperationResult(result.value);
+    setLastAction(
+      `Окна без политики хранения заблокированы: ${result.value.affectedCount} изменено, patient access не расширялся`,
+    );
+    await loadGovernance();
   }
 
   async function recordRevokeReview() {
@@ -615,9 +674,11 @@ export default function AdminGovernancePage() {
           governance={governance}
           operationResult={operationResult}
           missingExpiryOperationBusy={missingExpiryOperationBusy}
+          retentionOperationBusy={retentionOperationBusy}
           revokeOperationBusy={revokeOperationBusy}
           onRetentionReview={recordRetentionReview}
           onBlockMissingExpiry={() => void recordBlockMissingExpiry()}
+          onBlockUnapprovedRetention={() => void recordBlockUnapprovedRetention()}
           onRevokeReview={() => void recordRevokeReview()}
         />
 

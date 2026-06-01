@@ -470,3 +470,79 @@ test("Batch AE service blocks missing-expiry session windows with aggregate audi
     ForbiddenError,
   );
 });
+
+test("Batch AF service blocks unapproved-retention windows with aggregate audit and confirm gate", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async executeGovernanceBlockUnapprovedRetention(params) {
+        assert.equal(params.limit, 15);
+        assert.deepEqual(params.clinicIds, [CLINIC_ID]);
+        return {
+          operation: "block_unapproved_retention_windows",
+          status: "executed",
+          affectedCount: 3,
+          skippedActiveCount: 2,
+          expiringIn24hCount: 1,
+          skippedMissingExpiryCount: 0,
+          limit: 15,
+          auditAction: "patient_photo_protocol.release_governance.block_unapproved_retention",
+          boundaries: {
+            metadataOnly: true,
+            patientRowsExposed: false,
+            rawIdentifiersExposed: false,
+            revokeReasonExposed: false,
+            temporaryCredentialsExposed: false,
+            qrTokensExposed: false,
+            sessionIdsExposed: false,
+            storagePathsExposed: false,
+            signedUrlsIssued: false,
+            patientDeliveryAllowed: false,
+          },
+        };
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-block-unapproved-retention" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceBlockUnapprovedRetention({ confirm: false }, clinicAdminAuth),
+    (error) => error.name === "VisitWorkspaceValidationError" && error.publicDetails?.[0]?.field === "confirm",
+  );
+
+  const result = await service.executeGovernanceBlockUnapprovedRetention(
+    { confirm: true, limit: 15 },
+    clinicAdminAuth,
+    { correlationId: "corr-block-unapproved-retention" },
+  );
+  assert.equal(result.operation.affectedCount, 3);
+  assert.equal(result.operation.boundaries.patientDeliveryAllowed, false);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release_governance.block_unapproved_retention");
+  assert.equal(auditEvents[0].entityType, "patient_photo_protocol_release_governance_operation");
+  assert.deepEqual(auditEvents[0].metadata, {
+    operation: "block_unapproved_retention_windows",
+    status: "executed",
+    affectedCount: 3,
+    skippedActiveCount: 2,
+    expiringIn24hCount: 1,
+    skippedMissingExpiryCount: 0,
+    metadataOnly: true,
+    patientRowsExposed: false,
+    rawIdentifiersExposed: false,
+    revokeReasonExposed: false,
+    temporaryCredentialsExposed: false,
+    qrTokensExposed: false,
+    sessionIdsExposed: false,
+    patientDeliveryAllowed: false,
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceBlockUnapprovedRetention({ confirm: true }, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});

@@ -354,6 +354,51 @@
           "422": { "description": "Confirm or limit validation failed" }
         }
       }
+    },
+    "/api/v1/patient-photo-protocol-release/governance/block-unapproved-retention": {
+      "post": {
+        "summary": "Execute aggregate block for unapproved-retention access windows",
+        "description": "Production-safe lifecycle operation that blocks prepared active patient photo/protocol release rows without an approved retention policy inside the caller's clinic scope. The response is aggregate-only and never exposes patient rows, raw identifiers, revoke reason text, credentials, QR tokens, session identifiers, file paths, or signed links.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["confirm"],
+                "properties": {
+                  "confirm": { "type": "boolean", "enum": [true] },
+                  "limit": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Aggregate operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["stage", "source", "item", "correlationId"],
+                  "properties": {
+                    "stage": { "type": "string", "enum": ["8G-8I"] },
+                    "source": { "type": "string", "enum": ["postgres"] },
+                    "item": { "$ref": "#/components/schemas/PatientPhotoProtocolGovernanceOperationResult" },
+                    "generatedAt": { "type": "string", "format": "date-time" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Auth required" },
+          "403": { "description": "Role or clinic scope denied" },
+          "422": { "description": "Confirm or limit validation failed" }
+        }
+      }
     }
   },
   "components": {
@@ -666,7 +711,11 @@
         "properties": {
           "operation": {
             "type": "string",
-            "enum": ["revoke_expired_access_windows", "block_missing_expiry_access_windows"]
+            "enum": [
+              "revoke_expired_access_windows",
+              "block_missing_expiry_access_windows",
+              "block_unapproved_retention_windows"
+            ]
           },
           "status": { "type": "string", "enum": ["executed", "no_op"] },
           "affectedCount": { "type": "integer" },
@@ -678,7 +727,8 @@
             "type": "string",
             "enum": [
               "patient_photo_protocol.release_governance.revoke_expired",
-              "patient_photo_protocol.release_governance.block_missing_expiry"
+              "patient_photo_protocol.release_governance.block_missing_expiry",
+              "patient_photo_protocol.release_governance.block_unapproved_retention"
             ]
           },
           "boundaries": {

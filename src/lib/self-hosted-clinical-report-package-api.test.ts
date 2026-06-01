@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   clinicalReportMissingLabel,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
+  executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
@@ -496,6 +497,51 @@ describe("self-hosted-clinical-report-package-api", () => {
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
         body: JSON.stringify({ confirm: true, limit: 20 }),
+      }),
+    );
+  });
+
+  it("executes unapproved-retention blocking through the self-hosted governance route", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            operation: "block_unapproved_retention_windows",
+            status: "executed",
+            affectedCount: 3,
+            skippedActiveCount: 2,
+            expiringIn24hCount: 1,
+            skippedMissingExpiryCount: 0,
+            limit: 15,
+            auditAction: "patient_photo_protocol.release_governance.block_unapproved_retention",
+            boundaries: {
+              metadataOnly: true,
+              patientDeliveryAllowed: false,
+              temporaryCredentialsExposed: false,
+              qrTokensExposed: false,
+              sessionIdsExposed: false,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      payload: { confirm: true, limit: 15 },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.operation).toBe("block_unapproved_retention_windows");
+    expect(result.value?.affectedCount).toBe(3);
+    expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patient-photo-protocol-release/governance/block-unapproved-retention",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+        body: JSON.stringify({ confirm: true, limit: 15 }),
       }),
     );
   });

@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpirySql,
+  buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnapprovedRetentionSql,
   buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql,
   buildGetPatientPhotoProtocolReleaseGovernanceSql,
   buildGetPatientPhotoProtocolReleaseAuditSql,
@@ -519,6 +520,67 @@ test("Batch AE repository blocks missing-expiry access windows as aggregate-only
   assert.equal(result.boundaries.patientRowsExposed, false);
   assert.equal(result.boundaries.rawIdentifiersExposed, false);
   assert.equal(result.boundaries.revokeReasonExposed, false);
+  assert.equal(result.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.boundaries.qrTokensExposed, false);
+  assert.equal(result.boundaries.sessionIdsExposed, false);
+  assert.equal(result.boundaries.patientDeliveryAllowed, false);
+});
+
+test("Batch AF repository blocks unapproved-retention access windows as aggregate-only lifecycle control", async () => {
+  const sql = buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnapprovedRetentionSql({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 15,
+  });
+  assert.match(sql, /block_unapproved_retention_windows/);
+  assert.match(sql, /status = 'blocked'/);
+  assert.match(sql, /r\.status = 'prepared'/);
+  assert.match(sql, /r\.expires_at is not null/);
+  assert.match(sql, /r\.expires_at > now\(\)/);
+  assert.match(sql, /retentionPolicyApproved/);
+  assert.match(sql, /retention_policy_required/);
+  assert.match(sql, /retention_review_required/);
+  assert.match(sql, /patient_photo_protocol\.release_governance\.block_unapproved_retention/);
+  assert.doesNotMatch(sql, /patient_id::text|visit_id::text|revoke_reason as|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
+
+  const repository = createPatientPhotoProtocolReleaseRepository({
+    async queryJson() {
+      return [{
+        operation: "block_unapproved_retention_windows",
+        status: "executed",
+        affectedCount: 3,
+        skippedActiveCount: 2,
+        expiringIn24hCount: 1,
+        skippedMissingExpiryCount: 0,
+        limit: 15,
+        auditAction: "patient_photo_protocol.release_governance.block_unapproved_retention",
+        boundaries: {
+          metadataOnly: false,
+          patientRowsExposed: true,
+          rawIdentifiersExposed: true,
+          revokeReasonExposed: true,
+          temporaryCredentialsExposed: true,
+          qrTokensExposed: true,
+          sessionIdsExposed: true,
+          storagePathsExposed: true,
+          signedUrlsIssued: true,
+          patientDeliveryAllowed: true,
+        },
+      }];
+    },
+  });
+  const result = await repository.executeGovernanceBlockUnapprovedRetention({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 15,
+  });
+  assert.equal(result.operation, "block_unapproved_retention_windows");
+  assert.equal(result.status, "executed");
+  assert.equal(result.affectedCount, 3);
+  assert.equal(result.auditAction, "patient_photo_protocol.release_governance.block_unapproved_retention");
+  assert.equal(result.boundaries.metadataOnly, true);
+  assert.equal(result.boundaries.patientRowsExposed, false);
+  assert.equal(result.boundaries.rawIdentifiersExposed, false);
   assert.equal(result.boundaries.temporaryCredentialsExposed, false);
   assert.equal(result.boundaries.qrTokensExposed, false);
   assert.equal(result.boundaries.sessionIdsExposed, false);
