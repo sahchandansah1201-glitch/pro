@@ -731,6 +731,157 @@ from (
 `.trim();
 }
 
+export function buildExecutePatientPhotoProtocolReleaseGovernancePrepareAccessArtifactRotationSql({
+  actorUserId,
+  clinicIds = [],
+  allClinics = false,
+  limit = 50,
+} = {}) {
+  const operationLimit = safeLimit(limit, 50, 200);
+  return `
+with eligible as (
+  select
+    r.id,
+    r.clinic_id,
+    r.visit_id
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where r.status = 'blocked'
+    and (
+      'credential_rotation_required' = any(coalesce(r.release_blockers, '{}'::text[]))
+      or 'session_boundary_review_required' = any(coalesce(r.release_blockers, '{}'::text[]))
+      or coalesce((r.metadata_json ->> 'credentialBoundaryBlocked')::boolean, false) = true
+    )
+    and coalesce((r.metadata_json ->> 'accessArtifactRotationPrepared')::boolean, false) = false
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+  order by r.updated_at asc, r.created_at asc
+  limit ${operationLimit}
+),
+ledger as (
+  insert into patient_photo_protocol_access_artifact_rotations (
+    clinic_id,
+    release_id,
+    visit_id,
+    operation,
+    status,
+    prepared_by_user_id,
+    prepared_at,
+    metadata_json
+  )
+  select
+    e.clinic_id,
+    e.id,
+    e.visit_id,
+    'prepare_access_artifact_rotation',
+    'prepared',
+    ${sqlNullableUuid(actorUserId)},
+    now(),
+    jsonb_build_object(
+      'brainstormTask', 'SD-MF-045',
+      'metadataOnly', true,
+      'accessArtifactRotationPrepared', true,
+      'requiresSecureCredentialStore', true,
+      'requiresOperatorApproval', true,
+      'credentialHashStored', false,
+      'credentialFingerprintStored', false,
+      'temporaryCredentialsExposed', false,
+      'qrTokensExposed', false,
+      'sessionIdsExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'patientDeliveryAllowed', false
+    )
+  from eligible e
+  on conflict (release_id, operation) where status = 'prepared' do update
+  set
+    prepared_by_user_id = excluded.prepared_by_user_id,
+    prepared_at = excluded.prepared_at,
+    metadata_json = excluded.metadata_json,
+    updated_at = now()
+  returning release_id
+),
+updated as (
+  update patient_photo_protocol_releases r
+  set
+    metadata_json = coalesce(r.metadata_json, '{}'::jsonb)
+      || jsonb_build_object(
+        'governanceOperation', 'prepare_access_artifact_rotation',
+        'accessArtifactRotationPrepared', true,
+        'accessArtifactRotationPreparedAt', now(),
+        'requiresSecureCredentialStore', true,
+        'operationActorPresent', ${sqlBoolean(actorUserId != null)},
+        'temporaryCredentialsExposed', false,
+        'qrTokensExposed', false,
+        'sessionIdsExposed', false,
+        'storagePathsExposed', false,
+        'signedUrlsIssued', false,
+        'patientDeliveryAllowed', false,
+        'operationExecutedAt', now()
+      ),
+    updated_at = now()
+  from ledger l
+  where r.id = l.release_id
+  returning r.id
+),
+scope_rollup as (
+  select
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+    )::int as active_remaining_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+        and r.expires_at <= now() + interval '24 hours'
+    )::int as expiring_in_24h_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is null
+    )::int as missing_expiry_count
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where true
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+),
+result as (
+  select
+    (select count(*)::int from updated) as affected_count,
+    coalesce(sr.active_remaining_count, 0) as active_remaining_count,
+    coalesce(sr.expiring_in_24h_count, 0) as expiring_in_24h_count,
+    coalesce(sr.missing_expiry_count, 0) as missing_expiry_count
+  from scope_rollup sr
+)
+select coalesce(jsonb_agg(row_to_json(output)), '[]'::jsonb)::text
+from (
+  select
+    'prepare_access_artifact_rotation' as "operation",
+    case when result.affected_count > 0 then 'executed' else 'no_op' end as "status",
+    result.affected_count as "affectedCount",
+    result.active_remaining_count as "skippedActiveCount",
+    result.expiring_in_24h_count as "expiringIn24hCount",
+    result.missing_expiry_count as "skippedMissingExpiryCount",
+    ${operationLimit} as "limit",
+    'patient_photo_protocol.release_governance.prepare_access_artifact_rotation' as "auditAction",
+    jsonb_build_object(
+      'metadataOnly', true,
+      'patientRowsExposed', false,
+      'rawIdentifiersExposed', false,
+      'revokeReasonExposed', false,
+      'temporaryCredentialsExposed', false,
+      'qrTokensExposed', false,
+      'sessionIdsExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'patientDeliveryAllowed', false
+    ) as "boundaries"
+  from result
+  limit 1
+) output;
+`.trim();
+}
+
 export function buildGetPatientPhotoProtocolReleaseAuditSql({
   visitId,
   clinicIds = [],
@@ -863,6 +1014,12 @@ with scoped_releases as (
     coalesce((r.metadata_json ->> 'patientFileProxyEnabled')::boolean, false) as patient_file_proxy_enabled,
     coalesce((r.metadata_json ->> 'patientCopyApproved')::boolean, false) as patient_copy_approved,
     coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved,
+    coalesce((r.metadata_json ->> 'accessArtifactRotationPrepared')::boolean, false) as access_artifact_rotation_prepared,
+    (
+      'credential_rotation_required' = any(coalesce(r.release_blockers, '{}'::text[]))
+      or 'session_boundary_review_required' = any(coalesce(r.release_blockers, '{}'::text[]))
+      or coalesce((r.metadata_json ->> 'credentialBoundaryBlocked')::boolean, false) = true
+    ) as access_artifact_rotation_needed,
     (
       (r.metadata_json ->> 'temporaryCredentialIssued') = 'true'
       or (r.metadata_json ->> 'qrTokenIssued') = 'true'
@@ -907,6 +1064,11 @@ queue as (
         then 'expires_soon'
       end,
       case when sr.unsafe_session_artifacts then 'session_artifacts_review'
+      end,
+      case when sr.access_artifact_rotation_needed and not sr.access_artifact_rotation_prepared
+        then 'access_rotation_required'
+      end,
+      case when sr.access_artifact_rotation_prepared then 'access_rotation_prepared'
       end
     ], null)::text[] as attention
   from scoped_releases sr
@@ -934,7 +1096,12 @@ summary as (
         and expires_at is not null
         and expires_at > now()
         and unsafe_session_artifacts
-    )::int as unsafe_session_artifacts
+    )::int as unsafe_session_artifacts,
+    count(*) filter (where access_artifact_rotation_prepared)::int as access_artifact_rotation_prepared,
+    count(*) filter (
+      where access_artifact_rotation_needed
+        and not access_artifact_rotation_prepared
+    )::int as access_artifact_rotation_pending
   from scoped_releases
 )
 select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
@@ -995,10 +1162,15 @@ from (
         'expiringIn24h', coalesce(s.expiring_in_24h, 0),
         'missingExpiry', coalesce(s.expiry_missing, 0),
         'unsafeArtifacts', coalesce(s.unsafe_session_artifacts, 0),
+        'rotationPrepared', coalesce(s.access_artifact_rotation_prepared, 0),
+        'rotationPending', coalesce(s.access_artifact_rotation_pending, 0),
         'revoked', coalesce(s.revoked, 0),
-        'credentialRotationRequired', coalesce(s.unsafe_session_artifacts, 0) > 0,
+        'credentialRotationRequired',
+          coalesce(s.unsafe_session_artifacts, 0) > 0
+          or coalesce(s.access_artifact_rotation_pending, 0) > 0,
         'nextAction', case
           when coalesce(s.unsafe_session_artifacts, 0) > 0 then 'block_unsafe_session_artifacts'
+          when coalesce(s.access_artifact_rotation_pending, 0) > 0 then 'prepare_access_artifact_rotation'
           when coalesce(s.expiry_missing, 0) > 0 then 'block_missing_expiry_access_windows'
           else 'inspect_session_lifecycle'
         end,
@@ -1011,7 +1183,8 @@ from (
         'review_patient_copy',
         'prepare_revoke_review',
         'inspect_session_lifecycle',
-        'block_unsafe_session_artifacts'
+        'block_unsafe_session_artifacts',
+        'prepare_access_artifact_rotation'
       ),
       'blockedOperations', jsonb_build_array(
         'block_secret_issue',
@@ -1279,6 +1452,8 @@ function normalizeGovernance(row = {}) {
         expiringIn24h: number(sessionLifecycle.expiringIn24h),
         missingExpiry: number(sessionLifecycle.missingExpiry),
         unsafeArtifacts: number(sessionLifecycle.unsafeArtifacts),
+        rotationPrepared: number(sessionLifecycle.rotationPrepared),
+        rotationPending: number(sessionLifecycle.rotationPending),
         revoked: number(sessionLifecycle.revoked),
         credentialRotationRequired: bool(sessionLifecycle.credentialRotationRequired),
         nextAction: textOrNull(sessionLifecycle.nextAction) ?? "inspect_session_lifecycle",
@@ -1381,6 +1556,15 @@ export function createPatientPhotoProtocolReleaseRepository(dbClient) {
         : normalizeGovernanceOperationResult({
           operation: "block_unsafe_session_artifacts",
           auditAction: "patient_photo_protocol.release_governance.block_unsafe_session_artifacts",
+        });
+    },
+    async executeGovernancePrepareAccessArtifactRotation(params) {
+      const rows = await dbClient.queryJson(buildExecutePatientPhotoProtocolReleaseGovernancePrepareAccessArtifactRotationSql(params));
+      return Array.isArray(rows) && rows[0]
+        ? normalizeGovernanceOperationResult(rows[0])
+        : normalizeGovernanceOperationResult({
+          operation: "prepare_access_artifact_rotation",
+          auditAction: "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
         });
     },
   };

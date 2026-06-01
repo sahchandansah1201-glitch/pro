@@ -309,6 +309,8 @@ test("Batch AB service exposes aggregate release governance to clinic admin and 
     revokeReviewReady: 1,
     sessionMissingExpiry: 1,
     unsafeSessionArtifacts: 0,
+    accessArtifactRotationPending: 0,
+    accessArtifactRotationPrepared: 0,
     sessionIdsExposed: false,
     metadataOnly: true,
     rawIdentifiersExposed: false,
@@ -622,6 +624,84 @@ test("Batch AH service blocks unsafe session artifacts with aggregate audit and 
 
   await assert.rejects(
     () => service.executeGovernanceBlockUnsafeSessionArtifacts({ confirm: true }, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});
+
+test("Batch AI service prepares access-artifact rotation with aggregate audit and confirm gate", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async executeGovernancePrepareAccessArtifactRotation(params) {
+        assert.equal(params.limit, 9);
+        assert.deepEqual(params.clinicIds, [CLINIC_ID]);
+        return {
+          operation: "prepare_access_artifact_rotation",
+          status: "executed",
+          affectedCount: 2,
+          skippedActiveCount: 3,
+          expiringIn24hCount: 1,
+          skippedMissingExpiryCount: 0,
+          limit: 9,
+          auditAction: "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
+          boundaries: {
+            metadataOnly: true,
+            patientRowsExposed: false,
+            rawIdentifiersExposed: false,
+            revokeReasonExposed: false,
+            temporaryCredentialsExposed: false,
+            qrTokensExposed: false,
+            sessionIdsExposed: false,
+            storagePathsExposed: false,
+            signedUrlsIssued: false,
+            patientDeliveryAllowed: false,
+          },
+        };
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-prepare-access-artifact-rotation" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => service.executeGovernancePrepareAccessArtifactRotation({ confirm: false }, clinicAdminAuth),
+    (error) => error.name === "VisitWorkspaceValidationError" && error.publicDetails?.[0]?.field === "confirm",
+  );
+
+  const result = await service.executeGovernancePrepareAccessArtifactRotation(
+    { confirm: true, limit: 9 },
+    clinicAdminAuth,
+    { correlationId: "corr-prepare-access-artifact-rotation" },
+  );
+  assert.equal(result.operation.affectedCount, 2);
+  assert.equal(result.operation.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.operation.boundaries.qrTokensExposed, false);
+  assert.equal(result.operation.boundaries.sessionIdsExposed, false);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release_governance.prepare_access_artifact_rotation");
+  assert.equal(auditEvents[0].entityType, "patient_photo_protocol_release_governance_operation");
+  assert.deepEqual(auditEvents[0].metadata, {
+    operation: "prepare_access_artifact_rotation",
+    status: "executed",
+    affectedCount: 2,
+    skippedActiveCount: 3,
+    expiringIn24hCount: 1,
+    skippedMissingExpiryCount: 0,
+    metadataOnly: true,
+    patientRowsExposed: false,
+    rawIdentifiersExposed: false,
+    revokeReasonExposed: false,
+    temporaryCredentialsExposed: false,
+    qrTokensExposed: false,
+    sessionIdsExposed: false,
+    patientDeliveryAllowed: false,
+  });
+
+  await assert.rejects(
+    () => service.executeGovernancePrepareAccessArtifactRotation({ confirm: true }, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
     ForbiddenError,
   );
 });

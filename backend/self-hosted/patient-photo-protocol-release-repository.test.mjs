@@ -5,6 +5,7 @@ import {
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpirySql,
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnapprovedRetentionSql,
   buildExecutePatientPhotoProtocolReleaseGovernanceBlockUnsafeSessionArtifactsSql,
+  buildExecutePatientPhotoProtocolReleaseGovernancePrepareAccessArtifactRotationSql,
   buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql,
   buildGetPatientPhotoProtocolReleaseGovernanceSql,
   buildGetPatientPhotoProtocolReleaseAuditSql,
@@ -643,6 +644,69 @@ test("Batch AH repository blocks unsafe session artifacts without exposing crede
   assert.equal(result.status, "executed");
   assert.equal(result.affectedCount, 5);
   assert.equal(result.auditAction, "patient_photo_protocol.release_governance.block_unsafe_session_artifacts");
+  assert.equal(result.boundaries.metadataOnly, true);
+  assert.equal(result.boundaries.patientRowsExposed, false);
+  assert.equal(result.boundaries.rawIdentifiersExposed, false);
+  assert.equal(result.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.boundaries.qrTokensExposed, false);
+  assert.equal(result.boundaries.sessionIdsExposed, false);
+  assert.equal(result.boundaries.patientDeliveryAllowed, false);
+});
+
+test("Batch AI repository prepares access-artifact rotation ledger without issuing secrets", async () => {
+  const sql = buildExecutePatientPhotoProtocolReleaseGovernancePrepareAccessArtifactRotationSql({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 9,
+  });
+  assert.match(sql, /prepare_access_artifact_rotation/);
+  assert.match(sql, /patient_photo_protocol_access_artifact_rotations/);
+  assert.match(sql, /r\.status = 'blocked'/);
+  assert.match(sql, /credential_rotation_required/);
+  assert.match(sql, /session_boundary_review_required/);
+  assert.match(sql, /accessArtifactRotationPrepared/);
+  assert.match(sql, /requiresSecureCredentialStore/);
+  assert.match(sql, /patient_photo_protocol\.release_governance\.prepare_access_artifact_rotation/);
+  assert.match(sql, /temporaryCredentialsExposed/);
+  assert.match(sql, /qrTokensExposed/);
+  assert.match(sql, /sessionIdsExposed/);
+  assert.doesNotMatch(sql, /patient_id::text|visit_id::text|revoke_reason as|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
+
+  const repository = createPatientPhotoProtocolReleaseRepository({
+    async queryJson() {
+      return [{
+        operation: "prepare_access_artifact_rotation",
+        status: "executed",
+        affectedCount: 2,
+        skippedActiveCount: 3,
+        expiringIn24hCount: 1,
+        skippedMissingExpiryCount: 0,
+        limit: 9,
+        auditAction: "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
+        boundaries: {
+          metadataOnly: false,
+          patientRowsExposed: true,
+          rawIdentifiersExposed: true,
+          revokeReasonExposed: true,
+          temporaryCredentialsExposed: true,
+          qrTokensExposed: true,
+          sessionIdsExposed: true,
+          storagePathsExposed: true,
+          signedUrlsIssued: true,
+          patientDeliveryAllowed: true,
+        },
+      }];
+    },
+  });
+  const result = await repository.executeGovernancePrepareAccessArtifactRotation({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 9,
+  });
+  assert.equal(result.operation, "prepare_access_artifact_rotation");
+  assert.equal(result.status, "executed");
+  assert.equal(result.affectedCount, 2);
+  assert.equal(result.auditAction, "patient_photo_protocol.release_governance.prepare_access_artifact_rotation");
   assert.equal(result.boundaries.metadataOnly, true);
   assert.equal(result.boundaries.patientRowsExposed, false);
   assert.equal(result.boundaries.rawIdentifiersExposed, false);

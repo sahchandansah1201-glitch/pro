@@ -19,6 +19,7 @@ import {
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention,
+  executeSelfHostedPatientPhotoProtocolGovernancePrepareAccessArtifactRotation,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
   type SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO,
@@ -119,8 +120,10 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
       missingExpiry: 4,
       revoked: 3,
       unsafeArtifacts: 2,
+      rotationPrepared: 1,
+      rotationPending: 2,
       credentialRotationRequired: true,
-      nextAction: "block_unsafe_session_artifacts",
+      nextAction: "prepare_access_artifact_rotation",
       temporaryCredentialsExposed: false,
       qrTokensExposed: false,
       sessionIdsExposed: false,
@@ -131,6 +134,7 @@ const DEMO_GOVERNANCE: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO = {
       "prepare_revoke_review",
       "inspect_session_lifecycle",
       "block_unsafe_session_artifacts",
+      "prepare_access_artifact_rotation",
     ],
     blockedOperations: [
       "block_secret_issue",
@@ -159,6 +163,8 @@ const ATTENTION_LABEL: Record<string, string> = {
   expiry_required: "срок",
   expires_soon: "истекает",
   session_artifacts_review: "артефакты доступа",
+  access_rotation_required: "ротация",
+  access_rotation_prepared: "ротация готова",
   blocked_release: "блокер",
   revoked_release: "отзыв",
 };
@@ -320,10 +326,12 @@ function GovernanceOperations({
   retentionOperationBusy,
   revokeOperationBusy,
   unsafeSessionArtifactOperationBusy,
+  rotationOperationBusy,
   onRetentionReview,
   onBlockMissingExpiry,
   onBlockUnapprovedRetention,
   onBlockUnsafeSessionArtifacts,
+  onPrepareAccessArtifactRotation,
   onRevokeReview,
 }: {
   governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
@@ -332,10 +340,12 @@ function GovernanceOperations({
   retentionOperationBusy: boolean;
   revokeOperationBusy: boolean;
   unsafeSessionArtifactOperationBusy: boolean;
+  rotationOperationBusy: boolean;
   onRetentionReview: () => void;
   onBlockMissingExpiry: () => void;
   onBlockUnapprovedRetention: () => void;
   onBlockUnsafeSessionArtifacts: () => void;
+  onPrepareAccessArtifactRotation: () => void;
   onRevokeReview: () => void;
 }) {
   const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
@@ -393,6 +403,12 @@ function GovernanceOperations({
             value={sessionLifecycle.unsafeArtifacts}
             tone={sessionLifecycle.unsafeArtifacts > 0 ? "warning" : "success"}
           />
+          <OperationLine
+            label="Ротация нужна"
+            value={sessionLifecycle.rotationPending}
+            tone={sessionLifecycle.rotationPending > 0 ? "warning" : "success"}
+          />
+          <OperationLine label="Ротация готова" value={sessionLifecycle.rotationPrepared} />
           <OperationLine label="QR/токены/ID" value="скрыты" tone="success" />
           <div className="text-[11px] text-muted-foreground">
             Разрешены только операционные проверки. Секреты доступа, внешние ссылки и файловые пути заблокированы контрактом.
@@ -412,6 +428,14 @@ function GovernanceOperations({
             disabled={unsafeSessionArtifactOperationBusy}
           >
             {unsafeSessionArtifactOperationBusy ? "Блокируем артефакты..." : "Заблокировать артефакты доступа"}
+          </Button>
+          <Button
+            variant="outline"
+            className="min-h-[44px] justify-center sm:min-h-[36px]"
+            onClick={onPrepareAccessArtifactRotation}
+            disabled={rotationOperationBusy}
+          >
+            {rotationOperationBusy ? "Готовим ротацию..." : "Подготовить ротацию доступа"}
           </Button>
         </div>
       </div>
@@ -445,6 +469,7 @@ export default function AdminGovernancePage() {
   const [missingExpiryOperationBusy, setMissingExpiryOperationBusy] = useState(false);
   const [retentionOperationBusy, setRetentionOperationBusy] = useState(false);
   const [unsafeSessionArtifactOperationBusy, setUnsafeSessionArtifactOperationBusy] = useState(false);
+  const [rotationOperationBusy, setRotationOperationBusy] = useState(false);
 
   const loadGovernance = useCallback(async () => {
     if (!isSelfHostedApiConfigured(session)) {
@@ -666,6 +691,51 @@ export default function AdminGovernancePage() {
     await loadGovernance();
   }
 
+  async function recordPrepareAccessArtifactRotation() {
+    if (!configured) {
+      setLastAction("Demo: ротация доступа подготовлена локально, секреты доступа не раскрыты");
+      setOperationResult({
+        operation: "prepare_access_artifact_rotation",
+        status: "no_op",
+        affectedCount: 0,
+        skippedActiveCount: governance.operations.sessionLifecycle.active,
+        expiringIn24hCount: governance.operations.sessionLifecycle.expiringIn24h,
+        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
+        limit: 9,
+        auditAction: "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
+        boundaries: {
+          metadataOnly: true,
+          patientRowsExposed: false,
+          rawIdentifiersExposed: false,
+          revokeReasonExposed: false,
+          temporaryCredentialsExposed: false,
+          qrTokensExposed: false,
+          sessionIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          patientDeliveryAllowed: false,
+        },
+      });
+      return;
+    }
+    setRotationOperationBusy(true);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernancePrepareAccessArtifactRotation({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: { confirm: true, limit: 9 },
+    });
+    setRotationOperationBusy(false);
+    if (!result.ok || !result.value) {
+      setLastAction(result.error?.message ?? "Backend не подготовил ротацию доступа.");
+      return;
+    }
+    setOperationResult(result.value);
+    setLastAction(
+      `Ротация доступа подготовлена: ${result.value.affectedCount} записей, секреты доступа скрыты`,
+    );
+    await loadGovernance();
+  }
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -746,10 +816,12 @@ export default function AdminGovernancePage() {
           retentionOperationBusy={retentionOperationBusy}
           revokeOperationBusy={revokeOperationBusy}
           unsafeSessionArtifactOperationBusy={unsafeSessionArtifactOperationBusy}
+          rotationOperationBusy={rotationOperationBusy}
           onRetentionReview={recordRetentionReview}
           onBlockMissingExpiry={() => void recordBlockMissingExpiry()}
           onBlockUnapprovedRetention={() => void recordBlockUnapprovedRetention()}
           onBlockUnsafeSessionArtifacts={() => void recordBlockUnsafeSessionArtifacts()}
+          onPrepareAccessArtifactRotation={() => void recordPrepareAccessArtifactRotation()}
           onRevokeReview={() => void recordRevokeReview()}
         />
 

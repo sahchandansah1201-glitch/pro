@@ -5,6 +5,7 @@ import {
   executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnapprovedRetention,
   executeSelfHostedPatientPhotoProtocolGovernanceBlockUnsafeSessionArtifacts,
+  executeSelfHostedPatientPhotoProtocolGovernancePrepareAccessArtifactRotation,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
@@ -307,6 +308,8 @@ describe("self-hosted-clinical-report-package-api", () => {
           active: 1,
           expiringIn24h: 1,
           missingExpiry: 1,
+          rotationPrepared: 1,
+          rotationPending: 2,
           revoked: 1,
           temporaryCredentialsExposed: true,
           qrTokensExposed: true,
@@ -331,6 +334,8 @@ describe("self-hosted-clinical-report-package-api", () => {
     expect(governance.operations.retention.nextAction).toBe("review_retention_policy");
     expect(governance.operations.revokeReadiness.canPrepareRevokeReview).toBe(1);
     expect(governance.operations.revokeReadiness.revokeReasonExposed).toBe(false);
+    expect(governance.operations.sessionLifecycle.rotationPrepared).toBe(1);
+    expect(governance.operations.sessionLifecycle.rotationPending).toBe(2);
     expect(governance.operations.sessionLifecycle.sessionIdsExposed).toBe(false);
     expect(governance.operations.sessionLifecycle.qrTokensExposed).toBe(false);
     expect(governance.operations.allowedOperations).toEqual(["review_retention_policy", "prepare_revoke_review"]);
@@ -590,6 +595,53 @@ describe("self-hosted-clinical-report-package-api", () => {
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
         body: JSON.stringify({ confirm: true, limit: 12 }),
+      }),
+    );
+  });
+
+  it("executes access-artifact rotation preparation through the self-hosted governance route", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            operation: "prepare_access_artifact_rotation",
+            status: "executed",
+            affectedCount: 2,
+            skippedActiveCount: 3,
+            expiringIn24hCount: 1,
+            skippedMissingExpiryCount: 0,
+            limit: 9,
+            auditAction: "patient_photo_protocol.release_governance.prepare_access_artifact_rotation",
+            boundaries: {
+              metadataOnly: true,
+              patientDeliveryAllowed: false,
+              temporaryCredentialsExposed: false,
+              qrTokensExposed: false,
+              sessionIdsExposed: false,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernancePrepareAccessArtifactRotation({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      payload: { confirm: true, limit: 9 },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.operation).toBe("prepare_access_artifact_rotation");
+    expect(result.value?.affectedCount).toBe(2);
+    expect(result.value?.boundaries.temporaryCredentialsExposed).toBe(false);
+    expect(result.value?.boundaries.qrTokensExposed).toBe(false);
+    expect(result.value?.boundaries.sessionIdsExposed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patient-photo-protocol-release/governance/prepare-access-artifact-rotation",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+        body: JSON.stringify({ confirm: true, limit: 9 }),
       }),
     );
   });

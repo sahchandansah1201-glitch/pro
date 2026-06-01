@@ -251,6 +251,36 @@ Admin UI `/admin/governance` exposes it as
 `Заблокировать артефакты доступа` inside `Жизненный цикл сессий`; demo mode
 remains local-only.
 
+### Access artifact rotation preparation
+
+Batch AI adds the next production-safe lifecycle step without issuing access
+secrets:
+
+- migration:
+  `0056_patient_photo_protocol_access_artifact_rotations.sql`;
+- `POST /api/v1/patient-photo-protocol-release/governance/prepare-access-artifact-rotation`;
+- payload requires `confirm: true` and an optional bounded `limit` from 1 to
+  200;
+- backend selects only clinic-scoped release rows already blocked by
+  `credential_rotation_required`, `session_boundary_review_required`, or a
+  backend-only `credentialBoundaryBlocked` marker;
+- backend upserts a metadata-only rotation-preparation ledger row with
+  operation `prepare_access_artifact_rotation`;
+- release metadata is patched with `accessArtifactRotationPrepared=true`,
+  `requiresSecureCredentialStore=true`, and all exposure/delivery boundary
+  flags false;
+- governance read model now returns aggregate `rotationPending` and
+  `rotationPrepared` counters under `operations.sessionLifecycle`.
+
+This is not credential generation, QR generation, session issuance, patient
+delivery, or an unblock operation. It deliberately records the production
+handoff needed before a secure credential store can be implemented. It does
+not expose patient rows, raw identifiers, credential values, QR values,
+session identifiers, storage paths, signed links, files, policy payloads, or
+doctor-only text. Admin UI `/admin/governance` exposes it as
+`Подготовить ротацию доступа` inside `Артефакты доступа`; demo mode remains
+local-only.
+
 ## Audit
 
 Every read records:
