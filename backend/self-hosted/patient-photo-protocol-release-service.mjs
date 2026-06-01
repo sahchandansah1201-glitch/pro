@@ -136,6 +136,23 @@ export function normalizeExecutePatientPhotoProtocolReleaseGovernanceRevokeExpir
   return { limit };
 }
 
+export function normalizeExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpiryPayload(input = {}) {
+  if (!isPlainObject(input)) {
+    throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
+  }
+  const details = [];
+  if (input.confirm !== true) {
+    details.push({ field: "confirm", message: "confirm must be true for production session lifecycle execution." });
+  }
+  const rawLimit = input.limit ?? 50;
+  const limit = Number(rawLimit);
+  if (!Number.isFinite(limit) || limit <= 0 || Math.floor(limit) !== limit || limit > 200) {
+    details.push({ field: "limit", message: "limit must be an integer from 1 to 200." });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return { limit };
+}
+
 function ensureScopeAllowsClinic(scope, clinicId) {
   if (scope.allClinics) return;
   if (!clinicId || !scope.clinicIds.includes(clinicId)) {
@@ -362,6 +379,27 @@ export function createPatientPhotoProtocolReleaseService({
         clinicId: null,
         actorUserId: authContext.userId,
         action: "patient_photo_protocol.release_governance.revoke_expired",
+        entityType: "patient_photo_protocol_release_governance_operation",
+        entityId: null,
+        correlationId,
+        metadata: auditGovernanceOperationMetadata(operation),
+      });
+      return { operation, scope };
+    },
+
+    async executeGovernanceBlockMissingExpiry(input, authContext, { correlationId } = {}) {
+      const scope = patientPhotoProtocolGovernanceWriteScope(authContext);
+      const payload = normalizeExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpiryPayload(input);
+      const operation = await patientPhotoProtocolReleaseRepository.executeGovernanceBlockMissingExpiry({
+        actorUserId: authContext.userId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+        limit: payload.limit,
+      });
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: null,
+        actorUserId: authContext.userId,
+        action: "patient_photo_protocol.release_governance.block_missing_expiry",
         entityType: "patient_photo_protocol_release_governance_operation",
         entityId: null,
         correlationId,

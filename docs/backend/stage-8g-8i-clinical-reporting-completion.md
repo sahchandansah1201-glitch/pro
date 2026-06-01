@@ -95,6 +95,7 @@ release workflow:
 - `GET /api/v1/visits/{visitId}/patient-photo-protocol-release/audit`;
 - `GET /api/v1/patient-photo-protocol-release/governance`;
 - `POST /api/v1/patient-photo-protocol-release/governance/revoke-expired`;
+- `POST /api/v1/patient-photo-protocol-release/governance/block-missing-expiry`;
 - repository/service tests for prepare, revoke, RBAC, and protected-field
   hygiene.
 
@@ -186,6 +187,23 @@ QR tokens, session identifiers, storage paths, signed links, files, or
 doctor-only text. Admin UI `/admin/governance` calls it only when a
 self-hosted session is configured; demo mode stays local-only.
 
+Batch AE adds the next narrow lifecycle operation:
+
+- `POST /api/v1/patient-photo-protocol-release/governance/block-missing-expiry`;
+- payload requires `confirm: true` and an optional bounded `limit` from 1 to
+  200;
+- backend updates only release rows already in `prepared` state with no
+  `expires_at` inside the caller clinic scope;
+- each affected row is marked `blocked` and receives stable blockers
+  `expiry_required` and `session_lifecycle_review_required`;
+- the route returns the same aggregate-only operation result with safe
+  boundary flags.
+
+This closes the unsafe "prepared forever" window without issuing files,
+credentials, QR tokens, session identifiers, signed links, or patient-level
+exports. Admin UI `/admin/governance` exposes it as `Заблокировать без срока`
+inside `Жизненный цикл сессий`; demo mode remains local-only.
+
 ## Audit
 
 Every read records:
@@ -222,6 +240,7 @@ Aggregate governance reads record:
 Production-safe lifecycle operations record:
 
 - action: `patient_photo_protocol.release_governance.revoke_expired`;
+- action: `patient_photo_protocol.release_governance.block_missing_expiry`;
 - entity type: `patient_photo_protocol_release_governance_operation`;
 - metadata: operation name, execution status, affected/skipped counts, and
   false exposure flags for patient rows, raw identifiers, revoke reason,

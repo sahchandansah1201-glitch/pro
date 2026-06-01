@@ -394,3 +394,79 @@ test("Batch AD service executes expired revoke operation with aggregate audit an
     ForbiddenError,
   );
 });
+
+test("Batch AE service blocks missing-expiry session windows with aggregate audit and confirm gate", async () => {
+  const auditEvents = [];
+  const service = createPatientPhotoProtocolReleaseService({
+    patientPhotoProtocolReleaseRepository: {
+      async executeGovernanceBlockMissingExpiry(params) {
+        assert.equal(params.limit, 20);
+        assert.deepEqual(params.clinicIds, [CLINIC_ID]);
+        return {
+          operation: "block_missing_expiry_access_windows",
+          status: "executed",
+          affectedCount: 4,
+          skippedActiveCount: 2,
+          expiringIn24hCount: 1,
+          skippedMissingExpiryCount: 0,
+          limit: 20,
+          auditAction: "patient_photo_protocol.release_governance.block_missing_expiry",
+          boundaries: {
+            metadataOnly: true,
+            patientRowsExposed: false,
+            rawIdentifiersExposed: false,
+            revokeReasonExposed: false,
+            temporaryCredentialsExposed: false,
+            qrTokensExposed: false,
+            sessionIdsExposed: false,
+            storagePathsExposed: false,
+            signedUrlsIssued: false,
+            patientDeliveryAllowed: false,
+          },
+        };
+      },
+    },
+    auditRepository: {
+      async recordEvent(event) {
+        auditEvents.push(event);
+        return { id: "audit-block-missing-expiry" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceBlockMissingExpiry({ confirm: false }, clinicAdminAuth),
+    (error) => error.name === "VisitWorkspaceValidationError" && error.publicDetails?.[0]?.field === "confirm",
+  );
+
+  const result = await service.executeGovernanceBlockMissingExpiry(
+    { confirm: true, limit: 20 },
+    clinicAdminAuth,
+    { correlationId: "corr-block-missing-expiry" },
+  );
+  assert.equal(result.operation.affectedCount, 4);
+  assert.equal(result.operation.boundaries.sessionIdsExposed, false);
+  assert.equal(auditEvents[0].action, "patient_photo_protocol.release_governance.block_missing_expiry");
+  assert.equal(auditEvents[0].entityType, "patient_photo_protocol_release_governance_operation");
+  assert.deepEqual(auditEvents[0].metadata, {
+    operation: "block_missing_expiry_access_windows",
+    status: "executed",
+    affectedCount: 4,
+    skippedActiveCount: 2,
+    expiringIn24hCount: 1,
+    skippedMissingExpiryCount: 0,
+    metadataOnly: true,
+    patientRowsExposed: false,
+    rawIdentifiersExposed: false,
+    revokeReasonExposed: false,
+    temporaryCredentialsExposed: false,
+    qrTokensExposed: false,
+    sessionIdsExposed: false,
+    patientDeliveryAllowed: false,
+  });
+
+  await assert.rejects(
+    () => service.executeGovernanceBlockMissingExpiry({ confirm: true }, { userId: USER_ID, roles: ["patient"], clinicIds: [CLINIC_ID] }),
+    ForbiddenError,
+  );
+});

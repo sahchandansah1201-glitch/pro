@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
   type SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO,
@@ -308,14 +309,18 @@ function OperationLine({
 function GovernanceOperations({
   governance,
   operationResult,
+  missingExpiryOperationBusy,
   revokeOperationBusy,
   onRetentionReview,
+  onBlockMissingExpiry,
   onRevokeReview,
 }: {
   governance: SelfHostedPatientPhotoProtocolReleaseGovernanceDTO;
   operationResult: SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null;
+  missingExpiryOperationBusy: boolean;
   revokeOperationBusy: boolean;
   onRetentionReview: () => void;
+  onBlockMissingExpiry: () => void;
   onRevokeReview: () => void;
 }) {
   const { retention, revokeReadiness, sessionLifecycle } = governance.operations;
@@ -364,13 +369,21 @@ function GovernanceOperations({
           <div className="text-[11px] text-muted-foreground">
             Разрешены только операционные проверки. Секреты доступа, внешние ссылки и файловые пути заблокированы контрактом.
           </div>
+          <Button
+            variant="outline"
+            className="mt-1 min-h-[44px] justify-center sm:min-h-[36px]"
+            onClick={onBlockMissingExpiry}
+            disabled={missingExpiryOperationBusy}
+          >
+            {missingExpiryOperationBusy ? "Блокируем окна..." : "Заблокировать без срока"}
+          </Button>
         </div>
       </div>
       {operationResult && (
         <div role="status" className="mt-3 rounded-md border px-3 py-2 text-[12px] text-muted-foreground">
           <div className="font-semibold text-foreground">Последняя backend-операция</div>
           <div className="mt-1 grid gap-1 sm:grid-cols-3">
-            <span>Отозвано: <b className="tabular-nums text-foreground">{operationResult.affectedCount}</b></span>
+            <span>Изменено: <b className="tabular-nums text-foreground">{operationResult.affectedCount}</b></span>
             <span>Активные пропущены: <b className="tabular-nums text-foreground">{operationResult.skippedActiveCount}</b></span>
             <span>Без срока: <b className="tabular-nums text-foreground">{operationResult.skippedMissingExpiryCount}</b></span>
           </div>
@@ -393,6 +406,7 @@ export default function AdminGovernancePage() {
   const [operationResult, setOperationResult] =
     useState<SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null>(null);
   const [revokeOperationBusy, setRevokeOperationBusy] = useState(false);
+  const [missingExpiryOperationBusy, setMissingExpiryOperationBusy] = useState(false);
 
   const loadGovernance = useCallback(async () => {
     if (!isSelfHostedApiConfigured(session)) {
@@ -479,6 +493,51 @@ export default function AdminGovernancePage() {
     await loadGovernance();
   }
 
+  async function recordBlockMissingExpiry() {
+    if (!configured) {
+      setLastAction("Demo: окна без срока заблокированы локально, QR/токены/ID не раскрыты");
+      setOperationResult({
+        operation: "block_missing_expiry_access_windows",
+        status: "no_op",
+        affectedCount: 0,
+        skippedActiveCount: governance.operations.sessionLifecycle.active,
+        expiringIn24hCount: governance.operations.sessionLifecycle.expiringIn24h,
+        skippedMissingExpiryCount: governance.operations.sessionLifecycle.missingExpiry,
+        limit: 20,
+        auditAction: "patient_photo_protocol.release_governance.block_missing_expiry",
+        boundaries: {
+          metadataOnly: true,
+          patientRowsExposed: false,
+          rawIdentifiersExposed: false,
+          revokeReasonExposed: false,
+          temporaryCredentialsExposed: false,
+          qrTokensExposed: false,
+          sessionIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          patientDeliveryAllowed: false,
+        },
+      });
+      return;
+    }
+    setMissingExpiryOperationBusy(true);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      payload: { confirm: true, limit: 20 },
+    });
+    setMissingExpiryOperationBusy(false);
+    if (!result.ok || !result.value) {
+      setLastAction(result.error?.message ?? "Backend не заблокировал окна без срока доступа.");
+      return;
+    }
+    setOperationResult(result.value);
+    setLastAction(
+      `Окна без срока заблокированы: ${result.value.affectedCount} изменено, QR/токены/ID скрыты`,
+    );
+    await loadGovernance();
+  }
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -555,8 +614,10 @@ export default function AdminGovernancePage() {
         <GovernanceOperations
           governance={governance}
           operationResult={operationResult}
+          missingExpiryOperationBusy={missingExpiryOperationBusy}
           revokeOperationBusy={revokeOperationBusy}
           onRetentionReview={recordRetentionReview}
+          onBlockMissingExpiry={() => void recordBlockMissingExpiry()}
           onRevokeReview={() => void recordRevokeReview()}
         />
 

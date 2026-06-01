@@ -198,14 +198,17 @@ export interface SelfHostedPatientPhotoProtocolReleaseGovernanceDTO {
 }
 
 export interface SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO {
-  operation: "revoke_expired_access_windows" | string;
+  operation: "revoke_expired_access_windows" | "block_missing_expiry_access_windows" | string;
   status: "executed" | "no_op" | string;
   affectedCount: number;
   skippedActiveCount: number;
   expiringIn24hCount: number;
   skippedMissingExpiryCount: number;
   limit: number;
-  auditAction: "patient_photo_protocol.release_governance.revoke_expired" | string;
+  auditAction:
+    | "patient_photo_protocol.release_governance.revoke_expired"
+    | "patient_photo_protocol.release_governance.block_missing_expiry"
+    | string;
   boundaries: {
     metadataOnly: boolean;
     patientRowsExposed: boolean;
@@ -239,6 +242,11 @@ export interface SelfHostedPatientPhotoProtocolReleasePolicyPayload {
 }
 
 export interface SelfHostedPatientPhotoProtocolGovernanceRevokeExpiredPayload {
+  confirm: true;
+  limit?: number;
+}
+
+export interface SelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiryPayload {
   confirm: true;
   limit?: number;
 }
@@ -707,6 +715,37 @@ export async function executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpir
       kind: "network",
       code: "network_error",
       message: "Сбой сети при отзыве истёкших окон доступа.",
+    });
+  }
+  const body = await parseJsonSafe(response);
+  if (!response.ok) return fail(apiErrorFromBody(response, body));
+  const item = isRecord(body) && isRecord(body.item) ? body.item : null;
+  return ok(item ? toSelfHostedPatientPhotoProtocolGovernanceOperationResult(item) : null);
+}
+
+export async function executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry(
+  args: SessionArgs & { payload: SelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiryPayload },
+): Promise<SelfHostedApiResult<SelfHostedPatientPhotoProtocolGovernanceOperationResultDTO | null>> {
+  if (!args.apiToken) return fail(NOT_CONFIGURED);
+  let response: Response;
+  try {
+    response = await fetch(
+      buildSelfHostedApiUrl(args.apiBaseUrl, "/api/v1/patient-photo-protocol-release/governance/block-missing-expiry"),
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${args.apiToken}`,
+        },
+        body: JSON.stringify(args.payload),
+      },
+    );
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при блокировке окон без срока.",
     });
   }
   const body = await parseJsonSafe(response);

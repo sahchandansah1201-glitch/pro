@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   clinicalReportMissingLabel,
+  executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry,
   executeSelfHostedPatientPhotoProtocolGovernanceRevokeExpired,
   getSelfHostedPatientPhotoProtocolReleaseAudit,
   getSelfHostedPatientPhotoProtocolReleaseGovernance,
@@ -451,6 +452,50 @@ describe("self-hosted-clinical-report-package-api", () => {
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
         body: JSON.stringify({ confirm: true, limit: 50 }),
+      }),
+    );
+  });
+
+  it("executes missing-expiry session blocking through the self-hosted governance route", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            operation: "block_missing_expiry_access_windows",
+            status: "executed",
+            affectedCount: 4,
+            skippedActiveCount: 2,
+            expiringIn24hCount: 1,
+            skippedMissingExpiryCount: 0,
+            limit: 20,
+            auditAction: "patient_photo_protocol.release_governance.block_missing_expiry",
+            boundaries: {
+              metadataOnly: true,
+              temporaryCredentialsExposed: false,
+              qrTokensExposed: false,
+              sessionIdsExposed: false,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await executeSelfHostedPatientPhotoProtocolGovernanceBlockMissingExpiry({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      payload: { confirm: true, limit: 20 },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value?.operation).toBe("block_missing_expiry_access_windows");
+    expect(result.value?.affectedCount).toBe(4);
+    expect(result.value?.boundaries.sessionIdsExposed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patient-photo-protocol-release/governance/block-missing-expiry",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+        body: JSON.stringify({ confirm: true, limit: 20 }),
       }),
     );
   });

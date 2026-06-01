@@ -400,6 +400,109 @@ from (
 `.trim();
 }
 
+export function buildExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpirySql({
+  actorUserId,
+  clinicIds = [],
+  allClinics = false,
+  limit = 50,
+} = {}) {
+  const operationLimit = safeLimit(limit, 50, 200);
+  return `
+with eligible as (
+  select r.id
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where r.status = 'prepared'
+    and r.expires_at is null
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+  order by r.updated_at asc, r.created_at asc
+  limit ${operationLimit}
+),
+updated as (
+  update patient_photo_protocol_releases r
+  set
+    status = 'blocked',
+    release_blockers = (
+      select array_agg(distinct blocker)
+      from unnest(coalesce(r.release_blockers, '{}'::text[]) || array[
+        'expiry_required',
+        'session_lifecycle_review_required'
+      ]) as blocker
+    ),
+    metadata_json = coalesce(r.metadata_json, '{}'::jsonb)
+      || jsonb_build_object(
+        'governanceOperation', 'block_missing_expiry_access_windows',
+        'sessionLifecycleControlled', true,
+        'operationActorPresent', ${sqlBoolean(actorUserId != null)},
+        'temporaryCredentialsExposed', false,
+        'qrTokensExposed', false,
+        'sessionIdsExposed', false,
+        'operationExecutedAt', now()
+      ),
+    updated_at = now()
+  from eligible e
+  where r.id = e.id
+  returning r.id
+),
+scope_rollup as (
+  select
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+    )::int as active_remaining_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is not null
+        and r.expires_at > now()
+        and r.expires_at <= now() + interval '24 hours'
+    )::int as expiring_in_24h_count,
+    count(*) filter (
+      where r.status = 'prepared'
+        and r.expires_at is null
+    )::int as missing_expiry_count
+  from patient_photo_protocol_releases r
+  join visits v on v.id = r.visit_id and v.clinic_id = r.clinic_id
+  where true
+    ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+),
+result as (
+  select
+    (select count(*)::int from updated) as affected_count,
+    coalesce(sr.active_remaining_count, 0) as active_remaining_count,
+    coalesce(sr.expiring_in_24h_count, 0) as expiring_in_24h_count,
+    coalesce(sr.missing_expiry_count, 0) as missing_expiry_count
+  from scope_rollup sr
+)
+select coalesce(jsonb_agg(row_to_json(output)), '[]'::jsonb)::text
+from (
+  select
+    'block_missing_expiry_access_windows' as "operation",
+    case when result.affected_count > 0 then 'executed' else 'no_op' end as "status",
+    result.affected_count as "affectedCount",
+    result.active_remaining_count as "skippedActiveCount",
+    result.expiring_in_24h_count as "expiringIn24hCount",
+    result.missing_expiry_count as "skippedMissingExpiryCount",
+    ${operationLimit} as "limit",
+    'patient_photo_protocol.release_governance.block_missing_expiry' as "auditAction",
+    jsonb_build_object(
+      'metadataOnly', true,
+      'patientRowsExposed', false,
+      'rawIdentifiersExposed', false,
+      'revokeReasonExposed', false,
+      'temporaryCredentialsExposed', false,
+      'qrTokensExposed', false,
+      'sessionIdsExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'patientDeliveryAllowed', false
+    ) as "boundaries"
+  from result
+  limit 1
+) output;
+`.trim();
+}
+
 export function buildGetPatientPhotoProtocolReleaseAuditSql({
   visitId,
   clinicIds = [],
@@ -996,6 +1099,15 @@ export function createPatientPhotoProtocolReleaseRepository(dbClient) {
       return Array.isArray(rows) && rows[0]
         ? normalizeGovernanceOperationResult(rows[0])
         : normalizeGovernanceOperationResult();
+    },
+    async executeGovernanceBlockMissingExpiry(params) {
+      const rows = await dbClient.queryJson(buildExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpirySql(params));
+      return Array.isArray(rows) && rows[0]
+        ? normalizeGovernanceOperationResult(rows[0])
+        : normalizeGovernanceOperationResult({
+          operation: "block_missing_expiry_access_windows",
+          auditAction: "patient_photo_protocol.release_governance.block_missing_expiry",
+        });
     },
   };
 }

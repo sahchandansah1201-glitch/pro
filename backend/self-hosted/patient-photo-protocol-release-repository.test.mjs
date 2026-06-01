@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpirySql,
   buildExecutePatientPhotoProtocolReleaseGovernanceRevokeExpiredSql,
   buildGetPatientPhotoProtocolReleaseGovernanceSql,
   buildGetPatientPhotoProtocolReleaseAuditSql,
@@ -450,6 +451,70 @@ test("Batch AD repository executes expired revoke operation as aggregate-only li
   assert.equal(result.status, "executed");
   assert.equal(result.affectedCount, 3);
   assert.equal(result.skippedMissingExpiryCount, 4);
+  assert.equal(result.boundaries.metadataOnly, true);
+  assert.equal(result.boundaries.patientRowsExposed, false);
+  assert.equal(result.boundaries.rawIdentifiersExposed, false);
+  assert.equal(result.boundaries.revokeReasonExposed, false);
+  assert.equal(result.boundaries.temporaryCredentialsExposed, false);
+  assert.equal(result.boundaries.qrTokensExposed, false);
+  assert.equal(result.boundaries.sessionIdsExposed, false);
+  assert.equal(result.boundaries.patientDeliveryAllowed, false);
+});
+
+test("Batch AE repository blocks missing-expiry access windows as aggregate-only session lifecycle control", async () => {
+  const sql = buildExecutePatientPhotoProtocolReleaseGovernanceBlockMissingExpirySql({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 20,
+  });
+  assert.match(sql, /block_missing_expiry_access_windows/);
+  assert.match(sql, /status = 'blocked'/);
+  assert.match(sql, /r\.status = 'prepared'/);
+  assert.match(sql, /r\.expires_at is null/);
+  assert.match(sql, /expiry_required/);
+  assert.match(sql, /session_lifecycle_review_required/);
+  assert.match(sql, /patient_photo_protocol\.release_governance\.block_missing_expiry/);
+  assert.match(sql, /temporaryCredentialsExposed/);
+  assert.match(sql, /qrTokensExposed/);
+  assert.match(sql, /sessionIdsExposed/);
+  assert.doesNotMatch(sql, /patient_id::text|visit_id::text|revoke_reason as|object_bucket|object_key|storage_object_path|signed_url|access_token|physician_text/i);
+
+  const repository = createPatientPhotoProtocolReleaseRepository({
+    async queryJson() {
+      return [{
+        operation: "block_missing_expiry_access_windows",
+        status: "executed",
+        affectedCount: 4,
+        skippedActiveCount: 2,
+        expiringIn24hCount: 1,
+        skippedMissingExpiryCount: 0,
+        limit: 20,
+        auditAction: "patient_photo_protocol.release_governance.block_missing_expiry",
+        boundaries: {
+          metadataOnly: false,
+          patientRowsExposed: true,
+          rawIdentifiersExposed: true,
+          revokeReasonExposed: true,
+          temporaryCredentialsExposed: true,
+          qrTokensExposed: true,
+          sessionIdsExposed: true,
+          storagePathsExposed: true,
+          signedUrlsIssued: true,
+          patientDeliveryAllowed: true,
+        },
+      }];
+    },
+  });
+  const result = await repository.executeGovernanceBlockMissingExpiry({
+    actorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    limit: 20,
+  });
+  assert.equal(result.operation, "block_missing_expiry_access_windows");
+  assert.equal(result.status, "executed");
+  assert.equal(result.affectedCount, 4);
+  assert.equal(result.skippedMissingExpiryCount, 0);
+  assert.equal(result.auditAction, "patient_photo_protocol.release_governance.block_missing_expiry");
   assert.equal(result.boundaries.metadataOnly, true);
   assert.equal(result.boundaries.patientRowsExposed, false);
   assert.equal(result.boundaries.rawIdentifiersExposed, false);
