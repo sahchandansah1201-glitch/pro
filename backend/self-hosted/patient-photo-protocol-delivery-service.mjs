@@ -123,6 +123,9 @@ export function createPatientPhotoProtocolDeliveryService({
       if (!candidate.release.expiresAt) {
         await deny("photo_protocol_retention_required", 423, "retention_required");
       }
+      if (!candidate.release.retentionPolicyApproved) {
+        await deny("photo_protocol_retention_required", 423, "retention_policy_required");
+      }
       if (new Date(candidate.release.expiresAt).getTime() <= new Date(now()).getTime()) {
         await deny("photo_protocol_expired", 410, "expired");
       }

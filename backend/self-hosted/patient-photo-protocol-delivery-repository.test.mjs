@@ -23,6 +23,7 @@ test("Batch T SQL scopes patient photo proxy through linked patient release and 
   assert.match(sql, /object_bucket/);
   assert.match(sql, /object_key/);
   assert.match(sql, /patientFileProxyEnabled/);
+  assert.match(sql, /retentionPolicyApproved/);
   assert.match(sql, /row_number\(\)/);
   assert.doesNotMatch(sql, /signed_url|access_token|storage_object_path|physician_text/i);
 });
@@ -37,6 +38,7 @@ test("Batch T delivery normalizer keeps storage fields backend-internal", () => 
     expiresAt: "2026-06-20T10:00:00.000Z",
     imagingConsent: true,
     fileProxyEnabled: true,
+    retentionPolicyApproved: true,
     sequence: 1,
     assetId: "asset-1",
     kind: "overview_photo",
@@ -50,6 +52,7 @@ test("Batch T delivery normalizer keeps storage fields backend-internal", () => 
 
   assert.equal(result.release.status, "prepared");
   assert.equal(result.release.fileProxyEnabled, true);
+  assert.equal(result.release.retentionPolicyApproved, true);
   assert.equal(result.asset.sequence, 1);
   assert.equal(result.asset.objectBucket, "clinical-assets");
   assert.equal(result.asset.objectKey, "internal/key.jpg");
@@ -71,6 +74,7 @@ test("Batch T repository reads one delivery candidate through db client", async 
         expiresAt: "2026-06-20T10:00:00.000Z",
         imagingConsent: true,
         fileProxyEnabled: true,
+        retentionPolicyApproved: true,
         sequence: 1,
         assetId: "asset-1",
         kind: "overview_photo",

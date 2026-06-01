@@ -382,7 +382,7 @@ describe("self-hosted-patient-portal-api", () => {
 
     expect(result.ok).toBe(false);
     expect(result.error.code).toBe("photo_protocol_retention_required");
-    expect(result.error.message).toBe("Клиника не задала срок доступа к фото.");
+    expect(result.error.message).toBe("Клиника не подтвердила срок и политику доступа к фото.");
   });
 
   it("creates booking requests and updates reminder preferences with bearer token", async () => {

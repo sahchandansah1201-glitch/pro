@@ -54,7 +54,8 @@ with linked_release as (
     r.status,
     r.expires_at,
     p.imaging_consent,
-    (r.metadata_json ->> 'patientFileProxyEnabled') = 'true' as file_proxy_enabled
+    (r.metadata_json ->> 'patientFileProxyEnabled') = 'true' as file_proxy_enabled,
+    coalesce((r.metadata_json ->> 'retentionPolicyApproved')::boolean, false) as retention_policy_approved
   from patient_photo_protocol_releases r
   join patient_user_links pul on pul.patient_id = r.patient_id
   join patients p on p.id = r.patient_id and p.clinic_id = r.clinic_id and p.deleted_at is null
@@ -91,6 +92,7 @@ from (
     lr.expires_at as "expiresAt",
     lr.imaging_consent as "imagingConsent",
     lr.file_proxy_enabled as "fileProxyEnabled",
+    lr.retention_policy_approved as "retentionPolicyApproved",
     na.sequence as "sequence",
     na.id::text as "assetId",
     na.kind as "kind",
@@ -118,6 +120,7 @@ export function normalizePatientPhotoProtocolDeliveryAsset(row) {
       expiresAt: textOrNull(row.expiresAt),
       imagingConsent: booleanValue(row.imagingConsent),
       fileProxyEnabled: booleanValue(row.fileProxyEnabled),
+      retentionPolicyApproved: booleanValue(row.retentionPolicyApproved),
     },
     asset: {
       id: textOrNull(row.assetId),

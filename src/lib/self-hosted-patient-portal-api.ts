@@ -393,7 +393,7 @@ function patientPhotoProtocolDownloadErrorMessage(error: SelfHostedApiError): st
     case "photo_protocol_consent_missing":
       return "Клиника не подтвердила согласие на медицинскую съёмку.";
     case "photo_protocol_retention_required":
-      return "Клиника не задала срок доступа к фото.";
+      return "Клиника не подтвердила срок и политику доступа к фото.";
     case "photo_protocol_expired":
       return "Срок доступа к фото истёк.";
     case "photo_protocol_photo_not_found":

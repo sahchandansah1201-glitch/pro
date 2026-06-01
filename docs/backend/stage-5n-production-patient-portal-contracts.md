@@ -61,11 +61,20 @@ doctor-only text.
 Batch T adds a backend photo proxy endpoint for the same patient scope. It is
 closed by default: bytes stream only when the release is `prepared`, the linked
 patient identity matches, imaging consent exists, `expires_at` is present and
-future, and backend metadata explicitly sets
+future, retention policy is approved, and backend metadata explicitly sets
 `patientFileProxyEnabled: true`. The proxy streams bytes from backend-owned
 object storage without returning object bucket/key values, storage paths,
 signed URLs, access tokens, or doctor-only text. Denied and successful proxy
 attempts are audit-recorded.
+
+Batch AG hardens the same proxy with a runtime retention-policy gate:
+`retentionPolicyApproved` must be true before the backend reads object storage.
+If the policy is missing, the proxy denies the request with
+`photo_protocol_retention_required`, records a denial audit event with the safe
+reason `retention_policy_required`, and does not expose object bucket/key
+values, signed links, storage paths, credentials, QR/session identifiers, raw
+tokens, or doctor-only text. This is a download gate, not patient delivery
+expansion or retention-policy auto-approval.
 
 `GET /api/v1/me/history` returns a patient-safe longitudinal history model:
 lesion cards, visit timeline, and aggregate photo-protocol policy/retention

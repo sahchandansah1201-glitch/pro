@@ -17,6 +17,7 @@ function createCandidate(overrides = {}) {
       expiresAt: "2026-06-20T10:00:00.000Z",
       imagingConsent: true,
       fileProxyEnabled: true,
+      retentionPolicyApproved: true,
       ...overrides.release,
     },
     asset: {
@@ -79,6 +80,22 @@ test("Batch T service streams through backend proxy only after patient/release/e
   assert.deepEqual(auditEvents.map((event) => event.action), [
     "patient_portal.photo_protocol.proxy.download",
   ]);
+  assert.equal(auditEvents[0].metadata.signedUrlsIssued, false);
+  assert.equal(auditEvents[0].metadata.storagePathsExposed, false);
+});
+
+test("Batch AG service denies missing retention policy before storage reads", async () => {
+  const { service, objectReads, auditEvents } = createService({
+    candidate: createCandidate({ release: { retentionPolicyApproved: false } }),
+  });
+
+  await assert.rejects(
+    () => service.downloadPhoto({ visitId: VISIT_ID, sequence: 1 }, { userId: USER_ID, roles: ["patient"] }),
+    (error) => error.publicCode === "photo_protocol_retention_required" && error.publicStatus === 423,
+  );
+  assert.equal(objectReads.length, 0);
+  assert.equal(auditEvents.length, 1);
+  assert.equal(auditEvents[0].metadata.reason, "retention_policy_required");
   assert.equal(auditEvents[0].metadata.signedUrlsIssued, false);
   assert.equal(auditEvents[0].metadata.storagePathsExposed, false);
 });

@@ -300,7 +300,7 @@
     "/api/v1/me/photo-protocols/{visitId}/photos/{sequence}/download": {
       "get": {
         "summary": "Stream one patient photo through the backend proxy",
-        "description": "Streams photo bytes only when the authenticated patient is linked to the visit, a prepared release exists, the backend proxy flag is enabled, consent is present, and the release expiry is still valid. The API does not expose storage paths, object identifiers, signed links, access tokens, or doctor-only text.",
+        "description": "Streams photo bytes only when the authenticated patient is linked to the visit, a prepared release exists, the backend proxy flag is enabled, consent is present, retention policy is approved, and the release expiry is still valid. The API does not expose storage paths, object identifiers, signed links, access tokens, or doctor-only text.",
         "parameters": [
           {
             "name": "visitId",
