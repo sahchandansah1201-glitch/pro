@@ -316,6 +316,60 @@ describe("LesionDetailPage", () => {
     );
   });
 
+  it("shows calibration readiness gates without enabling measurements", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    selectComparePair("i-011", "i-012");
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
+    const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
+
+    expect(within(calibration).getByText(/Калибровка: не готова/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/Профиль устройства/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/d-003 \/ без устройства/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/Размер кадра/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/2048×2048 \/ 3000×2000/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/Масштабная шкала/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/шкала не обнаружена/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/Измерения в мм недоступны/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/Не используйте маркеры как размер очага/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
+
+    fireEvent.click(within(calibration).getByRole("button", { name: /Зафиксировать ограничение калибровки/ }));
+    expect(within(calibration).getByText(/Ограничение калибровки зафиксировано локально/)).toBeInTheDocument();
+
+    expect(dialog.textContent ?? "").not.toMatch(
+      /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion|patientSafeText/i,
+    );
+  });
+
+  it("keeps QA UUID viewer non-calibrated until a scale marker exists", () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    renderAt(
+      `/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`,
+    );
+
+    selectComparePair(PROTECTED_RENDER_QA_IDS.imageAId, PROTECTED_RENDER_QA_IDS.imageBId);
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
+    const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
+
+    expect(within(calibration).getByText(/Калибровка: не готова/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/одно устройство: d-003/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/один размер: 2048×2048/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/шкала не обнаружена/)).toBeInTheDocument();
+    expect(within(calibration).getAllByText(/мм недоступны/).length).toBeGreaterThan(0);
+
+    expect(dialog.textContent ?? "").not.toMatch(
+      /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion|patientSafeText/i,
+    );
+  });
+
   it("loads protected previews from the production UUID QA fixture through backend proxy", async () => {
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
     window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");

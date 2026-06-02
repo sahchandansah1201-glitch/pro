@@ -105,6 +105,11 @@ type CaptureConditionCheck = {
   ready: boolean;
   detail: string;
 };
+type CalibrationReadinessCheck = {
+  label: string;
+  ready: boolean;
+  detail: string;
+};
 type TechnicalGeometryMarker = {
   target: "A" | "B";
   x: number;
@@ -247,6 +252,40 @@ function captureConditionChecks(imageA: ClinicalImage, imageB: ClinicalImage): C
       label: "Замечания качества",
       ready: qualityIssues.length === 0,
       detail: qualityIssues.length === 0 ? "нет замечаний качества" : qualityIssues.join(", "),
+    },
+  ];
+}
+
+const imageFrameSize = (image: ClinicalImage) => `${image.exifMeta.width}×${image.exifMeta.height}`;
+
+function calibrationReadinessChecks(imageA: ClinicalImage, imageB: ClinicalImage): CalibrationReadinessCheck[] {
+  const deviceA = imageA.deviceId ?? "без устройства";
+  const deviceB = imageB.deviceId ?? "без устройства";
+  const sameDevice = Boolean(imageA.deviceId && imageB.deviceId && imageA.deviceId === imageB.deviceId);
+  const frameSizeA = imageFrameSize(imageA);
+  const frameSizeB = imageFrameSize(imageB);
+  const sameFrameSize = frameSizeA === frameSizeB;
+
+  return [
+    {
+      label: "Профиль устройства",
+      ready: sameDevice,
+      detail: sameDevice ? `одно устройство: ${deviceA}` : `${deviceA} / ${deviceB}`,
+    },
+    {
+      label: "Размер кадра",
+      ready: sameFrameSize,
+      detail: sameFrameSize ? `один размер: ${frameSizeA}` : `${frameSizeA} / ${frameSizeB}`,
+    },
+    {
+      label: "Масштабная шкала",
+      ready: false,
+      detail: "шкала не обнаружена",
+    },
+    {
+      label: "Миллиметры",
+      ready: false,
+      detail: "мм недоступны",
     },
   ];
 }
@@ -702,11 +741,13 @@ function ComparisonFullScreenDialog({
   const [technicalNote, setTechnicalNote] = useState("");
   const [savedTechnicalNote, setSavedTechnicalNote] = useState("");
   const [geometryMarkers, setGeometryMarkers] = useState<TechnicalGeometryMarker[]>([]);
+  const [calibrationLimitSaved, setCalibrationLimitSaved] = useState(false);
   const imageAId = images?.[0].id ?? "";
   const imageBId = images?.[1].id ?? "";
 
   useEffect(() => {
     setGeometryMarkers([]);
+    setCalibrationLimitSaved(false);
   }, [imageAId, imageBId]);
 
   const updateZoom = (delta: number) => {
@@ -737,10 +778,12 @@ function ComparisonFullScreenDialog({
   const [imageA, imageB] = images;
   const captureChecks = captureConditionChecks(imageA, imageB);
   const captureReady = captureChecks.every((item) => item.ready);
+  const calibrationChecks = calibrationReadinessChecks(imageA, imageB);
+  const calibrationReady = calibrationChecks.every((item) => item.ready);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-24px)] w-[calc(100vw-24px)] max-w-[1180px] overflow-y-auto p-3 sm:p-4">
+      <DialogContent className="max-h-[calc(100vh-24px)] w-[calc(100vw-24px)] max-w-[1240px] overflow-y-auto p-3 sm:p-4">
         <DialogHeader className="pr-8">
           <DialogTitle className="text-[14px]">Полноэкранное сравнение</DialogTitle>
           <DialogDescription className="text-[12px]">
@@ -748,7 +791,7 @@ function ComparisonFullScreenDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
             <ComparisonImagePanel
               image={imageA}
@@ -927,6 +970,72 @@ function ComparisonFullScreenDialog({
                   </span>
                   <span>Не является медицинским измерением</span>
                   <span>Выдача пациенту: выключена</span>
+                </div>
+              </section>
+              <section
+                role="region"
+                aria-label="Калибровка viewer"
+                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Калибровка viewer
+                    </div>
+                    <div className="text-[12px] font-medium">
+                      Калибровка: {calibrationReady ? "готова" : "не готова"}
+                    </div>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] ${
+                      calibrationReady
+                        ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
+                        : "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate"
+                    }`}
+                  >
+                    {calibrationReady ? (
+                      <CheckCircle2 className="h-3 w-3" aria-hidden />
+                    ) : (
+                      <ShieldAlert className="h-3 w-3" aria-hidden />
+                    )}
+                    {calibrationReady ? "Готово" : "Ограничено"}
+                  </span>
+                </div>
+                <div className="mt-2 grid gap-1.5">
+                  {calibrationChecks.map((item) => (
+                    <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
+                      {item.ready ? (
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-low" aria-hidden />
+                      ) : (
+                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-moderate" aria-hidden />
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-medium">{item.label}</span>
+                        <span className="text-muted-foreground"> · {item.detail}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                  <span>Измерения в мм недоступны</span>
+                  <span>Не используйте маркеры как размер очага</span>
+                  <span>Выдача пациенту: выключена</span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    onClick={() => setCalibrationLimitSaved(true)}
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" aria-hidden /> Зафиксировать ограничение калибровки
+                  </Button>
+                  {calibrationLimitSaved && (
+                    <span className="text-[12px] font-medium text-primary" role="status">
+                      Ограничение калибровки зафиксировано локально
+                    </span>
+                  )}
                 </div>
               </section>
               <div className="mt-2">

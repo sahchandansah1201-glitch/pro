@@ -318,6 +318,56 @@ Safety boundary:
 - `SD-MF-046` / patient protocol and lesion history: in progress. Batch BA
   remains doctor-side QA only and keeps patient delivery off.
 
+## Batch BB Calibration Readiness QA
+
+Batch BB adds a doctor-side calibration readiness layer inside the full-screen
+lesion comparison dialog. It is a local viewer QA feature only. It does not add
+backend routes, persistence, calibrated medical measurement, or patient
+delivery.
+
+Doctor UI:
+
+- the full-screen lesion comparison tools include `Калибровка viewer`;
+- the panel shows `Калибровка: не готова` until every technical gate is
+  available;
+- readiness rows show:
+  - `Профиль устройства`;
+  - `Размер кадра`;
+  - `Масштабная шкала`;
+  - `Миллиметры`;
+- non-repeatable demo pairs show exact blockers such as `d-003 / без
+  устройства`, `2048×2048 / 3000×2000`, and `шкала не обнаружена`;
+- same-device UUID QA pairs show `одно устройство: d-003` and `один размер:
+  2048×2048`, but remain non-calibrated because no scale marker exists;
+- doctors can press `Зафиксировать ограничение калибровки`, which only sets
+  local UI state `Ограничение калибровки зафиксировано локально`.
+
+Safety boundary:
+
+- `Измерения в мм недоступны`;
+- `Не используйте маркеры как размер очага`;
+- `Выдача пациенту: выключена`;
+- no diagnosis, risk, prognosis, treatment, or automated dynamic conclusion;
+- no backend route, audit event, persistence, patient delivery, signed URL,
+  object bucket/key, storage path, QR/session/credential, doctor-only report
+  text, or patient-facing report text is added by Batch BB.
+
+### Batch BB Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BB makes the
+  selected pair's calibration constraints visible next to chronology and
+  capture-condition metadata. The remaining gate is production capture metadata
+  and real longitudinal assets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BB adds
+  an explicit calibration readiness gate for A/B viewer review. The remaining
+  gate is calibrated annotation geometry, production viewer QA, and backend-safe
+  marker persistence if approved.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BB keeps
+  millimeter measurements unavailable and prevents normalized markers from
+  becoming lesion size or dynamic assessment.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BB
+  remains doctor-side QA only and keeps patient delivery off.
+
 ## Product Boundary
 
 - managed runtime: none
