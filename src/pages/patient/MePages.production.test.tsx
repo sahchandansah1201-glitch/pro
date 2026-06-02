@@ -168,6 +168,24 @@ function mockFetch(options: { revokedPhotoProtocol?: boolean; accessExchangeDeni
         },
       });
     }
+    if (href.endsWith("/api/v1/me/photo-protocols/visit-live-1/access/session/end")) {
+      return response({
+        item: {
+          visitId: "visit-live-1",
+          status: "ended",
+          accessStatus: "photo_protocol_access_session_ended",
+          sessionEnded: true,
+          sessionCookie: "hidden",
+          sessionHash: "hidden",
+          sessionBoundary: {
+            sessionEstablished: false,
+            rawSessionIdExposed: true,
+            sessionHashExposed: true,
+            sessionFingerprintExposed: true,
+          },
+        },
+      });
+    }
     if (href.endsWith("/api/v1/me/history")) {
       return response({
         history: {
@@ -435,6 +453,54 @@ describe("Patient portal · Stage 5N production", () => {
       expect.any(Object),
     );
     expect(document.body).not.toHaveTextContent("wrong credential");
+    expect(document.body).not.toHaveTextContent("patient-token");
+    expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
+  });
+
+  it("ends a confirmed photo access session and blocks photo preparation again", async () => {
+    const createObjectURL = vi.fn(() => "blob:patient-photo-protocol-end-1");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+    const fetchMock = mockFetch();
+    renderRoute("/me/reports/report-live-1");
+
+    expect(await screen.findByRole("region", { name: /Подтверждение доступа к фото/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Одноразовый код доступа"), {
+      target: { value: "patient one-time credential" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Подтвердить доступ" }));
+    expect(await screen.findByText(/Доступ подтверждён/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Подготовить фото 1" }));
+    expect(await screen.findByRole("link", { name: "Открыть фото 1" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Завершить доступ" }));
+
+    expect(await screen.findByText(/Доступ к фото завершён/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Подготовить фото 1" })).toBeDisabled();
+    expect(screen.queryByRole("link", { name: "Открыть фото 1" })).not.toBeInTheDocument();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:patient-photo-protocol-end-1");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/visit-live-1/access/session/end",
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Bearer patient-token",
+        },
+        body: JSON.stringify({}),
+        credentials: "include",
+      },
+    );
+    expect(document.body).not.toHaveTextContent("patient one-time credential");
+    expect(document.body).not.toHaveTextContent("sessionHash");
     expect(document.body).not.toHaveTextContent("patient-token");
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
   });

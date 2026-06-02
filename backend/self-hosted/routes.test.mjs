@@ -36,6 +36,7 @@ function createRuntime({
   patientPortalReport = null,
   patientPortalPhotoProtocol = null,
   patientPortalAccessExchange = null,
+  patientPortalAccessSessionEnd = null,
   patientPortalSessionCookie = null,
   patientPortalHistory = null,
   patientPhotoProtocolDownload = null,
@@ -439,6 +440,40 @@ function createRuntime({
             value: "test-session-secret",
             path: `/api/v1/me/photo-protocols/${visitId}`,
             maxAgeSeconds: 1800,
+            httpOnly: true,
+            secure: true,
+            sameSite: "Strict",
+          },
+        };
+      },
+      async endPhotoProtocolAccessSession(visitId) {
+        if (patientPortalError) throw patientPortalError;
+        return {
+          sessionEnd: patientPortalAccessSessionEnd || {
+            visitId,
+            status: "ended",
+            accessStatus: "photo_protocol_access_session_ended",
+            sessionEnded: true,
+            sessionBoundary: {
+              sessionEstablished: false,
+              rawSessionIdExposed: false,
+              sessionHashExposed: false,
+              sessionFingerprintExposed: false,
+              qrTokenExposed: false,
+              signedUrlsIssued: false,
+              storagePathsExposed: false,
+              doctorOnlyTextExposed: false,
+            },
+          },
+          scope: {
+            userId: authContext?.userId,
+            roles: authContext?.roles || [],
+          },
+          sessionCookie: patientPortalSessionCookie || {
+            name: "sd_photo_protocol_session",
+            value: "deleted",
+            path: `/api/v1/me/photo-protocols/${visitId}`,
+            maxAgeSeconds: 0,
             httpOnly: true,
             secure: true,
             sameSite: "Strict",
@@ -5573,6 +5608,38 @@ test("Stage 5N · patient portal overview/report endpoints return patient-safe d
     /patient one-time credential|credential_hash|credential_fingerprint|session_hash|session_fingerprint|sessionToken|sd_photo_protocol_session|signed_url|storage_object_path|object_bucket|object_key|physicianText|access_token/i,
   );
 
+  const sessionEnd = await request(
+    "/api/v1/me/photo-protocols/10000000-0000-4000-8000-000000000301/access/session/end",
+    configuredEnv,
+    runtime,
+    "POST",
+    JSON.stringify({}),
+    {
+      "content-type": "application/json",
+      cookie: `sd_photo_protocol_session=${"a".repeat(64)}`,
+    },
+  );
+  assert.equal(sessionEnd.status, 200);
+  assert.equal(sessionEnd.json.stage, "5N");
+  assert.equal(sessionEnd.json.item.status, "ended");
+  assert.equal(sessionEnd.json.item.accessStatus, "photo_protocol_access_session_ended");
+  assert.equal(sessionEnd.json.item.sessionBoundary.sessionEstablished, false);
+  assert.equal(sessionEnd.json.item.sessionBoundary.rawSessionIdExposed, false);
+  assert.equal(sessionEnd.json.item.sessionBoundary.sessionHashExposed, false);
+  assert.match(sessionEnd.headers["set-cookie"], /^sd_photo_protocol_session=deleted/);
+  assert.match(sessionEnd.headers["set-cookie"], /Max-Age=0/);
+  assert.match(sessionEnd.headers["set-cookie"], /HttpOnly/);
+  assert.match(sessionEnd.headers["set-cookie"], /Secure/);
+  assert.match(sessionEnd.headers["set-cookie"], /SameSite=Strict/);
+  assert.match(
+    sessionEnd.headers["set-cookie"],
+    /Path=\/api\/v1\/me\/photo-protocols\/10000000-0000-4000-8000-000000000301/,
+  );
+  assert.doesNotMatch(
+    sessionEnd.body,
+    /sd_photo_protocol_session|a{64}|session_hash|session_fingerprint|signed_url|storage_object_path|object_bucket|object_key|physicianText|access_token/i,
+  );
+
   const history = await request(
     "/api/v1/me/history",
     configuredEnv,
@@ -5665,6 +5732,7 @@ test("Stage 5N · /openapi.stage5n.json documents patient portal contracts", asy
   assert.ok(response.json.paths["/api/v1/me/reports/{reportId}"].get);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}"].get);
   assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}/access/exchange"].post);
+  assert.ok(response.json.paths["/api/v1/me/photo-protocols/{visitId}/access/session/end"].post);
   assert.equal(
     response.json.paths["/api/v1/me/photo-protocols/{visitId}/access/exchange"].post.responses["200"].headers["Set-Cookie"].schema.type,
     "string",

@@ -3007,6 +3007,45 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const patientPortalPhotoProtocolAccessSessionEndMatch = url.pathname.match(
+    /^\/api\/v1\/me\/photo-protocols\/([^/]+)\/access\/session\/end$/,
+  );
+  if (patientPortalPhotoProtocolAccessSessionEndMatch && method === "POST") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.patientPortalService.endPhotoProtocolAccessSession(
+        decodeURIComponent(patientPortalPhotoProtocolAccessSessionEndMatch[1]),
+        authContext,
+        {
+          correlationId,
+          sessionCookieValue: readCookieValue(request.headers, "sd_photo_protocol_session"),
+        },
+      );
+      const response = jsonResponse(
+        200,
+        {
+          stage: "5N",
+          source: "postgres",
+          item: result.sessionEnd,
+          auth: {
+            userId: result.scope.userId,
+            roles: result.scope.roles,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+      const setCookie = serializeHttpOnlyCookie(result.sessionCookie);
+      if (setCookie) response.headers["set-cookie"] = setCookie;
+      return response;
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Patient photo protocol routes live under /api/v1/me/photo-protocols.
   const patientPortalPhotoProtocolMatch = url.pathname.match(/^\/api\/v1\/me\/photo-protocols\/([^/]+)$/);
   if (patientPortalPhotoProtocolMatch && method === "GET") {

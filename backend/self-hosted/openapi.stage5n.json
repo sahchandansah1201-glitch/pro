@@ -106,6 +106,29 @@
           }
         }
       },
+      "PatientPortalPhotoProtocolAccessSessionEnd": {
+        "type": "object",
+        "description": "Metadata-only result of ending a patient photo-protocol access session. Cookie values, raw session identifiers, session hashes/fingerprints, QR values, storage paths, signed URLs, and doctor-only text are not exposed.",
+        "properties": {
+          "visitId": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["ended", "no_active_session"] },
+          "accessStatus": { "type": "string" },
+          "sessionEnded": { "type": "boolean" },
+          "sessionBoundary": {
+            "type": "object",
+            "properties": {
+              "sessionEstablished": { "type": "boolean", "const": false },
+              "rawSessionIdExposed": { "type": "boolean", "const": false },
+              "sessionHashExposed": { "type": "boolean", "const": false },
+              "sessionFingerprintExposed": { "type": "boolean", "const": false },
+              "qrTokenExposed": { "type": "boolean", "const": false },
+              "signedUrlsIssued": { "type": "boolean", "const": false },
+              "storagePathsExposed": { "type": "boolean", "const": false },
+              "doctorOnlyTextExposed": { "type": "boolean", "const": false }
+            }
+          }
+        }
+      },
       "PatientPortalHistory": {
         "type": "object",
         "description": "Patient-safe longitudinal lesion history with comparison operations and access-session governance aggregates. Diagnosis, doctor-only text, raw files, storage paths, temporary links, and tokens are not exposed.",
@@ -388,6 +411,49 @@
           },
           "503": {
             "description": "Credential/session pepper is not configured"
+          }
+        }
+      }
+    },
+    "/api/v1/me/photo-protocols/{visitId}/access/session/end": {
+      "post": {
+        "summary": "End patient photo-protocol access session",
+        "description": "Ends the backend-owned patient photo-protocol access session for the linked patient when an active HttpOnly session cookie matches the session ledger, and clears the browser cookie. The response is metadata-only and never exposes the cookie value, raw session identifier, session hash/fingerprint, QR value, storage path, signed URL, or doctor-only text.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Photo-protocol access session ended or no active session was present",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Clears the HttpOnly Secure SameSite=Strict session boundary cookie by setting Max-Age=0 for /api/v1/me/photo-protocols/{visitId}.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientPortalPhotoProtocolAccessSessionEnd"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid visit identifier"
+          },
+          "404": {
+            "description": "Photo protocol access session scope was not found"
           }
         }
       }

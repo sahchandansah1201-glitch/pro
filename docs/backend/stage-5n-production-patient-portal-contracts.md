@@ -166,6 +166,19 @@ and the session expiry timestamp, but it must not show the submitted credential,
 cookie value, raw session secret, credential/session hash, QR value, storage
 path, signed link, backend object key, or doctor-only text.
 
+Batch AO adds explicit patient session lifecycle closure. The patient can use
+`Завершить доступ` on `/me/reports/:id`; the page calls
+`POST /api/v1/me/photo-protocols/{visitId}/access/session/end` with
+`credentials: "include"`. The backend reads only the HttpOnly
+`sd_photo_protocol_session` cookie from the request, hashes it when the session
+pepper is configured, revokes the matching active
+`patient_photo_protocol_access_sessions` row, and returns a clearing
+`Set-Cookie` with `Max-Age=0`. The response is metadata-only:
+`photo_protocol_access_session_ended` or `photo_protocol_access_no_active_session`
+plus boolean `*Exposed: false` flags. It does not return the cookie value, raw
+session identifier, session hash/fingerprint, QR value, storage path, signed
+link, backend object key, or doctor-only text.
+
 When the photo protocol is revoked, `/me/reports/:id` shows
 `Фото-протокол отозван` and the `Отзыв и журнал доступа` section. Photo opening
 controls stay visible but disabled, so the patient can understand what changed

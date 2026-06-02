@@ -12,6 +12,7 @@ const MAX_BOOKING_REASON_LENGTH = 500;
 const MIN_ACCESS_CREDENTIAL_LENGTH = 8;
 const MAX_ACCESS_CREDENTIAL_LENGTH = 512;
 const PHOTO_PROTOCOL_ACCESS_SESSION_COOKIE_NAME = "sd_photo_protocol_session";
+const PHOTO_PROTOCOL_SESSION_SECRET_PATTERN = /^[a-f0-9]{64}$/i;
 
 class PatientPortalNotFoundError extends Error {
   constructor(message = "Patient portal resource was not found.") {
@@ -191,6 +192,18 @@ function buildPhotoProtocolSessionCookie({ visitId, sessionSecret, maxAgeSeconds
   };
 }
 
+function buildPhotoProtocolSessionClearCookie({ visitId }) {
+  return {
+    name: PHOTO_PROTOCOL_ACCESS_SESSION_COOKIE_NAME,
+    value: "deleted",
+    path: `/api/v1/me/photo-protocols/${visitId}`,
+    maxAgeSeconds: 0,
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+  };
+}
+
 function statusForAccessExchangeDeniedReason(reason) {
   switch (reason) {
     case "photo_protocol_access_credential_invalid":
@@ -215,6 +228,22 @@ function safeAccessBoundaryMetadata(exchange = {}) {
     rawCredentialExposed: false,
     credentialHashExposed: false,
     credentialFingerprintExposed: false,
+    rawSessionIdExposed: false,
+    sessionHashExposed: false,
+    sessionFingerprintExposed: false,
+    qrTokenExposed: false,
+    signedUrlsIssued: false,
+    storagePathsExposed: false,
+    doctorOnlyTextExposed: false,
+  };
+}
+
+function safeSessionEndBoundaryMetadata(sessionEnd = {}) {
+  const boundary = sessionEnd.sessionBoundary ?? {};
+  return {
+    accessStatus: String(sessionEnd.accessStatus ?? "photo_protocol_access_no_active_session"),
+    sessionEnded: sessionEnd.sessionEnded === true,
+    sessionEstablished: boundary.sessionEstablished === true,
     rawSessionIdExposed: false,
     sessionHashExposed: false,
     sessionFingerprintExposed: false,
@@ -370,6 +399,39 @@ export function createPatientPortalService({
         },
       });
       return { exchange, scope, sessionCookie };
+    },
+
+    async endPhotoProtocolAccessSession(visitId, authContext, { correlationId, sessionCookieValue = "" } = {}) {
+      const scope = patientPortalScope(authContext);
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const rawCookie = String(sessionCookieValue || "");
+      const hasUsableCookie = PHOTO_PROTOCOL_SESSION_SECRET_PATTERN.test(rawCookie);
+      const sessionHash = hasUsableCookie && sessionPepper ? hmacSha256Hex(sessionPepper, rawCookie) : "";
+      const sessionEnd = await patientPortalRepository.endPhotoProtocolAccessSession({
+        userId: scope.userId,
+        visitId: safeVisitId,
+        sessionHash,
+      });
+      if (!sessionEnd) throw new PatientPortalNotFoundError();
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: sessionEnd.clinic?.id || null,
+        actorUserId: scope.userId,
+        action: "patient_portal.photo_protocol.access.session_end",
+        entityType: "patient_photo_protocol_release",
+        entityId: safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          cookiePresented: rawCookie.length > 0,
+          cookieUsable: hasUsableCookie && Boolean(sessionPepper),
+          ...safeSessionEndBoundaryMetadata(sessionEnd),
+        },
+      });
+      return {
+        sessionEnd,
+        scope,
+        sessionCookie: buildPhotoProtocolSessionClearCookie({ visitId: safeVisitId }),
+      };
     },
 
     async getHistory(authContext, { correlationId } = {}) {

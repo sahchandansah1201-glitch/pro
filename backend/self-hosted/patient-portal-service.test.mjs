@@ -10,6 +10,7 @@ const VISIT_ID = "33333333-3333-4333-8333-333333333333";
 function createService(overrides = {}) {
   const auditEvents = [];
   const exchangeCalls = [];
+  const endSessionCalls = [];
   const service = createPatientPortalService({
     patientPortalRepository: {
       async getOverview({ userId }) {
@@ -112,6 +113,28 @@ function createService(overrides = {}) {
           },
         };
       },
+      async endPhotoProtocolAccessSession(input) {
+        endSessionCalls.push(input);
+        return overrides.sessionEndResult || {
+          visitId: input.visitId,
+          status: input.sessionHash ? "ended" : "no_active_session",
+          accessStatus: input.sessionHash
+            ? "photo_protocol_access_session_ended"
+            : "photo_protocol_access_no_active_session",
+          sessionEnded: Boolean(input.sessionHash),
+          clinic: { id: "c-1" },
+          sessionBoundary: {
+            sessionEstablished: false,
+            rawSessionIdExposed: false,
+            sessionHashExposed: false,
+            sessionFingerprintExposed: false,
+            qrTokenExposed: false,
+            signedUrlsIssued: false,
+            storagePathsExposed: false,
+            doctorOnlyTextExposed: false,
+          },
+        };
+      },
       async createBookingRequest() {
         return overrides.bookingRequest === null
           ? null
@@ -144,7 +167,7 @@ function createService(overrides = {}) {
     now: overrides.now || (() => new Date("2026-06-01T12:00:00.000Z")),
     sessionTtlMinutes: 30,
   });
-  return { service, auditEvents, exchangeCalls };
+  return { service, auditEvents, exchangeCalls, endSessionCalls };
 }
 
 test("Stage 5N service allows patient role and audits overview/report reads", async () => {
@@ -339,4 +362,55 @@ test("Stage 5N service requires configured credential and session peppers", asyn
     () => service.exchangePhotoProtocolAccess(VISIT_ID, { credential: "patient one-time credential" }, authContext),
     (error) => error.publicCode === "photo_protocol_access_not_configured" && error.publicStatus === 503,
   );
+});
+
+test("Stage 5N service ends photo access session with safe audit and clear cookie", async () => {
+  const { service, auditEvents, endSessionCalls } = createService();
+  const authContext = { userId: USER_ID, roles: ["patient"] };
+  const sessionCookieValue = "a".repeat(64);
+
+  const result = await service.endPhotoProtocolAccessSession(
+    VISIT_ID,
+    authContext,
+    { correlationId: "corr-session-end-1", sessionCookieValue },
+  );
+
+  assert.equal(result.sessionEnd.status, "ended");
+  assert.equal(result.sessionEnd.sessionBoundary.sessionEstablished, false);
+  assert.equal(result.sessionCookie.name, "sd_photo_protocol_session");
+  assert.equal(result.sessionCookie.path, `/api/v1/me/photo-protocols/${VISIT_ID}`);
+  assert.equal(result.sessionCookie.maxAgeSeconds, 0);
+  assert.equal(result.sessionCookie.httpOnly, true);
+  assert.equal(result.sessionCookie.secure, true);
+  assert.equal(endSessionCalls.length, 1);
+  assert.equal(endSessionCalls[0].sessionHash.length, 64);
+  assert.notEqual(endSessionCalls[0].sessionHash, sessionCookieValue);
+  assert.equal("sessionCookieValue" in endSessionCalls[0], false);
+  assert.deepEqual(auditEvents.map((event) => event.action), [
+    "patient_portal.photo_protocol.access.session_end",
+  ]);
+  assert.equal(auditEvents[0].metadata.sessionEnded, true);
+  assert.equal(auditEvents[0].metadata.rawSessionIdExposed, false);
+  assert.equal(auditEvents[0].metadata.sessionHashExposed, false);
+  assert.doesNotMatch(JSON.stringify(result.sessionEnd), new RegExp(sessionCookieValue, "i"));
+  assert.doesNotMatch(JSON.stringify(auditEvents[0]), new RegExp(sessionCookieValue, "i"));
+  assert.doesNotMatch(JSON.stringify(auditEvents[0]), /session_hash|session_fingerprint|signed_url|storage_object_path/i);
+});
+
+test("Stage 5N service clears photo access cookie even when no active session is matched", async () => {
+  const { service, auditEvents, endSessionCalls } = createService();
+  const authContext = { userId: USER_ID, roles: ["patient"] };
+
+  const result = await service.endPhotoProtocolAccessSession(
+    VISIT_ID,
+    authContext,
+    { correlationId: "corr-session-end-2", sessionCookieValue: "" },
+  );
+
+  assert.equal(result.sessionEnd.status, "no_active_session");
+  assert.equal(result.sessionEnd.sessionEnded, false);
+  assert.equal(result.sessionCookie.maxAgeSeconds, 0);
+  assert.equal(endSessionCalls[0].sessionHash, "");
+  assert.equal(auditEvents[0].metadata.cookiePresented, false);
+  assert.equal(auditEvents[0].metadata.sessionEnded, false);
 });

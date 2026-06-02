@@ -447,6 +447,29 @@ export function normalizePatientPortalPhotoProtocolAccessExchange(input) {
   };
 }
 
+export function normalizePatientPortalPhotoProtocolAccessSessionEnd(input) {
+  if (!input || typeof input !== "object" || !input.visitId) return null;
+  const source = input && typeof input === "object" ? input : {};
+  const status = source.status === "ended" ? "ended" : "no_active_session";
+  return {
+    visitId: textOrNull(source.visitId),
+    status,
+    accessStatus: status === "ended" ? "photo_protocol_access_session_ended" : "photo_protocol_access_no_active_session",
+    sessionEnded: status === "ended" && booleanValue(source.sessionEnded),
+    sessionBoundary: {
+      sessionEstablished: false,
+      rawSessionIdExposed: false,
+      sessionHashExposed: false,
+      sessionFingerprintExposed: false,
+      qrTokenExposed: false,
+      signedUrlsIssued: false,
+      storagePathsExposed: false,
+      doctorOnlyTextExposed: false,
+    },
+    clinic: safeNested(source, "clinic"),
+  };
+}
+
 export function normalizePatientPortalOverview(input) {
   const source = input && typeof input === "object" ? input : {};
   return {
@@ -1242,6 +1265,83 @@ from (
 `.trim();
 }
 
+export function buildEndPatientPortalPhotoProtocolAccessSessionSql({
+  userId,
+  visitId,
+  sessionHash = "",
+} = {}) {
+  const safeUserId = safeUuid(userId);
+  const safeVisitId = safeUuid(visitId);
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with linked_release as (
+    select
+      r.id,
+      r.clinic_id,
+      r.patient_id,
+      r.visit_id
+    from patient_photo_protocol_releases r
+    join patient_user_links pul on pul.patient_id = r.patient_id
+    join patients p on p.id = r.patient_id and p.clinic_id = r.clinic_id and p.deleted_at is null
+    where pul.user_id = ${sqlUuid(safeUserId)}
+      and r.visit_id = ${sqlUuid(safeVisitId)}
+    order by r.updated_at desc
+    limit 1
+  ),
+  ended_session as (
+    update patient_photo_protocol_access_sessions s
+    set status = 'revoked',
+        revoked_at = now(),
+        metadata_json = coalesce(s.metadata_json, '{}'::jsonb) || jsonb_build_object(
+          'operation', 'patient_end_access_session',
+          'endedByPatient', true,
+          'rawSessionIdExposed', false,
+          'sessionHashExposed', false,
+          'sessionFingerprintExposed', false,
+          'qrTokenExposed', false,
+          'signedUrlsIssued', false,
+          'storagePathsExposed', false,
+          'doctorOnlyTextExposed', false
+        ),
+        updated_at = now()
+    from linked_release lr
+    where s.release_id = lr.id
+      and s.visit_id = lr.visit_id
+      and s.patient_user_id = ${sqlUuid(safeUserId)}
+      and s.session_kind = 'patient_photo_protocol_access'
+      and s.status = 'active'
+      and ${sqlLiteral(sessionHash ?? "")} <> ''
+      and s.session_hash = ${sqlLiteral(sessionHash ?? "")}
+    returning s.id
+  )
+  select
+    lr.visit_id::text as "visitId",
+    case when exists (select 1 from ended_session) then 'ended' else 'no_active_session' end as "status",
+    case
+      when exists (select 1 from ended_session) then 'photo_protocol_access_session_ended'
+      else 'photo_protocol_access_no_active_session'
+    end as "accessStatus",
+    exists (select 1 from ended_session) as "sessionEnded",
+    jsonb_build_object(
+      'sessionEstablished', false,
+      'rawSessionIdExposed', false,
+      'sessionHashExposed', false,
+      'sessionFingerprintExposed', false,
+      'qrTokenExposed', false,
+      'signedUrlsIssued', false,
+      'storagePathsExposed', false,
+      'doctorOnlyTextExposed', false
+    ) as "sessionBoundary",
+    jsonb_build_object(
+      'id', lr.clinic_id::text
+    ) as "clinic"
+  from linked_release lr
+  limit 1
+) result;
+`.trim();
+}
+
 export function buildCreatePatientPortalBookingRequestSql({
   userId,
   preferredFrom,
@@ -1371,6 +1471,11 @@ export function createPatientPortalRepository(dbClient) {
       const rows = await dbClient.queryJson(buildExchangePatientPortalPhotoProtocolAccessSql(input));
       const first = Array.isArray(rows) ? rows[0] : rows;
       return normalizePatientPortalPhotoProtocolAccessExchange(first);
+    },
+    async endPhotoProtocolAccessSession(input) {
+      const rows = await dbClient.queryJson(buildEndPatientPortalPhotoProtocolAccessSessionSql(input));
+      const first = Array.isArray(rows) ? rows[0] : rows;
+      return normalizePatientPortalPhotoProtocolAccessSessionEnd(first);
     },
     async getHistory({ userId }) {
       const rows = await dbClient.queryJson(buildPatientPortalHistorySql({ userId }));

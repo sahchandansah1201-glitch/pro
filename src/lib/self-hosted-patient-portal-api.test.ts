@@ -8,11 +8,13 @@ import {
   fetchSelfHostedPatientPortalPhotoProtocol,
   fetchSelfHostedPatientPortalReport,
   exchangeSelfHostedPatientPortalPhotoProtocolAccess,
+  endSelfHostedPatientPortalPhotoProtocolAccessSession,
   updateSelfHostedPatientPortalReminderPreferences,
   toSelfHostedPatientPortalHistory,
   toSelfHostedPatientPortalOverview,
   toSelfHostedPatientPortalPhotoProtocol,
   toSelfHostedPatientPortalPhotoProtocolAccessExchange,
+  toSelfHostedPatientPortalPhotoProtocolAccessSessionEnd,
   toSelfHostedPatientPortalReport,
 } from "./self-hosted-patient-portal-api";
 
@@ -498,6 +500,84 @@ describe("self-hosted-patient-portal-api", () => {
     expect(result.ok).toBe(false);
     expect(result.error.code).toBe("photo_protocol_access_credential_invalid");
     expect(result.error.message).toBe("Доступ не подтверждён.");
+  });
+
+  it("ends a patient photo protocol access session without exposing session material", async () => {
+    const sessionEnd = toSelfHostedPatientPortalPhotoProtocolAccessSessionEnd({
+      visitId: "visit-1",
+      status: "ended",
+      accessStatus: "photo_protocol_access_session_ended",
+      sessionEnded: true,
+      rawSessionId: "hidden",
+      sessionHash: "hidden",
+      sessionBoundary: {
+        sessionEstablished: true,
+        rawSessionIdExposed: true,
+        sessionHashExposed: true,
+        sessionFingerprintExposed: true,
+        signedUrlsIssued: true,
+        storagePathsExposed: true,
+      },
+    });
+
+    expect(sessionEnd.status).toBe("ended");
+    expect(sessionEnd.sessionEnded).toBe(true);
+    expect(sessionEnd.sessionBoundary.sessionEstablished).toBe(false);
+    expect(sessionEnd.sessionBoundary.rawSessionIdExposed).toBe(false);
+    expect(sessionEnd.sessionBoundary.sessionHashExposed).toBe(false);
+    expect(sessionEnd.sessionBoundary.signedUrlsIssued).toBe(false);
+    expect(sessionEnd).not.toHaveProperty("rawSessionId");
+    expect(sessionEnd).not.toHaveProperty("sessionHash");
+  });
+
+  it("calls session end endpoint with credentialed cookie transport only", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          item: {
+            visitId: "visit-1",
+            status: "ended",
+            accessStatus: "photo_protocol_access_session_ended",
+            sessionEnded: true,
+            sessionCookie: "hidden",
+            sessionHash: "hidden",
+            sessionBoundary: {
+              sessionEstablished: false,
+              rawSessionIdExposed: true,
+              sessionHashExposed: true,
+              sessionFingerprintExposed: true,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await endSelfHostedPatientPortalPhotoProtocolAccessSession({
+      apiBaseUrl: "https://clinic.local/",
+      apiToken: "token-1",
+      visitId: "visit-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value.status).toBe("ended");
+    expect(result.value.sessionBoundary.rawSessionIdExposed).toBe(false);
+    expect(result.value.sessionBoundary.sessionHashExposed).toBe(false);
+    expect(result.value).not.toHaveProperty("sessionCookie");
+    expect(result.value).not.toHaveProperty("sessionHash");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://clinic.local/api/v1/me/photo-protocols/visit-1/access/session/end",
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Bearer token-1",
+        },
+        body: JSON.stringify({}),
+        credentials: "include",
+      },
+    );
   });
 
   it("creates booking requests and updates reminder preferences with bearer token", async () => {

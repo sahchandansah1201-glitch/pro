@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useSelfHostedApiSession } from "@/lib/self-hosted-api-session";
 import {
+  endSelfHostedPatientPortalPhotoProtocolAccessSession,
   exchangeSelfHostedPatientPortalPhotoProtocolAccess,
   fetchSelfHostedPatientPortalPhotoProtocol,
   fetchSelfHostedPatientPortalPhotoProtocolPhoto,
@@ -25,7 +26,7 @@ type PhotoDownloadState = {
 };
 
 type PhotoAccessState = {
-  status: "idle" | "submitting" | "confirmed" | "denied";
+  status: "idle" | "submitting" | "confirmed" | "denied" | "ending" | "ended";
   message?: string;
   sessionExpiresAt?: string | null;
 };
@@ -76,6 +77,14 @@ export default function MeReportPageLive() {
   const [photoAccess, setPhotoAccess] = useState<PhotoAccessState>({ status: "idle" });
   const [error, setError] = useState<string | null>(null);
   const photoObjectUrls = useRef<Record<number, string>>({});
+
+  function clearPreparedPhotoUrls() {
+    for (const objectUrl of Object.values(photoObjectUrls.current)) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    photoObjectUrls.current = {};
+    setPhotoDownloads({});
+  }
 
   useEffect(() => () => {
     for (const objectUrl of Object.values(photoObjectUrls.current)) {
@@ -180,6 +189,31 @@ export default function MeReportPageLive() {
     setPhotoAccess({
       status: "denied",
       message: result.value.deniedReason || "Доступ сейчас не подтверждён.",
+    });
+  }
+
+  async function endPhotoAccessSession() {
+    const visitId = photoProtocol?.visitId || report?.visitId;
+    if (!visitId) {
+      setPhotoAccess({ status: "denied", message: "Доступ сейчас недоступен: backend не вернул визит." });
+      return;
+    }
+    setPhotoAccess({ status: "ending", message: "Завершаем доступ к фото через self-hosted backend." });
+    const result = await endSelfHostedPatientPortalPhotoProtocolAccessSession({
+      apiBaseUrl: session.apiBaseUrl,
+      apiToken: session.apiToken,
+      visitId,
+    });
+    if (!result.ok) {
+      setPhotoAccess({ status: "denied", message: result.error.message || "Не удалось завершить доступ к фото." });
+      return;
+    }
+    clearPreparedPhotoUrls();
+    setPhotoAccess({
+      status: "ended",
+      message: result.value.sessionEnded
+        ? "Доступ к фото завершён. Для нового открытия подтвердите доступ снова."
+        : "Активная фото-сессия не найдена. Для открытия фото подтвердите доступ снова.",
     });
   }
 
@@ -365,6 +399,24 @@ export default function MeReportPageLive() {
                           {photoAccess.status === "confirmed"
                             ? `Доступ подтверждён${photoAccess.sessionExpiresAt ? ` до ${formatDateTime(photoAccess.sessionExpiresAt)}` : ""}.`
                             : photoAccess.message || "Перед открытием фото требуется подтверждение доступа."}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-h-[44px] sm:min-h-[32px]"
+                            disabled={photoAccess.status !== "confirmed" || isPhotoProtocolRevoked(photoProtocol)}
+                            onClick={() => void endPhotoAccessSession()}
+                          >
+                            {photoAccess.status === "ending" && (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                            )}
+                            Завершить доступ
+                          </Button>
+                          <span className="text-muted-foreground">
+                            Завершение очищает cookie-сессию в браузере и снова блокирует подготовку фото.
+                          </span>
                         </div>
                       </section>
                       <section

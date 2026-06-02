@@ -6,6 +6,7 @@ import {
   buildPatientPortalHistorySql,
   buildPatientPortalPhotoProtocolSql,
   buildExchangePatientPortalPhotoProtocolAccessSql,
+  buildEndPatientPortalPhotoProtocolAccessSessionSql,
   buildPatientPortalReportSql,
   buildCreatePatientPortalBookingRequestSql,
   buildUpdatePatientPortalReminderPreferencesSql,
@@ -14,6 +15,7 @@ import {
   normalizePatientPortalOverview,
   normalizePatientPortalPhotoProtocol,
   normalizePatientPortalPhotoProtocolAccessExchange,
+  normalizePatientPortalPhotoProtocolAccessSessionEnd,
   normalizePatientPortalReport,
 } from "./patient-portal-repository.mjs";
 
@@ -71,6 +73,55 @@ test("Stage 5N SQL exchanges a credential hash for a metadata-only session bound
   assert.match(exchangeSql, /sessionHashExposed/);
   assert.match(exchangeSql, /credentialFingerprintExposed/);
   assert.doesNotMatch(exchangeSql, /plainCredential|credentialPlaintext|credentialValue|sessionToken|signed_url|storage_object_path|object_bucket|object_key|physician_text/i);
+});
+
+test("Stage 5N SQL ends active photo access sessions without exposing session material", () => {
+  const endSql = buildEndPatientPortalPhotoProtocolAccessSessionSql({
+    userId: USER_ID,
+    visitId: VISIT_ID,
+    sessionHash: "def456sessionhashdef456sessionhash",
+  });
+
+  assert.match(endSql, /patient_user_links/);
+  assert.match(endSql, /patient_photo_protocol_access_sessions/);
+  assert.match(endSql, /patient_end_access_session/);
+  assert.match(endSql, /status = 'revoked'/);
+  assert.match(endSql, /revoked_at = now\(\)/);
+  assert.match(endSql, /session_kind = 'patient_photo_protocol_access'/);
+  assert.match(endSql, /photo_protocol_access_session_ended/);
+  assert.match(endSql, /photo_protocol_access_no_active_session/);
+  assert.match(endSql, /rawSessionIdExposed/);
+  assert.match(endSql, /sessionHashExposed/);
+  assert.match(endSql, /sessionFingerprintExposed/);
+  assert.doesNotMatch(endSql, /raw_session_id|sessionToken|signed_url|storage_object_path|object_bucket|object_key|physician_text/i);
+});
+
+test("Stage 5N normalizer exposes session-end boundary metadata only", () => {
+  const sessionEnd = normalizePatientPortalPhotoProtocolAccessSessionEnd({
+    visitId: VISIT_ID,
+    status: "ended",
+    accessStatus: "photo_protocol_access_session_ended",
+    sessionEnded: true,
+    sessionHash: "hidden",
+    sessionBoundary: {
+      sessionEstablished: true,
+      rawSessionIdExposed: true,
+      sessionHashExposed: true,
+      sessionFingerprintExposed: true,
+      signedUrlsIssued: true,
+      storagePathsExposed: true,
+    },
+  });
+
+  assert.equal(sessionEnd.status, "ended");
+  assert.equal(sessionEnd.sessionEnded, true);
+  assert.equal(sessionEnd.sessionBoundary.sessionEstablished, false);
+  assert.equal(sessionEnd.sessionBoundary.rawSessionIdExposed, false);
+  assert.equal(sessionEnd.sessionBoundary.sessionHashExposed, false);
+  assert.equal(sessionEnd.sessionBoundary.sessionFingerprintExposed, false);
+  assert.equal(sessionEnd.sessionBoundary.signedUrlsIssued, false);
+  assert.equal(sessionEnd.sessionBoundary.storagePathsExposed, false);
+  assert.equal("sessionHash" in sessionEnd, false);
 });
 
 test("Stage 5N SQL scopes patient-safe history reads and policy counters", () => {

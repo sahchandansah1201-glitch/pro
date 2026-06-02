@@ -168,6 +168,23 @@ export interface SelfHostedPatientPortalPhotoProtocolAccessExchange {
   };
 }
 
+export interface SelfHostedPatientPortalPhotoProtocolAccessSessionEnd {
+  visitId: string | null;
+  status: "ended" | "no_active_session";
+  accessStatus: string;
+  sessionEnded: boolean;
+  sessionBoundary: {
+    sessionEstablished: false;
+    rawSessionIdExposed: false;
+    sessionHashExposed: false;
+    sessionFingerprintExposed: false;
+    qrTokenExposed: false;
+    signedUrlsIssued: false;
+    storagePathsExposed: false;
+    doctorOnlyTextExposed: false;
+  };
+}
+
 export interface SelfHostedPatientPortalHistoryLesion {
   id: string;
   title: string;
@@ -461,6 +478,17 @@ function patientPhotoProtocolAccessExchangeErrorMessage(error: SelfHostedApiErro
       return "Доступ к фото-протоколу не найден.";
     default:
       return error.message || "Доступ сейчас не подтверждён.";
+  }
+}
+
+function patientPhotoProtocolAccessSessionEndErrorMessage(error: SelfHostedApiError): string {
+  switch (error.code) {
+    case "not_found":
+      return "Контур доступа к фото-протоколу не найден.";
+    case "invalid_uuid":
+      return "Идентификатор визита некорректен.";
+    default:
+      return error.message || "Не удалось завершить доступ к фото.";
   }
 }
 
@@ -850,6 +878,29 @@ export function toSelfHostedPatientPortalPhotoProtocolAccessExchange(
   };
 }
 
+export function toSelfHostedPatientPortalPhotoProtocolAccessSessionEnd(
+  input: unknown,
+): SelfHostedPatientPortalPhotoProtocolAccessSessionEnd {
+  const row = isRecord(input) ? input : {};
+  const status = row.status === "ended" ? "ended" : "no_active_session";
+  return {
+    visitId: textOrNull(row.visitId),
+    status,
+    accessStatus: status === "ended" ? "photo_protocol_access_session_ended" : "photo_protocol_access_no_active_session",
+    sessionEnded: status === "ended" && row.sessionEnded === true,
+    sessionBoundary: {
+      sessionEstablished: false,
+      rawSessionIdExposed: false,
+      sessionHashExposed: false,
+      sessionFingerprintExposed: false,
+      qrTokenExposed: false,
+      signedUrlsIssued: false,
+      storagePathsExposed: false,
+      doctorOnlyTextExposed: false,
+    },
+  };
+}
+
 export function toSelfHostedPatientPortalHistory(input: unknown): SelfHostedPatientPortalHistory {
   const row = isRecord(input) ? input : {};
   const clinic = nested(row, "clinic");
@@ -946,6 +997,28 @@ export async function exchangeSelfHostedPatientPortalPhotoProtocolAccess(
   }
   const body = isRecord(response.value) ? response.value : {};
   return ok(toSelfHostedPatientPortalPhotoProtocolAccessExchange(body.item));
+}
+
+export async function endSelfHostedPatientPortalPhotoProtocolAccessSession(
+  args: BaseArgs & { visitId: string },
+): Promise<SelfHostedApiResult<SelfHostedPatientPortalPhotoProtocolAccessSessionEnd>> {
+  const response = await requestJson(
+    args,
+    `/api/v1/me/photo-protocols/${encodeURIComponent(args.visitId)}/access/session/end`,
+    {
+      method: "POST",
+      body: {},
+      credentials: "include",
+    },
+  );
+  if (!response.ok) {
+    return fail({
+      ...response.error,
+      message: patientPhotoProtocolAccessSessionEndErrorMessage(response.error),
+    });
+  }
+  const body = isRecord(response.value) ? response.value : {};
+  return ok(toSelfHostedPatientPortalPhotoProtocolAccessSessionEnd(body.item));
 }
 
 export async function fetchSelfHostedPatientPortalPhotoProtocolPhoto(
