@@ -71,6 +71,17 @@ const COMPARISON_ACTION_LABEL: Record<ComparisonAction, string> = {
   report_limit: "Ограничение добавлено в черновик отчёта",
 };
 
+const COMPARISON_ACTIONS: Array<{
+  action: ComparisonAction;
+  label: string;
+  icon: typeof RefreshCw;
+  variant: "outline" | "secondary";
+}> = [
+  { action: "retake", label: "Запросить переснимок", icon: RefreshCw, variant: "outline" },
+  { action: "excluded", label: "Исключить из сравнения", icon: XCircle, variant: "outline" },
+  { action: "report_limit", label: "Добавить ограничение в отчёт", icon: FileText, variant: "secondary" },
+];
+
 function imageQualityLabel(image: ClinicalImage) {
   if (image.quality.score >= 0.8 && image.quality.issues.length === 0) return "Готово";
   if (image.quality.score >= 0.72) return "С предупреждением";
@@ -139,6 +150,184 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
       result: conditionsDiffer ? "Разные условия съёмки" : "Сопоставимо по условиям",
     },
   ];
+}
+
+function ComparisonImagePanel({ image, marker }: { image: ClinicalImage; marker: "A" | "B" }) {
+  return (
+    <section aria-label={`Снимок ${marker}`} className="min-w-0 rounded-md border border-border bg-background">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+        <div className="min-w-0">
+          <div className="text-[12px] font-semibold">Снимок {marker}</div>
+          <div className="font-mono text-[11px] text-muted-foreground">{image.id}</div>
+        </div>
+        <span className={`rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(image)}`}>
+          {imageQualityLabel(image)} · {(image.quality.score * 100).toFixed(0)}%
+        </span>
+      </div>
+      <div className="p-3">
+        <div className="relative flex aspect-[4/3] min-h-[220px] items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30">
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--border)/0.35)_1px,transparent_1px),linear-gradient(0deg,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:32px_32px]" />
+          <div className="relative z-10 flex max-w-[260px] flex-col items-center gap-2 text-center">
+            <ImageIcon className="h-8 w-8 text-muted-foreground" aria-hidden />
+            <div className="text-[12px] font-medium">{IMAGE_KIND[image.kind]}</div>
+            <div className="text-[11px] text-muted-foreground">
+              Исходный файл скрыт; доступны параметры снимка.
+            </div>
+          </div>
+          <div className="absolute left-2 top-2 rounded-sm bg-background/90 px-1.5 py-0.5 text-[11px] font-semibold">
+            {marker}
+          </div>
+        </div>
+        <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2">
+          <div className="min-w-0">
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Дата</dt>
+            <dd className="mt-0.5 tabular-nums">{formatDateTime(image.capturedAt)}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Источник</dt>
+            <dd className="mt-0.5">{IMAGE_SOURCE[image.source]}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Устройство</dt>
+            <dd className="mt-0.5">{image.deviceId ?? "без устройства"}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Размер</dt>
+            <dd className="mt-0.5 tabular-nums">
+              {image.exifMeta.width}×{image.exifMeta.height}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+function ComparisonActionButtons({
+  onAction,
+}: {
+  onAction: (action: ComparisonAction) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {COMPARISON_ACTIONS.map(({ action, label, icon: Icon, variant }) => (
+        <Button
+          key={action}
+          type="button"
+          size="sm"
+          variant={variant}
+          className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+          onClick={() => onAction(action)}
+        >
+          <Icon className="h-3.5 w-3.5" aria-hidden /> {label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function ComparisonFullScreenDialog({
+  open,
+  onOpenChange,
+  images,
+  reasons,
+  isComparable,
+  action,
+  onAction,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  images: [ClinicalImage, ClinicalImage] | null;
+  reasons: string[];
+  isComparable: boolean;
+  action: ComparisonAction | null;
+  onAction: (action: ComparisonAction) => void;
+}) {
+  if (!images) return null;
+  const [imageA, imageB] = images;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100vh-24px)] w-[calc(100vw-24px)] max-w-[1180px] overflow-y-auto p-3 sm:p-4">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-[14px]">Полноэкранное сравнение</DialogTitle>
+          <DialogDescription className="text-[12px]">
+            Крупное A/B-сравнение выбранной пары очага. Это технический режим проверки условий съёмки.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="grid min-w-0 gap-3 lg:grid-cols-2">
+            <ComparisonImagePanel image={imageA} marker="A" />
+            <ComparisonImagePanel image={imageB} marker="B" />
+          </div>
+
+          <aside aria-label="Условия съёмки" className="min-w-0 rounded-md border border-border bg-muted/20 p-3">
+            <div className="text-[12px] font-semibold">Условия съёмки</div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[12px]">
+              <span className="text-muted-foreground">Техническая сопоставимость:</span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] ${
+                  isComparable
+                    ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
+                    : "border-destructive/30 bg-destructive/10 text-destructive"
+                }`}
+              >
+                {isComparable ? (
+                  <CheckCircle2 className="h-3 w-3" aria-hidden />
+                ) : (
+                  <ShieldAlert className="h-3 w-3" aria-hidden />
+                )}
+                {isComparable ? "Сопоставимо" : "Не сопоставимо"}
+              </span>
+            </div>
+
+            <div className="mt-3">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Причины</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {(reasons.length > 0 ? reasons : ["Условия повторяемы"]).map((reason) => (
+                  <span key={reason} className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px]">
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <dl className="mt-3 space-y-2 text-[12px]">
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Типы</dt>
+                <dd>{IMAGE_KIND[imageA.kind]} / {IMAGE_KIND[imageB.kind]}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Источники</dt>
+                <dd>{IMAGE_SOURCE[imageA.source]} / {IMAGE_SOURCE[imageB.source]}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Устройства</dt>
+                <dd>{imageA.deviceId ?? "без устройства"} / {imageB.deviceId ?? "без устройства"}</dd>
+              </div>
+            </dl>
+
+            <p
+              className="mt-3 rounded-md border px-2 py-1.5 text-[12px]"
+              style={{ background: "hsl(var(--warning) / 0.08)", borderColor: "hsl(var(--warning) / 0.30)", color: "hsl(var(--warning))" }}
+            >
+              Не оценивайте динамику по этой паре без врачебной проверки и повторяемых условий съёмки.
+            </p>
+
+            <div className="mt-3">
+              <ComparisonActionButtons onAction={onAction} />
+              {action && (
+                <p className="mt-2 text-[12px] font-medium text-primary" role="status">
+                  {COMPARISON_ACTION_LABEL[action]}
+                </p>
+              )}
+            </div>
+          </aside>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function BodyMapMini({ view, x, y }: { view: Lesion["mapPoint"]["view"]; x: number; y: number }) {
@@ -264,6 +453,7 @@ export default function LesionDetailPage() {
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [comparisonAction, setComparisonAction] = useState<ComparisonAction | null>(null);
+  const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
   const images = useMemo(
@@ -309,6 +499,7 @@ export default function LesionDetailPage() {
 
   const toggleCompare = (imgId: string) => {
     setComparisonAction(null);
+    setCompareDialogOpen(false);
     setCompareIds((prev) => {
       if (prev.includes(imgId)) return prev.filter((x) => x !== imgId);
       const next = [...prev, imgId];
@@ -326,6 +517,7 @@ export default function LesionDetailPage() {
       || compareImages[0].kind !== compareImages[1].kind
     : false;
   const matrixRows = hasComparablePair ? comparisonRows(compareImages[0], compareImages[1]) : [];
+  const comparePair = hasComparablePair ? ([compareImages[0], compareImages[1]] as [ClinicalImage, ClinicalImage]) : null;
   const selectedPairHasQualityIssues = hasComparablePair
     ? compareImages.some((img) => img.quality.score < 0.75 || img.quality.issues.length > 0)
     : false;
@@ -551,30 +743,13 @@ export default function LesionDetailPage() {
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
+                        variant="default"
                         className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                        onClick={() => setComparisonAction("retake")}
+                        onClick={() => setCompareDialogOpen(true)}
                       >
-                        <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Запросить переснимок
+                        <Maximize2 className="h-3.5 w-3.5" aria-hidden /> Открыть полноэкранное сравнение
                       </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                        onClick={() => setComparisonAction("excluded")}
-                      >
-                        <XCircle className="h-3.5 w-3.5" aria-hidden /> Исключить из сравнения
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                        onClick={() => setComparisonAction("report_limit")}
-                      >
-                        <FileText className="h-3.5 w-3.5" aria-hidden /> Добавить ограничение в отчёт
-                      </Button>
+                      <ComparisonActionButtons onAction={setComparisonAction} />
                     </div>
                   </div>
 
@@ -745,6 +920,15 @@ export default function LesionDetailPage() {
         y={lesion.mapPoint.y}
         bodyZone={lesion.bodyZone}
         label={lesion.label}
+      />
+      <ComparisonFullScreenDialog
+        open={compareDialogOpen && hasComparablePair}
+        onOpenChange={setCompareDialogOpen}
+        images={comparePair}
+        reasons={comparisonReasons}
+        isComparable={selectedPairIsComparable}
+        action={comparisonAction}
+        onAction={setComparisonAction}
       />
     </div>
   );

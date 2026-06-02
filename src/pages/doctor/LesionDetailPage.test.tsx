@@ -146,6 +146,31 @@ describe("LesionDetailPage", () => {
     expect(review.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
   });
 
+  it("opens a full-screen comparison view for the selected pair", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
+    fireEvent.click(compareButtons[0]);
+    fireEvent.click(compareButtons[1]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    expect(within(dialog).getByText(/Снимок A/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Снимок B/)).toBeInTheDocument();
+    expect(within(dialog).getByText("i-011")).toBeInTheDocument();
+    expect(within(dialog).getByText("i-012")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Условия съёмки/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Техническая сопоставимость/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Не сопоставимо/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Не оценивайте динамику/)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Запросить переснимок/ }));
+    expect(within(dialog).getByText(/Переснимок запрошен/)).toBeInTheDocument();
+
+    expect(dialog.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
+  });
+
   it("links the lesion to the full Body Map in the source visit", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
