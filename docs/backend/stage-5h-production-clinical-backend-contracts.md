@@ -221,6 +221,55 @@ Safety boundary:
 - `SD-MF-046` / patient protocol and lesion history: in progress. Batch AY is
   doctor-side QA only and keeps patient delivery off.
 
+## Batch AZ Capture-Condition QA Panel
+
+Batch AZ adds a richer doctor-side capture-condition QA panel in the
+full-screen lesion comparison dialog. It does not add backend routes or patient
+delivery.
+
+Doctor UI:
+
+- the full-screen lesion comparison dialog includes `Контроль условий съёмки`;
+- the panel shows a technical summary:
+  - `Итог: условия технически повторяемы`; or
+  - `Итог: нужна повторяемая съёмка`;
+- checklist rows show:
+  - `Тип снимка`;
+  - `Источник`;
+  - `Устройство`;
+  - `Интервал`;
+  - `Качество`;
+  - `Замечания качества`;
+- same-device/same-source/same-kind UUID QA images are marked technically
+  repeatable;
+- non-repeatable demo pairs show the exact technical blockers such as different
+  image type, different source, different device, low minimum quality, and
+  quality issues.
+
+Safety boundary:
+
+- no new backend route;
+- no patient delivery;
+- no signed URL, object bucket/key, storage path, QR/session/credential,
+  doctor-only report text, patient-facing report text, diagnosis, risk,
+  prognosis, treatment, or automated dynamic conclusion in UI/client/OpenAPI;
+- visible copy says `Не является клинической оценкой динамики`.
+
+### Batch AZ Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch AZ makes the
+  selected pair's chronology and metadata constraints easier to inspect.
+  Remaining gate: real production assets and richer capture-condition metadata
+  from devices.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch AZ adds
+  a concrete repeatability checklist for A/B comparison. Remaining gate: true
+  annotation geometry and clinical-grade viewer QA.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch AZ separates
+  technical repeatability from clinical dynamic assessment and keeps clinical
+  conclusions out of the UI.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch AZ is
+  doctor-side technical QA only and keeps patient delivery off.
+
 ## Product Boundary
 
 - managed runtime: none

@@ -202,6 +202,53 @@ describe("LesionDetailPage", () => {
     expect(dialog.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
   });
 
+  it("shows capture-condition QA details without clinical conclusions", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    selectComparePair("i-011", "i-012");
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const captureQa = within(dialog).getByRole("region", { name: /Контроль условий съёмки/ });
+
+    expect(within(captureQa).getByText(/Контроль условий съёмки/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/Итог: нужна повторяемая съёмка/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/Тип снимка/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/разный тип снимка/i)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/Источник/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/разные источники/i)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/Устройство/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/d-003 \/ без устройства/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/Качество/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/минимум 67%/i)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/Замечания качества/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/размытие, тени/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/Не является клинической оценкой динамики/)).toBeInTheDocument();
+    expect(captureQa.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|лечение|token|storage/i);
+  });
+
+  it("marks same-device QA UUID previews as technically repeatable", () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    renderAt(
+      `/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`,
+    );
+
+    selectComparePair(PROTECTED_RENDER_QA_IDS.imageAId, PROTECTED_RENDER_QA_IDS.imageBId);
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const captureQa = within(dialog).getByRole("region", { name: /Контроль условий съёмки/ });
+
+    expect(within(captureQa).getByText(/Итог: условия технически повторяемы/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/один тип снимка/i)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/один источник/i)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/одно устройство/i)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/минимум 89%/i)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/нет замечаний качества/i)).toBeInTheDocument();
+    expect(captureQa.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|лечение|token|storage/i);
+  });
+
   it("supports local zoom, pan and technical annotation in full-screen comparison without patient delivery", () => {
     renderAt("/patients/p-004/lesions/l-008");
 

@@ -100,6 +100,11 @@ type ProtectedRenderReadinessItem = {
   ready: boolean;
   detail: string;
 };
+type CaptureConditionCheck = {
+  label: string;
+  ready: boolean;
+  detail: string;
+};
 type ComparisonOverlay = "grid" | "center" | "off";
 type ComparisonViewport = {
   zoom: number;
@@ -182,6 +187,58 @@ function imageQualityTone(image: ClinicalImage) {
   if (label === "Готово") return "border-risk-low/30 bg-risk-low-soft text-risk-low";
   if (label === "С предупреждением") return "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate";
   return "border-destructive/30 bg-destructive/10 text-destructive";
+}
+
+function minutesBetween(imageA: ClinicalImage, imageB: ClinicalImage) {
+  const a = Date.parse(imageA.capturedAt);
+  const b = Date.parse(imageB.capturedAt);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.round(Math.abs(a - b) / 60000);
+}
+
+function captureConditionChecks(imageA: ClinicalImage, imageB: ClinicalImage): CaptureConditionCheck[] {
+  const deviceA = imageA.deviceId ?? "без устройства";
+  const deviceB = imageB.deviceId ?? "без устройства";
+  const minQuality = Math.min(imageA.quality.score, imageB.quality.score);
+  const qualityIssues = Array.from(new Set([...imageA.quality.issues, ...imageB.quality.issues]));
+  const intervalMinutes = minutesBetween(imageA, imageB);
+
+  return [
+    {
+      label: "Тип снимка",
+      ready: imageA.kind === imageB.kind,
+      detail: imageA.kind === imageB.kind
+        ? `один тип снимка: ${IMAGE_KIND[imageA.kind]}`
+        : `разный тип снимка: ${IMAGE_KIND[imageA.kind]} / ${IMAGE_KIND[imageB.kind]}`,
+    },
+    {
+      label: "Источник",
+      ready: imageA.source === imageB.source,
+      detail: imageA.source === imageB.source
+        ? `один источник: ${IMAGE_SOURCE[imageA.source]}`
+        : `разные источники: ${IMAGE_SOURCE[imageA.source]} / ${IMAGE_SOURCE[imageB.source]}`,
+    },
+    {
+      label: "Устройство",
+      ready: deviceA === deviceB,
+      detail: deviceA === deviceB ? `одно устройство: ${deviceA}` : `${deviceA} / ${deviceB}`,
+    },
+    {
+      label: "Интервал",
+      ready: intervalMinutes !== null && intervalMinutes <= 10,
+      detail: intervalMinutes === null ? "нет времени съёмки" : `${intervalMinutes} мин между снимками`,
+    },
+    {
+      label: "Качество",
+      ready: minQuality >= 0.8,
+      detail: `минимум ${Math.round(minQuality * 100)}%`,
+    },
+    {
+      label: "Замечания качества",
+      ready: qualityIssues.length === 0,
+      detail: qualityIssues.length === 0 ? "нет замечаний качества" : qualityIssues.join(", "),
+    },
+  ];
 }
 
 function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
@@ -637,6 +694,8 @@ function ComparisonFullScreenDialog({
   };
   if (!images) return null;
   const [imageA, imageB] = images;
+  const captureChecks = captureConditionChecks(imageA, imageB);
+  const captureReady = captureChecks.every((item) => item.ready);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -889,6 +948,54 @@ function ComparisonFullScreenDialog({
                 ))}
               </div>
             </div>
+
+            <section
+              aria-label="Контроль условий съёмки"
+              className="mt-3 rounded-md border border-border bg-background p-2"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Контроль условий съёмки
+                  </div>
+                  <p className="mt-1 text-[12px] font-medium">
+                    Итог: {captureReady ? "условия технически повторяемы" : "нужна повторяемая съёмка"}
+                  </p>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] ${
+                    captureReady
+                      ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
+                      : "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate"
+                  }`}
+                >
+                  {captureReady ? (
+                    <CheckCircle2 className="h-3 w-3" aria-hidden />
+                  ) : (
+                    <ShieldAlert className="h-3 w-3" aria-hidden />
+                  )}
+                  {captureReady ? "Готово к техсравнению" : "Нужен контроль"}
+                </span>
+              </div>
+              <div className="mt-2 grid gap-1.5">
+                {captureChecks.map((item) => (
+                  <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
+                    {item.ready ? (
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-low" aria-hidden />
+                    ) : (
+                      <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-moderate" aria-hidden />
+                    )}
+                    <div className="min-w-0">
+                      <span className="font-medium">{item.label}</span>
+                      <span className="text-muted-foreground"> · {item.detail}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Не является клинической оценкой динамики; показывает только повторяемость условий съёмки.
+              </p>
+            </section>
 
             <dl className="mt-3 space-y-2 text-[12px]">
               <div>
