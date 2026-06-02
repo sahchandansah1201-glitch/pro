@@ -5,12 +5,22 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
+  Crosshair,
   FileText,
+  Grid3X3,
   Image as ImageIcon,
   MapPin,
   Maximize2,
+  Minus,
+  MoveDown,
+  MoveLeft,
+  MoveRight,
+  MoveUp,
+  Plus,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
+  StickyNote,
   XCircle,
 } from "lucide-react";
 
@@ -18,6 +28,7 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { RiskBadge } from "@/components/clinical/RiskBadge";
 import { BodySilhouette, pickFigure, FIGURE_LABEL, type Figure } from "@/components/clinical/BodySilhouette";
 import { calcAge, formatDate, formatDateTime } from "@/lib/format";
@@ -80,6 +91,13 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
 type ComparisonAction = LesionComparisonAction;
 type ComparisonDraftStatus = "idle" | "loaded" | "saved" | "cleared";
 type ComparisonBackendDraftStatus = "idle" | "saving" | "saved" | "local_only" | "error";
+type ComparisonOverlay = "grid" | "center" | "off";
+type ComparisonViewport = {
+  zoom: number;
+  panX: number;
+  panY: number;
+  overlay: ComparisonOverlay;
+};
 
 const COMPARISON_ACTION_LABEL: Record<ComparisonAction, string> = {
   retake: "Переснимок запрошен",
@@ -97,6 +115,15 @@ const COMPARISON_ACTIONS: Array<{
   { action: "excluded", label: "Исключить из сравнения", icon: XCircle, variant: "outline" },
   { action: "report_limit", label: "Добавить ограничение в отчёт", icon: FileText, variant: "secondary" },
 ];
+
+const COMPARISON_OVERLAY_LABEL: Record<ComparisonOverlay, string> = {
+  grid: "сетка",
+  center: "центр",
+  off: "скрыта",
+};
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 
 function imageQualityLabel(image: ClinicalImage) {
   if (image.quality.score >= 0.8 && image.quality.issues.length === 0) return "Готово";
@@ -168,7 +195,15 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
   ];
 }
 
-function ComparisonImagePanel({ image, marker }: { image: ClinicalImage; marker: "A" | "B" }) {
+function ComparisonImagePanel({
+  image,
+  marker,
+  viewport,
+}: {
+  image: ClinicalImage;
+  marker: "A" | "B";
+  viewport: ComparisonViewport;
+}) {
   return (
     <section aria-label={`Снимок ${marker}`} className="min-w-0 rounded-md border border-border bg-background">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
@@ -181,17 +216,48 @@ function ComparisonImagePanel({ image, marker }: { image: ClinicalImage; marker:
         </span>
       </div>
       <div className="p-3">
-        <div className="relative flex aspect-[4/3] min-h-[220px] items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30">
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--border)/0.35)_1px,transparent_1px),linear-gradient(0deg,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:32px_32px]" />
-          <div className="relative z-10 flex max-w-[260px] flex-col items-center gap-2 text-center">
-            <ImageIcon className="h-8 w-8 text-muted-foreground" aria-hidden />
-            <div className="text-[12px] font-medium">{IMAGE_KIND[image.kind]}</div>
-            <div className="text-[11px] text-muted-foreground">
-              Исходный файл скрыт; доступны параметры снимка.
+        <div
+          aria-label={`Панель просмотра ${marker}`}
+          className="relative flex aspect-[4/3] min-h-[220px] items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30"
+        >
+          <div
+            className="absolute inset-0 transition-transform duration-150"
+            style={{
+              transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})`,
+            }}
+          >
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--border)/0.35)_1px,transparent_1px),linear-gradient(0deg,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:32px_32px]" />
+            <div className="absolute inset-8 rounded-md border border-border/70 bg-background/75" />
+            <div className="absolute left-[24%] top-[24%] h-[38%] w-[42%] rounded-[45%] border border-primary/40 bg-primary/10" />
+            <div className="absolute right-[22%] top-[34%] h-10 w-10 rounded-full border border-risk-moderate/50 bg-risk-moderate-soft/60" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative z-10 flex max-w-[260px] flex-col items-center gap-2 rounded-md bg-background/90 px-3 py-2 text-center">
+                <ImageIcon className="h-8 w-8 text-muted-foreground" aria-hidden />
+                <div className="text-[12px] font-medium">{IMAGE_KIND[image.kind]}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Исходный файл скрыт; доступны параметры снимка.
+                </div>
+              </div>
             </div>
           </div>
+          {viewport.overlay === "grid" && (
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--primary)/0.18)_1px,transparent_1px),linear-gradient(0deg,hsl(var(--primary)/0.18)_1px,transparent_1px)] bg-[size:48px_48px]"
+            />
+          )}
+          {viewport.overlay === "center" && (
+            <div aria-hidden className="absolute inset-0">
+              <div className="absolute left-1/2 top-0 h-full border-l border-primary/45" />
+              <div className="absolute left-0 top-1/2 w-full border-t border-primary/45" />
+              <div className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/45" />
+            </div>
+          )}
           <div className="absolute left-2 top-2 rounded-sm bg-background/90 px-1.5 py-0.5 text-[11px] font-semibold">
             {marker}
+          </div>
+          <div className="absolute bottom-2 right-2 rounded-sm bg-background/90 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+            {Math.round(viewport.zoom * 100)}% · x{formatPan(viewport.panX)} / y{formatPan(viewport.panY)}
           </div>
         </div>
         <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2">
@@ -265,6 +331,28 @@ function ComparisonFullScreenDialog({
   canSaveDraft: boolean;
   draftStatus: ComparisonDraftStatus;
 }) {
+  const [viewport, setViewport] = useState<ComparisonViewport>({ zoom: 1, panX: 0, panY: 0, overlay: "grid" });
+  const [technicalNote, setTechnicalNote] = useState("");
+  const [savedTechnicalNote, setSavedTechnicalNote] = useState("");
+
+  const updateZoom = (delta: number) => {
+    setViewport((current) => ({ ...current, zoom: clamp(current.zoom + delta, 1, 3) }));
+  };
+  const updatePan = (panX: number, panY: number) => {
+    setViewport((current) => ({
+      ...current,
+      panX: clamp(current.panX + panX, -72, 72),
+      panY: clamp(current.panY + panY, -72, 72),
+    }));
+  };
+  const resetViewport = () => {
+    setViewport({ zoom: 1, panX: 0, panY: 0, overlay: "grid" });
+  };
+  const saveTechnicalNote = () => {
+    const next = technicalNote.trim();
+    if (!next) return;
+    setSavedTechnicalNote(next);
+  };
   if (!images) return null;
   const [imageA, imageB] = images;
 
@@ -280,11 +368,150 @@ function ComparisonFullScreenDialog({
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-            <ComparisonImagePanel image={imageA} marker="A" />
-            <ComparisonImagePanel image={imageB} marker="B" />
+            <ComparisonImagePanel image={imageA} marker="A" viewport={viewport} />
+            <ComparisonImagePanel image={imageB} marker="B" viewport={viewport} />
           </div>
 
           <aside aria-label="Условия съёмки" className="min-w-0 rounded-md border border-border bg-muted/20 p-3">
+            <section aria-label="Инструменты просмотра" className="mb-3 rounded-md border border-border bg-background p-2">
+              <div className="flex items-center gap-1 text-[12px] font-semibold">
+                <Maximize2 className="h-3.5 w-3.5" aria-hidden /> Инструменты просмотра
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => updateZoom(-0.25)}
+                >
+                  <Minus className="h-3.5 w-3.5" aria-hidden /> Уменьшить
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={resetViewport}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Сбросить
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => updateZoom(0.25)}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden /> Увеличить
+                </Button>
+              </div>
+              <div className="mt-1 grid grid-cols-3 gap-1">
+                <span aria-hidden />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-label="Сместить вверх"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => updatePan(0, -12)}
+                >
+                  <MoveUp className="h-3.5 w-3.5" aria-hidden /> Вверх
+                </Button>
+                <span aria-hidden />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-label="Сместить влево"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => updatePan(-12, 0)}
+                >
+                  <MoveLeft className="h-3.5 w-3.5" aria-hidden /> Влево
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-label="Сместить вниз"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => updatePan(0, 12)}
+                >
+                  <MoveDown className="h-3.5 w-3.5" aria-hidden /> Вниз
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-label="Сместить вправо"
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => updatePan(12, 0)}
+                >
+                  <MoveRight className="h-3.5 w-3.5" aria-hidden /> Вправо
+                </Button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={viewport.overlay === "grid" ? "secondary" : "outline"}
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => setViewport((current) => ({ ...current, overlay: "grid" }))}
+                >
+                  <Grid3X3 className="h-3.5 w-3.5" aria-hidden /> Показать сетку
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={viewport.overlay === "center" ? "secondary" : "outline"}
+                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  onClick={() => setViewport((current) => ({ ...current, overlay: "center" }))}
+                >
+                  <Crosshair className="h-3.5 w-3.5" aria-hidden /> Показать центр
+                </Button>
+              </div>
+              <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                <span>Масштаб {Math.round(viewport.zoom * 100)}%</span>
+                <span>
+                  Смещение x{formatPan(viewport.panX)} / y{formatPan(viewport.panY)}
+                </span>
+                <span>Разметка: {COMPARISON_OVERLAY_LABEL[viewport.overlay]}</span>
+                <span>Измерения отключены: разметка не является медицинским измерением.</span>
+              </div>
+              <div className="mt-2">
+                <label htmlFor="comparison-technical-note" className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Техническая заметка
+                </label>
+                <Textarea
+                  id="comparison-technical-note"
+                  value={technicalNote}
+                  maxLength={160}
+                  rows={3}
+                  className="mt-1 text-[12px]"
+                  placeholder="Например: разный угол, мягкий фокус, нужна повторяемая съёмка"
+                  onChange={(event) => setTechnicalNote(event.target.value)}
+                />
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={technicalNote.trim().length === 0}
+                    onClick={saveTechnicalNote}
+                  >
+                    <StickyNote className="h-3.5 w-3.5" aria-hidden /> Зафиксировать техническую заметку
+                  </Button>
+                  <span className="text-[11px] text-muted-foreground">Выдача пациенту: выключена</span>
+                </div>
+                {savedTechnicalNote && (
+                  <p className="mt-1 text-[12px] font-medium text-primary" role="status">
+                    Техническая заметка зафиксирована локально
+                  </p>
+                )}
+              </div>
+            </section>
+
             <div className="text-[12px] font-semibold">Условия съёмки</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[12px]">
               <span className="text-muted-foreground">Техническая сопоставимость:</span>

@@ -181,6 +181,40 @@ describe("LesionDetailPage", () => {
     expect(dialog.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
   });
 
+  it("supports local zoom, pan and technical annotation in full-screen comparison without patient delivery", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
+    fireEvent.click(compareButtons[0]);
+    fireEvent.click(compareButtons[1]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
+    expect(within(tools).getByText(/Масштаб 100%/)).toBeInTheDocument();
+    expect(within(tools).getByText(/Смещение x0 \/ y0/)).toBeInTheDocument();
+    expect(within(tools).getByText(/Измерения отключены/)).toBeInTheDocument();
+
+    fireEvent.click(within(tools).getByRole("button", { name: /Увеличить/ }));
+    fireEvent.click(within(tools).getByRole("button", { name: /Сместить вправо/ }));
+    expect(within(tools).getByText(/Масштаб 125%/)).toBeInTheDocument();
+    expect(within(tools).getByText(/Смещение x\+12 \/ y0/)).toBeInTheDocument();
+
+    fireEvent.click(within(tools).getByRole("button", { name: /Показать центр/ }));
+    expect(within(tools).getByText(/Разметка: центр/)).toBeInTheDocument();
+
+    const note = within(tools).getByLabelText(/Техническая заметка/);
+    fireEvent.change(note, { target: { value: "Разный угол и мягкий фокус, нужна повторяемая съёмка." } });
+    fireEvent.click(within(tools).getByRole("button", { name: /Зафиксировать техническую заметку/ }));
+    expect(within(tools).getByText(/Техническая заметка зафиксирована локально/)).toBeInTheDocument();
+    expect(within(tools).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
+
+    expect(dialog.textContent ?? "").not.toMatch(
+      /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion/i,
+    );
+  });
+
   it("persists a structured doctor comparison draft without patient delivery", () => {
     const { unmount } = renderAt("/patients/p-004/lesions/l-008");
 
