@@ -5,6 +5,7 @@ import {
   buildGetVisitAssessmentSql,
   buildGetVisitConclusionSql,
   buildGetLesionLongitudinalHistorySql,
+  buildGetProtectedLesionImageAssetSql,
   buildGetVisitReportSql,
   buildUpsertLesionComparisonDraftSql,
   buildUpsertVisitAssessmentSql,
@@ -49,6 +50,24 @@ test("Batch AW Stage 5H repository builds metadata-only lesion longitudinal hist
     sql,
     /object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text/i,
   );
+});
+
+test("Batch AX Stage 5H repository builds internal protected lesion image proxy SQL", () => {
+  const sql = buildGetProtectedLesionImageAssetSql({
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    assetId: "10000000-0000-4000-8000-000000000901",
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /join lesions l/);
+  assert.match(sql, /a\.object_bucket as "objectBucket"/);
+  assert.match(sql, /a\.object_key as "objectKey"/);
+  assert.match(sql, /a\.kind in \('overview_photo', 'dermoscopy'\)/);
+  assert.match(sql, /a\.content_type like 'image\/%'/);
+  assert.match(sql, /and a\.clinic_id in/);
+  assert.doesNotMatch(sql, /signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken/i);
 });
 
 test("Stage 5H assessment/conclusion upserts use visit_id conflict and do not expose managed storage fields", () => {
@@ -109,6 +128,43 @@ test("Stage 5H repository normalizes assessment rows", async () => {
   assert.equal(assessment.visitId, VISIT_ID);
   assert.equal(assessment.abcdTotal, 3.7);
   assert.equal(assessment.sevenPointTotal, 2);
+});
+
+test("Batch AX Stage 5H repository normalizes protected lesion image asset internally", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          id: "10000000-0000-4000-8000-000000000901",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          lesionId: "10000000-0000-4000-8000-000000000801",
+          kind: "dermoscopy",
+          contentType: "image/png",
+          byteSize: "12",
+          capturedAt: "2026-05-19T10:40:00.000Z",
+          objectBucket: "clinical-assets",
+          objectKey: "clinics/demo/protected.png",
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const asset = await repo.getProtectedLesionImageAsset({
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    assetId: "10000000-0000-4000-8000-000000000901",
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.equal(asset.id, "10000000-0000-4000-8000-000000000901");
+  assert.equal(asset.contentType, "image/png");
+  assert.equal(asset.objectBucket, "clinical-assets");
+  assert.equal(asset.objectKey, "clinics/demo/protected.png");
+  assert.equal(asset.patientDeliveryAllowed, false);
+  assert.equal(asset.signedUrlsIssued, false);
+  assert.equal(asset.storagePathsExposed, false);
 });
 
 test("Stage 5H lesion comparison draft upsert is clinic-scoped and metadata-only", () => {

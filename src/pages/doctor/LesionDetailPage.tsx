@@ -53,7 +53,10 @@ import {
   isSelfHostedApiConfigured,
   useSelfHostedApiSession,
 } from "@/lib/self-hosted-api-session";
-import { saveSelfHostedLesionComparisonDraft } from "@/lib/self-hosted-clinical-workspace-api";
+import {
+  downloadSelfHostedProtectedLesionImage,
+  saveSelfHostedLesionComparisonDraft,
+} from "@/lib/self-hosted-clinical-workspace-api";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
 
 const LESION_STATUS: Record<Lesion["status"], string> = {
@@ -91,6 +94,7 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
 type ComparisonAction = LesionComparisonAction;
 type ComparisonDraftStatus = "idle" | "loaded" | "saved" | "cleared";
 type ComparisonBackendDraftStatus = "idle" | "saving" | "saved" | "local_only" | "error";
+type ProtectedRenderStatus = "idle" | "loading" | "ready" | "error";
 type ComparisonOverlay = "grid" | "center" | "off";
 type ComparisonViewport = {
   zoom: number;
@@ -151,6 +155,16 @@ const LONGITUDINAL_PAIR_LABEL: Record<LongitudinalPairStatus, string> = {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const compactList = (values: string[]) => (values.length > 0 ? values.join(", ") : "—");
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const isUuid = (value: string | null | undefined) => UUID_PATTERN.test(String(value || ""));
+const createPreviewObjectUrl = (blob: Blob) =>
+  typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : "";
+const revokePreviewUrls = (urls: Record<string, string>) => {
+  if (typeof URL.revokeObjectURL !== "function") return;
+  Object.values(urls).forEach((url) => {
+    if (url) URL.revokeObjectURL(url);
+  });
+};
 
 function imageQualityLabel(image: ClinicalImage) {
   if (image.quality.score >= 0.8 && image.quality.issues.length === 0) return "Готово";
@@ -438,10 +452,12 @@ function ComparisonImagePanel({
   image,
   marker,
   viewport,
+  protectedImageUrl,
 }: {
   image: ClinicalImage;
   marker: "A" | "B";
   viewport: ComparisonViewport;
+  protectedImageUrl?: string | null;
 }) {
   return (
     <section aria-label={`Снимок ${marker}`} className="min-w-0 rounded-md border border-border bg-background">
@@ -465,19 +481,29 @@ function ComparisonImagePanel({
               transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})`,
             }}
           >
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--border)/0.35)_1px,transparent_1px),linear-gradient(0deg,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:32px_32px]" />
-            <div className="absolute inset-8 rounded-md border border-border/70 bg-background/75" />
-            <div className="absolute left-[24%] top-[24%] h-[38%] w-[42%] rounded-[45%] border border-primary/40 bg-primary/10" />
-            <div className="absolute right-[22%] top-[34%] h-10 w-10 rounded-full border border-risk-moderate/50 bg-risk-moderate-soft/60" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative z-10 flex max-w-[260px] flex-col items-center gap-2 rounded-md bg-background/90 px-3 py-2 text-center">
-                <ImageIcon className="h-8 w-8 text-muted-foreground" aria-hidden />
-                <div className="text-[12px] font-medium">{IMAGE_KIND[image.kind]}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  Исходный файл скрыт; доступны параметры снимка.
+            {protectedImageUrl ? (
+              <img
+                src={protectedImageUrl}
+                alt={`Защищённый снимок ${marker}`}
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--border)/0.35)_1px,transparent_1px),linear-gradient(0deg,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:32px_32px]" />
+                <div className="absolute inset-8 rounded-md border border-border/70 bg-background/75" />
+                <div className="absolute left-[24%] top-[24%] h-[38%] w-[42%] rounded-[45%] border border-primary/40 bg-primary/10" />
+                <div className="absolute right-[22%] top-[34%] h-10 w-10 rounded-full border border-risk-moderate/50 bg-risk-moderate-soft/60" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="relative z-10 flex max-w-[260px] flex-col items-center gap-2 rounded-md bg-background/90 px-3 py-2 text-center">
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" aria-hidden />
+                    <div className="text-[12px] font-medium">{IMAGE_KIND[image.kind]}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Исходный файл скрыт; доступны параметры снимка.
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
           {viewport.overlay === "grid" && (
             <div
@@ -558,6 +584,11 @@ function ComparisonFullScreenDialog({
   onSaveDraft,
   canSaveDraft,
   draftStatus,
+  canLoadProtectedImages,
+  protectedRenderStatus,
+  protectedRenderMessage,
+  protectedImageUrls,
+  onLoadProtectedImages,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -569,6 +600,11 @@ function ComparisonFullScreenDialog({
   onSaveDraft: () => void;
   canSaveDraft: boolean;
   draftStatus: ComparisonDraftStatus;
+  canLoadProtectedImages: boolean;
+  protectedRenderStatus: ProtectedRenderStatus;
+  protectedRenderMessage: string;
+  protectedImageUrls: Record<string, string>;
+  onLoadProtectedImages: () => void;
 }) {
   const [viewport, setViewport] = useState<ComparisonViewport>({ zoom: 1, panX: 0, panY: 0, overlay: "grid" });
   const [technicalNote, setTechnicalNote] = useState("");
@@ -607,8 +643,18 @@ function ComparisonFullScreenDialog({
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-            <ComparisonImagePanel image={imageA} marker="A" viewport={viewport} />
-            <ComparisonImagePanel image={imageB} marker="B" viewport={viewport} />
+            <ComparisonImagePanel
+              image={imageA}
+              marker="A"
+              viewport={viewport}
+              protectedImageUrl={protectedImageUrls[imageA.id] ?? null}
+            />
+            <ComparisonImagePanel
+              image={imageB}
+              marker="B"
+              viewport={viewport}
+              protectedImageUrl={protectedImageUrls[imageB.id] ?? null}
+            />
           </div>
 
           <aside aria-label="Условия съёмки" className="min-w-0 rounded-md border border-border bg-muted/20 p-3">
@@ -718,6 +764,40 @@ function ComparisonFullScreenDialog({
                 <span>Измерения отключены: разметка не является медицинским измерением.</span>
               </div>
               <div className="mt-2">
+                <div className="mb-2 rounded-md border border-border bg-muted/20 p-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        Protected image proxy
+                      </div>
+                      <div className="text-[12px] font-medium">Защищённые превью врача</div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                      disabled={!canLoadProtectedImages || protectedRenderStatus === "loading"}
+                      onClick={onLoadProtectedImages}
+                    >
+                      <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+                      {protectedRenderStatus === "loading" ? "Загрузка" : "Подготовить защищённые превью"}
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Только backend proxy: без signed URL, пути хранилища и выдачи пациенту.
+                  </p>
+                  {protectedRenderMessage && (
+                    <p
+                      className={`mt-1 text-[12px] ${
+                        protectedRenderStatus === "ready" ? "text-primary" : "text-muted-foreground"
+                      }`}
+                      role="status"
+                    >
+                      {protectedRenderMessage}
+                    </p>
+                  )}
+                </div>
                 <label htmlFor="comparison-technical-note" className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   Техническая заметка
                 </label>
@@ -962,6 +1042,9 @@ export default function LesionDetailPage() {
   const [comparisonDraftStatus, setComparisonDraftStatus] = useState<ComparisonDraftStatus>("idle");
   const [comparisonBackendStatus, setComparisonBackendStatus] = useState<ComparisonBackendDraftStatus>("idle");
   const [comparisonBackendMessage, setComparisonBackendMessage] = useState("");
+  const [protectedRenderStatus, setProtectedRenderStatus] = useState<ProtectedRenderStatus>("idle");
+  const [protectedRenderMessage, setProtectedRenderMessage] = useState("");
+  const [protectedImageUrls, setProtectedImageUrls] = useState<Record<string, string>>({});
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
@@ -997,8 +1080,21 @@ export default function LesionDetailPage() {
   const selectedPairDraftKey = hasComparablePair
     ? buildLesionComparisonDraftKey(lesionId, compareImages.map((img) => img.id))
     : null;
+  const canLoadProtectedImages = Boolean(
+    comparePair
+      && selfHostedConfigured
+      && isUuid(patient?.id)
+      && isUuid(lesion?.id)
+      && comparePair.every((image) => isUuid(image.id)),
+  );
 
   useEffect(() => {
+    setProtectedRenderStatus("idle");
+    setProtectedRenderMessage("");
+    setProtectedImageUrls((current) => {
+      revokePreviewUrls(current);
+      return {};
+    });
     if (!selectedPairDraftKey) {
       setComparisonDraft(null);
       setComparisonDraftStatus("idle");
@@ -1015,6 +1111,8 @@ export default function LesionDetailPage() {
       setComparisonDraftStatus("idle");
     }
   }, [selectedPairDraftKey]);
+
+  useEffect(() => () => revokePreviewUrls(protectedImageUrls), [protectedImageUrls]);
 
   if (!patient) {
     return <NotFound title="Пациент не найден" hint="Карточка пациента отсутствует в демо-данных." />;
@@ -1122,6 +1220,50 @@ export default function LesionDetailPage() {
       setComparisonBackendStatus("idle");
       setComparisonBackendMessage("");
     }
+  };
+
+  const loadProtectedImagePreviews = async () => {
+    if (!comparePair) return;
+    if (!selfHostedConfigured) {
+      setProtectedRenderStatus("error");
+      setProtectedRenderMessage("Self-hosted backend не подключён.");
+      return;
+    }
+    if (!canLoadProtectedImages) {
+      setProtectedRenderStatus("error");
+      setProtectedRenderMessage("Защищённые превью доступны только для production self-hosted UUID-снимков.");
+      return;
+    }
+
+    setProtectedRenderStatus("loading");
+    setProtectedRenderMessage("Загрузка через backend proxy.");
+    const results = await Promise.all(comparePair.map((image) =>
+      downloadSelfHostedProtectedLesionImage({
+        apiBaseUrl: selfHostedSession.apiBaseUrl,
+        apiToken: selfHostedSession.apiToken,
+        patientId: patient.id,
+        lesionId: lesion.id,
+        assetId: image.id,
+      }),
+    ));
+    const failed = results.find((result) => !result.ok || !result.value);
+    if (failed) {
+      setProtectedRenderStatus("error");
+      setProtectedRenderMessage(failed.error?.message ?? "Защищённые превью не загружены.");
+      return;
+    }
+
+    setProtectedImageUrls((current) => {
+      revokePreviewUrls(current);
+      const next: Record<string, string> = {};
+      comparePair.forEach((image, index) => {
+        const value = results[index]?.value;
+        if (value?.bytes) next[image.id] = createPreviewObjectUrl(value.bytes);
+      });
+      return next;
+    });
+    setProtectedRenderStatus("ready");
+    setProtectedRenderMessage("Защищённые превью загружены через backend proxy. Выдача пациенту: выключена.");
   };
 
   return (
@@ -1619,6 +1761,16 @@ export default function LesionDetailPage() {
         onSaveDraft={saveComparisonDraft}
         canSaveDraft={Boolean(comparisonAction)}
         draftStatus={comparisonDraftStatus}
+        canLoadProtectedImages={canLoadProtectedImages}
+        protectedRenderStatus={protectedRenderStatus}
+        protectedRenderMessage={
+          protectedRenderMessage ||
+          (selfHostedConfigured
+            ? "Для mock ID превью недоступны; production UUID-снимки рендерятся через backend proxy."
+            : "Self-hosted backend не подключён; доступны только параметры снимка.")
+        }
+        protectedImageUrls={protectedImageUrls}
+        onLoadProtectedImages={loadProtectedImagePreviews}
       />
     </div>
   );

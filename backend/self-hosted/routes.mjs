@@ -459,6 +459,7 @@ function getRuntime(config, runtime = {}) {
       visitWorkspaceRepository,
       clinicalWorkspaceRepository,
       auditRepository,
+      objectStore,
     });
   const clinicalReportPackageRepository =
     runtime.clinicalReportPackageRepository || createClinicalReportPackageRepository(dbClient);
@@ -1923,6 +1924,38 @@ export async function handleSelfHostedRequest(
             allClinics: result.scope.allClinics,
           },
           generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const protectedLesionImageRenderMatch = url.pathname.match(
+    /^\/api\/v1\/patients\/([^/]+)\/lesions\/([^/]+)\/images\/([^/]+)\/render$/,
+  );
+  if (protectedLesionImageRenderMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalWorkspaceService.downloadProtectedLesionImage(
+        {
+          patientId: decodeURIComponent(protectedLesionImageRenderMatch[1]),
+          lesionId: decodeURIComponent(protectedLesionImageRenderMatch[2]),
+          assetId: decodeURIComponent(protectedLesionImageRenderMatch[3]),
+        },
+        authContext,
+        { correlationId },
+      );
+      return binaryResponse(
+        200,
+        {
+          body: result.object.bytes,
+          contentType: result.object.contentType,
+          fileName: result.download.fileName,
           correlationId,
         },
         config,

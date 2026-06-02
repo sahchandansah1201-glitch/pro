@@ -35,6 +35,16 @@ const PROTECTED_INPUT_KEYS = new Set([
   "protectedFieldsExposed",
 ]);
 
+function extensionForContentType(contentType) {
+  const text = String(contentType || "").toLowerCase();
+  if (text.includes("png")) return "png";
+  if (text.includes("webp")) return "webp";
+  if (text.includes("heic")) return "heic";
+  if (text.includes("heif")) return "heif";
+  if (text.includes("jpeg") || text.includes("jpg")) return "jpg";
+  return "bin";
+}
+
 function isPlainObject(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
@@ -276,6 +286,7 @@ export function createClinicalWorkspaceService({
   visitWorkspaceRepository,
   clinicalWorkspaceRepository,
   auditRepository,
+  objectStore,
 } = {}) {
   return {
     async getAssessment(visitId, authContext, { correlationId } = {}) {
@@ -460,6 +471,86 @@ export function createClinicalWorkspaceService({
         },
       });
       return { history, scope };
+    },
+
+    async downloadProtectedLesionImage({ patientId, lesionId, assetId } = {}, authContext, { correlationId } = {}) {
+      const safePatientId = assertUuid(patientId, "patientId");
+      const safeLesionId = assertUuid(lesionId, "lesionId");
+      const safeAssetId = assertUuid(assetId, "assetId");
+      const scope = visitReadScope(authContext);
+      const asset = await clinicalWorkspaceRepository.getProtectedLesionImageAsset({
+        patientId: safePatientId,
+        lesionId: safeLesionId,
+        assetId: safeAssetId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!asset) throw new VisitWorkspaceNotFoundError("Protected lesion image was not found in the allowed clinic scope.");
+      if (!asset.objectBucket || !asset.objectKey || !objectStore?.getObject) {
+        const error = new Error("Protected lesion image is not available in the self-hosted object store.");
+        error.publicCode = "asset_binary_not_found";
+        error.publicStatus = 404;
+        throw error;
+      }
+      let stored;
+      try {
+        stored = await objectStore.getObject({
+          bucket: asset.objectBucket,
+          key: asset.objectKey,
+        });
+      } catch {
+        const error = new Error("Protected lesion image is not available in the self-hosted object store.");
+        error.publicCode = "asset_binary_not_found";
+        error.publicStatus = 404;
+        throw error;
+      }
+      const contentType = stored.contentType || asset.contentType || "application/octet-stream";
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: asset.clinicId,
+        actorUserId: authContext.userId,
+        action: "lesion_protected_image.proxy.download",
+        entityType: "clinical_asset",
+        entityId: asset.id,
+        correlationId,
+        metadata: {
+          patientId: safePatientId,
+          lesionId: safeLesionId,
+          assetId: safeAssetId,
+          kind: asset.kind,
+          contentType,
+          byteSize: stored.byteSize,
+          deliveryMode: "doctor_backend_proxy",
+          patientDeliveryAllowed: false,
+          signedUrlsIssued: false,
+          storagePathsExposed: false,
+          rawImageBytesExposedInJson: false,
+        },
+      });
+      return {
+        asset: {
+          id: asset.id,
+          clinicId: asset.clinicId,
+          patientId: asset.patientId,
+          visitId: asset.visitId,
+          lesionId: asset.lesionId,
+          kind: asset.kind,
+          contentType,
+          byteSize: asset.byteSize,
+          capturedAt: asset.capturedAt,
+          patientDeliveryAllowed: false,
+          signedUrlsIssued: false,
+          storagePathsExposed: false,
+        },
+        object: {
+          bytes: stored.bytes,
+          byteSize: stored.byteSize,
+          contentType,
+        },
+        download: {
+          fileName: `lesion-image-${safeAssetId.slice(0, 8)}.${extensionForContentType(contentType)}`,
+        },
+        scope,
+      };
     },
   };
 }

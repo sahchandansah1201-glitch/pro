@@ -107,6 +107,69 @@ copy.
   does not deliver images to patients or doctors; it prepares the ledger needed
   before real protected-image rendering.
 
+## Batch AX Protected Doctor Image Proxy Boundary
+
+`GET /api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render`
+streams a protected lesion image through the self-hosted backend for doctor-side
+longitudinal and comparison review.
+
+The route is binary-only:
+
+- authenticates staff through the existing Stage 5H bearer session;
+- applies clinic scope through `visitReadScope`;
+- verifies that the requested clinical asset belongs to the requested patient
+  and lesion;
+- allows only lesion-linked `overview_photo` and `dermoscopy` image assets;
+- reads object bucket/key only inside `buildGetProtectedLesionImageAssetSql`;
+- streams bytes from the backend object store with `cache-control: no-store`;
+- never returns JSON containing object bucket/key, object path, signed link,
+  token, QR/session/credential material, doctor-only report text, or
+  patient-facing report text.
+
+Audit action:
+
+- `lesion_protected_image.proxy.download`
+
+Audit metadata includes only patient ID, lesion ID, asset ID, kind, content
+type, byte size, `deliveryMode: doctor_backend_proxy`, and boundary booleans:
+
+- `patientDeliveryAllowed: false`
+- `signedUrlsIssued: false`
+- `storagePathsExposed: false`
+- `rawImageBytesExposedInJson: false`
+
+Frontend client:
+
+- `downloadSelfHostedProtectedLesionImage`
+- fetches with `credentials: "include"` and bearer auth;
+- returns a `Blob` plus safe boundary flags;
+- does not expose signed links or storage identifiers.
+
+Doctor UI:
+
+- the full-screen lesion comparison dialog shows `Защищённые превью врача`;
+- `Подготовить защищённые превью` is enabled only for configured self-hosted
+  sessions with production UUID patient/lesion/image IDs;
+- successful downloads are rendered with local object URLs and revoked on pair
+  changes/unmount;
+- mock/non-production IDs keep the previous parameter-only placeholder.
+
+### Batch AX Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch AX adds the
+  protected rendering path needed to show real images from the production
+  ledger. Remaining gate: richer capture-condition metadata and production
+  visual QA on real assets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch AX
+  allows the doctor compare dialog to render real protected images through a
+  backend proxy. Remaining gate: true annotation geometry and calibrated
+  comparability metadata.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch AX keeps rendering
+  separate from clinical conclusions; it does not create diagnosis, risk,
+  prognosis, treatment, or automated dynamic assessment.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch AX is
+  doctor-side only and does not enable patient delivery.
+
 ## Product Boundary
 
 - managed runtime: none

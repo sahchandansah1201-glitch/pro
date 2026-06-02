@@ -3937,6 +3937,7 @@ function clinicalWorkspaceRuntime({
   report = null,
   lesionComparisonDraft = null,
   lesionLongitudinalHistory = null,
+  protectedLesionImageDownload = null,
   reportPackage = null,
   photoProtocolRelease = null,
   photoProtocolReleaseAudit = null,
@@ -3977,6 +3978,24 @@ function clinicalWorkspaceRuntime({
       async getLesionLongitudinalHistory() {
         if (clinicalError) throw clinicalError;
         return { history: lesionLongitudinalHistory, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async downloadProtectedLesionImage() {
+        if (clinicalError) throw clinicalError;
+        return {
+          asset: protectedLesionImageDownload?.asset || {
+            id: "10000000-0000-4000-8000-000000000901",
+            contentType: "image/png",
+          },
+          object: protectedLesionImageDownload?.object || {
+            bytes: Buffer.from("protected-image-route", "utf8"),
+            byteSize: Buffer.byteLength("protected-image-route"),
+            contentType: "image/png",
+          },
+          download: protectedLesionImageDownload?.download || {
+            fileName: "lesion-image-10000000.png",
+          },
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
       },
     },
     clinicalReportPackageService: {
@@ -4824,6 +4843,27 @@ test("Batch AW Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/l
   );
 });
 
+test("Batch AX Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render streams protected image bytes", async () => {
+  const lesionId = "10000000-0000-4000-8000-000000000801";
+  const assetId = "10000000-0000-4000-8000-000000000901";
+  const response = await request(
+    `/api/v1/patients/${STAGE4G_PATIENT_ID}/lesions/${lesionId}/images/${assetId}/render`,
+    configuredEnv,
+    clinicalWorkspaceRuntime(),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers["content-type"], "image/png");
+  assert.equal(response.headers["cache-control"], "no-store");
+  assert.match(response.headers["content-disposition"], /inline; filename="lesion-image-10000000\.png"/);
+  assert.equal(String(response.body), "protected-image-route");
+  assert.equal(response.json, null);
+  assert.doesNotMatch(
+    String(response.body) + JSON.stringify(response.headers),
+    /object_bucket|object_key|storage_object_path|"storagePath"\s*:|"signedUrl"\s*:|signed_url|access_token|session|qr/i,
+  );
+});
+
 test("Stage 5H · /openapi.stage5h.json documents production clinical contracts", async () => {
   const response = await request("/openapi.stage5h.json");
   assert.equal(response.status, 200);
@@ -4833,6 +4873,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-draft"].patch);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history"].get);
+  assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render"].get);
   assert.ok(response.json.components.schemas.LesionComparisonDecisionDraft);
   assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
 });

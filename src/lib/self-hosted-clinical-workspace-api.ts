@@ -161,6 +161,19 @@ interface LesionLongitudinalHistoryArgs extends BaseArgs {
   lesionId: string;
 }
 
+interface ProtectedLesionImageArgs extends LesionLongitudinalHistoryArgs {
+  assetId: string;
+}
+
+export interface SelfHostedProtectedLesionImageDTO {
+  bytes: Blob;
+  contentType: string;
+  objectUrl: string | null;
+  patientDeliveryAllowed: false;
+  signedUrlsIssued: false;
+  storagePathsExposed: false;
+}
+
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
@@ -423,6 +436,18 @@ function patientLesionUrl(
   );
 }
 
+function protectedLesionImageUrl(
+  apiBaseUrl: string | null | undefined,
+  patientId: string,
+  lesionId: string,
+  assetId: string,
+): string {
+  return buildSelfHostedApiUrl(
+    apiBaseUrl,
+    `/api/v1/patients/${encodeURIComponent(patientId)}/lesions/${encodeURIComponent(lesionId)}/images/${encodeURIComponent(assetId)}/render`,
+  );
+}
+
 export async function getSelfHostedVisitAssessment(
   args: VisitArgs,
 ): Promise<SelfHostedApiResult<SelfHostedClinicalAssessmentDTO | null>> {
@@ -497,4 +522,41 @@ export async function getSelfHostedLesionLongitudinalHistory(
     null,
     toLesionLongitudinalHistory,
   );
+}
+
+export async function downloadSelfHostedProtectedLesionImage(
+  args: ProtectedLesionImageArgs,
+): Promise<SelfHostedApiResult<SelfHostedProtectedLesionImageDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  let response: Response;
+  try {
+    response = await fetch(
+      protectedLesionImageUrl(args.apiBaseUrl, args.patientId, args.lesionId, args.assetId),
+      {
+        method: "GET",
+        headers: authHeaders(args.apiToken as string),
+        credentials: "include",
+      },
+    );
+  } catch {
+    return fail({
+      kind: "network",
+      code: "network_error",
+      message: "Сбой сети при обращении к self-hosted backend.",
+    });
+  }
+  if (!response.ok) {
+    const body = await parseJsonSafe(response);
+    return fail(apiErrorFromBody(response, body));
+  }
+  const bytes = await response.blob();
+  return ok({
+    bytes,
+    contentType: response.headers.get("content-type") || bytes.type || "application/octet-stream",
+    objectUrl: null,
+    patientDeliveryAllowed: false,
+    signedUrlsIssued: false,
+    storagePathsExposed: false,
+  });
 }

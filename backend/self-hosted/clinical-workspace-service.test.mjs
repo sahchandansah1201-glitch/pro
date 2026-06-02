@@ -96,6 +96,25 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         },
       };
     },
+    async getProtectedLesionImageAsset() {
+      return {
+        id: "10000000-0000-4000-8000-000000000901",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        lesionId: "10000000-0000-4000-8000-000000000801",
+        kind: "dermoscopy",
+        contentType: "image/png",
+        byteSize: 12,
+        capturedAt: "2026-05-19T10:40:00.000Z",
+        objectBucket: "clinical-assets",
+        objectKey: "clinics/demo/protected.png",
+        patientDeliveryAllowed: false,
+        signedUrlsIssued: false,
+        storagePathsExposed: false,
+        rawImageBytesExposedInJson: false,
+      };
+    },
   };
   return createClinicalWorkspaceService({
     visitWorkspaceRepository: {
@@ -112,6 +131,17 @@ function createService({ auditEvents = [], repo = {} } = {}) {
       async recordEvent(event) {
         auditEvents.push(event);
         return { id: "audit-1" };
+      },
+    },
+    objectStore: {
+      async getObject({ bucket, key }) {
+        assert.equal(bucket, "clinical-assets");
+        assert.equal(key, "clinics/demo/protected.png");
+        return {
+          bytes: Buffer.from("protected-image-bytes", "utf8"),
+          byteSize: Buffer.byteLength("protected-image-bytes"),
+          contentType: "image/png",
+        };
       },
     },
   });
@@ -234,6 +264,43 @@ test("Batch AW Stage 5H service reads longitudinal history with audit-safe metad
   assert.doesNotMatch(
     JSON.stringify(auditEvents.at(-1)),
     /previousImageId|currentImageId|object_bucket|object_key|storagePath|signedUrl|token|session|doctorOnly/i,
+  );
+});
+
+test("Batch AX Stage 5H service streams protected lesion image through backend proxy with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.downloadProtectedLesionImage(
+    {
+      patientId: PATIENT_ID,
+      lesionId: "10000000-0000-4000-8000-000000000801",
+      assetId: "10000000-0000-4000-8000-000000000901",
+    },
+    authContext,
+    { correlationId: "c8" },
+  );
+
+  assert.equal(String(result.object.bytes), "protected-image-bytes");
+  assert.equal(result.object.contentType, "image/png");
+  assert.equal(result.download.fileName, "lesion-image-10000000.png");
+  assert.equal(auditEvents.at(-1).action, "lesion_protected_image.proxy.download");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    assetId: "10000000-0000-4000-8000-000000000901",
+    kind: "dermoscopy",
+    contentType: "image/png",
+    byteSize: Buffer.byteLength("protected-image-bytes"),
+    deliveryMode: "doctor_backend_proxy",
+    patientDeliveryAllowed: false,
+    signedUrlsIssued: false,
+    storagePathsExposed: false,
+    rawImageBytesExposedInJson: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(auditEvents.at(-1)),
+    /objectBucket|objectKey|"storagePath"\s*:|"signedUrl"\s*:|storage_object_path|signed_url|token|session|qr|doctorOnly|physicianText|patientSafeText/i,
   );
 });
 

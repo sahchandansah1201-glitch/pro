@@ -338,6 +338,44 @@ from (
 `.trim();
 }
 
+export function buildGetProtectedLesionImageAssetSql({
+  patientId,
+  lesionId,
+  assetId,
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  select
+    a.id::text as "id",
+    a.clinic_id::text as "clinicId",
+    a.patient_id::text as "patientId",
+    a.visit_id::text as "visitId",
+    a.lesion_id::text as "lesionId",
+    a.kind::text as "kind",
+    a.content_type as "contentType",
+    a.byte_size as "byteSize",
+    a.captured_at as "capturedAt",
+    a.object_bucket as "objectBucket",
+    a.object_key as "objectKey"
+  from clinical_assets a
+  join lesions l
+    on l.id = a.lesion_id
+   and l.patient_id = a.patient_id
+   and l.clinic_id = a.clinic_id
+  where a.id = ${sqlUuid(assetId)}
+    and a.patient_id = ${sqlUuid(patientId)}
+    and a.lesion_id = ${sqlUuid(lesionId)}
+    and a.kind in ('overview_photo', 'dermoscopy')
+    and a.content_type like 'image/%'
+    ${clinicScopeWhere({ alias: "a", clinicIds, allClinics })}
+  limit 1
+) result;
+`.trim();
+}
+
 function assessmentUpdateSet(changes = {}) {
   const clauses = [];
   if (Object.hasOwn(changes, "status")) clauses.push(`status = ${sqlLiteral(changes.status)}`);
@@ -709,6 +747,26 @@ function normalizeLesionLongitudinalHistory(row) {
   };
 }
 
+function normalizeProtectedLesionImageAsset(row) {
+  return {
+    id: String(row.id),
+    clinicId: row.clinicId ? String(row.clinicId) : null,
+    patientId: row.patientId ? String(row.patientId) : null,
+    visitId: row.visitId ? String(row.visitId) : null,
+    lesionId: row.lesionId ? String(row.lesionId) : null,
+    kind: String(row.kind ?? "overview_photo"),
+    contentType: row.contentType ?? null,
+    byteSize: row.byteSize == null ? null : Number(row.byteSize),
+    capturedAt: row.capturedAt ?? null,
+    objectBucket: row.objectBucket ? String(row.objectBucket) : "",
+    objectKey: row.objectKey ? String(row.objectKey) : "",
+    patientDeliveryAllowed: false,
+    signedUrlsIssued: false,
+    storagePathsExposed: false,
+    rawImageBytesExposedInJson: false,
+  };
+}
+
 async function queryOne(dbClient, sql, normalize) {
   const rows = await dbClient.queryJson(sql);
   return Array.isArray(rows) && rows[0] ? normalize(rows[0]) : null;
@@ -736,6 +794,9 @@ export function createClinicalWorkspaceRepository(dbClient) {
     },
     async getLesionLongitudinalHistory(params) {
       return queryOne(dbClient, buildGetLesionLongitudinalHistorySql(params), normalizeLesionLongitudinalHistory);
+    },
+    async getProtectedLesionImageAsset(params) {
+      return queryOne(dbClient, buildGetProtectedLesionImageAssetSql(params), normalizeProtectedLesionImageAsset);
     },
   };
 }

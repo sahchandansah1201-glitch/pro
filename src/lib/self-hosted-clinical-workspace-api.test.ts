@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getSelfHostedVisitAssessment,
   getSelfHostedLesionLongitudinalHistory,
+  downloadSelfHostedProtectedLesionImage,
   saveSelfHostedLesionComparisonDraft,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
@@ -246,6 +247,40 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(result.value)).not.toMatch(
       /object_bucket|object_key|"storagePath"\s*:|"signedUrl"\s*:|accessToken|rawToken|doctorVersionText/i,
+    );
+  });
+
+  it("downloads protected lesion image bytes through doctor backend proxy without URL/path exposure", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { "Content-Type": "image/png" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await downloadSelfHostedProtectedLesionImage({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      patientId: "patient-1",
+      lesionId: "lesion-1",
+      assetId: "asset-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.contentType).toBe("image/png");
+    expect(result.value?.bytes.size).toBe(3);
+    expect(result.value?.objectUrl).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patients/patient-1/lesions/lesion-1/images/asset-1/render",
+      expect.objectContaining({
+        method: "GET",
+        credentials: "include",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"storagePath"\s*:|"signedUrl"\s*:|storage_object_path|signed_url|object_bucket|object_key|token|session|qr/i,
     );
   });
 });

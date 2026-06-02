@@ -213,6 +213,9 @@ describe("LesionDetailPage", () => {
     expect(within(tools).getByText(/Масштаб 100%/)).toBeInTheDocument();
     expect(within(tools).getByText(/Смещение x0 \/ y0/)).toBeInTheDocument();
     expect(within(tools).getByText(/Измерения отключены/)).toBeInTheDocument();
+    expect(within(tools).getByText(/Защищённые превью врача/)).toBeInTheDocument();
+    expect(within(tools).getByRole("button", { name: /Подготовить защищённые превью/ })).toBeDisabled();
+    expect(within(tools).getByText(/Self-hosted backend не подключён/)).toBeInTheDocument();
 
     fireEvent.click(within(tools).getByRole("button", { name: /Увеличить/ }));
     fireEvent.click(within(tools).getByRole("button", { name: /Сместить вправо/ }));
