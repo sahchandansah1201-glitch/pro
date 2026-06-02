@@ -635,15 +635,15 @@ export interface ReplaySelfHostedDeviceBridgeCommandArgs extends BaseArgs {
   reason?: string;
 }
 
-export interface ExportSelfHostedDeviceBridgeCommandAuditArgs extends GetSelfHostedDeviceBridgeCommandAuditArgs {}
+export type ExportSelfHostedDeviceBridgeCommandAuditArgs = GetSelfHostedDeviceBridgeCommandAuditArgs;
 
-export interface GetSelfHostedDeviceBridgeProductionReadinessArgs extends BaseArgs {}
+export type GetSelfHostedDeviceBridgeProductionReadinessArgs = BaseArgs;
 
-export interface GetSelfHostedDeviceBridgeOperationsContinuityArgs extends BaseArgs {}
+export type GetSelfHostedDeviceBridgeOperationsContinuityArgs = BaseArgs;
 
-export interface GetSelfHostedDeviceBridgeFleetReliabilityArgs extends BaseArgs {}
+export type GetSelfHostedDeviceBridgeFleetReliabilityArgs = BaseArgs;
 
-export interface GetSelfHostedDeviceBridgeLifecycleAssuranceArgs extends BaseArgs {}
+export type GetSelfHostedDeviceBridgeLifecycleAssuranceArgs = BaseArgs;
 
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",

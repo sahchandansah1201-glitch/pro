@@ -32,9 +32,8 @@ import { HttpError } from "../errors.ts";
 // ── Helper: build a row carrying extra "leaked" fields, simulating a row
 // that arrived from the DB with columns the projection must drop. The spread
 // is on a CLONE inside test fixtures only; it is never used in response paths.
-// deno-lint-ignore no-explicit-any
 const dirty = <T,>(base: T, extra: Record<string, unknown>): T =>
-  (Object.assign({}, base, extra) as any);
+  Object.assign({}, base, extra) as T;
 
 // ── /me DTO ────────────────────────────────────────────────────────────────
 Deno.test("toMeDTO: only allow-listed keys, roles deduped+sorted", () => {
@@ -128,8 +127,7 @@ Deno.test("toPatientReportVersionDTO exposes `text` only, no doctor_text and no 
     "text",
   ]);
   // External DTO key MUST be `text`. Legacy long-form key must not appear.
-  // deno-lint-ignore no-explicit-any
-  assertEquals((dto as any)["patient" + "SafeText"], undefined);
+  assertEquals((dto as unknown as Record<string, unknown>)["patient" + "SafeText"], undefined);
   assertEquals(dto.text, "safe");
   assertNoForbiddenKeys(
     { data: [dto] },
@@ -191,10 +189,9 @@ Deno.test("toDoctorPatientDetailDTO exposes risk_factors but not created_by", ()
   );
   assertEquals(dto.riskFactors, ["a", "b"]);
   // created_by must NOT appear
-  // deno-lint-ignore no-explicit-any
-  assertEquals((dto as any).created_by, undefined);
-  // deno-lint-ignore no-explicit-any
-  assertEquals((dto as any).createdBy, undefined);
+  const dtoRecord = dto as unknown as Record<string, unknown>;
+  assertEquals(dtoRecord.created_by, undefined);
+  assertEquals(dtoRecord.createdBy, undefined);
   assertNoForbiddenKeys(
     { data: dto },
     FORBIDDEN_DOCTOR_KEYS,

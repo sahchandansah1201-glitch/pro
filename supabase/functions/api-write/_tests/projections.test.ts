@@ -24,9 +24,8 @@ import {
 } from "../validators.ts";
 import { HttpError } from "../errors.ts";
 
-// deno-lint-ignore no-explicit-any
 const dirty = <T,>(base: T, extra: Record<string, unknown>): T =>
-  (Object.assign({}, base, extra) as any);
+  Object.assign({}, base, extra) as T;
 
 const PATIENT_ROW = {
   id: "p-1",
