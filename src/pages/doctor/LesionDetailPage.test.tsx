@@ -31,6 +31,14 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
+const selectComparePair = (...imageIds: string[]) => {
+  for (const imageId of imageIds) {
+    const row = screen.getByText(imageId).closest("li");
+    if (!row) throw new Error(`Image row not found: ${imageId}`);
+    fireEvent.click(within(row).getByRole("button", { name: /Сравнить/ }));
+  }
+};
+
 describe("LesionDetailPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -40,7 +48,7 @@ describe("LesionDetailPage", () => {
   it("p-004/l-008: показывает образование, снимки и ссылку на визит", () => {
     renderAt("/patients/p-004/lesions/l-008");
     expect(screen.getByText(/Очаг B/)).toBeInTheDocument();
-    // три снимка в визите v-005? l-008 имеет 2 снимка (i-011, i-012).
+    // Текущий визит содержит пару i-011/i-012; Batch AV добавляет предыдущий визит.
     expect(screen.getByText("i-011")).toBeInTheDocument();
     expect(screen.getByText("i-012")).toBeInTheDocument();
     // оценка a-005
@@ -51,6 +59,26 @@ describe("LesionDetailPage", () => {
     );
     expect(link).toBeTruthy();
     expect(screen.queryByText(/таймлайн снимков, сравнение/i)).toBeNull();
+  });
+
+  it("shows a longitudinal lesion history across visits with technical comparison boundaries", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const history = screen.getByRole("region", { name: /Продольная история очага/ });
+    expect(within(history).getByText(/Визитов с фото: 2/)).toBeInTheDocument();
+    expect(within(history).getByText(/Снимков: 4/)).toBeInTheDocument();
+    expect(within(history).getByText(/Сопоставимых пар: 1/)).toBeInTheDocument();
+    expect(within(history).getByText(/Ограничений: 1/)).toBeInTheDocument();
+    expect(within(history).getByText(/v-011/)).toBeInTheDocument();
+    expect(within(history).getByText(/v-005/)).toBeInTheDocument();
+    expect(within(history).getByText(/i-021 → i-011/)).toBeInTheDocument();
+    expect(within(history).getByText(/i-022 → i-012/)).toBeInTheDocument();
+    expect(within(history).getByText(/Сопоставимо с предупреждением/)).toBeInTheDocument();
+    expect(within(history).getByText(/Не сопоставимо/)).toBeInTheDocument();
+    expect(within(history).getByText(/Не является оценкой динамики или клиническим выводом/)).toBeInTheDocument();
+    expect(history.textContent ?? "").not.toMatch(
+      /storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи|вероятность/i,
+    );
   });
 
   it("p-004/l-007: снимок есть, но структурированной оценки нет", () => {
@@ -96,13 +124,11 @@ describe("LesionDetailPage", () => {
     expect(screen.getByText("l-008")).toBeInTheDocument();
     expect(screen.getByText(/Лента дат очага/)).toBeInTheDocument();
     expect(screen.getAllByText(/d-003/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/без устройства/)).toBeInTheDocument();
-    expect(screen.getByText(/С предупреждением/)).toBeInTheDocument();
-    expect(screen.getByText(/Нужен переснимок/)).toBeInTheDocument();
+    expect(screen.getAllByText(/без устройства/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/С предупреждением/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Нужен переснимок/).length).toBeGreaterThan(0);
 
-    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
-    fireEvent.click(compareButtons[0]);
-    fireEvent.click(compareButtons[1]);
+    selectComparePair("i-011", "i-012");
 
     expect(screen.getByText(/Сравнение по датам/)).toBeInTheDocument();
     expect(screen.getByText(/условия съёмки не сопоставимы/i)).toBeInTheDocument();
@@ -111,9 +137,7 @@ describe("LesionDetailPage", () => {
   it("shows a richer Comparison Matrix with capture-condition differences and safety boundary", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
-    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
-    fireEvent.click(compareButtons[0]);
-    fireEvent.click(compareButtons[1]);
+    selectComparePair("i-011", "i-012");
 
     const matrix = screen.getByRole("table", { name: /Матрица сравнения/ });
     expect(within(matrix).getByText(/Снимок A/)).toBeInTheDocument();
@@ -133,9 +157,7 @@ describe("LesionDetailPage", () => {
   it("turns a non-comparable image pair into doctor actions without unsafe copy", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
-    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
-    fireEvent.click(compareButtons[0]);
-    fireEvent.click(compareButtons[1]);
+    selectComparePair("i-011", "i-012");
 
     const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
     expect(within(review).getByText(/Техническая сопоставимость/)).toBeInTheDocument();
@@ -159,9 +181,7 @@ describe("LesionDetailPage", () => {
   it("opens a full-screen comparison view for the selected pair", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
-    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
-    fireEvent.click(compareButtons[0]);
-    fireEvent.click(compareButtons[1]);
+    selectComparePair("i-011", "i-012");
 
     fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
 
@@ -184,9 +204,7 @@ describe("LesionDetailPage", () => {
   it("supports local zoom, pan and technical annotation in full-screen comparison without patient delivery", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
-    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
-    fireEvent.click(compareButtons[0]);
-    fireEvent.click(compareButtons[1]);
+    selectComparePair("i-011", "i-012");
 
     fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
 
@@ -218,9 +236,7 @@ describe("LesionDetailPage", () => {
   it("persists a structured doctor comparison draft without patient delivery", () => {
     const { unmount } = renderAt("/patients/p-004/lesions/l-008");
 
-    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
-    fireEvent.click(compareButtons[0]);
-    fireEvent.click(compareButtons[1]);
+    selectComparePair("i-011", "i-012");
 
     const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
     fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
@@ -236,9 +252,7 @@ describe("LesionDetailPage", () => {
     unmount();
     renderAt("/patients/p-004/lesions/l-008");
 
-    const restoredCompareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
-    fireEvent.click(restoredCompareButtons[0]);
-    fireEvent.click(restoredCompareButtons[1]);
+    selectComparePair("i-011", "i-012");
 
     const restoredReview = screen.getByRole("region", { name: /Рабочий разбор пары/ });
     expect(within(restoredReview).getByText(/Черновик решения загружен/)).toBeInTheDocument();
@@ -273,9 +287,7 @@ describe("LesionDetailPage", () => {
 
     renderAt("/patients/p-004/lesions/l-008");
 
-    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
-    fireEvent.click(compareButtons[0]);
-    fireEvent.click(compareButtons[1]);
+    selectComparePair("i-011", "i-012");
 
     const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
     fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));

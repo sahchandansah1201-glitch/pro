@@ -98,6 +98,27 @@ type ComparisonViewport = {
   panY: number;
   overlay: ComparisonOverlay;
 };
+type LongitudinalVisitGroup = {
+  visitId: string;
+  visit: Visit | null;
+  date: string;
+  images: ClinicalImage[];
+  assessmentCount: number;
+  bestQuality: number;
+  devices: string[];
+  kinds: string[];
+  sources: string[];
+};
+type LongitudinalPairStatus = "ready" | "warning" | "blocked";
+type LongitudinalPair = {
+  id: string;
+  previous: LongitudinalVisitGroup;
+  current: LongitudinalVisitGroup;
+  previousImage: ClinicalImage;
+  currentImage: ClinicalImage;
+  status: LongitudinalPairStatus;
+  reasons: string[];
+};
 
 const COMPARISON_ACTION_LABEL: Record<ComparisonAction, string> = {
   retake: "Переснимок запрошен",
@@ -121,9 +142,15 @@ const COMPARISON_OVERLAY_LABEL: Record<ComparisonOverlay, string> = {
   center: "центр",
   off: "скрыта",
 };
+const LONGITUDINAL_PAIR_LABEL: Record<LongitudinalPairStatus, string> = {
+  ready: "Сопоставимо",
+  warning: "Сопоставимо с предупреждением",
+  blocked: "Не сопоставимо",
+};
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
+const compactList = (values: string[]) => (values.length > 0 ? values.join(", ") : "—");
 
 function imageQualityLabel(image: ClinicalImage) {
   if (image.quality.score >= 0.8 && image.quality.issues.length === 0) return "Готово";
@@ -193,6 +220,218 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
       result: conditionsDiffer ? "Разные условия съёмки" : "Сопоставимо по условиям",
     },
   ];
+}
+
+function buildLongitudinalVisitGroups(
+  images: ClinicalImage[],
+  visits: Visit[],
+  assessments: ReturnType<typeof getAssessmentsByLesionId>,
+): LongitudinalVisitGroup[] {
+  const visitMap = new Map(visits.map((visit) => [visit.id, visit]));
+  const assessmentCounts = new Map<string, number>();
+  for (const assessment of assessments) {
+    assessmentCounts.set(assessment.visitId, (assessmentCounts.get(assessment.visitId) ?? 0) + 1);
+  }
+
+  const byVisit = new Map<string, ClinicalImage[]>();
+  for (const image of images) {
+    const group = byVisit.get(image.visitId) ?? [];
+    group.push(image);
+    byVisit.set(image.visitId, group);
+  }
+
+  return Array.from(byVisit.entries())
+    .map(([visitId, groupImages]) => {
+      const visit = visitMap.get(visitId) ?? null;
+      const sortedImages = [...groupImages].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+      const date = visit?.startedAt ?? sortedImages[0]?.capturedAt ?? "";
+      const bestQuality = sortedImages.reduce((best, image) => Math.max(best, image.quality.score), 0);
+      return {
+        visitId,
+        visit,
+        date,
+        images: sortedImages,
+        assessmentCount: assessmentCounts.get(visitId) ?? 0,
+        bestQuality,
+        devices: Array.from(new Set(sortedImages.map((image) => image.deviceId ?? "без устройства"))),
+        kinds: Array.from(new Set(sortedImages.map((image) => IMAGE_KIND[image.kind]))),
+        sources: Array.from(new Set(sortedImages.map((image) => IMAGE_SOURCE[image.source]))),
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildLongitudinalPairs(groups: LongitudinalVisitGroup[]): LongitudinalPair[] {
+  const pairs: LongitudinalPair[] = [];
+  for (let index = 1; index < groups.length; index += 1) {
+    const previous = groups[index - 1];
+    const current = groups[index];
+    for (const currentImage of current.images) {
+      const previousImage = previous.images.find(
+        (candidate) =>
+          candidate.kind === currentImage.kind
+          && candidate.source === currentImage.source
+          && (candidate.deviceId ?? "без устройства") === (currentImage.deviceId ?? "без устройства"),
+      );
+      if (!previousImage) continue;
+
+      const comparedImages = [previousImage, currentImage];
+      const lowQuality = comparedImages.some((image) => image.quality.score < 0.75);
+      const hasQualityIssues = comparedImages.some((image) => image.quality.issues.length > 0);
+      const status: LongitudinalPairStatus = lowQuality ? "blocked" : hasQualityIssues ? "warning" : "ready";
+      const reasons = [
+        lowQuality ? "Качество ниже порога" : null,
+        hasQualityIssues ? "Есть технические замечания" : null,
+        status === "ready" ? "Условия повторяемы" : null,
+      ].filter((reason): reason is string => Boolean(reason));
+
+      pairs.push({
+        id: `${previousImage.id}:${currentImage.id}`,
+        previous,
+        current,
+        previousImage,
+        currentImage,
+        status,
+        reasons,
+      });
+    }
+  }
+  return pairs;
+}
+
+function LongitudinalHistorySection({
+  groups,
+  pairs,
+}: {
+  groups: LongitudinalVisitGroup[];
+  pairs: LongitudinalPair[];
+}) {
+  const totalImages = groups.reduce((count, group) => count + group.images.length, 0);
+  const comparablePairs = pairs.filter((pair) => pair.status !== "blocked").length;
+  const blockedPairs = pairs.filter((pair) => pair.status === "blocked").length;
+
+  return (
+    <Card className="p-3 sm:p-4">
+      <section aria-label="Продольная история очага">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-[13px] font-semibold">Продольная история очага</h2>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
+              Технический обзор снимков одного ID между визитами. Не является оценкой динамики или клиническим выводом.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
+            Выдача пациенту: выключена
+          </span>
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Визиты</div>
+            <div className="mt-1 font-medium">Визитов с фото: {groups.length}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Снимки</div>
+            <div className="mt-1 font-medium">Снимков: {totalImages}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Пары</div>
+            <div className="mt-1 font-medium">Сопоставимых пар: {comparablePairs}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Ограничения</div>
+            <div className="mt-1 font-medium">Ограничений: {blockedPairs}</div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(320px,440px)]">
+          <div className="min-w-0 rounded-md border border-border bg-background p-2">
+            <h3 className="text-[12px] font-semibold">Визиты с фото</h3>
+            <ul className="mt-2 divide-y divide-border">
+              {groups.map((group) => (
+                <li key={group.visitId} className="grid gap-1 py-2 text-[12px] sm:grid-cols-[120px_minmax(0,1fr)]">
+                  <div className="min-w-0">
+                    <div className="font-mono text-[12px]">{group.visitId}</div>
+                    <div className="text-[11px] text-muted-foreground">{formatDate(group.date)}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-1 text-[11px]">
+                      <span className="rounded-sm border border-border bg-muted/20 px-1.5 py-0.5">
+                        Снимков: {group.images.length}
+                      </span>
+                      <span className="rounded-sm border border-border bg-muted/20 px-1.5 py-0.5">
+                        Оценок: {group.assessmentCount}
+                      </span>
+                      <span className="rounded-sm border border-border bg-muted/20 px-1.5 py-0.5">
+                        Лучшее качество: {Math.round(group.bestQuality * 100)}%
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      {compactList(group.kinds)} · {compactList(group.sources)} · {compactList(group.devices)}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="min-w-0 rounded-md border border-border bg-background p-2">
+            <h3 className="text-[12px] font-semibold">Пары между визитами</h3>
+            {pairs.length === 0 ? (
+              <p className="mt-2 text-[12px] text-muted-foreground">
+                Недостаточно повторяемых условий, чтобы собрать техническую пару.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {pairs.map((pair) => (
+                  <li key={pair.id} className="rounded-sm border border-border bg-muted/20 p-2 text-[12px]">
+                    <div className="flex flex-wrap items-start justify-between gap-1.5">
+                      <div className="min-w-0">
+                        <div className="font-mono text-[12px]">
+                          {pair.previousImage.id} → {pair.currentImage.id}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {formatDate(pair.previous.date)} → {formatDate(pair.current.date)} · {IMAGE_KIND[pair.currentImage.kind]} · {pair.currentImage.deviceId ?? "без устройства"}
+                        </div>
+                      </div>
+                      <span
+                        className={`rounded-sm border px-1.5 py-0.5 text-[11px] ${
+                          pair.status === "ready"
+                            ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
+                            : pair.status === "warning"
+                              ? "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate"
+                              : "border-destructive/30 bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        {LONGITUDINAL_PAIR_LABEL[pair.status]}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {pair.reasons.map((reason) => (
+                        <span key={reason} className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px]">
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <p
+          className="mt-3 flex items-start gap-2 rounded-md border px-2 py-1.5 text-[12px]"
+          style={{ background: "hsl(var(--warning) / 0.08)", borderColor: "hsl(var(--warning) / 0.30)", color: "hsl(var(--warning))" }}
+        >
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>
+            Техническая история помогает выбрать пары для врачебного разбора. Не оценивайте динамику без повторяемых условий съёмки и врачебной проверки.
+          </span>
+        </p>
+      </section>
+    </Card>
+  );
 }
 
 function ComparisonImagePanel({
@@ -801,6 +1040,8 @@ export default function LesionDetailPage() {
   const visitsWithImages = Array.from(new Set(images.map((i) => i.visitId)));
   const visitsWithAssessment = new Set(assessments.map((a) => a.visitId));
   const orphanVisits = visitsWithImages.filter((v) => !visitsWithAssessment.has(v));
+  const longitudinalGroups = buildLongitudinalVisitGroups(images, visits, assessments);
+  const longitudinalPairs = buildLongitudinalPairs(longitudinalGroups);
 
   const latestVisit = visits.find((v) => visitsWithImages.includes(v.id))
     ?? visits.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
@@ -973,6 +1214,10 @@ export default function LesionDetailPage() {
             </div>
           </div>
         </Card>
+
+        {longitudinalGroups.length > 0 && (
+          <LongitudinalHistorySection groups={longitudinalGroups} pairs={longitudinalPairs} />
+        )}
 
         <Card className="p-3 sm:p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
