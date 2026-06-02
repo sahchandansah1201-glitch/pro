@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -29,6 +29,15 @@ import {
   getPatientById,
   getVisitsByPatientId,
 } from "@/lib/mock-data";
+import {
+  buildLesionComparisonDraftKey,
+  clearLesionComparisonDraft,
+  createLesionComparisonDecisionDraft,
+  loadLesionComparisonDraft,
+  saveLesionComparisonDraft,
+  type LesionComparisonAction,
+  type LesionComparisonDecisionDraft,
+} from "@/lib/lesion-comparison-drafts";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
 
 const LESION_STATUS: Record<Lesion["status"], string> = {
@@ -63,7 +72,8 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
   right: "право",
   scalp: "волосистая часть",
 };
-type ComparisonAction = "retake" | "excluded" | "report_limit";
+type ComparisonAction = LesionComparisonAction;
+type ComparisonDraftStatus = "idle" | "loaded" | "saved" | "cleared";
 
 const COMPARISON_ACTION_LABEL: Record<ComparisonAction, string> = {
   retake: "Переснимок запрошен",
@@ -234,6 +244,9 @@ function ComparisonFullScreenDialog({
   isComparable,
   action,
   onAction,
+  onSaveDraft,
+  canSaveDraft,
+  draftStatus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -242,6 +255,9 @@ function ComparisonFullScreenDialog({
   isComparable: boolean;
   action: ComparisonAction | null;
   onAction: (action: ComparisonAction) => void;
+  onSaveDraft: () => void;
+  canSaveDraft: boolean;
+  draftStatus: ComparisonDraftStatus;
 }) {
   if (!images) return null;
   const [imageA, imageB] = images;
@@ -320,6 +336,21 @@ function ComparisonFullScreenDialog({
               {action && (
                 <p className="mt-2 text-[12px] font-medium text-primary" role="status">
                   {COMPARISON_ACTION_LABEL[action]}
+                </p>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="mt-2 min-h-[44px] text-[12px] sm:min-h-[32px]"
+                disabled={!canSaveDraft}
+                onClick={onSaveDraft}
+              >
+                <FileText className="h-3.5 w-3.5" aria-hidden /> Сохранить черновик решения
+              </Button>
+              {draftStatus === "saved" && (
+                <p className="mt-2 text-[12px] font-medium text-primary" role="status">
+                  Черновик решения сохранён
                 </p>
               )}
             </div>
@@ -453,6 +484,8 @@ export default function LesionDetailPage() {
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [comparisonAction, setComparisonAction] = useState<ComparisonAction | null>(null);
+  const [comparisonDraft, setComparisonDraft] = useState<LesionComparisonDecisionDraft | null>(null);
+  const [comparisonDraftStatus, setComparisonDraftStatus] = useState<ComparisonDraftStatus>("idle");
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
@@ -465,6 +498,45 @@ export default function LesionDetailPage() {
     [lesionId],
   );
   const visits = useMemo(() => (patient ? getVisitsByPatientId(patient.id) : []), [patient]);
+
+  const compareImages = compareIds
+    .map((imgId) => images.find((img) => img.id === imgId))
+    .filter((img): img is ClinicalImage => Boolean(img));
+  const hasComparablePair = compareImages.length === 2;
+  const captureConditionsDiffer = hasComparablePair
+    ? compareImages[0].deviceId !== compareImages[1].deviceId
+      || compareImages[0].source !== compareImages[1].source
+      || compareImages[0].kind !== compareImages[1].kind
+    : false;
+  const matrixRows = hasComparablePair ? comparisonRows(compareImages[0], compareImages[1]) : [];
+  const comparePair = hasComparablePair ? ([compareImages[0], compareImages[1]] as [ClinicalImage, ClinicalImage]) : null;
+  const selectedPairHasQualityIssues = hasComparablePair
+    ? compareImages.some((img) => img.quality.score < 0.75 || img.quality.issues.length > 0)
+    : false;
+  const selectedPairIsComparable = hasComparablePair && !captureConditionsDiffer && !selectedPairHasQualityIssues;
+  const comparisonReasons = [
+    captureConditionsDiffer ? "Разные условия съёмки" : null,
+    selectedPairHasQualityIssues ? "Есть технические замечания" : null,
+  ].filter((reason): reason is string => Boolean(reason));
+  const selectedPairDraftKey = hasComparablePair
+    ? buildLesionComparisonDraftKey(lesionId, compareImages.map((img) => img.id))
+    : null;
+
+  useEffect(() => {
+    if (!selectedPairDraftKey) {
+      setComparisonDraft(null);
+      setComparisonDraftStatus("idle");
+      return;
+    }
+    const draft = loadLesionComparisonDraft(selectedPairDraftKey);
+    setComparisonDraft(draft);
+    if (draft) {
+      setComparisonAction(draft.action);
+      setComparisonDraftStatus("loaded");
+    } else {
+      setComparisonDraftStatus("idle");
+    }
+  }, [selectedPairDraftKey]);
 
   if (!patient) {
     return <NotFound title="Пациент не найден" hint="Карточка пациента отсутствует в демо-данных." />;
@@ -499,6 +571,8 @@ export default function LesionDetailPage() {
 
   const toggleCompare = (imgId: string) => {
     setComparisonAction(null);
+    setComparisonDraft(null);
+    setComparisonDraftStatus("idle");
     setCompareDialogOpen(false);
     setCompareIds((prev) => {
       if (prev.includes(imgId)) return prev.filter((x) => x !== imgId);
@@ -507,25 +581,34 @@ export default function LesionDetailPage() {
     });
   };
 
-  const compareImages = compareIds
-    .map((imgId) => images.find((img) => img.id === imgId))
-    .filter((img): img is ClinicalImage => Boolean(img));
-  const hasComparablePair = compareImages.length === 2;
-  const captureConditionsDiffer = hasComparablePair
-    ? compareImages[0].deviceId !== compareImages[1].deviceId
-      || compareImages[0].source !== compareImages[1].source
-      || compareImages[0].kind !== compareImages[1].kind
-    : false;
-  const matrixRows = hasComparablePair ? comparisonRows(compareImages[0], compareImages[1]) : [];
-  const comparePair = hasComparablePair ? ([compareImages[0], compareImages[1]] as [ClinicalImage, ClinicalImage]) : null;
-  const selectedPairHasQualityIssues = hasComparablePair
-    ? compareImages.some((img) => img.quality.score < 0.75 || img.quality.issues.length > 0)
-    : false;
-  const selectedPairIsComparable = hasComparablePair && !captureConditionsDiffer && !selectedPairHasQualityIssues;
-  const comparisonReasons = [
-    captureConditionsDiffer ? "Разные условия съёмки" : null,
-    selectedPairHasQualityIssues ? "Есть технические замечания" : null,
-  ].filter((reason): reason is string => Boolean(reason));
+  const handleComparisonAction = (action: ComparisonAction) => {
+    setComparisonAction(action);
+    setComparisonDraftStatus("idle");
+  };
+
+  const saveComparisonDraft = () => {
+    if (!selectedPairDraftKey || !comparePair || !comparisonAction) return;
+    const draft = createLesionComparisonDecisionDraft({
+      lesionId,
+      pairKey: selectedPairDraftKey,
+      imageIds: [comparePair[0].id, comparePair[1].id],
+      action: comparisonAction,
+      isComparable: selectedPairIsComparable,
+      reasons: comparisonReasons,
+    });
+    if (saveLesionComparisonDraft(draft)) {
+      setComparisonDraft(draft);
+      setComparisonDraftStatus("saved");
+    }
+  };
+
+  const clearComparisonDraft = () => {
+    if (!selectedPairDraftKey) return;
+    if (clearLesionComparisonDraft(selectedPairDraftKey)) {
+      setComparisonDraft(null);
+      setComparisonDraftStatus("cleared");
+    }
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -749,7 +832,7 @@ export default function LesionDetailPage() {
                       >
                         <Maximize2 className="h-3.5 w-3.5" aria-hidden /> Открыть полноэкранное сравнение
                       </Button>
-                      <ComparisonActionButtons onAction={setComparisonAction} />
+                      <ComparisonActionButtons onAction={handleComparisonAction} />
                     </div>
                   </div>
 
@@ -781,6 +864,82 @@ export default function LesionDetailPage() {
                       )}
                     </div>
                   </div>
+
+                  <section
+                    aria-label="Черновик решения врача"
+                    className="mt-2 rounded-sm border border-border bg-muted/20 p-2"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          Черновик решения врача
+                        </div>
+                        <p className="mt-1 text-[12px]">
+                          Сохраняется локально: ID пары, технический статус, причины и выбранное действие.
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Выдача пациенту: выключена · backend не вызывается · защищённые поля скрыты.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                          disabled={!comparisonAction}
+                          onClick={saveComparisonDraft}
+                        >
+                          <FileText className="h-3.5 w-3.5" aria-hidden /> Сохранить черновик решения
+                        </Button>
+                        {comparisonDraft && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                            onClick={clearComparisonDraft}
+                          >
+                            <XCircle className="h-3.5 w-3.5" aria-hidden /> Удалить черновик
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                      <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
+                        Пара: {compareImages[0].id} + {compareImages[1].id}
+                      </span>
+                      <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
+                        {selectedPairIsComparable ? "Сопоставимо" : "Не сопоставимо"}
+                      </span>
+                      {comparisonAction && (
+                        <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
+                          {COMPARISON_ACTION_LABEL[comparisonAction]}
+                        </span>
+                      )}
+                    </div>
+                    {comparisonDraft && (
+                      <p className="mt-2 text-[12px] text-muted-foreground">
+                        Сохранено: {formatDateTime(comparisonDraft.savedAt)} · действие:{" "}
+                        {COMPARISON_ACTION_LABEL[comparisonDraft.action]}
+                      </p>
+                    )}
+                    {comparisonDraftStatus === "saved" && (
+                      <p className="mt-1 text-[12px] font-medium text-primary" role="status">
+                        Черновик решения сохранён
+                      </p>
+                    )}
+                    {comparisonDraftStatus === "loaded" && (
+                      <p className="mt-1 text-[12px] font-medium text-primary" role="status">
+                        Черновик решения загружен
+                      </p>
+                    )}
+                    {comparisonDraftStatus === "cleared" && (
+                      <p className="mt-1 text-[12px] font-medium text-primary" role="status">
+                        Черновик решения удалён
+                      </p>
+                    )}
+                  </section>
                 </section>
               )}
             </div>
@@ -928,7 +1087,10 @@ export default function LesionDetailPage() {
         reasons={comparisonReasons}
         isComparable={selectedPairIsComparable}
         action={comparisonAction}
-        onAction={setComparisonAction}
+        onAction={handleComparisonAction}
+        onSaveDraft={saveComparisonDraft}
+        canSaveDraft={Boolean(comparisonAction)}
+        draftStatus={comparisonDraftStatus}
       />
     </div>
   );

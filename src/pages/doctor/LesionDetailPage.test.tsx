@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { LESION_COMPARISON_DRAFTS_STORAGE_KEY } from "@/lib/lesion-comparison-drafts";
 import LesionDetailPage from "./LesionDetailPage";
 
 const j = (...p: string[]) => p.join("");
@@ -27,6 +28,10 @@ const renderAt = (path: string) =>
   );
 
 describe("LesionDetailPage", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("p-004/l-008: показывает образование, снимки и ссылку на визит", () => {
     renderAt("/patients/p-004/lesions/l-008");
     expect(screen.getByText(/Очаг B/)).toBeInTheDocument();
@@ -129,19 +134,19 @@ describe("LesionDetailPage", () => {
 
     const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
     expect(within(review).getByText(/Техническая сопоставимость/)).toBeInTheDocument();
-    expect(within(review).getByText(/Не сопоставимо/)).toBeInTheDocument();
+    expect(within(review).getAllByText(/Не сопоставимо/).length).toBeGreaterThan(0);
     expect(within(review).getByText(/Разные условия съёмки/)).toBeInTheDocument();
     expect(within(review).getByText(/Есть технические замечания/)).toBeInTheDocument();
     expect(within(review).getByText(/Не оценивайте динамику/i)).toBeInTheDocument();
 
     fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
-    expect(within(review).getByText(/Переснимок запрошен/)).toBeInTheDocument();
+    expect(within(review).getAllByText(/Переснимок запрошен/).length).toBeGreaterThan(0);
 
     fireEvent.click(within(review).getByRole("button", { name: /Исключить из сравнения/ }));
-    expect(within(review).getByText(/Пара исключена из сравнения/)).toBeInTheDocument();
+    expect(within(review).getAllByText(/Пара исключена из сравнения/).length).toBeGreaterThan(0);
 
     fireEvent.click(within(review).getByRole("button", { name: /Добавить ограничение в отчёт/ }));
-    expect(within(review).getByText(/Ограничение добавлено в черновик отчёта/)).toBeInTheDocument();
+    expect(within(review).getAllByText(/Ограничение добавлено в черновик отчёта/).length).toBeGreaterThan(0);
 
     expect(review.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
   });
@@ -169,6 +174,37 @@ describe("LesionDetailPage", () => {
     expect(within(dialog).getByText(/Переснимок запрошен/)).toBeInTheDocument();
 
     expect(dialog.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
+  });
+
+  it("persists a structured doctor comparison draft without patient delivery", () => {
+    const { unmount } = renderAt("/patients/p-004/lesions/l-008");
+
+    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
+    fireEvent.click(compareButtons[0]);
+    fireEvent.click(compareButtons[1]);
+
+    const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
+    fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
+    fireEvent.click(within(review).getByRole("button", { name: /Сохранить черновик решения/ }));
+
+    expect(within(review).getByText(/Черновик решения сохранён/)).toBeInTheDocument();
+    expect(within(review).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
+    expect(window.localStorage.getItem(LESION_COMPARISON_DRAFTS_STORAGE_KEY)).toContain("retake");
+    expect(window.localStorage.getItem(LESION_COMPARISON_DRAFTS_STORAGE_KEY) ?? "").not.toMatch(
+      /storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи/i,
+    );
+
+    unmount();
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const restoredCompareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
+    fireEvent.click(restoredCompareButtons[0]);
+    fireEvent.click(restoredCompareButtons[1]);
+
+    const restoredReview = screen.getByRole("region", { name: /Рабочий разбор пары/ });
+    expect(within(restoredReview).getByText(/Черновик решения загружен/)).toBeInTheDocument();
+    expect(within(restoredReview).getAllByText(/Переснимок запрошен/).length).toBeGreaterThan(0);
+    expect(within(restoredReview).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
   });
 
   it("links the lesion to the full Body Map in the source visit", () => {
