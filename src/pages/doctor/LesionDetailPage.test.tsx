@@ -277,10 +277,42 @@ describe("LesionDetailPage", () => {
     fireEvent.change(note, { target: { value: "Разный угол и мягкий фокус, нужна повторяемая съёмка." } });
     fireEvent.click(within(tools).getByRole("button", { name: /Зафиксировать техническую заметку/ }));
     expect(within(tools).getByText(/Техническая заметка зафиксирована локально/)).toBeInTheDocument();
-    expect(within(tools).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
+    expect(within(tools).getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
 
     expect(dialog.textContent ?? "").not.toMatch(
       /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion/i,
+    );
+  });
+
+  it("supports normalized technical geometry markers without medical measurement", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    selectComparePair("i-011", "i-012");
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
+    const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
+
+    expect(within(geometry).getByText(/Маркеры: 0\/2/)).toBeInTheDocument();
+    expect(within(geometry).getByText(/Координаты нормализованы: проценты кадра/)).toBeInTheDocument();
+
+    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
+    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер B/ }));
+
+    expect(within(geometry).getByText(/Маркеры: 2\/2/)).toBeInTheDocument();
+    expect(within(geometry).getByText(/A x48 y52/)).toBeInTheDocument();
+    expect(within(geometry).getByText(/B x52 y52/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Технический маркер A · x48 y52/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Технический маркер B · x52 y52/)).toBeInTheDocument();
+    expect(within(geometry).getByText(/Не является медицинским измерением/)).toBeInTheDocument();
+    expect(within(geometry).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
+
+    fireEvent.click(within(geometry).getByRole("button", { name: /Очистить маркеры/ }));
+    expect(within(geometry).getByText(/Маркеры: 0\/2/)).toBeInTheDocument();
+
+    expect(dialog.textContent ?? "").not.toMatch(
+      /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion|patientSafeText/i,
     );
   });
 

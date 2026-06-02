@@ -105,6 +105,11 @@ type CaptureConditionCheck = {
   ready: boolean;
   detail: string;
 };
+type TechnicalGeometryMarker = {
+  target: "A" | "B";
+  x: number;
+  y: number;
+};
 type ComparisonOverlay = "grid" | "center" | "off";
 type ComparisonViewport = {
   zoom: number;
@@ -156,6 +161,10 @@ const COMPARISON_OVERLAY_LABEL: Record<ComparisonOverlay, string> = {
   center: "центр",
   off: "скрыта",
 };
+const TECHNICAL_GEOMETRY_PRESETS: Record<TechnicalGeometryMarker["target"], TechnicalGeometryMarker> = {
+  A: { target: "A", x: 48, y: 52 },
+  B: { target: "B", x: 52, y: 52 },
+};
 const LONGITUDINAL_PAIR_LABEL: Record<LongitudinalPairStatus, string> = {
   ready: "Сопоставимо",
   warning: "Сопоставимо с предупреждением",
@@ -165,6 +174,7 @@ const LONGITUDINAL_PAIR_LABEL: Record<LongitudinalPairStatus, string> = {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const compactList = (values: string[]) => (values.length > 0 ? values.join(", ") : "—");
+const formatGeometryMarker = (marker: TechnicalGeometryMarker) => `${marker.target} x${marker.x} y${marker.y}`;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const isUuid = (value: string | null | undefined) => UUID_PATTERN.test(String(value || ""));
 const createPreviewObjectUrl = (blob: Blob) =>
@@ -515,11 +525,13 @@ function ComparisonImagePanel({
   marker,
   viewport,
   protectedImageUrl,
+  geometryMarker,
 }: {
   image: ClinicalImage;
   marker: "A" | "B";
   viewport: ComparisonViewport;
   protectedImageUrl?: string | null;
+  geometryMarker?: TechnicalGeometryMarker;
 }) {
   return (
     <section aria-label={`Снимок ${marker}`} className="min-w-0 rounded-md border border-border bg-background">
@@ -565,6 +577,22 @@ function ComparisonImagePanel({
                   </div>
                 </div>
               </>
+            )}
+            {geometryMarker && (
+              <div
+                aria-label={`Технический маркер ${geometryMarker.target} · x${geometryMarker.x} y${geometryMarker.y}`}
+                className="pointer-events-none absolute z-20 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background/80 shadow-sm"
+                style={{
+                  left: `${geometryMarker.x}%`,
+                  top: `${geometryMarker.y}%`,
+                }}
+              >
+                <span className="absolute left-1/2 top-1/2 h-10 w-px -translate-x-1/2 -translate-y-1/2 bg-primary/70" />
+                <span className="absolute left-1/2 top-1/2 h-px w-10 -translate-x-1/2 -translate-y-1/2 bg-primary/70" />
+                <span className="absolute -right-1 -top-1 rounded-sm bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                  {geometryMarker.target}
+                </span>
+              </div>
             )}
           </div>
           {viewport.overlay === "grid" && (
@@ -673,6 +701,13 @@ function ComparisonFullScreenDialog({
   const [viewport, setViewport] = useState<ComparisonViewport>({ zoom: 1, panX: 0, panY: 0, overlay: "grid" });
   const [technicalNote, setTechnicalNote] = useState("");
   const [savedTechnicalNote, setSavedTechnicalNote] = useState("");
+  const [geometryMarkers, setGeometryMarkers] = useState<TechnicalGeometryMarker[]>([]);
+  const imageAId = images?.[0].id ?? "";
+  const imageBId = images?.[1].id ?? "";
+
+  useEffect(() => {
+    setGeometryMarkers([]);
+  }, [imageAId, imageBId]);
 
   const updateZoom = (delta: number) => {
     setViewport((current) => ({ ...current, zoom: clamp(current.zoom + delta, 1, 3) }));
@@ -692,6 +727,12 @@ function ComparisonFullScreenDialog({
     if (!next) return;
     setSavedTechnicalNote(next);
   };
+  const setGeometryMarker = (target: TechnicalGeometryMarker["target"]) => {
+    const marker = TECHNICAL_GEOMETRY_PRESETS[target];
+    setGeometryMarkers((current) => [...current.filter((item) => item.target !== target), marker]);
+  };
+  const markerFor = (target: TechnicalGeometryMarker["target"]) =>
+    geometryMarkers.find((item) => item.target === target);
   if (!images) return null;
   const [imageA, imageB] = images;
   const captureChecks = captureConditionChecks(imageA, imageB);
@@ -714,12 +755,14 @@ function ComparisonFullScreenDialog({
               marker="A"
               viewport={viewport}
               protectedImageUrl={protectedImageUrls[imageA.id] ?? null}
+              geometryMarker={markerFor("A")}
             />
             <ComparisonImagePanel
               image={imageB}
               marker="B"
               viewport={viewport}
               protectedImageUrl={protectedImageUrls[imageB.id] ?? null}
+              geometryMarker={markerFor("B")}
             />
           </div>
 
@@ -829,6 +872,63 @@ function ComparisonFullScreenDialog({
                 <span>Разметка: {COMPARISON_OVERLAY_LABEL[viewport.overlay]}</span>
                 <span>Измерения отключены: разметка не является медицинским измерением.</span>
               </div>
+              <section
+                role="region"
+                aria-label="Техническая геометрия"
+                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Техническая геометрия
+                    </div>
+                    <div className="text-[12px] font-medium">Маркеры: {geometryMarkers.length}/2</div>
+                  </div>
+                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    normalized
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    onClick={() => setGeometryMarker("A")}
+                  >
+                    <Crosshair className="h-3.5 w-3.5" aria-hidden /> Поставить маркер A
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    onClick={() => setGeometryMarker("B")}
+                  >
+                    <Crosshair className="h-3.5 w-3.5" aria-hidden /> Поставить маркер B
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={geometryMarkers.length === 0}
+                    onClick={() => setGeometryMarkers([])}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Очистить маркеры
+                  </Button>
+                </div>
+                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                  <span>Координаты нормализованы: проценты кадра</span>
+                  <span>
+                    {geometryMarkers.length > 0
+                      ? geometryMarkers.map((item) => formatGeometryMarker(item)).join(" · ")
+                      : "Нет активных маркеров"}
+                  </span>
+                  <span>Не является медицинским измерением</span>
+                  <span>Выдача пациенту: выключена</span>
+                </div>
+              </section>
               <div className="mt-2">
                 <div className="mb-2 rounded-md border border-border bg-muted/20 p-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">

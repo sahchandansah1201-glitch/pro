@@ -270,6 +270,54 @@ Safety boundary:
 - `SD-MF-046` / patient protocol and lesion history: in progress. Batch AZ is
   doctor-side technical QA only and keeps patient delivery off.
 
+## Batch BA Technical Geometry Markers
+
+Batch BA adds a doctor-side technical geometry layer inside the full-screen
+lesion comparison dialog. It is a local viewer QA feature only. It does not add
+backend routes, persistence, calibrated measurement, or patient delivery.
+
+Doctor UI:
+
+- the full-screen lesion comparison tools include `Техническая геометрия`;
+- doctors can place deterministic technical markers on `Снимок A` and
+  `Снимок B`;
+- marker coordinates are normalized as percentages of the current frame:
+  - `A x48 y52`;
+  - `B x52 y52`;
+- the image panels render accessible markers such as
+  `Технический маркер A · x48 y52`;
+- controls expose:
+  - `Поставить маркер A`;
+  - `Поставить маркер B`;
+  - `Очистить маркеры`;
+- status text shows `Маркеры: 0/2` or `Маркеры: 2/2`;
+- visible copy says `Координаты нормализованы: проценты кадра`,
+  `Не является медицинским измерением`, and `Выдача пациенту: выключена`.
+
+Safety boundary:
+
+- no medical measurement;
+- no calibrated metric scale;
+- no diagnosis, risk, prognosis, treatment, or automated dynamic conclusion;
+- no backend route, audit event, persistence, patient delivery, signed URL,
+  object bucket/key, storage path, QR/session/credential, doctor-only report
+  text, or patient-facing report text is added by Batch BA.
+
+### Batch BA Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BA keeps the
+  selected pair geometry visible within the existing compare chronology. The
+  remaining gate is production capture metadata and real longitudinal assets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BA adds
+  normalized technical marker geometry for A/B review. The remaining gate is
+  calibrated annotation geometry, production viewer QA, and backend-safe marker
+  persistence if approved.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BA keeps geometry
+  explicitly non-medical and prevents marker placement from becoming a clinical
+  dynamic assessment.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BA
+  remains doctor-side QA only and keeps patient delivery off.
+
 ## Product Boundary
 
 - managed runtime: none
