@@ -1,6 +1,18 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronRight, Image as ImageIcon, ClipboardList, MapPin, ShieldAlert, Maximize2 } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  FileText,
+  Image as ImageIcon,
+  MapPin,
+  Maximize2,
+  RefreshCw,
+  ShieldAlert,
+  XCircle,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -50,6 +62,13 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
   left: "лево",
   right: "право",
   scalp: "волосистая часть",
+};
+type ComparisonAction = "retake" | "excluded" | "report_limit";
+
+const COMPARISON_ACTION_LABEL: Record<ComparisonAction, string> = {
+  retake: "Переснимок запрошен",
+  excluded: "Пара исключена из сравнения",
+  report_limit: "Ограничение добавлено в черновик отчёта",
 };
 
 function imageQualityLabel(image: ClinicalImage) {
@@ -244,6 +263,7 @@ export default function LesionDetailPage() {
   // Локальный UI-state для демо-действий (не сетевой и не storage).
   const [activeImageId, setActiveImageId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [comparisonAction, setComparisonAction] = useState<ComparisonAction | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
 
   const images = useMemo(
@@ -288,6 +308,7 @@ export default function LesionDetailPage() {
     : `/patients/${patient.id}`;
 
   const toggleCompare = (imgId: string) => {
+    setComparisonAction(null);
     setCompareIds((prev) => {
       if (prev.includes(imgId)) return prev.filter((x) => x !== imgId);
       const next = [...prev, imgId];
@@ -305,6 +326,14 @@ export default function LesionDetailPage() {
       || compareImages[0].kind !== compareImages[1].kind
     : false;
   const matrixRows = hasComparablePair ? comparisonRows(compareImages[0], compareImages[1]) : [];
+  const selectedPairHasQualityIssues = hasComparablePair
+    ? compareImages.some((img) => img.quality.score < 0.75 || img.quality.issues.length > 0)
+    : false;
+  const selectedPairIsComparable = hasComparablePair && !captureConditionsDiffer && !selectedPairHasQualityIssues;
+  const comparisonReasons = [
+    captureConditionsDiffer ? "Разные условия съёмки" : null,
+    selectedPairHasQualityIssues ? "Есть технические замечания" : null,
+  ].filter((reason): reason is string => Boolean(reason));
 
   return (
     <div className="flex h-full flex-col">
@@ -491,6 +520,93 @@ export default function LesionDetailPage() {
                     Условия съёмки не сопоставимы: разные устройства, источник или тип снимка. Нельзя оценивать динамику без врачебной проверки.
                   </span>
                 </p>
+              )}
+              {hasComparablePair && (
+                <section
+                  aria-label="Рабочий разбор пары"
+                  className="mt-2 rounded-md border border-border bg-background p-2"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-semibold">Рабочий разбор пары</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px]">
+                        <span className="text-muted-foreground">Техническая сопоставимость:</span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] ${
+                            selectedPairIsComparable
+                              ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
+                              : "border-destructive/30 bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          {selectedPairIsComparable ? (
+                            <CheckCircle2 className="h-3 w-3" aria-hidden />
+                          ) : (
+                            <ShieldAlert className="h-3 w-3" aria-hidden />
+                          )}
+                          {selectedPairIsComparable ? "Сопоставимо" : "Не сопоставимо"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                        onClick={() => setComparisonAction("retake")}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Запросить переснимок
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                        onClick={() => setComparisonAction("excluded")}
+                      >
+                        <XCircle className="h-3.5 w-3.5" aria-hidden /> Исключить из сравнения
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                        onClick={() => setComparisonAction("report_limit")}
+                      >
+                        <FileText className="h-3.5 w-3.5" aria-hidden /> Добавить ограничение в отчёт
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 grid gap-2 text-[12px] sm:grid-cols-[minmax(0,1fr)_minmax(180px,240px)]">
+                    <div className="min-w-0 rounded-sm border border-border bg-muted/20 p-2">
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Причины</div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(comparisonReasons.length > 0 ? comparisonReasons : ["Условия повторяемы"]).map((reason) => (
+                          <span key={reason} className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px]">
+                            {reason}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">
+                        Не оценивайте динамику по этой паре без врачебной проверки и повторяемых условий съёмки.
+                      </p>
+                    </div>
+                    <div className="min-w-0 rounded-sm border border-border bg-muted/20 p-2">
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Следующее действие</div>
+                      <p className="mt-1 text-[12px]">
+                        {selectedPairIsComparable
+                          ? "Можно использовать пару для врачебного сравнения."
+                          : "Сначала закройте техническое ограничение или запросите переснимок."}
+                      </p>
+                      {comparisonAction && (
+                        <p className="mt-1.5 text-[12px] font-medium text-primary" role="status">
+                          {COMPARISON_ACTION_LABEL[comparisonAction]}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </section>
               )}
             </div>
           )}

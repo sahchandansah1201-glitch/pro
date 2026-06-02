@@ -120,6 +120,32 @@ describe("LesionDetailPage", () => {
     expect(screen.getByText(/Нельзя оценивать динамику без врачебной проверки/i)).toBeInTheDocument();
   });
 
+  it("turns a non-comparable image pair into doctor actions without unsafe copy", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
+    fireEvent.click(compareButtons[0]);
+    fireEvent.click(compareButtons[1]);
+
+    const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
+    expect(within(review).getByText(/Техническая сопоставимость/)).toBeInTheDocument();
+    expect(within(review).getByText(/Не сопоставимо/)).toBeInTheDocument();
+    expect(within(review).getByText(/Разные условия съёмки/)).toBeInTheDocument();
+    expect(within(review).getByText(/Есть технические замечания/)).toBeInTheDocument();
+    expect(within(review).getByText(/Не оценивайте динамику/i)).toBeInTheDocument();
+
+    fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
+    expect(within(review).getByText(/Переснимок запрошен/)).toBeInTheDocument();
+
+    fireEvent.click(within(review).getByRole("button", { name: /Исключить из сравнения/ }));
+    expect(within(review).getByText(/Пара исключена из сравнения/)).toBeInTheDocument();
+
+    fireEvent.click(within(review).getByRole("button", { name: /Добавить ограничение в отчёт/ }));
+    expect(within(review).getByText(/Ограничение добавлено в черновик отчёта/)).toBeInTheDocument();
+
+    expect(review.textContent ?? "").not.toMatch(/меланома|рак кожи|вероятность меланомы|token|storage/i);
+  });
+
   it("links the lesion to the full Body Map in the source visit", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
