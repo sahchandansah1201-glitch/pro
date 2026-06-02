@@ -10,6 +10,8 @@ placeholders to self-hosted backend contracts.
 - Existing `reports` receive a stable `visit_id` lookup contract.
 - `lesion_comparison_decision_drafts` stores a doctor-owned metadata draft
   for a selected lesion image pair, with patient delivery disabled.
+- Batch AW adds a production-safe longitudinal lesion ledger read contract
+  assembled from visit, lesion, clinical asset, and assessment metadata.
 - The browser reads and writes production clinical workspace data only
   through the self-hosted backend.
 - Demo/dev mode remains unchanged and still uses mock clinical tabs.
@@ -23,6 +25,7 @@ placeholders to self-hosted backend contracts.
 - `GET /api/v1/visits/{visitId}/report`
 - `PATCH /api/v1/visits/{visitId}/report`
 - `PATCH /api/v1/visits/{visitId}/lesion-comparison-draft`
+- `GET /api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history`
 
 All routes require bearer auth and clinic-scoped RBAC. Reads use visit
 read scope. Writes use visit write scope. Audit events are:
@@ -34,6 +37,7 @@ read scope. Writes use visit write scope. Audit events are:
 - `report.read`
 - `report.update`
 - `lesion_comparison_draft.upsert`
+- `lesion_longitudinal_history.read`
 
 ## Lesion Comparison Draft Boundary
 
@@ -55,6 +59,53 @@ The doctor lesion screen still saves a local draft first. When a self-hosted
 backend session is configured, it also writes the same metadata draft through
 the Stage 5H endpoint. When self-hosted is not configured, UI copy says the
 backend audit was not sent.
+
+## Batch AW Longitudinal Lesion Ledger Boundary
+
+`GET /api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history`
+returns only doctor-side technical metadata for one lesion across visits:
+
+- lesion identity, body zone/surface labels, visit counts, image counts,
+  same-kind candidate pair counts, and assessment counts;
+- visit timeline rows with status, timestamps, counts, and first/last capture
+  time;
+- candidate image pairs with image IDs, visit IDs, asset kind, technical status
+  (`ready`, `warning`, `blocked`), and technical reasons such as missing capture
+  time or non-image content type.
+
+The endpoint does not return object bucket, object key, checksum, storage path,
+signed URL, image bytes, QR/session/credential material, `physicianText`,
+`patientSafeText`, diagnosis, risk, prognosis, treatment, or any patient
+delivery artifact. Boundary flags are always:
+
+- `patientDeliveryAllowed: false`
+- `protectedFieldsExposed: false`
+- `storagePathsExposed: false`
+- `signedUrlsIssued: false`
+- `rawImageBytesExposed: false`
+- `doctorOnlyTextExposed: false`
+- `clinicalConclusionGenerated: false`
+
+Audit event `lesion_longitudinal_history.read` stores only patient ID, lesion
+ID, aggregate counts, and boundary flags. It intentionally omits image IDs,
+pair keys, protected asset references, doctor-only text, and any patient-facing
+copy.
+
+## Brainstorm Coverage
+
+- `SD-MF-025` / lesion timeline and repeated observation: partially solved.
+  Batch AW moves the longitudinal history from UI mock into a production
+  metadata ledger. Remaining gate: protected image rendering and doctor-side
+  visual verification still need a separate backend image proxy.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch AW
+  provides same-kind candidate pairs and technical blockers. Remaining gate:
+  richer capture-condition metadata and persisted pair review decisions beyond
+  the existing draft contract.
+- `SD-MF-028` / safe technical comparison: in work. Batch AW preserves the
+  "not clinical conclusion" boundary and only emits technical metadata.
+- `SD-MF-046` / photo protocol and protected photo access: in work. Batch AW
+  does not deliver images to patients or doctors; it prepares the ledger needed
+  before real protected-image rendering.
 
 ## Product Boundary
 

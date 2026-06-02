@@ -430,5 +430,36 @@ export function createClinicalWorkspaceService({
       });
       return { draft, scope };
     },
+
+    async getLesionLongitudinalHistory(patientId, lesionId, authContext, { correlationId } = {}) {
+      const safePatientId = assertUuid(patientId, "patientId");
+      const safeLesionId = assertUuid(lesionId, "lesionId");
+      const scope = visitReadScope(authContext);
+      const history = await clinicalWorkspaceRepository.getLesionLongitudinalHistory({
+        patientId: safePatientId,
+        lesionId: safeLesionId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      const summary = history?.summary || {};
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: history?.clinicId ?? scope.clinicIds[0] ?? null,
+        actorUserId: authContext.userId,
+        action: "lesion_longitudinal_history.read",
+        entityType: "lesion_longitudinal_history",
+        entityId: safeLesionId,
+        correlationId,
+        metadata: {
+          patientId: safePatientId,
+          lesionId: safeLesionId,
+          visitCount: Number(summary.visitCount ?? 0),
+          imageCount: Number(summary.imageCount ?? 0),
+          candidatePairCount: Number(summary.candidatePairCount ?? 0),
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+        },
+      });
+      return { history, scope };
+    },
   };
 }

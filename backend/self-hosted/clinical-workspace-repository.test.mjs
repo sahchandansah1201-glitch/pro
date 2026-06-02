@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   buildGetVisitAssessmentSql,
   buildGetVisitConclusionSql,
+  buildGetLesionLongitudinalHistorySql,
   buildGetVisitReportSql,
   buildUpsertLesionComparisonDraftSql,
   buildUpsertVisitAssessmentSql,
@@ -29,6 +30,25 @@ test("Stage 5H repository builders scope assessment, conclusion and report reads
   const report = buildGetVisitReportSql({ visitId: VISIT_ID, clinicIds: [CLINIC_ID] });
   assert.match(report, /from reports r/);
   assert.match(report, /physician_text as "physicianText"/);
+});
+
+test("Batch AW Stage 5H repository builds metadata-only lesion longitudinal history SQL", () => {
+  const sql = buildGetLesionLongitudinalHistorySql({
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /from lesions l/);
+  assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /left join clinical_assessments ca/);
+  assert.match(sql, /patient_delivery_allowed/i);
+  assert.match(sql, /protected_fields_exposed/i);
+  assert.match(sql, /and l\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text/i,
+  );
 });
 
 test("Stage 5H assessment/conclusion upserts use visit_id conflict and do not expose managed storage fields", () => {
@@ -159,4 +179,81 @@ test("Stage 5H repository normalizes lesion comparison draft rows", async () => 
   assert.deepEqual(draft.imageIds, ["i-011", "i-012"]);
   assert.equal(draft.patientDeliveryAllowed, false);
   assert.equal(draft.protectedFieldsExposed, false);
+});
+
+test("Batch AW Stage 5H repository normalizes longitudinal history with forced safe boundaries", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          lesionId: "10000000-0000-4000-8000-000000000801",
+          label: "Очаг A",
+          bodyZone: "Плечо",
+          bodySurface: "перед",
+          status: "active",
+          summary: {
+            visitCount: 2,
+            imageCount: 4,
+            candidatePairCount: 2,
+            comparablePairCount: 1,
+            warningPairCount: 1,
+            blockedPairCount: 0,
+            assessmentCount: 1,
+          },
+          visits: [
+            {
+              visitId: VISIT_ID,
+              startedAt: "2026-05-19T10:31:25.000Z",
+              status: "signed",
+              imageCount: 2,
+              dermoscopyCount: 1,
+              overviewCount: 1,
+              assessmentCount: 1,
+              capturedAtFirst: "2026-05-19T10:40:00.000Z",
+              capturedAtLast: "2026-05-19T10:45:00.000Z",
+            },
+          ],
+          candidatePairs: [
+            {
+              previousVisitId: "10000000-0000-4000-8000-000000000302",
+              currentVisitId: VISIT_ID,
+              previousImageId: "10000000-0000-4000-8000-000000000901",
+              currentImageId: "10000000-0000-4000-8000-000000000902",
+              kind: "dermoscopy",
+              status: "warning",
+              reasons: ["missing_capture_time"],
+            },
+          ],
+          boundaries: {
+            patientDeliveryAllowed: true,
+            protectedFieldsExposed: true,
+            storagePathsExposed: true,
+            signedUrlsIssued: true,
+            rawImageBytesExposed: true,
+            doctorOnlyTextExposed: true,
+            clinicalConclusionGenerated: true,
+          },
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const history = await repo.getLesionLongitudinalHistory({
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.equal(history.lesionId, "10000000-0000-4000-8000-000000000801");
+  assert.equal(history.summary.visitCount, 2);
+  assert.equal(history.candidatePairs[0].status, "warning");
+  assert.equal(history.boundaries.patientDeliveryAllowed, false);
+  assert.equal(history.boundaries.protectedFieldsExposed, false);
+  assert.equal(history.boundaries.storagePathsExposed, false);
+  assert.equal(history.boundaries.signedUrlsIssued, false);
+  assert.equal(history.boundaries.rawImageBytesExposed, false);
+  assert.equal(history.boundaries.doctorOnlyTextExposed, false);
+  assert.equal(history.boundaries.clinicalConclusionGenerated, false);
 });

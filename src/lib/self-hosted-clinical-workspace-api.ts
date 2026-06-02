@@ -76,6 +76,61 @@ export interface SelfHostedLesionComparisonDraftDTO extends LesionComparisonDraf
   updatedAt: string | null;
 }
 
+export interface SelfHostedLesionLongitudinalHistorySummaryDTO {
+  visitCount: number;
+  imageCount: number;
+  candidatePairCount: number;
+  comparablePairCount: number;
+  warningPairCount: number;
+  blockedPairCount: number;
+  assessmentCount: number;
+}
+
+export interface SelfHostedLesionLongitudinalHistoryVisitDTO {
+  visitId: string;
+  startedAt: string | null;
+  signedAt: string | null;
+  status: string;
+  imageCount: number;
+  dermoscopyCount: number;
+  overviewCount: number;
+  assessmentCount: number;
+  capturedAtFirst: string | null;
+  capturedAtLast: string | null;
+}
+
+export interface SelfHostedLesionLongitudinalHistoryPairDTO {
+  previousVisitId: string;
+  currentVisitId: string;
+  previousImageId: string;
+  currentImageId: string;
+  kind: string;
+  status: "ready" | "warning" | "blocked";
+  reasons: string[];
+}
+
+export interface SelfHostedLesionLongitudinalHistoryDTO {
+  clinicId: string | null;
+  patientId: string | null;
+  lesionId: string;
+  label: string | null;
+  bodyZone: string | null;
+  bodySurface: string | null;
+  status: string;
+  summary: SelfHostedLesionLongitudinalHistorySummaryDTO;
+  visits: SelfHostedLesionLongitudinalHistoryVisitDTO[];
+  candidatePairs: SelfHostedLesionLongitudinalHistoryPairDTO[];
+  boundaries: {
+    patientDeliveryAllowed: false;
+    protectedFieldsExposed: false;
+    storagePathsExposed: false;
+    signedUrlsIssued: false;
+    rawImageBytesExposed: false;
+    doctorOnlyTextExposed: false;
+    clinicalConclusionGenerated: false;
+  };
+}
+
 interface BaseArgs {
   apiBaseUrl: string | null | undefined;
   apiToken: string | null | undefined;
@@ -99,6 +154,11 @@ interface PatchReportArgs extends VisitArgs {
 
 interface PatchLesionComparisonDraftArgs extends VisitArgs {
   payload: LesionComparisonDraftPayload;
+}
+
+interface LesionLongitudinalHistoryArgs extends BaseArgs {
+  patientId: string;
+  lesionId: string;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -258,6 +318,15 @@ function toStringArray(input: unknown): string[] {
   return Array.isArray(input) ? input.map(String) : [];
 }
 
+function toRecordArray(input: unknown): Record<string, unknown>[] {
+  return Array.isArray(input) ? input.filter(isRecord) : [];
+}
+
+function numberOrZero(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
 function toLesionComparisonDraft(input: Record<string, unknown>): SelfHostedLesionComparisonDraftDTO {
   const imageIds = toStringArray(input.imageIds).slice(0, 2);
   return {
@@ -282,8 +351,76 @@ function toLesionComparisonDraft(input: Record<string, unknown>): SelfHostedLesi
   };
 }
 
+function toLongitudinalPairStatus(value: unknown): SelfHostedLesionLongitudinalHistoryPairDTO["status"] {
+  return value === "ready" || value === "warning" ? value : "blocked";
+}
+
+function toLesionLongitudinalHistory(input: Record<string, unknown>): SelfHostedLesionLongitudinalHistoryDTO {
+  const summary = isRecord(input.summary) ? input.summary : {};
+  return {
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    lesionId: String(input.lesionId ?? ""),
+    label: textOrNull(input.label),
+    bodyZone: textOrNull(input.bodyZone),
+    bodySurface: textOrNull(input.bodySurface),
+    status: String(input.status ?? "active"),
+    summary: {
+      visitCount: numberOrZero(summary.visitCount),
+      imageCount: numberOrZero(summary.imageCount),
+      candidatePairCount: numberOrZero(summary.candidatePairCount),
+      comparablePairCount: numberOrZero(summary.comparablePairCount),
+      warningPairCount: numberOrZero(summary.warningPairCount),
+      blockedPairCount: numberOrZero(summary.blockedPairCount),
+      assessmentCount: numberOrZero(summary.assessmentCount),
+    },
+    visits: toRecordArray(input.visits).map((visit) => ({
+      visitId: String(visit.visitId ?? ""),
+      startedAt: textOrNull(visit.startedAt),
+      signedAt: textOrNull(visit.signedAt),
+      status: String(visit.status ?? "draft"),
+      imageCount: numberOrZero(visit.imageCount),
+      dermoscopyCount: numberOrZero(visit.dermoscopyCount),
+      overviewCount: numberOrZero(visit.overviewCount),
+      assessmentCount: numberOrZero(visit.assessmentCount),
+      capturedAtFirst: textOrNull(visit.capturedAtFirst),
+      capturedAtLast: textOrNull(visit.capturedAtLast),
+    })),
+    candidatePairs: toRecordArray(input.candidatePairs).map((pair) => ({
+      previousVisitId: String(pair.previousVisitId ?? ""),
+      currentVisitId: String(pair.currentVisitId ?? ""),
+      previousImageId: String(pair.previousImageId ?? ""),
+      currentImageId: String(pair.currentImageId ?? ""),
+      kind: String(pair.kind ?? ""),
+      status: toLongitudinalPairStatus(pair.status),
+      reasons: toStringArray(pair.reasons),
+    })),
+    boundaries: {
+      patientDeliveryAllowed: false,
+      protectedFieldsExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      rawImageBytesExposed: false,
+      doctorOnlyTextExposed: false,
+      clinicalConclusionGenerated: false,
+    },
+  };
+}
+
 function visitUrl(apiBaseUrl: string | null | undefined, visitId: string, suffix: string): string {
   return buildSelfHostedApiUrl(apiBaseUrl, `/api/v1/visits/${encodeURIComponent(visitId)}${suffix}`);
+}
+
+function patientLesionUrl(
+  apiBaseUrl: string | null | undefined,
+  patientId: string,
+  lesionId: string,
+  suffix: string,
+): string {
+  return buildSelfHostedApiUrl(
+    apiBaseUrl,
+    `/api/v1/patients/${encodeURIComponent(patientId)}/lesions/${encodeURIComponent(lesionId)}${suffix}`,
+  );
 }
 
 export async function getSelfHostedVisitAssessment(
@@ -345,5 +482,19 @@ export async function saveSelfHostedLesionComparisonDraft(
     "PATCH",
     args.payload,
     toLesionComparisonDraft,
+  );
+}
+
+export async function getSelfHostedLesionLongitudinalHistory(
+  args: LesionLongitudinalHistoryArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionLongitudinalHistoryDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    patientLesionUrl(args.apiBaseUrl, args.patientId, args.lesionId, "/longitudinal-history"),
+    args.apiToken as string,
+    "GET",
+    null,
+    toLesionLongitudinalHistory,
   );
 }

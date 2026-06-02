@@ -3936,6 +3936,7 @@ function clinicalWorkspaceRuntime({
   conclusion = null,
   report = null,
   lesionComparisonDraft = null,
+  lesionLongitudinalHistory = null,
   reportPackage = null,
   photoProtocolRelease = null,
   photoProtocolReleaseAudit = null,
@@ -3972,6 +3973,10 @@ function clinicalWorkspaceRuntime({
       async saveLesionComparisonDraft() {
         if (clinicalError) throw clinicalError;
         return { draft: lesionComparisonDraft, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async getLesionLongitudinalHistory() {
+        if (clinicalError) throw clinicalError;
+        return { history: lesionLongitudinalHistory, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
       },
     },
     clinicalReportPackageService: {
@@ -4762,6 +4767,63 @@ test("Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-draft saves audit-
   assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef/i);
 });
 
+test("Batch AW Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history returns metadata-only ledger", async () => {
+  const lesionId = "10000000-0000-4000-8000-000000000801";
+  const response = await request(
+    `/api/v1/patients/${STAGE4G_PATIENT_ID}/lesions/${lesionId}/longitudinal-history`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      lesionLongitudinalHistory: {
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        lesionId,
+        label: "Очаг A",
+        bodyZone: "Плечо",
+        bodySurface: "перед",
+        status: "active",
+        summary: {
+          visitCount: 2,
+          imageCount: 4,
+          candidatePairCount: 2,
+          comparablePairCount: 1,
+          warningPairCount: 1,
+          blockedPairCount: 0,
+          assessmentCount: 1,
+        },
+        visits: [],
+        candidatePairs: [{
+          previousVisitId: "10000000-0000-4000-8000-000000000302",
+          currentVisitId: STAGE4G_VISIT_ID,
+          previousImageId: "10000000-0000-4000-8000-000000000901",
+          currentImageId: "10000000-0000-4000-8000-000000000902",
+          kind: "dermoscopy",
+          status: "ready",
+          reasons: [],
+        }],
+        boundaries: {
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          rawImageBytesExposed: false,
+          doctorOnlyTextExposed: false,
+          clinicalConclusionGenerated: false,
+        },
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.item.summary.visitCount, 2);
+  assert.equal(response.json.item.boundaries.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.boundaries.storagePathsExposed, false);
+  assert.doesNotMatch(
+    response.body,
+    /object_bucket|object_key|checksum_sha256|storage_object_path|signed_url\b|access_token|physicianText|patientSafeText|doctorVersionText|"storagePath"\s*:|"signedUrl"\s*:/i,
+  );
+});
+
 test("Stage 5H · /openapi.stage5h.json documents production clinical contracts", async () => {
   const response = await request("/openapi.stage5h.json");
   assert.equal(response.status, 200);
@@ -4770,7 +4832,9 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/conclusion"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-draft"].patch);
+  assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history"].get);
   assert.ok(response.json.components.schemas.LesionComparisonDecisionDraft);
+  assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
 });
 
 test("Stage 8G-8I · GET /api/v1/visits/{id}/report-package returns readiness without protected fields", async () => {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getSelfHostedVisitAssessment,
+  getSelfHostedLesionLongitudinalHistory,
   saveSelfHostedLesionComparisonDraft,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
@@ -165,5 +166,86 @@ describe("self-hosted-clinical-workspace-api", () => {
       }),
     );
     expect(JSON.stringify(fetchMock.mock.calls[0]?.[1])).not.toMatch(/storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session/i);
+  });
+
+  it("reads lesion longitudinal history through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            patientId: "patient-1",
+            lesionId: "lesion-1",
+            label: "Очаг A",
+            bodyZone: "Плечо",
+            bodySurface: "перед",
+            status: "active",
+            summary: {
+              visitCount: 2,
+              imageCount: 4,
+              candidatePairCount: 2,
+              comparablePairCount: 1,
+              warningPairCount: 1,
+              blockedPairCount: 0,
+              assessmentCount: 1,
+            },
+            visits: [{
+              visitId: "visit-1",
+              startedAt: "2026-05-19T10:31:25.000Z",
+              status: "signed",
+              imageCount: 2,
+              dermoscopyCount: 1,
+              overviewCount: 1,
+              assessmentCount: 1,
+              capturedAtFirst: "2026-05-19T10:40:00.000Z",
+              capturedAtLast: "2026-05-19T10:45:00.000Z",
+            }],
+            candidatePairs: [{
+              previousVisitId: "visit-0",
+              currentVisitId: "visit-1",
+              previousImageId: "image-a",
+              currentImageId: "image-b",
+              kind: "dermoscopy",
+              status: "warning",
+              reasons: ["missing_capture_time"],
+            }],
+            boundaries: {
+              patientDeliveryAllowed: true,
+              protectedFieldsExposed: true,
+              storagePathsExposed: true,
+              signedUrlsIssued: true,
+              rawImageBytesExposed: true,
+              doctorOnlyTextExposed: true,
+              clinicalConclusionGenerated: true,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getSelfHostedLesionLongitudinalHistory({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      patientId: "patient-1",
+      lesionId: "lesion-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.summary.visitCount).toBe(2);
+    expect(result.value?.candidatePairs[0]?.status).toBe("warning");
+    expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.boundaries.storagePathsExposed).toBe(false);
+    expect(result.value?.boundaries.signedUrlsIssued).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patients/patient-1/lesions/lesion-1/longitudinal-history",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /object_bucket|object_key|"storagePath"\s*:|"signedUrl"\s*:|accessToken|rawToken|doctorVersionText/i,
+    );
   });
 });

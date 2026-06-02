@@ -61,6 +61,76 @@
           "createdAt": { "type": ["string", "null"] },
           "updatedAt": { "type": ["string", "null"] }
         }
+      },
+      "LesionLongitudinalHistory": {
+        "type": "object",
+        "description": "Production-safe doctor-side longitudinal lesion ledger assembled from visits and clinical asset metadata. No protected image bytes, storage paths, signed URLs, patient delivery, or clinical conclusion is exposed.",
+        "properties": {
+          "clinicId": { "type": ["string", "null"] },
+          "patientId": { "type": "string" },
+          "lesionId": { "type": "string" },
+          "label": { "type": ["string", "null"] },
+          "bodyZone": { "type": ["string", "null"] },
+          "bodySurface": { "type": ["string", "null"] },
+          "status": { "type": "string" },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "visitCount": { "type": "integer", "minimum": 0 },
+              "imageCount": { "type": "integer", "minimum": 0 },
+              "candidatePairCount": { "type": "integer", "minimum": 0 },
+              "comparablePairCount": { "type": "integer", "minimum": 0 },
+              "warningPairCount": { "type": "integer", "minimum": 0 },
+              "blockedPairCount": { "type": "integer", "minimum": 0 },
+              "assessmentCount": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "visits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "visitId": { "type": "string" },
+                "startedAt": { "type": ["string", "null"] },
+                "signedAt": { "type": ["string", "null"] },
+                "status": { "type": "string" },
+                "imageCount": { "type": "integer", "minimum": 0 },
+                "dermoscopyCount": { "type": "integer", "minimum": 0 },
+                "overviewCount": { "type": "integer", "minimum": 0 },
+                "assessmentCount": { "type": "integer", "minimum": 0 },
+                "capturedAtFirst": { "type": ["string", "null"] },
+                "capturedAtLast": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "candidatePairs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "previousVisitId": { "type": "string" },
+                "currentVisitId": { "type": "string" },
+                "previousImageId": { "type": "string" },
+                "currentImageId": { "type": "string" },
+                "kind": { "type": "string" },
+                "status": { "type": "string", "enum": ["ready", "warning", "blocked"] },
+                "reasons": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "boundaries": {
+            "type": "object",
+            "properties": {
+              "patientDeliveryAllowed": { "type": "boolean", "const": false },
+              "protectedFieldsExposed": { "type": "boolean", "const": false },
+              "storagePathsExposed": { "type": "boolean", "const": false },
+              "signedUrlsIssued": { "type": "boolean", "const": false },
+              "rawImageBytesExposed": { "type": "boolean", "const": false },
+              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
+              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+            }
+          }
+        }
       }
     }
   },
@@ -123,6 +193,16 @@
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonDecisionDraft" } } }
         },
         "responses": { "200": { "description": "Saved metadata-only comparison draft" } }
+      }
+    },
+    "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history": {
+      "get": {
+        "summary": "Read a doctor-side metadata-only longitudinal ledger for one lesion across visits",
+        "parameters": [
+          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Metadata-only longitudinal lesion history" } }
       }
     }
   }

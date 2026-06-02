@@ -1897,6 +1897,43 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const lesionLongitudinalHistoryMatch = url.pathname.match(
+    /^\/api\/v1\/patients\/([^/]+)\/lesions\/([^/]+)\/longitudinal-history$/,
+  );
+  if (lesionLongitudinalHistoryMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const patientIdFromPath = decodeURIComponent(lesionLongitudinalHistoryMatch[1]);
+      const lesionIdFromPath = decodeURIComponent(lesionLongitudinalHistoryMatch[2]);
+      const result = await runtimeServices.clinicalWorkspaceService.getLesionLongitudinalHistory(
+        patientIdFromPath,
+        lesionIdFromPath,
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.history,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Stage 8G-8I · clinical reporting completion package.
   const visitReportPackageMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/report-package$/);
   if (visitReportPackageMatch && method === "GET") {

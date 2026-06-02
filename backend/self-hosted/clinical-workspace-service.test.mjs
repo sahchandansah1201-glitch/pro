@@ -55,6 +55,47 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         protectedFieldsExposed: false,
       };
     },
+    async getLesionLongitudinalHistory() {
+      return {
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        lesionId: "10000000-0000-4000-8000-000000000801",
+        label: "Очаг A",
+        bodyZone: "Плечо",
+        bodySurface: "перед",
+        status: "active",
+        summary: {
+          visitCount: 2,
+          imageCount: 4,
+          candidatePairCount: 2,
+          comparablePairCount: 1,
+          warningPairCount: 1,
+          blockedPairCount: 0,
+          assessmentCount: 1,
+        },
+        visits: [],
+        candidatePairs: [
+          {
+            previousVisitId: "10000000-0000-4000-8000-000000000302",
+            currentVisitId: VISIT_ID,
+            previousImageId: "10000000-0000-4000-8000-000000000901",
+            currentImageId: "10000000-0000-4000-8000-000000000902",
+            kind: "dermoscopy",
+            status: "ready",
+            reasons: [],
+          },
+        ],
+        boundaries: {
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          rawImageBytesExposed: false,
+          doctorOnlyTextExposed: false,
+          clinicalConclusionGenerated: false,
+        },
+      };
+    },
   };
   return createClinicalWorkspaceService({
     visitWorkspaceRepository: {
@@ -164,6 +205,36 @@ test("Stage 5H service persists lesion comparison draft with audit-safe metadata
     protectedFieldsExposed: false,
   });
   assert.doesNotMatch(JSON.stringify(auditEvents.at(-1)), /i-011|i-012|pairKey|storagePath|photoRef|token|session/i);
+});
+
+test("Batch AW Stage 5H service reads longitudinal history with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.getLesionLongitudinalHistory(
+    PATIENT_ID,
+    "10000000-0000-4000-8000-000000000801",
+    authContext,
+    { correlationId: "c7" },
+  );
+
+  assert.equal(result.history.summary.visitCount, 2);
+  assert.equal(result.history.boundaries.patientDeliveryAllowed, false);
+  assert.equal(auditEvents.at(-1).action, "lesion_longitudinal_history.read");
+  assert.equal(auditEvents.at(-1).entityType, "lesion_longitudinal_history");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    visitCount: 2,
+    imageCount: 4,
+    candidatePairCount: 2,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(auditEvents.at(-1)),
+    /previousImageId|currentImageId|object_bucket|object_key|storagePath|signedUrl|token|session|doctorOnly/i,
+  );
 });
 
 test("Stage 5H service denies assessment writes without visit write scope", async () => {
