@@ -43,6 +43,24 @@
           "physicianText": { "type": ["string", "null"] },
           "patientSafeText": { "type": ["string", "null"] }
         }
+      },
+      "LesionComparisonDecisionDraft": {
+        "type": "object",
+        "description": "Metadata-only doctor draft for a selected lesion image-pair decision. No patient delivery or protected file fields.",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string" },
+          "lesionId": { "type": "string" },
+          "pairKey": { "type": "string" },
+          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "action": { "type": "string", "enum": ["retake", "excluded", "report_limit"] },
+          "comparability": { "type": "string", "enum": ["comparable", "not_comparable"] },
+          "reasons": { "type": "array", "items": { "type": "string" } },
+          "patientDeliveryAllowed": { "type": "boolean", "const": false },
+          "protectedFieldsExposed": { "type": "boolean", "const": false },
+          "createdAt": { "type": ["string", "null"] },
+          "updatedAt": { "type": ["string", "null"] }
+        }
       }
     }
   },
@@ -94,6 +112,17 @@
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VisitReport" } } }
         },
         "responses": { "200": { "description": "Saved report" } }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-draft": {
+      "patch": {
+        "summary": "Persist a metadata-only doctor draft for a selected lesion image-pair comparison decision",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonDecisionDraft" } } }
+        },
+        "responses": { "200": { "description": "Saved metadata-only comparison draft" } }
       }
     }
   }

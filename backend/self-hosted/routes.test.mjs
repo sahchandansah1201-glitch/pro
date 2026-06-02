@@ -3935,6 +3935,7 @@ function clinicalWorkspaceRuntime({
   assessment = null,
   conclusion = null,
   report = null,
+  lesionComparisonDraft = null,
   reportPackage = null,
   photoProtocolRelease = null,
   photoProtocolReleaseAudit = null,
@@ -3967,6 +3968,10 @@ function clinicalWorkspaceRuntime({
       async getReport() {
         if (clinicalError) throw clinicalError;
         return { report, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async saveLesionComparisonDraft() {
+        if (clinicalError) throw clinicalError;
+        return { draft: lesionComparisonDraft, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
       },
     },
     clinicalReportPackageService: {
@@ -4719,6 +4724,44 @@ test("Stage 5H · GET /api/v1/visits/{id}/report reads report without exposing p
   assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token/i);
 });
 
+test("Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-draft saves audit-safe doctor draft", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/lesion-comparison-draft`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      lesionComparisonDraft: {
+        id: "10000000-0000-4000-8000-000000000704",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        action: "retake",
+        comparability: "not_comparable",
+        reasons: ["Разные условия съёмки"],
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      action: "retake",
+      comparability: "not_comparable",
+      reasons: ["Разные условия съёмки"],
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.doesNotMatch(response.body, /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef/i);
+});
+
 test("Stage 5H · /openapi.stage5h.json documents production clinical contracts", async () => {
   const response = await request("/openapi.stage5h.json");
   assert.equal(response.status, 200);
@@ -4726,6 +4769,8 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assessment"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/conclusion"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].get);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-draft"].patch);
+  assert.ok(response.json.components.schemas.LesionComparisonDecisionDraft);
 });
 
 test("Stage 8G-8I · GET /api/v1/visits/{id}/report-package returns readiness without protected fields", async () => {

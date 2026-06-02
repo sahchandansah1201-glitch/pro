@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { ForbiddenError } from "./rbac.mjs";
 import {
   createClinicalWorkspaceService,
+  normalizeLesionComparisonDraftPayload,
   normalizeUpdateAssessmentPayload,
   normalizeUpdateConclusionPayload,
 } from "./clinical-workspace-service.mjs";
@@ -37,6 +38,23 @@ function createService({ auditEvents = [], repo = {} } = {}) {
     async getReport() {
       return { id: "report-1", clinicId: CLINIC_ID, visitId: VISIT_ID, status: "draft" };
     },
+    async upsertLesionComparisonDraft() {
+      return {
+        id: "draft-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        doctorUserId: USER_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        action: "retake",
+        comparability: "not_comparable",
+        reasons: ["Разные условия съёмки"],
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      };
+    },
   };
   return createClinicalWorkspaceService({
     visitWorkspaceRepository: {
@@ -66,6 +84,32 @@ test("Stage 5H payload normalizers reject invalid clinical workspace writes", ()
   assert.deepEqual(normalizeUpdateAssessmentPayload({ status: "ready", abcdTotal: "3.4" }).abcdTotal, 3.4);
 });
 
+test("Stage 5H lesion comparison draft normalizer rejects unsafe or clinical-claim payloads", () => {
+  const valid = normalizeLesionComparisonDraftPayload({
+    lesionId: "l-008",
+    pairKey: "l-008:i-011+i-012",
+    imageIds: ["i-011", "i-012"],
+    action: "retake",
+    comparability: "not_comparable",
+    reasons: ["Разные условия съёмки", "Есть технические замечания"],
+  });
+  assert.equal(valid.patientDeliveryAllowed, false);
+  assert.equal(valid.protectedFieldsExposed, false);
+
+  assert.throws(
+    () => normalizeLesionComparisonDraftPayload({ ...valid, photoRef: "mock://photo" }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeLesionComparisonDraftPayload({ ...valid, reasons: ["вероятность меланомы"] }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeLesionComparisonDraftPayload({ ...valid, imageIds: ["i-011"] }),
+    VisitWorkspaceValidationError,
+  );
+});
+
 test("Stage 5H service reads and writes assessment/conclusion/report with audit events", async () => {
   const auditEvents = [];
   const service = createService({ auditEvents });
@@ -85,6 +129,41 @@ test("Stage 5H service reads and writes assessment/conclusion/report with audit 
     auditEvents.map((event) => event.action),
     ["assessment.read", "assessment.update", "conclusion.read", "conclusion.update", "report.read"],
   );
+});
+
+test("Stage 5H service persists lesion comparison draft with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.saveLesionComparisonDraft(
+    VISIT_ID,
+    {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      action: "retake",
+      comparability: "not_comparable",
+      reasons: ["Разные условия съёмки"],
+    },
+    authContext,
+    { correlationId: "c6" },
+  );
+
+  assert.equal(result.draft.patientDeliveryAllowed, false);
+  assert.equal(result.draft.protectedFieldsExposed, false);
+  assert.equal(auditEvents.at(-1).action, "lesion_comparison_draft.upsert");
+  assert.equal(auditEvents.at(-1).entityType, "lesion_comparison_decision_draft");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    lesionId: "l-008",
+    action: "retake",
+    comparability: "not_comparable",
+    imageCount: 2,
+    reasonsCount: 1,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  });
+  assert.doesNotMatch(JSON.stringify(auditEvents.at(-1)), /i-011|i-012|pairKey|storagePath|photoRef|token|session/i);
 });
 
 test("Stage 5H service denies assessment writes without visit write scope", async () => {

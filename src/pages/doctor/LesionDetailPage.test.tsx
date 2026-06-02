@@ -1,7 +1,11 @@
-import { beforeEach, describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { LESION_COMPARISON_DRAFTS_STORAGE_KEY } from "@/lib/lesion-comparison-drafts";
+import {
+  SELF_HOSTED_API_BASE_URL_KEY,
+  SELF_HOSTED_API_TOKEN_KEY,
+} from "@/lib/self-hosted-api-session";
 import LesionDetailPage from "./LesionDetailPage";
 
 const j = (...p: string[]) => p.join("");
@@ -29,6 +33,7 @@ const renderAt = (path: string) =>
 
 describe("LesionDetailPage", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     window.localStorage.clear();
   });
 
@@ -205,6 +210,52 @@ describe("LesionDetailPage", () => {
     expect(within(restoredReview).getByText(/Черновик решения загружен/)).toBeInTheDocument();
     expect(within(restoredReview).getAllByText(/Переснимок запрошен/).length).toBeGreaterThan(0);
     expect(within(restoredReview).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
+  });
+
+  it("saves the comparison draft to self-hosted backend when the doctor session is configured", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "draft-1",
+            visitId: "v-005",
+            lesionId: "l-008",
+            pairKey: "l-008:i-011+i-012",
+            imageIds: ["i-011", "i-012"],
+            action: "retake",
+            comparability: "not_comparable",
+            reasons: ["Разные условия съёмки"],
+            patientDeliveryAllowed: false,
+            protectedFieldsExposed: false,
+            savedAt: "2026-06-02T00:00:00.000Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const compareButtons = screen.getAllByRole("button", { name: /Сравнить/ });
+    fireEvent.click(compareButtons[0]);
+    fireEvent.click(compareButtons[1]);
+
+    const review = screen.getByRole("region", { name: /Рабочий разбор пары/ });
+    fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
+    fireEvent.click(within(review).getByRole("button", { name: /Сохранить черновик решения/ }));
+
+    expect(await within(review).findByText(/Backend audit сохранён/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-draft",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    const requestInit = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.stringify(requestInit)).not.toMatch(
+      /storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи/i,
+    );
   });
 
   it("links the lesion to the full Body Map in the source visit", () => {

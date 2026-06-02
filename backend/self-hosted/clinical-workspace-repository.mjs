@@ -29,6 +29,15 @@ function sqlNullableNumber(value) {
   return Number.isFinite(n) ? String(n) : "null";
 }
 
+function sqlTextArray(values = []) {
+  const items = (Array.isArray(values) ? values : []).map((value) => sqlLiteral(value));
+  return `array[${items.join(", ")}]::text[]`;
+}
+
+function sqlJsonb(value) {
+  return `${sqlLiteral(JSON.stringify(value ?? null))}::jsonb`;
+}
+
 function safeClinicIds(values = []) {
   return (Array.isArray(values) ? values : [])
     .map(String)
@@ -90,6 +99,26 @@ function reportColumns(alias = "r") {
     ${alias}.physician_text as "physicianText",
     ${alias}.patient_safe_text as "patientSafeText",
     ${alias}.signed_at as "signedAt",
+    ${alias}.created_at as "createdAt",
+    ${alias}.updated_at as "updatedAt"
+  `;
+}
+
+function lesionComparisonDraftColumns(alias = "d") {
+  return `
+    ${alias}.id::text as "id",
+    ${alias}.clinic_id::text as "clinicId",
+    ${alias}.patient_id::text as "patientId",
+    ${alias}.visit_id::text as "visitId",
+    ${alias}.doctor_user_id::text as "doctorUserId",
+    ${alias}.lesion_id as "lesionId",
+    ${alias}.pair_key as "pairKey",
+    ${alias}.image_ids as "imageIds",
+    ${alias}.action as "action",
+    ${alias}.comparability as "comparability",
+    ${alias}.reasons as "reasons",
+    ${alias}.patient_delivery_allowed as "patientDeliveryAllowed",
+    ${alias}.protected_fields_exposed as "protectedFieldsExposed",
     ${alias}.created_at as "createdAt",
     ${alias}.updated_at as "updatedAt"
   `;
@@ -244,6 +273,76 @@ from (
 `.trim();
 }
 
+function lesionComparisonDraftUpdateSet(draft = {}) {
+  return [
+    `image_ids = ${sqlTextArray(draft.imageIds)}`,
+    `action = ${sqlLiteral(draft.action)}`,
+    `comparability = ${sqlLiteral(draft.comparability)}`,
+    `reasons = ${sqlJsonb(draft.reasons ?? [])}`,
+    "patient_delivery_allowed = false",
+    "protected_fields_exposed = false",
+    `metadata_json = ${sqlJsonb({
+      brainstormTask: "SD-MF-026",
+      auditBoundary: "metadata_only",
+      patientDeliveryAllowed: false,
+      protectedFieldsExposed: false,
+    })}`,
+    "doctor_user_id = excluded.doctor_user_id",
+    "updated_at = now()",
+  ].join(",\n      ");
+}
+
+export function buildUpsertLesionComparisonDraftSql({
+  visitId,
+  patientId,
+  clinicId,
+  doctorUserId = null,
+  draft = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const scope = clinicScopeWhere({ alias: "lesion_comparison_decision_drafts", clinicIds, allClinics });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with upserted as (
+    insert into lesion_comparison_decision_drafts (
+      clinic_id, patient_id, visit_id, doctor_user_id, lesion_id, pair_key,
+      image_ids, action, comparability, reasons, patient_delivery_allowed,
+      protected_fields_exposed, metadata_json
+    )
+    values (
+      ${sqlUuid(clinicId)},
+      ${sqlUuid(patientId)},
+      ${sqlUuid(visitId)},
+      ${sqlNullableUuid(doctorUserId)},
+      ${sqlLiteral(draft.lesionId)},
+      ${sqlLiteral(draft.pairKey)},
+      ${sqlTextArray(draft.imageIds)},
+      ${sqlLiteral(draft.action)},
+      ${sqlLiteral(draft.comparability)},
+      ${sqlJsonb(draft.reasons ?? [])},
+      false,
+      false,
+      ${sqlJsonb({
+        brainstormTask: "SD-MF-026",
+        auditBoundary: "metadata_only",
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      })}
+    )
+    on conflict (visit_id, lesion_id, pair_key) do update
+    set ${lesionComparisonDraftUpdateSet(draft)}
+    where true ${scope}
+    returning *
+  )
+  select ${lesionComparisonDraftColumns("d")}
+  from upserted d
+  limit 1
+) result;
+`.trim();
+}
+
 function normalizeAssessment(row) {
   return {
     id: String(row.id),
@@ -296,6 +395,49 @@ function normalizeReport(row) {
   };
 }
 
+function parseStringArray(value) {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value !== "string") return [];
+  return value
+    .replace(/^\{|\}$/g, "")
+    .split(",")
+    .map((item) => item.replace(/^"|"$/g, "").trim())
+    .filter(Boolean);
+}
+
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normalizeLesionComparisonDraft(row) {
+  return {
+    id: String(row.id),
+    clinicId: row.clinicId ? String(row.clinicId) : null,
+    patientId: row.patientId ? String(row.patientId) : null,
+    visitId: row.visitId ? String(row.visitId) : null,
+    doctorUserId: row.doctorUserId ? String(row.doctorUserId) : null,
+    lesionId: String(row.lesionId ?? ""),
+    pairKey: String(row.pairKey ?? ""),
+    imageIds: parseStringArray(row.imageIds).slice(0, 2),
+    action: String(row.action ?? "retake"),
+    comparability: String(row.comparability ?? "not_comparable"),
+    reasons: parseJsonArray(row.reasons),
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    createdAt: row.createdAt ?? null,
+    updatedAt: row.updatedAt ?? null,
+  };
+}
+
 async function queryOne(dbClient, sql, normalize) {
   const rows = await dbClient.queryJson(sql);
   return Array.isArray(rows) && rows[0] ? normalize(rows[0]) : null;
@@ -317,6 +459,9 @@ export function createClinicalWorkspaceRepository(dbClient) {
     },
     async getReport(params) {
       return queryOne(dbClient, buildGetVisitReportSql(params), normalizeReport);
+    },
+    async upsertLesionComparisonDraft(params) {
+      return queryOne(dbClient, buildUpsertLesionComparisonDraftSql(params), normalizeLesionComparisonDraft);
     },
   };
 }

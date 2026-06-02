@@ -53,6 +53,29 @@ export interface ClinicalConclusionPayload {
   followUpAt?: string | null;
 }
 
+export type LesionComparisonDraftAction = "retake" | "excluded" | "report_limit";
+
+export interface LesionComparisonDraftPayload {
+  lesionId: string;
+  pairKey: string;
+  imageIds: [string, string];
+  action: LesionComparisonDraftAction;
+  comparability: "comparable" | "not_comparable";
+  reasons: string[];
+}
+
+export interface SelfHostedLesionComparisonDraftDTO extends LesionComparisonDraftPayload {
+  id: string;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  doctorUserId: string | null;
+  patientDeliveryAllowed: false;
+  protectedFieldsExposed: false;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 interface BaseArgs {
   apiBaseUrl: string | null | undefined;
   apiToken: string | null | undefined;
@@ -72,6 +95,10 @@ interface PatchConclusionArgs extends VisitArgs {
 
 interface PatchReportArgs extends VisitArgs {
   payload: VisitReportPayload;
+}
+
+interface PatchLesionComparisonDraftArgs extends VisitArgs {
+  payload: LesionComparisonDraftPayload;
 }
 
 const NOT_CONFIGURED: SelfHostedApiError = {
@@ -227,6 +254,34 @@ function toReport(input: Record<string, unknown>): SelfHostedVisitReportDTO {
   };
 }
 
+function toStringArray(input: unknown): string[] {
+  return Array.isArray(input) ? input.map(String) : [];
+}
+
+function toLesionComparisonDraft(input: Record<string, unknown>): SelfHostedLesionComparisonDraftDTO {
+  const imageIds = toStringArray(input.imageIds).slice(0, 2);
+  return {
+    id: String(input.id ?? ""),
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    visitId: textOrNull(input.visitId),
+    doctorUserId: textOrNull(input.doctorUserId),
+    lesionId: String(input.lesionId ?? ""),
+    pairKey: String(input.pairKey ?? ""),
+    imageIds: [
+      imageIds[0] ?? "",
+      imageIds[1] ?? "",
+    ],
+    action: String(input.action ?? "retake") as LesionComparisonDraftAction,
+    comparability: input.comparability === "comparable" ? "comparable" : "not_comparable",
+    reasons: toStringArray(input.reasons),
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    createdAt: textOrNull(input.createdAt),
+    updatedAt: textOrNull(input.updatedAt),
+  };
+}
+
 function visitUrl(apiBaseUrl: string | null | undefined, visitId: string, suffix: string): string {
   return buildSelfHostedApiUrl(apiBaseUrl, `/api/v1/visits/${encodeURIComponent(visitId)}${suffix}`);
 }
@@ -277,4 +332,18 @@ export async function updateSelfHostedVisitReportContract(
   const cfg = ensureConfigured(args);
   if (cfg) return fail(cfg);
   return requestJson(visitUrl(args.apiBaseUrl, args.visitId, "/report"), args.apiToken as string, "PATCH", args.payload, toReport);
+}
+
+export async function saveSelfHostedLesionComparisonDraft(
+  args: PatchLesionComparisonDraftArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionComparisonDraftDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-draft"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toLesionComparisonDraft,
+  );
 }

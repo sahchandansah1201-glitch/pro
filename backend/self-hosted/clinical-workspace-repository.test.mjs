@@ -5,6 +5,7 @@ import {
   buildGetVisitAssessmentSql,
   buildGetVisitConclusionSql,
   buildGetVisitReportSql,
+  buildUpsertLesionComparisonDraftSql,
   buildUpsertVisitAssessmentSql,
   buildUpsertVisitConclusionSql,
   createClinicalWorkspaceRepository,
@@ -88,4 +89,74 @@ test("Stage 5H repository normalizes assessment rows", async () => {
   assert.equal(assessment.visitId, VISIT_ID);
   assert.equal(assessment.abcdTotal, 3.7);
   assert.equal(assessment.sevenPointTotal, 2);
+});
+
+test("Stage 5H lesion comparison draft upsert is clinic-scoped and metadata-only", () => {
+  const sql = buildUpsertLesionComparisonDraftSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    draft: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      action: "retake",
+      comparability: "not_comparable",
+      reasons: ["Разные условия съёмки", "Есть технические замечания"],
+    },
+  });
+
+  assert.match(sql, /insert into lesion_comparison_decision_drafts/);
+  assert.match(sql, /on conflict \(visit_id, lesion_id, pair_key\) do update/);
+  assert.match(sql, /patient_delivery_allowed,\s+protected_fields_exposed/);
+  assert.match(sql, /false,\s+false/);
+  assert.match(sql, /where true and lesion_comparison_decision_drafts\.clinic_id in/);
+  assert.doesNotMatch(sql, /storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion/i);
+});
+
+test("Stage 5H repository normalizes lesion comparison draft rows", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          id: "10000000-0000-4000-8000-000000000704",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          doctorUserId: USER_ID,
+          lesionId: "l-008",
+          pairKey: "l-008:i-011+i-012",
+          imageIds: ["i-011", "i-012"],
+          action: "retake",
+          comparability: "not_comparable",
+          reasons: ["Разные условия съёмки"],
+          patientDeliveryAllowed: true,
+          protectedFieldsExposed: true,
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const draft = await repo.upsertLesionComparisonDraft({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    draft: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      action: "retake",
+      comparability: "not_comparable",
+      reasons: ["Разные условия съёмки"],
+    },
+  });
+
+  assert.equal(draft.visitId, VISIT_ID);
+  assert.deepEqual(draft.imageIds, ["i-011", "i-012"]);
+  assert.equal(draft.patientDeliveryAllowed, false);
+  assert.equal(draft.protectedFieldsExposed, false);
 });

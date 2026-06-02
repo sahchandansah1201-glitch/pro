@@ -1861,6 +1861,42 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const visitLesionComparisonDraftMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/lesion-comparison-draft$/,
+  );
+  if (visitLesionComparisonDraftMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const visitIdFromPath = decodeURIComponent(visitLesionComparisonDraftMatch[1]);
+      const result = await runtimeServices.clinicalWorkspaceService.saveLesionComparisonDraft(
+        visitIdFromPath,
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.draft,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   // Stage 8G-8I · clinical reporting completion package.
   const visitReportPackageMatch = url.pathname.match(/^\/api\/v1\/visits\/([^/]+)\/report-package$/);
   if (visitReportPackageMatch && method === "GET") {

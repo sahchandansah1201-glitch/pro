@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getSelfHostedVisitAssessment,
+  saveSelfHostedLesionComparisonDraft,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
   getSelfHostedVisitReport,
@@ -114,5 +115,55 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("validation");
     expect(result.error?.details?.[0]).toEqual({ field: "summary", message: "required" });
+  });
+
+  it("saves lesion comparison draft through metadata-only Stage 5H backend contract", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "draft-1",
+            visitId: "visit-1",
+            lesionId: "l-008",
+            pairKey: "l-008:i-011+i-012",
+            imageIds: ["i-011", "i-012"],
+            action: "retake",
+            comparability: "not_comparable",
+            reasons: ["Разные условия съёмки"],
+            patientDeliveryAllowed: true,
+            protectedFieldsExposed: true,
+            savedAt: "2026-06-02T00:00:00.000Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await saveSelfHostedLesionComparisonDraft({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        action: "retake",
+        comparability: "not_comparable",
+        reasons: ["Разные условия съёмки"],
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/lesion-comparison-draft",
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+    expect(JSON.stringify(fetchMock.mock.calls[0]?.[1])).not.toMatch(/storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session/i);
   });
 });

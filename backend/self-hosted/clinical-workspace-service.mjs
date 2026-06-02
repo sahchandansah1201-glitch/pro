@@ -11,7 +11,29 @@ import {
 
 const CLINICAL_STATUS_VALUES = new Set(["draft", "ready", "signed"]);
 const RISK_LEVEL_VALUES = new Set(["low", "moderate", "high", "urgent"]);
+const COMPARISON_ACTION_VALUES = new Set(["retake", "excluded", "report_limit"]);
+const COMPARABILITY_VALUES = new Set(["comparable", "not_comparable"]);
 const MAX_TEXT = 8000;
+const MAX_REASON_TEXT = 120;
+const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9._:+-]{1,160}$/;
+const UNSAFE_CLINICAL_REASON_PATTERN = /меланома|рак кожи|вероятность|диагноз|лечение|прогноз/i;
+const PROTECTED_INPUT_KEYS = new Set([
+  "storagePath",
+  "storageObjectPath",
+  "signedUrl",
+  "sharedLink",
+  "photoRef",
+  "heatmapRef",
+  "modelVersion",
+  "accessToken",
+  "rawToken",
+  "qrToken",
+  "sessionId",
+  "doctorVersionText",
+  "patientSafeText",
+  "patientDeliveryAllowed",
+  "protectedFieldsExposed",
+]);
 
 function isPlainObject(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
@@ -69,6 +91,43 @@ function requireObject(input) {
   if (!isPlainObject(input)) {
     throw new VisitWorkspaceValidationError([{ field: "body", message: "JSON object is required." }]);
   }
+}
+
+function containsProtectedKey(value) {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(containsProtectedKey);
+  return Object.entries(value).some(([key, nested]) => PROTECTED_INPUT_KEYS.has(key) || containsProtectedKey(nested));
+}
+
+function normalizeSafeIdentifier(input, field, details) {
+  const value = cleanString(input);
+  if (!value || !SAFE_IDENTIFIER_PATTERN.test(value)) {
+    details.push({ field, message: `${field} must be a safe metadata identifier.` });
+    return undefined;
+  }
+  return value;
+}
+
+function normalizeComparisonReasons(input, details) {
+  if (input == null) return [];
+  if (!Array.isArray(input)) {
+    details.push({ field: "reasons", message: "reasons must be an array." });
+    return undefined;
+  }
+  const reasons = [];
+  for (const reason of input.slice(0, 8)) {
+    const text = cleanString(reason);
+    if (!text) continue;
+    if (text.length > MAX_REASON_TEXT || UNSAFE_CLINICAL_REASON_PATTERN.test(text)) {
+      details.push({
+        field: "reasons",
+        message: "reasons must stay technical and avoid diagnosis, risk, prognosis, or treatment wording.",
+      });
+      return undefined;
+    }
+    reasons.push(text);
+  }
+  return reasons;
 }
 
 export function normalizeUpdateAssessmentPayload(input = {}) {
@@ -144,6 +203,55 @@ export function normalizeUpdateConclusionPayload(input = {}) {
   }
   if (details.length > 0) throw new VisitWorkspaceValidationError(details);
   return payload;
+}
+
+export function normalizeLesionComparisonDraftPayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in comparison draft payloads." });
+  }
+
+  const lesionId = normalizeSafeIdentifier(input.lesionId, "lesionId", details);
+  const pairKey = normalizeSafeIdentifier(input.pairKey, "pairKey", details);
+
+  const imageIds = Array.isArray(input.imageIds)
+    ? input.imageIds.map((id, index) => normalizeSafeIdentifier(id, `imageIds[${index}]`, details))
+    : undefined;
+  if (!imageIds || imageIds.length !== 2 || imageIds.some((id) => !id)) {
+    details.push({ field: "imageIds", message: "Exactly two safe image IDs are required." });
+  }
+
+  const action = cleanString(input.action);
+  if (!action || !COMPARISON_ACTION_VALUES.has(action)) {
+    details.push({ field: "action", message: "action must be retake, excluded, or report_limit." });
+  }
+
+  const comparability = cleanString(input.comparability);
+  if (!comparability || !COMPARABILITY_VALUES.has(comparability)) {
+    details.push({ field: "comparability", message: "comparability must be comparable or not_comparable." });
+  }
+
+  const reasons = normalizeComparisonReasons(input.reasons, details);
+  const expectedPairKey =
+    lesionId && imageIds?.length === 2 && imageIds.every(Boolean)
+      ? `${lesionId}:${[...imageIds].sort().join("+")}`
+      : null;
+  if (pairKey && expectedPairKey && pairKey !== expectedPairKey) {
+    details.push({ field: "pairKey", message: "pairKey must match lesionId and sorted imageIds." });
+  }
+
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    lesionId,
+    pairKey,
+    imageIds,
+    action,
+    comparability,
+    reasons: reasons ?? [],
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  };
 }
 
 function ensureScopeAllowsClinic(scope, clinicId) {
@@ -285,6 +393,42 @@ export function createClinicalWorkspaceService({
         metadata: { visitId: safeVisitId, exists: Boolean(report) },
       });
       return { report, scope };
+    },
+
+    async saveLesionComparisonDraft(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeLesionComparisonDraftPayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const draft = await clinicalWorkspaceRepository.upsertLesionComparisonDraft({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        draft: payload,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!draft) throw new VisitWorkspaceNotFoundError("Comparison draft could not be saved.");
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: draft.clinicId,
+        actorUserId: authContext.userId,
+        action: "lesion_comparison_draft.upsert",
+        entityType: "lesion_comparison_decision_draft",
+        entityId: draft.id,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          lesionId: payload.lesionId,
+          action: payload.action,
+          comparability: payload.comparability,
+          imageCount: payload.imageIds.length,
+          reasonsCount: payload.reasons.length,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+        },
+      });
+      return { draft, scope };
     },
   };
 }

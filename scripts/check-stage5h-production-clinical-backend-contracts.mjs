@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const REQUIRED_FILES = [
   "backend/self-hosted/db/migrations/0014_stage5h_clinical_workspace_contracts.sql",
+  "backend/self-hosted/db/migrations/0059_lesion_comparison_decision_drafts.sql",
   "backend/self-hosted/clinical-workspace-repository.mjs",
   "backend/self-hosted/clinical-workspace-repository.test.mjs",
   "backend/self-hosted/clinical-workspace-service.mjs",
@@ -14,6 +15,8 @@ const REQUIRED_FILES = [
   "backend/self-hosted/openapi.stage5h.json",
   "src/lib/self-hosted-clinical-workspace-api.ts",
   "src/lib/self-hosted-clinical-workspace-api.test.ts",
+  "src/pages/doctor/LesionDetailPage.tsx",
+  "src/pages/doctor/LesionDetailPage.test.tsx",
   "src/pages/doctor/VisitWorkspacePage.tsx",
   "src/pages/doctor/VisitWorkspacePage.test.tsx",
   "docs/backend/stage-5h-production-clinical-backend-contracts.md",
@@ -28,6 +31,12 @@ const REQUIRED_TEXT = {
     "clinical_conclusions",
     "reports_visit_id_unique_idx",
   ],
+  "backend/self-hosted/db/migrations/0059_lesion_comparison_decision_drafts.sql": [
+    "lesion_comparison_decision_drafts",
+    "patient_delivery_allowed boolean not null default false",
+    "protected_fields_exposed boolean not null default false",
+    "lesion_comparison_decision_drafts_metadata_no_protected_keys",
+  ],
   "backend/self-hosted/clinical-workspace-repository.mjs": [
     "createClinicalWorkspaceRepository",
     "buildGetVisitAssessmentSql",
@@ -35,9 +44,13 @@ const REQUIRED_TEXT = {
     "buildGetVisitConclusionSql",
     "buildUpsertVisitConclusionSql",
     "buildGetVisitReportSql",
+    "buildUpsertLesionComparisonDraftSql",
+    "lesion_comparison_decision_drafts",
   ],
   "backend/self-hosted/clinical-workspace-service.mjs": [
     "createClinicalWorkspaceService",
+    "normalizeLesionComparisonDraftPayload",
+    "lesion_comparison_draft.upsert",
     "assessment.read",
     "assessment.update",
     "conclusion.read",
@@ -50,6 +63,7 @@ const REQUIRED_TEXT = {
     "clinicalWorkspaceService",
     "visitAssessmentMatch",
     "visitConclusionMatch",
+    "visitLesionComparisonDraftMatch",
     "stage: \"5H\"",
   ],
   "backend/self-hosted/openapi.stage5h.json": [
@@ -57,6 +71,8 @@ const REQUIRED_TEXT = {
     "/api/v1/visits/{visitId}/assessment",
     "/api/v1/visits/{visitId}/conclusion",
     "/api/v1/visits/{visitId}/report",
+    "/api/v1/visits/{visitId}/lesion-comparison-draft",
+    "LesionComparisonDecisionDraft",
   ],
   "src/lib/self-hosted-clinical-workspace-api.ts": [
     "getSelfHostedVisitAssessment",
@@ -65,6 +81,18 @@ const REQUIRED_TEXT = {
     "updateSelfHostedVisitConclusion",
     "getSelfHostedVisitReport",
     "updateSelfHostedVisitReportContract",
+    "saveSelfHostedLesionComparisonDraft",
+  ],
+  "src/pages/doctor/LesionDetailPage.tsx": [
+    "saveSelfHostedLesionComparisonDraft",
+    "Backend audit сохранён",
+    "backend audit: только self-hosted metadata",
+    "Выдача пациенту: выключена",
+  ],
+  "src/pages/doctor/LesionDetailPage.test.tsx": [
+    "saves the comparison draft to self-hosted backend",
+    "/lesion-comparison-draft",
+    "Backend audit сохранён",
   ],
   "src/pages/doctor/VisitWorkspacePage.tsx": [
     "ProductionClinicalWorkspacePanel",
@@ -80,6 +108,8 @@ const REQUIRED_TEXT = {
     "GET /api/v1/visits/{visitId}/conclusion",
     "PATCH /api/v1/visits/{visitId}/conclusion",
     "GET /api/v1/visits/{visitId}/report",
+    "PATCH /api/v1/visits/{visitId}/lesion-comparison-draft",
+    "lesion_comparison_draft.upsert",
     "npm run preflight:stage5h",
   ],
   ".github/workflows/stage5h-production-clinical-backend-contracts.yml": [
@@ -94,6 +124,7 @@ const PROTECTED_RUNTIME_FILES = [
   "backend/self-hosted/clinical-workspace-service.mjs",
   "backend/self-hosted/openapi.stage5h.json",
   "src/lib/self-hosted-clinical-workspace-api.ts",
+  "src/pages/doctor/LesionDetailPage.tsx",
   "src/pages/doctor/VisitWorkspacePage.tsx",
 ];
 

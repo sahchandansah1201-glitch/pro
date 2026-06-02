@@ -38,6 +38,11 @@ import {
   type LesionComparisonAction,
   type LesionComparisonDecisionDraft,
 } from "@/lib/lesion-comparison-drafts";
+import {
+  isSelfHostedApiConfigured,
+  useSelfHostedApiSession,
+} from "@/lib/self-hosted-api-session";
+import { saveSelfHostedLesionComparisonDraft } from "@/lib/self-hosted-clinical-workspace-api";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
 
 const LESION_STATUS: Record<Lesion["status"], string> = {
@@ -74,6 +79,7 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
 };
 type ComparisonAction = LesionComparisonAction;
 type ComparisonDraftStatus = "idle" | "loaded" | "saved" | "cleared";
+type ComparisonBackendDraftStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 
 const COMPARISON_ACTION_LABEL: Record<ComparisonAction, string> = {
   retake: "Переснимок запрошен",
@@ -477,6 +483,8 @@ const NotFound = ({ title, hint }: { title: string; hint: string }) => (
 
 export default function LesionDetailPage() {
   const { id = "", lesionId = "" } = useParams<{ id: string; lesionId: string }>();
+  const selfHostedSession = useSelfHostedApiSession();
+  const selfHostedConfigured = isSelfHostedApiConfigured(selfHostedSession);
   const patient = getPatientById(id);
   const lesion = getLesionById(lesionId);
 
@@ -486,6 +494,8 @@ export default function LesionDetailPage() {
   const [comparisonAction, setComparisonAction] = useState<ComparisonAction | null>(null);
   const [comparisonDraft, setComparisonDraft] = useState<LesionComparisonDecisionDraft | null>(null);
   const [comparisonDraftStatus, setComparisonDraftStatus] = useState<ComparisonDraftStatus>("idle");
+  const [comparisonBackendStatus, setComparisonBackendStatus] = useState<ComparisonBackendDraftStatus>("idle");
+  const [comparisonBackendMessage, setComparisonBackendMessage] = useState("");
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
@@ -526,6 +536,8 @@ export default function LesionDetailPage() {
     if (!selectedPairDraftKey) {
       setComparisonDraft(null);
       setComparisonDraftStatus("idle");
+      setComparisonBackendStatus("idle");
+      setComparisonBackendMessage("");
       return;
     }
     const draft = loadLesionComparisonDraft(selectedPairDraftKey);
@@ -573,6 +585,8 @@ export default function LesionDetailPage() {
     setComparisonAction(null);
     setComparisonDraft(null);
     setComparisonDraftStatus("idle");
+    setComparisonBackendStatus("idle");
+    setComparisonBackendMessage("");
     setCompareDialogOpen(false);
     setCompareIds((prev) => {
       if (prev.includes(imgId)) return prev.filter((x) => x !== imgId);
@@ -584,9 +598,11 @@ export default function LesionDetailPage() {
   const handleComparisonAction = (action: ComparisonAction) => {
     setComparisonAction(action);
     setComparisonDraftStatus("idle");
+    setComparisonBackendStatus("idle");
+    setComparisonBackendMessage("");
   };
 
-  const saveComparisonDraft = () => {
+  const saveComparisonDraft = async () => {
     if (!selectedPairDraftKey || !comparePair || !comparisonAction) return;
     const draft = createLesionComparisonDecisionDraft({
       lesionId,
@@ -600,6 +616,34 @@ export default function LesionDetailPage() {
       setComparisonDraft(draft);
       setComparisonDraftStatus("saved");
     }
+    if (!latestVisit || !selfHostedConfigured) {
+      setComparisonBackendStatus("local_only");
+      setComparisonBackendMessage("Backend audit не отправлен: self-hosted backend не подключён.");
+      return;
+    }
+
+    setComparisonBackendStatus("saving");
+    setComparisonBackendMessage("Backend audit сохраняется.");
+    const result = await saveSelfHostedLesionComparisonDraft({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: {
+        lesionId,
+        pairKey: selectedPairDraftKey,
+        imageIds: [comparePair[0].id, comparePair[1].id],
+        action: comparisonAction,
+        comparability: draft.comparability,
+        reasons: draft.reasons,
+      },
+    });
+    if (result.ok) {
+      setComparisonBackendStatus("saved");
+      setComparisonBackendMessage("Backend audit сохранён в self-hosted backend.");
+    } else {
+      setComparisonBackendStatus("error");
+      setComparisonBackendMessage(result.error?.message ?? "Backend audit не сохранён.");
+    }
   };
 
   const clearComparisonDraft = () => {
@@ -607,6 +651,8 @@ export default function LesionDetailPage() {
     if (clearLesionComparisonDraft(selectedPairDraftKey)) {
       setComparisonDraft(null);
       setComparisonDraftStatus("cleared");
+      setComparisonBackendStatus("idle");
+      setComparisonBackendMessage("");
     }
   };
 
@@ -878,7 +924,7 @@ export default function LesionDetailPage() {
                           Сохраняется локально: ID пары, технический статус, причины и выбранное действие.
                         </p>
                         <p className="mt-1 text-[11px] text-muted-foreground">
-                          Выдача пациенту: выключена · backend не вызывается · защищённые поля скрыты.
+                          Выдача пациенту: выключена · backend audit: только self-hosted metadata · защищённые поля скрыты.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -937,6 +983,16 @@ export default function LesionDetailPage() {
                     {comparisonDraftStatus === "cleared" && (
                       <p className="mt-1 text-[12px] font-medium text-primary" role="status">
                         Черновик решения удалён
+                      </p>
+                    )}
+                    {comparisonBackendStatus !== "idle" && (
+                      <p
+                        className={`mt-1 text-[12px] font-medium ${
+                          comparisonBackendStatus === "error" ? "text-destructive" : "text-primary"
+                        }`}
+                        role="status"
+                      >
+                        {comparisonBackendMessage}
                       </p>
                     )}
                   </section>
