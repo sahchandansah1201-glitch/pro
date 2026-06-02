@@ -6,6 +6,7 @@ import {
   SELF_HOSTED_API_BASE_URL_KEY,
   SELF_HOSTED_API_TOKEN_KEY,
 } from "@/lib/self-hosted-api-session";
+import { PROTECTED_RENDER_QA_IDS } from "@/lib/mock-data";
 import LesionDetailPage from "./LesionDetailPage";
 
 const j = (...p: string[]) => p.join("");
@@ -234,6 +235,68 @@ describe("LesionDetailPage", () => {
     expect(dialog.textContent ?? "").not.toMatch(
       /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion/i,
     );
+  });
+
+  it("loads protected previews from the production UUID QA fixture through backend proxy", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    const previewUrls = ["blob:protected-preview-a", "blob:protected-preview-b"];
+    const createObjectURL = vi.fn(() => previewUrls.shift() ?? "blob:protected-preview-fallback");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+    const fetchMock = vi.fn(async () =>
+      new Response(new Uint8Array([1, 2, 3, 4]), {
+        status: 200,
+        headers: { "Content-Type": "image/png" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = renderAt(
+      `/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`,
+    );
+
+    selectComparePair(PROTECTED_RENDER_QA_IDS.imageAId, PROTECTED_RENDER_QA_IDS.imageBId);
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
+    const readiness = within(tools).getByRole("region", { name: /Готовность protected rendering/ });
+    expect(within(readiness).getByText(/Self-hosted вход/)).toBeInTheDocument();
+    expect(within(readiness).getByText(/Production UUID/)).toBeInTheDocument();
+    expect(within(readiness).getByText(/Backend proxy/)).toBeInTheDocument();
+    expect(within(readiness).getByText(/Выдача пациенту/)).toBeInTheDocument();
+
+    const loadButton = within(tools).getByRole("button", { name: /Подготовить защищённые превью/ });
+    expect(loadButton).not.toBeDisabled();
+    fireEvent.click(loadButton);
+
+    expect(await within(tools).findByText(/Защищённые превью загружены через backend proxy/)).toBeInTheDocument();
+    expect(within(dialog).getByAltText(/Защищённый снимок A/)).toHaveAttribute("src", "blob:protected-preview-a");
+    expect(within(dialog).getByAltText(/Защищённый снимок B/)).toHaveAttribute("src", "blob:protected-preview-b");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:3001/api/v1/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}/images/${PROTECTED_RENDER_QA_IDS.imageAId}/render`,
+      expect.objectContaining({ method: "GET", credentials: "include" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:3001/api/v1/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}/images/${PROTECTED_RENDER_QA_IDS.imageBId}/render`,
+      expect.objectContaining({ method: "GET", credentials: "include" }),
+    );
+    expect(dialog.textContent ?? "").not.toMatch(
+      /storagePath|object_bucket|object_key|signed_url|qrToken|sessionId|doctorVersionText|patientSafeText|меланома|рак кожи/i,
+    );
+
+    unmount();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:protected-preview-a");
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:protected-preview-b");
   });
 
   it("persists a structured doctor comparison draft without patient delivery", () => {

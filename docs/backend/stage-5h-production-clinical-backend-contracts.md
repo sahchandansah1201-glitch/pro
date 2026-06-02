@@ -170,6 +170,57 @@ Doctor UI:
 - `SD-MF-046` / patient protocol and lesion history: in progress. Batch AX is
   doctor-side only and does not enable patient delivery.
 
+## Batch AY Protected Rendering QA Fixture
+
+Batch AY makes the Batch AX protected rendering path testable on a
+production-like UUID fixture without enabling patient delivery.
+
+Fixture:
+
+- `PROTECTED_RENDER_QA_IDS` in `src/lib/mock-data.ts`;
+- fake patient code `DP-QA-PROXY`;
+- fake lesion `QA protected proxy`;
+- two lesion-linked UUID image IDs using `mock://images/protected-render-qa/*`
+  as demo-only placeholders.
+
+Doctor UI:
+
+- the full-screen lesion comparison dialog includes `Готовность protected rendering`;
+- readiness rows show:
+  - `Self-hosted вход`;
+  - `Production UUID`;
+  - `Backend proxy`;
+  - `Выдача пациенту`;
+- `Подготовить защищённые превью` remains disabled when self-hosted auth or
+  production UUID IDs are missing;
+- with the QA UUID fixture and a configured self-hosted session, the button
+  calls the Batch AX backend proxy client, receives `Blob` bytes, renders
+  object URLs locally, and revokes them on unmount.
+
+Safety boundary:
+
+- still no patient delivery;
+- no new backend route;
+- no signed URL, object bucket/key, storage path, QR/session/credential,
+  doctor-only report text, patient-facing report text, diagnosis, risk,
+  prognosis, treatment, or automated dynamic conclusion in UI/client/OpenAPI;
+- the fixture is deterministic demo data for QA only and is not a real patient
+  or real image.
+
+### Batch AY Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch AY adds a
+  production-like UUID QA fixture so protected image rendering can be tested
+  instead of staying only as disabled mock-state. Remaining gate: real
+  production assets and richer capture-condition metadata.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch AY
+  verifies protected A/B previews in the compare dialog via object URLs.
+  Remaining gate: true annotation geometry and clinical-grade viewer QA.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch AY keeps the
+  rendering path technical and does not add clinical conclusions.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch AY is
+  doctor-side QA only and keeps patient delivery off.
+
 ## Product Boundary
 
 - managed runtime: none

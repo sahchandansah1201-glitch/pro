@@ -95,6 +95,11 @@ type ComparisonAction = LesionComparisonAction;
 type ComparisonDraftStatus = "idle" | "loaded" | "saved" | "cleared";
 type ComparisonBackendDraftStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type ProtectedRenderStatus = "idle" | "loading" | "ready" | "error";
+type ProtectedRenderReadinessItem = {
+  label: string;
+  ready: boolean;
+  detail: string;
+};
 type ComparisonOverlay = "grid" | "center" | "off";
 type ComparisonViewport = {
   zoom: number;
@@ -155,7 +160,7 @@ const LONGITUDINAL_PAIR_LABEL: Record<LongitudinalPairStatus, string> = {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const compactList = (values: string[]) => (values.length > 0 ? values.join(", ") : "—");
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const isUuid = (value: string | null | undefined) => UUID_PATTERN.test(String(value || ""));
 const createPreviewObjectUrl = (blob: Blob) =>
   typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : "";
@@ -585,6 +590,7 @@ function ComparisonFullScreenDialog({
   canSaveDraft,
   draftStatus,
   canLoadProtectedImages,
+  protectedReadiness,
   protectedRenderStatus,
   protectedRenderMessage,
   protectedImageUrls,
@@ -601,6 +607,7 @@ function ComparisonFullScreenDialog({
   canSaveDraft: boolean;
   draftStatus: ComparisonDraftStatus;
   canLoadProtectedImages: boolean;
+  protectedReadiness: ProtectedRenderReadinessItem[];
   protectedRenderStatus: ProtectedRenderStatus;
   protectedRenderMessage: string;
   protectedImageUrls: Record<string, string>;
@@ -787,6 +794,28 @@ function ComparisonFullScreenDialog({
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     Только backend proxy: без signed URL, пути хранилища и выдачи пациенту.
                   </p>
+                  <div
+                    role="region"
+                    aria-label="Готовность protected rendering"
+                    className="mt-2 grid gap-1 rounded-sm border border-border bg-background p-2"
+                  >
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Готовность protected rendering
+                    </div>
+                    {protectedReadiness.map((item) => (
+                      <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
+                        {item.ready ? (
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-low" aria-hidden />
+                        ) : (
+                          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                        )}
+                        <div className="min-w-0">
+                          <span className="font-medium">{item.label}</span>
+                          <span className="text-muted-foreground"> · {item.detail}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                   {protectedRenderMessage && (
                     <p
                       className={`mt-1 text-[12px] ${
@@ -1087,6 +1116,28 @@ export default function LesionDetailPage() {
       && isUuid(lesion?.id)
       && comparePair.every((image) => isUuid(image.id)),
   );
+  const protectedReadiness: ProtectedRenderReadinessItem[] = [
+    {
+      label: "Self-hosted вход",
+      ready: selfHostedConfigured,
+      detail: selfHostedConfigured ? "сессия настроена" : "нужен вход в self-hosted backend",
+    },
+    {
+      label: "Production UUID",
+      ready: Boolean(comparePair && isUuid(patient?.id) && isUuid(lesion?.id) && comparePair.every((image) => isUuid(image.id))),
+      detail: "patient, lesion и оба image ID должны быть UUID",
+    },
+    {
+      label: "Backend proxy",
+      ready: true,
+      detail: "рендер идёт через `/images/{assetId}/render`",
+    },
+    {
+      label: "Выдача пациенту",
+      ready: true,
+      detail: "выключено; только врачебный просмотр",
+    },
+  ];
 
   useEffect(() => {
     setProtectedRenderStatus("idle");
@@ -1762,6 +1813,7 @@ export default function LesionDetailPage() {
         canSaveDraft={Boolean(comparisonAction)}
         draftStatus={comparisonDraftStatus}
         canLoadProtectedImages={canLoadProtectedImages}
+        protectedReadiness={protectedReadiness}
         protectedRenderStatus={protectedRenderStatus}
         protectedRenderMessage={
           protectedRenderMessage ||
