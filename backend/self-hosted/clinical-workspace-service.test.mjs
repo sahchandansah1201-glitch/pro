@@ -7,6 +7,7 @@ import {
   normalizeAssetCaptureMetadataPayload,
   normalizeLesionComparisonDraftPayload,
   normalizeLesionComparisonViewerQaPayload,
+  normalizeLesionComparisonViewerQaReviewPayload,
   normalizeUpdateAssessmentPayload,
   normalizeUpdateConclusionPayload,
 } from "./clinical-workspace-service.mjs";
@@ -177,6 +178,31 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         protectedFieldsExposed: false,
       };
     },
+    async reviewLesionComparisonViewerQa() {
+      return {
+        id: "viewer-qa-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        doctorUserId: USER_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+        calibrationStatus: "not_ready",
+        calibrationReasons: ["scale_marker_missing"],
+        captureMetadataStatus: "needs_review",
+        review: {
+          status: "needs_recapture",
+          reasons: ["repeat_capture_required"],
+          reviewedAt: "2026-05-19T10:50:00.000Z",
+          reviewedByUserId: USER_ID,
+        },
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      };
+    },
   };
   return createClinicalWorkspaceService({
     visitWorkspaceRepository: {
@@ -293,6 +319,40 @@ test("Batch BC/BD Stage 5H normalizers keep capture metadata and viewer QA techn
   );
   assert.throws(
     () => normalizeLesionComparisonViewerQaPayload({ ...qa, technicalMarkers: [{ target: "A", xPercent: 200, yPercent: 52 }] }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch BE Stage 5H viewer QA review normalizer is technical-only and metadata-safe", () => {
+  const review = normalizeLesionComparisonViewerQaReviewPayload({
+    lesionId: "l-008",
+    pairKey: "l-008:i-011+i-012",
+    imageIds: ["i-011", "i-012"],
+    reviewStatus: "needs_recapture",
+    reviewReasons: ["repeat_capture_required"],
+  });
+
+  assert.equal(review.reviewStatus, "needs_recapture");
+  assert.deepEqual(review.reviewReasons, ["repeat_capture_required"]);
+  assert.equal(review.medicalMeasurementAllowed, false);
+  assert.equal(review.patientDeliveryAllowed, false);
+  assert.equal(review.protectedFieldsExposed, false);
+
+  assert.throws(
+    () => normalizeLesionComparisonViewerQaReviewPayload({ ...review, signedUrl: "https://example.test/x" }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeLesionComparisonViewerQaReviewPayload({ ...review, reviewReasons: ["вероятность меланомы"] }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeLesionComparisonViewerQaReviewPayload({
+        ...review,
+        pairKey: "l-008:i-011+i-011",
+        imageIds: ["i-011", "i-011"],
+      }),
     VisitWorkspaceValidationError,
   );
 });
@@ -496,6 +556,44 @@ test("Batch BD Stage 5H service persists viewer QA with audit-safe metadata", as
     calibrationStatus: "not_ready",
     calibrationReasonsCount: 1,
     captureMetadataStatus: "needs_review",
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|pairKey|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BE Stage 5H service persists viewer QA review with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewLesionComparisonViewerQa(
+    VISIT_ID,
+    {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      reviewStatus: "needs_recapture",
+      reviewReasons: ["repeat_capture_required"],
+    },
+    authContext,
+    { correlationId: "c12" },
+  );
+
+  assert.equal(result.qa.review.status, "needs_recapture");
+  assert.equal(result.qa.medicalMeasurementAllowed, false);
+  assert.equal(result.qa.patientDeliveryAllowed, false);
+  assert.equal(result.qa.protectedFieldsExposed, false);
+  assert.equal(auditEvents.at(-1).action, "lesion_comparison_viewer_qa.review");
+  assert.equal(auditEvents.at(-1).entityType, "lesion_comparison_viewer_qa_draft");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    lesionId: "l-008",
+    reviewStatus: "needs_recapture",
+    reviewReasonsCount: 1,
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,

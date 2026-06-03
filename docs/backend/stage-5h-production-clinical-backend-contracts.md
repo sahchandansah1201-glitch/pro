@@ -473,6 +473,72 @@ Safety boundary:
   keeps patient delivery off; persisted QA can later support doctor-approved
   protocol evidence after privacy/security/copy gates.
 
+## Batch BE Viewer QA Technical Review Workflow
+
+Batch BE adds a production-safe technical review state over an existing
+`lesion_comparison_viewer_qa_drafts` record. It lets a doctor record whether
+the selected A/B pair is technically ready, needs recapture, or should not be
+used for dynamic comparison. This is not a diagnosis, prognosis, measurement,
+or patient-facing delivery event.
+
+Backend contracts:
+
+- migration `0061_stage5h_viewer_qa_review_workflow.sql`;
+- `PATCH /api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review`;
+- repository builder `buildReviewLesionComparisonViewerQaSql`;
+- service normalizer `normalizeLesionComparisonViewerQaReviewPayload`;
+- service method `reviewLesionComparisonViewerQa`;
+- audit action `lesion_comparison_viewer_qa.review`.
+
+Review statuses:
+
+- `technical_ready`;
+- `needs_recapture`;
+- `not_suitable_for_comparison`.
+
+Frontend behavior:
+
+- full-screen comparison includes `Технический review viewer QA`;
+- self-hosted flow first saves metadata-only viewer QA, then saves review
+  metadata;
+- demo/unconfigured flow remains local-only;
+- success copy says `Viewer QA review сохранён в self-hosted backend. Выдача
+  пациенту: выключена.`;
+- screen copy says `Решение техническое: не диагноз, не динамика, не
+  измерение.`
+
+Safety boundary:
+
+- review updates only an existing viewer QA draft;
+- SQL re-checks clinic/patient/visit/lesion scope and confirms the two selected
+  image assets are lesion-linked clinical images;
+- audit metadata stores only `visitId`, `lesionId`, review status, reason
+  count, and boundary flags;
+- audit metadata does not include `pairKey` or image IDs;
+- `medicalMeasurementAllowed=false`;
+- `patientDeliveryAllowed=false`;
+- `protectedFieldsExposed=false`;
+- no raw image bytes, object bucket/key, storage path, signed URL, QR/session,
+  credential material, doctor-only text, patient-safe report text, diagnosis,
+  risk, prognosis, treatment, or automated dynamic conclusion.
+
+### Batch BE Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BE adds
+  review state for selected chronology pairs. Remaining gate: production asset
+  validation and timeline-level review rollups.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BE
+  adds persisted technical review decisions after marker/calibration QA.
+  Remaining gate: calibrated production viewer QA, clinical-grade reviewer
+  workflow and approved measurement policy.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BE records
+  technical allow/block decisions without clinical dynamic conclusions.
+  Remaining gate: production analysis gate that prevents dynamic conclusions
+  unless capture metadata and calibration policy pass.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BE is
+  doctor-side technical review only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

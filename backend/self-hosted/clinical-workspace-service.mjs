@@ -16,6 +16,11 @@ const COMPARABILITY_VALUES = new Set(["comparable", "not_comparable"]);
 const CAPTURE_SOURCE_VALUES = new Set(["phone", "device_bridge", "file_import", "camera", "local_transfer", "unknown"]);
 const CALIBRATION_STATUS_VALUES = new Set(["ready", "not_ready", "limited"]);
 const CAPTURE_METADATA_STATUS_VALUES = new Set(["ready", "needs_review", "missing"]);
+const VIEWER_QA_REVIEW_STATUS_VALUES = new Set([
+  "technical_ready",
+  "needs_recapture",
+  "not_suitable_for_comparison",
+]);
 const MAX_TEXT = 8000;
 const MAX_REASON_TEXT = 120;
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9._:+-]{1,160}$/;
@@ -299,6 +304,51 @@ export function normalizeLesionComparisonViewerQaPayload(input = {}) {
     calibrationStatus,
     calibrationReasons: calibrationReasons ?? [],
     captureMetadataStatus,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  };
+}
+
+export function normalizeLesionComparisonViewerQaReviewPayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in viewer QA review payloads." });
+  }
+  const lesionId = normalizeSafeIdentifier(input.lesionId, "lesionId", details);
+  const pairKey = normalizeSafeIdentifier(input.pairKey, "pairKey", details);
+  const imageIds = Array.isArray(input.imageIds)
+    ? input.imageIds.map((id, index) => normalizeSafeIdentifier(id, `imageIds[${index}]`, details))
+    : undefined;
+  if (!imageIds || imageIds.length !== 2 || imageIds.some((id) => !id)) {
+    details.push({ field: "imageIds", message: "Exactly two safe image IDs are required." });
+  }
+  if (imageIds?.length === 2 && new Set(imageIds).size !== 2) {
+    details.push({ field: "imageIds", message: "imageIds must reference two different images." });
+  }
+  const expectedPairKey =
+    lesionId && imageIds?.length === 2 && imageIds.every(Boolean)
+      ? `${lesionId}:${[...imageIds].sort().join("+")}`
+      : null;
+  if (pairKey && expectedPairKey && pairKey !== expectedPairKey) {
+    details.push({ field: "pairKey", message: "pairKey must match lesionId and sorted imageIds." });
+  }
+  const reviewStatus = cleanString(input.reviewStatus);
+  if (!reviewStatus || !VIEWER_QA_REVIEW_STATUS_VALUES.has(reviewStatus)) {
+    details.push({
+      field: "reviewStatus",
+      message: "reviewStatus must be technical_ready, needs_recapture, or not_suitable_for_comparison.",
+    });
+  }
+  const reviewReasons = normalizeTechnicalStrings(input.reviewReasons, "reviewReasons", details);
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    lesionId,
+    pairKey,
+    imageIds,
+    reviewStatus,
+    reviewReasons: reviewReasons ?? [],
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
@@ -706,6 +756,41 @@ export function createClinicalWorkspaceService({
           calibrationStatus: payload.calibrationStatus,
           calibrationReasonsCount: payload.calibrationReasons.length,
           captureMetadataStatus: payload.captureMetadataStatus,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+        },
+      });
+      return { qa, scope };
+    },
+
+    async reviewLesionComparisonViewerQa(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeLesionComparisonViewerQaReviewPayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const qa = await clinicalWorkspaceRepository.reviewLesionComparisonViewerQa({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        review: payload,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!qa) throw new VisitWorkspaceNotFoundError("Viewer QA review could not be saved.");
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: qa.clinicId,
+        actorUserId: authContext.userId,
+        action: "lesion_comparison_viewer_qa.review",
+        entityType: "lesion_comparison_viewer_qa_draft",
+        entityId: qa.id,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          lesionId: payload.lesionId,
+          reviewStatus: payload.reviewStatus,
+          reviewReasonsCount: payload.reviewReasons.length,
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,

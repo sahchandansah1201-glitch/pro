@@ -398,6 +398,75 @@ describe("LesionDetailPage", () => {
     expect(dialog.textContent ?? "").toMatch(/Выдача пациенту: выключена/);
   });
 
+  it("persists a technical viewer QA review after saving metadata-only viewer QA", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "viewer-qa-1",
+            visitId: "v-005",
+            lesionId: "l-008",
+            pairKey: "l-008:i-011+i-012",
+            imageIds: ["i-011", "i-012"],
+            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+            calibrationStatus: "not_ready",
+            calibrationReasons: ["scale_marker_missing"],
+            captureMetadataStatus: "needs_review",
+            review: url.includes("/review")
+              ? {
+                  status: "needs_recapture",
+                  reasons: ["repeat_capture_required"],
+                  reviewedAt: "2026-05-19T10:50:00.000Z",
+                  reviewedByUserId: "doctor-1",
+                }
+              : { status: "unreviewed", reasons: [], reviewedAt: null, reviewedByUserId: null },
+            medicalMeasurementAllowed: false,
+            patientDeliveryAllowed: false,
+            protectedFieldsExposed: false,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/patients/p-004/lesions/l-008");
+
+    selectComparePair("i-011", "i-012");
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
+    const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
+    const review = within(tools).getByRole("region", { name: /Технический review viewer QA/ });
+
+    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
+    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер B/ }));
+    fireEvent.click(within(review).getByRole("button", { name: /Нужен переснимок/ }));
+
+    expect(await within(review).findByText(/Viewer QA review сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-viewer-qa",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-viewer-qa/review",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    const reviewBody = JSON.stringify(fetchMock.mock.calls[1]?.[1]);
+    expect(reviewBody).toContain("needs_recapture");
+    expect(reviewBody).toContain("repeat_capture_required");
+    expect(reviewBody).not.toMatch(
+      /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи|patientSafeText/i,
+    );
+    expect(within(review).getByText(/Решение техническое: не диагноз, не динамика, не измерение/)).toBeInTheDocument();
+    expect(within(review).getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
+  });
+
   it("keeps QA UUID viewer non-calibrated until a scale marker exists", () => {
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
     window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");

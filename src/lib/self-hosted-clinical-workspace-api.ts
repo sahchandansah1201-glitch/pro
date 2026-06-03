@@ -154,12 +154,26 @@ export interface LesionComparisonViewerQaPayload {
   captureMetadataStatus: "ready" | "needs_review" | "missing";
 }
 
+export interface LesionComparisonViewerQaReviewPayload {
+  lesionId: string;
+  pairKey: string;
+  imageIds: [string, string];
+  reviewStatus: "technical_ready" | "needs_recapture" | "not_suitable_for_comparison";
+  reviewReasons: string[];
+}
+
 export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonViewerQaPayload {
   id: string;
   clinicId: string | null;
   patientId: string | null;
   visitId: string | null;
   doctorUserId: string | null;
+  review: {
+    status: "unreviewed" | "technical_ready" | "needs_recapture" | "not_suitable_for_comparison";
+    reasons: string[];
+    reviewedAt: string | null;
+    reviewedByUserId: string | null;
+  };
   medicalMeasurementAllowed: false;
   patientDeliveryAllowed: false;
   protectedFieldsExposed: false;
@@ -254,6 +268,10 @@ interface PatchAssetCaptureMetadataArgs extends VisitArgs {
 
 interface PatchLesionComparisonViewerQaArgs extends VisitArgs {
   payload: LesionComparisonViewerQaPayload;
+}
+
+interface PatchLesionComparisonViewerQaReviewArgs extends VisitArgs {
+  payload: LesionComparisonViewerQaReviewPayload;
 }
 
 interface LesionLongitudinalHistoryArgs extends BaseArgs {
@@ -560,10 +578,19 @@ function toViewerQaMarker(input: Record<string, unknown>): LesionComparisonViewe
   };
 }
 
+function toViewerQaReviewStatus(
+  value: unknown,
+): SelfHostedLesionComparisonViewerQaDTO["review"]["status"] {
+  return value === "technical_ready" || value === "needs_recapture" || value === "not_suitable_for_comparison"
+    ? value
+    : "unreviewed";
+}
+
 function toLesionComparisonViewerQa(input: Record<string, unknown>): SelfHostedLesionComparisonViewerQaDTO {
   const imageIds = toStringArray(input.imageIds).slice(0, 2);
   const calibrationStatus = String(input.calibrationStatus ?? "not_ready");
   const captureMetadataStatus = String(input.captureMetadataStatus ?? "needs_review");
+  const review = isRecord(input.review) ? input.review : {};
   return {
     id: String(input.id ?? ""),
     clinicId: textOrNull(input.clinicId),
@@ -582,6 +609,12 @@ function toLesionComparisonViewerQa(input: Record<string, unknown>): SelfHostedL
     calibrationReasons: toStringArray(input.calibrationReasons),
     captureMetadataStatus:
       captureMetadataStatus === "ready" || captureMetadataStatus === "missing" ? captureMetadataStatus : "needs_review",
+    review: {
+      status: toViewerQaReviewStatus(review.status),
+      reasons: toStringArray(review.reasons),
+      reviewedAt: textOrNull(review.reviewedAt),
+      reviewedByUserId: textOrNull(review.reviewedByUserId),
+    },
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
@@ -768,6 +801,20 @@ export async function saveSelfHostedLesionComparisonViewerQa(
   if (cfg) return fail(cfg);
   return requestJson(
     visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toLesionComparisonViewerQa,
+  );
+}
+
+export async function reviewSelfHostedLesionComparisonViewerQa(
+  args: PatchLesionComparisonViewerQaReviewArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionComparisonViewerQaDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa/review"),
     args.apiToken as string,
     "PATCH",
     args.payload,

@@ -8,6 +8,7 @@ import {
   buildGetLesionLongitudinalHistorySql,
   buildGetProtectedLesionImageAssetSql,
   buildGetVisitReportSql,
+  buildReviewLesionComparisonViewerQaSql,
   buildUpsertAssetCaptureMetadataSql,
   buildUpsertLesionComparisonDraftSql,
   buildUpsertLesionComparisonViewerQaSql,
@@ -277,6 +278,39 @@ test("Batch BD Stage 5H viewer QA upsert is clinic-scoped and disables medical m
   assert.doesNotMatch(sql, /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken/i);
 });
 
+test("Batch BE Stage 5H viewer QA review updates an existing metadata-only draft", () => {
+  const sql = buildReviewLesionComparisonViewerQaSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    review: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      reviewStatus: "needs_recapture",
+      reviewReasons: ["repeat_capture_required"],
+    },
+  });
+
+  assert.match(sql, /update lesion_comparison_viewer_qa_drafts q/);
+  assert.match(sql, /from lesions l/);
+  assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /review_status = 'needs_recapture'/);
+  assert.match(sql, /review_reasons = '\["repeat_capture_required"\]'::jsonb/);
+  assert.match(sql, /reviewed_by_user_id = '10000000-0000-4000-8000-000000000101'::uuid/);
+  assert.match(sql, /reviewed_at = now\(\)/);
+  assert.match(sql, /medical_measurement_allowed = false/);
+  assert.match(sql, /patient_delivery_allowed = false/);
+  assert.match(sql, /protected_fields_exposed = false/);
+  assert.match(sql, /and q\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|doctorVersionText|patientSafeText/i,
+  );
+});
+
 test("Stage 5H repository normalizes lesion comparison draft rows", async () => {
   const dbClient = {
     async queryJson() {
@@ -320,6 +354,58 @@ test("Stage 5H repository normalizes lesion comparison draft rows", async () => 
   assert.deepEqual(draft.imageIds, ["i-011", "i-012"]);
   assert.equal(draft.patientDeliveryAllowed, false);
   assert.equal(draft.protectedFieldsExposed, false);
+});
+
+test("Batch BE Stage 5H repository normalizes viewer QA review with forced safe boundaries", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          id: "viewer-qa-1",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          doctorUserId: USER_ID,
+          lesionId: "l-008",
+          pairKey: "l-008:i-011+i-012",
+          imageIds: ["i-011", "i-012"],
+          technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+          calibrationStatus: "not_ready",
+          calibrationReasons: ["scale_marker_missing"],
+          captureMetadataStatus: "needs_review",
+          reviewStatus: "needs_recapture",
+          reviewReasons: ["repeat_capture_required"],
+          reviewedByUserId: USER_ID,
+          reviewedAt: "2026-05-19T10:50:00.000Z",
+          medicalMeasurementAllowed: true,
+          patientDeliveryAllowed: true,
+          protectedFieldsExposed: true,
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const qa = await repo.reviewLesionComparisonViewerQa({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    review: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      reviewStatus: "needs_recapture",
+      reviewReasons: ["repeat_capture_required"],
+    },
+  });
+
+  assert.equal(qa.review.status, "needs_recapture");
+  assert.deepEqual(qa.review.reasons, ["repeat_capture_required"]);
+  assert.equal(qa.review.reviewedByUserId, USER_ID);
+  assert.equal(qa.medicalMeasurementAllowed, false);
+  assert.equal(qa.patientDeliveryAllowed, false);
+  assert.equal(qa.protectedFieldsExposed, false);
 });
 
 test("Batch BC Stage 5H repository normalizes capture metadata with forced safe boundaries", async () => {
