@@ -946,6 +946,64 @@ Frontend behavior:
   doctor-side metadata only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BM Production Asset Readiness Gate
+
+Batch BM adds a production-safe protected asset readiness gate to the existing
+Stage 5H longitudinal QA and dataset validation flow. This does not stream
+image bytes to the patient and does not create signed URLs. The backend may
+internally verify that a clinical asset has protected object-store presence,
+positive byte size, and capture time, but API/UI/audit responses expose only
+derived status, reason codes, and aggregate counts.
+
+Contract additions:
+
+- `GET /api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata`
+  returns nested `productionAssetReadiness.status/reasons`;
+- lesion longitudinal QA adds `productionAssetNotReadyCount`, blocker
+  `production_asset_not_ready`, and next action `verify_production_asset`;
+- visit longitudinal dataset validation adds aggregate and per-lesion
+  `productionAssetNotReadyCount`;
+- OpenAPI and frontend DTOs expose only metadata-only readiness fields.
+
+Safety boundary:
+
+- no object bucket/key, storage path, checksum, signed URL, raw image bytes,
+  QR/session/token, doctor-only text, patient-safe report text, diagnosis,
+  risk, prognosis, treatment, measurement, or dynamic conclusion is exposed in
+  API/UI/audit;
+- audit metadata stores only aggregate counts and boundary flags;
+- `patientDeliveryAllowed=false`;
+- `medicalMeasurementAllowed=false`;
+- `clinicalConclusionGenerated=false`.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab shows a separate `Assets` counter in
+  `Готовность timeline QA`;
+- per-lesion rows show `assets: {count}`;
+- next action label `Проверить production assets` appears when the backend
+  returns `verify_production_asset`;
+- `LesionDetailPage` shows the same production blocker/action in the lesion
+  `Готовность продольного QA` section.
+
+### Batch BM Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BM adds a real
+  production asset readiness gate to chronology/timeline validation. Remaining
+  gate: validate the gate on real clinic assets and extend device-provided
+  metadata where needed.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BM
+  prevents image-pair/timeline rollout when protected production assets are not
+  backend-proxy-ready. Remaining gate: clinical-grade reviewer operations on
+  real assets and approved measurement policy.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BM keeps dynamic
+  interpretation blocked when production asset readiness is incomplete; no
+  clinical dynamic conclusion is generated. Remaining gate: approved production
+  analysis policy and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BM is
+  doctor-side metadata-only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

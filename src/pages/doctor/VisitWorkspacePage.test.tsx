@@ -739,6 +739,7 @@ function createLiveWorkspaceFetchMock() {
                 candidatePairCount: 3,
                 reviewedPairCount: 2,
                 technicalReadyPairCount: 2,
+                productionAssetNotReadyCount: 1,
                 missingCaptureMetadataCount: 1,
                 deviceEvidenceNotReadyCount: 1,
                 deviceBridgeQualityNotReadyCount: 1,
@@ -760,6 +761,7 @@ function createLiveWorkspaceFetchMock() {
                   candidatePairCount: 2,
                   reviewedPairCount: 1,
                   technicalReadyPairCount: 1,
+                  productionAssetNotReadyCount: 1,
                   missingCaptureMetadataCount: 1,
                   deviceEvidenceNotReadyCount: 1,
                   deviceBridgeQualityNotReadyCount: 1,
@@ -782,6 +784,7 @@ function createLiveWorkspaceFetchMock() {
                   candidatePairCount: 2,
                   reviewedPairCount: 1,
                   technicalReadyPairCount: 1,
+                  productionAssetNotReadyCount: 0,
                   missingCaptureMetadataCount: 0,
                   deviceEvidenceNotReadyCount: 1,
                   deviceBridgeQualityNotReadyCount: 1,
@@ -811,6 +814,14 @@ function createLiveWorkspaceFetchMock() {
                   imageIds: ["i-011", "i-012"],
                 },
                 {
+                  code: "production_asset_not_ready",
+                  label: "Production asset требует проверки",
+                  count: 1,
+                  nextAction: "verify_production_asset",
+                  pairKey: "live-lesion:i-011+i-012",
+                  imageIds: ["i-011", "i-012"],
+                },
+                {
                   code: "device_bridge_quality_not_ready",
                   label: "Device Bridge требует проверки",
                   count: 1,
@@ -819,7 +830,7 @@ function createLiveWorkspaceFetchMock() {
                   imageIds: ["i-011", "i-012"],
                 },
               ],
-              nextActions: ["complete_capture_metadata", "complete_device_metadata", "check_device_bridge"],
+              nextActions: ["verify_production_asset", "complete_capture_metadata", "complete_device_metadata", "check_device_bridge"],
               boundaries: {
                 patientDeliveryAllowed: true,
                 medicalMeasurementAllowed: true,
@@ -919,8 +930,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Production dataset validation/)).toBeInTheDocument();
     expect(screen.getByText(/не создаёт вывод о динамике/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
+    expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить Device Bridge/)).toBeInTheDocument();
+    expect(screen.getAllByText(/assets: 1/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/bridge: 1/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Динамический вывод: выключен/)).toBeInTheDocument();
     expect(screen.getByText(/Неизменяемый backend-аудит/)).toBeInTheDocument();

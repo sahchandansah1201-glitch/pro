@@ -221,6 +221,7 @@ const LONGITUDINAL_QA_ACTION_LABEL: Record<SelfHostedLesionLongitudinalQaAction,
   review_queue: "Разобрать очередь viewer QA",
   request_recapture: "Запросить переснимок",
   exclude_from_dynamic_review: "Исключить из динамического разбора",
+  verify_production_asset: "Проверить production assets",
   complete_capture_metadata: "Дозаполнить metadata съёмки",
   complete_device_metadata: "Дозаполнить device metadata",
   check_device_bridge: "Проверить Device Bridge",
@@ -589,6 +590,7 @@ function buildLocalLongitudinalQaGate({
       needsRecaptureCount,
       notSuitableForComparisonCount,
       unreviewedPairCount,
+      productionAssetNotReadyCount: 0,
       missingCaptureMetadataCount: 0,
       deviceEvidenceNotReadyCount: 0,
       deviceBridgeQualityNotReadyCount: 0,
@@ -776,7 +778,7 @@ function LongitudinalQaGateSection({
           </span>
         </div>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Пары</div>
             <div className="mt-1 font-medium">Пар: {readiness.candidatePairCount}</div>
@@ -796,6 +798,11 @@ function LongitudinalQaGateSection({
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Metadata</div>
             <div className="mt-1 font-medium">Не хватает: {readiness.missingCaptureMetadataCount}</div>
             <div className="text-[11px] text-muted-foreground">Device: {readiness.deviceEvidenceNotReadyCount}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Assets</div>
+            <div className="mt-1 font-medium">Проверить: {readiness.productionAssetNotReadyCount}</div>
+            <div className="text-[11px] text-muted-foreground">Proxy-ready gate</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Bridge</div>

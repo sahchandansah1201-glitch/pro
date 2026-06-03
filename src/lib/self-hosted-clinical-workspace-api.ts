@@ -120,6 +120,10 @@ export interface SelfHostedAssetCaptureMetadataDTO {
     status: "ready" | "needs_review" | "not_applicable";
     reasons: string[];
   };
+  productionAssetReadiness: {
+    status: "ready" | "needs_review";
+    reasons: string[];
+  };
   patientDeliveryAllowed: false;
   protectedFieldsExposed: false;
   createdAt: string | null;
@@ -138,6 +142,8 @@ export interface SelfHostedLesionCaptureMetadataDTO {
     scaleReadyCount: number;
     deviceEvidenceReadyCount: number;
     deviceEvidenceReviewCount: number;
+    productionAssetReadyCount: number;
+    productionAssetReviewCount: number;
     deviceBridgeQualityReadyCount: number;
     deviceBridgeQualityReviewCount: number;
   };
@@ -154,6 +160,7 @@ export interface SelfHostedLesionCaptureMetadataDTO {
     quality: { score: number | null; issues: string[] };
     calibration: { scaleMarkerDetected: boolean; millimetersAvailable: boolean };
     deviceEvidence: SelfHostedAssetCaptureMetadataDTO["deviceEvidence"];
+    productionAssetReadiness: SelfHostedAssetCaptureMetadataDTO["productionAssetReadiness"];
     deviceBridgeQuality: SelfHostedAssetCaptureMetadataDTO["deviceBridgeQuality"];
     technicalStatus: "ready" | "warning" | "missing";
     technicalReasons: string[];
@@ -342,6 +349,7 @@ export type SelfHostedLesionLongitudinalQaAction =
   | "review_queue"
   | "request_recapture"
   | "exclude_from_dynamic_review"
+  | "verify_production_asset"
   | "complete_capture_metadata"
   | "complete_device_metadata"
   | "check_device_bridge"
@@ -364,6 +372,7 @@ export interface SelfHostedLesionLongitudinalQaDTO {
     needsRecaptureCount: number;
     notSuitableForComparisonCount: number;
     unreviewedPairCount: number;
+    productionAssetNotReadyCount: number;
     missingCaptureMetadataCount: number;
     deviceEvidenceNotReadyCount: number;
     deviceBridgeQualityNotReadyCount: number;
@@ -378,6 +387,7 @@ export interface SelfHostedLesionLongitudinalQaDTO {
       | "recapture_required"
       | "not_suitable_for_comparison"
       | "unreviewed_pairs"
+      | "production_asset_not_ready"
       | "missing_capture_metadata"
       | "device_metadata_not_ready"
       | "device_bridge_quality_not_ready"
@@ -422,6 +432,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     candidatePairCount: number;
     reviewedPairCount: number;
     technicalReadyPairCount: number;
+    productionAssetNotReadyCount: number;
     missingCaptureMetadataCount: number;
     deviceEvidenceNotReadyCount: number;
     deviceBridgeQualityNotReadyCount: number;
@@ -442,6 +453,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     candidatePairCount: number;
     reviewedPairCount: number;
     technicalReadyPairCount: number;
+    productionAssetNotReadyCount: number;
     missingCaptureMetadataCount: number;
     deviceEvidenceNotReadyCount: number;
     deviceBridgeQualityNotReadyCount: number;
@@ -770,6 +782,15 @@ function toDeviceBridgeQuality(input: unknown): SelfHostedAssetCaptureMetadataDT
   };
 }
 
+function toProductionAssetReadiness(input: unknown): SelfHostedAssetCaptureMetadataDTO["productionAssetReadiness"] {
+  const row = isRecord(input) ? input : {};
+  const status = row.status === "ready" ? "ready" : "needs_review";
+  return {
+    status,
+    reasons: toStringArray(row.reasons),
+  };
+}
+
 function toAssetCaptureMetadata(input: Record<string, unknown>): SelfHostedAssetCaptureMetadataDTO {
   return {
     id: String(input.id ?? ""),
@@ -784,6 +805,7 @@ function toAssetCaptureMetadata(input: Record<string, unknown>): SelfHostedAsset
     quality: toQuality(input.quality),
     calibration: toCalibration(input.calibration),
     deviceEvidence: toDeviceEvidence(input.deviceEvidence),
+    productionAssetReadiness: toProductionAssetReadiness(input.productionAssetReadiness),
     deviceBridgeQuality: toDeviceBridgeQuality(input.deviceBridgeQuality),
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
@@ -808,9 +830,11 @@ function toLesionCaptureMetadata(input: Record<string, unknown>): SelfHostedLesi
       missingMetadataCount: numberOrZero(summary.missingMetadataCount),
       readyForTechnicalCompareCount: numberOrZero(summary.readyForTechnicalCompareCount),
       scaleReadyCount: numberOrZero(summary.scaleReadyCount),
-      deviceEvidenceReadyCount: numberOrZero(summary.deviceEvidenceReadyCount),
-      deviceEvidenceReviewCount: numberOrZero(summary.deviceEvidenceReviewCount),
-      deviceBridgeQualityReadyCount: numberOrZero(summary.deviceBridgeQualityReadyCount),
+    deviceEvidenceReadyCount: numberOrZero(summary.deviceEvidenceReadyCount),
+    deviceEvidenceReviewCount: numberOrZero(summary.deviceEvidenceReviewCount),
+    productionAssetReadyCount: numberOrZero(summary.productionAssetReadyCount),
+    productionAssetReviewCount: numberOrZero(summary.productionAssetReviewCount),
+    deviceBridgeQualityReadyCount: numberOrZero(summary.deviceBridgeQualityReadyCount),
       deviceBridgeQualityReviewCount: numberOrZero(summary.deviceBridgeQualityReviewCount),
     },
     items: toRecordArray(input.items).map((item) => ({
@@ -825,8 +849,9 @@ function toLesionCaptureMetadata(input: Record<string, unknown>): SelfHostedLesi
       frame: toFrame(item.frame),
       quality: toQuality(item.quality),
       calibration: toCalibration(item.calibration),
-      deviceEvidence: toDeviceEvidence(item.deviceEvidence),
-      deviceBridgeQuality: toDeviceBridgeQuality(item.deviceBridgeQuality),
+    deviceEvidence: toDeviceEvidence(item.deviceEvidence),
+    productionAssetReadiness: toProductionAssetReadiness(item.productionAssetReadiness),
+    deviceBridgeQuality: toDeviceBridgeQuality(item.deviceBridgeQuality),
       technicalStatus: toCaptureMetadataStatus(item.technicalStatus),
       technicalReasons: toStringArray(item.technicalReasons),
     })),
@@ -1061,6 +1086,7 @@ const LONGITUDINAL_QA_BLOCKER_CODES = new Set<SelfHostedLesionLongitudinalQaDTO[
   "recapture_required",
   "not_suitable_for_comparison",
   "unreviewed_pairs",
+  "production_asset_not_ready",
   "missing_capture_metadata",
   "device_metadata_not_ready",
   "device_bridge_quality_not_ready",
@@ -1076,6 +1102,7 @@ function toLongitudinalQaAction(value: unknown): SelfHostedLesionLongitudinalQaA
   return value === "review_queue"
     || value === "request_recapture"
     || value === "exclude_from_dynamic_review"
+    || value === "verify_production_asset"
     || value === "complete_capture_metadata"
     || value === "complete_device_metadata"
     || value === "check_device_bridge"
@@ -1121,6 +1148,7 @@ function toLesionLongitudinalQa(input: Record<string, unknown>): SelfHostedLesio
       needsRecaptureCount: numberOrZero(readiness.needsRecaptureCount),
       notSuitableForComparisonCount: numberOrZero(readiness.notSuitableForComparisonCount),
       unreviewedPairCount: numberOrZero(readiness.unreviewedPairCount),
+      productionAssetNotReadyCount: numberOrZero(readiness.productionAssetNotReadyCount),
       missingCaptureMetadataCount: numberOrZero(readiness.missingCaptureMetadataCount),
       deviceEvidenceNotReadyCount: numberOrZero(readiness.deviceEvidenceNotReadyCount),
       deviceBridgeQualityNotReadyCount: numberOrZero(readiness.deviceBridgeQualityNotReadyCount),
@@ -1178,6 +1206,7 @@ function toVisitLongitudinalDatasetValidation(
       candidatePairCount: numberOrZero(readiness.candidatePairCount),
       reviewedPairCount: numberOrZero(readiness.reviewedPairCount),
       technicalReadyPairCount: numberOrZero(readiness.technicalReadyPairCount),
+      productionAssetNotReadyCount: numberOrZero(readiness.productionAssetNotReadyCount),
       missingCaptureMetadataCount: numberOrZero(readiness.missingCaptureMetadataCount),
       deviceEvidenceNotReadyCount: numberOrZero(readiness.deviceEvidenceNotReadyCount),
       deviceBridgeQualityNotReadyCount: numberOrZero(readiness.deviceBridgeQualityNotReadyCount),
@@ -1198,6 +1227,7 @@ function toVisitLongitudinalDatasetValidation(
       candidatePairCount: numberOrZero(item.candidatePairCount),
       reviewedPairCount: numberOrZero(item.reviewedPairCount),
       technicalReadyPairCount: numberOrZero(item.technicalReadyPairCount),
+      productionAssetNotReadyCount: numberOrZero(item.productionAssetNotReadyCount),
       missingCaptureMetadataCount: numberOrZero(item.missingCaptureMetadataCount),
       deviceEvidenceNotReadyCount: numberOrZero(item.deviceEvidenceNotReadyCount),
       deviceBridgeQualityNotReadyCount: numberOrZero(item.deviceBridgeQualityNotReadyCount),

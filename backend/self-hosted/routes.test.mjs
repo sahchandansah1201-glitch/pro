@@ -4908,6 +4908,8 @@ test("Batch BC Stage 5H · capture metadata endpoints read and write production-
         scaleReadyCount: 0,
         deviceEvidenceReadyCount: 1,
         deviceEvidenceReviewCount: 0,
+        productionAssetReadyCount: 1,
+        productionAssetReviewCount: 0,
       },
       items: [{
         assetId,
@@ -4929,6 +4931,10 @@ test("Batch BC Stage 5H · capture metadata endpoints read and write production-
           calibrationStatus: "valid",
           calibrationCheckedAt: "2026-05-19T10:40:00.000Z",
           status: "ready",
+        },
+        productionAssetReadiness: {
+          status: "ready",
+          reasons: [],
         },
         technicalStatus: "ready",
         technicalReasons: [],
@@ -4978,6 +4984,7 @@ test("Batch BC Stage 5H · capture metadata endpoints read and write production-
   assert.equal(read.json.stage, "5H");
   assert.equal(read.json.item.summary.metadataCount, 1);
   assert.equal(read.json.item.summary.deviceEvidenceReadyCount, 1);
+  assert.equal(read.json.item.summary.productionAssetReadyCount, 1);
   assert.equal(read.json.item.items[0].deviceEvidence.status, "ready");
   assert.equal(read.json.item.items[0].frame.width, 2048);
   assert.equal(read.json.item.boundaries.patientDeliveryAllowed, false);
@@ -5261,6 +5268,7 @@ test("Batch BG Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/l
           needsRecaptureCount: 1,
           notSuitableForComparisonCount: 0,
           unreviewedPairCount: 0,
+          productionAssetNotReadyCount: 1,
           missingCaptureMetadataCount: 1,
           deviceEvidenceNotReadyCount: 1,
           calibrationBlockedCount: 1,
@@ -5276,7 +5284,7 @@ test("Batch BG Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/l
             nextAction: "request_recapture",
           },
         ],
-        nextActions: ["request_recapture", "complete_capture_metadata", "complete_device_metadata"],
+        nextActions: ["request_recapture", "verify_production_asset", "complete_capture_metadata", "complete_device_metadata"],
         boundaries: {
           patientDeliveryAllowed: false,
           medicalMeasurementAllowed: false,
@@ -5296,6 +5304,7 @@ test("Batch BG Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/l
   assert.equal(response.status, 200);
   assert.equal(response.json.stage, "5H");
   assert.equal(response.json.item.readiness.status, "blocked");
+  assert.equal(response.json.item.readiness.productionAssetNotReadyCount, 1);
   assert.equal(response.json.item.readiness.dynamicConclusionAllowed, false);
   assert.equal(response.json.item.boundaries.patientDeliveryAllowed, false);
   assert.equal(response.json.item.boundaries.pairKeysExposed, false);
@@ -5326,6 +5335,7 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
           candidatePairCount: 3,
           reviewedPairCount: 2,
           technicalReadyPairCount: 2,
+          productionAssetNotReadyCount: 1,
           missingCaptureMetadataCount: 1,
           deviceEvidenceNotReadyCount: 1,
           calibrationBlockedCount: 1,
@@ -5346,6 +5356,7 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
             candidatePairCount: 2,
             reviewedPairCount: 1,
             technicalReadyPairCount: 1,
+            productionAssetNotReadyCount: 1,
             missingCaptureMetadataCount: 1,
             deviceEvidenceNotReadyCount: 1,
             calibrationBlockedCount: 1,
@@ -5355,6 +5366,12 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
           },
         ],
         blockers: [
+          {
+            code: "production_asset_not_ready",
+            label: "Production asset требует проверки",
+            count: 1,
+            nextAction: "verify_production_asset",
+          },
           {
             code: "missing_capture_metadata",
             label: "Не хватает metadata съёмки",
@@ -5368,7 +5385,7 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
             nextAction: "complete_device_metadata",
           },
         ],
-        nextActions: ["complete_capture_metadata", "complete_device_metadata"],
+        nextActions: ["verify_production_asset", "complete_capture_metadata", "complete_device_metadata"],
         boundaries: {
           patientDeliveryAllowed: false,
           medicalMeasurementAllowed: false,
@@ -5389,6 +5406,7 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
   assert.equal(response.json.stage, "5H");
   assert.equal(response.json.source, "postgres");
   assert.equal(response.json.item.readiness.status, "blocked");
+  assert.equal(response.json.item.readiness.productionAssetNotReadyCount, 1);
   assert.equal(response.json.item.readiness.deviceEvidenceNotReadyCount, 1);
   assert.equal(response.json.item.readiness.dynamicConclusionAllowed, false);
   assert.equal(response.json.item.boundaries.patientDeliveryAllowed, false);
@@ -5446,6 +5464,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.components.schemas.LesionCaptureMetadata);
   assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
   assert.ok(response.json.components.schemas.LesionLongitudinalQa);
+  assert.match(JSON.stringify(response.json.components.schemas), /productionAssetNotReadyCount|productionAssetReadiness|verify_production_asset/);
 });
 
 test("Stage 8G-8I · GET /api/v1/visits/{id}/report-package returns readiness without protected fields", async () => {

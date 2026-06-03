@@ -379,6 +379,12 @@ from (
       a.visit_id,
       a.kind::text as kind,
       a.content_type,
+      case
+        when a.object_bucket is null or a.object_key is null then 'needs_review'
+        when coalesce(a.byte_size, 0) <= 0 then 'needs_review'
+        when a.captured_at is null then 'needs_review'
+        else 'ready'
+      end as production_asset_status,
       a.created_at,
       m.asset_id as metadata_asset_id,
       case
@@ -448,6 +454,7 @@ from (
       coalesce((select count(*)::int from qa_rows where review_status = 'needs_recapture'), 0) as needs_recapture_count,
       coalesce((select count(*)::int from qa_rows where review_status = 'not_suitable_for_comparison'), 0) as not_suitable_for_comparison_count,
       coalesce((select count(*)::int from qa_rows where review_status = 'unreviewed'), 0) as unreviewed_pair_count,
+      coalesce((select count(*)::int from lesion_assets where production_asset_status <> 'ready'), 0) as production_asset_not_ready_count,
       coalesce((select count(*)::int from lesion_assets where capture_metadata_status = 'missing'), 0) as missing_capture_metadata_count,
       coalesce((select count(*)::int from lesion_assets where metadata_asset_id is not null and capture_metadata_status <> 'ready'), 0) as device_evidence_not_ready_count,
       coalesce((select count(*)::int from lesion_assets where device_bridge_quality_status = 'needs_review'), 0) as device_bridge_quality_not_ready_count,
@@ -461,6 +468,7 @@ from (
         when candidate_pair_count = 0
           or needs_recapture_count > 0
           or not_suitable_for_comparison_count > 0
+          or production_asset_not_ready_count > 0
           or missing_capture_metadata_count > 0
           or device_evidence_not_ready_count > 0
           or device_bridge_quality_not_ready_count > 0
@@ -475,6 +483,7 @@ from (
         and needs_recapture_count = 0
         and not_suitable_for_comparison_count = 0
         and unreviewed_pair_count = 0
+        and production_asset_not_ready_count = 0
         and missing_capture_metadata_count = 0
         and device_evidence_not_ready_count = 0
         and device_bridge_quality_not_ready_count = 0
@@ -498,6 +507,7 @@ from (
       'needsRecaptureCount', r.needs_recapture_count,
       'notSuitableForComparisonCount', r.not_suitable_for_comparison_count,
       'unreviewedPairCount', r.unreviewed_pair_count,
+      'productionAssetNotReadyCount', r.production_asset_not_ready_count,
       'missingCaptureMetadataCount', r.missing_capture_metadata_count,
       'deviceEvidenceNotReadyCount', r.device_evidence_not_ready_count,
       'deviceBridgeQualityNotReadyCount', r.device_bridge_quality_not_ready_count,
@@ -511,6 +521,7 @@ from (
       jsonb_build_object('code', 'recapture_required', 'label', 'Нужен переснимок', 'count', r.needs_recapture_count, 'nextAction', 'request_recapture'),
       jsonb_build_object('code', 'not_suitable_for_comparison', 'label', 'Не использовать для динамики', 'count', r.not_suitable_for_comparison_count, 'nextAction', 'exclude_from_dynamic_review'),
       jsonb_build_object('code', 'unreviewed_pairs', 'label', 'Нужен технический review', 'count', r.unreviewed_pair_count, 'nextAction', 'review_queue'),
+      jsonb_build_object('code', 'production_asset_not_ready', 'label', 'Production asset требует проверки', 'count', r.production_asset_not_ready_count, 'nextAction', 'verify_production_asset'),
       jsonb_build_object('code', 'missing_capture_metadata', 'label', 'Не хватает metadata съёмки', 'count', r.missing_capture_metadata_count, 'nextAction', 'complete_capture_metadata'),
       jsonb_build_object('code', 'device_metadata_not_ready', 'label', 'Device metadata требует проверки', 'count', r.device_evidence_not_ready_count, 'nextAction', 'complete_device_metadata'),
       jsonb_build_object('code', 'device_bridge_quality_not_ready', 'label', 'Device Bridge требует проверки', 'count', r.device_bridge_quality_not_ready_count, 'nextAction', 'check_device_bridge'),
@@ -521,6 +532,7 @@ from (
       case when r.candidate_pair_count = 0 or r.unreviewed_pair_count > 0 then 'review_queue' end,
       case when r.needs_recapture_count > 0 then 'request_recapture' end,
       case when r.not_suitable_for_comparison_count > 0 then 'exclude_from_dynamic_review' end,
+      case when r.production_asset_not_ready_count > 0 then 'verify_production_asset' end,
       case when r.missing_capture_metadata_count > 0 then 'complete_capture_metadata' end,
       case when r.device_evidence_not_ready_count > 0 then 'complete_device_metadata' end,
       case when r.device_bridge_quality_not_ready_count > 0 then 'check_device_bridge' end,
@@ -589,6 +601,12 @@ from (
       a.id,
       a.lesion_id,
       a.visit_id,
+      case
+        when a.object_bucket is null or a.object_key is null then 'needs_review'
+        when coalesce(a.byte_size, 0) <= 0 then 'needs_review'
+        when a.captured_at is null then 'needs_review'
+        else 'ready'
+      end as production_asset_status,
       m.asset_id as metadata_asset_id,
       case
         when m.asset_id is null or coalesce(m.capture_source, 'unknown') <> 'device_bridge' then 'not_applicable'
@@ -663,6 +681,7 @@ from (
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'needs_recapture'), 0) as needs_recapture_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'not_suitable_for_comparison'), 0) as not_suitable_for_comparison_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'unreviewed'), 0) as unreviewed_pair_count,
+      coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.production_asset_status <> 'ready'), 0) as production_asset_not_ready_count,
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.capture_metadata_status = 'missing'), 0) as missing_capture_metadata_count,
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.metadata_asset_id is not null and a.capture_metadata_status <> 'ready'), 0) as device_evidence_not_ready_count,
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.device_bridge_quality_status = 'needs_review'), 0) as device_bridge_quality_not_ready_count,
@@ -678,6 +697,7 @@ from (
         when candidate_pair_count = 0
           or needs_recapture_count > 0
           or not_suitable_for_comparison_count > 0
+          or production_asset_not_ready_count > 0
           or missing_capture_metadata_count > 0
           or device_evidence_not_ready_count > 0
           or device_bridge_quality_not_ready_count > 0
@@ -690,6 +710,7 @@ from (
         when candidate_pair_count = 0 or unreviewed_pair_count > 0 then 'review_queue'
         when needs_recapture_count > 0 then 'request_recapture'
         when not_suitable_for_comparison_count > 0 then 'exclude_from_dynamic_review'
+        when production_asset_not_ready_count > 0 then 'verify_production_asset'
         when missing_capture_metadata_count > 0 then 'complete_capture_metadata'
         when device_evidence_not_ready_count > 0 then 'complete_device_metadata'
         when device_bridge_quality_not_ready_count > 0 then 'check_device_bridge'
@@ -711,6 +732,9 @@ from (
     union all
     select 'unreviewed_pairs', 'Нужен технический review', 'review_queue',
       coalesce((select sum(unreviewed_pair_count)::int from classified), 0)
+    union all
+    select 'production_asset_not_ready', 'Production asset требует проверки', 'verify_production_asset',
+      coalesce((select sum(production_asset_not_ready_count)::int from classified), 0)
     union all
     select 'missing_capture_metadata', 'Не хватает metadata съёмки', 'complete_capture_metadata',
       coalesce((select sum(missing_capture_metadata_count)::int from classified), 0)
@@ -753,6 +777,7 @@ from (
       'candidatePairCount', coalesce((select sum(candidate_pair_count)::int from classified), 0),
       'reviewedPairCount', coalesce((select sum(reviewed_pair_count)::int from classified), 0),
       'technicalReadyPairCount', coalesce((select sum(technical_ready_pair_count)::int from classified), 0),
+      'productionAssetNotReadyCount', coalesce((select sum(production_asset_not_ready_count)::int from classified), 0),
       'missingCaptureMetadataCount', coalesce((select sum(missing_capture_metadata_count)::int from classified), 0),
       'deviceEvidenceNotReadyCount', coalesce((select sum(device_evidence_not_ready_count)::int from classified), 0),
       'deviceBridgeQualityNotReadyCount', coalesce((select sum(device_bridge_quality_not_ready_count)::int from classified), 0),
@@ -774,6 +799,7 @@ from (
         'candidatePairCount', c.candidate_pair_count,
         'reviewedPairCount', c.reviewed_pair_count,
         'technicalReadyPairCount', c.technical_ready_pair_count,
+        'productionAssetNotReadyCount', c.production_asset_not_ready_count,
         'missingCaptureMetadataCount', c.missing_capture_metadata_count,
         'deviceEvidenceNotReadyCount', c.device_evidence_not_ready_count,
         'deviceBridgeQualityNotReadyCount', c.device_bridge_quality_not_ready_count,
@@ -798,6 +824,7 @@ from (
       case when exists(select 1 from classified where candidate_pair_count = 0 or unreviewed_pair_count > 0) then 'review_queue' end,
       case when exists(select 1 from classified where needs_recapture_count > 0) then 'request_recapture' end,
       case when exists(select 1 from classified where not_suitable_for_comparison_count > 0) then 'exclude_from_dynamic_review' end,
+      case when exists(select 1 from classified where production_asset_not_ready_count > 0) then 'verify_production_asset' end,
       case when exists(select 1 from classified where missing_capture_metadata_count > 0) then 'complete_capture_metadata' end,
       case when exists(select 1 from classified where device_evidence_not_ready_count > 0) then 'complete_device_metadata' end,
       case when exists(select 1 from classified where device_bridge_quality_not_ready_count > 0) then 'check_device_bridge' end,
@@ -917,6 +944,17 @@ from (
       m.device_calibration_checked_at,
       m.device_evidence_status,
       case
+        when a.object_bucket is null or a.object_key is null then 'needs_review'
+        when coalesce(a.byte_size, 0) <= 0 then 'needs_review'
+        when a.captured_at is null then 'needs_review'
+        else 'ready'
+      end as production_asset_status,
+      array_remove(array[
+        case when a.object_bucket is null or a.object_key is null then 'protected_storage_missing' end,
+        case when coalesce(a.byte_size, 0) <= 0 then 'byte_size_missing' end,
+        case when a.captured_at is null then 'capture_time_missing' end
+      ]::text[], null) as production_asset_reasons,
+      case
         when m.asset_id is null or coalesce(m.capture_source, 'unknown') <> 'device_bridge' then 'not_applicable'
         when m.device_id is null then 'needs_review'
         when d.id is null then 'needs_review'
@@ -939,6 +977,9 @@ from (
         case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and b.id is not null and (b.worker_last_seen_at is null or b.worker_last_seen_at < now() - interval '15 minutes') then 'worker_heartbeat_stale' end
       ]::text[], null) as device_bridge_quality_reasons,
       case
+        when a.object_bucket is null or a.object_key is null then 'warning'
+        when coalesce(a.byte_size, 0) <= 0 then 'warning'
+        when a.captured_at is null then 'warning'
         when m.asset_id is null then 'missing'
         when m.device_id is null then 'warning'
         when m.frame_width is null or m.frame_height is null then 'warning'
@@ -960,6 +1001,9 @@ from (
         else 'ready'
       end as technical_status,
       array_remove(array[
+        case when a.object_bucket is null or a.object_key is null then 'production_asset_not_ready' end,
+        case when coalesce(a.byte_size, 0) <= 0 then 'production_asset_not_ready' end,
+        case when a.captured_at is null then 'production_asset_not_ready' end,
         case when m.asset_id is null then 'missing_capture_metadata' end,
         case when m.asset_id is not null and m.device_id is null then 'device_missing' end,
         case when m.asset_id is not null and (m.frame_width is null or m.frame_height is null) then 'frame_size_missing' end,
@@ -1012,6 +1056,8 @@ from (
       'scaleReadyCount', coalesce((select count(*)::int from asset_rows where scale_marker_detected = true and millimeters_available = true), 0),
       'deviceEvidenceReadyCount', coalesce((select count(*)::int from asset_rows where device_evidence_status = 'ready'), 0),
       'deviceEvidenceReviewCount', coalesce((select count(*)::int from asset_rows where device_evidence_status in ('missing', 'needs_review')), 0),
+      'productionAssetReadyCount', coalesce((select count(*)::int from asset_rows where production_asset_status = 'ready'), 0),
+      'productionAssetReviewCount', coalesce((select count(*)::int from asset_rows where production_asset_status = 'needs_review'), 0),
       'deviceBridgeQualityReadyCount', coalesce((select count(*)::int from asset_rows where device_bridge_quality_status = 'ready'), 0),
       'deviceBridgeQualityReviewCount', coalesce((select count(*)::int from asset_rows where device_bridge_quality_status = 'needs_review'), 0)
     ) as "summary",
@@ -1038,6 +1084,8 @@ from (
         'deviceCalibrationStatus', coalesce(a.device_calibration_status, 'unknown'),
         'deviceCalibrationCheckedAt', a.device_calibration_checked_at,
         'deviceEvidenceStatus', coalesce(a.device_evidence_status, 'missing'),
+        'productionAssetReadinessStatus', coalesce(a.production_asset_status, 'needs_review'),
+        'productionAssetReadinessReasons', coalesce(a.production_asset_reasons, array[]::text[]),
         'deviceBridgeQualityStatus', coalesce(a.device_bridge_quality_status, 'not_applicable'),
         'deviceBridgeQualityReasons', coalesce(a.device_bridge_quality_reasons, array[]::text[]),
         'technicalStatus', a.technical_status,
@@ -2097,6 +2145,8 @@ function normalizeCaptureMetadataSummary(value) {
     scaleReadyCount: numberOrZero(source.scaleReadyCount),
     deviceEvidenceReadyCount: numberOrZero(source.deviceEvidenceReadyCount),
     deviceEvidenceReviewCount: numberOrZero(source.deviceEvidenceReviewCount),
+    productionAssetReadyCount: numberOrZero(source.productionAssetReadyCount),
+    productionAssetReviewCount: numberOrZero(source.productionAssetReviewCount),
     deviceBridgeQualityReadyCount: numberOrZero(source.deviceBridgeQualityReadyCount),
     deviceBridgeQualityReviewCount: numberOrZero(source.deviceBridgeQualityReviewCount),
   };
@@ -2133,6 +2183,10 @@ function normalizeCaptureMetadataItem(row) {
       calibrationStatus: String(row.deviceCalibrationStatus ?? "unknown"),
       calibrationCheckedAt: row.deviceCalibrationCheckedAt ?? null,
       status: String(row.deviceEvidenceStatus ?? "missing"),
+    },
+    productionAssetReadiness: {
+      status: String(row.productionAssetReadinessStatus ?? "needs_review"),
+      reasons: parseStringArray(row.productionAssetReadinessReasons),
     },
     deviceBridgeQuality: {
       status: String(row.deviceBridgeQualityStatus ?? "not_applicable"),
@@ -2313,6 +2367,7 @@ const LONGITUDINAL_QA_BLOCKER_VALUES = new Set([
   "recapture_required",
   "not_suitable_for_comparison",
   "unreviewed_pairs",
+  "production_asset_not_ready",
   "missing_capture_metadata",
   "device_metadata_not_ready",
   "device_bridge_quality_not_ready",
@@ -2323,6 +2378,7 @@ const LONGITUDINAL_QA_ACTION_VALUES = new Set([
   "review_queue",
   "request_recapture",
   "exclude_from_dynamic_review",
+  "verify_production_asset",
   "complete_capture_metadata",
   "complete_device_metadata",
   "check_device_bridge",
@@ -2353,6 +2409,7 @@ function normalizeLongitudinalQaReadiness(value) {
     needsRecaptureCount: numberOrZero(source.needsRecaptureCount),
     notSuitableForComparisonCount: numberOrZero(source.notSuitableForComparisonCount),
     unreviewedPairCount: numberOrZero(source.unreviewedPairCount),
+    productionAssetNotReadyCount: numberOrZero(source.productionAssetNotReadyCount),
     missingCaptureMetadataCount: numberOrZero(source.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(source.deviceEvidenceNotReadyCount),
     deviceBridgeQualityNotReadyCount: numberOrZero(source.deviceBridgeQualityNotReadyCount),
@@ -2431,6 +2488,7 @@ function normalizeVisitLongitudinalDatasetValidationReadiness(value) {
     candidatePairCount: numberOrZero(source.candidatePairCount),
     reviewedPairCount: numberOrZero(source.reviewedPairCount),
     technicalReadyPairCount: numberOrZero(source.technicalReadyPairCount),
+    productionAssetNotReadyCount: numberOrZero(source.productionAssetNotReadyCount),
     missingCaptureMetadataCount: numberOrZero(source.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(source.deviceEvidenceNotReadyCount),
     deviceBridgeQualityNotReadyCount: numberOrZero(source.deviceBridgeQualityNotReadyCount),
@@ -2456,6 +2514,7 @@ function normalizeVisitLongitudinalDatasetValidationItem(row) {
     candidatePairCount: numberOrZero(row.candidatePairCount),
     reviewedPairCount: numberOrZero(row.reviewedPairCount),
     technicalReadyPairCount: numberOrZero(row.technicalReadyPairCount),
+    productionAssetNotReadyCount: numberOrZero(row.productionAssetNotReadyCount),
     missingCaptureMetadataCount: numberOrZero(row.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(row.deviceEvidenceNotReadyCount),
     deviceBridgeQualityNotReadyCount: numberOrZero(row.deviceBridgeQualityNotReadyCount),

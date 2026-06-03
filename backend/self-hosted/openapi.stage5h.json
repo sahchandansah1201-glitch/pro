@@ -105,6 +105,20 @@
               "status": { "type": "string", "enum": ["ready", "needs_review", "missing"] }
             }
           },
+          "productionAssetReadiness": {
+            "type": "object",
+            "description": "Batch BM protected production asset readiness. Metadata-only: exposes only readiness status and reason codes, never bucket, key, path, signed URL, bytes, or patient delivery.",
+            "properties": {
+              "status": { "type": "string", "enum": ["ready", "needs_review"] },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["protected_storage_missing", "byte_size_missing", "capture_time_missing"]
+                }
+              }
+            }
+          },
           "deviceBridgeQuality": {
             "type": "object",
             "description": "Batch BL Device Bridge quality gate. Metadata-only: no serials, hostnames, network identifiers, worker payloads, credentials, storage paths, signed URLs, or patient delivery.",
@@ -149,6 +163,8 @@
               "scaleReadyCount": { "type": "integer", "minimum": 0 },
               "deviceEvidenceReadyCount": { "type": "integer", "minimum": 0 },
               "deviceEvidenceReviewCount": { "type": "integer", "minimum": 0 },
+              "productionAssetReadyCount": { "type": "integer", "minimum": 0 },
+              "productionAssetReviewCount": { "type": "integer", "minimum": 0 },
               "deviceBridgeQualityReadyCount": { "type": "integer", "minimum": 0 },
               "deviceBridgeQualityReviewCount": { "type": "integer", "minimum": 0 }
             }
@@ -170,6 +186,7 @@
                 "quality": { "type": "object" },
                 "calibration": { "type": "object" },
                 "deviceEvidence": { "type": "object" },
+                "productionAssetReadiness": { "type": "object" },
                 "deviceBridgeQuality": { "type": "object" },
                 "technicalStatus": { "type": "string", "enum": ["ready", "warning", "missing"] },
                 "technicalReasons": { "type": "array", "items": { "type": "string" } }
@@ -375,6 +392,7 @@
               "needsRecaptureCount": { "type": "integer", "minimum": 0 },
               "notSuitableForComparisonCount": { "type": "integer", "minimum": 0 },
               "unreviewedPairCount": { "type": "integer", "minimum": 0 },
+              "productionAssetNotReadyCount": { "type": "integer", "minimum": 0 },
               "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
               "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
               "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
@@ -396,6 +414,7 @@
                     "recapture_required",
                     "not_suitable_for_comparison",
                     "unreviewed_pairs",
+                    "production_asset_not_ready",
                     "missing_capture_metadata",
                     "device_metadata_not_ready",
                     "device_bridge_quality_not_ready",
@@ -411,6 +430,7 @@
                     "review_queue",
                     "request_recapture",
                     "exclude_from_dynamic_review",
+                    "verify_production_asset",
                     "complete_capture_metadata",
                     "complete_device_metadata",
                     "check_device_bridge",
@@ -430,6 +450,7 @@
                 "review_queue",
                 "request_recapture",
                 "exclude_from_dynamic_review",
+                "verify_production_asset",
                 "complete_capture_metadata",
                 "complete_device_metadata",
                 "check_device_bridge",
@@ -476,6 +497,7 @@
               "candidatePairCount": { "type": "integer", "minimum": 0 },
               "reviewedPairCount": { "type": "integer", "minimum": 0 },
               "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
+              "productionAssetNotReadyCount": { "type": "integer", "minimum": 0 },
               "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
               "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
               "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
@@ -501,6 +523,7 @@
                 "candidatePairCount": { "type": "integer", "minimum": 0 },
                 "reviewedPairCount": { "type": "integer", "minimum": 0 },
                 "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
+                "productionAssetNotReadyCount": { "type": "integer", "minimum": 0 },
                 "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
                 "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
                 "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
@@ -513,6 +536,7 @@
                     "review_queue",
                     "request_recapture",
                     "exclude_from_dynamic_review",
+                    "verify_production_asset",
                     "complete_capture_metadata",
                     "complete_device_metadata",
                     "check_device_bridge",
@@ -536,6 +560,7 @@
                     "recapture_required",
                     "not_suitable_for_comparison",
                     "unreviewed_pairs",
+                    "production_asset_not_ready",
                     "missing_capture_metadata",
                     "device_metadata_not_ready",
                     "device_bridge_quality_not_ready",
@@ -551,6 +576,7 @@
                     "review_queue",
                     "request_recapture",
                     "exclude_from_dynamic_review",
+                    "verify_production_asset",
                     "complete_capture_metadata",
                     "complete_device_metadata",
                     "check_device_bridge",
@@ -570,6 +596,7 @@
                 "review_queue",
                 "request_recapture",
                 "exclude_from_dynamic_review",
+                "verify_production_asset",
                 "complete_capture_metadata",
                 "complete_device_metadata",
                 "check_device_bridge",

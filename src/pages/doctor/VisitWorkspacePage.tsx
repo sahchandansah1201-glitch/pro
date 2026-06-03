@@ -942,6 +942,7 @@ function longitudinalDatasetStatusLabel(status: SelfHostedVisitLongitudinalDatas
 function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatasetValidationDTO["nextActions"][number]): string {
   if (action === "request_recapture") return "Запросить переснимок";
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
+  if (action === "verify_production_asset") return "Проверить production assets";
   if (action === "complete_capture_metadata") return "Дозаполнить metadata";
   if (action === "complete_device_metadata") return "Дозаполнить device metadata";
   if (action === "check_device_bridge") return "Проверить Device Bridge";
@@ -976,7 +977,7 @@ function LongitudinalDatasetValidationPanel({
           {longitudinalDatasetStatusLabel(readiness.status)}
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-10">
         <Field term="Очагов" value={readiness.lesionCount} />
         <Field term="Готово" value={readiness.readyTimelineCount} />
         <Field term="Review" value={readiness.needsReviewTimelineCount} />
@@ -984,6 +985,7 @@ function LongitudinalDatasetValidationPanel({
         <Field term="Снимков" value={readiness.imageCount} />
         <Field term="Пар" value={readiness.candidatePairCount} />
         <Field term="Workflow" value={readiness.reviewerWorkflowReadyCount} />
+        <Field term="Assets" value={readiness.productionAssetNotReadyCount} />
         <Field term="Device" value={readiness.deviceEvidenceNotReadyCount} />
         <Field term="Bridge" value={readiness.deviceBridgeQualityNotReadyCount} />
       </dl>
@@ -1028,7 +1030,8 @@ function LongitudinalDatasetValidationPanel({
                   {item.candidatePairCount}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  metadata: {item.missingCaptureMetadataCount} · device: {item.deviceEvidenceNotReadyCount} · bridge:{" "}
+                  assets: {item.productionAssetNotReadyCount} · metadata: {item.missingCaptureMetadataCount} · device:{" "}
+                  {item.deviceEvidenceNotReadyCount} · bridge:{" "}
                   {item.deviceBridgeQualityNotReadyCount} ·
                   калибровка: {item.calibrationBlockedCount} · маркеры: {item.markerMissingCount}
                 </p>

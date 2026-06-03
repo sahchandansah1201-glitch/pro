@@ -308,6 +308,8 @@ describe("self-hosted-clinical-workspace-api", () => {
                   scaleReadyCount: 0,
                   deviceEvidenceReadyCount: 1,
                   deviceEvidenceReviewCount: 0,
+                  productionAssetReadyCount: 1,
+                  productionAssetReviewCount: 1,
                 },
                 items: [{
                   assetId: "asset-1",
@@ -329,6 +331,10 @@ describe("self-hosted-clinical-workspace-api", () => {
                     calibrationStatus: "valid",
                     calibrationCheckedAt: "2026-05-19T10:40:00.000Z",
                     status: "ready",
+                  },
+                  productionAssetReadiness: {
+                    status: "needs_review",
+                    reasons: ["capture_time_missing"],
                   },
                   technicalStatus: "ready",
                   technicalReasons: [],
@@ -402,8 +408,11 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(read.ok).toBe(true);
     expect(read.value?.summary.metadataCount).toBe(1);
     expect(read.value?.summary.deviceEvidenceReadyCount).toBe(1);
+    expect(read.value?.summary.productionAssetReviewCount).toBe(1);
     expect(read.value?.items[0]?.frame.width).toBe(2048);
     expect(read.value?.items[0]?.deviceEvidence.status).toBe("ready");
+    expect(read.value?.items[0]?.productionAssetReadiness.status).toBe("needs_review");
+    expect(read.value?.items[0]?.productionAssetReadiness.reasons).toEqual(["capture_time_missing"]);
     expect(read.value?.items[0]?.deviceEvidence.captureProfile).toBe("standard_dermoscopy");
     expect(read.value?.boundaries.patientDeliveryAllowed).toBe(false);
     expect(read.value?.boundaries.storagePathsExposed).toBe(false);
@@ -553,6 +562,7 @@ describe("self-hosted-clinical-workspace-api", () => {
               needsRecaptureCount: 1,
               notSuitableForComparisonCount: 0,
               unreviewedPairCount: 0,
+              productionAssetNotReadyCount: 1,
               missingCaptureMetadataCount: 1,
               deviceEvidenceNotReadyCount: 1,
               deviceBridgeQualityNotReadyCount: 1,
@@ -567,6 +577,14 @@ describe("self-hosted-clinical-workspace-api", () => {
                 label: "Нужен переснимок",
                 count: 1,
                 nextAction: "request_recapture",
+                pairKey: "secret-pair",
+                imageIds: ["i-011", "i-012"],
+              },
+              {
+                code: "production_asset_not_ready",
+                label: "Production asset требует проверки",
+                count: 1,
+                nextAction: "verify_production_asset",
                 pairKey: "secret-pair",
                 imageIds: ["i-011", "i-012"],
               },
@@ -587,7 +605,7 @@ describe("self-hosted-clinical-workspace-api", () => {
                 imageIds: ["i-011", "i-012"],
               },
             ],
-            nextActions: ["request_recapture", "complete_device_metadata", "check_device_bridge", "unsafe_action"],
+            nextActions: ["request_recapture", "verify_production_asset", "complete_device_metadata", "check_device_bridge", "unsafe_action"],
             boundaries: {
               patientDeliveryAllowed: true,
               medicalMeasurementAllowed: true,
@@ -616,13 +634,14 @@ describe("self-hosted-clinical-workspace-api", () => {
 
     expect(result.ok).toBe(true);
     expect(result.value?.readiness.status).toBe("blocked");
+    expect(result.value?.readiness.productionAssetNotReadyCount).toBe(1);
     expect(result.value?.readiness.deviceEvidenceNotReadyCount).toBe(1);
     expect(result.value?.readiness.deviceBridgeQualityNotReadyCount).toBe(1);
     expect(result.value?.readiness.dynamicConclusionAllowed).toBe(false);
     expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
     expect(result.value?.boundaries.pairKeysExposed).toBe(false);
     expect(result.value?.boundaries.imageIdsExposed).toBe(false);
-    expect(result.value?.nextActions).toEqual(["request_recapture", "complete_device_metadata", "check_device_bridge"]);
+    expect(result.value?.nextActions).toEqual(["request_recapture", "verify_production_asset", "complete_device_metadata", "check_device_bridge"]);
     expect(JSON.stringify(result.value)).not.toMatch(
       /secret-pair|i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
     );
@@ -808,6 +827,7 @@ describe("self-hosted-clinical-workspace-api", () => {
               candidatePairCount: 3,
               reviewedPairCount: 2,
               technicalReadyPairCount: 2,
+              productionAssetNotReadyCount: 1,
               missingCaptureMetadataCount: 0,
               deviceEvidenceNotReadyCount: 1,
               deviceBridgeQualityNotReadyCount: 1,
@@ -829,6 +849,7 @@ describe("self-hosted-clinical-workspace-api", () => {
                 candidatePairCount: 2,
                 reviewedPairCount: 2,
                 technicalReadyPairCount: 2,
+                productionAssetNotReadyCount: 1,
                 missingCaptureMetadataCount: 0,
                 deviceEvidenceNotReadyCount: 1,
                 deviceBridgeQualityNotReadyCount: 1,
@@ -841,6 +862,14 @@ describe("self-hosted-clinical-workspace-api", () => {
               },
             ],
             blockers: [
+              {
+                code: "production_asset_not_ready",
+                label: "Production asset требует проверки",
+                count: 1,
+                nextAction: "verify_production_asset",
+                pairKey: "secret-pair",
+                imageIds: ["i-011", "i-012"],
+              },
               {
                 code: "device_metadata_not_ready",
                 label: "Device metadata требует проверки",
@@ -858,7 +887,7 @@ describe("self-hosted-clinical-workspace-api", () => {
                 imageIds: ["i-011", "i-012"],
               },
             ],
-            nextActions: ["complete_device_metadata", "check_device_bridge", "continue_review", "unsafe_action"],
+            nextActions: ["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review", "unsafe_action"],
             boundaries: {
               patientDeliveryAllowed: true,
               medicalMeasurementAllowed: true,
@@ -886,19 +915,21 @@ describe("self-hosted-clinical-workspace-api", () => {
 
     expect(result.ok).toBe(true);
     expect(result.value?.readiness.status).toBe("ready_for_rollout");
+    expect(result.value?.readiness.productionAssetNotReadyCount).toBe(1);
     expect(result.value?.readiness.deviceEvidenceNotReadyCount).toBe(1);
     expect(result.value?.readiness.deviceBridgeQualityNotReadyCount).toBe(1);
     expect(result.value?.readiness.dynamicConclusionAllowed).toBe(false);
     expect(result.value?.items[0]?.nextAction).toBe("continue_review");
+    expect(result.value?.items[0]?.productionAssetNotReadyCount).toBe(1);
     expect(result.value?.items[0]?.deviceEvidenceNotReadyCount).toBe(1);
     expect(result.value?.items[0]?.deviceBridgeQualityNotReadyCount).toBe(1);
     expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
     expect(result.value?.boundaries.medicalMeasurementAllowed).toBe(false);
     expect(result.value?.boundaries.pairKeysExposed).toBe(false);
     expect(result.value?.boundaries.imageIdsExposed).toBe(false);
-    expect(result.value?.blockers[0]?.code).toBe("device_metadata_not_ready");
-    expect(result.value?.blockers[0]?.nextAction).toBe("complete_device_metadata");
-    expect(result.value?.nextActions).toEqual(["complete_device_metadata", "check_device_bridge", "continue_review"]);
+    expect(result.value?.blockers[0]?.code).toBe("production_asset_not_ready");
+    expect(result.value?.blockers[0]?.nextAction).toBe("verify_production_asset");
+    expect(result.value?.nextActions).toEqual(["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review"]);
     expect(JSON.stringify(result.value)).not.toMatch(
       /secret-pair|"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
     );
