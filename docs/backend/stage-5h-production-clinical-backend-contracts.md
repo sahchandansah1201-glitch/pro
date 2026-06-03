@@ -885,6 +885,67 @@ Frontend behavior:
   doctor-side metadata only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BL Device Bridge Quality Checks
+
+Batch BL adds a production-safe Device Bridge quality gate to the existing
+Stage 5H longitudinal QA and dataset validation flow. This is not a new patient
+delivery feature and does not create clinical conclusions. It separates two
+operational facts:
+
+- `deviceEvidence`: whether a capture has complete device-provided metadata;
+- `deviceBridgeQuality`: whether a `device_bridge` capture has a registered,
+  connected device, an online bridge, an online worker, and a fresh heartbeat.
+
+Contract additions:
+
+- `GET /api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata`
+  returns nested `deviceBridgeQuality.status` and safe reason codes;
+- lesion longitudinal QA adds `deviceBridgeQualityNotReadyCount`, blocker
+  `device_bridge_quality_not_ready`, and next action `check_device_bridge`;
+- visit longitudinal dataset validation adds aggregate and per-lesion
+  `deviceBridgeQualityNotReadyCount`;
+- OpenAPI and the frontend DTO force the same metadata-only boundary.
+
+Safety boundary:
+
+- no device serials, raw device IDs, MAC/IP/Bluetooth/Wi-Fi identifiers,
+  bridge hostnames, worker payloads, credentials, object bucket/key, storage
+  path, signed URL, QR/session/token, doctor-only text, patient-safe report
+  text, diagnosis, risk, prognosis, treatment, measurement, or dynamic
+  conclusion is exposed;
+- audit metadata stores only aggregate counts and boundary flags;
+- `patientDeliveryAllowed=false`;
+- `medicalMeasurementAllowed=false`;
+- `clinicalConclusionGenerated=false`.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab shows a separate `Bridge` counter in
+  `Готовность timeline QA`;
+- per-lesion rows show `bridge: {count}`;
+- next action label `Проверить Device Bridge` appears when the backend returns
+  `check_device_bridge`;
+- `LesionDetailPage` shows the same production blocker/action in the lesion
+  `Готовность продольного QA` section.
+
+### Batch BL Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BL closes the
+  device bridge integration quality check that was still open after Batch BK.
+  Remaining gate: validation on real production assets and richer
+  device-provided metadata.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BL
+  prevents image-pair/timeline rollout when the Device Bridge channel or worker
+  heartbeat is not production-ready. Remaining gate: clinical-grade reviewer
+  operations on real assets.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BL keeps dynamic
+  interpretation blocked when capture transport evidence is incomplete or
+  stale; no clinical dynamic conclusion is generated. Remaining gate: approved
+  production analysis policy and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BL is
+  doctor-side metadata only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

@@ -944,6 +944,7 @@ function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatas
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
   if (action === "complete_capture_metadata") return "Дозаполнить metadata";
   if (action === "complete_device_metadata") return "Дозаполнить device metadata";
+  if (action === "check_device_bridge") return "Проверить Device Bridge";
   if (action === "complete_calibration") return "Закрыть калибровку";
   if (action === "place_markers") return "Поставить маркеры";
   if (action === "continue_review") return "Продолжить review";
@@ -956,6 +957,8 @@ function LongitudinalDatasetValidationPanel({
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
 }) {
   const readiness = validation.readiness;
+  const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
+  const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
     <section
       role="region"
@@ -973,7 +976,7 @@ function LongitudinalDatasetValidationPanel({
           {longitudinalDatasetStatusLabel(readiness.status)}
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
         <Field term="Очагов" value={readiness.lesionCount} />
         <Field term="Готово" value={readiness.readyTimelineCount} />
         <Field term="Review" value={readiness.needsReviewTimelineCount} />
@@ -982,6 +985,7 @@ function LongitudinalDatasetValidationPanel({
         <Field term="Пар" value={readiness.candidatePairCount} />
         <Field term="Workflow" value={readiness.reviewerWorkflowReadyCount} />
         <Field term="Device" value={readiness.deviceEvidenceNotReadyCount} />
+        <Field term="Bridge" value={readiness.deviceBridgeQualityNotReadyCount} />
       </dl>
       {validation.blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -991,6 +995,18 @@ function LongitudinalDatasetValidationPanel({
               className="rounded-sm border border-border bg-surface-muted px-2 py-1 text-muted-foreground"
             >
               {blocker.label}: {blocker.count}
+            </span>
+          ))}
+        </div>
+      )}
+      {additionalActions.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {additionalActions.map((action) => (
+            <span
+              key={action}
+              className="rounded-sm border border-border bg-surface px-2 py-1 font-medium"
+            >
+              {longitudinalDatasetActionLabel(action)}
             </span>
           ))}
         </div>
@@ -1012,7 +1028,8 @@ function LongitudinalDatasetValidationPanel({
                   {item.candidatePairCount}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  metadata: {item.missingCaptureMetadataCount} · device: {item.deviceEvidenceNotReadyCount} ·
+                  metadata: {item.missingCaptureMetadataCount} · device: {item.deviceEvidenceNotReadyCount} · bridge:{" "}
+                  {item.deviceBridgeQualityNotReadyCount} ·
                   калибровка: {item.calibrationBlockedCount} · маркеры: {item.markerMissingCount}
                 </p>
               </div>

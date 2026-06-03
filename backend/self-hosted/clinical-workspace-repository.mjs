@@ -382,6 +382,18 @@ from (
       a.created_at,
       m.asset_id as metadata_asset_id,
       case
+        when m.asset_id is null or coalesce(m.capture_source, 'unknown') <> 'device_bridge' then 'not_applicable'
+        when m.device_id is null then 'needs_review'
+        when d.id is null then 'needs_review'
+        when d.status <> 'connected' then 'needs_review'
+        when d.calibration_due_at is not null and d.calibration_due_at <= current_date then 'needs_review'
+        when b.id is null then 'needs_review'
+        when b.lan_status <> 'online' then 'needs_review'
+        when coalesce(b.worker_status, 'unknown') <> 'online' then 'needs_review'
+        when b.worker_last_seen_at is null or b.worker_last_seen_at < now() - interval '15 minutes' then 'needs_review'
+        else 'ready'
+      end as device_bridge_quality_status,
+      case
         when m.asset_id is null then 'missing'
         when m.device_id is null then 'needs_review'
         when m.frame_width is null or m.frame_height is null then 'needs_review'
@@ -399,6 +411,13 @@ from (
       on m.asset_id = a.id
      and m.patient_id = a.patient_id
      and m.clinic_id = a.clinic_id
+    left join medical_devices d
+      on d.id = m.device_id
+     and d.clinic_id = a.clinic_id
+     and d.deleted_at is null
+    left join device_bridges b
+      on b.id = d.bridge_id
+     and b.clinic_id = a.clinic_id
     where a.visit_id is not null
       and a.kind in ('overview_photo', 'dermoscopy')
       and a.content_type like 'image/%'
@@ -431,6 +450,7 @@ from (
       coalesce((select count(*)::int from qa_rows where review_status = 'unreviewed'), 0) as unreviewed_pair_count,
       coalesce((select count(*)::int from lesion_assets where capture_metadata_status = 'missing'), 0) as missing_capture_metadata_count,
       coalesce((select count(*)::int from lesion_assets where metadata_asset_id is not null and capture_metadata_status <> 'ready'), 0) as device_evidence_not_ready_count,
+      coalesce((select count(*)::int from lesion_assets where device_bridge_quality_status = 'needs_review'), 0) as device_bridge_quality_not_ready_count,
       coalesce((select count(*)::int from qa_rows where calibration_status <> 'ready'), 0) as calibration_blocked_count,
       coalesce((select count(*)::int from qa_rows where technical_marker_count < 2), 0) as marker_missing_count
   ),
@@ -443,6 +463,7 @@ from (
           or not_suitable_for_comparison_count > 0
           or missing_capture_metadata_count > 0
           or device_evidence_not_ready_count > 0
+          or device_bridge_quality_not_ready_count > 0
           or calibration_blocked_count > 0
           or marker_missing_count > 0 then 'blocked'
         when unreviewed_pair_count > 0 then 'needs_review'
@@ -456,6 +477,7 @@ from (
         and unreviewed_pair_count = 0
         and missing_capture_metadata_count = 0
         and device_evidence_not_ready_count = 0
+        and device_bridge_quality_not_ready_count = 0
         and calibration_blocked_count = 0
         and marker_missing_count = 0
       ) as technical_rollout_ready
@@ -478,6 +500,7 @@ from (
       'unreviewedPairCount', r.unreviewed_pair_count,
       'missingCaptureMetadataCount', r.missing_capture_metadata_count,
       'deviceEvidenceNotReadyCount', r.device_evidence_not_ready_count,
+      'deviceBridgeQualityNotReadyCount', r.device_bridge_quality_not_ready_count,
       'calibrationBlockedCount', r.calibration_blocked_count,
       'markerMissingCount', r.marker_missing_count,
       'technicalRolloutReady', r.technical_rollout_ready,
@@ -490,6 +513,7 @@ from (
       jsonb_build_object('code', 'unreviewed_pairs', 'label', 'Нужен технический review', 'count', r.unreviewed_pair_count, 'nextAction', 'review_queue'),
       jsonb_build_object('code', 'missing_capture_metadata', 'label', 'Не хватает metadata съёмки', 'count', r.missing_capture_metadata_count, 'nextAction', 'complete_capture_metadata'),
       jsonb_build_object('code', 'device_metadata_not_ready', 'label', 'Device metadata требует проверки', 'count', r.device_evidence_not_ready_count, 'nextAction', 'complete_device_metadata'),
+      jsonb_build_object('code', 'device_bridge_quality_not_ready', 'label', 'Device Bridge требует проверки', 'count', r.device_bridge_quality_not_ready_count, 'nextAction', 'check_device_bridge'),
       jsonb_build_object('code', 'calibration_not_ready', 'label', 'Калибровка не готова', 'count', r.calibration_blocked_count, 'nextAction', 'complete_calibration'),
       jsonb_build_object('code', 'technical_markers_missing', 'label', 'Не хватает технических маркеров', 'count', r.marker_missing_count, 'nextAction', 'place_markers')
     ) as "blockers",
@@ -499,6 +523,7 @@ from (
       case when r.not_suitable_for_comparison_count > 0 then 'exclude_from_dynamic_review' end,
       case when r.missing_capture_metadata_count > 0 then 'complete_capture_metadata' end,
       case when r.device_evidence_not_ready_count > 0 then 'complete_device_metadata' end,
+      case when r.device_bridge_quality_not_ready_count > 0 then 'check_device_bridge' end,
       case when r.calibration_blocked_count > 0 then 'complete_calibration' end,
       case when r.marker_missing_count > 0 then 'place_markers' end,
       case when r.technical_rollout_ready then 'continue_review' end
@@ -566,6 +591,18 @@ from (
       a.visit_id,
       m.asset_id as metadata_asset_id,
       case
+        when m.asset_id is null or coalesce(m.capture_source, 'unknown') <> 'device_bridge' then 'not_applicable'
+        when m.device_id is null then 'needs_review'
+        when d.id is null then 'needs_review'
+        when d.status <> 'connected' then 'needs_review'
+        when d.calibration_due_at is not null and d.calibration_due_at <= current_date then 'needs_review'
+        when b.id is null then 'needs_review'
+        when b.lan_status <> 'online' then 'needs_review'
+        when coalesce(b.worker_status, 'unknown') <> 'online' then 'needs_review'
+        when b.worker_last_seen_at is null or b.worker_last_seen_at < now() - interval '15 minutes' then 'needs_review'
+        else 'ready'
+      end as device_bridge_quality_status,
+      case
         when m.asset_id is null then 'missing'
         when m.device_id is null then 'needs_review'
         when m.frame_width is null or m.frame_height is null then 'needs_review'
@@ -583,6 +620,13 @@ from (
       on m.asset_id = a.id
      and m.patient_id = a.patient_id
      and m.clinic_id = a.clinic_id
+    left join medical_devices d
+      on d.id = m.device_id
+     and d.clinic_id = a.clinic_id
+     and d.deleted_at is null
+    left join device_bridges b
+      on b.id = d.bridge_id
+     and b.clinic_id = a.clinic_id
     where a.kind in ('overview_photo', 'dermoscopy')
       and a.content_type like 'image/%'
       ${clinicScopeWhere({ alias: "a", clinicIds, allClinics })}
@@ -621,6 +665,7 @@ from (
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'unreviewed'), 0) as unreviewed_pair_count,
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.capture_metadata_status = 'missing'), 0) as missing_capture_metadata_count,
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.metadata_asset_id is not null and a.capture_metadata_status <> 'ready'), 0) as device_evidence_not_ready_count,
+      coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.device_bridge_quality_status = 'needs_review'), 0) as device_bridge_quality_not_ready_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.calibration_status <> 'ready'), 0) as calibration_blocked_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.technical_marker_count < 2), 0) as marker_missing_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.reviewer_workflow_status in ('ready_for_reviewer', 'reviewer_accepted')), 0) as reviewer_workflow_ready_count
@@ -635,6 +680,7 @@ from (
           or not_suitable_for_comparison_count > 0
           or missing_capture_metadata_count > 0
           or device_evidence_not_ready_count > 0
+          or device_bridge_quality_not_ready_count > 0
           or calibration_blocked_count > 0
           or marker_missing_count > 0 then 'blocked'
         when unreviewed_pair_count > 0 then 'needs_review'
@@ -646,6 +692,7 @@ from (
         when not_suitable_for_comparison_count > 0 then 'exclude_from_dynamic_review'
         when missing_capture_metadata_count > 0 then 'complete_capture_metadata'
         when device_evidence_not_ready_count > 0 then 'complete_device_metadata'
+        when device_bridge_quality_not_ready_count > 0 then 'check_device_bridge'
         when calibration_blocked_count > 0 then 'complete_calibration'
         when marker_missing_count > 0 then 'place_markers'
         else 'continue_review'
@@ -670,6 +717,9 @@ from (
     union all
     select 'device_metadata_not_ready', 'Device metadata требует проверки', 'complete_device_metadata',
       coalesce((select sum(device_evidence_not_ready_count)::int from classified), 0)
+    union all
+    select 'device_bridge_quality_not_ready', 'Device Bridge требует проверки', 'check_device_bridge',
+      coalesce((select sum(device_bridge_quality_not_ready_count)::int from classified), 0)
     union all
     select 'calibration_not_ready', 'Калибровка не готова', 'complete_calibration',
       coalesce((select sum(calibration_blocked_count)::int from classified), 0)
@@ -705,6 +755,7 @@ from (
       'technicalReadyPairCount', coalesce((select sum(technical_ready_pair_count)::int from classified), 0),
       'missingCaptureMetadataCount', coalesce((select sum(missing_capture_metadata_count)::int from classified), 0),
       'deviceEvidenceNotReadyCount', coalesce((select sum(device_evidence_not_ready_count)::int from classified), 0),
+      'deviceBridgeQualityNotReadyCount', coalesce((select sum(device_bridge_quality_not_ready_count)::int from classified), 0),
       'calibrationBlockedCount', coalesce((select sum(calibration_blocked_count)::int from classified), 0),
       'markerMissingCount', coalesce((select sum(marker_missing_count)::int from classified), 0),
       'reviewerWorkflowReadyCount', coalesce((select sum(reviewer_workflow_ready_count)::int from classified), 0),
@@ -725,6 +776,7 @@ from (
         'technicalReadyPairCount', c.technical_ready_pair_count,
         'missingCaptureMetadataCount', c.missing_capture_metadata_count,
         'deviceEvidenceNotReadyCount', c.device_evidence_not_ready_count,
+        'deviceBridgeQualityNotReadyCount', c.device_bridge_quality_not_ready_count,
         'calibrationBlockedCount', c.calibration_blocked_count,
         'markerMissingCount', c.marker_missing_count,
         'reviewerWorkflowReadyCount', c.reviewer_workflow_ready_count,
@@ -748,6 +800,7 @@ from (
       case when exists(select 1 from classified where not_suitable_for_comparison_count > 0) then 'exclude_from_dynamic_review' end,
       case when exists(select 1 from classified where missing_capture_metadata_count > 0) then 'complete_capture_metadata' end,
       case when exists(select 1 from classified where device_evidence_not_ready_count > 0) then 'complete_device_metadata' end,
+      case when exists(select 1 from classified where device_bridge_quality_not_ready_count > 0) then 'check_device_bridge' end,
       case when exists(select 1 from classified where calibration_blocked_count > 0) then 'complete_calibration' end,
       case when exists(select 1 from classified where marker_missing_count > 0) then 'place_markers' end,
       case when exists(select 1 from classified where status = 'ready_for_rollout') then 'continue_review' end
@@ -864,12 +917,46 @@ from (
       m.device_calibration_checked_at,
       m.device_evidence_status,
       case
+        when m.asset_id is null or coalesce(m.capture_source, 'unknown') <> 'device_bridge' then 'not_applicable'
+        when m.device_id is null then 'needs_review'
+        when d.id is null then 'needs_review'
+        when d.status <> 'connected' then 'needs_review'
+        when d.calibration_due_at is not null and d.calibration_due_at <= current_date then 'needs_review'
+        when b.id is null then 'needs_review'
+        when b.lan_status <> 'online' then 'needs_review'
+        when coalesce(b.worker_status, 'unknown') <> 'online' then 'needs_review'
+        when b.worker_last_seen_at is null or b.worker_last_seen_at < now() - interval '15 minutes' then 'needs_review'
+        else 'ready'
+      end as device_bridge_quality_status,
+      array_remove(array[
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and m.device_id is null then 'device_missing' end,
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and m.device_id is not null and d.id is null then 'device_not_registered' end,
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and d.id is not null and d.status <> 'connected' then 'device_not_connected' end,
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and d.calibration_due_at is not null and d.calibration_due_at <= current_date then 'device_calibration_due' end,
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and d.id is not null and b.id is null then 'bridge_not_paired' end,
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and b.id is not null and b.lan_status <> 'online' then 'bridge_offline' end,
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and b.id is not null and coalesce(b.worker_status, 'unknown') <> 'online' then 'worker_not_ready' end,
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge' and b.id is not null and (b.worker_last_seen_at is null or b.worker_last_seen_at < now() - interval '15 minutes') then 'worker_heartbeat_stale' end
+      ]::text[], null) as device_bridge_quality_reasons,
+      case
         when m.asset_id is null then 'missing'
         when m.device_id is null then 'warning'
         when m.frame_width is null or m.frame_height is null then 'warning'
         when coalesce(m.quality_score, 0) < 75 then 'warning'
         when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'warning'
         when coalesce(m.device_evidence_status, 'missing') <> 'ready' then 'warning'
+        when coalesce(m.capture_source, 'unknown') = 'device_bridge'
+          and (
+            m.device_id is null
+            or d.id is null
+            or d.status <> 'connected'
+            or (d.calibration_due_at is not null and d.calibration_due_at <= current_date)
+            or b.id is null
+            or b.lan_status <> 'online'
+            or coalesce(b.worker_status, 'unknown') <> 'online'
+            or b.worker_last_seen_at is null
+            or b.worker_last_seen_at < now() - interval '15 minutes'
+          ) then 'warning'
         else 'ready'
       end as technical_status,
       array_remove(array[
@@ -879,7 +966,19 @@ from (
         case when m.asset_id is not null and coalesce(m.quality_score, 0) < 75 then 'low_quality' end,
         case when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'quality_issue' end,
         case when m.asset_id is not null and m.scale_marker_detected = false then 'scale_marker_missing' end,
-        case when m.asset_id is not null and coalesce(m.device_evidence_status, 'missing') <> 'ready' then 'device_metadata_not_ready' end
+        case when m.asset_id is not null and coalesce(m.device_evidence_status, 'missing') <> 'ready' then 'device_metadata_not_ready' end,
+        case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge'
+          and (
+            m.device_id is null
+            or d.id is null
+            or d.status <> 'connected'
+            or (d.calibration_due_at is not null and d.calibration_due_at <= current_date)
+            or b.id is null
+            or b.lan_status <> 'online'
+            or coalesce(b.worker_status, 'unknown') <> 'online'
+            or b.worker_last_seen_at is null
+            or b.worker_last_seen_at < now() - interval '15 minutes'
+          ) then 'device_bridge_quality_not_ready' end
       ]::text[], null) as technical_reasons
     from clinical_assets a
     join target_lesion l
@@ -893,6 +992,10 @@ from (
     left join medical_devices d
       on d.id = m.device_id
      and d.clinic_id = a.clinic_id
+     and d.deleted_at is null
+    left join device_bridges b
+      on b.id = d.bridge_id
+     and b.clinic_id = a.clinic_id
     where a.kind in ('overview_photo', 'dermoscopy')
       and a.content_type like 'image/%'
       ${clinicScopeWhere({ alias: "a", clinicIds, allClinics })}
@@ -908,7 +1011,9 @@ from (
       'readyForTechnicalCompareCount', coalesce((select count(*)::int from asset_rows where technical_status = 'ready'), 0),
       'scaleReadyCount', coalesce((select count(*)::int from asset_rows where scale_marker_detected = true and millimeters_available = true), 0),
       'deviceEvidenceReadyCount', coalesce((select count(*)::int from asset_rows where device_evidence_status = 'ready'), 0),
-      'deviceEvidenceReviewCount', coalesce((select count(*)::int from asset_rows where device_evidence_status in ('missing', 'needs_review')), 0)
+      'deviceEvidenceReviewCount', coalesce((select count(*)::int from asset_rows where device_evidence_status in ('missing', 'needs_review')), 0),
+      'deviceBridgeQualityReadyCount', coalesce((select count(*)::int from asset_rows where device_bridge_quality_status = 'ready'), 0),
+      'deviceBridgeQualityReviewCount', coalesce((select count(*)::int from asset_rows where device_bridge_quality_status = 'needs_review'), 0)
     ) as "summary",
     coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -933,6 +1038,8 @@ from (
         'deviceCalibrationStatus', coalesce(a.device_calibration_status, 'unknown'),
         'deviceCalibrationCheckedAt', a.device_calibration_checked_at,
         'deviceEvidenceStatus', coalesce(a.device_evidence_status, 'missing'),
+        'deviceBridgeQualityStatus', coalesce(a.device_bridge_quality_status, 'not_applicable'),
+        'deviceBridgeQualityReasons', coalesce(a.device_bridge_quality_reasons, array[]::text[]),
         'technicalStatus', a.technical_status,
         'technicalReasons', a.technical_reasons
       ) order by coalesce(a.captured_at, a.created_at) asc nulls last, a.id asc)
@@ -1990,6 +2097,8 @@ function normalizeCaptureMetadataSummary(value) {
     scaleReadyCount: numberOrZero(source.scaleReadyCount),
     deviceEvidenceReadyCount: numberOrZero(source.deviceEvidenceReadyCount),
     deviceEvidenceReviewCount: numberOrZero(source.deviceEvidenceReviewCount),
+    deviceBridgeQualityReadyCount: numberOrZero(source.deviceBridgeQualityReadyCount),
+    deviceBridgeQualityReviewCount: numberOrZero(source.deviceBridgeQualityReviewCount),
   };
 }
 
@@ -2024,6 +2133,10 @@ function normalizeCaptureMetadataItem(row) {
       calibrationStatus: String(row.deviceCalibrationStatus ?? "unknown"),
       calibrationCheckedAt: row.deviceCalibrationCheckedAt ?? null,
       status: String(row.deviceEvidenceStatus ?? "missing"),
+    },
+    deviceBridgeQuality: {
+      status: String(row.deviceBridgeQualityStatus ?? "not_applicable"),
+      reasons: parseStringArray(row.deviceBridgeQualityReasons),
     },
     technicalStatus: status === "ready" || status === "warning" ? status : "missing",
     technicalReasons: parseJsonArray(row.technicalReasons),
@@ -2202,6 +2315,7 @@ const LONGITUDINAL_QA_BLOCKER_VALUES = new Set([
   "unreviewed_pairs",
   "missing_capture_metadata",
   "device_metadata_not_ready",
+  "device_bridge_quality_not_ready",
   "calibration_not_ready",
   "technical_markers_missing",
 ]);
@@ -2211,6 +2325,7 @@ const LONGITUDINAL_QA_ACTION_VALUES = new Set([
   "exclude_from_dynamic_review",
   "complete_capture_metadata",
   "complete_device_metadata",
+  "check_device_bridge",
   "complete_calibration",
   "place_markers",
   "continue_review",
@@ -2240,6 +2355,7 @@ function normalizeLongitudinalQaReadiness(value) {
     unreviewedPairCount: numberOrZero(source.unreviewedPairCount),
     missingCaptureMetadataCount: numberOrZero(source.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(source.deviceEvidenceNotReadyCount),
+    deviceBridgeQualityNotReadyCount: numberOrZero(source.deviceBridgeQualityNotReadyCount),
     calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
     markerMissingCount: numberOrZero(source.markerMissingCount),
     technicalRolloutReady: source.technicalRolloutReady === true,
@@ -2317,6 +2433,7 @@ function normalizeVisitLongitudinalDatasetValidationReadiness(value) {
     technicalReadyPairCount: numberOrZero(source.technicalReadyPairCount),
     missingCaptureMetadataCount: numberOrZero(source.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(source.deviceEvidenceNotReadyCount),
+    deviceBridgeQualityNotReadyCount: numberOrZero(source.deviceBridgeQualityNotReadyCount),
     calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
     markerMissingCount: numberOrZero(source.markerMissingCount),
     reviewerWorkflowReadyCount: numberOrZero(source.reviewerWorkflowReadyCount),
@@ -2341,6 +2458,7 @@ function normalizeVisitLongitudinalDatasetValidationItem(row) {
     technicalReadyPairCount: numberOrZero(row.technicalReadyPairCount),
     missingCaptureMetadataCount: numberOrZero(row.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(row.deviceEvidenceNotReadyCount),
+    deviceBridgeQualityNotReadyCount: numberOrZero(row.deviceBridgeQualityNotReadyCount),
     calibrationBlockedCount: numberOrZero(row.calibrationBlockedCount),
     markerMissingCount: numberOrZero(row.markerMissingCount),
     reviewerWorkflowReadyCount: numberOrZero(row.reviewerWorkflowReadyCount),

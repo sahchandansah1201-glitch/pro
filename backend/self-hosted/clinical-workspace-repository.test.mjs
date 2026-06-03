@@ -74,6 +74,12 @@ test("Batch BG Stage 5H repository builds metadata-only lesion longitudinal QA S
   assert.match(sql, /deviceEvidenceNotReadyCount/);
   assert.match(sql, /device_metadata_not_ready/);
   assert.match(sql, /complete_device_metadata/);
+  assert.match(sql, /medical_devices d/);
+  assert.match(sql, /device_bridges b/);
+  assert.match(sql, /device_bridge_quality_status/);
+  assert.match(sql, /deviceBridgeQualityNotReadyCount/);
+  assert.match(sql, /device_bridge_quality_not_ready/);
+  assert.match(sql, /check_device_bridge/);
   assert.match(sql, /longitudinal_qa\.read/i);
   assert.match(sql, /technicalRolloutReady/);
   assert.match(sql, /dynamicConclusionAllowed/);
@@ -82,7 +88,7 @@ test("Batch BG Stage 5H repository builds metadata-only lesion longitudinal QA S
   assert.match(sql, /and l\.clinic_id in/);
   assert.doesNotMatch(
     sql,
-    /q\.pair_key|q\.image_ids|object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
+    /q\.pair_key|q\.image_ids|d\.serial|b\.host_name|worker_metadata_json|object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
   );
 });
 
@@ -102,6 +108,12 @@ test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset valid
   assert.match(sql, /deviceEvidenceNotReadyCount/);
   assert.match(sql, /device_metadata_not_ready/);
   assert.match(sql, /complete_device_metadata/);
+  assert.match(sql, /medical_devices d/);
+  assert.match(sql, /device_bridges b/);
+  assert.match(sql, /device_bridge_quality_status/);
+  assert.match(sql, /deviceBridgeQualityNotReadyCount/);
+  assert.match(sql, /device_bridge_quality_not_ready/);
+  assert.match(sql, /check_device_bridge/);
   assert.match(sql, /reviewer_workflow_status/);
   assert.match(sql, /visit_longitudinal_dataset_validation\.read/i);
   assert.match(sql, /ready_for_rollout/);
@@ -111,7 +123,7 @@ test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset valid
   assert.match(sql, /and v\.clinic_id in/);
   assert.doesNotMatch(
     sql,
-    /q\.pair_key|q\.image_ids|object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
+    /q\.pair_key|q\.image_ids|d\.serial|b\.host_name|worker_metadata_json|object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
   );
 });
 
@@ -146,11 +158,14 @@ test("Batch BC Stage 5H repository builds production capture metadata SQL withou
   assert.match(sql, /scale_marker_detected/);
   assert.match(sql, /device_capture_profile/);
   assert.match(sql, /device_evidence_status/);
+  assert.match(sql, /device_bridge_quality_status/);
+  assert.match(sql, /deviceBridgeQualityReadyCount/);
+  assert.match(sql, /deviceBridgeQualityReviewCount/);
   assert.match(sql, /patient_delivery_allowed/i);
   assert.match(sql, /and a\.clinic_id in/);
   assert.doesNotMatch(
     sql,
-    /object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken/i,
+    /d\.serial|b\.host_name|worker_metadata_json|object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken/i,
   );
 });
 
