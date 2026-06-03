@@ -56,6 +56,7 @@ import {
 import {
   downloadSelfHostedProtectedLesionImage,
   getSelfHostedLesionLongitudinalQa,
+  reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow,
   reviewSelfHostedLesionComparisonViewerQa,
   SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
   saveSelfHostedLesionComparisonDraft,
@@ -103,6 +104,8 @@ type ComparisonBackendDraftStatus = "idle" | "saving" | "saved" | "local_only" |
 type ViewerQaBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type ViewerQaReviewBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type ViewerQaReviewStatus = "technical_ready" | "needs_recapture" | "not_suitable_for_comparison";
+type ViewerQaReviewerWorkflowBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
+type ViewerQaReviewerWorkflowStatus = "ready_for_reviewer" | "reviewer_accepted" | "reviewer_rejected";
 type ProtectedRenderStatus = "idle" | "loading" | "ready" | "error";
 type LongitudinalQaLoadStatus = "idle" | "loading" | "loaded" | "error";
 type ProtectedRenderReadinessItem = {
@@ -134,6 +137,10 @@ type ViewerQaSavePayload = {
 type ViewerQaReviewPayload = ViewerQaSavePayload & {
   reviewStatus: ViewerQaReviewStatus;
   reviewReasons: string[];
+};
+type ViewerQaReviewerWorkflowPayload = ViewerQaSavePayload & {
+  workflowStatus: ViewerQaReviewerWorkflowStatus;
+  workflowReasons: string[];
 };
 type ComparisonOverlay = "grid" | "center" | "off";
 type ComparisonViewport = {
@@ -199,6 +206,11 @@ const VIEWER_QA_REVIEW_LABEL: Record<ViewerQaReviewStatus, string> = {
   technical_ready: "Технически готово",
   needs_recapture: "Нужен переснимок",
   not_suitable_for_comparison: "Не использовать для динамики",
+};
+const VIEWER_QA_REVIEWER_WORKFLOW_LABEL: Record<ViewerQaReviewerWorkflowStatus, string> = {
+  ready_for_reviewer: "Готово к reviewer workflow",
+  reviewer_accepted: "Reviewer workflow принят",
+  reviewer_rejected: "Reviewer workflow отклонён",
 };
 const LONGITUDINAL_QA_STATUS_LABEL: Record<SelfHostedLesionLongitudinalQaDTO["readiness"]["status"], string> = {
   blocked: "Динамика заблокирована",
@@ -329,6 +341,11 @@ function calibrationReadinessChecks(imageA: ClinicalImage, imageB: ClinicalImage
   const frameSizeA = imageFrameSize(imageA);
   const frameSizeB = imageFrameSize(imageB);
   const sameFrameSize = frameSizeA === frameSizeB;
+  const scaleMarkerReady = imageA.viewerCalibration?.scaleMarkerDetected === true
+    && imageB.viewerCalibration?.scaleMarkerDetected === true;
+  const millimetersReady = imageA.viewerCalibration?.millimetersAvailable === true
+    && imageB.viewerCalibration?.millimetersAvailable === true
+    && scaleMarkerReady;
 
   return [
     {
@@ -343,13 +360,13 @@ function calibrationReadinessChecks(imageA: ClinicalImage, imageB: ClinicalImage
     },
     {
       label: "Масштабная шкала",
-      ready: false,
-      detail: "шкала не обнаружена",
+      ready: scaleMarkerReady,
+      detail: scaleMarkerReady ? "шкала обнаружена" : "шкала не обнаружена",
     },
     {
       label: "Миллиметры",
-      ready: false,
-      detail: "мм недоступны",
+      ready: millimetersReady,
+      detail: millimetersReady ? "мм доступны для viewer QA" : "мм недоступны",
     },
   ];
 }
@@ -996,6 +1013,10 @@ function ComparisonFullScreenDialog({
   onReviewViewerQa,
   viewerQaReviewStatus,
   viewerQaReviewMessage,
+  technicalReviewReady,
+  onReviewViewerWorkflow,
+  viewerQaReviewerWorkflowStatus,
+  viewerQaReviewerWorkflowMessage,
   canLoadProtectedImages,
   protectedReadiness,
   protectedRenderStatus,
@@ -1019,6 +1040,10 @@ function ComparisonFullScreenDialog({
   onReviewViewerQa: (payload: ViewerQaReviewPayload) => void;
   viewerQaReviewStatus: ViewerQaReviewBackendStatus;
   viewerQaReviewMessage: string;
+  technicalReviewReady: boolean;
+  onReviewViewerWorkflow: (payload: ViewerQaReviewerWorkflowPayload) => void;
+  viewerQaReviewerWorkflowStatus: ViewerQaReviewerWorkflowBackendStatus;
+  viewerQaReviewerWorkflowMessage: string;
   canLoadProtectedImages: boolean;
   protectedReadiness: ProtectedRenderReadinessItem[];
   protectedRenderStatus: ProtectedRenderStatus;
@@ -1084,6 +1109,16 @@ function ComparisonFullScreenDialog({
         calibrationReady,
         markerCount: geometryMarkers.length,
       }),
+    });
+  };
+  const reviewViewerWorkflow = (workflowStatus: ViewerQaReviewerWorkflowStatus) => {
+    setCalibrationLimitSaved(true);
+    onReviewViewerWorkflow({
+      ...currentViewerQaPayload(),
+      workflowStatus,
+      workflowReasons: workflowStatus === "reviewer_rejected"
+        ? ["reviewer_workflow_rejected"]
+        : ["calibrated_reviewer_workflow_ready"],
     });
   };
   const markerFor = (target: TechnicalGeometryMarker["target"]) =>
@@ -1414,6 +1449,103 @@ function ComparisonFullScreenDialog({
                     role="status"
                   >
                     {viewerQaReviewMessage}
+                  </p>
+                )}
+              </section>
+              <section
+                role="region"
+                aria-label="Clinical-grade reviewer workflow"
+                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Clinical-grade reviewer workflow
+                    </div>
+                    <div className="text-[12px] font-medium">
+                      Reviewer gate: {technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2
+                        ? "готов"
+                        : "заблокирован"}
+                    </div>
+                  </div>
+                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    no patient delivery
+                  </span>
+                </div>
+                <div className="mt-2 grid gap-1.5">
+                  {[
+                    {
+                      label: "Технический review",
+                      ready: technicalReviewReady,
+                      detail: technicalReviewReady ? "technical_ready сохранён" : "сначала нажмите «Технически готово»",
+                    },
+                    {
+                      label: "Калибровка",
+                      ready: calibrationReady,
+                      detail: calibrationReady ? "calibrated viewer QA готов" : "нужна шкала и mm availability",
+                    },
+                    {
+                      label: "Metadata съёмки",
+                      ready: captureReady,
+                      detail: captureReady ? "условия повторяемы" : "нужна повторяемая съёмка",
+                    },
+                    {
+                      label: "Технические маркеры",
+                      ready: geometryMarkers.length === 2,
+                      detail: `маркеры ${geometryMarkers.length}/2`,
+                    },
+                  ].map((item) => (
+                    <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
+                      {item.ready ? (
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-low" aria-hidden />
+                      ) : (
+                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-moderate" aria-hidden />
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-medium">{item.label}</span>
+                        <span className="text-muted-foreground"> · {item.detail}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={
+                      viewerQaReviewerWorkflowStatus === "saving"
+                      || !(technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2)
+                    }
+                    onClick={() => reviewViewerWorkflow("reviewer_accepted")}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> {VIEWER_QA_REVIEWER_WORKFLOW_LABEL.reviewer_accepted}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={viewerQaReviewerWorkflowStatus === "saving"}
+                    onClick={() => reviewViewerWorkflow("reviewer_rejected")}
+                  >
+                    <XCircle className="h-3.5 w-3.5" aria-hidden /> {VIEWER_QA_REVIEWER_WORKFLOW_LABEL.reviewer_rejected}
+                  </Button>
+                </div>
+                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                  <span>Workflow подтверждает только готовность к врачебному просмотру.</span>
+                  <span>Не диагноз, не динамика, не медицинское измерение.</span>
+                  <span>Выдача пациенту: выключена</span>
+                </div>
+                {viewerQaReviewerWorkflowMessage && (
+                  <p
+                    className={`mt-2 text-[12px] font-medium ${
+                      viewerQaReviewerWorkflowStatus === "error" ? "text-destructive" : "text-primary"
+                    }`}
+                    role="status"
+                  >
+                    {viewerQaReviewerWorkflowMessage}
                   </p>
                 )}
               </section>
@@ -1770,6 +1902,10 @@ export default function LesionDetailPage() {
   const [viewerQaMessage, setViewerQaMessage] = useState("");
   const [viewerQaReviewStatus, setViewerQaReviewStatus] = useState<ViewerQaReviewBackendStatus>("idle");
   const [viewerQaReviewMessage, setViewerQaReviewMessage] = useState("");
+  const [viewerQaLatestReviewStatus, setViewerQaLatestReviewStatus] = useState<ViewerQaReviewStatus | null>(null);
+  const [viewerQaReviewerWorkflowStatus, setViewerQaReviewerWorkflowStatus] =
+    useState<ViewerQaReviewerWorkflowBackendStatus>("idle");
+  const [viewerQaReviewerWorkflowMessage, setViewerQaReviewerWorkflowMessage] = useState("");
   const [protectedRenderStatus, setProtectedRenderStatus] = useState<ProtectedRenderStatus>("idle");
   const [protectedRenderMessage, setProtectedRenderMessage] = useState("");
   const [protectedImageUrls, setProtectedImageUrls] = useState<Record<string, string>>({});
@@ -1848,6 +1984,9 @@ export default function LesionDetailPage() {
     setViewerQaMessage("");
     setViewerQaReviewStatus("idle");
     setViewerQaReviewMessage("");
+    setViewerQaLatestReviewStatus(null);
+    setViewerQaReviewerWorkflowStatus("idle");
+    setViewerQaReviewerWorkflowMessage("");
     setProtectedImageUrls((current) => {
       revokePreviewUrls(current);
       return {};
@@ -1939,6 +2078,9 @@ export default function LesionDetailPage() {
     setComparisonBackendMessage("");
     setViewerQaReviewStatus("idle");
     setViewerQaReviewMessage("");
+    setViewerQaLatestReviewStatus(null);
+    setViewerQaReviewerWorkflowStatus("idle");
+    setViewerQaReviewerWorkflowMessage("");
   };
 
   const viewerQaApiPayload = (payload: ViewerQaSavePayload) => {
@@ -1997,17 +2139,20 @@ export default function LesionDetailPage() {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setViewerQaReviewStatus("local_only");
       setViewerQaReviewMessage("Viewer QA review зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
     if (!selfHostedConfigured) {
       setViewerQaReviewStatus("local_only");
       setViewerQaReviewMessage("Viewer QA review зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
       setViewerQaReviewStatus("local_only");
       setViewerQaReviewMessage("Viewer QA review зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
 
@@ -2039,9 +2184,55 @@ export default function LesionDetailPage() {
     if (reviewResult.ok) {
       setViewerQaReviewStatus("saved");
       setViewerQaReviewMessage("Viewer QA review сохранён в self-hosted backend. Выдача пациенту: выключена.");
+      setViewerQaLatestReviewStatus(reviewResult.value?.review.status ?? payload.reviewStatus);
     } else {
       setViewerQaReviewStatus("error");
       setViewerQaReviewMessage(reviewResult.error?.message ?? "Viewer QA review не сохранён.");
+    }
+  };
+
+  const reviewReviewerWorkflow = async (payload: ViewerQaReviewerWorkflowPayload) => {
+    if (!selectedPairDraftKey || !comparePair || !latestVisit) {
+      setViewerQaReviewerWorkflowStatus("local_only");
+      setViewerQaReviewerWorkflowMessage("Reviewer workflow зафиксирован локально. Выдача пациенту: выключена.");
+      return;
+    }
+    if (!selfHostedConfigured) {
+      setViewerQaReviewerWorkflowStatus("local_only");
+      setViewerQaReviewerWorkflowMessage("Reviewer workflow зафиксирован локально. Выдача пациенту: выключена.");
+      return;
+    }
+    const apiPayload = viewerQaApiPayload(payload);
+    if (!apiPayload) {
+      setViewerQaReviewerWorkflowStatus("local_only");
+      setViewerQaReviewerWorkflowMessage("Reviewer workflow зафиксирован локально. Выдача пациенту: выключена.");
+      return;
+    }
+
+    setViewerQaReviewerWorkflowStatus("saving");
+    setViewerQaReviewerWorkflowMessage("Reviewer workflow сохраняется в self-hosted backend.");
+    const result = await reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: {
+        lesionId,
+        pairKey: selectedPairDraftKey,
+        imageIds: [comparePair[0].id, comparePair[1].id],
+        workflowStatus: payload.workflowStatus,
+        workflowReasons: payload.workflowReasons,
+      },
+    });
+    if (result.ok) {
+      setViewerQaReviewerWorkflowStatus("saved");
+      setViewerQaReviewerWorkflowMessage(
+        result.value?.reviewerWorkflow.status === "technical_gate_blocked"
+          ? "Reviewer workflow заблокирован backend gate. Выдача пациенту: выключена."
+          : "Reviewer workflow сохранён в self-hosted backend. Выдача пациенту: выключена.",
+      );
+    } else {
+      setViewerQaReviewerWorkflowStatus("error");
+      setViewerQaReviewerWorkflowMessage(result.error?.message ?? "Reviewer workflow не сохранён.");
     }
   };
 
@@ -2678,6 +2869,10 @@ export default function LesionDetailPage() {
         onReviewViewerQa={reviewViewerQa}
         viewerQaReviewStatus={viewerQaReviewStatus}
         viewerQaReviewMessage={viewerQaReviewMessage}
+        technicalReviewReady={viewerQaLatestReviewStatus === "technical_ready"}
+        onReviewViewerWorkflow={reviewReviewerWorkflow}
+        viewerQaReviewerWorkflowStatus={viewerQaReviewerWorkflowStatus}
+        viewerQaReviewerWorkflowMessage={viewerQaReviewerWorkflowMessage}
         canLoadProtectedImages={canLoadProtectedImages}
         protectedReadiness={protectedReadiness}
         protectedRenderStatus={protectedRenderStatus}

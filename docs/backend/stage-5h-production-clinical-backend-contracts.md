@@ -673,6 +673,76 @@ Safety boundary:
   doctor-side metadata only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BH Calibrated Reviewer Workflow
+
+Batch BH adds a calibrated production viewer QA reviewer-workflow gate over the
+existing metadata-only viewer QA draft and technical review. It is the first
+clinical-grade workflow control for image-pair review, but it still does not
+create a diagnosis, dynamic conclusion, medical measurement, or patient-facing
+delivery state.
+
+Backend contracts:
+
+- migration `0062_stage5h_calibrated_viewer_reviewer_workflow.sql`;
+- `PATCH /api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-workflow`;
+- repository builder `buildReviewLesionComparisonViewerQaReviewerWorkflowSql`;
+- service method `reviewLesionComparisonViewerQaReviewerWorkflow`;
+- payload normalizer `normalizeLesionComparisonViewerQaReviewerWorkflowPayload`;
+- audit action `lesion_comparison_viewer_qa.reviewer_workflow`;
+- OpenAPI schema `LesionComparisonViewerQaReviewerWorkflow`.
+
+Backend gates:
+
+- an existing viewer QA draft must match the visit, patient, clinic, lesion,
+  pair key and two scoped image IDs;
+- `review_status = technical_ready`;
+- `calibration_status = ready`;
+- `capture_metadata_status = ready`;
+- `technical_markers` must contain at least two normalized markers;
+- if any gate fails, backend stores `reviewer_workflow_status =
+  technical_gate_blocked`.
+
+Frontend behavior:
+
+- `LesionDetailPage` full-screen comparison adds region
+  `Clinical-grade reviewer workflow`;
+- the region shows gate rows for technical review, calibration, capture
+  metadata and technical markers;
+- standard user path: select two calibrated UUID fixture images, open
+  full-screen comparison, place A/B markers, click `Технически готово`, then
+  click `Reviewer workflow принят`;
+- the UI copy states `Не диагноз, не динамика, не медицинское измерение` and
+  `Выдача пациенту: выключена`.
+
+Safety boundary:
+
+- audit metadata excludes `pairKey` and image IDs;
+- `medicalMeasurementAllowed=false`;
+- `patientDeliveryAllowed=false`;
+- `protectedFieldsExposed=false`;
+- no object bucket/key, storage path, signed URL, QR/session/credential
+  material, doctor-only text, patient-safe report text, diagnosis, risk,
+  prognosis, treatment, automated dynamic conclusion, or protected-image
+  delivery is exposed.
+
+### Batch BH Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BH adds a
+  calibrated fixture and reviewer workflow over image-pair QA. Remaining gate:
+  production dataset validation and rollout across real longitudinal assets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BH
+  closes the first clinical-grade reviewer workflow gate after technical
+  review, calibration, metadata and marker readiness. Remaining gate:
+  production reviewer roles, reviewer assignment/escalation and calibrated
+  viewer QA validation on real assets.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BH blocks
+  reviewer acceptance unless all technical gates pass; dynamic conclusions and
+  medical measurements remain disabled. Remaining gate: approved production
+  analysis policy and clinical-grade validation before any dynamic output.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BH is
+  doctor-side metadata only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

@@ -162,6 +162,14 @@ export interface LesionComparisonViewerQaReviewPayload {
   reviewReasons: string[];
 }
 
+export interface LesionComparisonViewerQaReviewerWorkflowPayload {
+  lesionId: string;
+  pairKey: string;
+  imageIds: [string, string];
+  workflowStatus: "ready_for_reviewer" | "reviewer_accepted" | "reviewer_rejected";
+  workflowReasons: string[];
+}
+
 export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonViewerQaPayload {
   id: string;
   clinicId: string | null;
@@ -173,6 +181,21 @@ export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonV
     reasons: string[];
     reviewedAt: string | null;
     reviewedByUserId: string | null;
+  };
+  reviewerWorkflow: {
+    status: "technical_gate_blocked" | "ready_for_reviewer" | "reviewer_accepted" | "reviewer_rejected";
+    reasons: string[];
+    reviewedAt: string | null;
+    reviewedByUserId: string | null;
+    gate: {
+      technicalReviewReady: boolean;
+      calibrationReady: boolean;
+      captureMetadataReady: boolean;
+      markerGateReady: boolean;
+      medicalMeasurementAllowed: false;
+      patientDeliveryAllowed: false;
+      clinicalConclusionGenerated: false;
+    };
   };
   medicalMeasurementAllowed: false;
   patientDeliveryAllowed: false;
@@ -397,6 +420,10 @@ interface PatchLesionComparisonViewerQaArgs extends VisitArgs {
 
 interface PatchLesionComparisonViewerQaReviewArgs extends VisitArgs {
   payload: LesionComparisonViewerQaReviewPayload;
+}
+
+interface PatchLesionComparisonViewerQaReviewerWorkflowArgs extends VisitArgs {
+  payload: LesionComparisonViewerQaReviewerWorkflowPayload;
 }
 
 interface VisitViewerQaReviewQueueArgs extends VisitArgs {
@@ -716,11 +743,35 @@ function toViewerQaReviewStatus(
     : "unreviewed";
 }
 
+function toViewerQaReviewerWorkflowStatus(
+  value: unknown,
+): SelfHostedLesionComparisonViewerQaDTO["reviewerWorkflow"]["status"] {
+  return value === "ready_for_reviewer" || value === "reviewer_accepted" || value === "reviewer_rejected"
+    ? value
+    : "technical_gate_blocked";
+}
+
+function toViewerQaReviewerWorkflowGate(
+  input: unknown,
+): SelfHostedLesionComparisonViewerQaDTO["reviewerWorkflow"]["gate"] {
+  const gate = isRecord(input) ? input : {};
+  return {
+    technicalReviewReady: gate.technicalReviewReady === true,
+    calibrationReady: gate.calibrationReady === true,
+    captureMetadataReady: gate.captureMetadataReady === true,
+    markerGateReady: gate.markerGateReady === true,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    clinicalConclusionGenerated: false,
+  };
+}
+
 function toLesionComparisonViewerQa(input: Record<string, unknown>): SelfHostedLesionComparisonViewerQaDTO {
   const imageIds = toStringArray(input.imageIds).slice(0, 2);
   const calibrationStatus = String(input.calibrationStatus ?? "not_ready");
   const captureMetadataStatus = String(input.captureMetadataStatus ?? "needs_review");
   const review = isRecord(input.review) ? input.review : {};
+  const reviewerWorkflow = isRecord(input.reviewerWorkflow) ? input.reviewerWorkflow : {};
   return {
     id: String(input.id ?? ""),
     clinicId: textOrNull(input.clinicId),
@@ -744,6 +795,13 @@ function toLesionComparisonViewerQa(input: Record<string, unknown>): SelfHostedL
       reasons: toStringArray(review.reasons),
       reviewedAt: textOrNull(review.reviewedAt),
       reviewedByUserId: textOrNull(review.reviewedByUserId),
+    },
+    reviewerWorkflow: {
+      status: toViewerQaReviewerWorkflowStatus(reviewerWorkflow.status),
+      reasons: toStringArray(reviewerWorkflow.reasons),
+      reviewedAt: textOrNull(reviewerWorkflow.reviewedAt),
+      reviewedByUserId: textOrNull(reviewerWorkflow.reviewedByUserId),
+      gate: toViewerQaReviewerWorkflowGate(reviewerWorkflow.gate),
     },
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
@@ -1103,6 +1161,20 @@ export async function reviewSelfHostedLesionComparisonViewerQa(
   if (cfg) return fail(cfg);
   return requestJson(
     visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa/review"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toLesionComparisonViewerQa,
+  );
+}
+
+export async function reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow(
+  args: PatchLesionComparisonViewerQaReviewerWorkflowArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionComparisonViewerQaDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa/reviewer-workflow"),
     args.apiToken as string,
     "PATCH",
     args.payload,

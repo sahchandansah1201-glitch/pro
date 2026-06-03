@@ -8,6 +8,7 @@ import {
   normalizeLesionComparisonDraftPayload,
   normalizeLesionComparisonViewerQaPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
+  normalizeLesionComparisonViewerQaReviewerWorkflowPayload,
   normalizeUpdateAssessmentPayload,
   normalizeUpdateConclusionPayload,
 } from "./clinical-workspace-service.mjs";
@@ -248,6 +249,46 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         protectedFieldsExposed: false,
       };
     },
+    async reviewLesionComparisonViewerQaReviewerWorkflow() {
+      return {
+        id: "viewer-qa-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        doctorUserId: USER_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+        calibrationStatus: "ready",
+        calibrationReasons: [],
+        captureMetadataStatus: "ready",
+        review: {
+          status: "technical_ready",
+          reasons: ["technical_review_ready"],
+          reviewedAt: "2026-05-19T10:50:00.000Z",
+          reviewedByUserId: USER_ID,
+        },
+        reviewerWorkflow: {
+          status: "reviewer_accepted",
+          reasons: ["calibrated_reviewer_workflow_ready"],
+          reviewedAt: "2026-05-19T10:55:00.000Z",
+          reviewedByUserId: USER_ID,
+          gate: {
+            technicalReviewReady: true,
+            calibrationReady: true,
+            captureMetadataReady: true,
+            markerGateReady: true,
+            medicalMeasurementAllowed: false,
+            patientDeliveryAllowed: false,
+            clinicalConclusionGenerated: false,
+          },
+        },
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      };
+    },
     async getVisitLesionComparisonViewerQaReviewQueue() {
       return {
         clinicId: CLINIC_ID,
@@ -445,6 +486,44 @@ test("Batch BE Stage 5H viewer QA review normalizer is technical-only and metada
       }),
     VisitWorkspaceValidationError,
   );
+});
+
+test("Batch BH Stage 5H reviewer workflow normalizer rejects protected fields and clinical claims", () => {
+  assert.throws(
+    () => normalizeLesionComparisonViewerQaReviewerWorkflowPayload({
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      workflowStatus: "reviewer_accepted",
+      workflowReasons: ["меланома"],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeLesionComparisonViewerQaReviewerWorkflowPayload({
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      workflowStatus: "reviewer_accepted",
+      workflowReasons: ["calibrated_reviewer_workflow_ready"],
+      signedUrl: "https://example.invalid",
+    }),
+    VisitWorkspaceValidationError,
+  );
+
+  const payload = normalizeLesionComparisonViewerQaReviewerWorkflowPayload({
+    lesionId: "l-008",
+    pairKey: "l-008:i-011+i-012",
+    imageIds: ["i-011", "i-012"],
+    workflowStatus: "reviewer_accepted",
+    workflowReasons: ["calibrated_reviewer_workflow_ready"],
+  });
+
+  assert.equal(payload.workflowStatus, "reviewer_accepted");
+  assert.deepEqual(payload.workflowReasons, ["calibrated_reviewer_workflow_ready"]);
+  assert.equal(payload.medicalMeasurementAllowed, false);
+  assert.equal(payload.patientDeliveryAllowed, false);
+  assert.equal(payload.protectedFieldsExposed, false);
 });
 
 test("Stage 5H service reads and writes assessment/conclusion/report with audit events", async () => {
@@ -691,6 +770,50 @@ test("Batch BE Stage 5H service persists viewer QA review with audit-safe metada
   assert.doesNotMatch(
     JSON.stringify(auditEvents.at(-1)),
     /i-011|i-012|pairKey|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BH Stage 5H service persists reviewer workflow with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewLesionComparisonViewerQaReviewerWorkflow(
+    VISIT_ID,
+    {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      workflowStatus: "reviewer_accepted",
+      workflowReasons: ["calibrated_reviewer_workflow_ready"],
+    },
+    authContext,
+    { correlationId: "c12b" },
+  );
+
+  assert.equal(result.qa.reviewerWorkflow.status, "reviewer_accepted");
+  assert.equal(result.qa.reviewerWorkflow.gate.calibrationReady, true);
+  assert.equal(result.qa.reviewerWorkflow.gate.medicalMeasurementAllowed, false);
+  assert.equal(result.qa.medicalMeasurementAllowed, false);
+  assert.equal(result.qa.patientDeliveryAllowed, false);
+  assert.equal(result.qa.protectedFieldsExposed, false);
+  assert.equal(auditEvents.at(-1).action, "lesion_comparison_viewer_qa.reviewer_workflow");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    lesionId: "l-008",
+    workflowStatus: "reviewer_accepted",
+    workflowReasonsCount: 1,
+    technicalReviewReady: true,
+    calibrationReady: true,
+    captureMetadataReady: true,
+    markerGateReady: true,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalConclusionGenerated: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|pairKey|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи|diagnosis|treatment/i,
   );
 });
 

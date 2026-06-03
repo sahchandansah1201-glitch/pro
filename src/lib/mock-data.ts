@@ -73,6 +73,14 @@ export const PROTECTED_RENDER_QA_IDS = {
   imageBId: "44444444-4444-4444-8444-444444444442",
 } as const;
 
+export const CALIBRATED_VIEWER_QA_IDS = {
+  patientId: "55555555-5555-4555-8555-555555555551",
+  visitId: "55555555-5555-4555-8555-555555555552",
+  lesionId: "55555555-5555-4555-8555-555555555553",
+  imageAId: "55555555-5555-4555-8555-555555555554",
+  imageBId: "55555555-5555-4555-8555-555555555555",
+} as const;
+
 export const PATIENTS: Patient[] = [
   {
     id: "p-001",
@@ -182,6 +190,18 @@ export const PATIENTS: Patient[] = [
     createdBy: DOCTOR_ID,
     createdAt: "2026-03-15T08:00:00Z",
   },
+  {
+    id: CALIBRATED_VIEWER_QA_IDS.patientId,
+    code: "DP-QA-CAL",
+    fullName: "QA Пациент Calibrated Viewer",
+    birthDate: "1981-10-19",
+    sex: "male",
+    phototype: "III",
+    riskFactors: ["QA fixture: calibrated reviewer workflow"],
+    consents: { pdn: true, imaging: true, telemed: false },
+    createdBy: DOCTOR_ID,
+    createdAt: "2026-03-16T08:00:00Z",
+  },
 ];
 
 // ───────── Визиты ─────────
@@ -274,6 +294,17 @@ export const VISITS: Visit[] = [
     startedAt: "2026-03-15T08:10:00Z",
     closedAt: "2026-03-15T08:42:00Z",
     complaint: "QA-проверка защищённого backend proxy просмотра снимков.",
+  },
+  {
+    id: CALIBRATED_VIEWER_QA_IDS.visitId,
+    patientId: CALIBRATED_VIEWER_QA_IDS.patientId,
+    doctorId: DOCTOR_ID,
+    assistantId: ASSISTANT_ID,
+    clinicId: CLINIC_NORTH,
+    status: "closed",
+    startedAt: "2026-03-16T08:10:00Z",
+    closedAt: "2026-03-16T08:45:00Z",
+    complaint: "QA-проверка calibrated production viewer workflow.",
   },
   {
     id: "v-007",
@@ -459,6 +490,15 @@ export const LESIONS: Lesion[] = [
     firstSeenAt: "2026-03-15",
     status: "active",
   },
+  {
+    id: CALIBRATED_VIEWER_QA_IDS.lesionId,
+    patientId: CALIBRATED_VIEWER_QA_IDS.patientId,
+    bodyZone: "плечо правое",
+    mapPoint: { view: "front", x: 0.62, y: 0.28 },
+    label: "QA calibrated viewer",
+    firstSeenAt: "2026-03-16",
+    status: "active",
+  },
 ];
 
 // ───────── Изображения ─────────
@@ -489,6 +529,8 @@ export const IMAGES: ClinicalImage[] = [
   { id: "i-022", visitId: "v-011", lesionId: "l-008", kind: "macro",      source: "camera",        storagePath: "mock://images/v-011/i-022.jpg", capturedAt: "2026-02-20T10:12:00Z", deviceId: null,        quality: { score: 0.78, issues: [] },                       exifMeta: exif(3000, 2000) },
   { id: PROTECTED_RENDER_QA_IDS.imageAId, visitId: PROTECTED_RENDER_QA_IDS.visitId, lesionId: PROTECTED_RENDER_QA_IDS.lesionId, kind: "dermoscopy", source: "device_bridge", storagePath: "mock://images/protected-render-qa/a.jpg", capturedAt: "2026-03-15T08:18:00Z", deviceId: "d-003", quality: { score: 0.91, issues: [] }, exifMeta: exif(2048, 2048) },
   { id: PROTECTED_RENDER_QA_IDS.imageBId, visitId: PROTECTED_RENDER_QA_IDS.visitId, lesionId: PROTECTED_RENDER_QA_IDS.lesionId, kind: "dermoscopy", source: "device_bridge", storagePath: "mock://images/protected-render-qa/b.jpg", capturedAt: "2026-03-15T08:20:00Z", deviceId: "d-003", quality: { score: 0.89, issues: [] }, exifMeta: exif(2048, 2048) },
+  { id: CALIBRATED_VIEWER_QA_IDS.imageAId, visitId: CALIBRATED_VIEWER_QA_IDS.visitId, lesionId: CALIBRATED_VIEWER_QA_IDS.lesionId, kind: "dermoscopy", source: "device_bridge", storagePath: "mock://images/calibrated-viewer-qa/a.jpg", capturedAt: "2026-03-16T08:18:00Z", deviceId: "d-003", quality: { score: 0.94, issues: [] }, exifMeta: exif(2048, 2048), viewerCalibration: { scaleMarkerDetected: true, millimetersAvailable: true } },
+  { id: CALIBRATED_VIEWER_QA_IDS.imageBId, visitId: CALIBRATED_VIEWER_QA_IDS.visitId, lesionId: CALIBRATED_VIEWER_QA_IDS.lesionId, kind: "dermoscopy", source: "device_bridge", storagePath: "mock://images/calibrated-viewer-qa/b.jpg", capturedAt: "2026-03-16T08:20:00Z", deviceId: "d-003", quality: { score: 0.93, issues: [] }, exifMeta: exif(2048, 2048), viewerCalibration: { scaleMarkerDetected: true, millimetersAvailable: true } },
   { id: "i-013", visitId: "v-006", lesionId: "l-009", kind: "overview",   source: "phone",         storagePath: "mock://images/v-006/i-013.jpg", capturedAt: "2026-03-11T13:25:00Z", deviceId: null,        quality: { score: 0.88, issues: [] },                       exifMeta: exif(4032, 3024) },
   { id: "i-014", visitId: "v-006", lesionId: "l-009", kind: "dermoscopy", source: "device_bridge", storagePath: "mock://images/v-006/i-014.jpg", capturedAt: "2026-03-11T13:28:00Z", deviceId: "d-002",     quality: { score: 0.93, issues: [] },                       exifMeta: exif(2048, 2048) },
   { id: "i-015", visitId: "v-006", lesionId: "l-010", kind: "dermoscopy", source: "device_bridge", storagePath: "mock://images/v-006/i-015.jpg", capturedAt: "2026-03-11T13:32:00Z", deviceId: "d-002",     quality: { score: 0.84, issues: [] },                       exifMeta: exif(2048, 2048) },

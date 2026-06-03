@@ -3942,6 +3942,7 @@ function clinicalWorkspaceRuntime({
   assetCaptureMetadata = null,
   lesionComparisonViewerQa = null,
   lesionComparisonViewerQaReview = null,
+  lesionComparisonViewerQaReviewerWorkflow = null,
   lesionComparisonViewerQaReviewQueue = null,
   protectedLesionImageDownload = null,
   reportPackage = null,
@@ -4004,6 +4005,13 @@ function clinicalWorkspaceRuntime({
       async reviewLesionComparisonViewerQa() {
         if (clinicalError) throw clinicalError;
         return { qa: lesionComparisonViewerQaReview, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async reviewLesionComparisonViewerQaReviewerWorkflow() {
+        if (clinicalError) throw clinicalError;
+        return {
+          qa: lesionComparisonViewerQaReviewerWorkflow,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
       },
       async getVisitLesionComparisonViewerQaReviewQueue() {
         if (clinicalError) throw clinicalError;
@@ -5061,6 +5069,74 @@ test("Batch BE Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-viewer-qa
   assert.doesNotMatch(
     response.body,
     /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|меланома|рак кожи|doctorVersionText|patientSafeText/i,
+  );
+});
+
+test("Batch BH Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-viewer-qa/reviewer-workflow saves calibrated reviewer workflow metadata", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/lesion-comparison-viewer-qa/reviewer-workflow`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      lesionComparisonViewerQaReviewerWorkflow: {
+        id: "viewer-qa-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+        calibrationStatus: "ready",
+        calibrationReasons: [],
+        captureMetadataStatus: "ready",
+        review: {
+          status: "technical_ready",
+          reasons: ["technical_review_ready"],
+          reviewedAt: "2026-05-19T10:50:00.000Z",
+          reviewedByUserId: "doctor-1",
+        },
+        reviewerWorkflow: {
+          status: "reviewer_accepted",
+          reasons: ["calibrated_reviewer_workflow_ready"],
+          reviewedAt: "2026-05-19T10:55:00.000Z",
+          reviewedByUserId: "doctor-1",
+          gate: {
+            technicalReviewReady: true,
+            calibrationReady: true,
+            captureMetadataReady: true,
+            markerGateReady: true,
+            medicalMeasurementAllowed: false,
+            patientDeliveryAllowed: false,
+            clinicalConclusionGenerated: false,
+          },
+        },
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      workflowStatus: "reviewer_accepted",
+      workflowReasons: ["calibrated_reviewer_workflow_ready"],
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.item.reviewerWorkflow.status, "reviewer_accepted");
+  assert.equal(response.json.item.reviewerWorkflow.gate.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.reviewerWorkflow.gate.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.reviewerWorkflow.gate.clinicalConclusionGenerated, false);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.doesNotMatch(
+    response.body,
+    /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|меланома|рак кожи|doctorVersionText|patientSafeText|diagnosis|treatment/i,
   );
 });
 

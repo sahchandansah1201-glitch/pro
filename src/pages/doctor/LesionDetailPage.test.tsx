@@ -6,7 +6,7 @@ import {
   SELF_HOSTED_API_BASE_URL_KEY,
   SELF_HOSTED_API_TOKEN_KEY,
 } from "@/lib/self-hosted-api-session";
-import { PROTECTED_RENDER_QA_IDS } from "@/lib/mock-data";
+import { CALIBRATED_VIEWER_QA_IDS, PROTECTED_RENDER_QA_IDS } from "@/lib/mock-data";
 import LesionDetailPage from "./LesionDetailPage";
 
 const j = (...p: string[]) => p.join("");
@@ -567,6 +567,111 @@ describe("LesionDetailPage", () => {
     expect(dialog.textContent ?? "").not.toMatch(
       /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion|patientSafeText/i,
     );
+  });
+
+  it("accepts clinical-grade reviewer workflow only after calibrated technical review gates", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const reviewerWorkflow = url.endsWith("/reviewer-workflow")
+        ? {
+            status: "reviewer_accepted",
+            reasons: ["calibrated_reviewer_workflow_ready"],
+            reviewedAt: "2026-05-19T10:55:00.000Z",
+            reviewedByUserId: "doctor-1",
+            gate: {
+              technicalReviewReady: true,
+              calibrationReady: true,
+              captureMetadataReady: true,
+              markerGateReady: true,
+              medicalMeasurementAllowed: true,
+              patientDeliveryAllowed: true,
+              clinicalConclusionGenerated: true,
+            },
+          }
+        : {
+            status: "technical_gate_blocked",
+            reasons: [],
+            reviewedAt: null,
+            reviewedByUserId: null,
+            gate: {
+              technicalReviewReady: false,
+              calibrationReady: true,
+              captureMetadataReady: true,
+              markerGateReady: true,
+              medicalMeasurementAllowed: false,
+              patientDeliveryAllowed: false,
+              clinicalConclusionGenerated: false,
+            },
+          };
+      return new Response(
+        JSON.stringify({
+          item: {
+            id: "viewer-qa-calibrated",
+            visitId: CALIBRATED_VIEWER_QA_IDS.visitId,
+            lesionId: CALIBRATED_VIEWER_QA_IDS.lesionId,
+            pairKey: `${CALIBRATED_VIEWER_QA_IDS.lesionId}:${CALIBRATED_VIEWER_QA_IDS.imageAId}+${CALIBRATED_VIEWER_QA_IDS.imageBId}`,
+            imageIds: [CALIBRATED_VIEWER_QA_IDS.imageAId, CALIBRATED_VIEWER_QA_IDS.imageBId],
+            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+            calibrationStatus: "ready",
+            calibrationReasons: [],
+            captureMetadataStatus: "ready",
+            review: url.endsWith("/review") || url.endsWith("/reviewer-workflow")
+              ? {
+                  status: "technical_ready",
+                  reasons: ["technical_review_ready"],
+                  reviewedAt: "2026-05-19T10:50:00.000Z",
+                  reviewedByUserId: "doctor-1",
+                }
+              : { status: "unreviewed", reasons: [], reviewedAt: null, reviewedByUserId: null },
+            reviewerWorkflow,
+            medicalMeasurementAllowed: true,
+            patientDeliveryAllowed: true,
+            protectedFieldsExposed: true,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt(
+      `/patients/${CALIBRATED_VIEWER_QA_IDS.patientId}/lesions/${CALIBRATED_VIEWER_QA_IDS.lesionId}`,
+    );
+
+    selectComparePair(CALIBRATED_VIEWER_QA_IDS.imageAId, CALIBRATED_VIEWER_QA_IDS.imageBId);
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
+    const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
+    const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
+    const review = within(tools).getByRole("region", { name: /Технический review viewer QA/ });
+    const workflow = within(tools).getByRole("region", { name: /Clinical-grade reviewer workflow/ });
+
+    expect(within(calibration).getByText(/Калибровка: готова/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/шкала обнаружена/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/мм доступны для viewer QA/)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Reviewer gate: заблокирован/)).toBeInTheDocument();
+
+    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
+    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер B/ }));
+    fireEvent.click(within(review).getByRole("button", { name: /^Технически готово$/ }));
+    expect(await within(review).findByText(/Viewer QA review сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Reviewer gate: готов/)).toBeInTheDocument();
+
+    fireEvent.click(within(workflow).getByRole("button", { name: /Reviewer workflow принят/ }));
+    expect(await within(workflow).findByText(/Reviewer workflow сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/reviewer-workflow`,
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toMatch(
+      /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи|diagnosis|treatment|patientSafeText/i,
+    );
+    expect(within(workflow).getByText(/Не диагноз, не динамика, не медицинское измерение/)).toBeInTheDocument();
+    expect(within(workflow).getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
   });
 
   it("loads protected previews from the production UUID QA fixture through backend proxy", async () => {

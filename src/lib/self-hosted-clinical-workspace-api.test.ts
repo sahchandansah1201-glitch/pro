@@ -11,6 +11,7 @@ import {
   saveSelfHostedLesionComparisonDraft,
   saveSelfHostedLesionComparisonViewerQa,
   reviewSelfHostedLesionComparisonViewerQa,
+  reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
   getSelfHostedVisitReport,
@@ -579,6 +580,84 @@ describe("self-hosted-clinical-workspace-api", () => {
       "http://localhost:3001/api/v1/patients/patient-1/lesions/lesion-1/longitudinal-qa",
       expect.objectContaining({
         method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+  });
+
+  it("patches reviewer workflow without exposing measurements or patient delivery", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "viewer-qa-1",
+            visitId: "visit-1",
+            lesionId: "lesion-1",
+            pairKey: "lesion-1:image-a+image-b",
+            imageIds: ["image-a", "image-b"],
+            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+            calibrationStatus: "ready",
+            calibrationReasons: [],
+            captureMetadataStatus: "ready",
+            review: {
+              status: "technical_ready",
+              reasons: ["technical_review_ready"],
+              reviewedAt: "2026-05-19T10:50:00.000Z",
+              reviewedByUserId: "doctor-1",
+            },
+            reviewerWorkflow: {
+              status: "reviewer_accepted",
+              reasons: ["calibrated_reviewer_workflow_ready"],
+              reviewedAt: "2026-05-19T10:55:00.000Z",
+              reviewedByUserId: "doctor-1",
+              gate: {
+                technicalReviewReady: true,
+                calibrationReady: true,
+                captureMetadataReady: true,
+                markerGateReady: true,
+                medicalMeasurementAllowed: true,
+                patientDeliveryAllowed: true,
+                clinicalConclusionGenerated: true,
+              },
+            },
+            medicalMeasurementAllowed: true,
+            patientDeliveryAllowed: true,
+            protectedFieldsExposed: true,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        lesionId: "lesion-1",
+        pairKey: "lesion-1:image-a+image-b",
+        imageIds: ["image-a", "image-b"],
+        workflowStatus: "reviewer_accepted",
+        workflowReasons: ["calibrated_reviewer_workflow_ready"],
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.reviewerWorkflow.status).toBe("reviewer_accepted");
+    expect(result.value?.reviewerWorkflow.gate.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.reviewerWorkflow.gate.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.reviewerWorkflow.gate.clinicalConclusionGenerated).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи|diagnosis|treatment/i,
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/lesion-comparison-viewer-qa/reviewer-workflow",
+      expect.objectContaining({
+        method: "PATCH",
         headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
       }),
     );

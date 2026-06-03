@@ -183,6 +183,31 @@
               "reviewedByUserId": { "type": ["string", "null"] }
             }
           },
+          "reviewerWorkflow": {
+            "type": "object",
+            "description": "Batch BH calibrated reviewer workflow gate. Metadata only; no patient delivery, medical measurement, or clinical conclusion.",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["technical_gate_blocked", "ready_for_reviewer", "reviewer_accepted", "reviewer_rejected"]
+              },
+              "reasons": { "type": "array", "items": { "type": "string" } },
+              "reviewedAt": { "type": ["string", "null"] },
+              "reviewedByUserId": { "type": ["string", "null"] },
+              "gate": {
+                "type": "object",
+                "properties": {
+                  "technicalReviewReady": { "type": "boolean" },
+                  "calibrationReady": { "type": "boolean" },
+                  "captureMetadataReady": { "type": "boolean" },
+                  "markerGateReady": { "type": "boolean" },
+                  "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+                  "patientDeliveryAllowed": { "type": "boolean", "const": false },
+                  "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+                }
+              }
+            }
+          },
           "medicalMeasurementAllowed": { "type": "boolean", "const": false },
           "patientDeliveryAllowed": { "type": "boolean", "const": false },
           "protectedFieldsExposed": { "type": "boolean", "const": false }
@@ -205,6 +230,24 @@
           "protectedFieldsExposed": { "type": "boolean", "const": false }
         },
         "required": ["lesionId", "pairKey", "imageIds", "reviewStatus"]
+      },
+      "LesionComparisonViewerQaReviewerWorkflow": {
+        "type": "object",
+        "description": "Batch BH metadata-only calibrated reviewer workflow over an existing technical-ready viewer QA draft. Backend gates require technical_ready review, ready calibration, ready capture metadata, and two technical markers.",
+        "properties": {
+          "lesionId": { "type": "string" },
+          "pairKey": { "type": "string" },
+          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "workflowStatus": {
+            "type": "string",
+            "enum": ["ready_for_reviewer", "reviewer_accepted", "reviewer_rejected"]
+          },
+          "workflowReasons": { "type": "array", "items": { "type": "string" } },
+          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+          "patientDeliveryAllowed": { "type": "boolean", "const": false },
+          "protectedFieldsExposed": { "type": "boolean", "const": false }
+        },
+        "required": ["lesionId", "pairKey", "imageIds", "workflowStatus"]
       },
       "LesionComparisonViewerQaReviewQueue": {
         "type": "object",
@@ -518,6 +561,18 @@
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonViewerQaReview" } } }
         },
         "responses": { "200": { "description": "Saved metadata-only viewer QA review" } }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-workflow": {
+      "patch": {
+        "summary": "Persist Batch BH calibrated reviewer workflow metadata for an existing viewer QA draft",
+        "description": "Backend gates require technical_ready review, ready calibration, ready capture metadata, and two technical markers. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonViewerQaReviewerWorkflow" } } }
+        },
+        "responses": { "200": { "description": "Saved metadata-only calibrated reviewer workflow" } }
       }
     },
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue": {

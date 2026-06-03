@@ -991,6 +991,10 @@ function lesionComparisonViewerQaUpdateSet(qa = {}) {
     "review_reasons = '[]'::jsonb",
     "reviewed_by_user_id = null",
     "reviewed_at = null",
+    "reviewer_workflow_status = 'technical_gate_blocked'",
+    "reviewer_workflow_reasons = '[]'::jsonb",
+    "reviewer_workflow_by_user_id = null",
+    "reviewer_workflow_at = null",
     "medical_measurement_allowed = false",
     "patient_delivery_allowed = false",
     "protected_fields_exposed = false",
@@ -1106,6 +1110,19 @@ from (
     q.review_reasons as "reviewReasons",
     q.reviewed_by_user_id::text as "reviewedByUserId",
     q.reviewed_at as "reviewedAt",
+    q.reviewer_workflow_status as "reviewerWorkflowStatus",
+    q.reviewer_workflow_reasons as "reviewerWorkflowReasons",
+    q.reviewer_workflow_by_user_id::text as "reviewerWorkflowByUserId",
+    q.reviewer_workflow_at as "reviewerWorkflowAt",
+    jsonb_build_object(
+      'technicalReviewReady', q.review_status = 'technical_ready',
+      'calibrationReady', q.calibration_status = 'ready',
+      'captureMetadataReady', q.capture_metadata_status = 'ready',
+      'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
+      'medicalMeasurementAllowed', false,
+      'patientDeliveryAllowed', false,
+      'clinicalOutputGenerated', false
+    ) as "reviewerWorkflowGate",
     q.medical_measurement_allowed as "medicalMeasurementAllowed",
     q.patient_delivery_allowed as "patientDeliveryAllowed",
     q.protected_fields_exposed as "protectedFieldsExposed",
@@ -1211,6 +1228,152 @@ from (
     q.review_reasons as "reviewReasons",
     q.reviewed_by_user_id::text as "reviewedByUserId",
     q.reviewed_at as "reviewedAt",
+    q.reviewer_workflow_status as "reviewerWorkflowStatus",
+    q.reviewer_workflow_reasons as "reviewerWorkflowReasons",
+    q.reviewer_workflow_by_user_id::text as "reviewerWorkflowByUserId",
+    q.reviewer_workflow_at as "reviewerWorkflowAt",
+    jsonb_build_object(
+      'technicalReviewReady', q.review_status = 'technical_ready',
+      'calibrationReady', q.calibration_status = 'ready',
+      'captureMetadataReady', q.capture_metadata_status = 'ready',
+      'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
+      'medicalMeasurementAllowed', false,
+      'patientDeliveryAllowed', false,
+      'clinicalOutputGenerated', false
+    ) as "reviewerWorkflowGate",
+    q.medical_measurement_allowed as "medicalMeasurementAllowed",
+    q.patient_delivery_allowed as "patientDeliveryAllowed",
+    q.protected_fields_exposed as "protectedFieldsExposed",
+    q.created_at as "createdAt",
+    q.updated_at as "updatedAt"
+  from reviewed q
+  limit 1
+) result;
+`.trim();
+}
+
+export function buildReviewLesionComparisonViewerQaReviewerWorkflowSql({
+  visitId,
+  patientId,
+  clinicId,
+  doctorUserId = null,
+  workflow = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const draftScope = clinicScopeWhere({ alias: "q", clinicIds, allClinics });
+  const lesionScope = clinicScopeWhere({ alias: "l", clinicIds, allClinics });
+  const assetScope = clinicScopeWhere({ alias: "a", clinicIds, allClinics });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_lesion as (
+    select
+      l.id::text as lesion_id,
+      l.clinic_id,
+      l.patient_id,
+      l.visit_id
+    from lesions l
+    where l.id::text = ${sqlLiteral(workflow.lesionId)}
+      and l.visit_id = ${sqlUuid(visitId)}
+      and l.patient_id = ${sqlUuid(patientId)}
+      and l.clinic_id = ${sqlUuid(clinicId)}
+      ${lesionScope}
+    limit 1
+  ),
+  target_assets as (
+    select count(distinct a.id)::int as asset_count
+    from clinical_assets a
+    join target_lesion l
+      on l.lesion_id = a.lesion_id::text
+     and l.visit_id = a.visit_id
+     and l.patient_id = a.patient_id
+     and l.clinic_id = a.clinic_id
+    where a.id::text = any(${sqlTextArray(workflow.imageIds)})
+      and a.kind in ('overview_photo', 'dermoscopy')
+      and a.content_type like 'image/%'
+      ${assetScope}
+  ),
+  target_pair as (
+    select l.*
+    from target_lesion l
+    cross join target_assets a
+    where a.asset_count = 2
+  ),
+  reviewed as (
+    update lesion_comparison_viewer_qa_drafts q
+    set
+      reviewer_workflow_status = case
+        when q.review_status = 'technical_ready'
+          and q.calibration_status = 'ready'
+          and q.capture_metadata_status = 'ready'
+          and jsonb_array_length(q.technical_markers) >= 2
+        then ${sqlLiteral(workflow.workflowStatus)}
+        else 'technical_gate_blocked'
+      end,
+      reviewer_workflow_reasons = case
+        when q.review_status = 'technical_ready'
+          and q.calibration_status = 'ready'
+          and q.capture_metadata_status = 'ready'
+          and jsonb_array_length(q.technical_markers) >= 2
+        then ${sqlJsonb(workflow.workflowReasons ?? [])}
+        else ${sqlJsonb(["technical_gate_blocked"])}
+      end,
+      reviewer_workflow_by_user_id = ${sqlNullableUuid(doctorUserId)},
+      reviewer_workflow_at = now(),
+      medical_measurement_allowed = false,
+      patient_delivery_allowed = false,
+      protected_fields_exposed = false,
+      metadata_json = q.metadata_json || ${sqlJsonb({
+        brainstormTask: "SD-MF-026/028",
+        reviewerWorkflowBoundary: "metadata_only",
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+      })},
+      updated_at = now()
+    from target_pair p
+    where q.visit_id = p.visit_id
+      and q.patient_id = p.patient_id
+      and q.clinic_id = p.clinic_id
+      and q.lesion_id = p.lesion_id
+      and q.pair_key = ${sqlLiteral(workflow.pairKey)}
+      and q.image_ids @> ${sqlTextArray(workflow.imageIds)}
+      and ${sqlTextArray(workflow.imageIds)} @> q.image_ids
+      ${draftScope}
+    returning q.*
+  )
+  select
+    q.id::text as "id",
+    q.clinic_id::text as "clinicId",
+    q.patient_id::text as "patientId",
+    q.visit_id::text as "visitId",
+    q.doctor_user_id::text as "doctorUserId",
+    q.lesion_id as "lesionId",
+    q.pair_key as "pairKey",
+    q.image_ids as "imageIds",
+    q.technical_markers as "technicalMarkers",
+    q.calibration_status as "calibrationStatus",
+    q.calibration_reasons as "calibrationReasons",
+    q.capture_metadata_status as "captureMetadataStatus",
+    q.review_status as "reviewStatus",
+    q.review_reasons as "reviewReasons",
+    q.reviewed_by_user_id::text as "reviewedByUserId",
+    q.reviewed_at as "reviewedAt",
+    q.reviewer_workflow_status as "reviewerWorkflowStatus",
+    q.reviewer_workflow_reasons as "reviewerWorkflowReasons",
+    q.reviewer_workflow_by_user_id::text as "reviewerWorkflowByUserId",
+    q.reviewer_workflow_at as "reviewerWorkflowAt",
+    jsonb_build_object(
+      'technicalReviewReady', q.review_status = 'technical_ready',
+      'calibrationReady', q.calibration_status = 'ready',
+      'captureMetadataReady', q.capture_metadata_status = 'ready',
+      'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
+      'medicalMeasurementAllowed', false,
+      'patientDeliveryAllowed', false,
+      'clinicalOutputGenerated', false
+    ) as "reviewerWorkflowGate",
     q.medical_measurement_allowed as "medicalMeasurementAllowed",
     q.patient_delivery_allowed as "patientDeliveryAllowed",
     q.protected_fields_exposed as "protectedFieldsExposed",
@@ -1579,6 +1742,26 @@ function normalizeTechnicalMarker(row) {
   };
 }
 
+function normalizeReviewerWorkflowStatus(value) {
+  const status = String(value ?? "technical_gate_blocked");
+  return status === "ready_for_reviewer" || status === "reviewer_accepted" || status === "reviewer_rejected"
+    ? status
+    : "technical_gate_blocked";
+}
+
+function normalizeReviewerWorkflowGate(value) {
+  const gate = parseJsonObject(value);
+  return {
+    technicalReviewReady: gate.technicalReviewReady === true,
+    calibrationReady: gate.calibrationReady === true,
+    captureMetadataReady: gate.captureMetadataReady === true,
+    markerGateReady: gate.markerGateReady === true,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    clinicalConclusionGenerated: false,
+  };
+}
+
 function normalizeLesionComparisonViewerQa(row) {
   const calibrationStatus = String(row.calibrationStatus ?? "not_ready");
   const captureMetadataStatus = String(row.captureMetadataStatus ?? "needs_review");
@@ -1608,6 +1791,13 @@ function normalizeLesionComparisonViewerQa(row) {
       reasons: parseJsonArray(row.reviewReasons),
       reviewedAt: row.reviewedAt ?? null,
       reviewedByUserId: row.reviewedByUserId ? String(row.reviewedByUserId) : null,
+    },
+    reviewerWorkflow: {
+      status: normalizeReviewerWorkflowStatus(row.reviewerWorkflowStatus),
+      reasons: parseJsonArray(row.reviewerWorkflowReasons),
+      reviewedAt: row.reviewerWorkflowAt ?? null,
+      reviewedByUserId: row.reviewerWorkflowByUserId ? String(row.reviewerWorkflowByUserId) : null,
+      gate: normalizeReviewerWorkflowGate(row.reviewerWorkflowGate),
     },
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
@@ -1903,6 +2093,13 @@ export function createClinicalWorkspaceRepository(dbClient) {
     },
     async reviewLesionComparisonViewerQa(params) {
       return queryOne(dbClient, buildReviewLesionComparisonViewerQaSql(params), normalizeLesionComparisonViewerQa);
+    },
+    async reviewLesionComparisonViewerQaReviewerWorkflow(params) {
+      return queryOne(
+        dbClient,
+        buildReviewLesionComparisonViewerQaReviewerWorkflowSql(params),
+        normalizeLesionComparisonViewerQa,
+      );
     },
     async getVisitLesionComparisonViewerQaReviewQueue(params) {
       return queryOne(

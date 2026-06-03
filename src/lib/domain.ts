@@ -144,6 +144,10 @@ export interface ClinicalImage {
   deviceId: string | null;
   quality: ImageQuality;
   exifMeta: ExifMeta;
+  viewerCalibration?: {
+    scaleMarkerDetected: boolean;
+    millimetersAvailable: boolean;
+  };
 }
 
 export interface AbcdScore {

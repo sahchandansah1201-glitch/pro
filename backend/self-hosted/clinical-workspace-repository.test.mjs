@@ -11,6 +11,7 @@ import {
   buildGetVisitLesionComparisonViewerQaReviewQueueSql,
   buildGetVisitReportSql,
   buildReviewLesionComparisonViewerQaSql,
+  buildReviewLesionComparisonViewerQaReviewerWorkflowSql,
   buildUpsertAssetCaptureMetadataSql,
   buildUpsertLesionComparisonDraftSql,
   buildUpsertLesionComparisonViewerQaSql,
@@ -335,6 +336,41 @@ test("Batch BE Stage 5H viewer QA review updates an existing metadata-only draft
   );
 });
 
+test("Batch BH Stage 5H reviewer workflow requires calibrated technical gates", () => {
+  const sql = buildReviewLesionComparisonViewerQaReviewerWorkflowSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    workflow: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      workflowStatus: "reviewer_accepted",
+      workflowReasons: ["calibrated_reviewer_workflow_ready"],
+    },
+  });
+
+  assert.match(sql, /update lesion_comparison_viewer_qa_drafts q/);
+  assert.match(sql, /q\.review_status = 'technical_ready'/);
+  assert.match(sql, /q\.calibration_status = 'ready'/);
+  assert.match(sql, /q\.capture_metadata_status = 'ready'/);
+  assert.match(sql, /jsonb_array_length\(q\.technical_markers\) >= 2/);
+  assert.match(sql, /reviewer_workflow_status/);
+  assert.match(sql, /'technical_gate_blocked'/);
+  assert.match(sql, /'reviewer_accepted'/);
+  assert.match(sql, /reviewer_workflow_reasons/);
+  assert.match(sql, /medical_measurement_allowed = false/);
+  assert.match(sql, /patient_delivery_allowed = false/);
+  assert.match(sql, /protected_fields_exposed = false/);
+  assert.match(sql, /and q\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|doctorVersionText|patientSafeText|clinicalConclusion/i,
+  );
+});
+
 test("Batch BF Stage 5H viewer QA review queue SQL is visit-scoped and metadata-only", () => {
   const sql = buildGetVisitLesionComparisonViewerQaReviewQueueSql({
     visitId: VISIT_ID,
@@ -453,6 +489,74 @@ test("Batch BE Stage 5H repository normalizes viewer QA review with forced safe 
   assert.equal(qa.review.status, "needs_recapture");
   assert.deepEqual(qa.review.reasons, ["repeat_capture_required"]);
   assert.equal(qa.review.reviewedByUserId, USER_ID);
+  assert.equal(qa.medicalMeasurementAllowed, false);
+  assert.equal(qa.patientDeliveryAllowed, false);
+  assert.equal(qa.protectedFieldsExposed, false);
+});
+
+test("Batch BH Stage 5H repository normalizes reviewer workflow with forced safe boundaries", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          id: "viewer-qa-1",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          doctorUserId: USER_ID,
+          lesionId: "l-008",
+          pairKey: "l-008:i-011+i-012",
+          imageIds: ["i-011", "i-012"],
+          technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+          calibrationStatus: "ready",
+          calibrationReasons: [],
+          captureMetadataStatus: "ready",
+          reviewStatus: "technical_ready",
+          reviewReasons: ["technical_review_ready"],
+          reviewedByUserId: USER_ID,
+          reviewedAt: "2026-05-19T10:50:00.000Z",
+          reviewerWorkflowStatus: "reviewer_accepted",
+          reviewerWorkflowReasons: ["calibrated_reviewer_workflow_ready"],
+          reviewerWorkflowByUserId: USER_ID,
+          reviewerWorkflowAt: "2026-05-19T10:55:00.000Z",
+          reviewerWorkflowGate: {
+            technicalReviewReady: true,
+            calibrationReady: true,
+            captureMetadataReady: true,
+            markerGateReady: true,
+            medicalMeasurementAllowed: true,
+            patientDeliveryAllowed: true,
+            clinicalConclusionGenerated: true,
+          },
+          medicalMeasurementAllowed: true,
+          patientDeliveryAllowed: true,
+          protectedFieldsExposed: true,
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const qa = await repo.reviewLesionComparisonViewerQaReviewerWorkflow({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    workflow: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      workflowStatus: "reviewer_accepted",
+      workflowReasons: ["calibrated_reviewer_workflow_ready"],
+    },
+  });
+
+  assert.equal(qa.reviewerWorkflow.status, "reviewer_accepted");
+  assert.deepEqual(qa.reviewerWorkflow.reasons, ["calibrated_reviewer_workflow_ready"]);
+  assert.equal(qa.reviewerWorkflow.gate.technicalReviewReady, true);
+  assert.equal(qa.reviewerWorkflow.gate.medicalMeasurementAllowed, false);
+  assert.equal(qa.reviewerWorkflow.gate.patientDeliveryAllowed, false);
+  assert.equal(qa.reviewerWorkflow.gate.clinicalConclusionGenerated, false);
   assert.equal(qa.medicalMeasurementAllowed, false);
   assert.equal(qa.patientDeliveryAllowed, false);
   assert.equal(qa.protectedFieldsExposed, false);

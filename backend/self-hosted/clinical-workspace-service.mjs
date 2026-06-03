@@ -21,6 +21,11 @@ const VIEWER_QA_REVIEW_STATUS_VALUES = new Set([
   "needs_recapture",
   "not_suitable_for_comparison",
 ]);
+const VIEWER_QA_REVIEWER_WORKFLOW_STATUS_VALUES = new Set([
+  "ready_for_reviewer",
+  "reviewer_accepted",
+  "reviewer_rejected",
+]);
 const VIEWER_QA_REVIEW_QUEUE_STATUS_VALUES = new Set([
   "actionable",
   "all",
@@ -363,6 +368,51 @@ export function normalizeLesionComparisonViewerQaReviewPayload(input = {}) {
     imageIds,
     reviewStatus,
     reviewReasons: reviewReasons ?? [],
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  };
+}
+
+export function normalizeLesionComparisonViewerQaReviewerWorkflowPayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in reviewer workflow payloads." });
+  }
+  const lesionId = normalizeSafeIdentifier(input.lesionId, "lesionId", details);
+  const pairKey = normalizeSafeIdentifier(input.pairKey, "pairKey", details);
+  const imageIds = Array.isArray(input.imageIds)
+    ? input.imageIds.map((id, index) => normalizeSafeIdentifier(id, `imageIds[${index}]`, details))
+    : undefined;
+  if (!imageIds || imageIds.length !== 2 || imageIds.some((id) => !id)) {
+    details.push({ field: "imageIds", message: "Exactly two safe image IDs are required." });
+  }
+  if (imageIds?.length === 2 && new Set(imageIds).size !== 2) {
+    details.push({ field: "imageIds", message: "imageIds must reference two different images." });
+  }
+  const expectedPairKey =
+    lesionId && imageIds?.length === 2 && imageIds.every(Boolean)
+      ? `${lesionId}:${[...imageIds].sort().join("+")}`
+      : null;
+  if (pairKey && expectedPairKey && pairKey !== expectedPairKey) {
+    details.push({ field: "pairKey", message: "pairKey must match lesionId and sorted imageIds." });
+  }
+  const workflowStatus = cleanString(input.workflowStatus);
+  if (!workflowStatus || !VIEWER_QA_REVIEWER_WORKFLOW_STATUS_VALUES.has(workflowStatus)) {
+    details.push({
+      field: "workflowStatus",
+      message: "workflowStatus must be ready_for_reviewer, reviewer_accepted, or reviewer_rejected.",
+    });
+  }
+  const workflowReasons = normalizeTechnicalStrings(input.workflowReasons, "workflowReasons", details);
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    lesionId,
+    pairKey,
+    imageIds,
+    workflowStatus,
+    workflowReasons: workflowReasons ?? [],
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
@@ -823,6 +873,47 @@ export function createClinicalWorkspaceService({
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,
+        },
+      });
+      return { qa, scope };
+    },
+
+    async reviewLesionComparisonViewerQaReviewerWorkflow(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeLesionComparisonViewerQaReviewerWorkflowPayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const qa = await clinicalWorkspaceRepository.reviewLesionComparisonViewerQaReviewerWorkflow({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        workflow: payload,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!qa) throw new VisitWorkspaceNotFoundError("Viewer QA reviewer workflow could not be saved.");
+      const gate = qa.reviewerWorkflow?.gate || {};
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: qa.clinicId,
+        actorUserId: authContext.userId,
+        action: "lesion_comparison_viewer_qa.reviewer_workflow",
+        entityType: "lesion_comparison_viewer_qa_draft",
+        entityId: qa.id,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          lesionId: payload.lesionId,
+          workflowStatus: qa.reviewerWorkflow?.status ?? payload.workflowStatus,
+          workflowReasonsCount: payload.workflowReasons.length,
+          technicalReviewReady: gate.technicalReviewReady === true,
+          calibrationReady: gate.calibrationReady === true,
+          captureMetadataReady: gate.captureMetadataReady === true,
+          markerGateReady: gate.markerGateReady === true,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalConclusionGenerated: false,
         },
       });
       return { qa, scope };
