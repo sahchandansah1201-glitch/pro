@@ -943,6 +943,7 @@ function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatas
   if (action === "request_recapture") return "Запросить переснимок";
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
   if (action === "complete_capture_metadata") return "Дозаполнить metadata";
+  if (action === "complete_device_metadata") return "Дозаполнить device metadata";
   if (action === "complete_calibration") return "Закрыть калибровку";
   if (action === "place_markers") return "Поставить маркеры";
   if (action === "continue_review") return "Продолжить review";
@@ -972,7 +973,7 @@ function LongitudinalDatasetValidationPanel({
           {longitudinalDatasetStatusLabel(readiness.status)}
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
         <Field term="Очагов" value={readiness.lesionCount} />
         <Field term="Готово" value={readiness.readyTimelineCount} />
         <Field term="Review" value={readiness.needsReviewTimelineCount} />
@@ -980,6 +981,7 @@ function LongitudinalDatasetValidationPanel({
         <Field term="Снимков" value={readiness.imageCount} />
         <Field term="Пар" value={readiness.candidatePairCount} />
         <Field term="Workflow" value={readiness.reviewerWorkflowReadyCount} />
+        <Field term="Device" value={readiness.deviceEvidenceNotReadyCount} />
       </dl>
       {validation.blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1010,8 +1012,8 @@ function LongitudinalDatasetValidationPanel({
                   {item.candidatePairCount}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  metadata: {item.missingCaptureMetadataCount} · калибровка: {item.calibrationBlockedCount} · маркеры:{" "}
-                  {item.markerMissingCount}
+                  metadata: {item.missingCaptureMetadataCount} · device: {item.deviceEvidenceNotReadyCount} ·
+                  калибровка: {item.calibrationBlockedCount} · маркеры: {item.markerMissingCount}
                 </p>
               </div>
               <span className="self-start rounded-sm border border-border bg-surface px-2 py-1 font-medium">

@@ -809,6 +809,82 @@ Frontend behavior:
   doctor-side metadata only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BK Device-Provided Capture Metadata Evidence
+
+Batch BK adds production device-provided capture metadata evidence to the Stage
+5H capture metadata ledger. It closes the gap left by Batch BJ: timeline QA no
+longer treats generic capture metadata as enough when device/camera evidence is
+missing or stale. This is still a technical gate only. It does not create a
+diagnosis, medical measurement, clinical dynamic conclusion, or patient
+delivery.
+
+Backend contracts:
+
+- migration `0063_stage5h_capture_device_evidence.sql`;
+- `clinical_asset_capture_metadata` adds `device_capture_profile`,
+  `lighting_profile`, `focus_profile`, `distance_profile`,
+  `device_calibration_status`, `device_calibration_checked_at` and
+  `device_evidence_status`;
+- protected-key CHECK blocks serials, raw device identifiers, MAC/IP/Bluetooth,
+  Wi-Fi and credential-like fields in `metadata_json`;
+- `PATCH /api/v1/visits/{visitId}/assets/{assetId}/capture-metadata` accepts
+  the new metadata fields and derives device evidence readiness server-side;
+- `GET /api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata`
+  returns nested `deviceEvidence`;
+- lesion and visit rollout gates add blocker `device_metadata_not_ready` and
+  next action `complete_device_metadata`;
+- audit stays aggregate-only and stores safe statuses/counts only.
+
+Returned shape additions:
+
+- `deviceEvidence`: capture profile, lighting profile, focus profile, distance
+  profile, calibration status, optional calibration checked timestamp and
+  readiness status;
+- capture metadata summary includes `deviceEvidenceReadyCount` and
+  `deviceEvidenceReviewCount`;
+- longitudinal QA/readiness includes `deviceEvidenceNotReadyCount`;
+- visit dataset validation includes per-lesion and aggregate
+  `deviceEvidenceNotReadyCount`.
+
+Safety boundary:
+
+- no serial number, raw device ID, MAC/IP/Bluetooth/Wi-Fi identifier, device
+  credential, object bucket/key, storage path, signed URL, QR/session/token,
+  doctor-only text, patient-safe report text, diagnosis, risk, prognosis,
+  treatment, measurement, or dynamic conclusion is exposed;
+- `patientDeliveryAllowed=false`;
+- `medicalMeasurementAllowed=false`;
+- `clinicalConclusionGenerated=false`.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab keeps region `Готовность timeline QA`;
+- the block now exposes device metadata readiness as a separate aggregate and
+  per-lesion count;
+- next action label `Дозаполнить device metadata` appears when the backend
+  returns `complete_device_metadata`;
+- visible copy remains technical: `Production dataset validation`, `не создаёт
+  вывод о динамике`, `Динамический вывод: выключен`, and patient delivery stays
+  off.
+
+### Batch BK Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BK adds richer
+  device-provided capture metadata evidence to chronology/timeline readiness.
+  Remaining gate: production validation on real assets and device bridge
+  integration quality checks.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BK
+  blocks pair/timeline rollout when capture device evidence is missing, stale,
+  or incomplete. Remaining gate: calibrated production viewer QA and reviewer
+  operations on real assets.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BK keeps dynamic
+  interpretation blocked when device/capture evidence is incomplete; no
+  clinical dynamic conclusion is generated. Remaining gate: approved production
+  analysis policy and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BK is
+  doctor-side metadata only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

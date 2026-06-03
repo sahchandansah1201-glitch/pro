@@ -4906,6 +4906,8 @@ test("Batch BC Stage 5H · capture metadata endpoints read and write production-
         missingMetadataCount: 1,
         readyForTechnicalCompareCount: 1,
         scaleReadyCount: 0,
+        deviceEvidenceReadyCount: 1,
+        deviceEvidenceReviewCount: 0,
       },
       items: [{
         assetId,
@@ -4919,6 +4921,15 @@ test("Batch BC Stage 5H · capture metadata endpoints read and write production-
         frame: { width: 2048, height: 2048 },
         quality: { score: 91, issues: [] },
         calibration: { scaleMarkerDetected: false, millimetersAvailable: false },
+        deviceEvidence: {
+          captureProfile: "standard_dermoscopy",
+          lightingProfile: "polarized",
+          focusProfile: "locked",
+          distanceProfile: "fixed",
+          calibrationStatus: "valid",
+          calibrationCheckedAt: "2026-05-19T10:40:00.000Z",
+          status: "ready",
+        },
         technicalStatus: "ready",
         technicalReasons: [],
       }],
@@ -4944,6 +4955,15 @@ test("Batch BC Stage 5H · capture metadata endpoints read and write production-
       frame: { width: 2048, height: 2048 },
       quality: { score: 91, issues: [] },
       calibration: { scaleMarkerDetected: false, millimetersAvailable: false },
+      deviceEvidence: {
+        captureProfile: "standard_dermoscopy",
+        lightingProfile: "polarized",
+        focusProfile: "locked",
+        distanceProfile: "fixed",
+        calibrationStatus: "valid",
+        calibrationCheckedAt: "2026-05-19T10:40:00.000Z",
+        status: "ready",
+      },
       patientDeliveryAllowed: false,
       protectedFieldsExposed: false,
     },
@@ -4957,6 +4977,8 @@ test("Batch BC Stage 5H · capture metadata endpoints read and write production-
   assert.equal(read.status, 200);
   assert.equal(read.json.stage, "5H");
   assert.equal(read.json.item.summary.metadataCount, 1);
+  assert.equal(read.json.item.summary.deviceEvidenceReadyCount, 1);
+  assert.equal(read.json.item.items[0].deviceEvidence.status, "ready");
   assert.equal(read.json.item.items[0].frame.width, 2048);
   assert.equal(read.json.item.boundaries.patientDeliveryAllowed, false);
 
@@ -4974,6 +4996,12 @@ test("Batch BC Stage 5H · capture metadata endpoints read and write production-
       qualityIssues: [],
       scaleMarkerDetected: false,
       millimetersAvailable: false,
+      deviceCaptureProfile: "standard_dermoscopy",
+      lightingProfile: "polarized",
+      focusProfile: "locked",
+      distanceProfile: "fixed",
+      deviceCalibrationStatus: "valid",
+      deviceCalibrationCheckedAt: "2026-05-19T10:40:00.000Z",
     }),
   );
   assert.equal(write.status, 200);
@@ -5234,6 +5262,7 @@ test("Batch BG Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/l
           notSuitableForComparisonCount: 0,
           unreviewedPairCount: 0,
           missingCaptureMetadataCount: 1,
+          deviceEvidenceNotReadyCount: 1,
           calibrationBlockedCount: 1,
           markerMissingCount: 1,
           technicalRolloutReady: false,
@@ -5247,7 +5276,7 @@ test("Batch BG Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/l
             nextAction: "request_recapture",
           },
         ],
-        nextActions: ["request_recapture", "complete_capture_metadata"],
+        nextActions: ["request_recapture", "complete_capture_metadata", "complete_device_metadata"],
         boundaries: {
           patientDeliveryAllowed: false,
           medicalMeasurementAllowed: false,
@@ -5298,6 +5327,7 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
           reviewedPairCount: 2,
           technicalReadyPairCount: 2,
           missingCaptureMetadataCount: 1,
+          deviceEvidenceNotReadyCount: 1,
           calibrationBlockedCount: 1,
           markerMissingCount: 1,
           reviewerWorkflowReadyCount: 1,
@@ -5317,6 +5347,7 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
             reviewedPairCount: 1,
             technicalReadyPairCount: 1,
             missingCaptureMetadataCount: 1,
+            deviceEvidenceNotReadyCount: 1,
             calibrationBlockedCount: 1,
             markerMissingCount: 1,
             reviewerWorkflowReadyCount: 0,
@@ -5330,8 +5361,14 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
             count: 1,
             nextAction: "complete_capture_metadata",
           },
+          {
+            code: "device_metadata_not_ready",
+            label: "Device metadata требует проверки",
+            count: 1,
+            nextAction: "complete_device_metadata",
+          },
         ],
-        nextActions: ["complete_capture_metadata"],
+        nextActions: ["complete_capture_metadata", "complete_device_metadata"],
         boundaries: {
           patientDeliveryAllowed: false,
           medicalMeasurementAllowed: false,
@@ -5352,6 +5389,7 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
   assert.equal(response.json.stage, "5H");
   assert.equal(response.json.source, "postgres");
   assert.equal(response.json.item.readiness.status, "blocked");
+  assert.equal(response.json.item.readiness.deviceEvidenceNotReadyCount, 1);
   assert.equal(response.json.item.readiness.dynamicConclusionAllowed, false);
   assert.equal(response.json.item.boundaries.patientDeliveryAllowed, false);
   assert.equal(response.json.item.boundaries.pairKeysExposed, false);

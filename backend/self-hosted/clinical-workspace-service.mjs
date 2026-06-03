@@ -14,6 +14,11 @@ const RISK_LEVEL_VALUES = new Set(["low", "moderate", "high", "urgent"]);
 const COMPARISON_ACTION_VALUES = new Set(["retake", "excluded", "report_limit"]);
 const COMPARABILITY_VALUES = new Set(["comparable", "not_comparable"]);
 const CAPTURE_SOURCE_VALUES = new Set(["phone", "device_bridge", "file_import", "camera", "local_transfer", "unknown"]);
+const DEVICE_CAPTURE_PROFILE_VALUES = new Set(["standard_dermoscopy", "standard_macro", "overview", "unknown"]);
+const LIGHTING_PROFILE_VALUES = new Set(["polarized", "non_polarized", "cross_polarized", "ambient", "unknown"]);
+const FOCUS_PROFILE_VALUES = new Set(["locked", "auto", "manual", "unknown"]);
+const DISTANCE_PROFILE_VALUES = new Set(["fixed", "estimated", "unknown"]);
+const DEVICE_CALIBRATION_STATUS_VALUES = new Set(["valid", "due_soon", "expired", "missing", "not_applicable", "unknown"]);
 const CALIBRATION_STATUS_VALUES = new Set(["ready", "not_ready", "limited"]);
 const CAPTURE_METADATA_STATUS_VALUES = new Set(["ready", "needs_review", "missing"]);
 const VIEWER_QA_REVIEW_STATUS_VALUES = new Set([
@@ -55,6 +60,16 @@ const PROTECTED_INPUT_KEYS = new Set([
   "sessionId",
   "doctorVersionText",
   "patientSafeText",
+  "deviceSerial",
+  "serialNumber",
+  "rawDeviceId",
+  "rawDeviceIdentifier",
+  "macAddress",
+  "ipAddress",
+  "bluetoothAddress",
+  "wifiSsid",
+  "credential",
+  "deviceCredential",
   "patientDeliveryAllowed",
   "protectedFieldsExposed",
 ]);
@@ -218,6 +233,36 @@ function normalizeTechnicalStrings(input, field, details, { maxItems = 8 } = {})
   return items;
 }
 
+function normalizeEnumField(input, field, values, fallback, details) {
+  const value = cleanString(input) || fallback;
+  if (!values.has(value)) {
+    details.push({ field, message: `${field} is not supported.` });
+    return undefined;
+  }
+  return value;
+}
+
+function deriveDeviceEvidenceStatus({
+  deviceId,
+  deviceCaptureProfile,
+  lightingProfile,
+  focusProfile,
+  distanceProfile,
+  deviceCalibrationStatus,
+}) {
+  if (!deviceId) return "missing";
+  if (
+    deviceCaptureProfile !== "unknown"
+    && lightingProfile !== "unknown"
+    && focusProfile !== "unknown"
+    && distanceProfile !== "unknown"
+    && deviceCalibrationStatus === "valid"
+  ) {
+    return "ready";
+  }
+  return "needs_review";
+}
+
 export function normalizeAssetCaptureMetadataPayload(input = {}) {
   requireObject(input);
   const details = [];
@@ -235,10 +280,51 @@ export function normalizeAssetCaptureMetadataPayload(input = {}) {
   const qualityIssues = normalizeTechnicalStrings(input.qualityIssues, "qualityIssues", details);
   const scaleMarkerDetected = input.scaleMarkerDetected === true;
   const millimetersAvailable = input.millimetersAvailable === true;
+  const deviceCaptureProfile = normalizeEnumField(
+    input.deviceCaptureProfile,
+    "deviceCaptureProfile",
+    DEVICE_CAPTURE_PROFILE_VALUES,
+    "unknown",
+    details,
+  );
+  const lightingProfile = normalizeEnumField(
+    input.lightingProfile,
+    "lightingProfile",
+    LIGHTING_PROFILE_VALUES,
+    "unknown",
+    details,
+  );
+  const focusProfile = normalizeEnumField(input.focusProfile, "focusProfile", FOCUS_PROFILE_VALUES, "unknown", details);
+  const distanceProfile = normalizeEnumField(
+    input.distanceProfile,
+    "distanceProfile",
+    DISTANCE_PROFILE_VALUES,
+    "unknown",
+    details,
+  );
+  const deviceCalibrationStatus = normalizeEnumField(
+    input.deviceCalibrationStatus,
+    "deviceCalibrationStatus",
+    DEVICE_CALIBRATION_STATUS_VALUES,
+    "unknown",
+    details,
+  );
+  const deviceCalibrationCheckedAt = cleanString(input.deviceCalibrationCheckedAt);
+  if (deviceCalibrationCheckedAt && Number.isNaN(Date.parse(deviceCalibrationCheckedAt))) {
+    details.push({ field: "deviceCalibrationCheckedAt", message: "deviceCalibrationCheckedAt must be an ISO timestamp." });
+  }
   if (millimetersAvailable && !scaleMarkerDetected) {
     details.push({ field: "millimetersAvailable", message: "millimetersAvailable requires scaleMarkerDetected." });
   }
   if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  const deviceEvidenceStatus = deriveDeviceEvidenceStatus({
+    deviceId,
+    deviceCaptureProfile,
+    lightingProfile,
+    focusProfile,
+    distanceProfile,
+    deviceCalibrationStatus,
+  });
   return {
     captureSource,
     deviceId,
@@ -248,6 +334,13 @@ export function normalizeAssetCaptureMetadataPayload(input = {}) {
     qualityIssues: qualityIssues ?? [],
     scaleMarkerDetected,
     millimetersAvailable,
+    deviceCaptureProfile,
+    lightingProfile,
+    focusProfile,
+    distanceProfile,
+    deviceCalibrationStatus,
+    deviceCalibrationCheckedAt: deviceCalibrationCheckedAt || null,
+    deviceEvidenceStatus,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
   };
@@ -768,6 +861,9 @@ export function createClinicalWorkspaceService({
           qualityIssuesCount: payload.qualityIssues.length,
           scaleMarkerDetected: payload.scaleMarkerDetected,
           millimetersAvailable: payload.millimetersAvailable,
+          deviceEvidenceStatus: payload.deviceEvidenceStatus,
+          deviceCalibrationStatus: payload.deviceCalibrationStatus,
+          deviceCaptureProfile: payload.deviceCaptureProfile,
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,
         },
@@ -799,6 +895,8 @@ export function createClinicalWorkspaceService({
           assetCount: Number(summary.assetCount ?? 0),
           metadataCount: Number(summary.metadataCount ?? 0),
           readyForTechnicalCompareCount: Number(summary.readyForTechnicalCompareCount ?? 0),
+          deviceEvidenceReadyCount: Number(summary.deviceEvidenceReadyCount ?? 0),
+          deviceEvidenceReviewCount: Number(summary.deviceEvidenceReviewCount ?? 0),
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,
         },
@@ -991,6 +1089,7 @@ export function createClinicalWorkspaceService({
           needsReviewTimelineCount: Number(readiness.needsReviewTimelineCount ?? 0),
           blockedTimelineCount: Number(readiness.blockedTimelineCount ?? 0),
           candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+          deviceEvidenceNotReadyCount: Number(readiness.deviceEvidenceNotReadyCount ?? 0),
           dynamicConclusionAllowed: false,
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
@@ -1031,6 +1130,7 @@ export function createClinicalWorkspaceService({
           needsRecaptureCount: Number(readiness.needsRecaptureCount ?? 0),
           notSuitableForComparisonCount: Number(readiness.notSuitableForComparisonCount ?? 0),
           unreviewedPairCount: Number(readiness.unreviewedPairCount ?? 0),
+          deviceEvidenceNotReadyCount: Number(readiness.deviceEvidenceNotReadyCount ?? 0),
           technicalRolloutReady: readiness.technicalRolloutReady === true,
           dynamicConclusionAllowed: false,
           medicalMeasurementAllowed: false,

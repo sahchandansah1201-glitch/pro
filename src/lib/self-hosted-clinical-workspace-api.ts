@@ -87,6 +87,12 @@ export interface AssetCaptureMetadataPayload {
   qualityIssues?: string[];
   scaleMarkerDetected: boolean;
   millimetersAvailable: boolean;
+  deviceCaptureProfile?: "standard_dermoscopy" | "standard_macro" | "overview" | "unknown";
+  lightingProfile?: "polarized" | "non_polarized" | "cross_polarized" | "ambient" | "unknown";
+  focusProfile?: "locked" | "auto" | "manual" | "unknown";
+  distanceProfile?: "fixed" | "estimated" | "unknown";
+  deviceCalibrationStatus?: "valid" | "due_soon" | "expired" | "missing" | "not_applicable" | "unknown";
+  deviceCalibrationCheckedAt?: string | null;
 }
 
 export interface SelfHostedAssetCaptureMetadataDTO {
@@ -101,6 +107,15 @@ export interface SelfHostedAssetCaptureMetadataDTO {
   frame: { width: number | null; height: number | null };
   quality: { score: number | null; issues: string[] };
   calibration: { scaleMarkerDetected: boolean; millimetersAvailable: boolean };
+  deviceEvidence: {
+    captureProfile: string;
+    lightingProfile: string;
+    focusProfile: string;
+    distanceProfile: string;
+    calibrationStatus: string;
+    calibrationCheckedAt: string | null;
+    status: "ready" | "needs_review" | "missing";
+  };
   patientDeliveryAllowed: false;
   protectedFieldsExposed: false;
   createdAt: string | null;
@@ -117,6 +132,8 @@ export interface SelfHostedLesionCaptureMetadataDTO {
     missingMetadataCount: number;
     readyForTechnicalCompareCount: number;
     scaleReadyCount: number;
+    deviceEvidenceReadyCount: number;
+    deviceEvidenceReviewCount: number;
   };
   items: Array<{
     assetId: string;
@@ -130,6 +147,7 @@ export interface SelfHostedLesionCaptureMetadataDTO {
     frame: { width: number | null; height: number | null };
     quality: { score: number | null; issues: string[] };
     calibration: { scaleMarkerDetected: boolean; millimetersAvailable: boolean };
+    deviceEvidence: SelfHostedAssetCaptureMetadataDTO["deviceEvidence"];
     technicalStatus: "ready" | "warning" | "missing";
     technicalReasons: string[];
   }>;
@@ -318,6 +336,7 @@ export type SelfHostedLesionLongitudinalQaAction =
   | "request_recapture"
   | "exclude_from_dynamic_review"
   | "complete_capture_metadata"
+  | "complete_device_metadata"
   | "complete_calibration"
   | "place_markers"
   | "continue_review";
@@ -338,6 +357,7 @@ export interface SelfHostedLesionLongitudinalQaDTO {
     notSuitableForComparisonCount: number;
     unreviewedPairCount: number;
     missingCaptureMetadataCount: number;
+    deviceEvidenceNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
     technicalRolloutReady: boolean;
@@ -350,6 +370,7 @@ export interface SelfHostedLesionLongitudinalQaDTO {
       | "not_suitable_for_comparison"
       | "unreviewed_pairs"
       | "missing_capture_metadata"
+      | "device_metadata_not_ready"
       | "calibration_not_ready"
       | "technical_markers_missing";
     label: string;
@@ -392,6 +413,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     reviewedPairCount: number;
     technicalReadyPairCount: number;
     missingCaptureMetadataCount: number;
+    deviceEvidenceNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
     reviewerWorkflowReadyCount: number;
@@ -410,6 +432,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     reviewedPairCount: number;
     technicalReadyPairCount: number;
     missingCaptureMetadataCount: number;
+    deviceEvidenceNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
     reviewerWorkflowReadyCount: number;
@@ -712,6 +735,20 @@ function toCalibration(input: unknown): { scaleMarkerDetected: boolean; millimet
   };
 }
 
+function toDeviceEvidence(input: unknown): SelfHostedAssetCaptureMetadataDTO["deviceEvidence"] {
+  const row = isRecord(input) ? input : {};
+  const status = row.status === "ready" || row.status === "needs_review" ? row.status : "missing";
+  return {
+    captureProfile: String(row.captureProfile ?? "unknown"),
+    lightingProfile: String(row.lightingProfile ?? "unknown"),
+    focusProfile: String(row.focusProfile ?? "unknown"),
+    distanceProfile: String(row.distanceProfile ?? "unknown"),
+    calibrationStatus: String(row.calibrationStatus ?? "unknown"),
+    calibrationCheckedAt: textOrNull(row.calibrationCheckedAt),
+    status,
+  };
+}
+
 function toAssetCaptureMetadata(input: Record<string, unknown>): SelfHostedAssetCaptureMetadataDTO {
   return {
     id: String(input.id ?? ""),
@@ -725,6 +762,7 @@ function toAssetCaptureMetadata(input: Record<string, unknown>): SelfHostedAsset
     frame: toFrame(input.frame),
     quality: toQuality(input.quality),
     calibration: toCalibration(input.calibration),
+    deviceEvidence: toDeviceEvidence(input.deviceEvidence),
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
     createdAt: textOrNull(input.createdAt),
@@ -748,6 +786,8 @@ function toLesionCaptureMetadata(input: Record<string, unknown>): SelfHostedLesi
       missingMetadataCount: numberOrZero(summary.missingMetadataCount),
       readyForTechnicalCompareCount: numberOrZero(summary.readyForTechnicalCompareCount),
       scaleReadyCount: numberOrZero(summary.scaleReadyCount),
+      deviceEvidenceReadyCount: numberOrZero(summary.deviceEvidenceReadyCount),
+      deviceEvidenceReviewCount: numberOrZero(summary.deviceEvidenceReviewCount),
     },
     items: toRecordArray(input.items).map((item) => ({
       assetId: String(item.assetId ?? ""),
@@ -761,6 +801,7 @@ function toLesionCaptureMetadata(input: Record<string, unknown>): SelfHostedLesi
       frame: toFrame(item.frame),
       quality: toQuality(item.quality),
       calibration: toCalibration(item.calibration),
+      deviceEvidence: toDeviceEvidence(item.deviceEvidence),
       technicalStatus: toCaptureMetadataStatus(item.technicalStatus),
       technicalReasons: toStringArray(item.technicalReasons),
     })),
@@ -996,6 +1037,7 @@ const LONGITUDINAL_QA_BLOCKER_CODES = new Set<SelfHostedLesionLongitudinalQaDTO[
   "not_suitable_for_comparison",
   "unreviewed_pairs",
   "missing_capture_metadata",
+  "device_metadata_not_ready",
   "calibration_not_ready",
   "technical_markers_missing",
 ]);
@@ -1009,6 +1051,7 @@ function toLongitudinalQaAction(value: unknown): SelfHostedLesionLongitudinalQaA
     || value === "request_recapture"
     || value === "exclude_from_dynamic_review"
     || value === "complete_capture_metadata"
+    || value === "complete_device_metadata"
     || value === "complete_calibration"
     || value === "place_markers"
     || value === "continue_review"
@@ -1052,6 +1095,7 @@ function toLesionLongitudinalQa(input: Record<string, unknown>): SelfHostedLesio
       notSuitableForComparisonCount: numberOrZero(readiness.notSuitableForComparisonCount),
       unreviewedPairCount: numberOrZero(readiness.unreviewedPairCount),
       missingCaptureMetadataCount: numberOrZero(readiness.missingCaptureMetadataCount),
+      deviceEvidenceNotReadyCount: numberOrZero(readiness.deviceEvidenceNotReadyCount),
       calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
       markerMissingCount: numberOrZero(readiness.markerMissingCount),
       technicalRolloutReady: readiness.technicalRolloutReady === true,
@@ -1107,6 +1151,7 @@ function toVisitLongitudinalDatasetValidation(
       reviewedPairCount: numberOrZero(readiness.reviewedPairCount),
       technicalReadyPairCount: numberOrZero(readiness.technicalReadyPairCount),
       missingCaptureMetadataCount: numberOrZero(readiness.missingCaptureMetadataCount),
+      deviceEvidenceNotReadyCount: numberOrZero(readiness.deviceEvidenceNotReadyCount),
       calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
       markerMissingCount: numberOrZero(readiness.markerMissingCount),
       reviewerWorkflowReadyCount: numberOrZero(readiness.reviewerWorkflowReadyCount),
@@ -1125,6 +1170,7 @@ function toVisitLongitudinalDatasetValidation(
       reviewedPairCount: numberOrZero(item.reviewedPairCount),
       technicalReadyPairCount: numberOrZero(item.technicalReadyPairCount),
       missingCaptureMetadataCount: numberOrZero(item.missingCaptureMetadataCount),
+      deviceEvidenceNotReadyCount: numberOrZero(item.deviceEvidenceNotReadyCount),
       calibrationBlockedCount: numberOrZero(item.calibrationBlockedCount),
       markerMissingCount: numberOrZero(item.markerMissingCount),
       reviewerWorkflowReadyCount: numberOrZero(item.reviewerWorkflowReadyCount),

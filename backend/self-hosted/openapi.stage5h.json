@@ -92,6 +92,19 @@
               "millimetersAvailable": { "type": "boolean" }
             }
           },
+          "deviceEvidence": {
+            "type": "object",
+            "description": "Batch BK production device-provided capture evidence. Metadata-only: no serials, credentials, network identifiers, image paths, or patient delivery.",
+            "properties": {
+              "captureProfile": { "type": "string", "enum": ["standard_dermoscopy", "standard_macro", "overview", "unknown"] },
+              "lightingProfile": { "type": "string", "enum": ["polarized", "non_polarized", "cross_polarized", "ambient", "unknown"] },
+              "focusProfile": { "type": "string", "enum": ["locked", "auto", "manual", "unknown"] },
+              "distanceProfile": { "type": "string", "enum": ["fixed", "estimated", "unknown"] },
+              "calibrationStatus": { "type": "string", "enum": ["valid", "due_soon", "expired", "missing", "not_applicable", "unknown"] },
+              "calibrationCheckedAt": { "type": ["string", "null"] },
+              "status": { "type": "string", "enum": ["ready", "needs_review", "missing"] }
+            }
+          },
           "patientDeliveryAllowed": { "type": "boolean", "const": false },
           "protectedFieldsExposed": { "type": "boolean", "const": false }
         }
@@ -110,7 +123,9 @@
               "metadataCount": { "type": "integer", "minimum": 0 },
               "missingMetadataCount": { "type": "integer", "minimum": 0 },
               "readyForTechnicalCompareCount": { "type": "integer", "minimum": 0 },
-              "scaleReadyCount": { "type": "integer", "minimum": 0 }
+              "scaleReadyCount": { "type": "integer", "minimum": 0 },
+              "deviceEvidenceReadyCount": { "type": "integer", "minimum": 0 },
+              "deviceEvidenceReviewCount": { "type": "integer", "minimum": 0 }
             }
           },
           "items": {
@@ -129,6 +144,7 @@
                 "frame": { "type": "object" },
                 "quality": { "type": "object" },
                 "calibration": { "type": "object" },
+                "deviceEvidence": { "type": "object" },
                 "technicalStatus": { "type": "string", "enum": ["ready", "warning", "missing"] },
                 "technicalReasons": { "type": "array", "items": { "type": "string" } }
               }
@@ -334,6 +350,7 @@
               "notSuitableForComparisonCount": { "type": "integer", "minimum": 0 },
               "unreviewedPairCount": { "type": "integer", "minimum": 0 },
               "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
+              "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
               "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
               "markerMissingCount": { "type": "integer", "minimum": 0 },
               "technicalRolloutReady": { "type": "boolean" },
@@ -353,6 +370,7 @@
                     "not_suitable_for_comparison",
                     "unreviewed_pairs",
                     "missing_capture_metadata",
+                    "device_metadata_not_ready",
                     "calibration_not_ready",
                     "technical_markers_missing"
                   ]
@@ -366,6 +384,7 @@
                     "request_recapture",
                     "exclude_from_dynamic_review",
                     "complete_capture_metadata",
+                    "complete_device_metadata",
                     "complete_calibration",
                     "place_markers",
                     "continue_review"
@@ -383,6 +402,7 @@
                 "request_recapture",
                 "exclude_from_dynamic_review",
                 "complete_capture_metadata",
+                "complete_device_metadata",
                 "complete_calibration",
                 "place_markers",
                 "continue_review"
@@ -450,6 +470,7 @@
                 "reviewedPairCount": { "type": "integer", "minimum": 0 },
                 "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
                 "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
+                "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
                 "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
                 "markerMissingCount": { "type": "integer", "minimum": 0 },
                 "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
@@ -481,6 +502,7 @@
                     "not_suitable_for_comparison",
                     "unreviewed_pairs",
                     "missing_capture_metadata",
+                    "device_metadata_not_ready",
                     "calibration_not_ready",
                     "technical_markers_missing"
                   ]
@@ -494,6 +516,7 @@
                     "request_recapture",
                     "exclude_from_dynamic_review",
                     "complete_capture_metadata",
+                    "complete_device_metadata",
                     "complete_calibration",
                     "place_markers",
                     "continue_review"
@@ -511,6 +534,7 @@
                 "request_recapture",
                 "exclude_from_dynamic_review",
                 "complete_capture_metadata",
+                "complete_device_metadata",
                 "complete_calibration",
                 "place_markers",
                 "continue_review"

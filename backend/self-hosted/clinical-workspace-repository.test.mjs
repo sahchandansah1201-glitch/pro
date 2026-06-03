@@ -70,6 +70,10 @@ test("Batch BG Stage 5H repository builds metadata-only lesion longitudinal QA S
   assert.match(sql, /from lesions l/);
   assert.match(sql, /clinical_asset_capture_metadata/);
   assert.match(sql, /lesion_comparison_viewer_qa_drafts/);
+  assert.match(sql, /device_evidence_status/);
+  assert.match(sql, /deviceEvidenceNotReadyCount/);
+  assert.match(sql, /device_metadata_not_ready/);
+  assert.match(sql, /complete_device_metadata/);
   assert.match(sql, /longitudinal_qa\.read/i);
   assert.match(sql, /technicalRolloutReady/);
   assert.match(sql, /dynamicConclusionAllowed/);
@@ -94,6 +98,10 @@ test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset valid
   assert.match(sql, /from lesions l/);
   assert.match(sql, /clinical_asset_capture_metadata/);
   assert.match(sql, /lesion_comparison_viewer_qa_drafts/);
+  assert.match(sql, /device_evidence_status/);
+  assert.match(sql, /deviceEvidenceNotReadyCount/);
+  assert.match(sql, /device_metadata_not_ready/);
+  assert.match(sql, /complete_device_metadata/);
   assert.match(sql, /reviewer_workflow_status/);
   assert.match(sql, /visit_longitudinal_dataset_validation\.read/i);
   assert.match(sql, /ready_for_rollout/);
@@ -136,6 +144,8 @@ test("Batch BC Stage 5H repository builds production capture metadata SQL withou
   assert.match(sql, /clinical_asset_capture_metadata m/);
   assert.match(sql, /frame_width/);
   assert.match(sql, /scale_marker_detected/);
+  assert.match(sql, /device_capture_profile/);
+  assert.match(sql, /device_evidence_status/);
   assert.match(sql, /patient_delivery_allowed/i);
   assert.match(sql, /and a\.clinic_id in/);
   assert.doesNotMatch(
@@ -162,15 +172,28 @@ test("Batch BC Stage 5H repository upserts capture metadata as metadata-only ass
       qualityIssues: [],
       scaleMarkerDetected: false,
       millimetersAvailable: false,
+      deviceCaptureProfile: "standard_dermoscopy",
+      lightingProfile: "polarized",
+      focusProfile: "locked",
+      distanceProfile: "fixed",
+      deviceCalibrationStatus: "valid",
+      deviceCalibrationCheckedAt: "2026-05-19T10:40:00.000Z",
+      deviceEvidenceStatus: "ready",
     },
   });
 
   assert.match(sql, /insert into clinical_asset_capture_metadata/);
+  assert.match(sql, /device_capture_profile/);
+  assert.match(sql, /lighting_profile/);
+  assert.match(sql, /focus_profile/);
+  assert.match(sql, /distance_profile/);
+  assert.match(sql, /device_calibration_status/);
+  assert.match(sql, /device_evidence_status/);
   assert.match(sql, /on conflict \(asset_id\) do update/);
   assert.match(sql, /patient_delivery_allowed,\s+protected_fields_exposed/);
   assert.match(sql, /false,\s+false/);
   assert.match(sql, /where true and clinical_asset_capture_metadata\.clinic_id in/);
-  assert.doesNotMatch(sql, /object_bucket|object_key|storage_object_path|signed_url|access_token|qrToken/i);
+  assert.doesNotMatch(sql, /object_bucket|object_key|storage_object_path|signed_url|access_token|qrToken|deviceSerial|macAddress|ipAddress|credential/i);
 });
 
 test("Stage 5H assessment/conclusion upserts use visit_id conflict and do not expose managed storage fields", () => {
@@ -671,6 +694,8 @@ test("Batch BC Stage 5H repository normalizes capture metadata with forced safe 
             missingMetadataCount: 1,
             readyForTechnicalCompareCount: 1,
             scaleReadyCount: 0,
+            deviceEvidenceReadyCount: 1,
+            deviceEvidenceReviewCount: 0,
           },
           items: [
             {
@@ -688,6 +713,13 @@ test("Batch BC Stage 5H repository normalizes capture metadata with forced safe 
               qualityIssues: [],
               scaleMarkerDetected: false,
               millimetersAvailable: false,
+              deviceCaptureProfile: "standard_dermoscopy",
+              lightingProfile: "polarized",
+              focusProfile: "locked",
+              distanceProfile: "fixed",
+              deviceCalibrationStatus: "valid",
+              deviceCalibrationCheckedAt: "2026-05-19T10:40:00.000Z",
+              deviceEvidenceStatus: "ready",
               technicalStatus: "ready",
               technicalReasons: [],
             },
@@ -714,6 +746,11 @@ test("Batch BC Stage 5H repository normalizes capture metadata with forced safe 
   assert.equal(metadata.items[0].frame.width, 2048);
   assert.equal(metadata.items[0].quality.score, 91);
   assert.equal(metadata.items[0].calibration.millimetersAvailable, false);
+  assert.equal(metadata.summary.deviceEvidenceReadyCount, 1);
+  assert.equal(metadata.summary.deviceEvidenceReviewCount, 0);
+  assert.equal(metadata.items[0].deviceEvidence.status, "ready");
+  assert.equal(metadata.items[0].deviceEvidence.captureProfile, "standard_dermoscopy");
+  assert.equal(metadata.items[0].deviceEvidence.calibrationStatus, "valid");
   assert.equal(metadata.boundaries.patientDeliveryAllowed, false);
   assert.equal(metadata.boundaries.storagePathsExposed, false);
 });
@@ -864,6 +901,7 @@ test("Batch BG Stage 5H repository normalizes longitudinal QA with forced safe b
             notSuitableForComparisonCount: 0,
             unreviewedPairCount: 0,
             missingCaptureMetadataCount: 0,
+            deviceEvidenceNotReadyCount: 1,
             calibrationBlockedCount: 0,
             markerMissingCount: 0,
             technicalRolloutReady: true,
@@ -871,15 +909,15 @@ test("Batch BG Stage 5H repository normalizes longitudinal QA with forced safe b
           },
           blockers: [
             {
-              code: "unsafe",
-              label: "unsafe",
-              count: 99,
-              nextAction: "unsafe",
+              code: "device_metadata_not_ready",
+              label: "Device metadata требует проверки",
+              count: 1,
+              nextAction: "complete_device_metadata",
               pairKey: "secret-pair",
               imageIds: ["i-011", "i-012"],
             },
           ],
-          nextActions: ["continue_review", "unsafe_action"],
+          nextActions: ["complete_device_metadata", "continue_review", "unsafe_action"],
           boundaries: {
             patientDeliveryAllowed: true,
             medicalMeasurementAllowed: true,
@@ -906,13 +944,15 @@ test("Batch BG Stage 5H repository normalizes longitudinal QA with forced safe b
   assert.equal(qa.readiness.status, "technical_ready");
   assert.equal(qa.readiness.technicalRolloutReady, true);
   assert.equal(qa.readiness.dynamicConclusionAllowed, false);
+  assert.equal(qa.readiness.deviceEvidenceNotReadyCount, 1);
   assert.equal(qa.boundaries.patientDeliveryAllowed, false);
   assert.equal(qa.boundaries.medicalMeasurementAllowed, false);
   assert.equal(qa.boundaries.pairKeysExposed, false);
   assert.equal(qa.boundaries.imageIdsExposed, false);
   assert.equal(qa.boundaries.clinicalConclusionGenerated, false);
-  assert.deepEqual(qa.nextActions, ["continue_review"]);
-  assert.deepEqual(qa.blockers, []);
+  assert.deepEqual(qa.nextActions, ["complete_device_metadata", "continue_review"]);
+  assert.equal(qa.blockers[0].code, "device_metadata_not_ready");
+  assert.equal(qa.blockers[0].nextAction, "complete_device_metadata");
   assert.doesNotMatch(
     JSON.stringify(qa),
     /secret-pair|i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|token|session|qr/i,
@@ -939,6 +979,7 @@ test("Batch BJ Stage 5H repository normalizes visit dataset validation with forc
             reviewedPairCount: 2,
             technicalReadyPairCount: 2,
             missingCaptureMetadataCount: 0,
+            deviceEvidenceNotReadyCount: 1,
             calibrationBlockedCount: 0,
             markerMissingCount: 0,
             reviewerWorkflowReadyCount: 1,
@@ -958,6 +999,7 @@ test("Batch BJ Stage 5H repository normalizes visit dataset validation with forc
               reviewedPairCount: 2,
               technicalReadyPairCount: 2,
               missingCaptureMetadataCount: 0,
+              deviceEvidenceNotReadyCount: 1,
               calibrationBlockedCount: 0,
               markerMissingCount: 0,
               reviewerWorkflowReadyCount: 1,
@@ -968,15 +1010,15 @@ test("Batch BJ Stage 5H repository normalizes visit dataset validation with forc
           ],
           blockers: [
             {
-              code: "unsafe_blocker",
-              label: "Unsafe",
-              count: 99,
-              nextAction: "unsafe",
+              code: "device_metadata_not_ready",
+              label: "Device metadata требует проверки",
+              count: 1,
+              nextAction: "complete_device_metadata",
               pairKey: "secret-pair",
               imageIds: ["i-011", "i-012"],
             },
           ],
-          nextActions: ["continue_review", "unsafe_action"],
+          nextActions: ["complete_device_metadata", "continue_review", "unsafe_action"],
           boundaries: {
             patientDeliveryAllowed: true,
             medicalMeasurementAllowed: true,
@@ -1003,14 +1045,17 @@ test("Batch BJ Stage 5H repository normalizes visit dataset validation with forc
 
   assert.equal(validation.readiness.status, "ready_for_rollout");
   assert.equal(validation.readiness.dynamicConclusionAllowed, false);
+  assert.equal(validation.readiness.deviceEvidenceNotReadyCount, 1);
+  assert.equal(validation.items[0].deviceEvidenceNotReadyCount, 1);
   assert.equal(validation.items[0].nextAction, "continue_review");
   assert.equal(validation.boundaries.patientDeliveryAllowed, false);
   assert.equal(validation.boundaries.medicalMeasurementAllowed, false);
   assert.equal(validation.boundaries.pairKeysExposed, false);
   assert.equal(validation.boundaries.imageIdsExposed, false);
   assert.equal(validation.boundaries.clinicalConclusionGenerated, false);
-  assert.deepEqual(validation.nextActions, ["continue_review"]);
-  assert.deepEqual(validation.blockers, []);
+  assert.deepEqual(validation.nextActions, ["complete_device_metadata", "continue_review"]);
+  assert.equal(validation.blockers[0].code, "device_metadata_not_ready");
+  assert.equal(validation.blockers[0].nextAction, "complete_device_metadata");
   assert.doesNotMatch(
     JSON.stringify(validation),
     /secret-pair|i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|token|session|qr/i,

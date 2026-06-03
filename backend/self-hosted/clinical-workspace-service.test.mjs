@@ -130,6 +130,8 @@ function createService({ auditEvents = [], repo = {} } = {}) {
           missingMetadataCount: 1,
           readyForTechnicalCompareCount: 1,
           scaleReadyCount: 0,
+          deviceEvidenceReadyCount: 1,
+          deviceEvidenceReviewCount: 0,
         },
         items: [],
         boundaries: {
@@ -160,6 +162,7 @@ function createService({ auditEvents = [], repo = {} } = {}) {
           notSuitableForComparisonCount: 0,
           unreviewedPairCount: 0,
           missingCaptureMetadataCount: 1,
+          deviceEvidenceNotReadyCount: 1,
           calibrationBlockedCount: 1,
           markerMissingCount: 1,
           technicalRolloutReady: false,
@@ -173,7 +176,7 @@ function createService({ auditEvents = [], repo = {} } = {}) {
             nextAction: "request_recapture",
           },
         ],
-        nextActions: ["request_recapture", "complete_capture_metadata"],
+        nextActions: ["request_recapture", "complete_capture_metadata", "complete_device_metadata"],
         boundaries: {
           patientDeliveryAllowed: false,
           medicalMeasurementAllowed: false,
@@ -201,6 +204,15 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         frame: { width: 2048, height: 2048 },
         quality: { score: 91, issues: [] },
         calibration: { scaleMarkerDetected: false, millimetersAvailable: false },
+        deviceEvidence: {
+          captureProfile: "standard_dermoscopy",
+          lightingProfile: "polarized",
+          focusProfile: "locked",
+          distanceProfile: "fixed",
+          calibrationStatus: "valid",
+          calibrationCheckedAt: "2026-05-19T10:40:00.000Z",
+          status: "ready",
+        },
         patientDeliveryAllowed: false,
         protectedFieldsExposed: false,
       };
@@ -351,6 +363,7 @@ function createService({ auditEvents = [], repo = {} } = {}) {
           reviewedPairCount: 2,
           technicalReadyPairCount: 2,
           missingCaptureMetadataCount: 1,
+          deviceEvidenceNotReadyCount: 1,
           calibrationBlockedCount: 1,
           markerMissingCount: 1,
           reviewerWorkflowReadyCount: 1,
@@ -370,6 +383,7 @@ function createService({ auditEvents = [], repo = {} } = {}) {
             reviewedPairCount: 1,
             technicalReadyPairCount: 1,
             missingCaptureMetadataCount: 1,
+            deviceEvidenceNotReadyCount: 1,
             calibrationBlockedCount: 1,
             markerMissingCount: 1,
             reviewerWorkflowReadyCount: 0,
@@ -383,8 +397,14 @@ function createService({ auditEvents = [], repo = {} } = {}) {
             count: 1,
             nextAction: "complete_capture_metadata",
           },
+          {
+            code: "device_metadata_not_ready",
+            label: "Device metadata требует проверки",
+            count: 1,
+            nextAction: "complete_device_metadata",
+          },
         ],
-        nextActions: ["complete_capture_metadata", "complete_calibration", "place_markers"],
+        nextActions: ["complete_capture_metadata", "complete_device_metadata", "complete_calibration", "place_markers"],
         boundaries: {
           patientDeliveryAllowed: false,
           medicalMeasurementAllowed: false,
@@ -475,10 +495,18 @@ test("Batch BC/BD Stage 5H normalizers keep capture metadata and viewer QA techn
     qualityIssues: ["soft_focus"],
     scaleMarkerDetected: false,
     millimetersAvailable: false,
+    deviceCaptureProfile: "standard_dermoscopy",
+    lightingProfile: "polarized",
+    focusProfile: "locked",
+    distanceProfile: "fixed",
+    deviceCalibrationStatus: "valid",
+    deviceCalibrationCheckedAt: "2026-05-19T10:40:00.000Z",
   });
   assert.equal(capture.patientDeliveryAllowed, false);
   assert.equal(capture.protectedFieldsExposed, false);
   assert.equal(capture.frameWidth, 2048);
+  assert.equal(capture.deviceEvidenceStatus, "ready");
+  assert.equal(capture.deviceCalibrationStatus, "valid");
 
   const qa = normalizeLesionComparisonViewerQaPayload({
     lesionId: "l-008",
@@ -494,6 +522,14 @@ test("Batch BC/BD Stage 5H normalizers keep capture metadata and viewer QA techn
 
   assert.throws(
     () => normalizeAssetCaptureMetadataPayload({ ...capture, storagePath: "/x" }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeAssetCaptureMetadataPayload({ ...capture, macAddress: "00:11:22:33:44:55" }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeAssetCaptureMetadataPayload({ ...capture, deviceCaptureProfile: "raw_serial_profile" }),
     VisitWorkspaceValidationError,
   );
   assert.throws(
@@ -732,6 +768,8 @@ test("Batch BC Stage 5H service reads and writes capture metadata with audit-saf
     assetCount: 2,
     metadataCount: 1,
     readyForTechnicalCompareCount: 1,
+    deviceEvidenceReadyCount: 1,
+    deviceEvidenceReviewCount: 0,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
   });
@@ -748,12 +786,20 @@ test("Batch BC Stage 5H service reads and writes capture metadata with audit-saf
       qualityIssues: [],
       scaleMarkerDetected: false,
       millimetersAvailable: false,
+      deviceCaptureProfile: "standard_dermoscopy",
+      lightingProfile: "polarized",
+      focusProfile: "locked",
+      distanceProfile: "fixed",
+      deviceCalibrationStatus: "valid",
+      deviceCalibrationCheckedAt: "2026-05-19T10:40:00.000Z",
     },
     authContext,
     { correlationId: "c10" },
   );
   assert.equal(write.metadata.patientDeliveryAllowed, false);
   assert.equal(auditEvents.at(-1).action, "clinical_asset_capture_metadata.upsert");
+  assert.equal(auditEvents.at(-1).metadata.deviceEvidenceStatus, "ready");
+  assert.equal(auditEvents.at(-1).metadata.deviceCalibrationStatus, "valid");
   assert.doesNotMatch(
     JSON.stringify(auditEvents),
     /objectBucket|objectKey|storagePath|signedUrl|token|session|qr|doctorOnly|patientSafeText/i,
@@ -945,6 +991,7 @@ test("Batch BG Stage 5H service reads longitudinal QA with audit-safe metadata",
     needsRecaptureCount: 1,
     notSuitableForComparisonCount: 0,
     unreviewedPairCount: 0,
+    deviceEvidenceNotReadyCount: 1,
     technicalRolloutReady: false,
     dynamicConclusionAllowed: false,
     medicalMeasurementAllowed: false,
@@ -981,6 +1028,7 @@ test("Batch BJ Stage 5H service reads visit dataset validation with audit-safe m
     needsReviewTimelineCount: 0,
     blockedTimelineCount: 1,
     candidatePairCount: 3,
+    deviceEvidenceNotReadyCount: 1,
     dynamicConclusionAllowed: false,
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
