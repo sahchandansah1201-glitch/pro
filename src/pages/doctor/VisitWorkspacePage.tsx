@@ -39,12 +39,14 @@ import {
 import {
   getSelfHostedVisitAssessment,
   getSelfHostedVisitConclusion,
+  getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
   getSelfHostedVisitReport,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
   updateSelfHostedVisitReportContract,
   type SelfHostedClinicalAssessmentDTO,
   type SelfHostedClinicalConclusionDTO,
+  type SelfHostedLesionComparisonViewerQaReviewQueueDTO,
 } from "@/lib/self-hosted-clinical-workspace-api";
 import {
   clinicalReportMissingLabel,
@@ -429,6 +431,7 @@ type ClinicalPanelState =
       report: SelfHostedVisitReportDTO | null;
       reportPackage: SelfHostedClinicalReportPackageDTO | null;
       releaseAudit: SelfHostedPatientPhotoProtocolReleaseAuditDTO | null;
+      viewerQaReviewQueue: SelfHostedLesionComparisonViewerQaReviewQueueDTO | null;
     };
 
 function textFrom(value: string | number | null | undefined): string {
@@ -499,7 +502,15 @@ function ProductionClinicalWorkspacePanel({
         summary: item?.summary ?? "",
         recommendation: item?.recommendation ?? "",
       });
-      setState({ kind: "ready", assessment: item, conclusion: null, report: null, reportPackage: null, releaseAudit: null });
+      setState({
+        kind: "ready",
+        assessment: item,
+        conclusion: null,
+        report: null,
+        reportPackage: null,
+        releaseAudit: null,
+        viewerQaReviewQueue: null,
+      });
       return;
     }
     if (kind === "conclusion") {
@@ -510,12 +521,25 @@ function ProductionClinicalWorkspacePanel({
         nextStep: item?.nextStep ?? "",
         followUpAt: item?.followUpAt ?? "",
       });
-      setState({ kind: "ready", assessment: null, conclusion: item, report: null, reportPackage: null, releaseAudit: null });
+      setState({
+        kind: "ready",
+        assessment: null,
+        conclusion: item,
+        report: null,
+        reportPackage: null,
+        releaseAudit: null,
+        viewerQaReviewQueue: null,
+      });
       return;
     }
     const item = result.value as SelfHostedVisitReportDTO | null;
     const packageResult = await getSelfHostedClinicalReportPackage(args);
     const auditResult = await getSelfHostedPatientPhotoProtocolReleaseAudit(args);
+    const viewerQaQueueResult = await getSelfHostedVisitLesionComparisonViewerQaReviewQueue({
+      ...args,
+      status: "actionable",
+      limit: 20,
+    });
     const packageItem = packageResult.ok ? packageResult.value : null;
     setReportForm({
       status: item?.status ?? "draft",
@@ -535,6 +559,7 @@ function ProductionClinicalWorkspacePanel({
       report: item,
       reportPackage: packageItem,
       releaseAudit: auditResult.ok ? auditResult.value : null,
+      viewerQaReviewQueue: viewerQaQueueResult.ok ? viewerQaQueueResult.value : null,
     });
   }, [apiBaseUrl, apiToken, kind, visitId]);
 
@@ -650,6 +675,7 @@ function ProductionClinicalWorkspacePanel({
         {kind === "report" && state.reportPackage && (
           <>
             <ClinicalReportCompletionSummary reportPackage={state.reportPackage} releaseAudit={state.releaseAudit} />
+            {state.viewerQaReviewQueue && <ViewerQaReviewQueuePanel queue={state.viewerQaReviewQueue} />}
             <PhotoProtocolPolicyGovernancePanel
               photoProtocol={state.reportPackage.patientPhotoProtocol}
               form={photoPolicyForm}
@@ -877,6 +903,87 @@ function ClinicalReportCompletionSummary({
           Все report gates закрыты. Внешние сервисы, storage paths и signed URLs не используются.
         </p>
       )}
+    </section>
+  );
+}
+
+function viewerQaReviewStatusLabel(status: SelfHostedLesionComparisonViewerQaReviewQueueDTO["items"][number]["review"]["status"]): string {
+  if (status === "technical_ready") return "Технически готово";
+  if (status === "needs_recapture") return "Нужен переснимок";
+  if (status === "not_suitable_for_comparison") return "Не использовать для динамики";
+  return "Проверить пару";
+}
+
+function viewerQaNextActionLabel(action: SelfHostedLesionComparisonViewerQaReviewQueueDTO["items"][number]["nextAction"]): string {
+  if (action === "request_recapture") return "Запросить переснимок";
+  if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
+  if (action === "continue_review") return "Продолжить врачебный разбор";
+  return "Проверить пару";
+}
+
+function ViewerQaReviewQueuePanel({
+  queue,
+}: {
+  queue: SelfHostedLesionComparisonViewerQaReviewQueueDTO;
+}) {
+  return (
+    <section
+      role="region"
+      aria-label="Очередь viewer QA"
+      className="rounded-sm border border-border bg-surface px-3 py-3 text-[12px]"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-[13px] font-semibold">Очередь viewer QA</h3>
+          <p className="text-muted-foreground">
+            Технический контур сравнения · без медицинских измерений и выводов о динамике.
+          </p>
+        </div>
+        <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 font-medium">
+          Активных: {queue.summary.actionable}
+        </span>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Field term="Всего" value={queue.summary.total} />
+        <Field term="Без review" value={queue.summary.unreviewed} />
+        <Field term="Готово" value={queue.summary.technicalReady} />
+        <Field term="Переснять" value={queue.summary.needsRecapture} />
+        <Field term="Не динамика" value={queue.summary.notSuitableForComparison} />
+      </dl>
+      {queue.items.length > 0 ? (
+        <ol className="mt-3 grid grid-cols-1 gap-2">
+          {queue.items.slice(0, 5).map((item) => (
+            <li
+              key={`${item.queueNumber}-${item.lesionId}`}
+              className="grid grid-cols-1 gap-2 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{item.lesionLabel}</span>
+                  <span className="text-muted-foreground">{viewerQaReviewStatusLabel(item.review.status)}</span>
+                </div>
+                <p className="mt-1 text-muted-foreground">
+                  {item.bodyZone ?? "зона не указана"} · калибровка: {item.calibrationStatus} · маркеров:{" "}
+                  {item.technicalMarkerCount}
+                </p>
+                {item.review.reasons.length > 0 && (
+                  <p className="mt-1 text-muted-foreground">{item.review.reasons.slice(0, 2).join(", ")}</p>
+                )}
+              </div>
+              <span className="self-start rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+                {viewerQaNextActionLabel(item.nextAction)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted px-2.5 py-2 text-muted-foreground">
+          Нет технических решений, требующих действия.
+        </p>
+      )}
+      <p className="mt-3 text-muted-foreground">
+        Выдача пациенту: выключена · ключи пары и идентификаторы снимков скрыты · backend audit: только агрегаты.
+      </p>
     </section>
   );
 }

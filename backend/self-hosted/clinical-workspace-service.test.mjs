@@ -203,6 +203,51 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         protectedFieldsExposed: false,
       };
     },
+    async getVisitLesionComparisonViewerQaReviewQueue() {
+      return {
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        filters: { status: "actionable", limit: 20 },
+        summary: {
+          total: 3,
+          unreviewed: 1,
+          technicalReady: 1,
+          needsRecapture: 1,
+          notSuitableForComparison: 1,
+          actionable: 3,
+        },
+        items: [
+          {
+            queueNumber: 1,
+            lesionId: "l-008",
+            lesionLabel: "Очаг B",
+            bodyZone: "Плечо",
+            bodySurface: "front",
+            review: {
+              status: "needs_recapture",
+              reasons: ["repeat_capture_required"],
+              reviewedAt: "2026-05-19T10:50:00.000Z",
+              reviewedByUserId: USER_ID,
+            },
+            calibrationStatus: "not_ready",
+            calibrationReasons: ["scale_marker_missing"],
+            captureMetadataStatus: "needs_review",
+            technicalMarkerCount: 1,
+            updatedAt: "2026-05-19T10:55:00.000Z",
+            nextAction: "request_recapture",
+          },
+        ],
+        boundaries: {
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+          protectedFieldsExposed: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          clinicalConclusionGenerated: false,
+        },
+      };
+    },
   };
   return createClinicalWorkspaceService({
     visitWorkspaceRepository: {
@@ -601,6 +646,43 @@ test("Batch BE Stage 5H service persists viewer QA review with audit-safe metada
   assert.doesNotMatch(
     JSON.stringify(auditEvents.at(-1)),
     /i-011|i-012|pairKey|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BF Stage 5H service reads viewer QA review queue with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.getVisitLesionComparisonViewerQaReviewQueue(
+    VISIT_ID,
+    new URLSearchParams("status=actionable&limit=20"),
+    authContext,
+    { correlationId: "c13" },
+  );
+
+  assert.equal(result.queue.summary.actionable, 3);
+  assert.equal(result.queue.items[0].review.status, "needs_recapture");
+  assert.equal(result.queue.boundaries.patientDeliveryAllowed, false);
+  assert.equal(result.queue.boundaries.pairKeysExposed, false);
+  assert.equal(result.queue.boundaries.imageIdsExposed, false);
+  assert.equal(auditEvents.at(-1).action, "lesion_comparison_viewer_qa.review_queue.read");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    status: "actionable",
+    limit: 20,
+    total: 3,
+    actionable: 3,
+    needsRecapture: 1,
+    notSuitableForComparison: 1,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.queue) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"|"imageIds"|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
   );
 });
 

@@ -181,6 +181,59 @@ export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonV
   updatedAt: string | null;
 }
 
+export type LesionComparisonViewerQaReviewQueueStatus =
+  | "actionable"
+  | "all"
+  | "unreviewed"
+  | "technical_ready"
+  | "needs_recapture"
+  | "not_suitable_for_comparison";
+
+export interface SelfHostedLesionComparisonViewerQaReviewQueueDTO {
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string;
+  filters: {
+    status: LesionComparisonViewerQaReviewQueueStatus;
+    limit: number;
+  };
+  summary: {
+    total: number;
+    unreviewed: number;
+    technicalReady: number;
+    needsRecapture: number;
+    notSuitableForComparison: number;
+    actionable: number;
+  };
+  items: Array<{
+    queueNumber: number;
+    lesionId: string;
+    lesionLabel: string;
+    bodyZone: string | null;
+    bodySurface: string | null;
+    review: {
+      status: "unreviewed" | "technical_ready" | "needs_recapture" | "not_suitable_for_comparison";
+      reasons: string[];
+      reviewedAt: string | null;
+      reviewedByUserId: string | null;
+    };
+    calibrationStatus: string;
+    calibrationReasons: string[];
+    captureMetadataStatus: string;
+    technicalMarkerCount: number;
+    updatedAt: string | null;
+    nextAction: "review_pair" | "request_recapture" | "exclude_from_dynamic_review" | "continue_review";
+  }>;
+  boundaries: {
+    patientDeliveryAllowed: false;
+    medicalMeasurementAllowed: false;
+    protectedFieldsExposed: false;
+    pairKeysExposed: false;
+    imageIdsExposed: false;
+    clinicalConclusionGenerated: false;
+  };
+}
+
 export interface SelfHostedLesionLongitudinalHistorySummaryDTO {
   visitCount: number;
   imageCount: number;
@@ -272,6 +325,11 @@ interface PatchLesionComparisonViewerQaArgs extends VisitArgs {
 
 interface PatchLesionComparisonViewerQaReviewArgs extends VisitArgs {
   payload: LesionComparisonViewerQaReviewPayload;
+}
+
+interface VisitViewerQaReviewQueueArgs extends VisitArgs {
+  status?: LesionComparisonViewerQaReviewQueueStatus;
+  limit?: number;
 }
 
 interface LesionLongitudinalHistoryArgs extends BaseArgs {
@@ -623,6 +681,80 @@ function toLesionComparisonViewerQa(input: Record<string, unknown>): SelfHostedL
   };
 }
 
+function toViewerQaReviewQueueStatus(value: unknown): LesionComparisonViewerQaReviewQueueStatus {
+  return value === "all"
+    || value === "unreviewed"
+    || value === "technical_ready"
+    || value === "needs_recapture"
+    || value === "not_suitable_for_comparison"
+    ? value
+    : "actionable";
+}
+
+function toViewerQaReviewQueueNextAction(
+  value: unknown,
+): SelfHostedLesionComparisonViewerQaReviewQueueDTO["items"][number]["nextAction"] {
+  return value === "request_recapture"
+    || value === "exclude_from_dynamic_review"
+    || value === "continue_review"
+    ? value
+    : "review_pair";
+}
+
+function toLesionComparisonViewerQaReviewQueue(
+  input: Record<string, unknown>,
+): SelfHostedLesionComparisonViewerQaReviewQueueDTO {
+  const filters = isRecord(input.filters) ? input.filters : {};
+  const summary = isRecord(input.summary) ? input.summary : {};
+  return {
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    visitId: String(input.visitId ?? ""),
+    filters: {
+      status: toViewerQaReviewQueueStatus(filters.status),
+      limit: numberOrZero(filters.limit) || 20,
+    },
+    summary: {
+      total: numberOrZero(summary.total),
+      unreviewed: numberOrZero(summary.unreviewed),
+      technicalReady: numberOrZero(summary.technicalReady),
+      needsRecapture: numberOrZero(summary.needsRecapture),
+      notSuitableForComparison: numberOrZero(summary.notSuitableForComparison),
+      actionable: numberOrZero(summary.actionable),
+    },
+    items: toRecordArray(input.items).map((item) => {
+      const review = isRecord(item.review) ? item.review : {};
+      return {
+        queueNumber: numberOrZero(item.queueNumber),
+        lesionId: String(item.lesionId ?? ""),
+        lesionLabel: String(item.lesionLabel ?? item.lesionId ?? ""),
+        bodyZone: textOrNull(item.bodyZone),
+        bodySurface: textOrNull(item.bodySurface),
+        review: {
+          status: toViewerQaReviewStatus(review.status),
+          reasons: toStringArray(review.reasons),
+          reviewedAt: textOrNull(review.reviewedAt),
+          reviewedByUserId: textOrNull(review.reviewedByUserId),
+        },
+        calibrationStatus: String(item.calibrationStatus ?? "not_ready"),
+        calibrationReasons: toStringArray(item.calibrationReasons),
+        captureMetadataStatus: String(item.captureMetadataStatus ?? "needs_review"),
+        technicalMarkerCount: numberOrZero(item.technicalMarkerCount),
+        updatedAt: textOrNull(item.updatedAt),
+        nextAction: toViewerQaReviewQueueNextAction(item.nextAction),
+      };
+    }),
+    boundaries: {
+      patientDeliveryAllowed: false,
+      medicalMeasurementAllowed: false,
+      protectedFieldsExposed: false,
+      pairKeysExposed: false,
+      imageIdsExposed: false,
+      clinicalConclusionGenerated: false,
+    },
+  };
+}
+
 function toLongitudinalPairStatus(value: unknown): SelfHostedLesionLongitudinalHistoryPairDTO["status"] {
   return value === "ready" || value === "warning" ? value : "blocked";
 }
@@ -681,6 +813,17 @@ function toLesionLongitudinalHistory(input: Record<string, unknown>): SelfHosted
 
 function visitUrl(apiBaseUrl: string | null | undefined, visitId: string, suffix: string): string {
   return buildSelfHostedApiUrl(apiBaseUrl, `/api/v1/visits/${encodeURIComponent(visitId)}${suffix}`);
+}
+
+function visitViewerQaReviewQueueUrl(
+  apiBaseUrl: string | null | undefined,
+  visitId: string,
+  status: LesionComparisonViewerQaReviewQueueStatus = "actionable",
+  limit = 20,
+): string {
+  const base = visitUrl(apiBaseUrl, visitId, "/lesion-comparison-viewer-qa/review-queue");
+  const query = new URLSearchParams({ status, limit: String(limit) });
+  return `${base}?${query.toString()}`;
 }
 
 function patientLesionUrl(
@@ -819,6 +962,20 @@ export async function reviewSelfHostedLesionComparisonViewerQa(
     "PATCH",
     args.payload,
     toLesionComparisonViewerQa,
+  );
+}
+
+export async function getSelfHostedVisitLesionComparisonViewerQaReviewQueue(
+  args: VisitViewerQaReviewQueueArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionComparisonViewerQaReviewQueueDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitViewerQaReviewQueueUrl(args.apiBaseUrl, args.visitId, args.status ?? "actionable", args.limit ?? 20),
+    args.apiToken as string,
+    "GET",
+    null,
+    toLesionComparisonViewerQaReviewQueue,
   );
 }
 

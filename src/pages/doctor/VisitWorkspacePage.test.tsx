@@ -670,6 +670,58 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              visitId: "live-visit",
+              filters: { status: "actionable", limit: 20 },
+              summary: {
+                total: 3,
+                unreviewed: 1,
+                technicalReady: 1,
+                needsRecapture: 1,
+                notSuitableForComparison: 1,
+                actionable: 3,
+              },
+              items: [
+                {
+                  queueNumber: 1,
+                  lesionId: "live-lesion",
+                  lesionLabel: "Live lesion A",
+                  bodyZone: "спина",
+                  bodySurface: "back",
+                  review: {
+                    status: "needs_recapture",
+                    reasons: ["repeat_capture_required"],
+                    reviewedAt: "2026-05-19T10:50:00.000Z",
+                    reviewedByUserId: "doctor-1",
+                  },
+                  calibrationStatus: "not_ready",
+                  calibrationReasons: ["scale_marker_missing"],
+                  captureMetadataStatus: "needs_review",
+                  technicalMarkerCount: 1,
+                  updatedAt: "2026-05-19T10:55:00.000Z",
+                  nextAction: "request_recapture",
+                  pairKey: "live-lesion:i-011+i-012",
+                  imageIds: ["i-011", "i-012"],
+                },
+              ],
+              boundaries: {
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                pairKeysExposed: true,
+                imageIdsExposed: true,
+                clinicalConclusionGenerated: true,
+              },
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
     return Promise.resolve(new Response(JSON.stringify({ items: [] })));
   });
 }
@@ -743,6 +795,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(await screen.findByRole("region", { name: "Проверка политики выдачи фото" })).toBeInTheDocument();
     expect(screen.getByText(/Требует проверки/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Журнал выдачи фото" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Очередь viewer QA" })).toBeInTheDocument();
+    expect(screen.getByText(/Технический контур сравнения/)).toBeInTheDocument();
+    expect(screen.getByText(/Нужен переснимок/)).toBeInTheDocument();
+    expect(screen.getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
     expect(screen.getByText(/Неизменяемый backend-аудит/)).toBeInTheDocument();
     expect(screen.getByText(/Подготовка выдачи/)).toBeInTheDocument();
     expect(screen.getByText(/Отзыв выдачи/)).toBeInTheDocument();
@@ -756,6 +812,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("correlationId");
     expect(document.body.textContent).not.toContain("actorUserId");
     expect(document.body.textContent).not.toContain("rawPayload");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("i-011");
+    expect(document.body.textContent).not.toContain("i-012");
     expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
   });
 

@@ -206,6 +206,70 @@
         },
         "required": ["lesionId", "pairKey", "imageIds", "reviewStatus"]
       },
+      "LesionComparisonViewerQaReviewQueue": {
+        "type": "object",
+        "description": "Visit-scoped doctor queue for metadata-only viewer QA review decisions. Pair keys, image IDs, protected image fields, patient delivery, medical measurements, and clinical dynamic conclusions are not exposed.",
+        "properties": {
+          "clinicId": { "type": ["string", "null"] },
+          "patientId": { "type": ["string", "null"] },
+          "visitId": { "type": "string" },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["actionable", "all", "unreviewed", "technical_ready", "needs_recapture", "not_suitable_for_comparison"]
+              },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 100 }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer", "minimum": 0 },
+              "unreviewed": { "type": "integer", "minimum": 0 },
+              "technicalReady": { "type": "integer", "minimum": 0 },
+              "needsRecapture": { "type": "integer", "minimum": 0 },
+              "notSuitableForComparison": { "type": "integer", "minimum": 0 },
+              "actionable": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "queueNumber": { "type": "integer", "minimum": 0 },
+                "lesionId": { "type": "string" },
+                "lesionLabel": { "type": "string" },
+                "bodyZone": { "type": ["string", "null"] },
+                "bodySurface": { "type": ["string", "null"] },
+                "review": { "type": "object" },
+                "calibrationStatus": { "type": "string" },
+                "calibrationReasons": { "type": "array", "items": { "type": "string" } },
+                "captureMetadataStatus": { "type": "string" },
+                "technicalMarkerCount": { "type": "integer", "minimum": 0 },
+                "updatedAt": { "type": ["string", "null"] },
+                "nextAction": {
+                  "type": "string",
+                  "enum": ["review_pair", "request_recapture", "exclude_from_dynamic_review", "continue_review"]
+                }
+              }
+            }
+          },
+          "boundaries": {
+            "type": "object",
+            "properties": {
+              "patientDeliveryAllowed": { "type": "boolean", "const": false },
+              "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+              "protectedFieldsExposed": { "type": "boolean", "const": false },
+              "pairKeysExposed": { "type": "boolean", "const": false },
+              "imageIdsExposed": { "type": "boolean", "const": false },
+              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+            }
+          }
+        }
+      },
       "LesionLongitudinalHistory": {
         "type": "object",
         "description": "Production-safe doctor-side longitudinal lesion ledger assembled from visits and clinical asset metadata. No protected image bytes, storage paths, signed URLs, patient delivery, or clinical conclusion is exposed.",
@@ -361,6 +425,27 @@
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonViewerQaReview" } } }
         },
         "responses": { "200": { "description": "Saved metadata-only viewer QA review" } }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue": {
+      "get": {
+        "summary": "Read the visit-scoped metadata-only viewer QA review queue",
+        "description": "Doctor-side operational queue only. This never exposes pair keys, image IDs, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["actionable", "all", "unreviewed", "technical_ready", "needs_recapture", "not_suitable_for_comparison"],
+              "default": "actionable"
+            }
+          },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+        ],
+        "responses": { "200": { "description": "Metadata-only viewer QA review queue" } }
       }
     },
     "/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata": {

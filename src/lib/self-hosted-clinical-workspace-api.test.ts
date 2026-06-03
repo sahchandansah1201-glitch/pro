@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getSelfHostedLesionCaptureMetadata,
+  getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
   getSelfHostedVisitAssessment,
   getSelfHostedLesionLongitudinalHistory,
   downloadSelfHostedProtectedLesionImage,
@@ -499,6 +500,80 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(fetchMock.mock.calls[0]?.[1])).not.toMatch(
       /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
+    );
+  });
+
+  it("reads viewer QA review queue without exposing pair keys or image IDs", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            visitId: "visit-1",
+            filters: { status: "actionable", limit: 20 },
+            summary: {
+              total: 3,
+              unreviewed: 1,
+              technicalReady: 1,
+              needsRecapture: 1,
+              notSuitableForComparison: 1,
+              actionable: 3,
+            },
+            items: [
+              {
+                queueNumber: 1,
+                lesionId: "l-008",
+                lesionLabel: "Очаг B",
+                bodyZone: "Плечо",
+                bodySurface: "front",
+                review: {
+                  status: "needs_recapture",
+                  reasons: ["repeat_capture_required"],
+                  reviewedAt: "2026-05-19T10:50:00.000Z",
+                  reviewedByUserId: "doctor-1",
+                },
+                calibrationStatus: "not_ready",
+                calibrationReasons: ["scale_marker_missing"],
+                captureMetadataStatus: "needs_review",
+                technicalMarkerCount: 1,
+                updatedAt: "2026-05-19T10:55:00.000Z",
+                nextAction: "request_recapture",
+                pairKey: "l-008:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
+            ],
+            boundaries: {
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              pairKeysExposed: true,
+              imageIdsExposed: true,
+              clinicalConclusionGenerated: true,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getSelfHostedVisitLesionComparisonViewerQaReviewQueue({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      status: "actionable",
+      limit: 20,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.summary.actionable).toBe(3);
+    expect(result.value?.items[0]?.review.status).toBe("needs_recapture");
+    expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.boundaries.pairKeysExposed).toBe(false);
+    expect(result.value?.boundaries.imageIdsExposed).toBe(false);
+    expect(JSON.stringify(result.value)).not.toMatch(/"pairKey"|"imageIds"|i-011|i-012|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20",
+      expect.objectContaining({ method: "GET" }),
     );
   });
 });

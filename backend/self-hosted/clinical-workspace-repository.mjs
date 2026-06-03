@@ -44,6 +44,12 @@ function sqlJsonb(value) {
   return `${sqlLiteral(JSON.stringify(value ?? null))}::jsonb`;
 }
 
+function safeLimit(value, fallback = 20, max = 100) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1) return fallback;
+  return Math.min(n, max);
+}
+
 function safeClinicIds(values = []) {
   return (Array.isArray(values) ? values : [])
     .map(String)
@@ -1051,6 +1057,141 @@ from (
 `.trim();
 }
 
+function viewerQaReviewQueueStatuses(status) {
+  const value = String(status ?? "actionable");
+  if (value === "all") {
+    return ["unreviewed", "technical_ready", "needs_recapture", "not_suitable_for_comparison"];
+  }
+  if (value === "technical_ready") return ["technical_ready"];
+  if (value === "needs_recapture") return ["needs_recapture"];
+  if (value === "not_suitable_for_comparison") return ["not_suitable_for_comparison"];
+  if (value === "unreviewed") return ["unreviewed"];
+  return ["unreviewed", "needs_recapture", "not_suitable_for_comparison"];
+}
+
+export function buildGetVisitLesionComparisonViewerQaReviewQueueSql({
+  visitId,
+  patientId,
+  clinicId,
+  status = "actionable",
+  limit = 20,
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const safeStatus = String(status ?? "actionable");
+  const rowLimit = safeLimit(limit, 20, 100);
+  const statuses = viewerQaReviewQueueStatuses(safeStatus);
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_visit as (
+    select
+      v.id,
+      v.clinic_id,
+      v.patient_id
+    from visits v
+    where v.id = ${sqlUuid(visitId)}
+      and v.patient_id = ${sqlUuid(patientId)}
+      and v.clinic_id = ${sqlUuid(clinicId)}
+      ${clinicScopeWhere({ alias: "v", clinicIds, allClinics })}
+    limit 1
+  ),
+  scoped_rows as (
+    select
+      q.id,
+      q.clinic_id,
+      q.patient_id,
+      q.visit_id,
+      q.lesion_id,
+      coalesce(l.label, q.lesion_id) as lesion_label,
+      l.body_zone,
+      l.body_surface,
+      q.review_status,
+      q.review_reasons,
+      q.reviewed_at,
+      q.reviewed_by_user_id,
+      q.calibration_status,
+      q.calibration_reasons,
+      q.capture_metadata_status,
+      jsonb_array_length(coalesce(q.technical_markers, '[]'::jsonb))::int as technical_marker_count,
+      q.updated_at,
+      row_number() over (order by q.updated_at desc, q.id asc)::int as queue_number
+    from lesion_comparison_viewer_qa_drafts q
+    join target_visit v
+      on q.visit_id = v.id
+     and q.patient_id = v.patient_id
+     and q.clinic_id = v.clinic_id
+    left join lesions l
+      on l.id::text = q.lesion_id
+     and l.patient_id = q.patient_id
+     and l.clinic_id = q.clinic_id
+    where q.review_status = any(${sqlTextArray(statuses)})
+      and q.medical_measurement_allowed = false
+      and q.patient_delivery_allowed = false
+      and q.protected_fields_exposed = false
+      ${clinicScopeWhere({ alias: "q", clinicIds, allClinics })}
+  ),
+  limited_rows as (
+    select *
+    from scoped_rows
+    order by queue_number asc
+    limit ${rowLimit}
+  )
+  select
+    v.clinic_id::text as "clinicId",
+    v.patient_id::text as "patientId",
+    v.id::text as "visitId",
+    jsonb_build_object(
+      'status', ${sqlLiteral(safeStatus)},
+      'limit', ${rowLimit}
+    ) as "filters",
+    jsonb_build_object('total', coalesce((select count(*)::int from scoped_rows), 0),
+      'unreviewed', coalesce((select count(*)::int from scoped_rows where review_status = 'unreviewed'), 0),
+      'technicalReady', coalesce((select count(*)::int from scoped_rows where review_status = 'technical_ready'), 0),
+      'needsRecapture', coalesce((select count(*)::int from scoped_rows where review_status = 'needs_recapture'), 0),
+      'notSuitableForComparison', coalesce((select count(*)::int from scoped_rows where review_status = 'not_suitable_for_comparison'), 0),
+      'actionable', coalesce((select count(*)::int from scoped_rows where review_status in ('unreviewed', 'needs_recapture', 'not_suitable_for_comparison')), 0)
+    ) as "summary",
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'queueNumber', r.queue_number,
+        'lesionId', r.lesion_id,
+        'lesionLabel', r.lesion_label,
+        'bodyZone', r.body_zone,
+        'bodySurface', r.body_surface,
+        'review', jsonb_build_object(
+          'status', r.review_status,
+          'reasons', coalesce(r.review_reasons, '[]'::jsonb),
+          'reviewedAt', r.reviewed_at,
+          'reviewedByUserId', r.reviewed_by_user_id::text
+        ),
+        'calibrationStatus', r.calibration_status,
+        'calibrationReasons', coalesce(r.calibration_reasons, '[]'::jsonb),
+        'captureMetadataStatus', r.capture_metadata_status,
+        'technicalMarkerCount', r.technical_marker_count,
+        'updatedAt', r.updated_at,
+        'nextAction', case
+          when r.review_status = 'needs_recapture' then 'request_recapture'
+          when r.review_status = 'not_suitable_for_comparison' then 'exclude_from_dynamic_review'
+          when r.review_status = 'technical_ready' then 'continue_review'
+          else 'review_pair'
+        end
+      ) order by r.queue_number asc)
+      from limited_rows r
+    ), '[]'::jsonb) as "items",
+    jsonb_build_object(
+      'patientDeliveryAllowed', false,
+      'medicalMeasurementAllowed', false,
+      'protectedFieldsExposed', false,
+      'pairKeysExposed', false,
+      'imageIdsExposed', false,
+      'clinicalConclusionGenerated', false
+    ) as "boundaries"
+  from target_visit v
+) result;
+`.trim();
+}
+
 function normalizeAssessment(row) {
   return {
     id: String(row.id),
@@ -1311,6 +1452,77 @@ function normalizeLesionComparisonViewerQa(row) {
   };
 }
 
+function normalizeViewerQaReviewQueueSummary(value) {
+  const source = parseJsonObject(value);
+  return {
+    total: numberOrZero(source.total),
+    unreviewed: numberOrZero(source.unreviewed),
+    technicalReady: numberOrZero(source.technicalReady),
+    needsRecapture: numberOrZero(source.needsRecapture),
+    notSuitableForComparison: numberOrZero(source.notSuitableForComparison),
+    actionable: numberOrZero(source.actionable),
+  };
+}
+
+function normalizeViewerQaReviewQueueItem(row) {
+  const review = parseJsonObject(row.review);
+  const reviewStatus = String(review.status ?? row.reviewStatus ?? "unreviewed");
+  const nextAction = String(row.nextAction ?? "review_pair");
+  return {
+    queueNumber: numberOrZero(row.queueNumber),
+    lesionId: String(row.lesionId ?? ""),
+    lesionLabel: String(row.lesionLabel ?? row.lesionId ?? ""),
+    bodyZone: row.bodyZone ? String(row.bodyZone) : null,
+    bodySurface: row.bodySurface ? String(row.bodySurface) : null,
+    review: {
+      status:
+        reviewStatus === "technical_ready"
+          || reviewStatus === "needs_recapture"
+          || reviewStatus === "not_suitable_for_comparison"
+          ? reviewStatus
+          : "unreviewed",
+      reasons: parseJsonArray(review.reasons ?? row.reviewReasons),
+      reviewedAt: review.reviewedAt ?? row.reviewedAt ?? null,
+      reviewedByUserId: review.reviewedByUserId || row.reviewedByUserId ? String(review.reviewedByUserId ?? row.reviewedByUserId) : null,
+    },
+    calibrationStatus: String(row.calibrationStatus ?? "not_ready"),
+    calibrationReasons: parseJsonArray(row.calibrationReasons),
+    captureMetadataStatus: String(row.captureMetadataStatus ?? "needs_review"),
+    technicalMarkerCount: numberOrZero(row.technicalMarkerCount),
+    updatedAt: row.updatedAt ?? null,
+    nextAction:
+      nextAction === "request_recapture"
+        || nextAction === "exclude_from_dynamic_review"
+        || nextAction === "continue_review"
+        ? nextAction
+        : "review_pair",
+  };
+}
+
+function normalizeVisitLesionComparisonViewerQaReviewQueue(row) {
+  const filters = parseJsonObject(row.filters);
+  const status = String(filters.status ?? "actionable");
+  return {
+    clinicId: row.clinicId ? String(row.clinicId) : null,
+    patientId: row.patientId ? String(row.patientId) : null,
+    visitId: String(row.visitId ?? ""),
+    filters: {
+      status,
+      limit: safeLimit(filters.limit, 20, 100),
+    },
+    summary: normalizeViewerQaReviewQueueSummary(row.summary),
+    items: parseObjectArray(row.items).map(normalizeViewerQaReviewQueueItem),
+    boundaries: {
+      patientDeliveryAllowed: false,
+      medicalMeasurementAllowed: false,
+      protectedFieldsExposed: false,
+      pairKeysExposed: false,
+      imageIdsExposed: false,
+      clinicalConclusionGenerated: false,
+    },
+  };
+}
+
 function normalizeLongitudinalSummary(value) {
   const source = parseJsonObject(value);
   return {
@@ -1432,6 +1644,13 @@ export function createClinicalWorkspaceRepository(dbClient) {
     },
     async reviewLesionComparisonViewerQa(params) {
       return queryOne(dbClient, buildReviewLesionComparisonViewerQaSql(params), normalizeLesionComparisonViewerQa);
+    },
+    async getVisitLesionComparisonViewerQaReviewQueue(params) {
+      return queryOne(
+        dbClient,
+        buildGetVisitLesionComparisonViewerQaReviewQueueSql(params),
+        normalizeVisitLesionComparisonViewerQaReviewQueue,
+      );
     },
     async getLesionLongitudinalHistory(params) {
       return queryOne(dbClient, buildGetLesionLongitudinalHistorySql(params), normalizeLesionLongitudinalHistory);

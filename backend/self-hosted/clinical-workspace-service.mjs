@@ -21,6 +21,14 @@ const VIEWER_QA_REVIEW_STATUS_VALUES = new Set([
   "needs_recapture",
   "not_suitable_for_comparison",
 ]);
+const VIEWER_QA_REVIEW_QUEUE_STATUS_VALUES = new Set([
+  "actionable",
+  "all",
+  "unreviewed",
+  "technical_ready",
+  "needs_recapture",
+  "not_suitable_for_comparison",
+]);
 const MAX_TEXT = 8000;
 const MAX_REASON_TEXT = 120;
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9._:+-]{1,160}$/;
@@ -169,6 +177,12 @@ function normalizeIntegerField(input, field, details, { min = 1, max = 20000 } =
     return undefined;
   }
   return value;
+}
+
+function normalizeBoundedInteger(input, fallback, { min = 1, max = 100 } = {}) {
+  const value = Number(input);
+  if (!Number.isInteger(value) || value < min) return fallback;
+  return Math.min(value, max);
 }
 
 function normalizePercent(input, field, details) {
@@ -497,6 +511,21 @@ async function getVisitOrThrow(visitWorkspaceRepository, visitId, scope) {
   return visit;
 }
 
+function queryValue(input, key) {
+  if (input instanceof URLSearchParams) return input.get(key);
+  if (isPlainObject(input)) return input[key];
+  return null;
+}
+
+export function normalizeLesionComparisonViewerQaReviewQueueParams(input = {}) {
+  const rawStatus = cleanString(queryValue(input, "status")) || "actionable";
+  const status = VIEWER_QA_REVIEW_QUEUE_STATUS_VALUES.has(rawStatus) ? rawStatus : "actionable";
+  return {
+    status,
+    limit: normalizeBoundedInteger(queryValue(input, "limit"), 20, { min: 1, max: 100 }),
+  };
+}
+
 export function createClinicalWorkspaceService({
   visitWorkspaceRepository,
   clinicalWorkspaceRepository,
@@ -797,6 +826,47 @@ export function createClinicalWorkspaceService({
         },
       });
       return { qa, scope };
+    },
+
+    async getVisitLesionComparisonViewerQaReviewQueue(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitReadScope(authContext);
+      const params = normalizeLesionComparisonViewerQaReviewQueueParams(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const queue = await clinicalWorkspaceRepository.getVisitLesionComparisonViewerQaReviewQueue({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        status: params.status,
+        limit: params.limit,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!queue) throw new VisitWorkspaceNotFoundError("Viewer QA review queue was not found in the allowed clinic scope.");
+      const summary = queue.summary || {};
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: queue.clinicId ?? visit.clinic.id,
+        actorUserId: authContext.userId,
+        action: "lesion_comparison_viewer_qa.review_queue.read",
+        entityType: "lesion_comparison_viewer_qa_review_queue",
+        entityId: safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          status: params.status,
+          limit: params.limit,
+          total: Number(summary.total ?? 0),
+          actionable: Number(summary.actionable ?? 0),
+          needsRecapture: Number(summary.needsRecapture ?? 0),
+          notSuitableForComparison: Number(summary.notSuitableForComparison ?? 0),
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+        },
+      });
+      return { queue, scope };
     },
 
     async getLesionLongitudinalHistory(patientId, lesionId, authContext, { correlationId } = {}) {

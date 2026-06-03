@@ -539,6 +539,75 @@ Safety boundary:
   doctor-side technical review only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BF Viewer QA Review Queue
+
+Batch BF adds a visit-scoped read model for technical viewer QA review
+decisions. It turns persisted review states into an operational queue for the
+doctor workspace report tab without exposing pair keys, image IDs, protected
+image storage fields, patient delivery material, or clinical dynamic
+conclusions.
+
+Backend contracts:
+
+- `GET /api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue`;
+- repository builder `buildGetVisitLesionComparisonViewerQaReviewQueueSql`;
+- service method `getVisitLesionComparisonViewerQaReviewQueue`;
+- audit action `lesion_comparison_viewer_qa.review_queue.read`;
+- OpenAPI schema `LesionComparisonViewerQaReviewQueue`.
+
+Queue filters:
+
+- `status=actionable` (default): `unreviewed`, `needs_recapture`,
+  `not_suitable_for_comparison`;
+- `status=all`;
+- `status=unreviewed`;
+- `status=technical_ready`;
+- `status=needs_recapture`;
+- `status=not_suitable_for_comparison`;
+- `limit=1..100`, default `20`.
+
+Frontend behavior:
+
+- the production report workspace renders region `Очередь viewer QA`;
+- copy states `Технический контур сравнения`;
+- the queue shows summary counts and safe item labels such as `Нужен
+  переснимок`, `Не использовать для динамики`, and `Проверить пару`;
+- copy states `Выдача пациенту: выключена`;
+- no `pairKey` or image IDs are rendered.
+
+Safety boundary:
+
+- audit metadata stores only visit-level summary counts and boundary flags;
+- queue items are metadata-only: lesion label/body zone, technical review
+  status, calibration status, reason labels, marker count and next action;
+- `patientDeliveryAllowed=false`;
+- `medicalMeasurementAllowed=false`;
+- `protectedFieldsExposed=false`;
+- `pairKeysExposed=false`;
+- `imageIdsExposed=false`;
+- `clinicalConclusionGenerated=false`;
+- no raw image bytes, object bucket/key, storage path, signed URL, QR/session,
+  credential material, doctor-only text, patient-safe report text, diagnosis,
+  risk, prognosis, treatment, or automated dynamic conclusion.
+
+### Batch BF Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BF adds a
+  visit-level queue/read-model for technical review decisions over persisted
+  image-pair QA. Remaining gate: production dataset validation and
+  timeline-level QA rollout over real assets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BF
+  converts pair review decisions into an actionable doctor queue. Remaining
+  gate: calibrated production viewer QA, clinical-grade reviewer workflow and
+  approved measurement policy.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BF makes
+  unsuitable/recapture decisions visible at the report workspace before any
+  dynamic interpretation. Remaining gate: production analysis gate that
+  prevents dynamic conclusions unless metadata, calibration and review pass.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BF is
+  doctor-side metadata only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

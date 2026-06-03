@@ -7,6 +7,7 @@ import {
   buildGetLesionCaptureMetadataSql,
   buildGetLesionLongitudinalHistorySql,
   buildGetProtectedLesionImageAssetSql,
+  buildGetVisitLesionComparisonViewerQaReviewQueueSql,
   buildGetVisitReportSql,
   buildReviewLesionComparisonViewerQaSql,
   buildUpsertAssetCaptureMetadataSql,
@@ -311,6 +312,32 @@ test("Batch BE Stage 5H viewer QA review updates an existing metadata-only draft
   );
 });
 
+test("Batch BF Stage 5H viewer QA review queue SQL is visit-scoped and metadata-only", () => {
+  const sql = buildGetVisitLesionComparisonViewerQaReviewQueueSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    status: "actionable",
+    limit: 20,
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /from visits v/);
+  assert.match(sql, /from lesion_comparison_viewer_qa_drafts q/);
+  assert.match(sql, /left join lesions l/);
+  assert.match(sql, /q\.visit_id = v\.id/);
+  assert.match(sql, /q\.review_status = any\(array\['unreviewed', 'needs_recapture', 'not_suitable_for_comparison'\]::text\[\]\)/);
+  assert.match(sql, /jsonb_build_object\('total'/);
+  assert.match(sql, /'pairKeysExposed', false/);
+  assert.match(sql, /'imageIdsExposed', false/);
+  assert.match(sql, /limit 20/);
+  assert.match(sql, /and q\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /q\.pair_key as|q\.image_ids as|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|doctorVersionText|patientSafeText/i,
+  );
+});
+
 test("Stage 5H repository normalizes lesion comparison draft rows", async () => {
   const dbClient = {
     async queryJson() {
@@ -406,6 +433,75 @@ test("Batch BE Stage 5H repository normalizes viewer QA review with forced safe 
   assert.equal(qa.medicalMeasurementAllowed, false);
   assert.equal(qa.patientDeliveryAllowed, false);
   assert.equal(qa.protectedFieldsExposed, false);
+});
+
+test("Batch BF Stage 5H repository normalizes viewer QA review queue without pair keys or image IDs", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          filters: { status: "actionable", limit: 20 },
+          summary: {
+            total: 3,
+            unreviewed: 1,
+            technicalReady: 1,
+            needsRecapture: 1,
+            notSuitableForComparison: 1,
+            actionable: 3,
+          },
+          items: [
+            {
+              queueNumber: 1,
+              lesionId: "l-008",
+              lesionLabel: "Очаг B",
+              bodyZone: "Плечо",
+              bodySurface: "front",
+              reviewStatus: "needs_recapture",
+              reviewReasons: ["repeat_capture_required"],
+              calibrationStatus: "not_ready",
+              calibrationReasons: ["scale_marker_missing"],
+              captureMetadataStatus: "needs_review",
+              technicalMarkerCount: 1,
+              reviewedAt: "2026-05-19T10:50:00.000Z",
+              updatedAt: "2026-05-19T10:55:00.000Z",
+              nextAction: "request_recapture",
+              pairKey: "l-008:i-011+i-012",
+              imageIds: ["i-011", "i-012"],
+            },
+          ],
+          boundaries: {
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            pairKeysExposed: true,
+            imageIdsExposed: true,
+            clinicalConclusionGenerated: true,
+          },
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const queue = await repo.getVisitLesionComparisonViewerQaReviewQueue({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    status: "actionable",
+    limit: 20,
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.equal(queue.summary.needsRecapture, 1);
+  assert.equal(queue.items[0].review.status, "needs_recapture");
+  assert.equal(queue.items[0].nextAction, "request_recapture");
+  assert.equal(queue.boundaries.patientDeliveryAllowed, false);
+  assert.equal(queue.boundaries.pairKeysExposed, false);
+  assert.equal(queue.boundaries.imageIdsExposed, false);
+  assert.equal(Object.hasOwn(queue.items[0], "pairKey"), false);
+  assert.equal(Object.hasOwn(queue.items[0], "imageIds"), false);
 });
 
 test("Batch BC Stage 5H repository normalizes capture metadata with forced safe boundaries", async () => {
