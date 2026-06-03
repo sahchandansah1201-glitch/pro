@@ -4,7 +4,9 @@ import { test } from "node:test";
 import { ForbiddenError } from "./rbac.mjs";
 import {
   createClinicalWorkspaceService,
+  normalizeAssetCaptureMetadataPayload,
   normalizeLesionComparisonDraftPayload,
+  normalizeLesionComparisonViewerQaPayload,
   normalizeUpdateAssessmentPayload,
   normalizeUpdateConclusionPayload,
 } from "./clinical-workspace-service.mjs";
@@ -115,6 +117,66 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         rawImageBytesExposedInJson: false,
       };
     },
+    async getLesionCaptureMetadata() {
+      return {
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        lesionId: "10000000-0000-4000-8000-000000000801",
+        summary: {
+          assetCount: 2,
+          metadataCount: 1,
+          missingMetadataCount: 1,
+          readyForTechnicalCompareCount: 1,
+          scaleReadyCount: 0,
+        },
+        items: [],
+        boundaries: {
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          rawImageBytesExposed: false,
+          doctorOnlyTextExposed: false,
+          clinicalConclusionGenerated: false,
+        },
+      };
+    },
+    async upsertAssetCaptureMetadata() {
+      return {
+        id: "capture-metadata-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        lesionId: "10000000-0000-4000-8000-000000000801",
+        assetId: "10000000-0000-4000-8000-000000000901",
+        captureSource: "device_bridge",
+        deviceId: "10000000-0000-4000-8000-000000000501",
+        frame: { width: 2048, height: 2048 },
+        quality: { score: 91, issues: [] },
+        calibration: { scaleMarkerDetected: false, millimetersAvailable: false },
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      };
+    },
+    async upsertLesionComparisonViewerQa() {
+      return {
+        id: "viewer-qa-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        doctorUserId: USER_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+        calibrationStatus: "not_ready",
+        calibrationReasons: ["scale_marker_missing"],
+        captureMetadataStatus: "needs_review",
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      };
+    },
   };
   return createClinicalWorkspaceService({
     visitWorkspaceRepository: {
@@ -177,6 +239,60 @@ test("Stage 5H lesion comparison draft normalizer rejects unsafe or clinical-cla
   );
   assert.throws(
     () => normalizeLesionComparisonDraftPayload({ ...valid, imageIds: ["i-011"] }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch BC/BD Stage 5H normalizers keep capture metadata and viewer QA technical-only", () => {
+  const capture = normalizeAssetCaptureMetadataPayload({
+    captureSource: "device_bridge",
+    deviceId: "10000000-0000-4000-8000-000000000501",
+    frameWidth: 2048,
+    frameHeight: 2048,
+    qualityScore: 91,
+    qualityIssues: ["soft_focus"],
+    scaleMarkerDetected: false,
+    millimetersAvailable: false,
+  });
+  assert.equal(capture.patientDeliveryAllowed, false);
+  assert.equal(capture.protectedFieldsExposed, false);
+  assert.equal(capture.frameWidth, 2048);
+
+  const qa = normalizeLesionComparisonViewerQaPayload({
+    lesionId: "l-008",
+    pairKey: "l-008:i-011+i-012",
+    imageIds: ["i-011", "i-012"],
+    technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+    calibrationStatus: "not_ready",
+    calibrationReasons: ["scale_marker_missing"],
+    captureMetadataStatus: "needs_review",
+  });
+  assert.equal(qa.medicalMeasurementAllowed, false);
+  assert.equal(qa.patientDeliveryAllowed, false);
+
+  assert.throws(
+    () => normalizeAssetCaptureMetadataPayload({ ...capture, storagePath: "/x" }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeAssetCaptureMetadataPayload({ ...capture, millimetersAvailable: true, scaleMarkerDetected: false }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeLesionComparisonViewerQaPayload({ ...qa, calibrationReasons: ["вероятность меланомы"] }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeLesionComparisonViewerQaPayload({
+        ...qa,
+        pairKey: "l-008:i-011+i-011",
+        imageIds: ["i-011", "i-011"],
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeLesionComparisonViewerQaPayload({ ...qa, technicalMarkers: [{ target: "A", xPercent: 200, yPercent: 52 }] }),
     VisitWorkspaceValidationError,
   );
 });
@@ -301,6 +417,92 @@ test("Batch AX Stage 5H service streams protected lesion image through backend p
   assert.doesNotMatch(
     JSON.stringify(auditEvents.at(-1)),
     /objectBucket|objectKey|"storagePath"\s*:|"signedUrl"\s*:|storage_object_path|signed_url|token|session|qr|doctorOnly|physicianText|patientSafeText/i,
+  );
+});
+
+test("Batch BC Stage 5H service reads and writes capture metadata with audit-safe aggregate metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const read = await service.getLesionCaptureMetadata(
+    PATIENT_ID,
+    "10000000-0000-4000-8000-000000000801",
+    authContext,
+    { correlationId: "c9" },
+  );
+  assert.equal(read.metadata.summary.assetCount, 2);
+  assert.equal(auditEvents.at(-1).action, "lesion_capture_metadata.read");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    assetCount: 2,
+    metadataCount: 1,
+    readyForTechnicalCompareCount: 1,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  });
+
+  const write = await service.saveAssetCaptureMetadata(
+    VISIT_ID,
+    "10000000-0000-4000-8000-000000000901",
+    {
+      captureSource: "device_bridge",
+      deviceId: "10000000-0000-4000-8000-000000000501",
+      frameWidth: 2048,
+      frameHeight: 2048,
+      qualityScore: 91,
+      qualityIssues: [],
+      scaleMarkerDetected: false,
+      millimetersAvailable: false,
+    },
+    authContext,
+    { correlationId: "c10" },
+  );
+  assert.equal(write.metadata.patientDeliveryAllowed, false);
+  assert.equal(auditEvents.at(-1).action, "clinical_asset_capture_metadata.upsert");
+  assert.doesNotMatch(
+    JSON.stringify(auditEvents),
+    /objectBucket|objectKey|storagePath|signedUrl|token|session|qr|doctorOnly|patientSafeText/i,
+  );
+});
+
+test("Batch BD Stage 5H service persists viewer QA with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.saveLesionComparisonViewerQa(
+    VISIT_ID,
+    {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+      calibrationStatus: "not_ready",
+      calibrationReasons: ["scale_marker_missing"],
+      captureMetadataStatus: "needs_review",
+    },
+    authContext,
+    { correlationId: "c11" },
+  );
+
+  assert.equal(result.qa.medicalMeasurementAllowed, false);
+  assert.equal(result.qa.patientDeliveryAllowed, false);
+  assert.equal(result.qa.protectedFieldsExposed, false);
+  assert.equal(auditEvents.at(-1).action, "lesion_comparison_viewer_qa.upsert");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    lesionId: "l-008",
+    markerCount: 1,
+    calibrationStatus: "not_ready",
+    calibrationReasonsCount: 1,
+    captureMetadataStatus: "needs_review",
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|pairKey|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
   );
 });
 

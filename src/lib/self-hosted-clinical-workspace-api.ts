@@ -76,6 +76,97 @@ export interface SelfHostedLesionComparisonDraftDTO extends LesionComparisonDraf
   updatedAt: string | null;
 }
 
+export type CaptureSource = "phone" | "device_bridge" | "file_import" | "camera" | "local_transfer" | "unknown";
+
+export interface AssetCaptureMetadataPayload {
+  captureSource: CaptureSource;
+  deviceId?: string | null;
+  frameWidth?: number | null;
+  frameHeight?: number | null;
+  qualityScore?: number | null;
+  qualityIssues?: string[];
+  scaleMarkerDetected: boolean;
+  millimetersAvailable: boolean;
+}
+
+export interface SelfHostedAssetCaptureMetadataDTO {
+  id: string;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  lesionId: string | null;
+  assetId: string;
+  captureSource: CaptureSource | string;
+  deviceId: string | null;
+  frame: { width: number | null; height: number | null };
+  quality: { score: number | null; issues: string[] };
+  calibration: { scaleMarkerDetected: boolean; millimetersAvailable: boolean };
+  patientDeliveryAllowed: false;
+  protectedFieldsExposed: false;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface SelfHostedLesionCaptureMetadataDTO {
+  clinicId: string | null;
+  patientId: string | null;
+  lesionId: string;
+  summary: {
+    assetCount: number;
+    metadataCount: number;
+    missingMetadataCount: number;
+    readyForTechnicalCompareCount: number;
+    scaleReadyCount: number;
+  };
+  items: Array<{
+    assetId: string;
+    visitId: string | null;
+    kind: string;
+    contentType: string | null;
+    capturedAt: string | null;
+    captureSource: CaptureSource | string;
+    deviceId: string | null;
+    deviceProfile: string | null;
+    frame: { width: number | null; height: number | null };
+    quality: { score: number | null; issues: string[] };
+    calibration: { scaleMarkerDetected: boolean; millimetersAvailable: boolean };
+    technicalStatus: "ready" | "warning" | "missing";
+    technicalReasons: string[];
+  }>;
+  boundaries: {
+    patientDeliveryAllowed: false;
+    protectedFieldsExposed: false;
+    storagePathsExposed: false;
+    signedUrlsIssued: false;
+    rawImageBytesExposed: false;
+    doctorOnlyTextExposed: false;
+    clinicalConclusionGenerated: false;
+  };
+}
+
+export interface LesionComparisonViewerQaPayload {
+  lesionId: string;
+  pairKey: string;
+  imageIds: [string, string];
+  technicalMarkers: Array<{ target: "A" | "B"; xPercent: number; yPercent: number }>;
+  calibrationStatus: "ready" | "not_ready" | "limited";
+  calibrationReasons: string[];
+  captureMetadataStatus: "ready" | "needs_review" | "missing";
+}
+
+export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonViewerQaPayload {
+  id: string;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  doctorUserId: string | null;
+  medicalMeasurementAllowed: false;
+  patientDeliveryAllowed: false;
+  protectedFieldsExposed: false;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface SelfHostedLesionLongitudinalHistorySummaryDTO {
   visitCount: number;
   imageCount: number;
@@ -154,6 +245,15 @@ interface PatchReportArgs extends VisitArgs {
 
 interface PatchLesionComparisonDraftArgs extends VisitArgs {
   payload: LesionComparisonDraftPayload;
+}
+
+interface PatchAssetCaptureMetadataArgs extends VisitArgs {
+  assetId: string;
+  payload: AssetCaptureMetadataPayload;
+}
+
+interface PatchLesionComparisonViewerQaArgs extends VisitArgs {
+  payload: LesionComparisonViewerQaPayload;
 }
 
 interface LesionLongitudinalHistoryArgs extends BaseArgs {
@@ -364,6 +464,132 @@ function toLesionComparisonDraft(input: Record<string, unknown>): SelfHostedLesi
   };
 }
 
+function toFrame(input: unknown): { width: number | null; height: number | null } {
+  const row = isRecord(input) ? input : {};
+  return {
+    width: numberOrNull(row.width),
+    height: numberOrNull(row.height),
+  };
+}
+
+function toQuality(input: unknown): { score: number | null; issues: string[] } {
+  const row = isRecord(input) ? input : {};
+  return {
+    score: numberOrNull(row.score),
+    issues: toStringArray(row.issues),
+  };
+}
+
+function toCalibration(input: unknown): { scaleMarkerDetected: boolean; millimetersAvailable: boolean } {
+  const row = isRecord(input) ? input : {};
+  return {
+    scaleMarkerDetected: row.scaleMarkerDetected === true,
+    millimetersAvailable: row.millimetersAvailable === true,
+  };
+}
+
+function toAssetCaptureMetadata(input: Record<string, unknown>): SelfHostedAssetCaptureMetadataDTO {
+  return {
+    id: String(input.id ?? ""),
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    visitId: textOrNull(input.visitId),
+    lesionId: textOrNull(input.lesionId),
+    assetId: String(input.assetId ?? ""),
+    captureSource: String(input.captureSource ?? "unknown"),
+    deviceId: textOrNull(input.deviceId),
+    frame: toFrame(input.frame),
+    quality: toQuality(input.quality),
+    calibration: toCalibration(input.calibration),
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    createdAt: textOrNull(input.createdAt),
+    updatedAt: textOrNull(input.updatedAt),
+  };
+}
+
+function toCaptureMetadataStatus(value: unknown): "ready" | "warning" | "missing" {
+  return value === "ready" || value === "warning" ? value : "missing";
+}
+
+function toLesionCaptureMetadata(input: Record<string, unknown>): SelfHostedLesionCaptureMetadataDTO {
+  const summary = isRecord(input.summary) ? input.summary : {};
+  return {
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    lesionId: String(input.lesionId ?? ""),
+    summary: {
+      assetCount: numberOrZero(summary.assetCount),
+      metadataCount: numberOrZero(summary.metadataCount),
+      missingMetadataCount: numberOrZero(summary.missingMetadataCount),
+      readyForTechnicalCompareCount: numberOrZero(summary.readyForTechnicalCompareCount),
+      scaleReadyCount: numberOrZero(summary.scaleReadyCount),
+    },
+    items: toRecordArray(input.items).map((item) => ({
+      assetId: String(item.assetId ?? ""),
+      visitId: textOrNull(item.visitId),
+      kind: String(item.kind ?? ""),
+      contentType: textOrNull(item.contentType),
+      capturedAt: textOrNull(item.capturedAt),
+      captureSource: String(item.captureSource ?? "unknown"),
+      deviceId: textOrNull(item.deviceId),
+      deviceProfile: textOrNull(item.deviceProfile),
+      frame: toFrame(item.frame),
+      quality: toQuality(item.quality),
+      calibration: toCalibration(item.calibration),
+      technicalStatus: toCaptureMetadataStatus(item.technicalStatus),
+      technicalReasons: toStringArray(item.technicalReasons),
+    })),
+    boundaries: {
+      patientDeliveryAllowed: false,
+      protectedFieldsExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      rawImageBytesExposed: false,
+      doctorOnlyTextExposed: false,
+      clinicalConclusionGenerated: false,
+    },
+  };
+}
+
+function toViewerQaMarker(input: Record<string, unknown>): LesionComparisonViewerQaPayload["technicalMarkers"][number] {
+  return {
+    target: input.target === "B" ? "B" : "A",
+    xPercent: Number(numberOrNull(input.xPercent) ?? 0),
+    yPercent: Number(numberOrNull(input.yPercent) ?? 0),
+  };
+}
+
+function toLesionComparisonViewerQa(input: Record<string, unknown>): SelfHostedLesionComparisonViewerQaDTO {
+  const imageIds = toStringArray(input.imageIds).slice(0, 2);
+  const calibrationStatus = String(input.calibrationStatus ?? "not_ready");
+  const captureMetadataStatus = String(input.captureMetadataStatus ?? "needs_review");
+  return {
+    id: String(input.id ?? ""),
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    visitId: textOrNull(input.visitId),
+    doctorUserId: textOrNull(input.doctorUserId),
+    lesionId: String(input.lesionId ?? ""),
+    pairKey: String(input.pairKey ?? ""),
+    imageIds: [
+      imageIds[0] ?? "",
+      imageIds[1] ?? "",
+    ],
+    technicalMarkers: toRecordArray(input.technicalMarkers).slice(0, 2).map(toViewerQaMarker),
+    calibrationStatus:
+      calibrationStatus === "ready" || calibrationStatus === "limited" ? calibrationStatus : "not_ready",
+    calibrationReasons: toStringArray(input.calibrationReasons),
+    captureMetadataStatus:
+      captureMetadataStatus === "ready" || captureMetadataStatus === "missing" ? captureMetadataStatus : "needs_review",
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    createdAt: textOrNull(input.createdAt),
+    updatedAt: textOrNull(input.updatedAt),
+  };
+}
+
 function toLongitudinalPairStatus(value: unknown): SelfHostedLesionLongitudinalHistoryPairDTO["status"] {
   return value === "ready" || value === "warning" ? value : "blocked";
 }
@@ -448,6 +674,17 @@ function protectedLesionImageUrl(
   );
 }
 
+function assetCaptureMetadataUrl(
+  apiBaseUrl: string | null | undefined,
+  visitId: string,
+  assetId: string,
+): string {
+  return buildSelfHostedApiUrl(
+    apiBaseUrl,
+    `/api/v1/visits/${encodeURIComponent(visitId)}/assets/${encodeURIComponent(assetId)}/capture-metadata`,
+  );
+}
+
 export async function getSelfHostedVisitAssessment(
   args: VisitArgs,
 ): Promise<SelfHostedApiResult<SelfHostedClinicalAssessmentDTO | null>> {
@@ -510,6 +747,34 @@ export async function saveSelfHostedLesionComparisonDraft(
   );
 }
 
+export async function saveSelfHostedAssetCaptureMetadata(
+  args: PatchAssetCaptureMetadataArgs,
+): Promise<SelfHostedApiResult<SelfHostedAssetCaptureMetadataDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    assetCaptureMetadataUrl(args.apiBaseUrl, args.visitId, args.assetId),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toAssetCaptureMetadata,
+  );
+}
+
+export async function saveSelfHostedLesionComparisonViewerQa(
+  args: PatchLesionComparisonViewerQaArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionComparisonViewerQaDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toLesionComparisonViewerQa,
+  );
+}
+
 export async function getSelfHostedLesionLongitudinalHistory(
   args: LesionLongitudinalHistoryArgs,
 ): Promise<SelfHostedApiResult<SelfHostedLesionLongitudinalHistoryDTO | null>> {
@@ -521,6 +786,20 @@ export async function getSelfHostedLesionLongitudinalHistory(
     "GET",
     null,
     toLesionLongitudinalHistory,
+  );
+}
+
+export async function getSelfHostedLesionCaptureMetadata(
+  args: LesionLongitudinalHistoryArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionCaptureMetadataDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    patientLesionUrl(args.apiBaseUrl, args.patientId, args.lesionId, "/capture-metadata"),
+    args.apiToken as string,
+    "GET",
+    null,
+    toLesionCaptureMetadata,
   );
 }
 

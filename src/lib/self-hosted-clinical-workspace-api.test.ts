@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  getSelfHostedLesionCaptureMetadata,
   getSelfHostedVisitAssessment,
   getSelfHostedLesionLongitudinalHistory,
   downloadSelfHostedProtectedLesionImage,
+  saveSelfHostedAssetCaptureMetadata,
   saveSelfHostedLesionComparisonDraft,
+  saveSelfHostedLesionComparisonViewerQa,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
   getSelfHostedVisitReport,
@@ -281,6 +284,162 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(result.value)).not.toMatch(
       /"storagePath"\s*:|"signedUrl"\s*:|storage_object_path|signed_url|object_bucket|object_key|token|session|qr/i,
+    );
+  });
+
+  it("reads and writes production capture metadata without protected fields", async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      new Response(
+        JSON.stringify({
+          item: url.includes("/patients/")
+            ? {
+                patientId: "patient-1",
+                lesionId: "lesion-1",
+                summary: {
+                  assetCount: 2,
+                  metadataCount: 1,
+                  missingMetadataCount: 1,
+                  readyForTechnicalCompareCount: 1,
+                  scaleReadyCount: 0,
+                },
+                items: [{
+                  assetId: "asset-1",
+                  visitId: "visit-1",
+                  kind: "dermoscopy",
+                  contentType: "image/png",
+                  capturedAt: "2026-05-19T10:40:00.000Z",
+                  captureSource: "device_bridge",
+                  deviceId: "device-1",
+                  deviceProfile: "FotoFinder Handyscope · FF-screen",
+                  frame: { width: 2048, height: 2048 },
+                  quality: { score: 91, issues: [] },
+                  calibration: { scaleMarkerDetected: false, millimetersAvailable: false },
+                  technicalStatus: "ready",
+                  technicalReasons: [],
+                }],
+                boundaries: {
+                  patientDeliveryAllowed: true,
+                  protectedFieldsExposed: true,
+                  storagePathsExposed: true,
+                  signedUrlsIssued: true,
+                  rawImageBytesExposed: true,
+                  doctorOnlyTextExposed: true,
+                  clinicalConclusionGenerated: true,
+                },
+              }
+            : {
+                id: "capture-metadata-1",
+                visitId: "visit-1",
+                assetId: "asset-1",
+                captureSource: "device_bridge",
+                deviceId: "device-1",
+                frame: { width: 2048, height: 2048 },
+                quality: { score: 91, issues: [] },
+                calibration: { scaleMarkerDetected: false, millimetersAvailable: false },
+                patientDeliveryAllowed: true,
+                protectedFieldsExposed: true,
+              },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const read = await getSelfHostedLesionCaptureMetadata({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      patientId: "patient-1",
+      lesionId: "lesion-1",
+    });
+    const write = await saveSelfHostedAssetCaptureMetadata({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      assetId: "asset-1",
+      payload: {
+        captureSource: "device_bridge",
+        deviceId: "device-1",
+        frameWidth: 2048,
+        frameHeight: 2048,
+        qualityScore: 91,
+        qualityIssues: [],
+        scaleMarkerDetected: false,
+        millimetersAvailable: false,
+      },
+    });
+
+    expect(read.ok).toBe(true);
+    expect(read.value?.summary.metadataCount).toBe(1);
+    expect(read.value?.items[0]?.frame.width).toBe(2048);
+    expect(read.value?.boundaries.patientDeliveryAllowed).toBe(false);
+    expect(read.value?.boundaries.storagePathsExposed).toBe(false);
+    expect(write.ok).toBe(true);
+    expect(write.value?.patientDeliveryAllowed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patients/patient-1/lesions/lesion-1/capture-metadata",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/assets/asset-1/capture-metadata",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(JSON.stringify(read.value) + JSON.stringify(write.value)).not.toMatch(
+      /object_bucket|object_key|"storagePath"\s*:|"signedUrl"\s*:|accessToken|rawToken|qrToken|sessionId|doctorVersionText/i,
+    );
+  });
+
+  it("saves viewer QA marker and calibration draft through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "viewer-qa-1",
+            visitId: "visit-1",
+            lesionId: "l-008",
+            pairKey: "l-008:i-011+i-012",
+            imageIds: ["i-011", "i-012"],
+            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+            calibrationStatus: "not_ready",
+            calibrationReasons: ["scale_marker_missing"],
+            captureMetadataStatus: "needs_review",
+            medicalMeasurementAllowed: true,
+            patientDeliveryAllowed: true,
+            protectedFieldsExposed: true,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await saveSelfHostedLesionComparisonViewerQa({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+        calibrationStatus: "not_ready",
+        calibrationReasons: ["scale_marker_missing"],
+        captureMetadataStatus: "needs_review",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/lesion-comparison-viewer-qa",
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+    expect(JSON.stringify(fetchMock.mock.calls[0]?.[1])).not.toMatch(
+      /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
     );
   });
 });

@@ -62,6 +62,120 @@
           "updatedAt": { "type": ["string", "null"] }
         }
       },
+      "AssetCaptureMetadata": {
+        "type": "object",
+        "description": "Production capture metadata for one clinical asset. No image bytes, storage paths, signed URLs, QR/session/credential material, or patient delivery.",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string" },
+          "assetId": { "type": "string" },
+          "captureSource": { "type": "string", "enum": ["phone", "device_bridge", "file_import", "camera", "local_transfer", "unknown"] },
+          "deviceId": { "type": ["string", "null"] },
+          "frame": {
+            "type": "object",
+            "properties": {
+              "width": { "type": ["integer", "null"], "minimum": 1 },
+              "height": { "type": ["integer", "null"], "minimum": 1 }
+            }
+          },
+          "quality": {
+            "type": "object",
+            "properties": {
+              "score": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+              "issues": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "calibration": {
+            "type": "object",
+            "properties": {
+              "scaleMarkerDetected": { "type": "boolean" },
+              "millimetersAvailable": { "type": "boolean" }
+            }
+          },
+          "patientDeliveryAllowed": { "type": "boolean", "const": false },
+          "protectedFieldsExposed": { "type": "boolean", "const": false }
+        }
+      },
+      "LesionCaptureMetadata": {
+        "type": "object",
+        "description": "Doctor-side production capture metadata ledger for one lesion. Metadata-only and no clinical conclusion.",
+        "properties": {
+          "clinicId": { "type": ["string", "null"] },
+          "patientId": { "type": "string" },
+          "lesionId": { "type": "string" },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "assetCount": { "type": "integer", "minimum": 0 },
+              "metadataCount": { "type": "integer", "minimum": 0 },
+              "missingMetadataCount": { "type": "integer", "minimum": 0 },
+              "readyForTechnicalCompareCount": { "type": "integer", "minimum": 0 },
+              "scaleReadyCount": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "assetId": { "type": "string" },
+                "visitId": { "type": ["string", "null"] },
+                "kind": { "type": "string" },
+                "contentType": { "type": ["string", "null"] },
+                "capturedAt": { "type": ["string", "null"] },
+                "captureSource": { "type": "string" },
+                "deviceId": { "type": ["string", "null"] },
+                "deviceProfile": { "type": ["string", "null"] },
+                "frame": { "type": "object" },
+                "quality": { "type": "object" },
+                "calibration": { "type": "object" },
+                "technicalStatus": { "type": "string", "enum": ["ready", "warning", "missing"] },
+                "technicalReasons": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "boundaries": {
+            "type": "object",
+            "properties": {
+              "patientDeliveryAllowed": { "type": "boolean", "const": false },
+              "protectedFieldsExposed": { "type": "boolean", "const": false },
+              "storagePathsExposed": { "type": "boolean", "const": false },
+              "signedUrlsIssued": { "type": "boolean", "const": false },
+              "rawImageBytesExposed": { "type": "boolean", "const": false },
+              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
+              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+            }
+          }
+        }
+      },
+      "LesionComparisonViewerQaDraft": {
+        "type": "object",
+        "description": "Metadata-only doctor viewer QA draft for technical markers and calibration limits. Patient delivery and medical measurements are disabled.",
+        "properties": {
+          "id": { "type": "string" },
+          "visitId": { "type": "string" },
+          "lesionId": { "type": "string" },
+          "pairKey": { "type": "string" },
+          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "technicalMarkers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "target": { "type": "string", "enum": ["A", "B"] },
+                "xPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+                "yPercent": { "type": "number", "minimum": 0, "maximum": 100 }
+              }
+            }
+          },
+          "calibrationStatus": { "type": "string", "enum": ["ready", "not_ready", "limited"] },
+          "calibrationReasons": { "type": "array", "items": { "type": "string" } },
+          "captureMetadataStatus": { "type": "string", "enum": ["ready", "needs_review", "missing"] },
+          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+          "patientDeliveryAllowed": { "type": "boolean", "const": false },
+          "protectedFieldsExposed": { "type": "boolean", "const": false }
+        }
+      },
       "LesionLongitudinalHistory": {
         "type": "object",
         "description": "Production-safe doctor-side longitudinal lesion ledger assembled from visits and clinical asset metadata. No protected image bytes, storage paths, signed URLs, patient delivery, or clinical conclusion is exposed.",
@@ -195,6 +309,33 @@
         "responses": { "200": { "description": "Saved metadata-only comparison draft" } }
       }
     },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa": {
+      "patch": {
+        "summary": "Persist metadata-only doctor viewer QA for technical markers and calibration limits",
+        "description": "Doctor-side metadata only. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonViewerQaDraft" } } }
+        },
+        "responses": { "200": { "description": "Saved metadata-only viewer QA draft" } }
+      }
+    },
+    "/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata": {
+      "patch": {
+        "summary": "Create or update production capture metadata for one visit asset",
+        "description": "Metadata-only asset capture conditions for doctor-side technical comparison. No image bytes, object bucket/key, signed URL, storage path, QR/session/credential material, or patient delivery.",
+        "parameters": [
+          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AssetCaptureMetadata" } } }
+        },
+        "responses": { "200": { "description": "Saved production capture metadata" } }
+      }
+    },
     "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history": {
       "get": {
         "summary": "Read a doctor-side metadata-only longitudinal ledger for one lesion across visits",
@@ -203,6 +344,17 @@
           { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
         "responses": { "200": { "description": "Metadata-only longitudinal lesion history" } }
+      }
+    },
+    "/api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata": {
+      "get": {
+        "summary": "Read production capture metadata for one lesion",
+        "description": "Doctor-side metadata ledger for capture source, device, frame, quality, and calibration readiness. No protected image bytes, object bucket/key, signed URLs, storage paths, patient delivery, or clinical conclusions.",
+        "parameters": [
+          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Metadata-only lesion capture metadata" } }
       }
     },
     "/api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render": {

@@ -3937,6 +3937,9 @@ function clinicalWorkspaceRuntime({
   report = null,
   lesionComparisonDraft = null,
   lesionLongitudinalHistory = null,
+  lesionCaptureMetadata = null,
+  assetCaptureMetadata = null,
+  lesionComparisonViewerQa = null,
   protectedLesionImageDownload = null,
   reportPackage = null,
   photoProtocolRelease = null,
@@ -3978,6 +3981,18 @@ function clinicalWorkspaceRuntime({
       async getLesionLongitudinalHistory() {
         if (clinicalError) throw clinicalError;
         return { history: lesionLongitudinalHistory, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async getLesionCaptureMetadata() {
+        if (clinicalError) throw clinicalError;
+        return { metadata: lesionCaptureMetadata, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async saveAssetCaptureMetadata() {
+        if (clinicalError) throw clinicalError;
+        return { metadata: assetCaptureMetadata, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
+      },
+      async saveLesionComparisonViewerQa() {
+        if (clinicalError) throw clinicalError;
+        return { qa: lesionComparisonViewerQa, scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] } };
       },
       async downloadProtectedLesionImage() {
         if (clinicalError) throw clinicalError;
@@ -4843,6 +4858,144 @@ test("Batch AW Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/l
   );
 });
 
+test("Batch BC Stage 5H · capture metadata endpoints read and write production-safe metadata", async () => {
+  const lesionId = "10000000-0000-4000-8000-000000000801";
+  const assetId = "10000000-0000-4000-8000-000000000901";
+  const runtime = clinicalWorkspaceRuntime({
+    lesionCaptureMetadata: {
+      clinicId: STAGE4G_CLINIC_ID,
+      patientId: STAGE4G_PATIENT_ID,
+      lesionId,
+      summary: {
+        assetCount: 2,
+        metadataCount: 1,
+        missingMetadataCount: 1,
+        readyForTechnicalCompareCount: 1,
+        scaleReadyCount: 0,
+      },
+      items: [{
+        assetId,
+        visitId: STAGE4G_VISIT_ID,
+        kind: "dermoscopy",
+        contentType: "image/png",
+        capturedAt: "2026-05-19T10:40:00.000Z",
+        captureSource: "device_bridge",
+        deviceId: "10000000-0000-4000-8000-000000000501",
+        deviceProfile: "FotoFinder Handyscope · FF-screen",
+        frame: { width: 2048, height: 2048 },
+        quality: { score: 91, issues: [] },
+        calibration: { scaleMarkerDetected: false, millimetersAvailable: false },
+        technicalStatus: "ready",
+        technicalReasons: [],
+      }],
+      boundaries: {
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+        storagePathsExposed: false,
+        signedUrlsIssued: false,
+        rawImageBytesExposed: false,
+        doctorOnlyTextExposed: false,
+        clinicalConclusionGenerated: false,
+      },
+    },
+    assetCaptureMetadata: {
+      id: "capture-metadata-1",
+      clinicId: STAGE4G_CLINIC_ID,
+      patientId: STAGE4G_PATIENT_ID,
+      visitId: STAGE4G_VISIT_ID,
+      lesionId,
+      assetId,
+      captureSource: "device_bridge",
+      deviceId: "10000000-0000-4000-8000-000000000501",
+      frame: { width: 2048, height: 2048 },
+      quality: { score: 91, issues: [] },
+      calibration: { scaleMarkerDetected: false, millimetersAvailable: false },
+      patientDeliveryAllowed: false,
+      protectedFieldsExposed: false,
+    },
+  });
+
+  const read = await request(
+    `/api/v1/patients/${STAGE4G_PATIENT_ID}/lesions/${lesionId}/capture-metadata`,
+    configuredEnv,
+    runtime,
+  );
+  assert.equal(read.status, 200);
+  assert.equal(read.json.stage, "5H");
+  assert.equal(read.json.item.summary.metadataCount, 1);
+  assert.equal(read.json.item.items[0].frame.width, 2048);
+  assert.equal(read.json.item.boundaries.patientDeliveryAllowed, false);
+
+  const write = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/assets/${assetId}/capture-metadata`,
+    configuredEnv,
+    runtime,
+    "PATCH",
+    JSON.stringify({
+      captureSource: "device_bridge",
+      deviceId: "10000000-0000-4000-8000-000000000501",
+      frameWidth: 2048,
+      frameHeight: 2048,
+      qualityScore: 91,
+      qualityIssues: [],
+      scaleMarkerDetected: false,
+      millimetersAvailable: false,
+    }),
+  );
+  assert.equal(write.status, 200);
+  assert.equal(write.json.stage, "5H");
+  assert.equal(write.json.item.patientDeliveryAllowed, false);
+  assert.doesNotMatch(
+    `${read.body}\n${write.body}`,
+    /object_bucket|object_key|checksum_sha256|storage_object_path|signed_url\b|access_token|qrToken|sessionId|physicianText|patientSafeText/i,
+  );
+});
+
+test("Batch BD Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-viewer-qa saves metadata-only viewer QA", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/lesion-comparison-viewer-qa`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      lesionComparisonViewerQa: {
+        id: "viewer-qa-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+        calibrationStatus: "not_ready",
+        calibrationReasons: ["scale_marker_missing"],
+        captureMetadataStatus: "needs_review",
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+      calibrationStatus: "not_ready",
+      calibrationReasons: ["scale_marker_missing"],
+      captureMetadataStatus: "needs_review",
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.doesNotMatch(
+    response.body,
+    /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|меланома|рак кожи/i,
+  );
+});
+
 test("Batch AX Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render streams protected image bytes", async () => {
   const lesionId = "10000000-0000-4000-8000-000000000801";
   const assetId = "10000000-0000-4000-8000-000000000901";
@@ -4872,9 +5025,14 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/conclusion"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/report"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-draft"].patch);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa"].patch);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata"].patch);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history"].get);
+  assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata"].get);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render"].get);
   assert.ok(response.json.components.schemas.LesionComparisonDecisionDraft);
+  assert.ok(response.json.components.schemas.LesionComparisonViewerQaDraft);
+  assert.ok(response.json.components.schemas.LesionCaptureMetadata);
   assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
 });
 

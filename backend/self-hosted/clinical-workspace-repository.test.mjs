@@ -4,10 +4,13 @@ import { test } from "node:test";
 import {
   buildGetVisitAssessmentSql,
   buildGetVisitConclusionSql,
+  buildGetLesionCaptureMetadataSql,
   buildGetLesionLongitudinalHistorySql,
   buildGetProtectedLesionImageAssetSql,
   buildGetVisitReportSql,
+  buildUpsertAssetCaptureMetadataSql,
   buildUpsertLesionComparisonDraftSql,
+  buildUpsertLesionComparisonViewerQaSql,
   buildUpsertVisitAssessmentSql,
   buildUpsertVisitConclusionSql,
   createClinicalWorkspaceRepository,
@@ -68,6 +71,54 @@ test("Batch AX Stage 5H repository builds internal protected lesion image proxy 
   assert.match(sql, /a\.content_type like 'image\/%'/);
   assert.match(sql, /and a\.clinic_id in/);
   assert.doesNotMatch(sql, /signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken/i);
+});
+
+test("Batch BC Stage 5H repository builds production capture metadata SQL without protected storage fields", () => {
+  const sql = buildGetLesionCaptureMetadataSql({
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /clinical_asset_capture_metadata m/);
+  assert.match(sql, /frame_width/);
+  assert.match(sql, /scale_marker_detected/);
+  assert.match(sql, /patient_delivery_allowed/i);
+  assert.match(sql, /and a\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken/i,
+  );
+});
+
+test("Batch BC Stage 5H repository upserts capture metadata as metadata-only asset state", () => {
+  const sql = buildUpsertAssetCaptureMetadataSql({
+    visitId: VISIT_ID,
+    assetId: "10000000-0000-4000-8000-000000000901",
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    capturedByUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    metadata: {
+      captureSource: "device_bridge",
+      deviceId: "10000000-0000-4000-8000-000000000501",
+      frameWidth: 2048,
+      frameHeight: 2048,
+      qualityScore: 91,
+      qualityIssues: [],
+      scaleMarkerDetected: false,
+      millimetersAvailable: false,
+    },
+  });
+
+  assert.match(sql, /insert into clinical_asset_capture_metadata/);
+  assert.match(sql, /on conflict \(asset_id\) do update/);
+  assert.match(sql, /patient_delivery_allowed,\s+protected_fields_exposed/);
+  assert.match(sql, /false,\s+false/);
+  assert.match(sql, /where true and clinical_asset_capture_metadata\.clinic_id in/);
+  assert.doesNotMatch(sql, /object_bucket|object_key|storage_object_path|signed_url|access_token|qrToken/i);
 });
 
 test("Stage 5H assessment/conclusion upserts use visit_id conflict and do not expose managed storage fields", () => {
@@ -192,6 +243,40 @@ test("Stage 5H lesion comparison draft upsert is clinic-scoped and metadata-only
   assert.doesNotMatch(sql, /storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion/i);
 });
 
+test("Batch BD Stage 5H viewer QA upsert is clinic-scoped and disables medical measurement", () => {
+  const sql = buildUpsertLesionComparisonViewerQaSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    qa: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+      calibrationStatus: "not_ready",
+      calibrationReasons: ["scale_marker_missing"],
+      captureMetadataStatus: "needs_review",
+    },
+  });
+
+  assert.match(sql, /insert into lesion_comparison_viewer_qa_drafts/);
+  assert.match(sql, /from lesions l/);
+  assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /a\.id::text = any/);
+  assert.match(sql, /a\.kind in \('overview_photo', 'dermoscopy'\)/);
+  assert.match(sql, /a\.content_type like 'image\/%'/);
+  assert.match(sql, /where a\.asset_count = 2/);
+  assert.match(sql, /on conflict \(visit_id, lesion_id, pair_key\) do update/);
+  assert.match(sql, /medical_measurement_allowed,\s+patient_delivery_allowed,\s+protected_fields_exposed/);
+  assert.match(sql, /false,\s+false,\s+false/);
+  assert.match(sql, /and l\.clinic_id in/);
+  assert.match(sql, /and a\.clinic_id in/);
+  assert.match(sql, /where true and lesion_comparison_viewer_qa_drafts\.clinic_id in/);
+  assert.doesNotMatch(sql, /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken/i);
+});
+
 test("Stage 5H repository normalizes lesion comparison draft rows", async () => {
   const dbClient = {
     async queryJson() {
@@ -235,6 +320,116 @@ test("Stage 5H repository normalizes lesion comparison draft rows", async () => 
   assert.deepEqual(draft.imageIds, ["i-011", "i-012"]);
   assert.equal(draft.patientDeliveryAllowed, false);
   assert.equal(draft.protectedFieldsExposed, false);
+});
+
+test("Batch BC Stage 5H repository normalizes capture metadata with forced safe boundaries", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          lesionId: "10000000-0000-4000-8000-000000000801",
+          summary: {
+            assetCount: 2,
+            metadataCount: 1,
+            missingMetadataCount: 1,
+            readyForTechnicalCompareCount: 1,
+            scaleReadyCount: 0,
+          },
+          items: [
+            {
+              assetId: "10000000-0000-4000-8000-000000000901",
+              visitId: VISIT_ID,
+              kind: "dermoscopy",
+              contentType: "image/png",
+              capturedAt: "2026-05-19T10:40:00.000Z",
+              captureSource: "device_bridge",
+              deviceId: "10000000-0000-4000-8000-000000000501",
+              deviceProfile: "FotoFinder Handyscope · FF-screen",
+              frameWidth: 2048,
+              frameHeight: 2048,
+              qualityScore: "91.00",
+              qualityIssues: [],
+              scaleMarkerDetected: false,
+              millimetersAvailable: false,
+              technicalStatus: "ready",
+              technicalReasons: [],
+            },
+          ],
+          boundaries: {
+            patientDeliveryAllowed: true,
+            protectedFieldsExposed: true,
+            storagePathsExposed: true,
+            signedUrlsIssued: true,
+            rawImageBytesExposed: true,
+          },
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const metadata = await repo.getLesionCaptureMetadata({
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.equal(metadata.summary.assetCount, 2);
+  assert.equal(metadata.items[0].frame.width, 2048);
+  assert.equal(metadata.items[0].quality.score, 91);
+  assert.equal(metadata.items[0].calibration.millimetersAvailable, false);
+  assert.equal(metadata.boundaries.patientDeliveryAllowed, false);
+  assert.equal(metadata.boundaries.storagePathsExposed, false);
+});
+
+test("Batch BD Stage 5H repository normalizes viewer QA drafts with forced safe boundaries", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          id: "10000000-0000-4000-8000-000000000705",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          doctorUserId: USER_ID,
+          lesionId: "l-008",
+          pairKey: "l-008:i-011+i-012",
+          imageIds: ["i-011", "i-012"],
+          technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+          calibrationStatus: "not_ready",
+          calibrationReasons: ["scale_marker_missing"],
+          captureMetadataStatus: "needs_review",
+          medicalMeasurementAllowed: true,
+          patientDeliveryAllowed: true,
+          protectedFieldsExposed: true,
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const qa = await repo.upsertLesionComparisonViewerQa({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    qa: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+      calibrationStatus: "not_ready",
+      calibrationReasons: ["scale_marker_missing"],
+      captureMetadataStatus: "needs_review",
+    },
+  });
+
+  assert.equal(qa.visitId, VISIT_ID);
+  assert.deepEqual(qa.technicalMarkers, [{ target: "A", xPercent: 48, yPercent: 52 }]);
+  assert.equal(qa.medicalMeasurementAllowed, false);
+  assert.equal(qa.patientDeliveryAllowed, false);
+  assert.equal(qa.protectedFieldsExposed, false);
 });
 
 test("Batch AW Stage 5H repository normalizes longitudinal history with forced safe boundaries", async () => {

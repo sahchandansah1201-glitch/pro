@@ -1898,6 +1898,78 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const visitLesionComparisonViewerQaMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/lesion-comparison-viewer-qa$/,
+  );
+  if (visitLesionComparisonViewerQaMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const visitIdFromPath = decodeURIComponent(visitLesionComparisonViewerQaMatch[1]);
+      const result = await runtimeServices.clinicalWorkspaceService.saveLesionComparisonViewerQa(
+        visitIdFromPath,
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.qa,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const visitAssetCaptureMetadataMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/assets\/([^/]+)\/capture-metadata$/,
+  );
+  if (visitAssetCaptureMetadataMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalWorkspaceService.saveAssetCaptureMetadata(
+        decodeURIComponent(visitAssetCaptureMetadataMatch[1]),
+        decodeURIComponent(visitAssetCaptureMetadataMatch[2]),
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.metadata,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   const lesionLongitudinalHistoryMatch = url.pathname.match(
     /^\/api\/v1\/patients\/([^/]+)\/lesions\/([^/]+)\/longitudinal-history$/,
   );
@@ -1918,6 +1990,41 @@ export async function handleSelfHostedRequest(
           stage: "5H",
           source: "postgres",
           item: result.history,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
+  const lesionCaptureMetadataMatch = url.pathname.match(
+    /^\/api\/v1\/patients\/([^/]+)\/lesions\/([^/]+)\/capture-metadata$/,
+  );
+  if (lesionCaptureMetadataMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalWorkspaceService.getLesionCaptureMetadata(
+        decodeURIComponent(lesionCaptureMetadataMatch[1]),
+        decodeURIComponent(lesionCaptureMetadataMatch[2]),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.metadata,
           auth: {
             userId: authContext.userId,
             roles: authContext.roles,

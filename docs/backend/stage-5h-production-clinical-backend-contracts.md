@@ -368,6 +368,111 @@ Safety boundary:
 - `SD-MF-046` / patient protocol and lesion history: in progress. Batch BB
   remains doctor-side QA only and keeps patient delivery off.
 
+## Batch BC Production Capture Metadata
+
+Batch BC turns capture-condition readiness from mock-only UI state into a
+production-safe Stage 5H metadata contract.
+
+Backend contracts:
+
+- `PATCH /api/v1/visits/{visitId}/assets/{assetId}/capture-metadata`
+  stores asset-scoped capture metadata in `clinical_asset_capture_metadata`;
+- `GET /api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata`
+  returns a doctor-side lesion metadata ledger with asset counts, metadata
+  counts, frame/device/quality/calibration readiness and technical reasons;
+- repository SQL reads from `clinical_assets`,
+  `clinical_asset_capture_metadata`, and optional `medical_devices` display
+  metadata;
+- audit actions:
+  - `clinical_asset_capture_metadata.upsert`;
+  - `lesion_capture_metadata.read`.
+
+Safety boundary:
+
+- no protected image bytes in JSON;
+- no object bucket/key, checksum, storage path, signed URL, QR/session,
+  credential material, physician text, patient-safe report text, diagnosis,
+  risk, prognosis, treatment, or automated dynamic conclusion;
+- `patientDeliveryAllowed`, `protectedFieldsExposed`,
+  `storagePathsExposed`, `signedUrlsIssued`, `rawImageBytesExposed`,
+  `doctorOnlyTextExposed`, and `clinicalConclusionGenerated` are forced false
+  in the read model.
+
+### Batch BC Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BC adds the
+  production capture metadata source needed for real longitudinal timeline and
+  pair-readiness decisions. Remaining gate: populate the table from production
+  capture/device bridge events and validate with real assets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BC
+  gives the comparison workflow real device/frame/quality/scale metadata.
+  Remaining gate: use this read model in production viewer QA and validate
+  device calibration rules.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BC provides the
+  metadata policy layer required before any longitudinal dynamic interpretation.
+  Remaining gate: clinical validation and explicit analysis block/allow rules.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BC is
+  doctor-side metadata only; patient delivery remains off.
+
+## Batch BD Backend-Safe Marker And Calibration Persistence
+
+Batch BD persists doctor-side viewer QA decisions for the selected image pair.
+This is not a clinical measurement contract. It records technical marker
+coordinates and calibration blockers so the team can audit the viewer workflow
+without exposing protected files or delivering anything to a patient.
+
+Backend contracts:
+
+- `PATCH /api/v1/visits/{visitId}/lesion-comparison-viewer-qa`;
+- table `lesion_comparison_viewer_qa_drafts`;
+- payload fields:
+  - `lesionId`;
+  - `pairKey`;
+  - exactly two `imageIds`;
+  - normalized `technicalMarkers` with `target`, `xPercent`, `yPercent`;
+  - `calibrationStatus`;
+  - `calibrationReasons`;
+  - `captureMetadataStatus`;
+- audit action `lesion_comparison_viewer_qa.upsert`.
+
+Frontend behavior:
+
+- `Зафиксировать ограничение калибровки` still works locally when the
+  self-hosted backend is not configured;
+- when the self-hosted doctor session is configured, the same action sends
+  metadata-only viewer QA to the Stage 5H backend;
+- success copy says `Viewer QA сохранён в self-hosted backend. Выдача пациенту:
+  выключена.`;
+- technical marker coordinates remain normalized frame percentages.
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`;
+- `patientDeliveryAllowed=false`;
+- `protectedFieldsExposed=false`;
+- no storage path, signed URL, object bucket/key, QR/session/credential,
+  doctor-only report text, patient-safe report text, diagnosis, risk,
+  prognosis, treatment, or dynamic conclusion;
+- audit metadata stores counts/statuses only and does not include `pairKey` or
+  image IDs.
+
+### Batch BD Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BD persists
+  technical viewer QA state for selected chronology pairs. Remaining gate:
+  production asset validation and timeline-level review surfaces.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BD
+  closes backend-safe marker/calibration persistence for doctor-side compare
+  workflow. Remaining gate: calibrated production viewer QA and approved
+  measurement policy.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BD records
+  calibration limits and marker metadata without allowing medical measurement.
+  Remaining gate: production analysis gate that prevents dynamic conclusions
+  unless capture metadata and calibration policy pass.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BD
+  keeps patient delivery off; persisted QA can later support doctor-approved
+  protocol evidence after privacy/security/copy gates.
+
 ## Product Boundary
 
 - managed runtime: none

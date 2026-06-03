@@ -29,6 +29,12 @@ function sqlNullableNumber(value) {
   return Number.isFinite(n) ? String(n) : "null";
 }
 
+function sqlNullableInteger(value) {
+  if (value == null || value === "") return "null";
+  const n = Number(value);
+  return Number.isInteger(n) ? String(n) : "null";
+}
+
 function sqlTextArray(values = []) {
   const items = (Array.isArray(values) ? values : []).map((value) => sqlLiteral(value));
   return `array[${items.join(", ")}]::text[]`;
@@ -376,6 +382,133 @@ from (
 `.trim();
 }
 
+export function buildGetLesionCaptureMetadataSql({
+  patientId,
+  lesionId,
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_lesion as (
+    select
+      l.id,
+      l.clinic_id,
+      l.patient_id
+    from lesions l
+    where l.patient_id = ${sqlUuid(patientId)}
+      and l.id = ${sqlUuid(lesionId)}
+      ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
+    limit 1
+  ),
+  boundary_flags as (
+    select
+      false as patient_delivery_allowed,
+      false as protected_fields_exposed,
+      false as storage_paths_exposed,
+      false as signed_urls_issued,
+      false as raw_image_bytes_exposed,
+      false as doctor_only_text_exposed,
+      false as clinical_conclusion_generated
+  ),
+  asset_rows as (
+    select
+      a.id,
+      a.visit_id,
+      a.kind::text as kind,
+      a.content_type,
+      a.captured_at,
+      a.created_at,
+      m.capture_source,
+      m.device_id,
+      d.model as device_model,
+      d.calibration_profile as device_calibration_profile,
+      m.frame_width,
+      m.frame_height,
+      m.quality_score,
+      m.quality_issues,
+      m.scale_marker_detected,
+      m.millimeters_available,
+      case
+        when m.asset_id is null then 'missing'
+        when m.device_id is null then 'warning'
+        when m.frame_width is null or m.frame_height is null then 'warning'
+        when coalesce(m.quality_score, 0) < 75 then 'warning'
+        when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'warning'
+        else 'ready'
+      end as technical_status,
+      array_remove(array[
+        case when m.asset_id is null then 'missing_capture_metadata' end,
+        case when m.asset_id is not null and m.device_id is null then 'device_missing' end,
+        case when m.asset_id is not null and (m.frame_width is null or m.frame_height is null) then 'frame_size_missing' end,
+        case when m.asset_id is not null and coalesce(m.quality_score, 0) < 75 then 'low_quality' end,
+        case when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'quality_issue' end,
+        case when m.asset_id is not null and m.scale_marker_detected = false then 'scale_marker_missing' end
+      ]::text[], null) as technical_reasons
+    from clinical_assets a
+    join target_lesion l
+      on l.id = a.lesion_id
+     and l.patient_id = a.patient_id
+     and l.clinic_id = a.clinic_id
+    left join clinical_asset_capture_metadata m
+      on m.asset_id = a.id
+     and m.patient_id = a.patient_id
+     and m.clinic_id = a.clinic_id
+    left join medical_devices d
+      on d.id = m.device_id
+     and d.clinic_id = a.clinic_id
+    where a.kind in ('overview_photo', 'dermoscopy')
+      and a.content_type like 'image/%'
+      ${clinicScopeWhere({ alias: "a", clinicIds, allClinics })}
+  )
+  select
+    l.clinic_id::text as "clinicId",
+    l.patient_id::text as "patientId",
+    l.id::text as "lesionId",
+    jsonb_build_object(
+      'assetCount', coalesce((select count(*)::int from asset_rows), 0),
+      'metadataCount', coalesce((select count(*)::int from asset_rows where capture_source is not null), 0),
+      'missingMetadataCount', coalesce((select count(*)::int from asset_rows where capture_source is null), 0),
+      'readyForTechnicalCompareCount', coalesce((select count(*)::int from asset_rows where technical_status = 'ready'), 0),
+      'scaleReadyCount', coalesce((select count(*)::int from asset_rows where scale_marker_detected = true and millimeters_available = true), 0)
+    ) as "summary",
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'assetId', a.id::text,
+        'visitId', a.visit_id::text,
+        'kind', a.kind,
+        'contentType', a.content_type,
+        'capturedAt', a.captured_at,
+        'captureSource', coalesce(a.capture_source, 'unknown'),
+        'deviceId', a.device_id::text,
+        'deviceProfile', nullif(concat_ws(' · ', a.device_model, a.device_calibration_profile), ''),
+        'frameWidth', a.frame_width,
+        'frameHeight', a.frame_height,
+        'qualityScore', a.quality_score,
+        'qualityIssues', coalesce(a.quality_issues, array[]::text[]),
+        'scaleMarkerDetected', coalesce(a.scale_marker_detected, false),
+        'millimetersAvailable', coalesce(a.millimeters_available, false),
+        'technicalStatus', a.technical_status,
+        'technicalReasons', a.technical_reasons
+      ) order by coalesce(a.captured_at, a.created_at) asc nulls last, a.id asc)
+      from asset_rows a
+    ), '[]'::jsonb) as "items",
+    jsonb_build_object(
+      'patientDeliveryAllowed', bf.patient_delivery_allowed,
+      'protectedFieldsExposed', bf.protected_fields_exposed,
+      'storagePathsExposed', bf.storage_paths_exposed,
+      'signedUrlsIssued', bf.signed_urls_issued,
+      'rawImageBytesExposed', bf.raw_image_bytes_exposed,
+      'doctorOnlyTextExposed', bf.doctor_only_text_exposed,
+      'clinicalConclusionGenerated', bf.clinical_conclusion_generated
+    ) as "boundaries"
+  from target_lesion l
+  cross join boundary_flags bf
+) result;
+`.trim();
+}
+
 function assessmentUpdateSet(changes = {}) {
   const clauses = [];
   if (Object.hasOwn(changes, "status")) clauses.push(`status = ${sqlLiteral(changes.status)}`);
@@ -505,6 +638,126 @@ function lesionComparisonDraftUpdateSet(draft = {}) {
   ].join(",\n      ");
 }
 
+function assetCaptureMetadataUpdateSet(metadata = {}) {
+  return [
+    `capture_source = ${sqlLiteral(metadata.captureSource ?? "unknown")}`,
+    `device_id = ${sqlNullableUuid(metadata.deviceId ?? null)}`,
+    `frame_width = ${sqlNullableInteger(metadata.frameWidth ?? null)}`,
+    `frame_height = ${sqlNullableInteger(metadata.frameHeight ?? null)}`,
+    `quality_score = ${sqlNullableNumber(metadata.qualityScore ?? null)}`,
+    `quality_issues = ${sqlTextArray(metadata.qualityIssues ?? [])}`,
+    `scale_marker_detected = ${metadata.scaleMarkerDetected === true ? "true" : "false"}`,
+    `millimeters_available = ${metadata.millimetersAvailable === true ? "true" : "false"}`,
+    "patient_delivery_allowed = false",
+    "protected_fields_exposed = false",
+    `metadata_json = ${sqlJsonb({
+      brainstormTask: "SD-MF-025/026/028",
+      auditBoundary: "metadata_only",
+      patientDeliveryAllowed: false,
+      protectedFieldsExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      rawImageBytesExposed: false,
+    })}`,
+    "captured_by_user_id = excluded.captured_by_user_id",
+    "updated_at = now()",
+  ].join(",\n      ");
+}
+
+export function buildUpsertAssetCaptureMetadataSql({
+  visitId,
+  assetId,
+  patientId,
+  clinicId,
+  capturedByUserId = null,
+  metadata = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const scope = clinicScopeWhere({ alias: "clinical_asset_capture_metadata", clinicIds, allClinics });
+  const assetScope = clinicScopeWhere({ alias: "a", clinicIds, allClinics });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_asset as (
+    select
+      a.id,
+      a.clinic_id,
+      a.patient_id,
+      a.visit_id,
+      a.lesion_id
+    from clinical_assets a
+    where a.id = ${sqlUuid(assetId)}
+      and a.visit_id = ${sqlUuid(visitId)}
+      and a.patient_id = ${sqlUuid(patientId)}
+      and a.clinic_id = ${sqlUuid(clinicId)}
+      ${assetScope}
+    limit 1
+  ),
+  upserted as (
+    insert into clinical_asset_capture_metadata (
+      clinic_id, patient_id, visit_id, lesion_id, asset_id, captured_by_user_id,
+      capture_source, device_id, frame_width, frame_height, quality_score,
+      quality_issues, scale_marker_detected, millimeters_available,
+      metadata_json, patient_delivery_allowed, protected_fields_exposed
+    )
+    select
+      a.clinic_id,
+      a.patient_id,
+      a.visit_id,
+      a.lesion_id,
+      a.id,
+      ${sqlNullableUuid(capturedByUserId)},
+      ${sqlLiteral(metadata.captureSource ?? "unknown")},
+      ${sqlNullableUuid(metadata.deviceId ?? null)},
+      ${sqlNullableInteger(metadata.frameWidth ?? null)},
+      ${sqlNullableInteger(metadata.frameHeight ?? null)},
+      ${sqlNullableNumber(metadata.qualityScore ?? null)},
+      ${sqlTextArray(metadata.qualityIssues ?? [])},
+      ${metadata.scaleMarkerDetected === true ? "true" : "false"},
+      ${metadata.millimetersAvailable === true ? "true" : "false"},
+      ${sqlJsonb({
+        brainstormTask: "SD-MF-025/026/028",
+        auditBoundary: "metadata_only",
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+        storagePathsExposed: false,
+        signedUrlsIssued: false,
+        rawImageBytesExposed: false,
+      })},
+      false,
+      false
+    from target_asset a
+    on conflict (asset_id) do update
+    set ${assetCaptureMetadataUpdateSet(metadata)}
+    where true ${scope}
+    returning *
+  )
+  select
+    m.id::text as "id",
+    m.clinic_id::text as "clinicId",
+    m.patient_id::text as "patientId",
+    m.visit_id::text as "visitId",
+    m.lesion_id::text as "lesionId",
+    m.asset_id::text as "assetId",
+    m.capture_source as "captureSource",
+    m.device_id::text as "deviceId",
+    m.frame_width as "frameWidth",
+    m.frame_height as "frameHeight",
+    m.quality_score as "qualityScore",
+    m.quality_issues as "qualityIssues",
+    m.scale_marker_detected as "scaleMarkerDetected",
+    m.millimeters_available as "millimetersAvailable",
+    m.patient_delivery_allowed as "patientDeliveryAllowed",
+    m.protected_fields_exposed as "protectedFieldsExposed",
+    m.created_at as "createdAt",
+    m.updated_at as "updatedAt"
+  from upserted m
+  limit 1
+) result;
+`.trim();
+}
+
 export function buildUpsertLesionComparisonDraftSql({
   visitId,
   patientId,
@@ -551,6 +804,135 @@ from (
   )
   select ${lesionComparisonDraftColumns("d")}
   from upserted d
+  limit 1
+) result;
+`.trim();
+}
+
+function lesionComparisonViewerQaUpdateSet(qa = {}) {
+  return [
+    `image_ids = ${sqlTextArray(qa.imageIds)}`,
+    `technical_markers = ${sqlJsonb(qa.technicalMarkers ?? [])}`,
+    `calibration_status = ${sqlLiteral(qa.calibrationStatus ?? "not_ready")}`,
+    `calibration_reasons = ${sqlJsonb(qa.calibrationReasons ?? [])}`,
+    `capture_metadata_status = ${sqlLiteral(qa.captureMetadataStatus ?? "needs_review")}`,
+    "medical_measurement_allowed = false",
+    "patient_delivery_allowed = false",
+    "protected_fields_exposed = false",
+    `metadata_json = ${sqlJsonb({
+      brainstormTask: "SD-MF-026/028",
+      auditBoundary: "metadata_only",
+      medicalMeasurementAllowed: false,
+      patientDeliveryAllowed: false,
+      protectedFieldsExposed: false,
+    })}`,
+    "doctor_user_id = excluded.doctor_user_id",
+    "updated_at = now()",
+  ].join(",\n      ");
+}
+
+export function buildUpsertLesionComparisonViewerQaSql({
+  visitId,
+  patientId,
+  clinicId,
+  doctorUserId = null,
+  qa = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const scope = clinicScopeWhere({ alias: "lesion_comparison_viewer_qa_drafts", clinicIds, allClinics });
+  const lesionScope = clinicScopeWhere({ alias: "l", clinicIds, allClinics });
+  const assetScope = clinicScopeWhere({ alias: "a", clinicIds, allClinics });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_lesion as (
+    select
+      l.id::text as lesion_id,
+      l.clinic_id,
+      l.patient_id,
+      l.visit_id
+    from lesions l
+    where l.id::text = ${sqlLiteral(qa.lesionId)}
+      and l.visit_id = ${sqlUuid(visitId)}
+      and l.patient_id = ${sqlUuid(patientId)}
+      and l.clinic_id = ${sqlUuid(clinicId)}
+      ${lesionScope}
+    limit 1
+  ),
+  target_assets as (
+    select count(distinct a.id)::int as asset_count
+    from clinical_assets a
+    join target_lesion l
+      on l.lesion_id = a.lesion_id::text
+     and l.visit_id = a.visit_id
+     and l.patient_id = a.patient_id
+     and l.clinic_id = a.clinic_id
+    where a.id::text = any(${sqlTextArray(qa.imageIds)})
+      and a.kind in ('overview_photo', 'dermoscopy')
+      and a.content_type like 'image/%'
+      ${assetScope}
+  ),
+  target_pair as (
+    select l.*
+    from target_lesion l
+    cross join target_assets a
+    where a.asset_count = 2
+  ),
+  upserted as (
+    insert into lesion_comparison_viewer_qa_drafts (
+      clinic_id, patient_id, visit_id, doctor_user_id, lesion_id, pair_key,
+      image_ids, technical_markers, calibration_status, calibration_reasons,
+      capture_metadata_status, medical_measurement_allowed, patient_delivery_allowed,
+      protected_fields_exposed, metadata_json
+    )
+    select
+      p.clinic_id,
+      p.patient_id,
+      p.visit_id,
+      ${sqlNullableUuid(doctorUserId)},
+      p.lesion_id,
+      ${sqlLiteral(qa.pairKey)},
+      ${sqlTextArray(qa.imageIds)},
+      ${sqlJsonb(qa.technicalMarkers ?? [])},
+      ${sqlLiteral(qa.calibrationStatus ?? "not_ready")},
+      ${sqlJsonb(qa.calibrationReasons ?? [])},
+      ${sqlLiteral(qa.captureMetadataStatus ?? "needs_review")},
+      false,
+      false,
+      false,
+      ${sqlJsonb({
+        brainstormTask: "SD-MF-026/028",
+        auditBoundary: "metadata_only",
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      })}
+    from target_pair p
+    on conflict (visit_id, lesion_id, pair_key) do update
+    set ${lesionComparisonViewerQaUpdateSet(qa)}
+    where true ${scope}
+    returning *
+  )
+  select
+    q.id::text as "id",
+    q.clinic_id::text as "clinicId",
+    q.patient_id::text as "patientId",
+    q.visit_id::text as "visitId",
+    q.doctor_user_id::text as "doctorUserId",
+    q.lesion_id as "lesionId",
+    q.pair_key as "pairKey",
+    q.image_ids as "imageIds",
+    q.technical_markers as "technicalMarkers",
+    q.calibration_status as "calibrationStatus",
+    q.calibration_reasons as "calibrationReasons",
+    q.capture_metadata_status as "captureMetadataStatus",
+    q.medical_measurement_allowed as "medicalMeasurementAllowed",
+    q.patient_delivery_allowed as "patientDeliveryAllowed",
+    q.protected_fields_exposed as "protectedFieldsExposed",
+    q.created_at as "createdAt",
+    q.updated_at as "updatedAt"
+  from upserted q
   limit 1
 ) result;
 `.trim();
@@ -682,6 +1064,128 @@ function normalizeLesionComparisonDraft(row) {
   };
 }
 
+function normalizeAssetCaptureMetadata(row) {
+  return {
+    id: String(row.id),
+    clinicId: row.clinicId ? String(row.clinicId) : null,
+    patientId: row.patientId ? String(row.patientId) : null,
+    visitId: row.visitId ? String(row.visitId) : null,
+    lesionId: row.lesionId ? String(row.lesionId) : null,
+    assetId: String(row.assetId ?? ""),
+    captureSource: String(row.captureSource ?? "unknown"),
+    deviceId: row.deviceId ? String(row.deviceId) : null,
+    frame: {
+      width: row.frameWidth == null ? null : Number(row.frameWidth),
+      height: row.frameHeight == null ? null : Number(row.frameHeight),
+    },
+    quality: {
+      score: row.qualityScore == null ? null : Number(row.qualityScore),
+      issues: parseStringArray(row.qualityIssues),
+    },
+    calibration: {
+      scaleMarkerDetected: Boolean(row.scaleMarkerDetected),
+      millimetersAvailable: Boolean(row.millimetersAvailable),
+    },
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    createdAt: row.createdAt ?? null,
+    updatedAt: row.updatedAt ?? null,
+  };
+}
+
+function normalizeCaptureMetadataSummary(value) {
+  const source = parseJsonObject(value);
+  return {
+    assetCount: numberOrZero(source.assetCount),
+    metadataCount: numberOrZero(source.metadataCount),
+    missingMetadataCount: numberOrZero(source.missingMetadataCount),
+    readyForTechnicalCompareCount: numberOrZero(source.readyForTechnicalCompareCount),
+    scaleReadyCount: numberOrZero(source.scaleReadyCount),
+  };
+}
+
+function normalizeCaptureMetadataItem(row) {
+  const status = String(row.technicalStatus ?? "missing");
+  return {
+    assetId: String(row.assetId ?? ""),
+    visitId: row.visitId ? String(row.visitId) : null,
+    kind: String(row.kind ?? ""),
+    contentType: row.contentType ?? null,
+    capturedAt: row.capturedAt ?? null,
+    captureSource: String(row.captureSource ?? "unknown"),
+    deviceId: row.deviceId ? String(row.deviceId) : null,
+    deviceProfile: row.deviceProfile ? String(row.deviceProfile) : null,
+    frame: {
+      width: row.frameWidth == null ? null : Number(row.frameWidth),
+      height: row.frameHeight == null ? null : Number(row.frameHeight),
+    },
+    quality: {
+      score: row.qualityScore == null ? null : Number(row.qualityScore),
+      issues: parseStringArray(row.qualityIssues),
+    },
+    calibration: {
+      scaleMarkerDetected: Boolean(row.scaleMarkerDetected),
+      millimetersAvailable: Boolean(row.millimetersAvailable),
+    },
+    technicalStatus: status === "ready" || status === "warning" ? status : "missing",
+    technicalReasons: parseJsonArray(row.technicalReasons),
+  };
+}
+
+function normalizeLesionCaptureMetadata(row) {
+  return {
+    clinicId: row.clinicId ? String(row.clinicId) : null,
+    patientId: row.patientId ? String(row.patientId) : null,
+    lesionId: String(row.lesionId ?? ""),
+    summary: normalizeCaptureMetadataSummary(row.summary),
+    items: parseObjectArray(row.items).map(normalizeCaptureMetadataItem),
+    boundaries: {
+      patientDeliveryAllowed: false,
+      protectedFieldsExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      rawImageBytesExposed: false,
+      doctorOnlyTextExposed: false,
+      clinicalConclusionGenerated: false,
+    },
+  };
+}
+
+function normalizeTechnicalMarker(row) {
+  const target = row.target === "B" ? "B" : "A";
+  return {
+    target,
+    xPercent: Number(row.xPercent ?? 0),
+    yPercent: Number(row.yPercent ?? 0),
+  };
+}
+
+function normalizeLesionComparisonViewerQa(row) {
+  const calibrationStatus = String(row.calibrationStatus ?? "not_ready");
+  const captureMetadataStatus = String(row.captureMetadataStatus ?? "needs_review");
+  return {
+    id: String(row.id),
+    clinicId: row.clinicId ? String(row.clinicId) : null,
+    patientId: row.patientId ? String(row.patientId) : null,
+    visitId: row.visitId ? String(row.visitId) : null,
+    doctorUserId: row.doctorUserId ? String(row.doctorUserId) : null,
+    lesionId: String(row.lesionId ?? ""),
+    pairKey: String(row.pairKey ?? ""),
+    imageIds: parseStringArray(row.imageIds).slice(0, 2),
+    technicalMarkers: parseObjectArray(row.technicalMarkers).slice(0, 2).map(normalizeTechnicalMarker),
+    calibrationStatus:
+      calibrationStatus === "ready" || calibrationStatus === "limited" ? calibrationStatus : "not_ready",
+    calibrationReasons: parseJsonArray(row.calibrationReasons),
+    captureMetadataStatus:
+      captureMetadataStatus === "ready" || captureMetadataStatus === "missing" ? captureMetadataStatus : "needs_review",
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    createdAt: row.createdAt ?? null,
+    updatedAt: row.updatedAt ?? null,
+  };
+}
+
 function normalizeLongitudinalSummary(value) {
   const source = parseJsonObject(value);
   return {
@@ -791,6 +1295,15 @@ export function createClinicalWorkspaceRepository(dbClient) {
     },
     async upsertLesionComparisonDraft(params) {
       return queryOne(dbClient, buildUpsertLesionComparisonDraftSql(params), normalizeLesionComparisonDraft);
+    },
+    async upsertAssetCaptureMetadata(params) {
+      return queryOne(dbClient, buildUpsertAssetCaptureMetadataSql(params), normalizeAssetCaptureMetadata);
+    },
+    async getLesionCaptureMetadata(params) {
+      return queryOne(dbClient, buildGetLesionCaptureMetadataSql(params), normalizeLesionCaptureMetadata);
+    },
+    async upsertLesionComparisonViewerQa(params) {
+      return queryOne(dbClient, buildUpsertLesionComparisonViewerQaSql(params), normalizeLesionComparisonViewerQa);
     },
     async getLesionLongitudinalHistory(params) {
       return queryOne(dbClient, buildGetLesionLongitudinalHistorySql(params), normalizeLesionLongitudinalHistory);

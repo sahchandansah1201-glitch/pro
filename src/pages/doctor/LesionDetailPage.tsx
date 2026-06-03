@@ -56,6 +56,7 @@ import {
 import {
   downloadSelfHostedProtectedLesionImage,
   saveSelfHostedLesionComparisonDraft,
+  saveSelfHostedLesionComparisonViewerQa,
 } from "@/lib/self-hosted-clinical-workspace-api";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
 
@@ -94,6 +95,7 @@ const VIEW_LABEL: Record<Lesion["mapPoint"]["view"], string> = {
 type ComparisonAction = LesionComparisonAction;
 type ComparisonDraftStatus = "idle" | "loaded" | "saved" | "cleared";
 type ComparisonBackendDraftStatus = "idle" | "saving" | "saved" | "local_only" | "error";
+type ViewerQaBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type ProtectedRenderStatus = "idle" | "loading" | "ready" | "error";
 type ProtectedRenderReadinessItem = {
   label: string;
@@ -114,6 +116,12 @@ type TechnicalGeometryMarker = {
   target: "A" | "B";
   x: number;
   y: number;
+};
+type ViewerQaSavePayload = {
+  technicalMarkers: TechnicalGeometryMarker[];
+  calibrationStatus: "ready" | "not_ready" | "limited";
+  calibrationReasons: string[];
+  captureMetadataStatus: "ready" | "needs_review" | "missing";
 };
 type ComparisonOverlay = "grid" | "center" | "off";
 type ComparisonViewport = {
@@ -288,6 +296,14 @@ function calibrationReadinessChecks(imageA: ClinicalImage, imageB: ClinicalImage
       detail: "мм недоступны",
     },
   ];
+}
+
+function calibrationReasonCode(item: CalibrationReadinessCheck): string {
+  if (item.label === "Профиль устройства") return "device_profile_mismatch";
+  if (item.label === "Размер кадра") return "frame_size_mismatch";
+  if (item.label === "Масштабная шкала") return "scale_marker_missing";
+  if (item.label === "Миллиметры") return "millimeters_unavailable";
+  return "calibration_limited";
 }
 
 function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
@@ -713,6 +729,9 @@ function ComparisonFullScreenDialog({
   onSaveDraft,
   canSaveDraft,
   draftStatus,
+  onSaveViewerQa,
+  viewerQaStatus,
+  viewerQaMessage,
   canLoadProtectedImages,
   protectedReadiness,
   protectedRenderStatus,
@@ -730,6 +749,9 @@ function ComparisonFullScreenDialog({
   onSaveDraft: () => void;
   canSaveDraft: boolean;
   draftStatus: ComparisonDraftStatus;
+  onSaveViewerQa: (payload: ViewerQaSavePayload) => void;
+  viewerQaStatus: ViewerQaBackendStatus;
+  viewerQaMessage: string;
   canLoadProtectedImages: boolean;
   protectedReadiness: ProtectedRenderReadinessItem[];
   protectedRenderStatus: ProtectedRenderStatus;
@@ -771,6 +793,17 @@ function ComparisonFullScreenDialog({
   const setGeometryMarker = (target: TechnicalGeometryMarker["target"]) => {
     const marker = TECHNICAL_GEOMETRY_PRESETS[target];
     setGeometryMarkers((current) => [...current.filter((item) => item.target !== target), marker]);
+  };
+  const saveViewerQa = () => {
+    setCalibrationLimitSaved(true);
+    onSaveViewerQa({
+      technicalMarkers: geometryMarkers,
+      calibrationStatus: calibrationReady ? "ready" : "not_ready",
+      calibrationReasons: calibrationChecks
+        .filter((item) => !item.ready)
+        .map(calibrationReasonCode),
+      captureMetadataStatus: captureReady ? "ready" : "needs_review",
+    });
   };
   const markerFor = (target: TechnicalGeometryMarker["target"]) =>
     geometryMarkers.find((item) => item.target === target);
@@ -1027,13 +1060,14 @@ function ComparisonFullScreenDialog({
                     size="sm"
                     variant="outline"
                     className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                    onClick={() => setCalibrationLimitSaved(true)}
+                    disabled={viewerQaStatus === "saving"}
+                    onClick={saveViewerQa}
                   >
                     <ClipboardList className="h-3.5 w-3.5" aria-hidden /> Зафиксировать ограничение калибровки
                   </Button>
-                  {calibrationLimitSaved && (
+                  {(viewerQaMessage || calibrationLimitSaved) && (
                     <span className="text-[12px] font-medium text-primary" role="status">
-                      Ограничение калибровки зафиксировано локально
+                      {viewerQaMessage || "Ограничение калибровки зафиксировано локально"}
                     </span>
                   )}
                 </div>
@@ -1387,6 +1421,8 @@ export default function LesionDetailPage() {
   const [comparisonDraftStatus, setComparisonDraftStatus] = useState<ComparisonDraftStatus>("idle");
   const [comparisonBackendStatus, setComparisonBackendStatus] = useState<ComparisonBackendDraftStatus>("idle");
   const [comparisonBackendMessage, setComparisonBackendMessage] = useState("");
+  const [viewerQaStatus, setViewerQaStatus] = useState<ViewerQaBackendStatus>("idle");
+  const [viewerQaMessage, setViewerQaMessage] = useState("");
   const [protectedRenderStatus, setProtectedRenderStatus] = useState<ProtectedRenderStatus>("idle");
   const [protectedRenderMessage, setProtectedRenderMessage] = useState("");
   const [protectedImageUrls, setProtectedImageUrls] = useState<Record<string, string>>({});
@@ -1458,6 +1494,8 @@ export default function LesionDetailPage() {
   useEffect(() => {
     setProtectedRenderStatus("idle");
     setProtectedRenderMessage("");
+    setViewerQaStatus("idle");
+    setViewerQaMessage("");
     setProtectedImageUrls((current) => {
       revokePreviewUrls(current);
       return {};
@@ -1533,6 +1571,47 @@ export default function LesionDetailPage() {
     setComparisonDraftStatus("idle");
     setComparisonBackendStatus("idle");
     setComparisonBackendMessage("");
+  };
+
+  const saveViewerQa = async (payload: ViewerQaSavePayload) => {
+    if (!selectedPairDraftKey || !comparePair || !latestVisit) {
+      setViewerQaStatus("local_only");
+      setViewerQaMessage("Ограничение калибровки зафиксировано локально");
+      return;
+    }
+    if (!selfHostedConfigured) {
+      setViewerQaStatus("local_only");
+      setViewerQaMessage("Ограничение калибровки зафиксировано локально");
+      return;
+    }
+
+    setViewerQaStatus("saving");
+    setViewerQaMessage("Viewer QA сохраняется в self-hosted backend.");
+    const result = await saveSelfHostedLesionComparisonViewerQa({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: {
+        lesionId,
+        pairKey: selectedPairDraftKey,
+        imageIds: [comparePair[0].id, comparePair[1].id],
+        technicalMarkers: payload.technicalMarkers.map((marker) => ({
+          target: marker.target,
+          xPercent: marker.x,
+          yPercent: marker.y,
+        })),
+        calibrationStatus: payload.calibrationStatus,
+        calibrationReasons: payload.calibrationReasons,
+        captureMetadataStatus: payload.captureMetadataStatus,
+      },
+    });
+    if (result.ok) {
+      setViewerQaStatus("saved");
+      setViewerQaMessage("Viewer QA сохранён в self-hosted backend. Выдача пациенту: выключена.");
+    } else {
+      setViewerQaStatus("error");
+      setViewerQaMessage(result.error?.message ?? "Viewer QA не сохранён.");
+    }
   };
 
   const saveComparisonDraft = async () => {
@@ -2128,6 +2207,9 @@ export default function LesionDetailPage() {
         onSaveDraft={saveComparisonDraft}
         canSaveDraft={Boolean(comparisonAction)}
         draftStatus={comparisonDraftStatus}
+        onSaveViewerQa={saveViewerQa}
+        viewerQaStatus={viewerQaStatus}
+        viewerQaMessage={viewerQaMessage}
         canLoadProtectedImages={canLoadProtectedImages}
         protectedReadiness={protectedReadiness}
         protectedRenderStatus={protectedRenderStatus}

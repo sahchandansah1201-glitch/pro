@@ -345,6 +345,59 @@ describe("LesionDetailPage", () => {
     );
   });
 
+  it("saves technical marker and calibration QA to self-hosted backend without patient delivery", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "viewer-qa-1",
+            visitId: "v-005",
+            lesionId: "l-008",
+            pairKey: "l-008:i-011+i-012",
+            imageIds: ["i-011", "i-012"],
+            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }],
+            calibrationStatus: "not_ready",
+            calibrationReasons: ["scale_marker_missing"],
+            captureMetadataStatus: "needs_review",
+            medicalMeasurementAllowed: false,
+            patientDeliveryAllowed: false,
+            protectedFieldsExposed: false,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAt("/patients/p-004/lesions/l-008");
+
+    selectComparePair("i-011", "i-012");
+    fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
+
+    const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
+    const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
+    const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
+
+    fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
+    fireEvent.click(within(calibration).getByRole("button", { name: /Зафиксировать ограничение калибровки/ }));
+
+    expect(await within(calibration).findByText(/Viewer QA сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-viewer-qa",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    const body = JSON.stringify(fetchMock.mock.calls[0]?.[1]);
+    expect(body).toContain("technicalMarkers");
+    expect(body).toContain("scale_marker_missing");
+    expect(body).not.toMatch(
+      /storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
+    );
+    expect(dialog.textContent ?? "").toMatch(/Выдача пациенту: выключена/);
+  });
+
   it("keeps QA UUID viewer non-calibrated until a scale marker exists", () => {
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
     window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");

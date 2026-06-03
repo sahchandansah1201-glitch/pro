@@ -13,11 +13,17 @@ const CLINICAL_STATUS_VALUES = new Set(["draft", "ready", "signed"]);
 const RISK_LEVEL_VALUES = new Set(["low", "moderate", "high", "urgent"]);
 const COMPARISON_ACTION_VALUES = new Set(["retake", "excluded", "report_limit"]);
 const COMPARABILITY_VALUES = new Set(["comparable", "not_comparable"]);
+const CAPTURE_SOURCE_VALUES = new Set(["phone", "device_bridge", "file_import", "camera", "local_transfer", "unknown"]);
+const CALIBRATION_STATUS_VALUES = new Set(["ready", "not_ready", "limited"]);
+const CAPTURE_METADATA_STATUS_VALUES = new Set(["ready", "needs_review", "missing"]);
 const MAX_TEXT = 8000;
 const MAX_REASON_TEXT = 120;
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9._:+-]{1,160}$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UNSAFE_CLINICAL_REASON_PATTERN = /меланома|рак кожи|вероятность|диагноз|лечение|прогноз/i;
 const PROTECTED_INPUT_KEYS = new Set([
+  "objectBucket",
+  "objectKey",
   "storagePath",
   "storageObjectPath",
   "signedUrl",
@@ -138,6 +144,165 @@ function normalizeComparisonReasons(input, details) {
     reasons.push(text);
   }
   return reasons;
+}
+
+function normalizeUuidOrNull(input, field, details) {
+  const value = cleanString(input);
+  if (!value) return null;
+  if (!UUID_PATTERN.test(value)) {
+    details.push({ field, message: `${field} must be a UUID.` });
+    return undefined;
+  }
+  return value;
+}
+
+function normalizeIntegerField(input, field, details, { min = 1, max = 20000 } = {}) {
+  if (input == null || input === "") return null;
+  const value = Number(input);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    details.push({ field, message: `${field} must be a whole number between ${min} and ${max}.` });
+    return undefined;
+  }
+  return value;
+}
+
+function normalizePercent(input, field, details) {
+  const value = Number(input);
+  if (!Number.isFinite(value) || value < 0 || value > 100) {
+    details.push({ field, message: `${field} must be a number between 0 and 100.` });
+    return undefined;
+  }
+  return Number(value.toFixed(2));
+}
+
+function normalizeTechnicalStrings(input, field, details, { maxItems = 8 } = {}) {
+  if (input == null) return [];
+  if (!Array.isArray(input)) {
+    details.push({ field, message: `${field} must be an array.` });
+    return undefined;
+  }
+  const items = [];
+  for (const item of input.slice(0, maxItems)) {
+    const text = cleanString(item);
+    if (!text) continue;
+    if (text.length > MAX_REASON_TEXT || UNSAFE_CLINICAL_REASON_PATTERN.test(text)) {
+      details.push({ field, message: `${field} must stay technical and avoid clinical claims.` });
+      return undefined;
+    }
+    items.push(text);
+  }
+  return items;
+}
+
+export function normalizeAssetCaptureMetadataPayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in capture metadata payloads." });
+  }
+  const captureSource = cleanString(input.captureSource) || "unknown";
+  if (!CAPTURE_SOURCE_VALUES.has(captureSource)) {
+    details.push({ field: "captureSource", message: "captureSource is not supported." });
+  }
+  const deviceId = normalizeUuidOrNull(input.deviceId, "deviceId", details);
+  const frameWidth = normalizeIntegerField(input.frameWidth, "frameWidth", details);
+  const frameHeight = normalizeIntegerField(input.frameHeight, "frameHeight", details);
+  const qualityScore = normalizeNumber(input.qualityScore, "qualityScore", details, { min: 0, max: 100 });
+  const qualityIssues = normalizeTechnicalStrings(input.qualityIssues, "qualityIssues", details);
+  const scaleMarkerDetected = input.scaleMarkerDetected === true;
+  const millimetersAvailable = input.millimetersAvailable === true;
+  if (millimetersAvailable && !scaleMarkerDetected) {
+    details.push({ field: "millimetersAvailable", message: "millimetersAvailable requires scaleMarkerDetected." });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    captureSource,
+    deviceId,
+    frameWidth,
+    frameHeight,
+    qualityScore,
+    qualityIssues: qualityIssues ?? [],
+    scaleMarkerDetected,
+    millimetersAvailable,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  };
+}
+
+function normalizeTechnicalMarkers(input, details) {
+  if (input == null) return [];
+  if (!Array.isArray(input)) {
+    details.push({ field: "technicalMarkers", message: "technicalMarkers must be an array." });
+    return undefined;
+  }
+  const markers = [];
+  const seen = new Set();
+  for (const marker of input.slice(0, 2)) {
+    if (!isPlainObject(marker)) {
+      details.push({ field: "technicalMarkers", message: "Each marker must be an object." });
+      return undefined;
+    }
+    const target = marker.target === "A" || marker.target === "B" ? marker.target : null;
+    if (!target || seen.has(target)) {
+      details.push({ field: "technicalMarkers", message: "Markers must target A and/or B once." });
+      return undefined;
+    }
+    const xPercent = normalizePercent(marker.xPercent, "technicalMarkers.xPercent", details);
+    const yPercent = normalizePercent(marker.yPercent, "technicalMarkers.yPercent", details);
+    if (xPercent === undefined || yPercent === undefined) return undefined;
+    seen.add(target);
+    markers.push({ target, xPercent, yPercent });
+  }
+  return markers;
+}
+
+export function normalizeLesionComparisonViewerQaPayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in viewer QA payloads." });
+  }
+  const lesionId = normalizeSafeIdentifier(input.lesionId, "lesionId", details);
+  const pairKey = normalizeSafeIdentifier(input.pairKey, "pairKey", details);
+  const imageIds = Array.isArray(input.imageIds)
+    ? input.imageIds.map((id, index) => normalizeSafeIdentifier(id, `imageIds[${index}]`, details))
+    : undefined;
+  if (!imageIds || imageIds.length !== 2 || imageIds.some((id) => !id)) {
+    details.push({ field: "imageIds", message: "Exactly two safe image IDs are required." });
+  }
+  if (imageIds?.length === 2 && new Set(imageIds).size !== 2) {
+    details.push({ field: "imageIds", message: "imageIds must reference two different images." });
+  }
+  const expectedPairKey =
+    lesionId && imageIds?.length === 2 && imageIds.every(Boolean)
+      ? `${lesionId}:${[...imageIds].sort().join("+")}`
+      : null;
+  if (pairKey && expectedPairKey && pairKey !== expectedPairKey) {
+    details.push({ field: "pairKey", message: "pairKey must match lesionId and sorted imageIds." });
+  }
+  const technicalMarkers = normalizeTechnicalMarkers(input.technicalMarkers, details);
+  const calibrationStatus = cleanString(input.calibrationStatus) || "not_ready";
+  if (!CALIBRATION_STATUS_VALUES.has(calibrationStatus)) {
+    details.push({ field: "calibrationStatus", message: "calibrationStatus is not supported." });
+  }
+  const calibrationReasons = normalizeTechnicalStrings(input.calibrationReasons, "calibrationReasons", details);
+  const captureMetadataStatus = cleanString(input.captureMetadataStatus) || "needs_review";
+  if (!CAPTURE_METADATA_STATUS_VALUES.has(captureMetadataStatus)) {
+    details.push({ field: "captureMetadataStatus", message: "captureMetadataStatus is not supported." });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    lesionId,
+    pairKey,
+    imageIds,
+    technicalMarkers: technicalMarkers ?? [],
+    calibrationStatus,
+    calibrationReasons: calibrationReasons ?? [],
+    captureMetadataStatus,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+  };
 }
 
 export function normalizeUpdateAssessmentPayload(input = {}) {
@@ -440,6 +605,113 @@ export function createClinicalWorkspaceService({
         },
       });
       return { draft, scope };
+    },
+
+    async saveAssetCaptureMetadata(visitId, assetId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const safeAssetId = assertUuid(assetId, "assetId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeAssetCaptureMetadataPayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const metadata = await clinicalWorkspaceRepository.upsertAssetCaptureMetadata({
+        visitId: safeVisitId,
+        assetId: safeAssetId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        capturedByUserId: authContext.userId,
+        metadata: payload,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!metadata) throw new VisitWorkspaceNotFoundError("Capture metadata could not be saved.");
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: metadata.clinicId,
+        actorUserId: authContext.userId,
+        action: "clinical_asset_capture_metadata.upsert",
+        entityType: "clinical_asset_capture_metadata",
+        entityId: metadata.id,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          assetId: safeAssetId,
+          captureSource: payload.captureSource,
+          framePresent: Boolean(payload.frameWidth && payload.frameHeight),
+          qualityIssuesCount: payload.qualityIssues.length,
+          scaleMarkerDetected: payload.scaleMarkerDetected,
+          millimetersAvailable: payload.millimetersAvailable,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+        },
+      });
+      return { metadata, scope };
+    },
+
+    async getLesionCaptureMetadata(patientId, lesionId, authContext, { correlationId } = {}) {
+      const safePatientId = assertUuid(patientId, "patientId");
+      const safeLesionId = assertUuid(lesionId, "lesionId");
+      const scope = visitReadScope(authContext);
+      const metadata = await clinicalWorkspaceRepository.getLesionCaptureMetadata({
+        patientId: safePatientId,
+        lesionId: safeLesionId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      const summary = metadata?.summary || {};
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: metadata?.clinicId ?? scope.clinicIds[0] ?? null,
+        actorUserId: authContext.userId,
+        action: "lesion_capture_metadata.read",
+        entityType: "lesion_capture_metadata",
+        entityId: safeLesionId,
+        correlationId,
+        metadata: {
+          patientId: safePatientId,
+          lesionId: safeLesionId,
+          assetCount: Number(summary.assetCount ?? 0),
+          metadataCount: Number(summary.metadataCount ?? 0),
+          readyForTechnicalCompareCount: Number(summary.readyForTechnicalCompareCount ?? 0),
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+        },
+      });
+      return { metadata, scope };
+    },
+
+    async saveLesionComparisonViewerQa(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeLesionComparisonViewerQaPayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const qa = await clinicalWorkspaceRepository.upsertLesionComparisonViewerQa({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        qa: payload,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!qa) throw new VisitWorkspaceNotFoundError("Viewer QA draft could not be saved.");
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: qa.clinicId,
+        actorUserId: authContext.userId,
+        action: "lesion_comparison_viewer_qa.upsert",
+        entityType: "lesion_comparison_viewer_qa_draft",
+        entityId: qa.id,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          lesionId: payload.lesionId,
+          markerCount: payload.technicalMarkers.length,
+          calibrationStatus: payload.calibrationStatus,
+          calibrationReasonsCount: payload.calibrationReasons.length,
+          captureMetadataStatus: payload.captureMetadataStatus,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+        },
+      });
+      return { qa, scope };
     },
 
     async getLesionLongitudinalHistory(patientId, lesionId, authContext, { correlationId } = {}) {
