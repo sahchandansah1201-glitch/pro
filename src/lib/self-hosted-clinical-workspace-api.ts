@@ -289,6 +289,78 @@ export interface SelfHostedLesionLongitudinalHistoryDTO {
   };
 }
 
+export type SelfHostedLesionLongitudinalQaStatus = "blocked" | "needs_review" | "technical_ready";
+export type SelfHostedLesionLongitudinalQaAction =
+  | "review_queue"
+  | "request_recapture"
+  | "exclude_from_dynamic_review"
+  | "complete_capture_metadata"
+  | "complete_calibration"
+  | "place_markers"
+  | "continue_review";
+
+export interface SelfHostedLesionLongitudinalQaDTO {
+  clinicId: string | null;
+  patientId: string | null;
+  lesionId: string;
+  label: string | null;
+  readiness: {
+    status: SelfHostedLesionLongitudinalQaStatus;
+    visitCount: number;
+    imageCount: number;
+    candidatePairCount: number;
+    reviewedPairCount: number;
+    technicalReadyPairCount: number;
+    needsRecaptureCount: number;
+    notSuitableForComparisonCount: number;
+    unreviewedPairCount: number;
+    missingCaptureMetadataCount: number;
+    calibrationBlockedCount: number;
+    markerMissingCount: number;
+    technicalRolloutReady: boolean;
+    dynamicConclusionAllowed: false;
+  };
+  blockers: Array<{
+    code:
+      | "no_candidate_pairs"
+      | "recapture_required"
+      | "not_suitable_for_comparison"
+      | "unreviewed_pairs"
+      | "missing_capture_metadata"
+      | "calibration_not_ready"
+      | "technical_markers_missing";
+    label: string;
+    count: number;
+    nextAction: SelfHostedLesionLongitudinalQaAction;
+  }>;
+  nextActions: SelfHostedLesionLongitudinalQaAction[];
+  boundaries: {
+    patientDeliveryAllowed: false;
+    medicalMeasurementAllowed: false;
+    protectedFieldsExposed: false;
+    pairKeysExposed: false;
+    imageIdsExposed: false;
+    storagePathsExposed: false;
+    signedUrlsIssued: false;
+    rawImageBytesExposed: false;
+    doctorOnlyTextExposed: false;
+    clinicalConclusionGenerated: false;
+  };
+}
+
+export const SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES: SelfHostedLesionLongitudinalQaDTO["boundaries"] = {
+  patientDeliveryAllowed: false,
+  medicalMeasurementAllowed: false,
+  protectedFieldsExposed: false,
+  pairKeysExposed: false,
+  imageIdsExposed: false,
+  storagePathsExposed: false,
+  signedUrlsIssued: false,
+  rawImageBytesExposed: false,
+  doctorOnlyTextExposed: false,
+  clinicalConclusionGenerated: false,
+};
+
 interface BaseArgs {
   apiBaseUrl: string | null | undefined;
   apiToken: string | null | undefined;
@@ -811,6 +883,79 @@ function toLesionLongitudinalHistory(input: Record<string, unknown>): SelfHosted
   };
 }
 
+const LONGITUDINAL_QA_BLOCKER_CODES = new Set<SelfHostedLesionLongitudinalQaDTO["blockers"][number]["code"]>([
+  "no_candidate_pairs",
+  "recapture_required",
+  "not_suitable_for_comparison",
+  "unreviewed_pairs",
+  "missing_capture_metadata",
+  "calibration_not_ready",
+  "technical_markers_missing",
+]);
+
+function toLongitudinalQaStatus(value: unknown): SelfHostedLesionLongitudinalQaStatus {
+  return value === "needs_review" || value === "technical_ready" ? value : "blocked";
+}
+
+function toLongitudinalQaAction(value: unknown): SelfHostedLesionLongitudinalQaAction | null {
+  return value === "review_queue"
+    || value === "request_recapture"
+    || value === "exclude_from_dynamic_review"
+    || value === "complete_capture_metadata"
+    || value === "complete_calibration"
+    || value === "place_markers"
+    || value === "continue_review"
+    ? value
+    : null;
+}
+
+function toLesionLongitudinalQa(input: Record<string, unknown>): SelfHostedLesionLongitudinalQaDTO {
+  const readiness = isRecord(input.readiness) ? input.readiness : {};
+  const blockers = toRecordArray(input.blockers)
+    .map((blocker) => {
+      const code = String(blocker.code ?? "") as SelfHostedLesionLongitudinalQaDTO["blockers"][number]["code"];
+      const nextAction = toLongitudinalQaAction(blocker.nextAction);
+      const count = numberOrZero(blocker.count);
+      if (!LONGITUDINAL_QA_BLOCKER_CODES.has(code) || !nextAction || count < 1) return null;
+      return {
+        code,
+        label: String(blocker.label ?? code),
+        count,
+        nextAction,
+      };
+    })
+    .filter((item): item is SelfHostedLesionLongitudinalQaDTO["blockers"][number] => Boolean(item));
+  const nextActions = [
+    ...new Set(toStringArray(input.nextActions).map(toLongitudinalQaAction).filter(Boolean)),
+  ] as SelfHostedLesionLongitudinalQaAction[];
+
+  return {
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    lesionId: String(input.lesionId ?? ""),
+    label: textOrNull(input.label),
+    readiness: {
+      status: toLongitudinalQaStatus(readiness.status),
+      visitCount: numberOrZero(readiness.visitCount),
+      imageCount: numberOrZero(readiness.imageCount),
+      candidatePairCount: numberOrZero(readiness.candidatePairCount),
+      reviewedPairCount: numberOrZero(readiness.reviewedPairCount),
+      technicalReadyPairCount: numberOrZero(readiness.technicalReadyPairCount),
+      needsRecaptureCount: numberOrZero(readiness.needsRecaptureCount),
+      notSuitableForComparisonCount: numberOrZero(readiness.notSuitableForComparisonCount),
+      unreviewedPairCount: numberOrZero(readiness.unreviewedPairCount),
+      missingCaptureMetadataCount: numberOrZero(readiness.missingCaptureMetadataCount),
+      calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
+      markerMissingCount: numberOrZero(readiness.markerMissingCount),
+      technicalRolloutReady: readiness.technicalRolloutReady === true,
+      dynamicConclusionAllowed: false,
+    },
+    blockers,
+    nextActions,
+    boundaries: SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
+  };
+}
+
 function visitUrl(apiBaseUrl: string | null | undefined, visitId: string, suffix: string): string {
   return buildSelfHostedApiUrl(apiBaseUrl, `/api/v1/visits/${encodeURIComponent(visitId)}${suffix}`);
 }
@@ -990,6 +1135,20 @@ export async function getSelfHostedLesionLongitudinalHistory(
     "GET",
     null,
     toLesionLongitudinalHistory,
+  );
+}
+
+export async function getSelfHostedLesionLongitudinalQa(
+  args: LesionLongitudinalHistoryArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionLongitudinalQaDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    patientLesionUrl(args.apiBaseUrl, args.patientId, args.lesionId, "/longitudinal-qa"),
+    args.apiToken as string,
+    "GET",
+    null,
+    toLesionLongitudinalQa,
   );
 }
 

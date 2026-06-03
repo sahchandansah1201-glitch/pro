@@ -869,6 +869,47 @@ export function createClinicalWorkspaceService({
       return { queue, scope };
     },
 
+    async getLesionLongitudinalQa(patientId, lesionId, authContext, { correlationId } = {}) {
+      const safePatientId = assertUuid(patientId, "patientId");
+      const safeLesionId = assertUuid(lesionId, "lesionId");
+      const scope = visitReadScope(authContext);
+      const qa = await clinicalWorkspaceRepository.getLesionLongitudinalQa({
+        patientId: safePatientId,
+        lesionId: safeLesionId,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!qa) throw new VisitWorkspaceNotFoundError("Lesion longitudinal QA was not found in the allowed clinic scope.");
+      const readiness = qa.readiness || {};
+      const boundaries = qa.boundaries || {};
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: qa.clinicId ?? scope.clinicIds[0] ?? null,
+        actorUserId: authContext.userId,
+        action: "lesion_longitudinal_qa.read",
+        entityType: "lesion_longitudinal_qa",
+        entityId: safeLesionId,
+        correlationId,
+        metadata: {
+          patientId: safePatientId,
+          lesionId: safeLesionId,
+          status: String(readiness.status ?? "blocked"),
+          candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+          technicalReadyPairCount: Number(readiness.technicalReadyPairCount ?? 0),
+          needsRecaptureCount: Number(readiness.needsRecaptureCount ?? 0),
+          notSuitableForComparisonCount: Number(readiness.notSuitableForComparisonCount ?? 0),
+          unreviewedPairCount: Number(readiness.unreviewedPairCount ?? 0),
+          technicalRolloutReady: readiness.technicalRolloutReady === true,
+          dynamicConclusionAllowed: false,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+        },
+      });
+      return { qa, scope };
+    },
+
     async getLesionLongitudinalHistory(patientId, lesionId, authContext, { correlationId } = {}) {
       const safePatientId = assertUuid(patientId, "patientId");
       const safeLesionId = assertUuid(lesionId, "lesionId");

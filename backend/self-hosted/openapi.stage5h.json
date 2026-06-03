@@ -270,6 +270,99 @@
           }
         }
       },
+      "LesionLongitudinalQa": {
+        "type": "object",
+        "description": "Metadata-only longitudinal QA readiness gate for a lesion timeline. It exposes aggregate technical readiness only: no pair keys, image IDs, protected image fields, patient delivery, medical measurements, or clinical dynamic conclusions.",
+        "properties": {
+          "clinicId": { "type": ["string", "null"] },
+          "patientId": { "type": ["string", "null"] },
+          "lesionId": { "type": "string" },
+          "label": { "type": ["string", "null"] },
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["blocked", "needs_review", "technical_ready"] },
+              "visitCount": { "type": "integer", "minimum": 0 },
+              "imageCount": { "type": "integer", "minimum": 0 },
+              "candidatePairCount": { "type": "integer", "minimum": 0 },
+              "reviewedPairCount": { "type": "integer", "minimum": 0 },
+              "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
+              "needsRecaptureCount": { "type": "integer", "minimum": 0 },
+              "notSuitableForComparisonCount": { "type": "integer", "minimum": 0 },
+              "unreviewedPairCount": { "type": "integer", "minimum": 0 },
+              "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
+              "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
+              "markerMissingCount": { "type": "integer", "minimum": 0 },
+              "technicalRolloutReady": { "type": "boolean" },
+              "dynamicConclusionAllowed": { "type": "boolean", "const": false }
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "no_candidate_pairs",
+                    "recapture_required",
+                    "not_suitable_for_comparison",
+                    "unreviewed_pairs",
+                    "missing_capture_metadata",
+                    "calibration_not_ready",
+                    "technical_markers_missing"
+                  ]
+                },
+                "label": { "type": "string" },
+                "count": { "type": "integer", "minimum": 1 },
+                "nextAction": {
+                  "type": "string",
+                  "enum": [
+                    "review_queue",
+                    "request_recapture",
+                    "exclude_from_dynamic_review",
+                    "complete_capture_metadata",
+                    "complete_calibration",
+                    "place_markers",
+                    "continue_review"
+                  ]
+                }
+              }
+            }
+          },
+          "nextActions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "review_queue",
+                "request_recapture",
+                "exclude_from_dynamic_review",
+                "complete_capture_metadata",
+                "complete_calibration",
+                "place_markers",
+                "continue_review"
+              ]
+            }
+          },
+          "boundaries": {
+            "type": "object",
+            "properties": {
+              "patientDeliveryAllowed": { "type": "boolean", "const": false },
+              "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+              "protectedFieldsExposed": { "type": "boolean", "const": false },
+              "pairKeysExposed": { "type": "boolean", "const": false },
+              "imageIdsExposed": { "type": "boolean", "const": false },
+              "storagePathsExposed": { "type": "boolean", "const": false },
+              "signedUrlsIssued": { "type": "boolean", "const": false },
+              "rawImageBytesExposed": { "type": "boolean", "const": false },
+              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
+              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+            }
+          }
+        }
+      },
       "LesionLongitudinalHistory": {
         "type": "object",
         "description": "Production-safe doctor-side longitudinal lesion ledger assembled from visits and clinical asset metadata. No protected image bytes, storage paths, signed URLs, patient delivery, or clinical conclusion is exposed.",
@@ -471,6 +564,22 @@
           { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
         "responses": { "200": { "description": "Metadata-only longitudinal lesion history" } }
+      }
+    },
+    "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa": {
+      "get": {
+        "summary": "Read the metadata-only longitudinal QA readiness gate for one lesion timeline",
+        "description": "Doctor-side technical QA gate only. No pair keys, image IDs, protected image fields, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata-only longitudinal QA readiness gate",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionLongitudinalQa" } } }
+          }
+        }
       }
     },
     "/api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata": {

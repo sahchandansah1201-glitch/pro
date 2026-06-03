@@ -142,6 +142,51 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         },
       };
     },
+    async getLesionLongitudinalQa() {
+      return {
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        lesionId: "10000000-0000-4000-8000-000000000801",
+        label: "Очаг A",
+        readiness: {
+          status: "blocked",
+          visitCount: 2,
+          imageCount: 4,
+          candidatePairCount: 2,
+          reviewedPairCount: 1,
+          technicalReadyPairCount: 1,
+          needsRecaptureCount: 1,
+          notSuitableForComparisonCount: 0,
+          unreviewedPairCount: 0,
+          missingCaptureMetadataCount: 1,
+          calibrationBlockedCount: 1,
+          markerMissingCount: 1,
+          technicalRolloutReady: false,
+          dynamicConclusionAllowed: false,
+        },
+        blockers: [
+          {
+            code: "recapture_required",
+            label: "Нужен переснимок",
+            count: 1,
+            nextAction: "request_recapture",
+          },
+        ],
+        nextActions: ["request_recapture", "complete_capture_metadata"],
+        boundaries: {
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+          protectedFieldsExposed: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          rawImageBytesExposed: false,
+          doctorOnlyTextExposed: false,
+          clinicalConclusionGenerated: false,
+        },
+      };
+    },
     async upsertAssetCaptureMetadata() {
       return {
         id: "capture-metadata-1",
@@ -683,6 +728,46 @@ test("Batch BF Stage 5H service reads viewer QA review queue with audit-safe met
   assert.doesNotMatch(
     JSON.stringify(result.queue) + JSON.stringify(auditEvents.at(-1)),
     /i-011|i-012|"pairKey"|"imageIds"|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BG Stage 5H service reads longitudinal QA with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.getLesionLongitudinalQa(
+    PATIENT_ID,
+    "10000000-0000-4000-8000-000000000801",
+    authContext,
+    { correlationId: "c14" },
+  );
+
+  assert.equal(result.qa.readiness.status, "blocked");
+  assert.equal(result.qa.readiness.needsRecaptureCount, 1);
+  assert.equal(result.qa.boundaries.patientDeliveryAllowed, false);
+  assert.equal(result.qa.boundaries.pairKeysExposed, false);
+  assert.equal(result.qa.boundaries.imageIdsExposed, false);
+  assert.equal(auditEvents.at(-1).action, "lesion_longitudinal_qa.read");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    status: "blocked",
+    candidatePairCount: 2,
+    technicalReadyPairCount: 1,
+    needsRecaptureCount: 1,
+    notSuitableForComparisonCount: 0,
+    unreviewedPairCount: 0,
+    technicalRolloutReady: false,
+    dynamicConclusionAllowed: false,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.qa) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
   );
 });
 

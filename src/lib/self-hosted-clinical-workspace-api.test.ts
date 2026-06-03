@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getSelfHostedLesionCaptureMetadata,
+  getSelfHostedLesionLongitudinalQa,
   getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
   getSelfHostedVisitAssessment,
   getSelfHostedLesionLongitudinalHistory,
@@ -503,6 +504,86 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
   });
 
+  it("reads lesion longitudinal QA gate without exposing pair keys or image IDs", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            patientId: "patient-1",
+            lesionId: "lesion-1",
+            label: "Очаг A",
+            readiness: {
+              status: "blocked",
+              visitCount: 2,
+              imageCount: 4,
+              candidatePairCount: 2,
+              reviewedPairCount: 1,
+              technicalReadyPairCount: 1,
+              needsRecaptureCount: 1,
+              notSuitableForComparisonCount: 0,
+              unreviewedPairCount: 0,
+              missingCaptureMetadataCount: 1,
+              calibrationBlockedCount: 1,
+              markerMissingCount: 1,
+              technicalRolloutReady: false,
+              dynamicConclusionAllowed: true,
+            },
+            blockers: [
+              {
+                code: "recapture_required",
+                label: "Нужен переснимок",
+                count: 1,
+                nextAction: "request_recapture",
+                pairKey: "secret-pair",
+                imageIds: ["i-011", "i-012"],
+              },
+            ],
+            nextActions: ["request_recapture", "unsafe_action"],
+            boundaries: {
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              pairKeysExposed: true,
+              imageIdsExposed: true,
+              storagePathsExposed: true,
+              signedUrlsIssued: true,
+              rawImageBytesExposed: true,
+              doctorOnlyTextExposed: true,
+              clinicalConclusionGenerated: true,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getSelfHostedLesionLongitudinalQa({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      patientId: "patient-1",
+      lesionId: "lesion-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.readiness.status).toBe("blocked");
+    expect(result.value?.readiness.dynamicConclusionAllowed).toBe(false);
+    expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.boundaries.pairKeysExposed).toBe(false);
+    expect(result.value?.boundaries.imageIdsExposed).toBe(false);
+    expect(result.value?.nextActions).toEqual(["request_recapture"]);
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /secret-pair|i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/patients/patient-1/lesions/lesion-1/longitudinal-qa",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+  });
+
   it("reads viewer QA review queue without exposing pair keys or image IDs", async () => {
     const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
       new Response(
@@ -570,7 +651,9 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
     expect(result.value?.boundaries.pairKeysExposed).toBe(false);
     expect(result.value?.boundaries.imageIdsExposed).toBe(false);
-    expect(JSON.stringify(result.value)).not.toMatch(/"pairKey"|"imageIds"|i-011|i-012|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i);
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/visits/visit-1/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20",
       expect.objectContaining({ method: "GET" }),

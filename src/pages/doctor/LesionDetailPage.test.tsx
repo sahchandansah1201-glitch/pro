@@ -82,6 +82,83 @@ describe("LesionDetailPage", () => {
     );
   });
 
+  it("shows a longitudinal QA gate before dynamic interpretation", () => {
+    renderAt("/patients/p-004/lesions/l-008");
+
+    const qaGate = screen.getByRole("region", { name: /Готовность продольного QA/ });
+    expect(within(qaGate).getByText(/Динамика заблокирована/)).toBeInTheDocument();
+    expect(within(qaGate).getByText(/Технически готово/)).toBeInTheDocument();
+    expect(within(qaGate).getByText(/Нужен переснимок/)).toBeInTheDocument();
+    expect(within(qaGate).getByText(/Не создаёт вывод о динамике/)).toBeInTheDocument();
+    expect(within(qaGate).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
+    expect(qaGate.textContent ?? "").not.toMatch(
+      /storagePath|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи|вероятность/i,
+    );
+  });
+
+  it("loads production longitudinal QA gate from self-hosted backend without protected identifiers", async () => {
+    window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
+    window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            patientId: PROTECTED_RENDER_QA_IDS.patientId,
+            lesionId: PROTECTED_RENDER_QA_IDS.lesionId,
+            label: "QA protected proxy",
+            readiness: {
+              status: "technical_ready",
+              visitCount: 2,
+              imageCount: 4,
+              candidatePairCount: 2,
+              reviewedPairCount: 2,
+              technicalReadyPairCount: 2,
+              needsRecaptureCount: 0,
+              notSuitableForComparisonCount: 0,
+              unreviewedPairCount: 0,
+              missingCaptureMetadataCount: 0,
+              calibrationBlockedCount: 0,
+              markerMissingCount: 0,
+              technicalRolloutReady: true,
+              dynamicConclusionAllowed: true,
+            },
+            blockers: [],
+            nextActions: ["continue_review"],
+            boundaries: {
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              pairKeysExposed: true,
+              imageIdsExposed: true,
+              storagePathsExposed: true,
+              signedUrlsIssued: true,
+              rawImageBytesExposed: true,
+              doctorOnlyTextExposed: true,
+              clinicalConclusionGenerated: true,
+            },
+          },
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt(`/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`);
+
+    const qaGate = screen.getByRole("region", { name: /Готовность продольного QA/ });
+    fireEvent.click(within(qaGate).getByRole("button", { name: /Обновить production QA/ }));
+
+    expect(await within(qaGate).findByText(/Production QA обновлён/)).toBeInTheDocument();
+    expect(within(qaGate).getByText(/Технический gate готов/)).toBeInTheDocument();
+    expect(within(qaGate).getByText(/Вывод о динамике: выключен/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:3001/api/v1/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}/longitudinal-qa`,
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(qaGate.textContent ?? "").not.toMatch(
+      /pairKey|imageIds|i-011|i-012|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|меланома|рак кожи|вероятность/i,
+    );
+  });
+
   it("p-004/l-007: снимок есть, но структурированной оценки нет", () => {
     renderAt("/patients/p-004/lesions/l-007");
     expect(screen.getByText(/Послеоперационная зона/)).toBeInTheDocument();

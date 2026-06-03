@@ -55,9 +55,13 @@ import {
 } from "@/lib/self-hosted-api-session";
 import {
   downloadSelfHostedProtectedLesionImage,
+  getSelfHostedLesionLongitudinalQa,
   reviewSelfHostedLesionComparisonViewerQa,
+  SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
   saveSelfHostedLesionComparisonDraft,
   saveSelfHostedLesionComparisonViewerQa,
+  type SelfHostedLesionLongitudinalQaAction,
+  type SelfHostedLesionLongitudinalQaDTO,
 } from "@/lib/self-hosted-clinical-workspace-api";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
 
@@ -100,6 +104,7 @@ type ViewerQaBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error
 type ViewerQaReviewBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type ViewerQaReviewStatus = "technical_ready" | "needs_recapture" | "not_suitable_for_comparison";
 type ProtectedRenderStatus = "idle" | "loading" | "ready" | "error";
+type LongitudinalQaLoadStatus = "idle" | "loading" | "loaded" | "error";
 type ProtectedRenderReadinessItem = {
   label: string;
   ready: boolean;
@@ -194,6 +199,20 @@ const VIEWER_QA_REVIEW_LABEL: Record<ViewerQaReviewStatus, string> = {
   technical_ready: "Технически готово",
   needs_recapture: "Нужен переснимок",
   not_suitable_for_comparison: "Не использовать для динамики",
+};
+const LONGITUDINAL_QA_STATUS_LABEL: Record<SelfHostedLesionLongitudinalQaDTO["readiness"]["status"], string> = {
+  blocked: "Динамика заблокирована",
+  needs_review: "Нужен технический review",
+  technical_ready: "Технический gate готов",
+};
+const LONGITUDINAL_QA_ACTION_LABEL: Record<SelfHostedLesionLongitudinalQaAction, string> = {
+  review_queue: "Разобрать очередь viewer QA",
+  request_recapture: "Запросить переснимок",
+  exclude_from_dynamic_review: "Исключить из динамического разбора",
+  complete_capture_metadata: "Дозаполнить metadata съёмки",
+  complete_calibration: "Закрыть калибровку",
+  place_markers: "Поставить технические маркеры",
+  continue_review: "Продолжить врачебный разбор",
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -477,6 +496,88 @@ function buildLongitudinalPairs(groups: LongitudinalVisitGroup[]): LongitudinalP
   return pairs;
 }
 
+function buildLocalLongitudinalQaGate({
+  patientId,
+  lesion,
+  groups,
+  pairs,
+}: {
+  patientId: string;
+  lesion: Lesion;
+  groups: LongitudinalVisitGroup[];
+  pairs: LongitudinalPair[];
+}): SelfHostedLesionLongitudinalQaDTO {
+  const imageCount = groups.reduce((sum, group) => sum + group.images.length, 0);
+  const technicalReadyPairCount = pairs.filter((pair) => pair.status === "ready").length;
+  const needsRecaptureCount = pairs.filter((pair) => pair.status === "warning" || pair.status === "blocked").length;
+  const notSuitableForComparisonCount = pairs.filter((pair) => pair.status === "blocked").length;
+  const unreviewedPairCount = pairs.filter((pair) => pair.status === "warning").length;
+  const candidatePairCount = pairs.length;
+  const calibrationBlockedCount = needsRecaptureCount;
+  const markerMissingCount = needsRecaptureCount;
+  const status: SelfHostedLesionLongitudinalQaDTO["readiness"]["status"] =
+    candidatePairCount === 0 || needsRecaptureCount > 0 || calibrationBlockedCount > 0 || markerMissingCount > 0
+      ? "blocked"
+      : unreviewedPairCount > 0
+        ? "needs_review"
+        : "technical_ready";
+  const technicalRolloutReady = status === "technical_ready" && candidatePairCount > 0;
+  const blockers: SelfHostedLesionLongitudinalQaDTO["blockers"] = [
+    candidatePairCount === 0
+      ? { code: "no_candidate_pairs", label: "Нет пар для продольного QA", count: 1, nextAction: "review_queue" }
+      : null,
+    needsRecaptureCount > 0
+      ? { code: "recapture_required", label: "Нужен переснимок", count: needsRecaptureCount, nextAction: "request_recapture" }
+      : null,
+    notSuitableForComparisonCount > 0
+      ? {
+        code: "not_suitable_for_comparison",
+        label: "Не использовать для динамики",
+        count: notSuitableForComparisonCount,
+        nextAction: "exclude_from_dynamic_review",
+      }
+      : null,
+    unreviewedPairCount > 0
+      ? { code: "unreviewed_pairs", label: "Нужен технический review", count: unreviewedPairCount, nextAction: "review_queue" }
+      : null,
+    calibrationBlockedCount > 0
+      ? { code: "calibration_not_ready", label: "Калибровка не готова", count: calibrationBlockedCount, nextAction: "complete_calibration" }
+      : null,
+    markerMissingCount > 0
+      ? { code: "technical_markers_missing", label: "Не хватает технических маркеров", count: markerMissingCount, nextAction: "place_markers" }
+      : null,
+  ].filter((item): item is SelfHostedLesionLongitudinalQaDTO["blockers"][number] => Boolean(item));
+  const nextActions = blockers.length > 0
+    ? Array.from(new Set(blockers.map((blocker) => blocker.nextAction)))
+    : (["continue_review"] as SelfHostedLesionLongitudinalQaAction[]);
+
+  return {
+    clinicId: null,
+    patientId,
+    lesionId: lesion.id,
+    label: lesion.label,
+    readiness: {
+      status,
+      visitCount: groups.length,
+      imageCount,
+      candidatePairCount,
+      reviewedPairCount: candidatePairCount,
+      technicalReadyPairCount,
+      needsRecaptureCount,
+      notSuitableForComparisonCount,
+      unreviewedPairCount,
+      missingCaptureMetadataCount: 0,
+      calibrationBlockedCount,
+      markerMissingCount,
+      technicalRolloutReady,
+      dynamicConclusionAllowed: false,
+    },
+    blockers,
+    nextActions,
+    boundaries: SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
+  };
+}
+
 function LongitudinalHistorySection({
   groups,
   pairs,
@@ -605,6 +706,129 @@ function LongitudinalHistorySection({
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
             Техническая история помогает выбрать пары для врачебного разбора. Не оценивайте динамику без повторяемых условий съёмки и врачебной проверки.
+          </span>
+        </p>
+      </section>
+    </Card>
+  );
+}
+
+function LongitudinalQaGateSection({
+  qa,
+  canRefresh,
+  loadStatus,
+  message,
+  onRefresh,
+}: {
+  qa: SelfHostedLesionLongitudinalQaDTO;
+  canRefresh: boolean;
+  loadStatus: LongitudinalQaLoadStatus;
+  message: string;
+  onRefresh: () => void;
+}) {
+  const readiness = qa.readiness;
+
+  return (
+    <Card className="p-3 sm:p-4">
+      <section aria-label="Готовность продольного QA">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-[13px] font-semibold">Готовность продольного QA</h2>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
+              Metadata-only gate перед любым разбором динамики. Не создаёт вывод о динамике.
+            </p>
+          </div>
+          <span
+            className={`rounded-sm border px-2 py-1 text-[11px] ${
+              readiness.status === "technical_ready"
+                ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
+                : readiness.status === "needs_review"
+                  ? "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate"
+                  : "border-destructive/30 bg-destructive/10 text-destructive"
+            }`}
+          >
+            {LONGITUDINAL_QA_STATUS_LABEL[readiness.status]}
+          </span>
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Пары</div>
+            <div className="mt-1 font-medium">Пар: {readiness.candidatePairCount}</div>
+            <div className="text-[11px] text-muted-foreground">Визитов: {readiness.visitCount}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Готовые пары</div>
+            <div className="mt-1 font-medium">Технически готово: {readiness.technicalReadyPairCount}</div>
+            <div className="text-[11px] text-muted-foreground">Снимков: {readiness.imageCount}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Пересъёмка</div>
+            <div className="mt-1 font-medium">Переснять: {readiness.needsRecaptureCount}</div>
+            <div className="text-[11px] text-muted-foreground">Не использовать: {readiness.notSuitableForComparisonCount}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Metadata</div>
+            <div className="mt-1 font-medium">Не хватает: {readiness.missingCaptureMetadataCount}</div>
+            <div className="text-[11px] text-muted-foreground">Review: {readiness.unreviewedPairCount}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Калибровка</div>
+            <div className="mt-1 font-medium">Ограничений: {readiness.calibrationBlockedCount}</div>
+            <div className="text-[11px] text-muted-foreground">Маркеры: {readiness.markerMissingCount}</div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)]">
+          <div className="min-w-0 rounded-md border border-border bg-background p-2">
+            <h3 className="text-[12px] font-semibold">Блокеры production QA</h3>
+            {qa.blockers.length === 0 ? (
+              <p className="mt-2 text-[12px] text-muted-foreground">Блокеров technical gate нет. Клинический вывод всё равно не создаётся.</p>
+            ) : (
+              <ul className="mt-2 space-y-1.5">
+                {qa.blockers.map((blocker) => (
+                  <li key={blocker.code} className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-muted/20 px-2 py-1.5 text-[12px]">
+                    <span className="font-medium">{blocker.label}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {blocker.count} · {LONGITUDINAL_QA_ACTION_LABEL[blocker.nextAction]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="min-w-0 rounded-md border border-border bg-background p-2">
+            <h3 className="text-[12px] font-semibold">Действия</h3>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {qa.nextActions.map((action) => (
+                <span key={action} className="rounded-sm border border-border bg-muted/20 px-1.5 py-0.5 text-[11px]">
+                  {LONGITUDINAL_QA_ACTION_LABEL[action]}
+                </span>
+              ))}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-3 min-h-[44px] text-[12px] sm:min-h-[32px]"
+              onClick={onRefresh}
+              disabled={!canRefresh || loadStatus === "loading"}
+            >
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              Обновить production QA
+            </Button>
+            {message && <p className="mt-2 text-[12px] text-muted-foreground">{message}</p>}
+          </div>
+        </div>
+
+        <p
+          className="mt-3 flex items-start gap-2 rounded-md border px-2 py-1.5 text-[12px]"
+          style={{ background: "hsl(var(--warning) / 0.08)", borderColor: "hsl(var(--warning) / 0.30)", color: "hsl(var(--warning))" }}
+        >
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>
+            Вывод о динамике: выключен. Выдача пациенту: выключена. Медицинские измерения и клинические заключения доступны только после отдельного врачебного workflow.
           </span>
         </p>
       </section>
@@ -1549,6 +1773,9 @@ export default function LesionDetailPage() {
   const [protectedRenderStatus, setProtectedRenderStatus] = useState<ProtectedRenderStatus>("idle");
   const [protectedRenderMessage, setProtectedRenderMessage] = useState("");
   const [protectedImageUrls, setProtectedImageUrls] = useState<Record<string, string>>({});
+  const [productionLongitudinalQa, setProductionLongitudinalQa] = useState<SelfHostedLesionLongitudinalQaDTO | null>(null);
+  const [longitudinalQaLoadStatus, setLongitudinalQaLoadStatus] = useState<LongitudinalQaLoadStatus>("idle");
+  const [longitudinalQaMessage, setLongitudinalQaMessage] = useState("");
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
@@ -1644,6 +1871,12 @@ export default function LesionDetailPage() {
 
   useEffect(() => () => revokePreviewUrls(protectedImageUrls), [protectedImageUrls]);
 
+  useEffect(() => {
+    setProductionLongitudinalQa(null);
+    setLongitudinalQaLoadStatus("idle");
+    setLongitudinalQaMessage("");
+  }, [id, lesionId]);
+
   if (!patient) {
     return <NotFound title="Пациент не найден" hint="Карточка пациента отсутствует в демо-данных." />;
   }
@@ -1670,6 +1903,14 @@ export default function LesionDetailPage() {
   const orphanVisits = visitsWithImages.filter((v) => !visitsWithAssessment.has(v));
   const longitudinalGroups = buildLongitudinalVisitGroups(images, visits, assessments);
   const longitudinalPairs = buildLongitudinalPairs(longitudinalGroups);
+  const localLongitudinalQa = buildLocalLongitudinalQaGate({
+    patientId: patient.id,
+    lesion,
+    groups: longitudinalGroups,
+    pairs: longitudinalPairs,
+  });
+  const activeLongitudinalQa = productionLongitudinalQa ?? localLongitudinalQa;
+  const canRefreshLongitudinalQa = Boolean(selfHostedConfigured && isUuid(patient.id) && isUuid(lesion.id));
 
   const latestVisit = visits.find((v) => visitsWithImages.includes(v.id))
     ?? visits.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
@@ -1902,6 +2143,31 @@ export default function LesionDetailPage() {
     setProtectedRenderMessage("Защищённые превью загружены через backend proxy. Выдача пациенту: выключена.");
   };
 
+  const refreshProductionLongitudinalQa = async () => {
+    if (!canRefreshLongitudinalQa) {
+      setLongitudinalQaLoadStatus("error");
+      setLongitudinalQaMessage("Production QA доступен только для self-hosted UUID-карточки.");
+      return;
+    }
+
+    setLongitudinalQaLoadStatus("loading");
+    setLongitudinalQaMessage("Production QA обновляется из self-hosted backend.");
+    const result = await getSelfHostedLesionLongitudinalQa({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      patientId: patient.id,
+      lesionId: lesion.id,
+    });
+    if (result.ok && result.value) {
+      setProductionLongitudinalQa(result.value);
+      setLongitudinalQaLoadStatus("loaded");
+      setLongitudinalQaMessage("Production QA обновлён. Выдача пациенту: выключена.");
+    } else {
+      setLongitudinalQaLoadStatus("error");
+      setLongitudinalQaMessage(result.error?.message ?? "Production QA не обновлён.");
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -1994,7 +2260,16 @@ export default function LesionDetailPage() {
         </Card>
 
         {longitudinalGroups.length > 0 && (
-          <LongitudinalHistorySection groups={longitudinalGroups} pairs={longitudinalPairs} />
+          <>
+            <LongitudinalHistorySection groups={longitudinalGroups} pairs={longitudinalPairs} />
+            <LongitudinalQaGateSection
+              qa={activeLongitudinalQa}
+              canRefresh={canRefreshLongitudinalQa}
+              loadStatus={longitudinalQaLoadStatus}
+              message={longitudinalQaMessage}
+              onRefresh={refreshProductionLongitudinalQa}
+            />
+          </>
         )}
 
         <Card className="p-3 sm:p-4">

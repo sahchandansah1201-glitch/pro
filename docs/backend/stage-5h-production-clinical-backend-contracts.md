@@ -608,6 +608,71 @@ Safety boundary:
   doctor-side metadata only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BG Longitudinal QA Gate
+
+Batch BG adds a lesion-level production QA gate over the longitudinal timeline.
+It aggregates capture metadata and viewer QA review decisions into one
+metadata-only readiness read model before any dynamic interpretation is allowed.
+
+Backend contracts:
+
+- `GET /api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa`;
+- repository builder `buildGetLesionLongitudinalQaSql`;
+- service method `getLesionLongitudinalQa`;
+- audit action `lesion_longitudinal_qa.read`;
+- OpenAPI schema `LesionLongitudinalQa`.
+
+Readiness fields:
+
+- `status`: `blocked`, `needs_review`, or `technical_ready`;
+- counts for visits, images, candidate pairs, reviewed pairs, technical-ready
+  pairs, recapture decisions, excluded pairs, unreviewed pairs, missing capture
+  metadata, calibration blockers and missing technical markers;
+- `technicalRolloutReady`;
+- `dynamicConclusionAllowed=false`.
+
+Frontend behavior:
+
+- `LesionDetailPage` renders region `Готовность продольного QA`;
+- local demo data is collapsed into safe aggregate counts;
+- self-hosted UUID data can be refreshed with `Обновить production QA`;
+- safe copy states `Динамика заблокирована`, `Не создаёт вывод о динамике`,
+  `Вывод о динамике: выключен`, and `Выдача пациенту: выключена`;
+- no pair keys, image IDs, storage paths, signed URLs, QR/session/credential
+  material, doctor-only text, patient-safe report text, diagnosis, risk,
+  prognosis or treatment copy is rendered.
+
+Safety boundary:
+
+- audit metadata stores only lesion-level aggregate counts and boundary flags;
+- `patientDeliveryAllowed=false`;
+- `medicalMeasurementAllowed=false`;
+- `protectedFieldsExposed=false`;
+- `pairKeysExposed=false`;
+- `imageIdsExposed=false`;
+- `storagePathsExposed=false`;
+- `signedUrlsIssued=false`;
+- `rawImageBytesExposed=false`;
+- `doctorOnlyTextExposed=false`;
+- `clinicalConclusionGenerated=false`.
+
+### Batch BG Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BG adds
+  timeline-level QA rollout readiness over the lesion history. Remaining gate:
+  production dataset validation and richer device-provided capture metadata.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BG
+  aggregates persisted pair review decisions into lesion-level readiness and
+  next actions. Remaining gate: calibrated production viewer QA and
+  clinical-grade reviewer workflow.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BG blocks dynamic
+  interpretation until metadata, review, calibration and marker gates pass.
+  Remaining gate: approved production analysis policy; automated clinical
+  dynamic conclusions remain disabled.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BG is
+  doctor-side metadata only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

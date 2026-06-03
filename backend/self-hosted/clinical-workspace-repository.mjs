@@ -350,6 +350,171 @@ from (
 `.trim();
 }
 
+export function buildGetLesionLongitudinalQaSql({
+  patientId,
+  lesionId,
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_lesion as (
+    select
+      l.id,
+      l.clinic_id,
+      l.patient_id,
+      l.label
+    from lesions l
+    where l.patient_id = ${sqlUuid(patientId)}
+      and l.id = ${sqlUuid(lesionId)}
+      ${clinicScopeWhere({ alias: "l", clinicIds, allClinics })}
+    limit 1
+  ),
+  lesion_assets as (
+    select
+      a.id,
+      a.clinic_id,
+      a.patient_id,
+      a.visit_id,
+      a.kind::text as kind,
+      a.content_type,
+      a.created_at,
+      m.asset_id as metadata_asset_id,
+      case
+        when m.asset_id is null then 'missing'
+        when m.device_id is null then 'needs_review'
+        when m.frame_width is null or m.frame_height is null then 'needs_review'
+        when coalesce(m.quality_score, 0) < 75 then 'needs_review'
+        when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'needs_review'
+        else 'ready'
+      end as capture_metadata_status
+    from clinical_assets a
+    join target_lesion l
+      on l.id = a.lesion_id
+     and l.patient_id = a.patient_id
+     and l.clinic_id = a.clinic_id
+    left join clinical_asset_capture_metadata m
+      on m.asset_id = a.id
+     and m.patient_id = a.patient_id
+     and m.clinic_id = a.clinic_id
+    where a.visit_id is not null
+      and a.kind in ('overview_photo', 'dermoscopy')
+      and a.content_type like 'image/%'
+  ),
+  qa_rows as (
+    select
+      q.review_status,
+      q.calibration_status,
+      q.capture_metadata_status,
+      jsonb_array_length(coalesce(q.technical_markers, '[]'::jsonb))::int as technical_marker_count
+    from lesion_comparison_viewer_qa_drafts q
+    join target_lesion l
+      on l.id::text = q.lesion_id
+     and l.patient_id = q.patient_id
+     and l.clinic_id = q.clinic_id
+    where q.medical_measurement_allowed = false
+      and q.patient_delivery_allowed = false
+      and q.protected_fields_exposed = false
+      ${clinicScopeWhere({ alias: "q", clinicIds, allClinics })}
+  ),
+  rollup as (
+    select
+      coalesce((select count(distinct visit_id)::int from lesion_assets), 0) as visit_count,
+      coalesce((select count(*)::int from lesion_assets), 0) as image_count,
+      coalesce((select count(*)::int from qa_rows), 0) as candidate_pair_count,
+      coalesce((select count(*)::int from qa_rows where review_status <> 'unreviewed'), 0) as reviewed_pair_count,
+      coalesce((select count(*)::int from qa_rows where review_status = 'technical_ready'), 0) as technical_ready_pair_count,
+      coalesce((select count(*)::int from qa_rows where review_status = 'needs_recapture'), 0) as needs_recapture_count,
+      coalesce((select count(*)::int from qa_rows where review_status = 'not_suitable_for_comparison'), 0) as not_suitable_for_comparison_count,
+      coalesce((select count(*)::int from qa_rows where review_status = 'unreviewed'), 0) as unreviewed_pair_count,
+      coalesce((select count(*)::int from lesion_assets where capture_metadata_status = 'missing'), 0) as missing_capture_metadata_count,
+      coalesce((select count(*)::int from qa_rows where calibration_status <> 'ready'), 0) as calibration_blocked_count,
+      coalesce((select count(*)::int from qa_rows where technical_marker_count < 2), 0) as marker_missing_count
+  ),
+  readiness as (
+    select
+      *,
+      case
+        when candidate_pair_count = 0
+          or needs_recapture_count > 0
+          or not_suitable_for_comparison_count > 0
+          or missing_capture_metadata_count > 0
+          or calibration_blocked_count > 0
+          or marker_missing_count > 0 then 'blocked'
+        when unreviewed_pair_count > 0 then 'needs_review'
+        else 'technical_ready'
+      end as status,
+      (
+        candidate_pair_count > 0
+        and technical_ready_pair_count = candidate_pair_count
+        and needs_recapture_count = 0
+        and not_suitable_for_comparison_count = 0
+        and unreviewed_pair_count = 0
+        and missing_capture_metadata_count = 0
+        and calibration_blocked_count = 0
+        and marker_missing_count = 0
+      ) as technical_rollout_ready
+    from rollup
+  )
+  select
+    l.clinic_id::text as "clinicId",
+    l.patient_id::text as "patientId",
+    l.id::text as "lesionId",
+    l.label as "label",
+    jsonb_build_object(
+      'status', r.status,
+      'visitCount', r.visit_count,
+      'imageCount', r.image_count,
+      'candidatePairCount', r.candidate_pair_count,
+      'reviewedPairCount', r.reviewed_pair_count,
+      'technicalReadyPairCount', r.technical_ready_pair_count,
+      'needsRecaptureCount', r.needs_recapture_count,
+      'notSuitableForComparisonCount', r.not_suitable_for_comparison_count,
+      'unreviewedPairCount', r.unreviewed_pair_count,
+      'missingCaptureMetadataCount', r.missing_capture_metadata_count,
+      'calibrationBlockedCount', r.calibration_blocked_count,
+      'markerMissingCount', r.marker_missing_count,
+      'technicalRolloutReady', r.technical_rollout_ready,
+      'dynamicConclusionAllowed', false
+    ) as "readiness",
+    jsonb_build_array(
+      jsonb_build_object('code', 'no_candidate_pairs', 'label', 'Нет пар для продольного QA', 'count', case when r.candidate_pair_count = 0 then 1 else 0 end, 'nextAction', 'review_queue'),
+      jsonb_build_object('code', 'recapture_required', 'label', 'Нужен переснимок', 'count', r.needs_recapture_count, 'nextAction', 'request_recapture'),
+      jsonb_build_object('code', 'not_suitable_for_comparison', 'label', 'Не использовать для динамики', 'count', r.not_suitable_for_comparison_count, 'nextAction', 'exclude_from_dynamic_review'),
+      jsonb_build_object('code', 'unreviewed_pairs', 'label', 'Нужен технический review', 'count', r.unreviewed_pair_count, 'nextAction', 'review_queue'),
+      jsonb_build_object('code', 'missing_capture_metadata', 'label', 'Не хватает metadata съёмки', 'count', r.missing_capture_metadata_count, 'nextAction', 'complete_capture_metadata'),
+      jsonb_build_object('code', 'calibration_not_ready', 'label', 'Калибровка не готова', 'count', r.calibration_blocked_count, 'nextAction', 'complete_calibration'),
+      jsonb_build_object('code', 'technical_markers_missing', 'label', 'Не хватает технических маркеров', 'count', r.marker_missing_count, 'nextAction', 'place_markers')
+    ) as "blockers",
+    array_remove(array[
+      case when r.candidate_pair_count = 0 or r.unreviewed_pair_count > 0 then 'review_queue' end,
+      case when r.needs_recapture_count > 0 then 'request_recapture' end,
+      case when r.not_suitable_for_comparison_count > 0 then 'exclude_from_dynamic_review' end,
+      case when r.missing_capture_metadata_count > 0 then 'complete_capture_metadata' end,
+      case when r.calibration_blocked_count > 0 then 'complete_calibration' end,
+      case when r.marker_missing_count > 0 then 'place_markers' end,
+      case when r.technical_rollout_ready then 'continue_review' end
+    ]::text[], null) as "nextActions",
+    jsonb_build_object(
+      'patientDeliveryAllowed', false,
+      'medicalMeasurementAllowed', false,
+      'protectedFieldsExposed', false,
+      'pairKeysExposed', false,
+      'imageIdsExposed', false,
+      'storagePathsExposed', false,
+      'signedUrlsIssued', false,
+      'rawImageBytesExposed', false,
+      'doctorOnlyTextExposed', false,
+      'clinicalConclusionGenerated', false
+    ) as "boundaries",
+    'lesion_longitudinal_qa.read' as "auditAction"
+  from target_lesion l
+  cross join readiness r
+) result;
+`.trim();
+}
+
 export function buildGetProtectedLesionImageAssetSql({
   patientId,
   lesionId,
@@ -1523,6 +1688,100 @@ function normalizeVisitLesionComparisonViewerQaReviewQueue(row) {
   };
 }
 
+const LONGITUDINAL_QA_STATUS_VALUES = new Set(["blocked", "needs_review", "technical_ready"]);
+const LONGITUDINAL_QA_BLOCKER_VALUES = new Set([
+  "no_candidate_pairs",
+  "recapture_required",
+  "not_suitable_for_comparison",
+  "unreviewed_pairs",
+  "missing_capture_metadata",
+  "calibration_not_ready",
+  "technical_markers_missing",
+]);
+const LONGITUDINAL_QA_ACTION_VALUES = new Set([
+  "review_queue",
+  "request_recapture",
+  "exclude_from_dynamic_review",
+  "complete_capture_metadata",
+  "complete_calibration",
+  "place_markers",
+  "continue_review",
+]);
+
+function normalizeLongitudinalQaStatus(value) {
+  const status = String(value ?? "blocked");
+  return LONGITUDINAL_QA_STATUS_VALUES.has(status) ? status : "blocked";
+}
+
+function normalizeLongitudinalQaAction(value) {
+  const action = String(value ?? "");
+  return LONGITUDINAL_QA_ACTION_VALUES.has(action) ? action : null;
+}
+
+function normalizeLongitudinalQaReadiness(value) {
+  const source = parseJsonObject(value);
+  return {
+    status: normalizeLongitudinalQaStatus(source.status),
+    visitCount: numberOrZero(source.visitCount),
+    imageCount: numberOrZero(source.imageCount),
+    candidatePairCount: numberOrZero(source.candidatePairCount),
+    reviewedPairCount: numberOrZero(source.reviewedPairCount),
+    technicalReadyPairCount: numberOrZero(source.technicalReadyPairCount),
+    needsRecaptureCount: numberOrZero(source.needsRecaptureCount),
+    notSuitableForComparisonCount: numberOrZero(source.notSuitableForComparisonCount),
+    unreviewedPairCount: numberOrZero(source.unreviewedPairCount),
+    missingCaptureMetadataCount: numberOrZero(source.missingCaptureMetadataCount),
+    calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
+    markerMissingCount: numberOrZero(source.markerMissingCount),
+    technicalRolloutReady: source.technicalRolloutReady === true,
+    dynamicConclusionAllowed: false,
+  };
+}
+
+function normalizeLongitudinalQaBlocker(row) {
+  const code = String(row.code ?? "");
+  const count = numberOrZero(row.count);
+  const nextAction = normalizeLongitudinalQaAction(row.nextAction);
+  if (!LONGITUDINAL_QA_BLOCKER_VALUES.has(code) || count < 1 || !nextAction) return null;
+  return {
+    code,
+    label: String(row.label ?? code),
+    count,
+    nextAction,
+  };
+}
+
+function normalizeLongitudinalQaActions(value) {
+  const source = parseStringArray(value);
+  return [...new Set(source.map(normalizeLongitudinalQaAction).filter(Boolean))];
+}
+
+function normalizeLesionLongitudinalQa(row) {
+  return {
+    clinicId: row.clinicId ? String(row.clinicId) : null,
+    patientId: row.patientId ? String(row.patientId) : null,
+    lesionId: String(row.lesionId ?? ""),
+    label: row.label ?? null,
+    readiness: normalizeLongitudinalQaReadiness(row.readiness),
+    blockers: parseObjectArray(row.blockers)
+      .map(normalizeLongitudinalQaBlocker)
+      .filter(Boolean),
+    nextActions: normalizeLongitudinalQaActions(row.nextActions),
+    boundaries: {
+      patientDeliveryAllowed: false,
+      medicalMeasurementAllowed: false,
+      protectedFieldsExposed: false,
+      pairKeysExposed: false,
+      imageIdsExposed: false,
+      storagePathsExposed: false,
+      signedUrlsIssued: false,
+      rawImageBytesExposed: false,
+      doctorOnlyTextExposed: false,
+      clinicalConclusionGenerated: false,
+    },
+  };
+}
+
 function normalizeLongitudinalSummary(value) {
   const source = parseJsonObject(value);
   return {
@@ -1654,6 +1913,9 @@ export function createClinicalWorkspaceRepository(dbClient) {
     },
     async getLesionLongitudinalHistory(params) {
       return queryOne(dbClient, buildGetLesionLongitudinalHistorySql(params), normalizeLesionLongitudinalHistory);
+    },
+    async getLesionLongitudinalQa(params) {
+      return queryOne(dbClient, buildGetLesionLongitudinalQaSql(params), normalizeLesionLongitudinalQa);
     },
     async getProtectedLesionImageAsset(params) {
       return queryOne(dbClient, buildGetProtectedLesionImageAssetSql(params), normalizeProtectedLesionImageAsset);

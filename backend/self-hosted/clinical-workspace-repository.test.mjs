@@ -6,6 +6,7 @@ import {
   buildGetVisitConclusionSql,
   buildGetLesionCaptureMetadataSql,
   buildGetLesionLongitudinalHistorySql,
+  buildGetLesionLongitudinalQaSql,
   buildGetProtectedLesionImageAssetSql,
   buildGetVisitLesionComparisonViewerQaReviewQueueSql,
   buildGetVisitReportSql,
@@ -54,6 +55,28 @@ test("Batch AW Stage 5H repository builds metadata-only lesion longitudinal hist
   assert.doesNotMatch(
     sql,
     /object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text/i,
+  );
+});
+
+test("Batch BG Stage 5H repository builds metadata-only lesion longitudinal QA SQL", () => {
+  const sql = buildGetLesionLongitudinalQaSql({
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /from lesions l/);
+  assert.match(sql, /clinical_asset_capture_metadata/);
+  assert.match(sql, /lesion_comparison_viewer_qa_drafts/);
+  assert.match(sql, /longitudinal_qa\.read/i);
+  assert.match(sql, /technicalRolloutReady/);
+  assert.match(sql, /dynamicConclusionAllowed/);
+  assert.match(sql, /pairKeysExposed/);
+  assert.match(sql, /imageIdsExposed/);
+  assert.match(sql, /and l\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /q\.pair_key|q\.image_ids|object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
   );
 });
 
@@ -689,4 +712,79 @@ test("Batch AW Stage 5H repository normalizes longitudinal history with forced s
   assert.equal(history.boundaries.rawImageBytesExposed, false);
   assert.equal(history.boundaries.doctorOnlyTextExposed, false);
   assert.equal(history.boundaries.clinicalConclusionGenerated, false);
+});
+
+test("Batch BG Stage 5H repository normalizes longitudinal QA with forced safe boundaries", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          lesionId: "10000000-0000-4000-8000-000000000801",
+          label: "Очаг A",
+          readiness: {
+            status: "technical_ready",
+            visitCount: 2,
+            imageCount: 4,
+            candidatePairCount: 2,
+            reviewedPairCount: 2,
+            technicalReadyPairCount: 2,
+            needsRecaptureCount: 0,
+            notSuitableForComparisonCount: 0,
+            unreviewedPairCount: 0,
+            missingCaptureMetadataCount: 0,
+            calibrationBlockedCount: 0,
+            markerMissingCount: 0,
+            technicalRolloutReady: true,
+            dynamicConclusionAllowed: true,
+          },
+          blockers: [
+            {
+              code: "unsafe",
+              label: "unsafe",
+              count: 99,
+              nextAction: "unsafe",
+              pairKey: "secret-pair",
+              imageIds: ["i-011", "i-012"],
+            },
+          ],
+          nextActions: ["continue_review", "unsafe_action"],
+          boundaries: {
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            pairKeysExposed: true,
+            imageIdsExposed: true,
+            storagePathsExposed: true,
+            signedUrlsIssued: true,
+            rawImageBytesExposed: true,
+            doctorOnlyTextExposed: true,
+            clinicalConclusionGenerated: true,
+          },
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const qa = await repo.getLesionLongitudinalQa({
+    patientId: PATIENT_ID,
+    lesionId: "10000000-0000-4000-8000-000000000801",
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.equal(qa.readiness.status, "technical_ready");
+  assert.equal(qa.readiness.technicalRolloutReady, true);
+  assert.equal(qa.readiness.dynamicConclusionAllowed, false);
+  assert.equal(qa.boundaries.patientDeliveryAllowed, false);
+  assert.equal(qa.boundaries.medicalMeasurementAllowed, false);
+  assert.equal(qa.boundaries.pairKeysExposed, false);
+  assert.equal(qa.boundaries.imageIdsExposed, false);
+  assert.equal(qa.boundaries.clinicalConclusionGenerated, false);
+  assert.deepEqual(qa.nextActions, ["continue_review"]);
+  assert.deepEqual(qa.blockers, []);
+  assert.doesNotMatch(
+    JSON.stringify(qa),
+    /secret-pair|i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|token|session|qr/i,
+  );
 });
