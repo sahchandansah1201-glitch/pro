@@ -34,7 +34,7 @@ const renderAt = (path: string) =>
 
 const selectComparePair = (...imageIds: string[]) => {
   for (const imageId of imageIds) {
-    const row = screen.getByText(imageId).closest("li");
+    const row = document.querySelector<HTMLElement>(`[data-image-id="${imageId}"]`);
     if (!row) throw new Error(`Image row not found: ${imageId}`);
     fireEvent.click(within(row).getByRole("button", { name: /Сравнить/ }));
   }
@@ -49,9 +49,10 @@ describe("LesionDetailPage", () => {
   it("p-004/l-008: показывает образование, снимки и ссылку на визит", () => {
     renderAt("/patients/p-004/lesions/l-008");
     expect(screen.getByText(/Очаг B/)).toBeInTheDocument();
-    // Текущий визит содержит пару i-011/i-012; Batch AV добавляет предыдущий визит.
-    expect(screen.getByText("i-011")).toBeInTheDocument();
-    expect(screen.getByText("i-012")).toBeInTheDocument();
+    // Текущий визит содержит пару снимков; технические image IDs не выводятся врачу.
+    expect(document.querySelector('[data-image-id="i-011"]')).toBeTruthy();
+    expect(document.querySelector('[data-image-id="i-012"]')).toBeTruthy();
+    expect(screen.getAllByText(/Снимок 09\.03\.2026/).length).toBeGreaterThan(0);
     // оценка a-005
     expect(screen.getByText("a-005")).toBeInTheDocument();
     // ссылка на визит
@@ -72,8 +73,7 @@ describe("LesionDetailPage", () => {
     expect(within(history).getByText(/Ограничений: 1/)).toBeInTheDocument();
     expect(within(history).getByText(/v-011/)).toBeInTheDocument();
     expect(within(history).getByText(/v-005/)).toBeInTheDocument();
-    expect(within(history).getByText(/i-021 → i-011/)).toBeInTheDocument();
-    expect(within(history).getByText(/i-022 → i-012/)).toBeInTheDocument();
+    expect(within(history).getAllByText(/Снимок 20\.02\.2026 → Снимок 09\.03\.2026/).length).toBeGreaterThan(0);
     expect(within(history).getByText(/Сопоставимо с предупреждением/)).toBeInTheDocument();
     expect(within(history).getByText(/Не сопоставимо/)).toBeInTheDocument();
     expect(within(history).getByText(/Не является оценкой динамики или клиническим выводом/)).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe("LesionDetailPage", () => {
   it("p-004/l-007: снимок есть, но структурированной оценки нет", () => {
     renderAt("/patients/p-004/lesions/l-007");
     expect(screen.getByText(/Послеоперационная зона/)).toBeInTheDocument();
-    expect(screen.getByText("i-010")).toBeInTheDocument();
+    expect(document.querySelector('[data-image-id="i-010"]')).toBeTruthy();
     expect(
       screen.getByText(/Структурированная оценка не зафиксирована/),
     ).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe("LesionDetailPage", () => {
 
   it("кнопки демо-действий меняют только локальное состояние", () => {
     renderAt("/patients/p-004/lesions/l-008");
-    const row = screen.getByText("i-011").closest("li")!;
+    const row = document.querySelector<HTMLElement>('[data-image-id="i-011"]')!;
     const openBtn = within(row).getByRole("button", { name: /Открыть снимок/ });
     fireEvent.click(openBtn);
     expect(openBtn).toHaveAttribute("aria-pressed", "true");
@@ -218,10 +218,9 @@ describe("LesionDetailPage", () => {
     selectComparePair("i-011", "i-012");
 
     const matrix = screen.getByRole("table", { name: /Матрица сравнения/ });
-    expect(within(matrix).getByText(/Снимок A/)).toBeInTheDocument();
-    expect(within(matrix).getByText(/Снимок B/)).toBeInTheDocument();
-    expect(within(matrix).getByText("i-011")).toBeInTheDocument();
-    expect(within(matrix).getByText("i-012")).toBeInTheDocument();
+    expect(within(matrix).getAllByText(/Снимок A/).length).toBeGreaterThan(0);
+    expect(within(matrix).getAllByText(/Снимок B/).length).toBeGreaterThan(0);
+    expect(within(matrix).getByText(/Внутренний ID скрыт/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Дата/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Тип снимка/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Источник/)).toBeInTheDocument();
@@ -266,8 +265,8 @@ describe("LesionDetailPage", () => {
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
     expect(within(dialog).getByText(/Снимок A/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Снимок B/)).toBeInTheDocument();
-    expect(within(dialog).getByText("i-011")).toBeInTheDocument();
-    expect(within(dialog).getByText("i-012")).toBeInTheDocument();
+    expect(dialog.textContent ?? "").not.toContain("i-011");
+    expect(dialog.textContent ?? "").not.toContain("i-012");
     expect(within(dialog).getByText(/Условия съёмки/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Техническая сопоставимость/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Не сопоставимо/)).toBeInTheDocument();
@@ -663,6 +662,8 @@ describe("LesionDetailPage", () => {
 
     fireEvent.click(within(workflow).getByRole("button", { name: /Reviewer workflow принят/ }));
     expect(await within(workflow).findByText(/Reviewer workflow сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(dialog.textContent ?? "").not.toContain(CALIBRATED_VIEWER_QA_IDS.imageAId);
+    expect(dialog.textContent ?? "").not.toContain(CALIBRATED_VIEWER_QA_IDS.imageBId);
     expect(fetchMock).toHaveBeenCalledWith(
       `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/reviewer-workflow`,
       expect.objectContaining({ method: "PATCH" }),

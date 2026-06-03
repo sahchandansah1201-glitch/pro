@@ -231,6 +231,10 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const compactList = (values: string[]) => (values.length > 0 ? values.join(", ") : "—");
 const formatGeometryMarker = (marker: TechnicalGeometryMarker) => `${marker.target} x${marker.x} y${marker.y}`;
+const imageDisplayLabel = (image: ClinicalImage, marker?: "A" | "B") =>
+  marker ? `Снимок ${marker}` : `Снимок ${formatDate(image.capturedAt)}`;
+const imageDisplayMeta = (image: ClinicalImage) =>
+  `${formatDateTime(image.capturedAt)} · ${IMAGE_KIND[image.kind]} · ${image.deviceId ?? "без устройства"}`;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const isUuid = (value: string | null | undefined) => UUID_PATTERN.test(String(value || ""));
 const createPreviewObjectUrl = (blob: Blob) =>
@@ -389,10 +393,10 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
 
   return [
     {
-      label: "ID снимка",
-      a: imageA.id,
-      b: imageB.id,
-      result: "Выбраны два снимка",
+      label: "Снимок",
+      a: imageDisplayLabel(imageA, "A"),
+      b: imageDisplayLabel(imageB, "B"),
+      result: "Внутренний ID скрыт",
     },
     {
       label: "Дата",
@@ -683,8 +687,8 @@ function LongitudinalHistorySection({
                   <li key={pair.id} className="rounded-sm border border-border bg-muted/20 p-2 text-[12px]">
                     <div className="flex flex-wrap items-start justify-between gap-1.5">
                       <div className="min-w-0">
-                        <div className="font-mono text-[12px]">
-                          {pair.previousImage.id} → {pair.currentImage.id}
+                        <div className="text-[12px] font-medium">
+                          {imageDisplayLabel(pair.previousImage)} → {imageDisplayLabel(pair.currentImage)}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
                           {formatDate(pair.previous.date)} → {formatDate(pair.current.date)} · {IMAGE_KIND[pair.currentImage.kind]} · {pair.currentImage.deviceId ?? "без устройства"}
@@ -871,7 +875,7 @@ function ComparisonImagePanel({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
         <div className="min-w-0">
           <div className="text-[12px] font-semibold">Снимок {marker}</div>
-          <div className="font-mono text-[11px] text-muted-foreground">{image.id}</div>
+          <div className="text-[11px] text-muted-foreground">{imageDisplayMeta(image)}</div>
         </div>
         <span className={`rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(image)}`}>
           {imageQualityLabel(image)} · {(image.quality.score * 100).toFixed(0)}%
@@ -2669,7 +2673,10 @@ export default function LesionDetailPage() {
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
                       <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
-                        Пара: {compareImages[0].id} + {compareImages[1].id}
+                        Пара: {imageDisplayLabel(compareImages[0], "A")} + {imageDisplayLabel(compareImages[1], "B")}
+                      </span>
+                      <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
+                        Внутренние ID снимков скрыты
                       </span>
                       <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
                         {selectedPairIsComparable ? "Сопоставимо" : "Не сопоставимо"}
@@ -2729,10 +2736,14 @@ export default function LesionDetailPage() {
                 const isActive = activeImageId === img.id;
                 const isCompare = compareIds.includes(img.id);
                 return (
-                  <li key={img.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
+                  <li
+                    key={img.id}
+                    data-image-id={img.id}
+                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
+                  >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
-                        <span className="font-medium tabular-nums">{img.id}</span>
+                        <span className="font-medium tabular-nums">{imageDisplayLabel(img)}</span>
                         <span className="text-muted-foreground">·</span>
                         <span>{IMAGE_KIND[img.kind]}</span>
                         <span className="text-muted-foreground">·</span>
