@@ -4,6 +4,7 @@ import {
   getSelfHostedLesionCaptureMetadata,
   getSelfHostedLesionLongitudinalQa,
   getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
+  getSelfHostedVisitLongitudinalDatasetValidation,
   getSelfHostedVisitAssessment,
   getSelfHostedLesionLongitudinalHistory,
   downloadSelfHostedProtectedLesionImage,
@@ -735,6 +736,108 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/visits/visit-1/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("reads visit longitudinal dataset validation without exposing pair keys or image IDs", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            readiness: {
+              status: "ready_for_rollout",
+              lesionCount: 2,
+              timelineCandidateCount: 2,
+              readyTimelineCount: 1,
+              needsReviewTimelineCount: 1,
+              blockedTimelineCount: 0,
+              imageCount: 8,
+              candidatePairCount: 3,
+              reviewedPairCount: 2,
+              technicalReadyPairCount: 2,
+              missingCaptureMetadataCount: 0,
+              calibrationBlockedCount: 0,
+              markerMissingCount: 0,
+              reviewerWorkflowReadyCount: 1,
+              dynamicConclusionAllowed: true,
+            },
+            items: [
+              {
+                queueNumber: 1,
+                lesionId: "lesion-1",
+                lesionLabel: "Очаг A",
+                bodyZone: "спина",
+                bodySurface: "back",
+                status: "ready_for_rollout",
+                visitCount: 2,
+                imageCount: 4,
+                candidatePairCount: 2,
+                reviewedPairCount: 2,
+                technicalReadyPairCount: 2,
+                missingCaptureMetadataCount: 0,
+                calibrationBlockedCount: 0,
+                markerMissingCount: 0,
+                reviewerWorkflowReadyCount: 1,
+                nextAction: "continue_review",
+                pairKey: "secret-pair",
+                imageIds: ["i-011", "i-012"],
+              },
+            ],
+            blockers: [
+              {
+                code: "unsafe",
+                label: "Unsafe",
+                count: 99,
+                nextAction: "unsafe",
+                pairKey: "secret-pair",
+                imageIds: ["i-011", "i-012"],
+              },
+            ],
+            nextActions: ["continue_review", "unsafe_action"],
+            boundaries: {
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              pairKeysExposed: true,
+              imageIdsExposed: true,
+              storagePathsExposed: true,
+              signedUrlsIssued: true,
+              rawImageBytesExposed: true,
+              doctorOnlyTextExposed: true,
+              clinicalConclusionGenerated: true,
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getSelfHostedVisitLongitudinalDatasetValidation({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.readiness.status).toBe("ready_for_rollout");
+    expect(result.value?.readiness.dynamicConclusionAllowed).toBe(false);
+    expect(result.value?.items[0]?.nextAction).toBe("continue_review");
+    expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.boundaries.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.boundaries.pairKeysExposed).toBe(false);
+    expect(result.value?.boundaries.imageIdsExposed).toBe(false);
+    expect(result.value?.blockers).toEqual([]);
+    expect(result.value?.nextActions).toEqual(["continue_review"]);
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /secret-pair|"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-dataset-validation",
       expect.objectContaining({ method: "GET" }),
     );
   });

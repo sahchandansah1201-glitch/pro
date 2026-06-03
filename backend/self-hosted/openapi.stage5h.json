@@ -406,6 +406,134 @@
           }
         }
       },
+      "VisitLongitudinalDatasetValidation": {
+        "type": "object",
+        "description": "Batch BJ visit-scoped production dataset validation for lesion timelines. Metadata-only: no pair keys, image IDs, protected image fields, patient delivery, medical measurements, or clinical dynamic conclusions.",
+        "properties": {
+          "clinicId": { "type": ["string", "null"] },
+          "patientId": { "type": ["string", "null"] },
+          "visitId": { "type": "string" },
+          "readiness": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["blocked", "needs_review", "ready_for_rollout"] },
+              "lesionCount": { "type": "integer", "minimum": 0 },
+              "timelineCandidateCount": { "type": "integer", "minimum": 0 },
+              "readyTimelineCount": { "type": "integer", "minimum": 0 },
+              "needsReviewTimelineCount": { "type": "integer", "minimum": 0 },
+              "blockedTimelineCount": { "type": "integer", "minimum": 0 },
+              "imageCount": { "type": "integer", "minimum": 0 },
+              "candidatePairCount": { "type": "integer", "minimum": 0 },
+              "reviewedPairCount": { "type": "integer", "minimum": 0 },
+              "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
+              "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
+              "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
+              "markerMissingCount": { "type": "integer", "minimum": 0 },
+              "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
+              "dynamicConclusionAllowed": { "type": "boolean", "const": false }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "queueNumber": { "type": "integer", "minimum": 0 },
+                "lesionId": { "type": "string" },
+                "lesionLabel": { "type": "string" },
+                "bodyZone": { "type": ["string", "null"] },
+                "bodySurface": { "type": ["string", "null"] },
+                "status": { "type": "string", "enum": ["blocked", "needs_review", "ready_for_rollout"] },
+                "visitCount": { "type": "integer", "minimum": 0 },
+                "imageCount": { "type": "integer", "minimum": 0 },
+                "candidatePairCount": { "type": "integer", "minimum": 0 },
+                "reviewedPairCount": { "type": "integer", "minimum": 0 },
+                "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
+                "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
+                "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
+                "markerMissingCount": { "type": "integer", "minimum": 0 },
+                "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
+                "nextAction": {
+                  "type": "string",
+                  "enum": [
+                    "review_queue",
+                    "request_recapture",
+                    "exclude_from_dynamic_review",
+                    "complete_capture_metadata",
+                    "complete_calibration",
+                    "place_markers",
+                    "continue_review"
+                  ]
+                }
+              }
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "no_candidate_pairs",
+                    "recapture_required",
+                    "not_suitable_for_comparison",
+                    "unreviewed_pairs",
+                    "missing_capture_metadata",
+                    "calibration_not_ready",
+                    "technical_markers_missing"
+                  ]
+                },
+                "label": { "type": "string" },
+                "count": { "type": "integer", "minimum": 1 },
+                "nextAction": {
+                  "type": "string",
+                  "enum": [
+                    "review_queue",
+                    "request_recapture",
+                    "exclude_from_dynamic_review",
+                    "complete_capture_metadata",
+                    "complete_calibration",
+                    "place_markers",
+                    "continue_review"
+                  ]
+                }
+              }
+            }
+          },
+          "nextActions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "review_queue",
+                "request_recapture",
+                "exclude_from_dynamic_review",
+                "complete_capture_metadata",
+                "complete_calibration",
+                "place_markers",
+                "continue_review"
+              ]
+            }
+          },
+          "boundaries": {
+            "type": "object",
+            "properties": {
+              "patientDeliveryAllowed": { "type": "boolean", "const": false },
+              "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+              "protectedFieldsExposed": { "type": "boolean", "const": false },
+              "pairKeysExposed": { "type": "boolean", "const": false },
+              "imageIdsExposed": { "type": "boolean", "const": false },
+              "storagePathsExposed": { "type": "boolean", "const": false },
+              "signedUrlsIssued": { "type": "boolean", "const": false },
+              "rawImageBytesExposed": { "type": "boolean", "const": false },
+              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
+              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+            }
+          }
+        }
+      },
       "LesionLongitudinalHistory": {
         "type": "object",
         "description": "Production-safe doctor-side longitudinal lesion ledger assembled from visits and clinical asset metadata. No protected image bytes, storage paths, signed URLs, patient delivery, or clinical conclusion is exposed.",
@@ -594,6 +722,21 @@
           { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
         ],
         "responses": { "200": { "description": "Metadata-only viewer QA review queue" } }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-dataset-validation": {
+      "get": {
+        "summary": "Read visit-scoped metadata-only longitudinal dataset validation",
+        "description": "Batch BJ doctor-side production dataset validation for timeline QA rollout. This never exposes pair keys, image IDs, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata-only visit longitudinal dataset validation",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VisitLongitudinalDatasetValidation" } } }
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata": {

@@ -40,6 +40,7 @@ import {
   getSelfHostedVisitAssessment,
   getSelfHostedVisitConclusion,
   getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
+  getSelfHostedVisitLongitudinalDatasetValidation,
   getSelfHostedVisitReport,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
@@ -47,6 +48,7 @@ import {
   type SelfHostedClinicalAssessmentDTO,
   type SelfHostedClinicalConclusionDTO,
   type SelfHostedLesionComparisonViewerQaReviewQueueDTO,
+  type SelfHostedVisitLongitudinalDatasetValidationDTO,
 } from "@/lib/self-hosted-clinical-workspace-api";
 import {
   clinicalReportMissingLabel,
@@ -432,6 +434,7 @@ type ClinicalPanelState =
       reportPackage: SelfHostedClinicalReportPackageDTO | null;
       releaseAudit: SelfHostedPatientPhotoProtocolReleaseAuditDTO | null;
       viewerQaReviewQueue: SelfHostedLesionComparisonViewerQaReviewQueueDTO | null;
+      longitudinalDatasetValidation: SelfHostedVisitLongitudinalDatasetValidationDTO | null;
     };
 
 function textFrom(value: string | number | null | undefined): string {
@@ -510,6 +513,7 @@ function ProductionClinicalWorkspacePanel({
         reportPackage: null,
         releaseAudit: null,
         viewerQaReviewQueue: null,
+        longitudinalDatasetValidation: null,
       });
       return;
     }
@@ -529,6 +533,7 @@ function ProductionClinicalWorkspacePanel({
         reportPackage: null,
         releaseAudit: null,
         viewerQaReviewQueue: null,
+        longitudinalDatasetValidation: null,
       });
       return;
     }
@@ -540,6 +545,7 @@ function ProductionClinicalWorkspacePanel({
       status: "actionable",
       limit: 20,
     });
+    const longitudinalDatasetValidationResult = await getSelfHostedVisitLongitudinalDatasetValidation(args);
     const packageItem = packageResult.ok ? packageResult.value : null;
     setReportForm({
       status: item?.status ?? "draft",
@@ -560,6 +566,9 @@ function ProductionClinicalWorkspacePanel({
       reportPackage: packageItem,
       releaseAudit: auditResult.ok ? auditResult.value : null,
       viewerQaReviewQueue: viewerQaQueueResult.ok ? viewerQaQueueResult.value : null,
+      longitudinalDatasetValidation: longitudinalDatasetValidationResult.ok
+        ? longitudinalDatasetValidationResult.value
+        : null,
     });
   }, [apiBaseUrl, apiToken, kind, visitId]);
 
@@ -676,6 +685,9 @@ function ProductionClinicalWorkspacePanel({
           <>
             <ClinicalReportCompletionSummary reportPackage={state.reportPackage} releaseAudit={state.releaseAudit} />
             {state.viewerQaReviewQueue && <ViewerQaReviewQueuePanel queue={state.viewerQaReviewQueue} />}
+            {state.longitudinalDatasetValidation && (
+              <LongitudinalDatasetValidationPanel validation={state.longitudinalDatasetValidation} />
+            )}
             <PhotoProtocolPolicyGovernancePanel
               photoProtocol={state.reportPackage.patientPhotoProtocol}
               form={photoPolicyForm}
@@ -919,6 +931,105 @@ function viewerQaNextActionLabel(action: SelfHostedLesionComparisonViewerQaRevie
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
   if (action === "continue_review") return "Продолжить врачебный разбор";
   return "Проверить пару";
+}
+
+function longitudinalDatasetStatusLabel(status: SelfHostedVisitLongitudinalDatasetValidationDTO["readiness"]["status"]): string {
+  if (status === "ready_for_rollout") return "Готово к technical rollout";
+  if (status === "needs_review") return "Нужен review";
+  return "Заблокировано";
+}
+
+function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatasetValidationDTO["nextActions"][number]): string {
+  if (action === "request_recapture") return "Запросить переснимок";
+  if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
+  if (action === "complete_capture_metadata") return "Дозаполнить metadata";
+  if (action === "complete_calibration") return "Закрыть калибровку";
+  if (action === "place_markers") return "Поставить маркеры";
+  if (action === "continue_review") return "Продолжить review";
+  return "Открыть очередь";
+}
+
+function LongitudinalDatasetValidationPanel({
+  validation,
+}: {
+  validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
+}) {
+  const readiness = validation.readiness;
+  return (
+    <section
+      role="region"
+      aria-label="Готовность timeline QA"
+      className="rounded-sm border border-border bg-surface px-3 py-3 text-[12px]"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-[13px] font-semibold">Готовность timeline QA</h3>
+          <p className="text-muted-foreground">
+            Production dataset validation · не создаёт вывод о динамике · выдача пациенту выключена.
+          </p>
+        </div>
+        <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 font-medium">
+          {longitudinalDatasetStatusLabel(readiness.status)}
+        </span>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        <Field term="Очагов" value={readiness.lesionCount} />
+        <Field term="Готово" value={readiness.readyTimelineCount} />
+        <Field term="Review" value={readiness.needsReviewTimelineCount} />
+        <Field term="Блок" value={readiness.blockedTimelineCount} />
+        <Field term="Снимков" value={readiness.imageCount} />
+        <Field term="Пар" value={readiness.candidatePairCount} />
+        <Field term="Workflow" value={readiness.reviewerWorkflowReadyCount} />
+      </dl>
+      {validation.blockers.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {validation.blockers.slice(0, 4).map((blocker) => (
+            <span
+              key={blocker.code}
+              className="rounded-sm border border-border bg-surface-muted px-2 py-1 text-muted-foreground"
+            >
+              {blocker.label}: {blocker.count}
+            </span>
+          ))}
+        </div>
+      )}
+      {validation.items.length > 0 ? (
+        <ol className="mt-3 grid grid-cols-1 gap-2">
+          {validation.items.slice(0, 5).map((item) => (
+            <li
+              key={`${item.queueNumber}-${item.lesionId}`}
+              className="grid grid-cols-1 gap-2 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{item.lesionLabel}</span>
+                  <span className="text-muted-foreground">{longitudinalDatasetStatusLabel(item.status)}</span>
+                </div>
+                <p className="mt-1 text-muted-foreground">
+                  {item.bodyZone ?? "зона не указана"} · визитов: {item.visitCount} · снимков: {item.imageCount} · пар:{" "}
+                  {item.candidatePairCount}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  metadata: {item.missingCaptureMetadataCount} · калибровка: {item.calibrationBlockedCount} · маркеры:{" "}
+                  {item.markerMissingCount}
+                </p>
+              </div>
+              <span className="self-start rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+                {longitudinalDatasetActionLabel(item.nextAction)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted px-2.5 py-2 text-muted-foreground">
+          Нет очагов для production dataset validation в этом визите.
+        </p>
+      )}
+      <p className="mt-3 text-muted-foreground">
+        Динамический вывод: выключен · medical measurement: выключен · ключи пары и идентификаторы снимков скрыты.
+      </p>
+    </section>
+  );
 }
 
 function ViewerQaReviewQueuePanel({

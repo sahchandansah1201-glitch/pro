@@ -2188,7 +2188,14 @@ export default function LesionDetailPage() {
     if (reviewResult.ok) {
       setViewerQaReviewStatus("saved");
       setViewerQaReviewMessage("Viewer QA review сохранён в self-hosted backend. Выдача пациенту: выключена.");
-      setViewerQaLatestReviewStatus(reviewResult.value?.review.status ?? payload.reviewStatus);
+      const persistedReviewStatus = reviewResult.value?.review.status;
+      setViewerQaLatestReviewStatus(
+        persistedReviewStatus === "technical_ready"
+          || persistedReviewStatus === "needs_recapture"
+          || persistedReviewStatus === "not_suitable_for_comparison"
+          ? persistedReviewStatus
+          : payload.reviewStatus,
+      );
     } else {
       setViewerQaReviewStatus("error");
       setViewerQaReviewMessage(reviewResult.error?.message ?? "Viewer QA review не сохранён.");

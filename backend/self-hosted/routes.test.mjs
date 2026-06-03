@@ -3944,6 +3944,7 @@ function clinicalWorkspaceRuntime({
   lesionComparisonViewerQaReview = null,
   lesionComparisonViewerQaReviewerWorkflow = null,
   lesionComparisonViewerQaReviewQueue = null,
+  visitLongitudinalDatasetValidation = null,
   protectedLesionImageDownload = null,
   reportPackage = null,
   photoProtocolRelease = null,
@@ -4017,6 +4018,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           queue: lesionComparisonViewerQaReviewQueue,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async getVisitLongitudinalDatasetValidation() {
+        if (clinicalError) throw clinicalError;
+        return {
+          validation: visitLongitudinalDatasetValidation,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -5269,6 +5277,91 @@ test("Batch BG Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/l
   );
 });
 
+test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-validation returns metadata-only rollout gate", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/longitudinal-dataset-validation`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      visitLongitudinalDatasetValidation: {
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        readiness: {
+          status: "blocked",
+          lesionCount: 2,
+          timelineCandidateCount: 2,
+          readyTimelineCount: 1,
+          needsReviewTimelineCount: 0,
+          blockedTimelineCount: 1,
+          imageCount: 8,
+          candidatePairCount: 3,
+          reviewedPairCount: 2,
+          technicalReadyPairCount: 2,
+          missingCaptureMetadataCount: 1,
+          calibrationBlockedCount: 1,
+          markerMissingCount: 1,
+          reviewerWorkflowReadyCount: 1,
+          dynamicConclusionAllowed: false,
+        },
+        items: [
+          {
+            queueNumber: 1,
+            lesionId: "10000000-0000-4000-8000-000000000801",
+            lesionLabel: "Очаг A",
+            bodyZone: "спина",
+            bodySurface: "back",
+            status: "blocked",
+            visitCount: 2,
+            imageCount: 4,
+            candidatePairCount: 2,
+            reviewedPairCount: 1,
+            technicalReadyPairCount: 1,
+            missingCaptureMetadataCount: 1,
+            calibrationBlockedCount: 1,
+            markerMissingCount: 1,
+            reviewerWorkflowReadyCount: 0,
+            nextAction: "complete_capture_metadata",
+          },
+        ],
+        blockers: [
+          {
+            code: "missing_capture_metadata",
+            label: "Не хватает metadata съёмки",
+            count: 1,
+            nextAction: "complete_capture_metadata",
+          },
+        ],
+        nextActions: ["complete_capture_metadata"],
+        boundaries: {
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+          protectedFieldsExposed: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          rawImageBytesExposed: false,
+          doctorOnlyTextExposed: false,
+          clinicalConclusionGenerated: false,
+        },
+      },
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.item.readiness.status, "blocked");
+  assert.equal(response.json.item.readiness.dynamicConclusionAllowed, false);
+  assert.equal(response.json.item.boundaries.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.boundaries.pairKeysExposed, false);
+  assert.equal(response.json.item.boundaries.imageIdsExposed, false);
+  assert.doesNotMatch(
+    response.body,
+    /"pairKey"|"imageIds"|i-011|i-012|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|меланома|рак кожи|doctorVersionText|patientSafeText/i,
+  );
+});
+
 test("Batch AX Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render streams protected image bytes", async () => {
   const lesionId = "10000000-0000-4000-8000-000000000801";
   const assetId = "10000000-0000-4000-8000-000000000901";
@@ -5301,6 +5394,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue"].get);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-dataset-validation"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata"].patch);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history"].get);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa"].get);
@@ -5310,6 +5404,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.components.schemas.LesionComparisonViewerQaDraft);
   assert.ok(response.json.components.schemas.LesionComparisonViewerQaReview);
   assert.ok(response.json.components.schemas.LesionComparisonViewerQaReviewQueue);
+  assert.ok(response.json.components.schemas.VisitLongitudinalDatasetValidation);
   assert.ok(response.json.components.schemas.LesionCaptureMetadata);
   assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
   assert.ok(response.json.components.schemas.LesionLongitudinalQa);

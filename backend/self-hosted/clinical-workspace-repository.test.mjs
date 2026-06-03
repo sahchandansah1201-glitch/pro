@@ -9,6 +9,7 @@ import {
   buildGetLesionLongitudinalQaSql,
   buildGetProtectedLesionImageAssetSql,
   buildGetVisitLesionComparisonViewerQaReviewQueueSql,
+  buildGetVisitLongitudinalDatasetValidationSql,
   buildGetVisitReportSql,
   buildReviewLesionComparisonViewerQaSql,
   buildReviewLesionComparisonViewerQaReviewerWorkflowSql,
@@ -75,6 +76,31 @@ test("Batch BG Stage 5H repository builds metadata-only lesion longitudinal QA S
   assert.match(sql, /pairKeysExposed/);
   assert.match(sql, /imageIdsExposed/);
   assert.match(sql, /and l\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /q\.pair_key|q\.image_ids|object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
+  );
+});
+
+test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset validation SQL", () => {
+  const sql = buildGetVisitLongitudinalDatasetValidationSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /from visits v/);
+  assert.match(sql, /from lesions l/);
+  assert.match(sql, /clinical_asset_capture_metadata/);
+  assert.match(sql, /lesion_comparison_viewer_qa_drafts/);
+  assert.match(sql, /reviewer_workflow_status/);
+  assert.match(sql, /visit_longitudinal_dataset_validation\.read/i);
+  assert.match(sql, /ready_for_rollout/);
+  assert.match(sql, /dynamicConclusionAllowed/);
+  assert.match(sql, /pairKeysExposed/);
+  assert.match(sql, /imageIdsExposed/);
+  assert.match(sql, /and v\.clinic_id in/);
   assert.doesNotMatch(
     sql,
     /q\.pair_key|q\.image_ids|object_bucket|object_key|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
@@ -889,6 +915,104 @@ test("Batch BG Stage 5H repository normalizes longitudinal QA with forced safe b
   assert.deepEqual(qa.blockers, []);
   assert.doesNotMatch(
     JSON.stringify(qa),
+    /secret-pair|i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|token|session|qr/i,
+  );
+});
+
+test("Batch BJ Stage 5H repository normalizes visit dataset validation with forced safe boundaries", async () => {
+  const dbClient = {
+    async queryJson() {
+      return [
+        {
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          readiness: {
+            status: "ready_for_rollout",
+            lesionCount: 2,
+            timelineCandidateCount: 2,
+            readyTimelineCount: 1,
+            needsReviewTimelineCount: 1,
+            blockedTimelineCount: 0,
+            imageCount: 8,
+            candidatePairCount: 3,
+            reviewedPairCount: 2,
+            technicalReadyPairCount: 2,
+            missingCaptureMetadataCount: 0,
+            calibrationBlockedCount: 0,
+            markerMissingCount: 0,
+            reviewerWorkflowReadyCount: 1,
+            dynamicConclusionAllowed: true,
+          },
+          items: [
+            {
+              queueNumber: 1,
+              lesionId: "10000000-0000-4000-8000-000000000801",
+              lesionLabel: "Очаг A",
+              bodyZone: "спина",
+              bodySurface: "back",
+              status: "ready_for_rollout",
+              visitCount: 2,
+              imageCount: 4,
+              candidatePairCount: 2,
+              reviewedPairCount: 2,
+              technicalReadyPairCount: 2,
+              missingCaptureMetadataCount: 0,
+              calibrationBlockedCount: 0,
+              markerMissingCount: 0,
+              reviewerWorkflowReadyCount: 1,
+              nextAction: "continue_review",
+              pairKey: "secret-pair",
+              imageIds: ["i-011", "i-012"],
+            },
+          ],
+          blockers: [
+            {
+              code: "unsafe_blocker",
+              label: "Unsafe",
+              count: 99,
+              nextAction: "unsafe",
+              pairKey: "secret-pair",
+              imageIds: ["i-011", "i-012"],
+            },
+          ],
+          nextActions: ["continue_review", "unsafe_action"],
+          boundaries: {
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            pairKeysExposed: true,
+            imageIdsExposed: true,
+            storagePathsExposed: true,
+            signedUrlsIssued: true,
+            rawImageBytesExposed: true,
+            doctorOnlyTextExposed: true,
+            clinicalConclusionGenerated: true,
+          },
+        },
+      ];
+    },
+  };
+  const repo = createClinicalWorkspaceRepository(dbClient);
+  const validation = await repo.getVisitLongitudinalDatasetValidation({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.equal(validation.readiness.status, "ready_for_rollout");
+  assert.equal(validation.readiness.dynamicConclusionAllowed, false);
+  assert.equal(validation.items[0].nextAction, "continue_review");
+  assert.equal(validation.boundaries.patientDeliveryAllowed, false);
+  assert.equal(validation.boundaries.medicalMeasurementAllowed, false);
+  assert.equal(validation.boundaries.pairKeysExposed, false);
+  assert.equal(validation.boundaries.imageIdsExposed, false);
+  assert.equal(validation.boundaries.clinicalConclusionGenerated, false);
+  assert.deepEqual(validation.nextActions, ["continue_review"]);
+  assert.deepEqual(validation.blockers, []);
+  assert.doesNotMatch(
+    JSON.stringify(validation),
     /secret-pair|i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|token|session|qr/i,
   );
 });

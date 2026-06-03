@@ -743,6 +743,72 @@ Safety boundary:
   doctor-side metadata only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BJ Visit Longitudinal Dataset Validation
+
+Batch BJ adds visit-scoped production dataset validation for timeline-level QA
+rollout. It aggregates lesion-level capture metadata, viewer QA review,
+calibration and reviewer-workflow readiness for the lesions in a visit. It is a
+technical rollout gate only: it does not create a diagnosis, medical
+measurement, clinical dynamic conclusion, or patient delivery state.
+
+Backend contracts:
+
+- `GET /api/v1/visits/{visitId}/longitudinal-dataset-validation`;
+- repository builder `buildGetVisitLongitudinalDatasetValidationSql`;
+- repository method `getVisitLongitudinalDatasetValidation`;
+- service method `getVisitLongitudinalDatasetValidation`;
+- audit action `visit_longitudinal_dataset_validation.read`;
+- OpenAPI schema `VisitLongitudinalDatasetValidation`.
+
+Returned shape:
+
+- `readiness`: aggregate status, lesion count, timeline candidates, ready /
+  review / blocked timeline counts, image count, pair count, technical-ready
+  pair count, missing metadata count, calibration blockers, missing marker count,
+  and reviewer-workflow-ready count;
+- `items`: safe lesion rows with label, body zone/surface, aggregate counts,
+  status and next action;
+- `blockers`: safe grouped blockers with counts;
+- `nextActions`: safe action enum;
+- `boundaries`: all delivery, measurement, protected-field, pair-key,
+  image-ID, storage-path, signed-URL, raw-image, doctor-text and clinical
+  conclusion flags forced to `false`.
+
+Safety boundary:
+
+- no `pairKey` or image IDs in API/UI/audit metadata;
+- no object bucket/key, storage path, signed URL, QR/session/credential
+  material, doctor-only report text, patient-safe report text, raw image bytes,
+  diagnosis, risk, prognosis, treatment or dynamic conclusion;
+- `patientDeliveryAllowed=false`;
+- `medicalMeasurementAllowed=false`;
+- `clinicalConclusionGenerated=false`.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab adds region `Готовность timeline QA`;
+- the block shows aggregate counters, top blockers and per-lesion technical
+  next actions;
+- visible copy states `Production dataset validation`, `не создаёт вывод о
+  динамике`, `Динамический вывод: выключен` and `выдача пациенту выключена`.
+
+### Batch BJ Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BJ adds
+  visit-level validation over lesion timelines so rollout readiness is visible
+  before clinicians rely on chronology. Remaining gate: production dataset
+  validation on real assets and richer device-provided capture metadata.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BJ
+  aggregates pair-review, calibration and marker gates across visit lesions.
+  Remaining gate: clinical-grade reviewer workflow operations on real
+  production assets and approved measurement policy.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BJ keeps dynamic
+  interpretation blocked unless technical dataset gates are ready; no dynamic
+  conclusion is generated. Remaining gate: approved production analysis policy.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BJ is
+  doctor-side metadata only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

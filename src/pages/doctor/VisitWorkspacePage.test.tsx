@@ -722,6 +722,80 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-dataset-validation")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              visitId: "live-visit",
+              readiness: {
+                status: "blocked",
+                lesionCount: 2,
+                timelineCandidateCount: 2,
+                readyTimelineCount: 1,
+                needsReviewTimelineCount: 0,
+                blockedTimelineCount: 1,
+                imageCount: 8,
+                candidatePairCount: 3,
+                reviewedPairCount: 2,
+                technicalReadyPairCount: 2,
+                missingCaptureMetadataCount: 1,
+                calibrationBlockedCount: 1,
+                markerMissingCount: 1,
+                reviewerWorkflowReadyCount: 1,
+                dynamicConclusionAllowed: true,
+              },
+              items: [
+                {
+                  queueNumber: 1,
+                  lesionId: "live-lesion",
+                  lesionLabel: "Live lesion A",
+                  bodyZone: "спина",
+                  bodySurface: "back",
+                  status: "blocked",
+                  visitCount: 2,
+                  imageCount: 4,
+                  candidatePairCount: 2,
+                  reviewedPairCount: 1,
+                  technicalReadyPairCount: 1,
+                  missingCaptureMetadataCount: 1,
+                  calibrationBlockedCount: 1,
+                  markerMissingCount: 1,
+                  reviewerWorkflowReadyCount: 0,
+                  nextAction: "complete_capture_metadata",
+                  pairKey: "live-lesion:i-011+i-012",
+                  imageIds: ["i-011", "i-012"],
+                },
+              ],
+              blockers: [
+                {
+                  code: "missing_capture_metadata",
+                  label: "Не хватает metadata съёмки",
+                  count: 1,
+                  nextAction: "complete_capture_metadata",
+                  pairKey: "live-lesion:i-011+i-012",
+                  imageIds: ["i-011", "i-012"],
+                },
+              ],
+              nextActions: ["complete_capture_metadata"],
+              boundaries: {
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                pairKeysExposed: true,
+                imageIdsExposed: true,
+                storagePathsExposed: true,
+                signedUrlsIssued: true,
+                rawImageBytesExposed: true,
+                doctorOnlyTextExposed: true,
+                clinicalConclusionGenerated: true,
+              },
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
     return Promise.resolve(new Response(JSON.stringify({ items: [] })));
   });
 }
@@ -799,6 +873,11 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Технический контур сравнения/)).toBeInTheDocument();
     expect(screen.getByText(/Нужен переснимок/)).toBeInTheDocument();
     expect(screen.getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Готовность timeline QA" })).toBeInTheDocument();
+    expect(screen.getByText(/Production dataset validation/)).toBeInTheDocument();
+    expect(screen.getByText(/не создаёт вывод о динамике/)).toBeInTheDocument();
+    expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
+    expect(screen.getByText(/Динамический вывод: выключен/)).toBeInTheDocument();
     expect(screen.getByText(/Неизменяемый backend-аудит/)).toBeInTheDocument();
     expect(screen.getByText(/Подготовка выдачи/)).toBeInTheDocument();
     expect(screen.getByText(/Отзыв выдачи/)).toBeInTheDocument();

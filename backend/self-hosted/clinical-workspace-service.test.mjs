@@ -334,6 +334,71 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         },
       };
     },
+    async getVisitLongitudinalDatasetValidation() {
+      return {
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        readiness: {
+          status: "blocked",
+          lesionCount: 2,
+          timelineCandidateCount: 2,
+          readyTimelineCount: 1,
+          needsReviewTimelineCount: 0,
+          blockedTimelineCount: 1,
+          imageCount: 8,
+          candidatePairCount: 3,
+          reviewedPairCount: 2,
+          technicalReadyPairCount: 2,
+          missingCaptureMetadataCount: 1,
+          calibrationBlockedCount: 1,
+          markerMissingCount: 1,
+          reviewerWorkflowReadyCount: 1,
+          dynamicConclusionAllowed: false,
+        },
+        items: [
+          {
+            queueNumber: 1,
+            lesionId: "10000000-0000-4000-8000-000000000801",
+            lesionLabel: "Очаг A",
+            bodyZone: "спина",
+            bodySurface: "back",
+            status: "blocked",
+            visitCount: 2,
+            imageCount: 4,
+            candidatePairCount: 2,
+            reviewedPairCount: 1,
+            technicalReadyPairCount: 1,
+            missingCaptureMetadataCount: 1,
+            calibrationBlockedCount: 1,
+            markerMissingCount: 1,
+            reviewerWorkflowReadyCount: 0,
+            nextAction: "complete_capture_metadata",
+          },
+        ],
+        blockers: [
+          {
+            code: "missing_capture_metadata",
+            label: "Не хватает metadata съёмки",
+            count: 1,
+            nextAction: "complete_capture_metadata",
+          },
+        ],
+        nextActions: ["complete_capture_metadata", "complete_calibration", "place_markers"],
+        boundaries: {
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+          protectedFieldsExposed: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          storagePathsExposed: false,
+          signedUrlsIssued: false,
+          rawImageBytesExposed: false,
+          doctorOnlyTextExposed: false,
+          clinicalConclusionGenerated: false,
+        },
+      };
+    },
   };
   return createClinicalWorkspaceService({
     visitWorkspaceRepository: {
@@ -890,6 +955,41 @@ test("Batch BG Stage 5H service reads longitudinal QA with audit-safe metadata",
   });
   assert.doesNotMatch(
     JSON.stringify(result.qa) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BJ Stage 5H service reads visit dataset validation with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.getVisitLongitudinalDatasetValidation(VISIT_ID, authContext, { correlationId: "c15" });
+
+  assert.equal(result.validation.readiness.status, "blocked");
+  assert.equal(result.validation.readiness.blockedTimelineCount, 1);
+  assert.equal(result.validation.boundaries.patientDeliveryAllowed, false);
+  assert.equal(result.validation.boundaries.medicalMeasurementAllowed, false);
+  assert.equal(result.validation.boundaries.pairKeysExposed, false);
+  assert.equal(result.validation.boundaries.imageIdsExposed, false);
+  assert.equal(auditEvents.at(-1).action, "visit_longitudinal_dataset_validation.read");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    status: "blocked",
+    lesionCount: 2,
+    timelineCandidateCount: 2,
+    readyTimelineCount: 1,
+    needsReviewTimelineCount: 0,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    dynamicConclusionAllowed: false,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.validation) + JSON.stringify(auditEvents.at(-1)),
     /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
   );
 });

@@ -960,6 +960,48 @@ export function createClinicalWorkspaceService({
       return { queue, scope };
     },
 
+    async getVisitLongitudinalDatasetValidation(visitId, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitReadScope(authContext);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const validation = await clinicalWorkspaceRepository.getVisitLongitudinalDatasetValidation({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!validation) {
+        throw new VisitWorkspaceNotFoundError("Longitudinal dataset validation was not found in the allowed clinic scope.");
+      }
+      const readiness = validation.readiness || {};
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: validation.clinicId ?? visit.clinic.id,
+        actorUserId: authContext.userId,
+        action: "visit_longitudinal_dataset_validation.read",
+        entityType: "visit_longitudinal_dataset_validation",
+        entityId: safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          status: String(readiness.status ?? "blocked"),
+          lesionCount: Number(readiness.lesionCount ?? 0),
+          timelineCandidateCount: Number(readiness.timelineCandidateCount ?? 0),
+          readyTimelineCount: Number(readiness.readyTimelineCount ?? 0),
+          needsReviewTimelineCount: Number(readiness.needsReviewTimelineCount ?? 0),
+          blockedTimelineCount: Number(readiness.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+          dynamicConclusionAllowed: false,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+        },
+      });
+      return { validation, scope };
+    },
+
     async getLesionLongitudinalQa(patientId, lesionId, authContext, { correlationId } = {}) {
       const safePatientId = assertUuid(patientId, "patientId");
       const safeLesionId = assertUuid(lesionId, "lesionId");

@@ -371,6 +371,55 @@ export interface SelfHostedLesionLongitudinalQaDTO {
   };
 }
 
+export type SelfHostedVisitLongitudinalDatasetValidationStatus =
+  | "blocked"
+  | "needs_review"
+  | "ready_for_rollout";
+
+export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string;
+  readiness: {
+    status: SelfHostedVisitLongitudinalDatasetValidationStatus;
+    lesionCount: number;
+    timelineCandidateCount: number;
+    readyTimelineCount: number;
+    needsReviewTimelineCount: number;
+    blockedTimelineCount: number;
+    imageCount: number;
+    candidatePairCount: number;
+    reviewedPairCount: number;
+    technicalReadyPairCount: number;
+    missingCaptureMetadataCount: number;
+    calibrationBlockedCount: number;
+    markerMissingCount: number;
+    reviewerWorkflowReadyCount: number;
+    dynamicConclusionAllowed: false;
+  };
+  items: Array<{
+    queueNumber: number;
+    lesionId: string;
+    lesionLabel: string;
+    bodyZone: string | null;
+    bodySurface: string | null;
+    status: SelfHostedVisitLongitudinalDatasetValidationStatus;
+    visitCount: number;
+    imageCount: number;
+    candidatePairCount: number;
+    reviewedPairCount: number;
+    technicalReadyPairCount: number;
+    missingCaptureMetadataCount: number;
+    calibrationBlockedCount: number;
+    markerMissingCount: number;
+    reviewerWorkflowReadyCount: number;
+    nextAction: SelfHostedLesionLongitudinalQaAction;
+  }>;
+  blockers: SelfHostedLesionLongitudinalQaDTO["blockers"];
+  nextActions: SelfHostedLesionLongitudinalQaAction[];
+  boundaries: SelfHostedLesionLongitudinalQaDTO["boundaries"];
+}
+
 export const SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES: SelfHostedLesionLongitudinalQaDTO["boundaries"] = {
   patientDeliveryAllowed: false,
   medicalMeasurementAllowed: false,
@@ -1014,6 +1063,79 @@ function toLesionLongitudinalQa(input: Record<string, unknown>): SelfHostedLesio
   };
 }
 
+function toVisitLongitudinalDatasetValidationStatus(
+  value: unknown,
+): SelfHostedVisitLongitudinalDatasetValidationStatus {
+  return value === "needs_review" || value === "ready_for_rollout" ? value : "blocked";
+}
+
+function toVisitLongitudinalDatasetValidation(
+  input: Record<string, unknown>,
+): SelfHostedVisitLongitudinalDatasetValidationDTO {
+  const readiness = isRecord(input.readiness) ? input.readiness : {};
+  const blockers = toRecordArray(input.blockers)
+    .map((blocker) => {
+      const code = String(blocker.code ?? "") as SelfHostedLesionLongitudinalQaDTO["blockers"][number]["code"];
+      const nextAction = toLongitudinalQaAction(blocker.nextAction);
+      const count = numberOrZero(blocker.count);
+      if (!LONGITUDINAL_QA_BLOCKER_CODES.has(code) || !nextAction || count < 1) return null;
+      return {
+        code,
+        label: String(blocker.label ?? code),
+        count,
+        nextAction,
+      };
+    })
+    .filter((item): item is SelfHostedLesionLongitudinalQaDTO["blockers"][number] => Boolean(item));
+  const nextActions = [
+    ...new Set(toStringArray(input.nextActions).map(toLongitudinalQaAction).filter(Boolean)),
+  ] as SelfHostedLesionLongitudinalQaAction[];
+
+  return {
+    clinicId: textOrNull(input.clinicId),
+    patientId: textOrNull(input.patientId),
+    visitId: String(input.visitId ?? ""),
+    readiness: {
+      status: toVisitLongitudinalDatasetValidationStatus(readiness.status),
+      lesionCount: numberOrZero(readiness.lesionCount),
+      timelineCandidateCount: numberOrZero(readiness.timelineCandidateCount),
+      readyTimelineCount: numberOrZero(readiness.readyTimelineCount),
+      needsReviewTimelineCount: numberOrZero(readiness.needsReviewTimelineCount),
+      blockedTimelineCount: numberOrZero(readiness.blockedTimelineCount),
+      imageCount: numberOrZero(readiness.imageCount),
+      candidatePairCount: numberOrZero(readiness.candidatePairCount),
+      reviewedPairCount: numberOrZero(readiness.reviewedPairCount),
+      technicalReadyPairCount: numberOrZero(readiness.technicalReadyPairCount),
+      missingCaptureMetadataCount: numberOrZero(readiness.missingCaptureMetadataCount),
+      calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
+      markerMissingCount: numberOrZero(readiness.markerMissingCount),
+      reviewerWorkflowReadyCount: numberOrZero(readiness.reviewerWorkflowReadyCount),
+      dynamicConclusionAllowed: false,
+    },
+    items: toRecordArray(input.items).map((item) => ({
+      queueNumber: numberOrZero(item.queueNumber),
+      lesionId: String(item.lesionId ?? ""),
+      lesionLabel: String(item.lesionLabel ?? item.lesionId ?? ""),
+      bodyZone: textOrNull(item.bodyZone),
+      bodySurface: textOrNull(item.bodySurface),
+      status: toVisitLongitudinalDatasetValidationStatus(item.status),
+      visitCount: numberOrZero(item.visitCount),
+      imageCount: numberOrZero(item.imageCount),
+      candidatePairCount: numberOrZero(item.candidatePairCount),
+      reviewedPairCount: numberOrZero(item.reviewedPairCount),
+      technicalReadyPairCount: numberOrZero(item.technicalReadyPairCount),
+      missingCaptureMetadataCount: numberOrZero(item.missingCaptureMetadataCount),
+      calibrationBlockedCount: numberOrZero(item.calibrationBlockedCount),
+      markerMissingCount: numberOrZero(item.markerMissingCount),
+      reviewerWorkflowReadyCount: numberOrZero(item.reviewerWorkflowReadyCount),
+      nextAction: toLongitudinalQaAction(item.nextAction) ?? "review_queue",
+    })),
+    blockers,
+    nextActions,
+    boundaries: SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
+  };
+}
+
 function visitUrl(apiBaseUrl: string | null | undefined, visitId: string, suffix: string): string {
   return buildSelfHostedApiUrl(apiBaseUrl, `/api/v1/visits/${encodeURIComponent(visitId)}${suffix}`);
 }
@@ -1193,6 +1315,20 @@ export async function getSelfHostedVisitLesionComparisonViewerQaReviewQueue(
     "GET",
     null,
     toLesionComparisonViewerQaReviewQueue,
+  );
+}
+
+export async function getSelfHostedVisitLongitudinalDatasetValidation(
+  args: VisitArgs,
+): Promise<SelfHostedApiResult<SelfHostedVisitLongitudinalDatasetValidationDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/longitudinal-dataset-validation"),
+    args.apiToken as string,
+    "GET",
+    null,
+    toVisitLongitudinalDatasetValidation,
   );
 }
 

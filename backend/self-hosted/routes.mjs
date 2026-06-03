@@ -1934,6 +1934,40 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const visitLongitudinalDatasetValidationMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/longitudinal-dataset-validation$/,
+  );
+  if (visitLongitudinalDatasetValidationMatch && method === "GET") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result = await runtimeServices.clinicalWorkspaceService.getVisitLongitudinalDatasetValidation(
+        decodeURIComponent(visitLongitudinalDatasetValidationMatch[1]),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.validation,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   const visitLesionComparisonViewerQaReviewMatch = url.pathname.match(
     /^\/api\/v1\/visits\/([^/]+)\/lesion-comparison-viewer-qa\/review$/,
   );
