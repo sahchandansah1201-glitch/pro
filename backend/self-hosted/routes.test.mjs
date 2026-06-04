@@ -3951,6 +3951,7 @@ function clinicalWorkspaceRuntime({
   visitLongitudinalTimelineRollout = null,
   visitLongitudinalTimelineRolloutSop = null,
   visitLongitudinalTimelineRolloutEvidence = null,
+  visitLongitudinalTimelineRolloutMonitoring = null,
   protectedLesionImageDownload = null,
   reportPackage = null,
   photoProtocolRelease = null,
@@ -4073,6 +4074,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           evidence: visitLongitudinalTimelineRolloutEvidence,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async reviewVisitLongitudinalTimelineRolloutMonitoring() {
+        if (clinicalError) throw clinicalError;
+        return {
+          monitoring: visitLongitudinalTimelineRolloutMonitoring,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -5908,6 +5916,82 @@ test("Batch BT Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-
   );
 });
 
+test("Batch BU Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/monitoring stores aggregate-only monitoring outcomes", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/longitudinal-timeline-rollout/monitoring`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      visitLongitudinalTimelineRolloutMonitoring: {
+        id: "monitoring-review-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "in_review",
+        reasons: ["timeline_rollout_monitoring_not_ready"],
+        evidenceStatus: "not_started",
+        sopStatus: "not_started",
+        validationStatus: "blocked",
+        rolloutStatus: "review_required",
+        outcomeSamplingStatus: "needs_review",
+        incidentReviewStatus: "needs_review",
+        exceptionClosureStatus: "needs_review",
+        rollbackOutcomeStatus: "needs_review",
+        ownerFinalReviewStatus: "needs_review",
+        monitoringWindowDays: 0,
+        monitoredTimelineCount: 0,
+        sampledTimelineCount: 0,
+        incidentCount: 0,
+        unresolvedIncidentCount: 0,
+        closedExceptionCount: 0,
+        rollbackExecutionCount: 0,
+        lesionCount: 2,
+        readyTimelineCount: 1,
+        blockedTimelineCount: 1,
+        candidatePairCount: 3,
+        reviewerWorkflowReadyCount: 1,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-04T00:00:00.000Z",
+        createdAt: "2026-06-04T00:00:00.000Z",
+        updatedAt: "2026-06-04T00:00:00.000Z",
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      monitoringStatus: "ready_for_production_rollout",
+      monitoringReasons: ["timeline_rollout_monitoring_ready_no_dynamic_conclusion"],
+      outcomeSamplingStatus: "ready",
+      incidentReviewStatus: "ready",
+      exceptionClosureStatus: "ready",
+      rollbackOutcomeStatus: "ready",
+      ownerFinalReviewStatus: "ready",
+      monitoringWindowDays: 30,
+      monitoredTimelineCount: 2,
+      sampledTimelineCount: 2,
+      incidentCount: 0,
+      unresolvedIncidentCount: 0,
+      closedExceptionCount: 0,
+      rollbackExecutionCount: 1,
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.item.status, "in_review");
+  assert.equal(response.json.item.evidenceStatus, "not_started");
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.equal(response.json.item.clinicalOutputGenerated, false);
+  assert.doesNotMatch(
+    response.body,
+    /"pairKey"|"imageIds"|i-011|i-012|object_bucket|object_key|storage_object_path|signed_url|rawMonitoringLog|incidentPayload|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|reviewerName|reviewerEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
 test("Batch AX Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render streams protected image bytes", async () => {
   const lesionId = "10000000-0000-4000-8000-000000000801";
   const assetId = "10000000-0000-4000-8000-000000000901";
@@ -5946,6 +6030,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/sop"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/evidence"].patch);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/monitoring"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata"].patch);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history"].get);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa"].get);
@@ -5963,6 +6048,8 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutSopPayload);
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutEvidence);
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutEvidencePayload);
+  assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutMonitoring);
+  assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutMonitoringPayload);
   assert.ok(response.json.components.schemas.LesionCaptureMetadata);
   assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
   assert.ok(response.json.components.schemas.LesionLongitudinalQa);

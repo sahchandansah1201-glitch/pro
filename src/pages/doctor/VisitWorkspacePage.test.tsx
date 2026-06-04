@@ -779,6 +779,51 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/monitoring")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-monitoring-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_monitoring_not_ready"],
+              evidenceStatus: "not_started",
+              sopStatus: "not_started",
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              outcomeSamplingStatus: "needs_review",
+              incidentReviewStatus: "needs_review",
+              exceptionClosureStatus: "needs_review",
+              rollbackOutcomeStatus: "needs_review",
+              ownerFinalReviewStatus: "needs_review",
+              monitoringWindowDays: 0,
+              monitoredTimelineCount: 0,
+              sampledTimelineCount: 0,
+              incidentCount: 0,
+              unresolvedIncidentCount: 0,
+              closedExceptionCount: 0,
+              rollbackExecutionCount: 0,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 1,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-04T00:00:00.000Z",
+              createdAt: "2026-06-04T00:00:00.000Z",
+              updatedAt: "2026-06-04T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
     if (href.endsWith("/api/v1/visits/live-visit/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20")) {
       return Promise.resolve(
         new Response(
@@ -1068,6 +1113,43 @@ function createLiveWorkspaceFetchMock() {
                 pairKey: "live-lesion:i-011+i-012",
                 imageIds: ["i-011", "i-012"],
               },
+              timelineRolloutMonitoring: {
+                id: "timeline-rollout-monitoring-1",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                status: "not_started",
+                reasons: [],
+                evidenceStatus: "not_started",
+                sopStatus: "not_started",
+                validationStatus: "blocked",
+                rolloutStatus: "review_required",
+                outcomeSamplingStatus: "missing",
+                incidentReviewStatus: "missing",
+                exceptionClosureStatus: "missing",
+                rollbackOutcomeStatus: "missing",
+                ownerFinalReviewStatus: "missing",
+                monitoringWindowDays: 0,
+                monitoredTimelineCount: 0,
+                sampledTimelineCount: 0,
+                incidentCount: 0,
+                unresolvedIncidentCount: 0,
+                closedExceptionCount: 0,
+                rollbackExecutionCount: 0,
+                lesionCount: 0,
+                readyTimelineCount: 0,
+                blockedTimelineCount: 0,
+                candidatePairCount: 0,
+                reviewerWorkflowReadyCount: 0,
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                clinicalOutputGenerated: true,
+                rawMonitoringLog: "unsafe",
+                incidentPayload: { unsafe: true },
+                pairKey: "live-lesion:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
               nextActions: [
                 "verify_production_asset",
                 "complete_capture_metadata",
@@ -1182,6 +1264,11 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/SOP фиксирует только operational checklist/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Утвердить SOP rollout/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Зафиксировать SOP review/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Evidence timeline rollout" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Monitoring outcomes rollout" })).toBeInTheDocument();
+    expect(screen.getByText(/Monitoring фиксирует только aggregate outcomes/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить production rollout/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать monitoring review/ })).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
@@ -1207,6 +1294,8 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("rawPayload");
     expect(document.body.textContent).not.toContain("pairKey");
     expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("incidentPayload");
+    expect(document.body.textContent).not.toContain("rawMonitoringLog");
     expect(document.body.textContent).not.toContain("i-011");
     expect(document.body.textContent).not.toContain("i-012");
     expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
@@ -1279,6 +1368,34 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("dynamicConclusion");
     expect(document.body.textContent).not.toContain("pairKey");
     expect(document.body.textContent).not.toContain("imageIds");
+  });
+
+  it("posts timeline rollout monitoring review without patient delivery or dynamic conclusion", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Monitoring outcomes rollout" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать monitoring review/ }));
+    await screen.findByText(/Timeline rollout monitoring сохранён/);
+
+    const monitoringCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/monitoring")
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(monitoringCall).toBeTruthy();
+    const body = String((monitoringCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("outcomeSamplingStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("incidentPayload");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("incidentPayload");
   });
 
   it("posts policy governance updates for photo release in production report tab", async () => {

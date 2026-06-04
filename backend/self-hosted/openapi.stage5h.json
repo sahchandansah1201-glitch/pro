@@ -2151,6 +2151,9 @@
           },
           "timelineRolloutEvidence": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutEvidence"
+          },
+          "timelineRolloutMonitoring": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutMonitoring"
           }
         }
       },
@@ -3184,6 +3187,293 @@
             "maximum": 20000
           }
         }
+      },
+      "VisitLongitudinalTimelineRolloutMonitoring": {
+        "type": "object",
+        "description": "Batch BU metadata-only monitoring outcomes and incident evidence for timeline rollout. No patient delivery, measurements, protected fields, raw incident payloads, or clinical dynamic conclusions.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visitId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_rollout"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_monitored_rollout"
+            ]
+          },
+          "sopStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_operational_rollout"
+            ]
+          },
+          "validationStatus": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "needs_review",
+              "ready_for_rollout"
+            ]
+          },
+          "rolloutStatus": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_clinical_operations"
+            ]
+          },
+          "outcomeSamplingStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "incidentReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "exceptionClosureStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackOutcomeStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerFinalReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "monitoringWindowDays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "monitoredTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sampledTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "incidentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedIncidentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "closedExceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackExecutionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lesionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "readyTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidatePairCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewerWorkflowReadyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          },
+          "reviewedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "VisitLongitudinalTimelineRolloutMonitoringPayload": {
+        "type": "object",
+        "description": "Batch BU timeline rollout monitoring outcomes payload. Protected fields, raw incident payloads, patient rows, and clinical claims are rejected by service validation.",
+        "properties": {
+          "monitoringStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_rollout"
+            ]
+          },
+          "monitoringReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outcomeSamplingStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "incidentReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "exceptionClosureStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackOutcomeStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerFinalReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "monitoringWindowDays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "monitoredTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sampledTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "incidentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedIncidentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "closedExceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackExecutionCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
@@ -4079,6 +4369,68 @@
                     },
                     "item": {
                       "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutEvidence"
+                    },
+                    "generatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/monitoring": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review timeline rollout monitoring outcomes for a visit",
+        "operationId": "reviewVisitLongitudinalTimelineRolloutMonitoring",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutMonitoringPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline rollout monitoring review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": {
+                      "type": "string",
+                      "const": "5H"
+                    },
+                    "source": {
+                      "type": "string",
+                      "const": "postgres"
+                    },
+                    "item": {
+                      "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutMonitoring"
                     },
                     "generatedAt": {
                       "type": "string",

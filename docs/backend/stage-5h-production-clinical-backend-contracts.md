@@ -1636,6 +1636,114 @@ Safety boundary:
   until privacy/security/retention/session/approved-copy gates are explicitly
   closed.
 
+## Batch BU Timeline Rollout Monitoring Outcomes
+
+Plan item: `production dataset validation / timeline-level QA rollout ->
+monitoring outcomes / rollout incident evidence`.
+
+Batch BU adds the post-evidence monitoring outcome layer after Batch BT. It is
+still a doctor-side, metadata-only operational gate: it records aggregate
+outcomes from monitored rollout and incident closure, not clinical dynamic
+conclusions and not patient delivery.
+
+Persistence:
+
+- `0071_stage5h_timeline_rollout_monitoring.sql` creates
+  `visit_longitudinal_timeline_rollout_monitoring_reviews`;
+- stored fields are aggregate operational metadata only:
+  `monitoring_status`, `monitoring_reasons`, validation/rollout/SOP/evidence
+  statuses, five checklist statuses, monitoring window days, monitored and
+  sampled timeline counts, incident counts, unresolved incident count, closed
+  exception count, rollback execution count, and existing rollout aggregate
+  counters;
+- allowed monitoring statuses are `not_started`, `in_review`, and
+  `ready_for_production_rollout`;
+- CHECK constraints force `patient_delivery_allowed=false`,
+  `medical_measurement_allowed=false`, `protected_fields_exposed=false`, and
+  `clinical_output_generated=false`;
+- CHECK `visit_longitudinal_timeline_rollout_monitoring_metadata_no_protected_keys`
+  blocks pair keys, image IDs, patient rows, object/storage/signed URL fields,
+  evidence URLs/raw logs, raw monitoring logs, incident payloads, QR/session/
+  credential material, reviewer names/emails, doctor/patient report text,
+  diagnosis/risk/prognosis/treatment, measurement values, and dynamic clinical
+  conclusion keys.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/monitoring`
+  persists the metadata-only monitoring outcome review;
+- repository builder
+  `buildReviewVisitLongitudinalTimelineRolloutMonitoringSql` upserts by
+  `visit_id` inside the clinic-scoped visit boundary;
+- the `GET /api/v1/visits/{visitId}/longitudinal-dataset-validation` read model
+  now includes `timelineRolloutMonitoring`;
+- service validator
+  `normalizeVisitLongitudinalTimelineRolloutMonitoringPayload` rejects protected
+  keys and clinical claim wording;
+- service review method downgrades requested `ready_for_production_rollout` to
+  `in_review` with reason `timeline_rollout_monitoring_not_ready` unless
+  dataset validation is `ready_for_rollout`, Batch BR rollout is
+  `approved_for_clinical_operations`, Batch BS SOP is
+  `ready_for_operational_rollout`, Batch BT evidence is
+  `ready_for_monitored_rollout`, all five monitoring checklist fields are
+  `ready`, monitoring window/monitored/sample counts are positive, and
+  unresolved incident count is zero;
+- audit action `visit_longitudinal_timeline_rollout_monitoring.review` stores
+  aggregate counts, statuses, checklist readiness booleans, reason count, and
+  forced-false boundary flags only.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab adds region `Monitoring outcomes rollout`
+  inside `Готовность timeline QA`, after `Evidence timeline rollout`;
+- visible copy states `Monitoring фиксирует только aggregate outcomes`,
+  `Clinical dynamic conclusion: выключен`, and `Выдача пациенту: выключена`;
+- compact fields show `Outcome`, `Incidents`, `Exceptions`, `Rollback`,
+  `Owner`, `Window`, `Monitored`, `Sampled`, `Open Inc.`, `Closed Ex.`, and
+  `Rollback Run`;
+- `Утвердить production rollout` is disabled unless dataset readiness is
+  `ready_for_rollout`, Batch BR rollout governance is
+  `approved_for_clinical_operations`, Batch BS SOP is
+  `ready_for_operational_rollout`, and Batch BT evidence is
+  `ready_for_monitored_rollout`;
+- `Зафиксировать monitoring review` remains available and writes metadata-only
+  review state;
+- after saving, the workspace reloads the self-hosted read model and shows
+  `Timeline rollout monitoring сохранён. Clinical dynamic conclusion: выключен.`
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`, `patientDeliveryAllowed=false`,
+  `protectedFieldsExposed=false`, and `clinicalOutputGenerated=false` are
+  forced in repository, service, OpenAPI schema, frontend DTO normalizer, and
+  UI copy;
+- no patient delivery or clinical dynamic conclusion is produced by this batch;
+- no pair keys, image IDs, patient rows, object bucket/key, storage path,
+  checksum, signed URL, QR/session/credential, reviewer identity, doctor-only
+  text, patient-safe report text, diagnosis, risk, prognosis, treatment,
+  measurement values, evidence URLs, raw monitoring logs, or incident payloads
+  are returned in monitoring read/write responses or audit metadata.
+
+### Batch BU Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BU adds
+  monitored-rollout outcome and incident evidence after Batch BT, so timeline
+  rollout can track whether monitored production usage had samples, closed
+  exceptions, rollback execution, and no unresolved incidents. Remaining gate:
+  production outcome monitoring on real clinical datasets over time.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BU
+  adds post-rollout outcome/incident closure gating to reviewer operations.
+  Remaining gate: clinical operations validation on real assets and production
+  reviewer governance.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BU keeps
+  `Clinical dynamic conclusion: выключен`; production rollout is blocked when
+  monitoring outcomes or incidents are not closed. Remaining gate: approved
+  production analysis procedure and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch BU is
+  doctor-side metadata-only monitoring outcomes; patient delivery remains off
+  until privacy/security/retention/session/approved-copy gates are explicitly
+  closed.
+
 ## Product Boundary
 
 - managed runtime: none

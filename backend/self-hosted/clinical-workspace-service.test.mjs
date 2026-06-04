@@ -11,6 +11,7 @@ import {
   normalizeLesionComparisonProductionAnalysisPolicyPayload,
   normalizeLesionComparisonReviewerAssignmentPayload,
   normalizeVisitLongitudinalTimelineRolloutEvidencePayload,
+  normalizeVisitLongitudinalTimelineRolloutMonitoringPayload,
   normalizeVisitLongitudinalTimelineRolloutSopPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
   normalizeLesionComparisonViewerQaReviewerWorkflowPayload,
@@ -692,6 +693,39 @@ function createService({ auditEvents = [], repo = {} } = {}) {
           protectedFieldsExposed: false,
           clinicalOutputGenerated: false,
         },
+        timelineRolloutMonitoring: {
+          id: "monitoring-review-1",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          status: "not_started",
+          reasons: [],
+          evidenceStatus: "not_started",
+          sopStatus: "not_started",
+          validationStatus: "blocked",
+          rolloutStatus: "review_required",
+          outcomeSamplingStatus: "missing",
+          incidentReviewStatus: "missing",
+          exceptionClosureStatus: "missing",
+          rollbackOutcomeStatus: "missing",
+          ownerFinalReviewStatus: "missing",
+          monitoringWindowDays: 0,
+          monitoredTimelineCount: 0,
+          sampledTimelineCount: 0,
+          incidentCount: 0,
+          unresolvedIncidentCount: 0,
+          closedExceptionCount: 0,
+          rollbackExecutionCount: 0,
+          lesionCount: 0,
+          readyTimelineCount: 0,
+          blockedTimelineCount: 0,
+          candidatePairCount: 0,
+          reviewerWorkflowReadyCount: 0,
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+        },
         nextActions: ["verify_production_asset", "complete_capture_metadata", "complete_device_metadata", "check_device_bridge", "complete_calibration", "place_markers"],
         boundaries: {
           patientDeliveryAllowed: false,
@@ -782,6 +816,42 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         blockedTimelineCount: evidence.blockedTimelineCount,
         candidatePairCount: evidence.candidatePairCount,
         reviewerWorkflowReadyCount: evidence.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-04T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutMonitoring({ monitoring }) {
+      return {
+        id: "monitoring-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: monitoring.monitoringStatus,
+        reasons: monitoring.monitoringReasons,
+        evidenceStatus: monitoring.evidenceStatus,
+        sopStatus: monitoring.sopStatus,
+        validationStatus: monitoring.validationStatus,
+        rolloutStatus: monitoring.rolloutStatus,
+        outcomeSamplingStatus: monitoring.outcomeSamplingStatus,
+        incidentReviewStatus: monitoring.incidentReviewStatus,
+        exceptionClosureStatus: monitoring.exceptionClosureStatus,
+        rollbackOutcomeStatus: monitoring.rollbackOutcomeStatus,
+        ownerFinalReviewStatus: monitoring.ownerFinalReviewStatus,
+        monitoringWindowDays: monitoring.monitoringWindowDays,
+        monitoredTimelineCount: monitoring.monitoredTimelineCount,
+        sampledTimelineCount: monitoring.sampledTimelineCount,
+        incidentCount: monitoring.incidentCount,
+        unresolvedIncidentCount: monitoring.unresolvedIncidentCount,
+        closedExceptionCount: monitoring.closedExceptionCount,
+        rollbackExecutionCount: monitoring.rollbackExecutionCount,
+        lesionCount: monitoring.lesionCount,
+        readyTimelineCount: monitoring.readyTimelineCount,
+        blockedTimelineCount: monitoring.blockedTimelineCount,
+        candidatePairCount: monitoring.candidatePairCount,
+        reviewerWorkflowReadyCount: monitoring.reviewerWorkflowReadyCount,
         patientDeliveryAllowed: false,
         medicalMeasurementAllowed: false,
         protectedFieldsExposed: false,
@@ -1937,6 +2007,126 @@ test("Batch BT Stage 5H timeline rollout evidence payload rejects protected and 
         sampledTimelineCount: 2,
         exceptionCount: 0,
         rollbackDrillCount: 1,
+      }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch BU Stage 5H service reviews timeline rollout monitoring with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutMonitoring(
+    VISIT_ID,
+    {
+      monitoringStatus: "ready_for_production_rollout",
+      monitoringReasons: ["timeline_rollout_monitoring_ready_no_dynamic_conclusion"],
+      outcomeSamplingStatus: "ready",
+      incidentReviewStatus: "ready",
+      exceptionClosureStatus: "ready",
+      rollbackOutcomeStatus: "ready",
+      ownerFinalReviewStatus: "ready",
+      monitoringWindowDays: 30,
+      monitoredTimelineCount: 2,
+      sampledTimelineCount: 2,
+      incidentCount: 0,
+      unresolvedIncidentCount: 0,
+      closedExceptionCount: 0,
+      rollbackExecutionCount: 1,
+    },
+    authContext,
+    { correlationId: "c19" },
+  );
+
+  assert.equal(result.monitoring.status, "in_review");
+  assert.deepEqual(result.monitoring.reasons, [
+    "timeline_rollout_monitoring_ready_no_dynamic_conclusion",
+    "timeline_rollout_monitoring_not_ready",
+  ]);
+  assert.equal(result.monitoring.validationStatus, "blocked");
+  assert.equal(result.monitoring.rolloutStatus, "review_required");
+  assert.equal(result.monitoring.evidenceStatus, "not_started");
+  assert.equal(result.monitoring.patientDeliveryAllowed, false);
+  assert.equal(result.monitoring.medicalMeasurementAllowed, false);
+  assert.equal(result.monitoring.protectedFieldsExposed, false);
+  assert.equal(result.monitoring.clinicalOutputGenerated, false);
+  assert.equal(auditEvents.at(-1).action, "visit_longitudinal_timeline_rollout_monitoring.review");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    monitoringStatus: "in_review",
+    validationStatus: "blocked",
+    rolloutStatus: "review_required",
+    sopStatus: "not_started",
+    evidenceStatus: "not_started",
+    monitoringWindowDays: 30,
+    monitoredTimelineCount: 2,
+    sampledTimelineCount: 2,
+    incidentCount: 0,
+    unresolvedIncidentCount: 0,
+    closedExceptionCount: 0,
+    rollbackExecutionCount: 1,
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    monitoringChecklistReady: true,
+    aggregateMonitoringReady: true,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+    patientRowsExposed: false,
+    rawIncidentDetailsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.monitoring) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|rawMonitoringLog|incidentPayload|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BU Stage 5H timeline rollout monitoring payload rejects protected and clinical fields", () => {
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutMonitoringPayload({
+        monitoringStatus: "ready_for_production_rollout",
+        monitoringReasons: ["готово"],
+        outcomeSamplingStatus: "ready",
+        incidentReviewStatus: "ready",
+        exceptionClosureStatus: "ready",
+        rollbackOutcomeStatus: "ready",
+        ownerFinalReviewStatus: "ready",
+        monitoringWindowDays: 30,
+        monitoredTimelineCount: 2,
+        sampledTimelineCount: 2,
+        incidentCount: 0,
+        unresolvedIncidentCount: 0,
+        closedExceptionCount: 0,
+        rollbackExecutionCount: 1,
+        incidentPayload: { unsafe: true },
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutMonitoringPayload({
+        monitoringStatus: "ready_for_production_rollout",
+        monitoringReasons: ["вероятность меланомы низкая"],
+        outcomeSamplingStatus: "ready",
+        incidentReviewStatus: "ready",
+        exceptionClosureStatus: "ready",
+        rollbackOutcomeStatus: "ready",
+        ownerFinalReviewStatus: "ready",
+        monitoringWindowDays: 30,
+        monitoredTimelineCount: 2,
+        sampledTimelineCount: 2,
+        incidentCount: 0,
+        unresolvedIncidentCount: 0,
+        closedExceptionCount: 0,
+        rollbackExecutionCount: 1,
       }),
     VisitWorkspaceValidationError,
   );

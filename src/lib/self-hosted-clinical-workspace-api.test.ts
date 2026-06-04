@@ -7,6 +7,7 @@ import {
   getSelfHostedVisitLongitudinalDatasetValidation,
   reviewSelfHostedVisitLongitudinalTimelineRollout,
   reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   getSelfHostedVisitAssessment,
   getSelfHostedLesionLongitudinalHistory,
@@ -1348,6 +1349,43 @@ describe("self-hosted-clinical-workspace-api", () => {
               pairKey: "secret-pair",
               imageIds: ["i-011", "i-012"],
             },
+            timelineRolloutMonitoring: {
+              id: "monitoring-1",
+              clinicId: "clinic-1",
+              patientId: "patient-1",
+              visitId: "visit-1",
+              status: "ready_for_production_rollout",
+              reasons: ["timeline_rollout_monitoring_ready_no_dynamic_conclusion"],
+              evidenceStatus: "ready_for_monitored_rollout",
+              sopStatus: "ready_for_operational_rollout",
+              validationStatus: "ready_for_rollout",
+              rolloutStatus: "approved_for_clinical_operations",
+              outcomeSamplingStatus: "ready",
+              incidentReviewStatus: "ready",
+              exceptionClosureStatus: "ready",
+              rollbackOutcomeStatus: "ready",
+              ownerFinalReviewStatus: "ready",
+              monitoringWindowDays: 30,
+              monitoredTimelineCount: 2,
+              sampledTimelineCount: 2,
+              incidentCount: 0,
+              unresolvedIncidentCount: 0,
+              closedExceptionCount: 0,
+              rollbackExecutionCount: 1,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 0,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              clinicalOutputGenerated: true,
+              rawMonitoringLog: "unsafe",
+              incidentPayload: { unsafe: true },
+              pairKey: "secret-pair",
+              imageIds: ["i-011", "i-012"],
+            },
             nextActions: ["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review", "unsafe_action"],
             boundaries: {
               patientDeliveryAllowed: true,
@@ -1407,11 +1445,18 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(result.value?.timelineRolloutEvidence.medicalMeasurementAllowed).toBe(false);
     expect(result.value?.timelineRolloutEvidence.protectedFieldsExposed).toBe(false);
     expect(result.value?.timelineRolloutEvidence.clinicalOutputGenerated).toBe(false);
+    expect(result.value?.timelineRolloutMonitoring.status).toBe("ready_for_production_rollout");
+    expect(result.value?.timelineRolloutMonitoring.outcomeSamplingStatus).toBe("ready");
+    expect(result.value?.timelineRolloutMonitoring.unresolvedIncidentCount).toBe(0);
+    expect(result.value?.timelineRolloutMonitoring.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.timelineRolloutMonitoring.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.timelineRolloutMonitoring.protectedFieldsExposed).toBe(false);
+    expect(result.value?.timelineRolloutMonitoring.clinicalOutputGenerated).toBe(false);
     expect(result.value?.blockers[0]?.code).toBe("production_asset_not_ready");
     expect(result.value?.blockers[0]?.nextAction).toBe("verify_production_asset");
     expect(result.value?.nextActions).toEqual(["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review"]);
     expect(JSON.stringify(result.value)).not.toMatch(
-      /secret-pair|"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
+      /secret-pair|"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawMonitoringLog|incidentPayload|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/visits/visit-1/longitudinal-dataset-validation",
@@ -1647,6 +1692,107 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(result.value)).not.toMatch(
       /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
+    );
+  });
+
+  it("reviews visit longitudinal timeline rollout monitoring through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "monitoring-1",
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            status: "in_review",
+            reasons: ["timeline_rollout_monitoring_not_ready"],
+            evidenceStatus: "not_started",
+            sopStatus: "not_started",
+            validationStatus: "blocked",
+            rolloutStatus: "review_required",
+            outcomeSamplingStatus: "needs_review",
+            incidentReviewStatus: "needs_review",
+            exceptionClosureStatus: "needs_review",
+            rollbackOutcomeStatus: "needs_review",
+            ownerFinalReviewStatus: "needs_review",
+            monitoringWindowDays: 0,
+            monitoredTimelineCount: 0,
+            sampledTimelineCount: 0,
+            incidentCount: 0,
+            unresolvedIncidentCount: 0,
+            closedExceptionCount: 0,
+            rollbackExecutionCount: 0,
+            lesionCount: 2,
+            readyTimelineCount: 1,
+            blockedTimelineCount: 1,
+            candidatePairCount: 3,
+            reviewerWorkflowReadyCount: 1,
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            clinicalOutputGenerated: true,
+            rawMonitoringLog: "unsafe",
+            incidentPayload: { unsafe: true },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        monitoringStatus: "ready_for_production_rollout",
+        monitoringReasons: ["timeline_rollout_monitoring_ready_no_dynamic_conclusion"],
+        outcomeSamplingStatus: "ready",
+        incidentReviewStatus: "ready",
+        exceptionClosureStatus: "ready",
+        rollbackOutcomeStatus: "ready",
+        ownerFinalReviewStatus: "ready",
+        monitoringWindowDays: 30,
+        monitoredTimelineCount: 2,
+        sampledTimelineCount: 2,
+        incidentCount: 0,
+        unresolvedIncidentCount: 0,
+        closedExceptionCount: 0,
+        rollbackExecutionCount: 1,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.status).toBe("in_review");
+    expect(result.value?.evidenceStatus).toBe("not_started");
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(result.value?.clinicalOutputGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-timeline-rollout/monitoring",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          monitoringStatus: "ready_for_production_rollout",
+          monitoringReasons: ["timeline_rollout_monitoring_ready_no_dynamic_conclusion"],
+          outcomeSamplingStatus: "ready",
+          incidentReviewStatus: "ready",
+          exceptionClosureStatus: "ready",
+          rollbackOutcomeStatus: "ready",
+          ownerFinalReviewStatus: "ready",
+          monitoringWindowDays: 30,
+          monitoredTimelineCount: 2,
+          sampledTimelineCount: 2,
+          incidentCount: 0,
+          unresolvedIncidentCount: 0,
+          closedExceptionCount: 0,
+          rollbackExecutionCount: 1,
+        }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawMonitoringLog|incidentPayload|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
     );
   });
 });
