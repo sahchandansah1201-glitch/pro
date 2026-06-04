@@ -3943,6 +3943,7 @@ function clinicalWorkspaceRuntime({
   lesionComparisonViewerQa = null,
   lesionComparisonViewerQaReview = null,
   lesionComparisonViewerQaReviewerWorkflow = null,
+  lesionComparisonMeasurementPolicy = null,
   lesionComparisonViewerQaReviewQueue = null,
   visitLongitudinalDatasetValidation = null,
   protectedLesionImageDownload = null,
@@ -4011,6 +4012,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           qa: lesionComparisonViewerQaReviewerWorkflow,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async reviewLesionComparisonMeasurementPolicy() {
+        if (clinicalError) throw clinicalError;
+        return {
+          qa: lesionComparisonMeasurementPolicy,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -5180,6 +5188,85 @@ test("Batch BH Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-viewer-qa
   assert.doesNotMatch(
     response.body,
     /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|меланома|рак кожи|doctorVersionText|patientSafeText|diagnosis|treatment/i,
+  );
+});
+
+test("Batch BO Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-viewer-qa/measurement-policy saves policy gate metadata", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/lesion-comparison-viewer-qa/measurement-policy`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      lesionComparisonMeasurementPolicy: {
+        id: "viewer-qa-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+        calibrationStatus: "ready",
+        calibrationReasons: [],
+        captureMetadataStatus: "ready",
+        review: {
+          status: "technical_ready",
+          reasons: ["technical_review_ready"],
+          reviewedAt: "2026-05-19T10:50:00.000Z",
+          reviewedByUserId: "doctor-1",
+        },
+        reviewerWorkflow: {
+          status: "technical_gate_blocked",
+          reasons: ["measurement_policy_required"],
+          reviewedAt: null,
+          reviewedByUserId: null,
+          gate: {
+            technicalReviewReady: true,
+            calibrationReady: true,
+            captureMetadataReady: true,
+            markerGateReady: true,
+            measurementPolicyApproved: true,
+            medicalMeasurementAllowed: false,
+            patientDeliveryAllowed: false,
+            clinicalConclusionGenerated: false,
+          },
+        },
+        measurementPolicy: {
+          status: "approved_for_technical_review",
+          reasons: ["technical_measurement_policy_approved_no_mm_output"],
+          reviewedAt: "2026-05-19T10:56:00.000Z",
+          reviewedByUserId: "doctor-1",
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          clinicalOutputGenerated: false,
+        },
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      measurementPolicyStatus: "approved_for_technical_review",
+      measurementPolicyReasons: ["technical_measurement_policy_approved_no_mm_output"],
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.item.measurementPolicy.status, "approved_for_technical_review");
+  assert.equal(response.json.item.measurementPolicy.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.measurementPolicy.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.measurementPolicy.clinicalOutputGenerated, false);
+  assert.equal(response.json.item.reviewerWorkflow.gate.measurementPolicyApproved, true);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.doesNotMatch(
+    response.body,
+    /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|меланома|рак кожи|doctorVersionText|patientSafeText|diameterMm|areaMm2|diagnosis|treatment|riskScore/i,
   );
 });
 

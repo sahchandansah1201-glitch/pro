@@ -218,6 +218,24 @@ export interface LesionComparisonViewerQaReviewerWorkflowPayload {
   workflowReasons: string[];
 }
 
+export interface LesionComparisonMeasurementPolicyPayload {
+  lesionId: string;
+  pairKey: string;
+  imageIds: [string, string];
+  measurementPolicyStatus: "not_approved" | "review_required" | "approved_for_technical_review";
+  measurementPolicyReasons: string[];
+}
+
+type LesionComparisonMeasurementPolicyDTO = {
+  status: "not_approved" | "review_required" | "approved_for_technical_review";
+  reasons: string[];
+  reviewedAt: string | null;
+  reviewedByUserId: string | null;
+  medicalMeasurementAllowed: false;
+  patientDeliveryAllowed: false;
+  clinicalOutputGenerated: false;
+};
+
 export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonViewerQaPayload {
   id: string;
   clinicId: string | null;
@@ -240,11 +258,13 @@ export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonV
       calibrationReady: boolean;
       captureMetadataReady: boolean;
       markerGateReady: boolean;
+      measurementPolicyApproved: boolean;
       medicalMeasurementAllowed: false;
       patientDeliveryAllowed: false;
       clinicalConclusionGenerated: false;
     };
   };
+  measurementPolicy: LesionComparisonMeasurementPolicyDTO;
   medicalMeasurementAllowed: false;
   patientDeliveryAllowed: false;
   protectedFieldsExposed: false;
@@ -274,6 +294,7 @@ export interface SelfHostedLesionComparisonViewerQaReviewQueueDTO {
     technicalReady: number;
     needsRecapture: number;
     notSuitableForComparison: number;
+    measurementPolicyRequired: number;
     actionable: number;
   };
   items: Array<{
@@ -288,12 +309,18 @@ export interface SelfHostedLesionComparisonViewerQaReviewQueueDTO {
       reviewedAt: string | null;
       reviewedByUserId: string | null;
     };
+    measurementPolicy: LesionComparisonMeasurementPolicyDTO;
     calibrationStatus: string;
     calibrationReasons: string[];
     captureMetadataStatus: string;
     technicalMarkerCount: number;
     updatedAt: string | null;
-    nextAction: "review_pair" | "request_recapture" | "exclude_from_dynamic_review" | "continue_review";
+    nextAction:
+      | "review_pair"
+      | "request_recapture"
+      | "exclude_from_dynamic_review"
+      | "approve_measurement_policy"
+      | "continue_review";
   }>;
   boundaries: {
     patientDeliveryAllowed: false;
@@ -372,6 +399,7 @@ export type SelfHostedLesionLongitudinalQaAction =
   | "complete_capture_protocol"
   | "complete_calibration"
   | "place_markers"
+  | "approve_measurement_policy"
   | "continue_review";
 
 export interface SelfHostedLesionLongitudinalQaDTO {
@@ -396,6 +424,7 @@ export interface SelfHostedLesionLongitudinalQaDTO {
     captureProtocolNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
+    measurementPolicyNotReadyCount: number;
     technicalRolloutReady: boolean;
     dynamicConclusionAllowed: false;
   };
@@ -411,7 +440,8 @@ export interface SelfHostedLesionLongitudinalQaDTO {
       | "device_bridge_quality_not_ready"
       | "capture_protocol_not_ready"
       | "calibration_not_ready"
-      | "technical_markers_missing";
+      | "technical_markers_missing"
+      | "measurement_policy_required";
     label: string;
     count: number;
     nextAction: SelfHostedLesionLongitudinalQaAction;
@@ -458,6 +488,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     captureProtocolNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
+    measurementPolicyNotReadyCount: number;
     reviewerWorkflowReadyCount: number;
     dynamicConclusionAllowed: false;
   };
@@ -480,6 +511,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     captureProtocolNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
+    measurementPolicyNotReadyCount: number;
     reviewerWorkflowReadyCount: number;
     nextAction: SelfHostedLesionLongitudinalQaAction;
   }>;
@@ -541,6 +573,10 @@ interface PatchLesionComparisonViewerQaReviewArgs extends VisitArgs {
 
 interface PatchLesionComparisonViewerQaReviewerWorkflowArgs extends VisitArgs {
   payload: LesionComparisonViewerQaReviewerWorkflowPayload;
+}
+
+interface PatchLesionComparisonMeasurementPolicyArgs extends VisitArgs {
+  payload: LesionComparisonMeasurementPolicyPayload;
 }
 
 interface VisitViewerQaReviewQueueArgs extends VisitArgs {
@@ -929,6 +965,25 @@ function toViewerQaReviewerWorkflowStatus(
     : "technical_gate_blocked";
 }
 
+function toMeasurementPolicyStatus(
+  value: unknown,
+): LesionComparisonMeasurementPolicyDTO["status"] {
+  return value === "review_required" || value === "approved_for_technical_review" ? value : "not_approved";
+}
+
+function toMeasurementPolicy(input: unknown): LesionComparisonMeasurementPolicyDTO {
+  const policy = isRecord(input) ? input : {};
+  return {
+    status: toMeasurementPolicyStatus(policy.status),
+    reasons: toStringArray(policy.reasons),
+    reviewedAt: textOrNull(policy.reviewedAt),
+    reviewedByUserId: textOrNull(policy.reviewedByUserId),
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    clinicalOutputGenerated: false,
+  };
+}
+
 function toViewerQaReviewerWorkflowGate(
   input: unknown,
 ): SelfHostedLesionComparisonViewerQaDTO["reviewerWorkflow"]["gate"] {
@@ -938,6 +993,7 @@ function toViewerQaReviewerWorkflowGate(
     calibrationReady: gate.calibrationReady === true,
     captureMetadataReady: gate.captureMetadataReady === true,
     markerGateReady: gate.markerGateReady === true,
+    measurementPolicyApproved: gate.measurementPolicyApproved === true,
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     clinicalConclusionGenerated: false,
@@ -981,6 +1037,7 @@ function toLesionComparisonViewerQa(input: Record<string, unknown>): SelfHostedL
       reviewedByUserId: textOrNull(reviewerWorkflow.reviewedByUserId),
       gate: toViewerQaReviewerWorkflowGate(reviewerWorkflow.gate),
     },
+    measurementPolicy: toMeasurementPolicy(input.measurementPolicy),
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
@@ -1004,6 +1061,7 @@ function toViewerQaReviewQueueNextAction(
 ): SelfHostedLesionComparisonViewerQaReviewQueueDTO["items"][number]["nextAction"] {
   return value === "request_recapture"
     || value === "exclude_from_dynamic_review"
+    || value === "approve_measurement_policy"
     || value === "continue_review"
     ? value
     : "review_pair";
@@ -1028,10 +1086,12 @@ function toLesionComparisonViewerQaReviewQueue(
       technicalReady: numberOrZero(summary.technicalReady),
       needsRecapture: numberOrZero(summary.needsRecapture),
       notSuitableForComparison: numberOrZero(summary.notSuitableForComparison),
+      measurementPolicyRequired: numberOrZero(summary.measurementPolicyRequired),
       actionable: numberOrZero(summary.actionable),
     },
     items: toRecordArray(input.items).map((item) => {
       const review = isRecord(item.review) ? item.review : {};
+      const measurementPolicy = isRecord(item.measurementPolicy) ? item.measurementPolicy : {};
       return {
         queueNumber: numberOrZero(item.queueNumber),
         lesionId: String(item.lesionId ?? ""),
@@ -1044,6 +1104,7 @@ function toLesionComparisonViewerQaReviewQueue(
           reviewedAt: textOrNull(review.reviewedAt),
           reviewedByUserId: textOrNull(review.reviewedByUserId),
         },
+        measurementPolicy: toMeasurementPolicy(measurementPolicy),
         calibrationStatus: String(item.calibrationStatus ?? "not_ready"),
         calibrationReasons: toStringArray(item.calibrationReasons),
         captureMetadataStatus: String(item.captureMetadataStatus ?? "needs_review"),
@@ -1131,6 +1192,7 @@ const LONGITUDINAL_QA_BLOCKER_CODES = new Set<SelfHostedLesionLongitudinalQaDTO[
   "capture_protocol_not_ready",
   "calibration_not_ready",
   "technical_markers_missing",
+  "measurement_policy_required",
 ]);
 
 function toLongitudinalQaStatus(value: unknown): SelfHostedLesionLongitudinalQaStatus {
@@ -1148,6 +1210,7 @@ function toLongitudinalQaAction(value: unknown): SelfHostedLesionLongitudinalQaA
     || value === "complete_capture_protocol"
     || value === "complete_calibration"
     || value === "place_markers"
+    || value === "approve_measurement_policy"
     || value === "continue_review"
     ? value
     : null;
@@ -1195,6 +1258,7 @@ function toLesionLongitudinalQa(input: Record<string, unknown>): SelfHostedLesio
       captureProtocolNotReadyCount: numberOrZero(readiness.captureProtocolNotReadyCount),
       calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
       markerMissingCount: numberOrZero(readiness.markerMissingCount),
+      measurementPolicyNotReadyCount: numberOrZero(readiness.measurementPolicyNotReadyCount),
       technicalRolloutReady: readiness.technicalRolloutReady === true,
       dynamicConclusionAllowed: false,
     },
@@ -1254,6 +1318,7 @@ function toVisitLongitudinalDatasetValidation(
       captureProtocolNotReadyCount: numberOrZero(readiness.captureProtocolNotReadyCount),
       calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
       markerMissingCount: numberOrZero(readiness.markerMissingCount),
+      measurementPolicyNotReadyCount: numberOrZero(readiness.measurementPolicyNotReadyCount),
       reviewerWorkflowReadyCount: numberOrZero(readiness.reviewerWorkflowReadyCount),
       dynamicConclusionAllowed: false,
     },
@@ -1276,6 +1341,7 @@ function toVisitLongitudinalDatasetValidation(
       captureProtocolNotReadyCount: numberOrZero(item.captureProtocolNotReadyCount),
       calibrationBlockedCount: numberOrZero(item.calibrationBlockedCount),
       markerMissingCount: numberOrZero(item.markerMissingCount),
+      measurementPolicyNotReadyCount: numberOrZero(item.measurementPolicyNotReadyCount),
       reviewerWorkflowReadyCount: numberOrZero(item.reviewerWorkflowReadyCount),
       nextAction: toLongitudinalQaAction(item.nextAction) ?? "review_queue",
     })),
@@ -1446,6 +1512,20 @@ export async function reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow(
   if (cfg) return fail(cfg);
   return requestJson(
     visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa/reviewer-workflow"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toLesionComparisonViewerQa,
+  );
+}
+
+export async function reviewSelfHostedLesionComparisonMeasurementPolicy(
+  args: PatchLesionComparisonMeasurementPolicyArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionComparisonViewerQaDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa/measurement-policy"),
     args.apiToken as string,
     "PATCH",
     args.payload,

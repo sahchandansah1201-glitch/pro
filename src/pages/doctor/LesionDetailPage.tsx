@@ -56,6 +56,7 @@ import {
 import {
   downloadSelfHostedProtectedLesionImage,
   getSelfHostedLesionLongitudinalQa,
+  reviewSelfHostedLesionComparisonMeasurementPolicy,
   reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow,
   reviewSelfHostedLesionComparisonViewerQa,
   SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
@@ -106,6 +107,8 @@ type ViewerQaReviewBackendStatus = "idle" | "saving" | "saved" | "local_only" | 
 type ViewerQaReviewStatus = "technical_ready" | "needs_recapture" | "not_suitable_for_comparison";
 type ViewerQaReviewerWorkflowBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type ViewerQaReviewerWorkflowStatus = "ready_for_reviewer" | "reviewer_accepted" | "reviewer_rejected";
+type MeasurementPolicyBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
+type MeasurementPolicyStatus = "not_approved" | "review_required" | "approved_for_technical_review";
 type ProtectedRenderStatus = "idle" | "loading" | "ready" | "error";
 type LongitudinalQaLoadStatus = "idle" | "loading" | "loaded" | "error";
 type ProtectedRenderReadinessItem = {
@@ -141,6 +144,10 @@ type ViewerQaReviewPayload = ViewerQaSavePayload & {
 type ViewerQaReviewerWorkflowPayload = ViewerQaSavePayload & {
   workflowStatus: ViewerQaReviewerWorkflowStatus;
   workflowReasons: string[];
+};
+type MeasurementPolicyPayload = ViewerQaSavePayload & {
+  measurementPolicyStatus: MeasurementPolicyStatus;
+  measurementPolicyReasons: string[];
 };
 type ComparisonOverlay = "grid" | "center" | "off";
 type ComparisonViewport = {
@@ -212,6 +219,11 @@ const VIEWER_QA_REVIEWER_WORKFLOW_LABEL: Record<ViewerQaReviewerWorkflowStatus, 
   reviewer_accepted: "Reviewer workflow принят",
   reviewer_rejected: "Reviewer workflow отклонён",
 };
+const MEASUREMENT_POLICY_LABEL: Record<MeasurementPolicyStatus, string> = {
+  not_approved: "Policy не утверждена",
+  review_required: "Нужен разбор policy",
+  approved_for_technical_review: "Policy утверждена для техreview",
+};
 const LONGITUDINAL_QA_STATUS_LABEL: Record<SelfHostedLesionLongitudinalQaDTO["readiness"]["status"], string> = {
   blocked: "Динамика заблокирована",
   needs_review: "Нужен технический review",
@@ -228,6 +240,7 @@ const LONGITUDINAL_QA_ACTION_LABEL: Record<SelfHostedLesionLongitudinalQaAction,
   complete_capture_protocol: "Дозаполнить протокол съёмки",
   complete_calibration: "Закрыть калибровку",
   place_markers: "Поставить технические маркеры",
+  approve_measurement_policy: "Утвердить policy измерений",
   continue_review: "Продолжить врачебный разбор",
 };
 
@@ -598,6 +611,7 @@ function buildLocalLongitudinalQaGate({
       captureProtocolNotReadyCount: 0,
       calibrationBlockedCount,
       markerMissingCount,
+      measurementPolicyNotReadyCount: 0,
       technicalRolloutReady,
       dynamicConclusionAllowed: false,
     },
@@ -780,7 +794,7 @@ function LongitudinalQaGateSection({
           </span>
         </div>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-8">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-9">
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Пары</div>
             <div className="mt-1 font-medium">Пар: {readiness.candidatePairCount}</div>
@@ -815,6 +829,11 @@ function LongitudinalQaGateSection({
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Protocol</div>
             <div className="mt-1 font-medium">Проверить: {readiness.captureProtocolNotReadyCount}</div>
             <div className="text-[11px] text-muted-foreground">Протокол съёмки</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Policy</div>
+            <div className="mt-1 font-medium">Проверить: {readiness.measurementPolicyNotReadyCount}</div>
+            <div className="text-[11px] text-muted-foreground">Измерения выключены</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Калибровка</div>
@@ -1041,6 +1060,10 @@ function ComparisonFullScreenDialog({
   viewerQaReviewStatus,
   viewerQaReviewMessage,
   technicalReviewReady,
+  measurementPolicyStatus,
+  onReviewMeasurementPolicy,
+  measurementPolicyBackendStatus,
+  measurementPolicyMessage,
   onReviewViewerWorkflow,
   viewerQaReviewerWorkflowStatus,
   viewerQaReviewerWorkflowMessage,
@@ -1068,6 +1091,10 @@ function ComparisonFullScreenDialog({
   viewerQaReviewStatus: ViewerQaReviewBackendStatus;
   viewerQaReviewMessage: string;
   technicalReviewReady: boolean;
+  measurementPolicyStatus: MeasurementPolicyStatus;
+  onReviewMeasurementPolicy: (payload: MeasurementPolicyPayload) => void;
+  measurementPolicyBackendStatus: MeasurementPolicyBackendStatus;
+  measurementPolicyMessage: string;
   onReviewViewerWorkflow: (payload: ViewerQaReviewerWorkflowPayload) => void;
   viewerQaReviewerWorkflowStatus: ViewerQaReviewerWorkflowBackendStatus;
   viewerQaReviewerWorkflowMessage: string;
@@ -1148,6 +1175,16 @@ function ComparisonFullScreenDialog({
         : ["calibrated_reviewer_workflow_ready"],
     });
   };
+  const reviewMeasurementPolicy = (policyStatus: MeasurementPolicyStatus) => {
+    setCalibrationLimitSaved(true);
+    onReviewMeasurementPolicy({
+      ...currentViewerQaPayload(),
+      measurementPolicyStatus: policyStatus,
+      measurementPolicyReasons: policyStatus === "approved_for_technical_review"
+        ? ["technical_measurement_policy_approved_no_mm_output"]
+        : ["measurement_policy_requires_review"],
+    });
+  };
   const markerFor = (target: TechnicalGeometryMarker["target"]) =>
     geometryMarkers.find((item) => item.target === target);
   if (!images) return null;
@@ -1156,6 +1193,7 @@ function ComparisonFullScreenDialog({
   const captureReady = captureChecks.every((item) => item.ready);
   const calibrationChecks = calibrationReadinessChecks(imageA, imageB);
   const calibrationReady = calibrationChecks.every((item) => item.ready);
+  const measurementPolicyApproved = measurementPolicyStatus === "approved_for_technical_review";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1481,6 +1519,65 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                aria-label="Политика измерений"
+                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Политика измерений
+                    </div>
+                    <div className="text-[12px] font-medium">
+                      {MEASUREMENT_POLICY_LABEL[measurementPolicyStatus]}
+                    </div>
+                  </div>
+                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    mm disabled
+                  </span>
+                </div>
+                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                  <span>Policy разрешает только technical reviewer workflow.</span>
+                  <span>Измерения остаются выключены: нет мм, площади, клинического размера или вывода о динамике.</span>
+                  <span>Выдача пациенту: выключена</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={
+                      measurementPolicyBackendStatus === "saving"
+                      || !(technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2)
+                    }
+                    onClick={() => reviewMeasurementPolicy("approved_for_technical_review")}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Утвердить technical policy
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={measurementPolicyBackendStatus === "saving"}
+                    onClick={() => reviewMeasurementPolicy("review_required")}
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Нужен разбор policy
+                  </Button>
+                </div>
+                {measurementPolicyMessage && (
+                  <p
+                    className={`mt-2 text-[12px] font-medium ${
+                      measurementPolicyBackendStatus === "error" ? "text-destructive" : "text-primary"
+                    }`}
+                    role="status"
+                  >
+                    {measurementPolicyMessage}
+                  </p>
+                )}
+              </section>
+              <section
+                role="region"
                 aria-label="Clinical-grade reviewer workflow"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1490,7 +1587,7 @@ function ComparisonFullScreenDialog({
                       Clinical-grade reviewer workflow
                     </div>
                     <div className="text-[12px] font-medium">
-                      Reviewer gate: {technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2
+                      Reviewer gate: {technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2 && measurementPolicyApproved
                         ? "готов"
                         : "заблокирован"}
                     </div>
@@ -1521,6 +1618,11 @@ function ComparisonFullScreenDialog({
                       ready: geometryMarkers.length === 2,
                       detail: `маркеры ${geometryMarkers.length}/2`,
                     },
+                    {
+                      label: "Policy измерений",
+                      ready: measurementPolicyApproved,
+                      detail: measurementPolicyApproved ? "technical policy утверждена" : "измерения остаются выключены",
+                    },
                   ].map((item) => (
                     <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
                       {item.ready ? (
@@ -1543,7 +1645,7 @@ function ComparisonFullScreenDialog({
                     className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                     disabled={
                       viewerQaReviewerWorkflowStatus === "saving"
-                      || !(technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2)
+                      || !(technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2 && measurementPolicyApproved)
                     }
                     onClick={() => reviewViewerWorkflow("reviewer_accepted")}
                   >
@@ -1933,6 +2035,10 @@ export default function LesionDetailPage() {
   const [viewerQaReviewerWorkflowStatus, setViewerQaReviewerWorkflowStatus] =
     useState<ViewerQaReviewerWorkflowBackendStatus>("idle");
   const [viewerQaReviewerWorkflowMessage, setViewerQaReviewerWorkflowMessage] = useState("");
+  const [measurementPolicyBackendStatus, setMeasurementPolicyBackendStatus] =
+    useState<MeasurementPolicyBackendStatus>("idle");
+  const [measurementPolicyMessage, setMeasurementPolicyMessage] = useState("");
+  const [measurementPolicyStatus, setMeasurementPolicyStatus] = useState<MeasurementPolicyStatus>("not_approved");
   const [protectedRenderStatus, setProtectedRenderStatus] = useState<ProtectedRenderStatus>("idle");
   const [protectedRenderMessage, setProtectedRenderMessage] = useState("");
   const [protectedImageUrls, setProtectedImageUrls] = useState<Record<string, string>>({});
@@ -2014,6 +2120,9 @@ export default function LesionDetailPage() {
     setViewerQaLatestReviewStatus(null);
     setViewerQaReviewerWorkflowStatus("idle");
     setViewerQaReviewerWorkflowMessage("");
+    setMeasurementPolicyBackendStatus("idle");
+    setMeasurementPolicyMessage("");
+    setMeasurementPolicyStatus("not_approved");
     setProtectedImageUrls((current) => {
       revokePreviewUrls(current);
       return {};
@@ -2162,7 +2271,7 @@ export default function LesionDetailPage() {
     }
   };
 
-  const reviewViewerQa = async (payload: ViewerQaReviewPayload) => {
+	  const reviewViewerQa = async (payload: ViewerQaReviewPayload) => {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setViewerQaReviewStatus("local_only");
       setViewerQaReviewMessage("Viewer QA review зафиксирован локально. Выдача пациенту: выключена.");
@@ -2222,6 +2331,62 @@ export default function LesionDetailPage() {
     } else {
       setViewerQaReviewStatus("error");
       setViewerQaReviewMessage(reviewResult.error?.message ?? "Viewer QA review не сохранён.");
+    }
+	  };
+
+  const reviewMeasurementPolicy = async (payload: MeasurementPolicyPayload) => {
+    if (!selectedPairDraftKey || !comparePair || !latestVisit) {
+      setMeasurementPolicyBackendStatus("local_only");
+      setMeasurementPolicyMessage("Policy измерений зафиксирована локально. Измерения остаются выключены.");
+      setMeasurementPolicyStatus(payload.measurementPolicyStatus);
+      return;
+    }
+    if (!selfHostedConfigured) {
+      setMeasurementPolicyBackendStatus("local_only");
+      setMeasurementPolicyMessage("Policy измерений зафиксирована локально. Измерения остаются выключены.");
+      setMeasurementPolicyStatus(payload.measurementPolicyStatus);
+      return;
+    }
+    const apiPayload = viewerQaApiPayload(payload);
+    if (!apiPayload) {
+      setMeasurementPolicyBackendStatus("local_only");
+      setMeasurementPolicyMessage("Policy измерений зафиксирована локально. Измерения остаются выключены.");
+      setMeasurementPolicyStatus(payload.measurementPolicyStatus);
+      return;
+    }
+
+    setMeasurementPolicyBackendStatus("saving");
+    setMeasurementPolicyMessage("Policy измерений сохраняется в self-hosted backend.");
+    const saveResult = await saveSelfHostedLesionComparisonViewerQa({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: apiPayload,
+    });
+    if (!saveResult.ok) {
+      setMeasurementPolicyBackendStatus("error");
+      setMeasurementPolicyMessage(saveResult.error?.message ?? "Viewer QA draft не сохранён перед policy review.");
+      return;
+    }
+    const result = await reviewSelfHostedLesionComparisonMeasurementPolicy({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: {
+        lesionId,
+        pairKey: selectedPairDraftKey,
+        imageIds: [comparePair[0].id, comparePair[1].id],
+        measurementPolicyStatus: payload.measurementPolicyStatus,
+        measurementPolicyReasons: payload.measurementPolicyReasons,
+      },
+    });
+    if (result.ok) {
+      setMeasurementPolicyBackendStatus("saved");
+      setMeasurementPolicyStatus(result.value?.measurementPolicy.status ?? payload.measurementPolicyStatus);
+      setMeasurementPolicyMessage("Policy измерений сохранена в self-hosted backend. Медицинские измерения выключены.");
+    } else {
+      setMeasurementPolicyBackendStatus("error");
+      setMeasurementPolicyMessage(result.error?.message ?? "Policy измерений не сохранена.");
     }
   };
 
@@ -2911,6 +3076,10 @@ export default function LesionDetailPage() {
         viewerQaReviewStatus={viewerQaReviewStatus}
         viewerQaReviewMessage={viewerQaReviewMessage}
         technicalReviewReady={viewerQaLatestReviewStatus === "technical_ready"}
+        measurementPolicyStatus={measurementPolicyStatus}
+        onReviewMeasurementPolicy={reviewMeasurementPolicy}
+        measurementPolicyBackendStatus={measurementPolicyBackendStatus}
+        measurementPolicyMessage={measurementPolicyMessage}
         onReviewViewerWorkflow={reviewReviewerWorkflow}
         viewerQaReviewerWorkflowStatus={viewerQaReviewerWorkflowStatus}
         viewerQaReviewerWorkflowMessage={viewerQaReviewerWorkflowMessage}

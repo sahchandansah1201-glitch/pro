@@ -272,17 +272,34 @@
                 "type": "object",
                 "properties": {
                   "technicalReviewReady": { "type": "boolean" },
-                  "calibrationReady": { "type": "boolean" },
-                  "captureMetadataReady": { "type": "boolean" },
-                  "markerGateReady": { "type": "boolean" },
-                  "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+	                  "calibrationReady": { "type": "boolean" },
+	                  "captureMetadataReady": { "type": "boolean" },
+	                  "markerGateReady": { "type": "boolean" },
+	                  "measurementPolicyApproved": { "type": "boolean" },
+	                  "medicalMeasurementAllowed": { "type": "boolean", "const": false },
                   "patientDeliveryAllowed": { "type": "boolean", "const": false },
                   "clinicalConclusionGenerated": { "type": "boolean", "const": false }
                 }
               }
             }
-          },
-          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+	          },
+	          "measurementPolicy": {
+	            "type": "object",
+	            "description": "Batch BO measurement policy status. This approves only technical reviewer workflow boundaries; medical measurement remains disabled.",
+	            "properties": {
+	              "status": {
+	                "type": "string",
+	                "enum": ["not_approved", "review_required", "approved_for_technical_review"]
+	              },
+	              "reasons": { "type": "array", "items": { "type": "string" } },
+	              "reviewedAt": { "type": ["string", "null"] },
+	              "reviewedByUserId": { "type": ["string", "null"] },
+	              "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+	              "patientDeliveryAllowed": { "type": "boolean", "const": false },
+	              "clinicalOutputGenerated": { "type": "boolean", "const": false }
+	            }
+	          },
+	          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
           "patientDeliveryAllowed": { "type": "boolean", "const": false },
           "protectedFieldsExposed": { "type": "boolean", "const": false }
         }
@@ -323,6 +340,25 @@
         },
         "required": ["lesionId", "pairKey", "imageIds", "workflowStatus"]
       },
+      "LesionComparisonMeasurementPolicy": {
+        "type": "object",
+        "description": "Batch BO metadata-only measurement policy gate for clinical-grade reviewer operations. It approves only the technical reviewer workflow boundary and never enables medical measurement, patient delivery, or clinical dynamic conclusions.",
+        "properties": {
+          "lesionId": { "type": "string" },
+          "pairKey": { "type": "string" },
+          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "measurementPolicyStatus": {
+            "type": "string",
+            "enum": ["not_approved", "review_required", "approved_for_technical_review"]
+          },
+          "measurementPolicyReasons": { "type": "array", "items": { "type": "string" } },
+          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+          "patientDeliveryAllowed": { "type": "boolean", "const": false },
+          "protectedFieldsExposed": { "type": "boolean", "const": false },
+          "clinicalOutputGenerated": { "type": "boolean", "const": false }
+        },
+        "required": ["lesionId", "pairKey", "imageIds", "measurementPolicyStatus"]
+      },
       "LesionComparisonViewerQaReviewQueue": {
         "type": "object",
         "description": "Visit-scoped doctor queue for metadata-only viewer QA review decisions. Pair keys, image IDs, protected image fields, patient delivery, medical measurements, and clinical dynamic conclusions are not exposed.",
@@ -348,6 +384,7 @@
               "technicalReady": { "type": "integer", "minimum": 0 },
               "needsRecapture": { "type": "integer", "minimum": 0 },
               "notSuitableForComparison": { "type": "integer", "minimum": 0 },
+              "measurementPolicyRequired": { "type": "integer", "minimum": 0 },
               "actionable": { "type": "integer", "minimum": 0 }
             }
           },
@@ -362,6 +399,20 @@
                 "bodyZone": { "type": ["string", "null"] },
                 "bodySurface": { "type": ["string", "null"] },
                 "review": { "type": "object" },
+                "measurementPolicy": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["not_approved", "review_required", "approved_for_technical_review"]
+                    },
+                    "reasons": { "type": "array", "items": { "type": "string" } },
+                    "reviewedAt": { "type": ["string", "null"] },
+                    "medicalMeasurementAllowed": { "type": "boolean", "const": false },
+                    "patientDeliveryAllowed": { "type": "boolean", "const": false },
+                    "clinicalOutputGenerated": { "type": "boolean", "const": false }
+                  }
+                },
                 "calibrationStatus": { "type": "string" },
                 "calibrationReasons": { "type": "array", "items": { "type": "string" } },
                 "captureMetadataStatus": { "type": "string" },
@@ -369,7 +420,7 @@
                 "updatedAt": { "type": ["string", "null"] },
                 "nextAction": {
                   "type": "string",
-                  "enum": ["review_pair", "request_recapture", "exclude_from_dynamic_review", "continue_review"]
+                  "enum": ["review_pair", "request_recapture", "exclude_from_dynamic_review", "approve_measurement_policy", "continue_review"]
                 }
               }
             }
@@ -414,6 +465,7 @@
               "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
               "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
               "markerMissingCount": { "type": "integer", "minimum": 0 },
+              "measurementPolicyNotReadyCount": { "type": "integer", "minimum": 0 },
               "technicalRolloutReady": { "type": "boolean" },
               "dynamicConclusionAllowed": { "type": "boolean", "const": false }
             }
@@ -436,7 +488,8 @@
                     "device_bridge_quality_not_ready",
                     "capture_protocol_not_ready",
                     "calibration_not_ready",
-                    "technical_markers_missing"
+                    "technical_markers_missing",
+                    "measurement_policy_required"
                   ]
                 },
                 "label": { "type": "string" },
@@ -454,6 +507,7 @@
                     "complete_capture_protocol",
                     "complete_calibration",
                     "place_markers",
+                    "approve_measurement_policy",
                     "continue_review"
                   ]
                 }
@@ -475,6 +529,7 @@
                 "complete_capture_protocol",
                 "complete_calibration",
                 "place_markers",
+                "approve_measurement_policy",
                 "continue_review"
               ]
             }
@@ -523,6 +578,7 @@
               "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
               "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
               "markerMissingCount": { "type": "integer", "minimum": 0 },
+              "measurementPolicyNotReadyCount": { "type": "integer", "minimum": 0 },
               "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
               "dynamicConclusionAllowed": { "type": "boolean", "const": false }
             }
@@ -550,6 +606,7 @@
                 "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
                 "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
                 "markerMissingCount": { "type": "integer", "minimum": 0 },
+                "measurementPolicyNotReadyCount": { "type": "integer", "minimum": 0 },
                 "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
                 "nextAction": {
                   "type": "string",
@@ -588,7 +645,8 @@
                     "device_bridge_quality_not_ready",
                     "capture_protocol_not_ready",
                     "calibration_not_ready",
-                    "technical_markers_missing"
+                    "technical_markers_missing",
+                    "measurement_policy_required"
                   ]
                 },
                 "label": { "type": "string" },
@@ -606,6 +664,7 @@
                     "complete_capture_protocol",
                     "complete_calibration",
                     "place_markers",
+                    "approve_measurement_policy",
                     "continue_review"
                   ]
                 }
@@ -627,6 +686,7 @@
                 "complete_capture_protocol",
                 "complete_calibration",
                 "place_markers",
+                "approve_measurement_policy",
                 "continue_review"
               ]
             }
@@ -808,13 +868,25 @@
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-workflow": {
       "patch": {
         "summary": "Persist Batch BH calibrated reviewer workflow metadata for an existing viewer QA draft",
-        "description": "Backend gates require technical_ready review, ready calibration, ready capture metadata, and two technical markers. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "description": "Backend gates require technical_ready review, ready calibration, ready capture metadata, two technical markers, and approved measurement policy. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
         "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonViewerQaReviewerWorkflow" } } }
         },
         "responses": { "200": { "description": "Saved metadata-only calibrated reviewer workflow" } }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/measurement-policy": {
+      "patch": {
+        "summary": "Persist Batch BO measurement policy gate metadata for an existing viewer QA draft",
+        "description": "Doctor-side technical policy only. Approval allows reviewer workflow gating but never enables medical measurement, patient delivery, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonMeasurementPolicy" } } }
+        },
+        "responses": { "200": { "description": "Saved metadata-only measurement policy gate" } }
       }
     },
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue": {

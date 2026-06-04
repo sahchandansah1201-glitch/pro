@@ -11,6 +11,7 @@ import {
   buildGetVisitLesionComparisonViewerQaReviewQueueSql,
   buildGetVisitLongitudinalDatasetValidationSql,
   buildGetVisitReportSql,
+  buildReviewLesionComparisonMeasurementPolicySql,
   buildReviewLesionComparisonViewerQaSql,
   buildReviewLesionComparisonViewerQaReviewerWorkflowSql,
   buildUpsertAssetCaptureMetadataSql,
@@ -434,6 +435,8 @@ test("Batch BH Stage 5H reviewer workflow requires calibrated technical gates", 
   assert.match(sql, /q\.review_status = 'technical_ready'/);
   assert.match(sql, /q\.calibration_status = 'ready'/);
   assert.match(sql, /q\.capture_metadata_status = 'ready'/);
+  assert.match(sql, /q\.measurement_policy_status = 'approved_for_technical_review'/);
+  assert.match(sql, /measurement_policy_required/);
   assert.match(sql, /jsonb_array_length\(q\.technical_markers\) >= 2/);
   assert.match(sql, /reviewer_workflow_status/);
   assert.match(sql, /'technical_gate_blocked'/);
@@ -446,6 +449,39 @@ test("Batch BH Stage 5H reviewer workflow requires calibrated technical gates", 
   assert.doesNotMatch(
     sql,
     /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|doctorVersionText|patientSafeText|clinicalConclusion/i,
+  );
+});
+
+test("Batch BO Stage 5H measurement policy review updates only metadata-safe policy state", () => {
+  const sql = buildReviewLesionComparisonMeasurementPolicySql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    policy: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      measurementPolicyStatus: "approved_for_technical_review",
+      measurementPolicyReasons: ["technical_measurement_policy_approved_no_mm_output"],
+    },
+  });
+
+  assert.match(sql, /update lesion_comparison_viewer_qa_drafts q/);
+  assert.match(sql, /from lesions l/);
+  assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /measurement_policy_status = 'approved_for_technical_review'/);
+  assert.match(sql, /measurement_policy_reasons = '\["technical_measurement_policy_approved_no_mm_output"\]'::jsonb/);
+  assert.match(sql, /measurement_policy_reviewed_by_user_id = '10000000-0000-4000-8000-000000000101'::uuid/);
+  assert.match(sql, /measurement_policy_reviewed_at = now\(\)/);
+  assert.match(sql, /medical_measurement_allowed = false/);
+  assert.match(sql, /patient_delivery_allowed = false/);
+  assert.match(sql, /protected_fields_exposed = false/);
+  assert.match(sql, /and q\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|doctorVersionText|patientSafeText|diameterMm|areaMm2|riskScore/i,
   );
 });
 
@@ -465,6 +501,8 @@ test("Batch BF Stage 5H viewer QA review queue SQL is visit-scoped and metadata-
   assert.match(sql, /q\.visit_id = v\.id/);
   assert.match(sql, /q\.review_status = any\(array\['unreviewed', 'needs_recapture', 'not_suitable_for_comparison'\]::text\[\]\)/);
   assert.match(sql, /jsonb_build_object\('total'/);
+  assert.match(sql, /measurementPolicyRequired/);
+  assert.match(sql, /approve_measurement_policy/);
   assert.match(sql, /'pairKeysExposed', false/);
   assert.match(sql, /'imageIdsExposed', false/);
   assert.match(sql, /limit 20/);

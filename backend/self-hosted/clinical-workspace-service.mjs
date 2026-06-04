@@ -36,6 +36,11 @@ const VIEWER_QA_REVIEWER_WORKFLOW_STATUS_VALUES = new Set([
   "reviewer_accepted",
   "reviewer_rejected",
 ]);
+const VIEWER_QA_MEASUREMENT_POLICY_STATUS_VALUES = new Set([
+  "not_approved",
+  "review_required",
+  "approved_for_technical_review",
+]);
 const VIEWER_QA_REVIEW_QUEUE_STATUS_VALUES = new Set([
   "actionable",
   "all",
@@ -87,6 +92,14 @@ const PROTECTED_INPUT_KEYS = new Set([
   "deviceCredential",
   "patientDeliveryAllowed",
   "protectedFieldsExposed",
+  "measurementValue",
+  "diameterMm",
+  "areaMm2",
+  "clinicalMeasurement",
+  "diagnosis",
+  "riskScore",
+  "prognosis",
+  "treatment",
 ]);
 
 function extensionForContentType(contentType) {
@@ -593,6 +606,56 @@ export function normalizeLesionComparisonViewerQaReviewerWorkflowPayload(input =
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
+  };
+}
+
+export function normalizeLesionComparisonMeasurementPolicyPayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in measurement policy payloads." });
+  }
+  const lesionId = normalizeSafeIdentifier(input.lesionId, "lesionId", details);
+  const pairKey = normalizeSafeIdentifier(input.pairKey, "pairKey", details);
+  const imageIds = Array.isArray(input.imageIds)
+    ? input.imageIds.map((id, index) => normalizeSafeIdentifier(id, `imageIds[${index}]`, details))
+    : undefined;
+  if (!imageIds || imageIds.length !== 2 || imageIds.some((id) => !id)) {
+    details.push({ field: "imageIds", message: "Exactly two safe image IDs are required." });
+  }
+  if (imageIds?.length === 2 && new Set(imageIds).size !== 2) {
+    details.push({ field: "imageIds", message: "imageIds must reference two different images." });
+  }
+  const expectedPairKey =
+    lesionId && imageIds?.length === 2 && imageIds.every(Boolean)
+      ? `${lesionId}:${[...imageIds].sort().join("+")}`
+      : null;
+  if (pairKey && expectedPairKey && pairKey !== expectedPairKey) {
+    details.push({ field: "pairKey", message: "pairKey must match lesionId and sorted imageIds." });
+  }
+  const measurementPolicyStatus = cleanString(input.measurementPolicyStatus);
+  if (!measurementPolicyStatus || !VIEWER_QA_MEASUREMENT_POLICY_STATUS_VALUES.has(measurementPolicyStatus)) {
+    details.push({
+      field: "measurementPolicyStatus",
+      message: "measurementPolicyStatus must be not_approved, review_required, or approved_for_technical_review.",
+    });
+  }
+  const measurementPolicyReasons = normalizeTechnicalStrings(
+    input.measurementPolicyReasons,
+    "measurementPolicyReasons",
+    details,
+  );
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    lesionId,
+    pairKey,
+    imageIds,
+    measurementPolicyStatus,
+    measurementPolicyReasons: measurementPolicyReasons ?? [],
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
   };
 }
 
@@ -1109,6 +1172,42 @@ export function createClinicalWorkspaceService({
       return { qa, scope };
     },
 
+    async reviewLesionComparisonMeasurementPolicy(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeLesionComparisonMeasurementPolicyPayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const qa = await clinicalWorkspaceRepository.reviewLesionComparisonMeasurementPolicy({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        policy: payload,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!qa) throw new VisitWorkspaceNotFoundError("Measurement policy review could not be saved.");
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: qa.clinicId,
+        actorUserId: authContext.userId,
+        action: "lesion_comparison_measurement_policy.review",
+        entityType: "lesion_comparison_viewer_qa_draft",
+        entityId: qa.id,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          lesionId: payload.lesionId,
+          measurementPolicyStatus: payload.measurementPolicyStatus,
+          reasonsCount: payload.measurementPolicyReasons.length,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+        },
+      });
+      return { qa, scope };
+    },
+
     async getVisitLesionComparisonViewerQaReviewQueue(visitId, input, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
       const scope = visitReadScope(authContext);
@@ -1140,6 +1239,7 @@ export function createClinicalWorkspaceService({
           actionable: Number(summary.actionable ?? 0),
           needsRecapture: Number(summary.needsRecapture ?? 0),
           notSuitableForComparison: Number(summary.notSuitableForComparison ?? 0),
+          measurementPolicyRequired: Number(summary.measurementPolicyRequired ?? 0),
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,
@@ -1185,6 +1285,7 @@ export function createClinicalWorkspaceService({
           productionAssetNotReadyCount: Number(readiness.productionAssetNotReadyCount ?? 0),
           deviceBridgeQualityNotReadyCount: Number(readiness.deviceBridgeQualityNotReadyCount ?? 0),
           captureProtocolNotReadyCount: Number(readiness.captureProtocolNotReadyCount ?? 0),
+          measurementPolicyNotReadyCount: Number(readiness.measurementPolicyNotReadyCount ?? 0),
           dynamicConclusionAllowed: false,
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
@@ -1229,6 +1330,7 @@ export function createClinicalWorkspaceService({
           productionAssetNotReadyCount: Number(readiness.productionAssetNotReadyCount ?? 0),
           deviceBridgeQualityNotReadyCount: Number(readiness.deviceBridgeQualityNotReadyCount ?? 0),
           captureProtocolNotReadyCount: Number(readiness.captureProtocolNotReadyCount ?? 0),
+          measurementPolicyNotReadyCount: Number(readiness.measurementPolicyNotReadyCount ?? 0),
           technicalRolloutReady: readiness.technicalRolloutReady === true,
           dynamicConclusionAllowed: false,
           medicalMeasurementAllowed: false,

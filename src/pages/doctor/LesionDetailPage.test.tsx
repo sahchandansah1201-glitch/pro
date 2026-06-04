@@ -584,6 +584,7 @@ describe("LesionDetailPage", () => {
               calibrationReady: true,
               captureMetadataReady: true,
               markerGateReady: true,
+              measurementPolicyApproved: true,
               medicalMeasurementAllowed: true,
               patientDeliveryAllowed: true,
               clinicalConclusionGenerated: true,
@@ -599,6 +600,7 @@ describe("LesionDetailPage", () => {
               calibrationReady: true,
               captureMetadataReady: true,
               markerGateReady: true,
+              measurementPolicyApproved: url.endsWith("/measurement-policy"),
               medicalMeasurementAllowed: false,
               patientDeliveryAllowed: false,
               clinicalConclusionGenerated: false,
@@ -625,6 +627,25 @@ describe("LesionDetailPage", () => {
                 }
               : { status: "unreviewed", reasons: [], reviewedAt: null, reviewedByUserId: null },
             reviewerWorkflow,
+            measurementPolicy: url.endsWith("/measurement-policy") || url.endsWith("/reviewer-workflow")
+              ? {
+                  status: "approved_for_technical_review",
+                  reasons: ["technical_measurement_policy_approved_no_mm_output"],
+                  reviewedAt: "2026-05-19T10:53:00.000Z",
+                  reviewedByUserId: "doctor-1",
+                  medicalMeasurementAllowed: true,
+                  patientDeliveryAllowed: true,
+                  clinicalOutputGenerated: true,
+                }
+              : {
+                  status: "not_approved",
+                  reasons: [],
+                  reviewedAt: null,
+                  reviewedByUserId: null,
+                  medicalMeasurementAllowed: false,
+                  patientDeliveryAllowed: false,
+                  clinicalOutputGenerated: false,
+                },
             medicalMeasurementAllowed: true,
             patientDeliveryAllowed: true,
             protectedFieldsExposed: true,
@@ -647,6 +668,7 @@ describe("LesionDetailPage", () => {
     const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
     const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
     const review = within(tools).getByRole("region", { name: /Технический review viewer QA/ });
+    const policy = within(tools).getByRole("region", { name: /Политика измерений/ });
     const workflow = within(tools).getByRole("region", { name: /Clinical-grade reviewer workflow/ });
 
     expect(within(calibration).getByText(/Калибровка: готова/)).toBeInTheDocument();
@@ -658,6 +680,11 @@ describe("LesionDetailPage", () => {
     fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер B/ }));
     fireEvent.click(within(review).getByRole("button", { name: /^Технически готово$/ }));
     expect(await within(review).findByText(/Viewer QA review сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Reviewer gate: заблокирован/)).toBeInTheDocument();
+
+    fireEvent.click(within(policy).getByRole("button", { name: /Утвердить technical policy/ }));
+    expect(await within(policy).findByText(/Policy измерений сохранена в self-hosted backend/)).toBeInTheDocument();
+    expect(within(policy).getByText(/Измерения остаются выключены/)).toBeInTheDocument();
     expect(within(workflow).getByText(/Reviewer gate: готов/)).toBeInTheDocument();
 
     fireEvent.click(within(workflow).getByRole("button", { name: /Reviewer workflow принят/ }));
@@ -666,6 +693,10 @@ describe("LesionDetailPage", () => {
     expect(dialog.textContent ?? "").not.toContain(CALIBRATED_VIEWER_QA_IDS.imageBId);
     expect(fetchMock).toHaveBeenCalledWith(
       `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/reviewer-workflow`,
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/measurement-policy`,
       expect.objectContaining({ method: "PATCH" }),
     );
     expect(JSON.stringify(fetchMock.mock.calls)).not.toMatch(

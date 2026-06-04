@@ -2040,6 +2040,42 @@ export async function handleSelfHostedRequest(
     }
   }
 
+  const visitLesionComparisonMeasurementPolicyMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/lesion-comparison-viewer-qa\/measurement-policy$/,
+  );
+  if (visitLesionComparisonMeasurementPolicyMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const visitIdFromPath = decodeURIComponent(visitLesionComparisonMeasurementPolicyMatch[1]);
+      const result = await runtimeServices.clinicalWorkspaceService.reviewLesionComparisonMeasurementPolicy(
+        visitIdFromPath,
+        parseJsonBody(request.body),
+        authContext,
+        { correlationId },
+      );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.qa,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+
   const visitLesionComparisonViewerQaMatch = url.pathname.match(
     /^\/api\/v1\/visits\/([^/]+)\/lesion-comparison-viewer-qa$/,
   );

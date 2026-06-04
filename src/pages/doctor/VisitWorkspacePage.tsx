@@ -929,6 +929,7 @@ function viewerQaReviewStatusLabel(status: SelfHostedLesionComparisonViewerQaRev
 function viewerQaNextActionLabel(action: SelfHostedLesionComparisonViewerQaReviewQueueDTO["items"][number]["nextAction"]): string {
   if (action === "request_recapture") return "Запросить переснимок";
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
+  if (action === "approve_measurement_policy") return "Утвердить policy измерений";
   if (action === "continue_review") return "Продолжить врачебный разбор";
   return "Проверить пару";
 }
@@ -949,6 +950,7 @@ function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatas
   if (action === "complete_capture_protocol") return "Дозаполнить протокол съёмки";
   if (action === "complete_calibration") return "Закрыть калибровку";
   if (action === "place_markers") return "Поставить маркеры";
+  if (action === "approve_measurement_policy") return "Утвердить policy измерений";
   if (action === "continue_review") return "Продолжить review";
   return "Открыть очередь";
 }
@@ -978,7 +980,7 @@ function LongitudinalDatasetValidationPanel({
           {longitudinalDatasetStatusLabel(readiness.status)}
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-11">
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-12">
         <Field term="Очагов" value={readiness.lesionCount} />
         <Field term="Готово" value={readiness.readyTimelineCount} />
         <Field term="Review" value={readiness.needsReviewTimelineCount} />
@@ -990,6 +992,7 @@ function LongitudinalDatasetValidationPanel({
         <Field term="Device" value={readiness.deviceEvidenceNotReadyCount} />
         <Field term="Bridge" value={readiness.deviceBridgeQualityNotReadyCount} />
         <Field term="Protocol" value={readiness.captureProtocolNotReadyCount} />
+        <Field term="Policy" value={readiness.measurementPolicyNotReadyCount} />
       </dl>
       {validation.blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1035,7 +1038,8 @@ function LongitudinalDatasetValidationPanel({
                   assets: {item.productionAssetNotReadyCount} · metadata: {item.missingCaptureMetadataCount} · device:{" "}
                   {item.deviceEvidenceNotReadyCount} · bridge:{" "}
                   {item.deviceBridgeQualityNotReadyCount} · protocol:{" "}
-                  {item.captureProtocolNotReadyCount} ·
+                  {item.captureProtocolNotReadyCount} · policy:{" "}
+                  {item.measurementPolicyNotReadyCount} ·
                   калибровка: {item.calibrationBlockedCount} · маркеры: {item.markerMissingCount}
                 </p>
               </div>
@@ -1079,12 +1083,13 @@ function ViewerQaReviewQueuePanel({
           Активных: {queue.summary.actionable}
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
         <Field term="Всего" value={queue.summary.total} />
         <Field term="Без review" value={queue.summary.unreviewed} />
         <Field term="Готово" value={queue.summary.technicalReady} />
         <Field term="Переснять" value={queue.summary.needsRecapture} />
         <Field term="Не динамика" value={queue.summary.notSuitableForComparison} />
+        <Field term="Policy" value={queue.summary.measurementPolicyRequired} />
       </dl>
       {queue.items.length > 0 ? (
         <ol className="mt-3 grid grid-cols-1 gap-2">
@@ -1100,7 +1105,7 @@ function ViewerQaReviewQueuePanel({
                 </div>
                 <p className="mt-1 text-muted-foreground">
                   {item.bodyZone ?? "зона не указана"} · калибровка: {item.calibrationStatus} · маркеров:{" "}
-                  {item.technicalMarkerCount}
+                  {item.technicalMarkerCount} · policy: {item.measurementPolicy.status}
                 </p>
                 {item.review.reasons.length > 0 && (
                   <p className="mt-1 text-muted-foreground">{item.review.reasons.slice(0, 2).join(", ")}</p>

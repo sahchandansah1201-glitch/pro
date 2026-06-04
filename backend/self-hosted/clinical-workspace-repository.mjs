@@ -435,6 +435,7 @@ from (
       q.review_status,
       q.calibration_status,
       q.capture_metadata_status,
+      q.measurement_policy_status,
       jsonb_array_length(coalesce(q.technical_markers, '[]'::jsonb))::int as technical_marker_count
     from lesion_comparison_viewer_qa_drafts q
     join target_lesion l
@@ -462,7 +463,8 @@ from (
       coalesce((select count(*)::int from lesion_assets where device_bridge_quality_status = 'needs_review'), 0) as device_bridge_quality_not_ready_count,
       coalesce((select count(*)::int from lesion_assets where metadata_asset_id is not null and coalesce(capture_protocol_status, 'missing') <> 'ready'), 0) as capture_protocol_not_ready_count,
       coalesce((select count(*)::int from qa_rows where calibration_status <> 'ready'), 0) as calibration_blocked_count,
-      coalesce((select count(*)::int from qa_rows where technical_marker_count < 2), 0) as marker_missing_count
+      coalesce((select count(*)::int from qa_rows where technical_marker_count < 2), 0) as marker_missing_count,
+      coalesce((select count(*)::int from qa_rows where review_status = 'technical_ready' and measurement_policy_status <> 'approved_for_technical_review'), 0) as measurement_policy_not_ready_count
   ),
   readiness as (
     select
@@ -477,7 +479,8 @@ from (
           or device_bridge_quality_not_ready_count > 0
           or capture_protocol_not_ready_count > 0
           or calibration_blocked_count > 0
-          or marker_missing_count > 0 then 'blocked'
+          or marker_missing_count > 0
+          or measurement_policy_not_ready_count > 0 then 'blocked'
         when unreviewed_pair_count > 0 then 'needs_review'
         else 'technical_ready'
       end as status,
@@ -494,6 +497,7 @@ from (
         and capture_protocol_not_ready_count = 0
         and calibration_blocked_count = 0
         and marker_missing_count = 0
+        and measurement_policy_not_ready_count = 0
       ) as technical_rollout_ready
     from rollup
   )
@@ -519,6 +523,7 @@ from (
       'captureProtocolNotReadyCount', r.capture_protocol_not_ready_count,
       'calibrationBlockedCount', r.calibration_blocked_count,
       'markerMissingCount', r.marker_missing_count,
+      'measurementPolicyNotReadyCount', r.measurement_policy_not_ready_count,
       'technicalRolloutReady', r.technical_rollout_ready,
       'dynamicConclusionAllowed', false
     ) as "readiness",
@@ -533,7 +538,8 @@ from (
       jsonb_build_object('code', 'device_bridge_quality_not_ready', 'label', 'Device Bridge требует проверки', 'count', r.device_bridge_quality_not_ready_count, 'nextAction', 'check_device_bridge'),
       jsonb_build_object('code', 'capture_protocol_not_ready', 'label', 'Протокол съёмки требует проверки', 'count', r.capture_protocol_not_ready_count, 'nextAction', 'complete_capture_protocol'),
       jsonb_build_object('code', 'calibration_not_ready', 'label', 'Калибровка не готова', 'count', r.calibration_blocked_count, 'nextAction', 'complete_calibration'),
-      jsonb_build_object('code', 'technical_markers_missing', 'label', 'Не хватает технических маркеров', 'count', r.marker_missing_count, 'nextAction', 'place_markers')
+      jsonb_build_object('code', 'technical_markers_missing', 'label', 'Не хватает технических маркеров', 'count', r.marker_missing_count, 'nextAction', 'place_markers'),
+      jsonb_build_object('code', 'measurement_policy_required', 'label', 'Нужна политика измерений', 'count', r.measurement_policy_not_ready_count, 'nextAction', 'approve_measurement_policy')
     ) as "blockers",
     array_remove(array[
       case when r.candidate_pair_count = 0 or r.unreviewed_pair_count > 0 then 'review_queue' end,
@@ -546,6 +552,7 @@ from (
       case when r.capture_protocol_not_ready_count > 0 then 'complete_capture_protocol' end,
       case when r.calibration_blocked_count > 0 then 'complete_calibration' end,
       case when r.marker_missing_count > 0 then 'place_markers' end,
+      case when r.measurement_policy_not_ready_count > 0 then 'approve_measurement_policy' end,
       case when r.technical_rollout_ready then 'continue_review' end
     ]::text[], null) as "nextActions",
     jsonb_build_object(
@@ -666,6 +673,7 @@ from (
       q.calibration_status,
       q.capture_metadata_status,
       q.reviewer_workflow_status,
+      q.measurement_policy_status,
       jsonb_array_length(coalesce(q.technical_markers, '[]'::jsonb))::int as technical_marker_count
     from lesion_comparison_viewer_qa_drafts q
     join target_lesions l
@@ -698,6 +706,7 @@ from (
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.metadata_asset_id is not null and coalesce(a.capture_protocol_status, 'missing') <> 'ready'), 0) as capture_protocol_not_ready_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.calibration_status <> 'ready'), 0) as calibration_blocked_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.technical_marker_count < 2), 0) as marker_missing_count,
+      coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'technical_ready' and q.measurement_policy_status <> 'approved_for_technical_review'), 0) as measurement_policy_not_ready_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.reviewer_workflow_status in ('ready_for_reviewer', 'reviewer_accepted')), 0) as reviewer_workflow_ready_count
     from target_lesions l
   ),
@@ -714,7 +723,8 @@ from (
           or device_bridge_quality_not_ready_count > 0
           or capture_protocol_not_ready_count > 0
           or calibration_blocked_count > 0
-          or marker_missing_count > 0 then 'blocked'
+          or marker_missing_count > 0
+          or measurement_policy_not_ready_count > 0 then 'blocked'
         when unreviewed_pair_count > 0 then 'needs_review'
         else 'ready_for_rollout'
       end as status,
@@ -729,6 +739,7 @@ from (
         when capture_protocol_not_ready_count > 0 then 'complete_capture_protocol'
         when calibration_blocked_count > 0 then 'complete_calibration'
         when marker_missing_count > 0 then 'place_markers'
+        when measurement_policy_not_ready_count > 0 then 'approve_measurement_policy'
         else 'continue_review'
       end as next_action
     from lesion_rollup
@@ -766,6 +777,9 @@ from (
     union all
     select 'technical_markers_missing', 'Не хватает технических маркеров', 'place_markers',
       coalesce((select sum(marker_missing_count)::int from classified), 0)
+    union all
+    select 'measurement_policy_required', 'Нужна политика измерений', 'approve_measurement_policy',
+      coalesce((select sum(measurement_policy_not_ready_count)::int from classified), 0)
   ),
   item_rows as (
     select
@@ -800,6 +814,7 @@ from (
       'captureProtocolNotReadyCount', coalesce((select sum(capture_protocol_not_ready_count)::int from classified), 0),
       'calibrationBlockedCount', coalesce((select sum(calibration_blocked_count)::int from classified), 0),
       'markerMissingCount', coalesce((select sum(marker_missing_count)::int from classified), 0),
+      'measurementPolicyNotReadyCount', coalesce((select sum(measurement_policy_not_ready_count)::int from classified), 0),
       'reviewerWorkflowReadyCount', coalesce((select sum(reviewer_workflow_ready_count)::int from classified), 0),
       'dynamicConclusionAllowed', false
     ) as "readiness",
@@ -823,6 +838,7 @@ from (
         'captureProtocolNotReadyCount', c.capture_protocol_not_ready_count,
         'calibrationBlockedCount', c.calibration_blocked_count,
         'markerMissingCount', c.marker_missing_count,
+        'measurementPolicyNotReadyCount', c.measurement_policy_not_ready_count,
         'reviewerWorkflowReadyCount', c.reviewer_workflow_ready_count,
         'nextAction', c.next_action
       ) order by c.status asc, c.lesion_label asc, c.lesion_id asc)
@@ -849,6 +865,7 @@ from (
       case when exists(select 1 from classified where capture_protocol_not_ready_count > 0) then 'complete_capture_protocol' end,
       case when exists(select 1 from classified where calibration_blocked_count > 0) then 'complete_calibration' end,
       case when exists(select 1 from classified where marker_missing_count > 0) then 'place_markers' end,
+      case when exists(select 1 from classified where measurement_policy_not_ready_count > 0) then 'approve_measurement_policy' end,
       case when exists(select 1 from classified where status = 'ready_for_rollout') then 'continue_review' end
     ]::text[], null) as "nextActions",
     jsonb_build_object(
@@ -1497,6 +1514,10 @@ function lesionComparisonViewerQaUpdateSet(qa = {}) {
     "review_reasons = '[]'::jsonb",
     "reviewed_by_user_id = null",
     "reviewed_at = null",
+    "measurement_policy_status = 'not_approved'",
+    "measurement_policy_reasons = '[]'::jsonb",
+    "measurement_policy_reviewed_by_user_id = null",
+    "measurement_policy_reviewed_at = null",
     "reviewer_workflow_status = 'technical_gate_blocked'",
     "reviewer_workflow_reasons = '[]'::jsonb",
     "reviewer_workflow_by_user_id = null",
@@ -1620,11 +1641,16 @@ from (
     q.reviewer_workflow_reasons as "reviewerWorkflowReasons",
     q.reviewer_workflow_by_user_id::text as "reviewerWorkflowByUserId",
     q.reviewer_workflow_at as "reviewerWorkflowAt",
+    q.measurement_policy_status as "measurementPolicyStatus",
+    q.measurement_policy_reasons as "measurementPolicyReasons",
+    q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
+    q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
     jsonb_build_object(
       'technicalReviewReady', q.review_status = 'technical_ready',
       'calibrationReady', q.calibration_status = 'ready',
       'captureMetadataReady', q.capture_metadata_status = 'ready',
       'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
+      'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
       'medicalMeasurementAllowed', false,
       'patientDeliveryAllowed', false,
       'clinicalOutputGenerated', false
@@ -1738,11 +1764,16 @@ from (
     q.reviewer_workflow_reasons as "reviewerWorkflowReasons",
     q.reviewer_workflow_by_user_id::text as "reviewerWorkflowByUserId",
     q.reviewer_workflow_at as "reviewerWorkflowAt",
+    q.measurement_policy_status as "measurementPolicyStatus",
+    q.measurement_policy_reasons as "measurementPolicyReasons",
+    q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
+    q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
     jsonb_build_object(
       'technicalReviewReady', q.review_status = 'technical_ready',
       'calibrationReady', q.calibration_status = 'ready',
       'captureMetadataReady', q.capture_metadata_status = 'ready',
       'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
+      'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
       'medicalMeasurementAllowed', false,
       'patientDeliveryAllowed', false,
       'clinicalOutputGenerated', false
@@ -1813,6 +1844,7 @@ from (
         when q.review_status = 'technical_ready'
           and q.calibration_status = 'ready'
           and q.capture_metadata_status = 'ready'
+          and q.measurement_policy_status = 'approved_for_technical_review'
           and jsonb_array_length(q.technical_markers) >= 2
         then ${sqlLiteral(workflow.workflowStatus)}
         else 'technical_gate_blocked'
@@ -1821,9 +1853,14 @@ from (
         when q.review_status = 'technical_ready'
           and q.calibration_status = 'ready'
           and q.capture_metadata_status = 'ready'
+          and q.measurement_policy_status = 'approved_for_technical_review'
           and jsonb_array_length(q.technical_markers) >= 2
         then ${sqlJsonb(workflow.workflowReasons ?? [])}
-        else ${sqlJsonb(["technical_gate_blocked"])}
+        else case
+          when q.measurement_policy_status <> 'approved_for_technical_review'
+          then ${sqlJsonb(["measurement_policy_required"])}
+          else ${sqlJsonb(["technical_gate_blocked"])}
+        end
       end,
       reviewer_workflow_by_user_id = ${sqlNullableUuid(doctorUserId)},
       reviewer_workflow_at = now(),
@@ -1871,11 +1908,150 @@ from (
     q.reviewer_workflow_reasons as "reviewerWorkflowReasons",
     q.reviewer_workflow_by_user_id::text as "reviewerWorkflowByUserId",
     q.reviewer_workflow_at as "reviewerWorkflowAt",
+    q.measurement_policy_status as "measurementPolicyStatus",
+    q.measurement_policy_reasons as "measurementPolicyReasons",
+    q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
+    q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
     jsonb_build_object(
       'technicalReviewReady', q.review_status = 'technical_ready',
       'calibrationReady', q.calibration_status = 'ready',
       'captureMetadataReady', q.capture_metadata_status = 'ready',
       'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
+      'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
+      'medicalMeasurementAllowed', false,
+      'patientDeliveryAllowed', false,
+      'clinicalOutputGenerated', false
+    ) as "reviewerWorkflowGate",
+    q.medical_measurement_allowed as "medicalMeasurementAllowed",
+    q.patient_delivery_allowed as "patientDeliveryAllowed",
+    q.protected_fields_exposed as "protectedFieldsExposed",
+    q.created_at as "createdAt",
+    q.updated_at as "updatedAt"
+  from reviewed q
+  limit 1
+) result;
+`.trim();
+}
+
+export function buildReviewLesionComparisonMeasurementPolicySql({
+  visitId,
+  patientId,
+  clinicId,
+  doctorUserId = null,
+  policy = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const draftScope = clinicScopeWhere({ alias: "q", clinicIds, allClinics });
+  const lesionScope = clinicScopeWhere({ alias: "l", clinicIds, allClinics });
+  const assetScope = clinicScopeWhere({ alias: "a", clinicIds, allClinics });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_lesion as (
+    select
+      l.id::text as lesion_id,
+      l.clinic_id,
+      l.patient_id,
+      l.visit_id
+    from lesions l
+    where l.id::text = ${sqlLiteral(policy.lesionId)}
+      and l.visit_id = ${sqlUuid(visitId)}
+      and l.patient_id = ${sqlUuid(patientId)}
+      and l.clinic_id = ${sqlUuid(clinicId)}
+      ${lesionScope}
+    limit 1
+  ),
+  target_assets as (
+    select count(distinct a.id)::int as asset_count
+    from clinical_assets a
+    join target_lesion l
+      on l.lesion_id = a.lesion_id::text
+     and l.visit_id = a.visit_id
+     and l.patient_id = a.patient_id
+     and l.clinic_id = a.clinic_id
+    where a.id::text = any(${sqlTextArray(policy.imageIds)})
+      and a.kind in ('overview_photo', 'dermoscopy')
+      and a.content_type like 'image/%'
+      ${assetScope}
+  ),
+  target_pair as (
+    select l.*
+    from target_lesion l
+    cross join target_assets a
+    where a.asset_count = 2
+  ),
+  reviewed as (
+    update lesion_comparison_viewer_qa_drafts q
+    set
+      measurement_policy_status = ${sqlLiteral(policy.measurementPolicyStatus)},
+      measurement_policy_reasons = ${sqlJsonb(policy.measurementPolicyReasons ?? [])},
+      measurement_policy_reviewed_by_user_id = ${sqlNullableUuid(doctorUserId)},
+      measurement_policy_reviewed_at = now(),
+      reviewer_workflow_status = case
+        when ${sqlLiteral(policy.measurementPolicyStatus)} = 'approved_for_technical_review'
+        then q.reviewer_workflow_status
+        else 'technical_gate_blocked'
+      end,
+      reviewer_workflow_reasons = case
+        when ${sqlLiteral(policy.measurementPolicyStatus)} = 'approved_for_technical_review'
+        then q.reviewer_workflow_reasons
+        else ${sqlJsonb(["measurement_policy_required"])}
+      end,
+      medical_measurement_allowed = false,
+      patient_delivery_allowed = false,
+      protected_fields_exposed = false,
+      metadata_json = q.metadata_json || ${sqlJsonb({
+        brainstormTask: "SD-MF-026/028",
+        measurementPolicyBoundary: "metadata_only",
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+      })},
+      updated_at = now()
+    from target_pair p
+    where q.visit_id = p.visit_id
+      and q.patient_id = p.patient_id
+      and q.clinic_id = p.clinic_id
+      and q.lesion_id = p.lesion_id
+      and q.pair_key = ${sqlLiteral(policy.pairKey)}
+      and q.image_ids @> ${sqlTextArray(policy.imageIds)}
+      and ${sqlTextArray(policy.imageIds)} @> q.image_ids
+      ${draftScope}
+    returning q.*
+  )
+  select
+    q.id::text as "id",
+    q.clinic_id::text as "clinicId",
+    q.patient_id::text as "patientId",
+    q.visit_id::text as "visitId",
+    q.doctor_user_id::text as "doctorUserId",
+    q.lesion_id as "lesionId",
+    q.pair_key as "pairKey",
+    q.image_ids as "imageIds",
+    q.technical_markers as "technicalMarkers",
+    q.calibration_status as "calibrationStatus",
+    q.calibration_reasons as "calibrationReasons",
+    q.capture_metadata_status as "captureMetadataStatus",
+    q.review_status as "reviewStatus",
+    q.review_reasons as "reviewReasons",
+    q.reviewed_by_user_id::text as "reviewedByUserId",
+    q.reviewed_at as "reviewedAt",
+    q.reviewer_workflow_status as "reviewerWorkflowStatus",
+    q.reviewer_workflow_reasons as "reviewerWorkflowReasons",
+    q.reviewer_workflow_by_user_id::text as "reviewerWorkflowByUserId",
+    q.reviewer_workflow_at as "reviewerWorkflowAt",
+    q.measurement_policy_status as "measurementPolicyStatus",
+    q.measurement_policy_reasons as "measurementPolicyReasons",
+    q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
+    q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
+    jsonb_build_object(
+      'technicalReviewReady', q.review_status = 'technical_ready',
+      'calibrationReady', q.calibration_status = 'ready',
+      'captureMetadataReady', q.capture_metadata_status = 'ready',
+      'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
+      'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
       'medicalMeasurementAllowed', false,
       'patientDeliveryAllowed', false,
       'clinicalOutputGenerated', false
@@ -1944,6 +2120,9 @@ from (
       q.review_reasons,
       q.reviewed_at,
       q.reviewed_by_user_id,
+      q.measurement_policy_status,
+      q.measurement_policy_reasons,
+      q.measurement_policy_reviewed_at,
       q.calibration_status,
       q.calibration_reasons,
       q.capture_metadata_status,
@@ -1984,6 +2163,7 @@ from (
       'technicalReady', coalesce((select count(*)::int from scoped_rows where review_status = 'technical_ready'), 0),
       'needsRecapture', coalesce((select count(*)::int from scoped_rows where review_status = 'needs_recapture'), 0),
       'notSuitableForComparison', coalesce((select count(*)::int from scoped_rows where review_status = 'not_suitable_for_comparison'), 0),
+      'measurementPolicyRequired', coalesce((select count(*)::int from scoped_rows where review_status = 'technical_ready' and measurement_policy_status <> 'approved_for_technical_review'), 0),
       'actionable', coalesce((select count(*)::int from scoped_rows where review_status in ('unreviewed', 'needs_recapture', 'not_suitable_for_comparison')), 0)
     ) as "summary",
     coalesce((
@@ -1999,6 +2179,11 @@ from (
           'reviewedAt', r.reviewed_at,
           'reviewedByUserId', r.reviewed_by_user_id::text
         ),
+        'measurementPolicy', jsonb_build_object(
+          'status', r.measurement_policy_status,
+          'reasons', coalesce(r.measurement_policy_reasons, '[]'::jsonb),
+          'reviewedAt', r.measurement_policy_reviewed_at
+        ),
         'calibrationStatus', r.calibration_status,
         'calibrationReasons', coalesce(r.calibration_reasons, '[]'::jsonb),
         'captureMetadataStatus', r.capture_metadata_status,
@@ -2007,6 +2192,8 @@ from (
         'nextAction', case
           when r.review_status = 'needs_recapture' then 'request_recapture'
           when r.review_status = 'not_suitable_for_comparison' then 'exclude_from_dynamic_review'
+          when r.review_status = 'technical_ready'
+            and r.measurement_policy_status <> 'approved_for_technical_review' then 'approve_measurement_policy'
           when r.review_status = 'technical_ready' then 'continue_review'
           else 'review_pair'
         end
@@ -2304,10 +2491,16 @@ function normalizeReviewerWorkflowGate(value) {
     calibrationReady: gate.calibrationReady === true,
     captureMetadataReady: gate.captureMetadataReady === true,
     markerGateReady: gate.markerGateReady === true,
+    measurementPolicyApproved: gate.measurementPolicyApproved === true,
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     clinicalConclusionGenerated: false,
   };
+}
+
+function normalizeMeasurementPolicyStatus(value) {
+  const status = String(value ?? "not_approved");
+  return status === "review_required" || status === "approved_for_technical_review" ? status : "not_approved";
 }
 
 function normalizeLesionComparisonViewerQa(row) {
@@ -2347,6 +2540,15 @@ function normalizeLesionComparisonViewerQa(row) {
       reviewedByUserId: row.reviewerWorkflowByUserId ? String(row.reviewerWorkflowByUserId) : null,
       gate: normalizeReviewerWorkflowGate(row.reviewerWorkflowGate),
     },
+    measurementPolicy: {
+      status: normalizeMeasurementPolicyStatus(row.measurementPolicyStatus),
+      reasons: parseJsonArray(row.measurementPolicyReasons),
+      reviewedAt: row.measurementPolicyReviewedAt ?? null,
+      reviewedByUserId: row.measurementPolicyReviewedByUserId ? String(row.measurementPolicyReviewedByUserId) : null,
+      medicalMeasurementAllowed: false,
+      patientDeliveryAllowed: false,
+      clinicalOutputGenerated: false,
+    },
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
@@ -2363,6 +2565,7 @@ function normalizeViewerQaReviewQueueSummary(value) {
     technicalReady: numberOrZero(source.technicalReady),
     needsRecapture: numberOrZero(source.needsRecapture),
     notSuitableForComparison: numberOrZero(source.notSuitableForComparison),
+    measurementPolicyRequired: numberOrZero(source.measurementPolicyRequired),
     actionable: numberOrZero(source.actionable),
   };
 }
@@ -2388,6 +2591,12 @@ function normalizeViewerQaReviewQueueItem(row) {
       reviewedAt: review.reviewedAt ?? row.reviewedAt ?? null,
       reviewedByUserId: review.reviewedByUserId || row.reviewedByUserId ? String(review.reviewedByUserId ?? row.reviewedByUserId) : null,
     },
+    measurementPolicy: {
+      status: normalizeMeasurementPolicyStatus(row.measurementPolicy?.status ?? row.measurementPolicyStatus),
+      reasons: parseJsonArray(row.measurementPolicy?.reasons ?? row.measurementPolicyReasons),
+      reviewedAt: row.measurementPolicy?.reviewedAt ?? row.measurementPolicyReviewedAt ?? null,
+      medicalMeasurementAllowed: false,
+    },
     calibrationStatus: String(row.calibrationStatus ?? "not_ready"),
     calibrationReasons: parseJsonArray(row.calibrationReasons),
     captureMetadataStatus: String(row.captureMetadataStatus ?? "needs_review"),
@@ -2396,6 +2605,7 @@ function normalizeViewerQaReviewQueueItem(row) {
     nextAction:
       nextAction === "request_recapture"
         || nextAction === "exclude_from_dynamic_review"
+        || nextAction === "approve_measurement_policy"
         || nextAction === "continue_review"
         ? nextAction
         : "review_pair",
@@ -2439,6 +2649,7 @@ const LONGITUDINAL_QA_BLOCKER_VALUES = new Set([
   "capture_protocol_not_ready",
   "calibration_not_ready",
   "technical_markers_missing",
+  "measurement_policy_required",
 ]);
 const LONGITUDINAL_QA_ACTION_VALUES = new Set([
   "review_queue",
@@ -2451,6 +2662,7 @@ const LONGITUDINAL_QA_ACTION_VALUES = new Set([
   "complete_capture_protocol",
   "complete_calibration",
   "place_markers",
+  "approve_measurement_policy",
   "continue_review",
 ]);
 
@@ -2483,6 +2695,7 @@ function normalizeLongitudinalQaReadiness(value) {
     captureProtocolNotReadyCount: numberOrZero(source.captureProtocolNotReadyCount),
     calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
     markerMissingCount: numberOrZero(source.markerMissingCount),
+    measurementPolicyNotReadyCount: numberOrZero(source.measurementPolicyNotReadyCount),
     technicalRolloutReady: source.technicalRolloutReady === true,
     dynamicConclusionAllowed: false,
   };
@@ -2563,6 +2776,7 @@ function normalizeVisitLongitudinalDatasetValidationReadiness(value) {
     captureProtocolNotReadyCount: numberOrZero(source.captureProtocolNotReadyCount),
     calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
     markerMissingCount: numberOrZero(source.markerMissingCount),
+    measurementPolicyNotReadyCount: numberOrZero(source.measurementPolicyNotReadyCount),
     reviewerWorkflowReadyCount: numberOrZero(source.reviewerWorkflowReadyCount),
     dynamicConclusionAllowed: false,
   };
@@ -2590,6 +2804,7 @@ function normalizeVisitLongitudinalDatasetValidationItem(row) {
     captureProtocolNotReadyCount: numberOrZero(row.captureProtocolNotReadyCount),
     calibrationBlockedCount: numberOrZero(row.calibrationBlockedCount),
     markerMissingCount: numberOrZero(row.markerMissingCount),
+    measurementPolicyNotReadyCount: numberOrZero(row.measurementPolicyNotReadyCount),
     reviewerWorkflowReadyCount: numberOrZero(row.reviewerWorkflowReadyCount),
     nextAction,
   };
@@ -2747,6 +2962,13 @@ export function createClinicalWorkspaceRepository(dbClient) {
       return queryOne(
         dbClient,
         buildReviewLesionComparisonViewerQaReviewerWorkflowSql(params),
+        normalizeLesionComparisonViewerQa,
+      );
+    },
+    async reviewLesionComparisonMeasurementPolicy(params) {
+      return queryOne(
+        dbClient,
+        buildReviewLesionComparisonMeasurementPolicySql(params),
         normalizeLesionComparisonViewerQa,
       );
     },

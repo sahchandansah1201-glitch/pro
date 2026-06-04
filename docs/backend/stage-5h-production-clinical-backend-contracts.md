@@ -1078,6 +1078,83 @@ Frontend behavior:
   doctor-side metadata-only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BO Measurement Policy Gate
+
+Batch BO adds an approved-measurement-policy gate before clinical-grade reviewer
+operations. The name is intentionally narrow: this policy approves only the
+technical reviewer workflow boundary. It does not enable millimeter
+measurements, lesion size calculations, clinical dynamic conclusions, patient
+delivery, or report release.
+
+Migration:
+
+- `0065_stage5h_measurement_policy_gate.sql` extends
+  `lesion_comparison_viewer_qa_drafts` with `measurement_policy_status`,
+  `measurement_policy_reasons`, `measurement_policy_reviewed_by_user_id`, and
+  `measurement_policy_reviewed_at`;
+- allowed statuses are `not_approved`, `review_required`, and
+  `approved_for_technical_review`;
+- CHECK `lesion_comparison_viewer_qa_measurement_policy_no_protected_keys`
+  blocks measurement values, diagnosis/risk/prognosis/treatment claims,
+  protected image/storage fields, QR/session/token fields, and doctor/patient
+  report text in policy metadata.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/lesion-comparison-viewer-qa/measurement-policy`
+  persists the metadata-only policy decision over an existing viewer QA pair;
+- service audit action `lesion_comparison_measurement_policy.review` stores
+  only visit/lesion/status/reason counts and boundary flags;
+- `reviewerWorkflow.gate.measurementPolicyApproved` is required before
+  reviewer workflow can become ready;
+- lesion longitudinal QA and visit longitudinal dataset validation add
+  `measurementPolicyNotReadyCount`, blocker `measurement_policy_required`, and
+  next action `approve_measurement_policy`;
+- review queue adds `measurementPolicyRequired` and item-level
+  `measurementPolicy` status without pair keys or image IDs.
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false` remains forced in database writes,
+  repository normalizers, service responses, frontend DTOs, and UI copy;
+- `patientDeliveryAllowed=false` and `protectedFieldsExposed=false` remain
+  forced;
+- no raw image bytes, object bucket/key, storage path, checksum, signed URL,
+  QR/session/credential material, pair keys or image IDs in rollups/audit,
+  diagnosis/risk/prognosis/treatment, clinical dynamic conclusion, doctor-only
+  text, or patient-safe report text is exposed.
+
+Frontend behavior:
+
+- `LesionDetailPage` full-screen comparison shows region `Политика измерений`
+  after `Технический review viewer QA` and before
+  `Clinical-grade reviewer workflow`;
+- the policy region states `Измерения остаются выключены` and
+  `Выдача пациенту: выключена`;
+- reviewer workflow stays disabled until technical review, capture metadata,
+  calibration, markers, and measurement policy are ready;
+- `VisitWorkspacePage` report workspace shows `Policy` counter, per-lesion
+  `policy: {count}`, and action label `Утвердить policy измерений`.
+
+### Batch BO Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BO adds the
+  approved policy gate to timeline readiness, so chronology rollout is blocked
+  until reviewer operations have a safe technical policy. Remaining gate:
+  validate policy workflow on real clinic assets and reviewer roles.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BO
+  closes the approved measurement policy prerequisite for clinical-grade
+  reviewer workflow while keeping actual measurements disabled. Remaining gate:
+  full clinical-grade reviewer operations on production assets and role-based
+  reviewer assignment.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BO prevents
+  dynamic interpretation from advancing when the policy gate is missing; no
+  clinical dynamic conclusion is generated. Remaining gate: approved production
+  analysis policy and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BO is
+  doctor-side metadata-only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none
