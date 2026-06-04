@@ -15,6 +15,7 @@ import {
   buildReviewVisitLongitudinalTimelineRolloutSql,
   buildReviewLesionComparisonMeasurementPolicySql,
   buildReviewLesionComparisonProductionAnalysisPolicySql,
+  buildReviewVisitLongitudinalTimelineRolloutSopSql,
   buildReviewLesionComparisonViewerQaSql,
   buildReviewLesionComparisonViewerQaReviewerWorkflowSql,
   buildUpsertAssetCaptureMetadataSql,
@@ -138,7 +139,10 @@ test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset valid
   assert.match(sql, /visit_longitudinal_dataset_validation\.read/i);
   assert.match(sql, /visit_longitudinal_timeline_rollout_reviews/);
   assert.match(sql, /timelineRollout/);
+  assert.match(sql, /visit_longitudinal_timeline_rollout_sop_reviews/);
+  assert.match(sql, /timelineRolloutSop/);
   assert.match(sql, /approved_for_clinical_operations|not_approved/);
+  assert.match(sql, /ready_for_operational_rollout|not_started/);
   assert.match(sql, /clinicalOutputGenerated/);
   assert.match(sql, /ready_for_rollout/);
   assert.match(sql, /dynamicConclusionAllowed/);
@@ -148,6 +152,47 @@ test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset valid
   assert.doesNotMatch(
     sql,
     /q\.pair_key|q\.image_ids|d\.serial|b\.host_name|worker_metadata_json|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
+  );
+});
+
+test("Batch BS Stage 5H repository builds metadata-only timeline rollout SOP SQL", () => {
+  const sql = buildReviewVisitLongitudinalTimelineRolloutSopSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    sop: {
+      sopStatus: "ready_for_operational_rollout",
+      sopReasons: ["timeline_rollout_sop_ready_no_patient_delivery"],
+      validationStatus: "ready_for_rollout",
+      rolloutStatus: "approved_for_clinical_operations",
+      datasetValidationStatus: "ready",
+      reviewerOperationsStatus: "ready",
+      rollbackPlanStatus: "ready",
+      monitoringPlanStatus: "ready",
+      rolloutWindowStatus: "ready",
+      ownerAckStatus: "ready",
+      lesionCount: 2,
+      readyTimelineCount: 2,
+      blockedTimelineCount: 0,
+      candidatePairCount: 3,
+      reviewerWorkflowReadyCount: 3,
+    },
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /insert into visit_longitudinal_timeline_rollout_sop_reviews/);
+  assert.match(sql, /sop_status/);
+  assert.match(sql, /ready_for_operational_rollout/);
+  assert.match(sql, /timelineRolloutSopBoundary/);
+  assert.match(sql, /operational_only/);
+  assert.match(sql, /patientDeliveryAllowed/);
+  assert.match(sql, /medicalMeasurementAllowed/);
+  assert.match(sql, /protectedFieldsExposed/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.doesNotMatch(
+    sql,
+    /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

@@ -2145,6 +2145,9 @@
           },
           "timelineRollout": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRollout"
+          },
+          "timelineRolloutSop": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutSop"
           }
         }
       },
@@ -2648,6 +2651,275 @@
               "maxLength": 120
             },
             "maxItems": 8
+          }
+        },
+        "additionalProperties": false
+      },
+      "VisitLongitudinalTimelineRolloutSop": {
+        "type": "object",
+        "required": [
+          "id",
+          "clinicId",
+          "patientId",
+          "visitId",
+          "status",
+          "reasons",
+          "validationStatus",
+          "rolloutStatus",
+          "datasetValidationStatus",
+          "reviewerOperationsStatus",
+          "rollbackPlanStatus",
+          "monitoringPlanStatus",
+          "rolloutWindowStatus",
+          "ownerAckStatus",
+          "lesionCount",
+          "readyTimelineCount",
+          "blockedTimelineCount",
+          "candidatePairCount",
+          "reviewerWorkflowReadyCount",
+          "patientDeliveryAllowed",
+          "medicalMeasurementAllowed",
+          "protectedFieldsExposed",
+          "clinicalOutputGenerated",
+          "reviewedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visitId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_operational_rollout"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "validationStatus": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "needs_review",
+              "ready_for_rollout"
+            ]
+          },
+          "rolloutStatus": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_clinical_operations"
+            ]
+          },
+          "datasetValidationStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "reviewerOperationsStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackPlanStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "monitoringPlanStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rolloutWindowStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerAckStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "lesionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "readyTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidatePairCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewerWorkflowReadyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          },
+          "reviewedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "VisitLongitudinalTimelineRolloutSopPayload": {
+        "type": "object",
+        "required": [
+          "sopStatus",
+          "sopReasons",
+          "datasetValidationStatus",
+          "reviewerOperationsStatus",
+          "rollbackPlanStatus",
+          "monitoringPlanStatus",
+          "rolloutWindowStatus",
+          "ownerAckStatus"
+        ],
+        "properties": {
+          "sopStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_operational_rollout"
+            ]
+          },
+          "sopReasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "maxItems": 8
+          },
+          "datasetValidationStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "reviewerOperationsStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackPlanStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "monitoringPlanStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rolloutWindowStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerAckStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
           }
         },
         "additionalProperties": false
@@ -3424,6 +3696,78 @@
           },
           "422": {
             "description": "Validation error."
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/sop": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review production timeline rollout SOP for a visit",
+        "operationId": "reviewVisitLongitudinalTimelineRolloutSop",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutSopPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metadata-only timeline rollout SOP receipt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "stage",
+                    "source",
+                    "item",
+                    "generatedAt",
+                    "correlationId"
+                  ],
+                  "properties": {
+                    "stage": {
+                      "type": "string",
+                      "const": "5H"
+                    },
+                    "source": {
+                      "type": "string",
+                      "const": "postgres"
+                    },
+                    "item": {
+                      "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutSop"
+                    },
+                    "auth": {
+                      "type": "object"
+                    },
+                    "generatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

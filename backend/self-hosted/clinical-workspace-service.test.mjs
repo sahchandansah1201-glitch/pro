@@ -10,6 +10,7 @@ import {
   normalizeLesionComparisonMeasurementPolicyPayload,
   normalizeLesionComparisonProductionAnalysisPolicyPayload,
   normalizeLesionComparisonReviewerAssignmentPayload,
+  normalizeVisitLongitudinalTimelineRolloutSopPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
   normalizeLesionComparisonViewerQaReviewerWorkflowPayload,
   normalizeVisitLongitudinalTimelineRolloutPayload,
@@ -617,6 +618,50 @@ function createService({ auditEvents = [], repo = {} } = {}) {
             nextAction: "check_device_bridge",
           },
         ],
+        timelineRollout: {
+          id: "rollout-review-1",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          status: "review_required",
+          reasons: ["timeline_dataset_not_ready"],
+          validationStatus: "blocked",
+          lesionCount: 2,
+          readyTimelineCount: 1,
+          needsReviewTimelineCount: 0,
+          blockedTimelineCount: 1,
+          candidatePairCount: 3,
+          reviewerWorkflowReadyCount: 1,
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+        },
+        timelineRolloutSop: {
+          id: "sop-review-1",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          status: "not_started",
+          reasons: [],
+          validationStatus: "blocked",
+          rolloutStatus: "review_required",
+          datasetValidationStatus: "missing",
+          reviewerOperationsStatus: "missing",
+          rollbackPlanStatus: "missing",
+          monitoringPlanStatus: "missing",
+          rolloutWindowStatus: "missing",
+          ownerAckStatus: "missing",
+          lesionCount: 0,
+          readyTimelineCount: 0,
+          blockedTimelineCount: 0,
+          candidatePairCount: 0,
+          reviewerWorkflowReadyCount: 0,
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+        },
         nextActions: ["verify_production_asset", "complete_capture_metadata", "complete_device_metadata", "check_device_bridge", "complete_calibration", "place_markers"],
         boundaries: {
           patientDeliveryAllowed: false,
@@ -647,6 +692,34 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         blockedTimelineCount: rollout.blockedTimelineCount,
         candidatePairCount: rollout.candidatePairCount,
         reviewerWorkflowReadyCount: rollout.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-04T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutSop({ sop }) {
+      return {
+        id: "sop-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: sop.sopStatus,
+        reasons: sop.sopReasons,
+        validationStatus: sop.validationStatus,
+        rolloutStatus: sop.rolloutStatus,
+        datasetValidationStatus: sop.datasetValidationStatus,
+        reviewerOperationsStatus: sop.reviewerOperationsStatus,
+        rollbackPlanStatus: sop.rollbackPlanStatus,
+        monitoringPlanStatus: sop.monitoringPlanStatus,
+        rolloutWindowStatus: sop.rolloutWindowStatus,
+        ownerAckStatus: sop.ownerAckStatus,
+        lesionCount: sop.lesionCount,
+        readyTimelineCount: sop.readyTimelineCount,
+        blockedTimelineCount: sop.blockedTimelineCount,
+        candidatePairCount: sop.candidatePairCount,
+        reviewerWorkflowReadyCount: sop.reviewerWorkflowReadyCount,
         patientDeliveryAllowed: false,
         medicalMeasurementAllowed: false,
         protectedFieldsExposed: false,
@@ -1607,6 +1680,95 @@ test("Batch BR Stage 5H timeline rollout payload rejects protected and clinical 
       normalizeVisitLongitudinalTimelineRolloutPayload({
         rolloutStatus: "approved_for_clinical_operations",
         rolloutReasons: ["вероятность меланомы низкая"],
+      }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch BS Stage 5H service reviews timeline rollout SOP with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutSop(
+    VISIT_ID,
+    {
+      sopStatus: "ready_for_operational_rollout",
+      sopReasons: ["timeline_rollout_sop_ready_no_patient_delivery"],
+      datasetValidationStatus: "ready",
+      reviewerOperationsStatus: "ready",
+      rollbackPlanStatus: "ready",
+      monitoringPlanStatus: "ready",
+      rolloutWindowStatus: "ready",
+      ownerAckStatus: "ready",
+    },
+    authContext,
+    { correlationId: "c17" },
+  );
+
+  assert.equal(result.sop.status, "in_review");
+  assert.deepEqual(result.sop.reasons, [
+    "timeline_rollout_sop_ready_no_patient_delivery",
+    "timeline_rollout_sop_not_ready",
+  ]);
+  assert.equal(result.sop.validationStatus, "blocked");
+  assert.equal(result.sop.rolloutStatus, "review_required");
+  assert.equal(result.sop.patientDeliveryAllowed, false);
+  assert.equal(result.sop.medicalMeasurementAllowed, false);
+  assert.equal(result.sop.protectedFieldsExposed, false);
+  assert.equal(result.sop.clinicalOutputGenerated, false);
+  assert.equal(auditEvents.at(-1).action, "visit_longitudinal_timeline_rollout_sop.review");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    sopStatus: "in_review",
+    validationStatus: "blocked",
+    rolloutStatus: "review_required",
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    checklistReady: true,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.sop) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BS Stage 5H timeline rollout SOP payload rejects protected and clinical fields", () => {
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutSopPayload({
+        sopStatus: "ready_for_operational_rollout",
+        sopReasons: ["готово"],
+        datasetValidationStatus: "ready",
+        reviewerOperationsStatus: "ready",
+        rollbackPlanStatus: "ready",
+        monitoringPlanStatus: "ready",
+        rolloutWindowStatus: "ready",
+        ownerAckStatus: "ready",
+        patientSafeText: "secret",
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutSopPayload({
+        sopStatus: "ready_for_operational_rollout",
+        sopReasons: ["вероятность меланомы низкая"],
+        datasetValidationStatus: "ready",
+        reviewerOperationsStatus: "ready",
+        rollbackPlanStatus: "ready",
+        monitoringPlanStatus: "ready",
+        rolloutWindowStatus: "ready",
+        ownerAckStatus: "ready",
       }),
     VisitWorkspaceValidationError,
   );

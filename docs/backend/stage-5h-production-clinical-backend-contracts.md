@@ -1428,6 +1428,108 @@ Safety boundary:
   until privacy/security/retention/session/approved-copy gates are explicitly
   closed.
 
+## Batch BS Timeline Rollout SOP
+
+Пункт плана: `production dataset validation / timeline-level QA rollout ->
+timeline rollout SOP`.
+
+Batch BS adds a production-safe SOP receipt on top of Batch BR timeline rollout
+governance. The SOP stores only operational checklist metadata for whether the
+clinic can start timeline QA rollout work. It does not approve patient delivery,
+does not enable medical measurements, does not generate clinical dynamic
+conclusions, and does not expose pair keys, image IDs, reviewer identities,
+storage fields, signed URLs, QR/session/credential material, diagnosis/risk/
+prognosis/treatment, doctor-only text, or patient report text.
+
+Migration:
+
+- `0069_stage5h_timeline_rollout_sop.sql` creates
+  `visit_longitudinal_timeline_rollout_sop_reviews`;
+- allowed SOP statuses are `not_started`, `in_review`, and
+  `ready_for_operational_rollout`;
+- checklist fields are `dataset_validation_status`,
+  `reviewer_operations_status`, `rollback_plan_status`,
+  `monitoring_plan_status`, `rollout_window_status`, and `owner_ack_status`,
+  each with `missing`, `needs_review`, or `ready`;
+- stored counters are visit-level aggregates only:
+  `lesion_count`, `ready_timeline_count`, `blocked_timeline_count`,
+  `candidate_pair_count`, and `reviewer_workflow_ready_count`;
+- CHECK `visit_longitudinal_timeline_rollout_sop_metadata_no_protected_keys`
+  blocks pair/image keys, storage/object/signed URL keys, reviewer identity
+  keys, dynamic/clinical conclusion keys, diagnosis/risk/prognosis/treatment
+  keys, measurement value keys, QR/session/token keys, and doctor/patient text
+  keys;
+- boundary flags remain forced false:
+  `patient_delivery_allowed`, `medical_measurement_allowed`,
+  `protected_fields_exposed`, and `clinical_output_generated`.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/sop` persists
+  a metadata-only SOP review receipt;
+- `buildReviewVisitLongitudinalTimelineRolloutSopSql` scopes the write to the
+  visit, patient, clinic, and caller clinic scope, then upserts one SOP row per
+  visit;
+- `VisitLongitudinalDatasetValidation` now includes `timelineRolloutSop` so the
+  report workspace can show the latest SOP state beside dataset readiness and
+  Batch BR rollout governance;
+- service method `reviewVisitLongitudinalTimelineRolloutSop` uses the current
+  dataset validation snapshot and latest rollout governance state. Requested
+  `ready_for_operational_rollout` is downgraded to `in_review` unless
+  validation is `ready_for_rollout`, rollout governance is
+  `approved_for_clinical_operations`, and every SOP checklist field is `ready`;
+- service audit action `visit_longitudinal_timeline_rollout_sop.review` stores
+  aggregate counters, statuses, checklist readiness, reason count, and
+  forced-false boundary flags only.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab adds region `SOP timeline rollout` inside
+  `Готовность timeline QA`, after `Контур timeline rollout`;
+- visible copy states `SOP фиксирует только operational checklist`,
+  `Clinical dynamic conclusion: выключен`, and `Выдача пациенту: выключена`;
+- the region shows compact checklist fields: `Dataset`, `Reviewer`,
+  `Rollback`, `Monitoring`, `Window`, and `Owner`;
+- `Утвердить SOP rollout` is disabled unless dataset readiness is
+  `ready_for_rollout` and Batch BR rollout governance is
+  `approved_for_clinical_operations`;
+- `Зафиксировать SOP review` remains available and writes metadata-only review
+  state;
+- after saving, the workspace reloads the self-hosted read model and shows
+  `Timeline rollout SOP сохранён. Clinical dynamic conclusion: выключен.`
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`, `patientDeliveryAllowed=false`,
+  `protectedFieldsExposed=false`, and `clinicalOutputGenerated=false` are
+  forced in repository, service, OpenAPI schema, frontend DTO normalizer, and
+  UI copy;
+- no patient delivery or clinical dynamic conclusion is produced by this
+  batch;
+- no pair keys, image IDs, object bucket/key, storage path, checksum, signed
+  URL, QR/session/credential, reviewer identity, doctor-only text,
+  patient-safe report text, diagnosis, risk, prognosis, treatment, or
+  measurement values are returned in SOP read/write responses or audit
+  metadata.
+
+### Batch BS Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BS adds the
+  operational SOP receipt required before timeline QA rollout can be considered
+  ready at visit level. Remaining gate: execute validation on real clinical
+  production datasets and monitor SOP usage in clinic workflow.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BS
+  prevents rollout readiness from becoming operational unless reviewer
+  operations and rollback/monitoring/owner checklist items are ready. Remaining
+  gate: production reviewer operations validation on real assets.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BS keeps
+  `Clinical dynamic conclusion: выключен`; SOP readiness is operational
+  metadata, not a medical conclusion. Remaining gate: approved production
+  analysis procedure and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch BS is
+  doctor-side metadata-only SOP governance; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

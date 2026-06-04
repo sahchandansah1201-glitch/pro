@@ -701,6 +701,43 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/sop")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-sop-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_sop_not_ready"],
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              datasetValidationStatus: "needs_review",
+              reviewerOperationsStatus: "needs_review",
+              rollbackPlanStatus: "needs_review",
+              monitoringPlanStatus: "needs_review",
+              rolloutWindowStatus: "needs_review",
+              ownerAckStatus: "needs_review",
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 1,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-04T00:00:00.000Z",
+              createdAt: "2026-06-04T00:00:00.000Z",
+              updatedAt: "2026-06-04T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
     if (href.endsWith("/api/v1/visits/live-visit/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20")) {
       return Promise.resolve(
         new Response(
@@ -932,6 +969,33 @@ function createLiveWorkspaceFetchMock() {
                 pairKey: "live-lesion:i-011+i-012",
                 imageIds: ["i-011", "i-012"],
               },
+              timelineRolloutSop: {
+                id: "timeline-rollout-sop-1",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                status: "not_started",
+                reasons: [],
+                validationStatus: "blocked",
+                rolloutStatus: "review_required",
+                datasetValidationStatus: "missing",
+                reviewerOperationsStatus: "missing",
+                rollbackPlanStatus: "missing",
+                monitoringPlanStatus: "missing",
+                rolloutWindowStatus: "missing",
+                ownerAckStatus: "missing",
+                lesionCount: 0,
+                readyTimelineCount: 0,
+                blockedTimelineCount: 0,
+                candidatePairCount: 0,
+                reviewerWorkflowReadyCount: 0,
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                clinicalOutputGenerated: true,
+                pairKey: "live-lesion:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
               nextActions: [
                 "verify_production_asset",
                 "complete_capture_metadata",
@@ -1039,9 +1103,13 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/не создаёт вывод о динамике/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Контур timeline rollout" })).toBeInTheDocument();
     expect(screen.getByText(/Rollout сохраняет только aggregate metadata/)).toBeInTheDocument();
-    expect(screen.getByText(/Clinical dynamic conclusion: выключен/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Clinical dynamic conclusion: выключен/).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Утвердить timeline rollout/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Нужен разбор rollout/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "SOP timeline rollout" })).toBeInTheDocument();
+    expect(screen.getByText(/SOP фиксирует только operational checklist/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить SOP rollout/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать SOP review/ })).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
@@ -1088,6 +1156,28 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     );
     expect(rolloutCall).toBeTruthy();
     expect(String((rolloutCall?.[1] as RequestInit | undefined)?.body)).toContain("review_required");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+  });
+
+  it("posts timeline rollout SOP review without patient delivery or dynamic conclusion", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "SOP timeline rollout" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать SOP review/ }));
+    await screen.findByText(/Timeline rollout SOP сохранён/);
+
+    const sopCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/sop")
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(sopCall).toBeTruthy();
+    expect(String((sopCall?.[1] as RequestInit | undefined)?.body)).toContain("in_review");
+    expect(String((sopCall?.[1] as RequestInit | undefined)?.body)).toContain("rollbackPlanStatus");
     expect(document.body.textContent).not.toContain("dynamicConclusion");
     expect(document.body.textContent).not.toContain("pairKey");
     expect(document.body.textContent).not.toContain("imageIds");

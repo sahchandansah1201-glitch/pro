@@ -6,6 +6,7 @@ import {
   getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
   getSelfHostedVisitLongitudinalDatasetValidation,
   reviewSelfHostedVisitLongitudinalTimelineRollout,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   getSelfHostedVisitAssessment,
   getSelfHostedLesionLongitudinalHistory,
   downloadSelfHostedProtectedLesionImage,
@@ -1288,6 +1289,33 @@ describe("self-hosted-clinical-workspace-api", () => {
               pairKey: "secret-pair",
               imageIds: ["i-011", "i-012"],
             },
+            timelineRolloutSop: {
+              id: "sop-1",
+              clinicId: "clinic-1",
+              patientId: "patient-1",
+              visitId: "visit-1",
+              status: "ready_for_operational_rollout",
+              reasons: ["timeline_rollout_sop_ready_no_patient_delivery"],
+              validationStatus: "ready_for_rollout",
+              rolloutStatus: "approved_for_clinical_operations",
+              datasetValidationStatus: "ready",
+              reviewerOperationsStatus: "ready",
+              rollbackPlanStatus: "ready",
+              monitoringPlanStatus: "ready",
+              rolloutWindowStatus: "ready",
+              ownerAckStatus: "ready",
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 0,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              clinicalOutputGenerated: true,
+              pairKey: "secret-pair",
+              imageIds: ["i-011", "i-012"],
+            },
             nextActions: ["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review", "unsafe_action"],
             boundaries: {
               patientDeliveryAllowed: true,
@@ -1335,6 +1363,12 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(result.value?.timelineRollout.medicalMeasurementAllowed).toBe(false);
     expect(result.value?.timelineRollout.protectedFieldsExposed).toBe(false);
     expect(result.value?.timelineRollout.clinicalOutputGenerated).toBe(false);
+    expect(result.value?.timelineRolloutSop.status).toBe("ready_for_operational_rollout");
+    expect(result.value?.timelineRolloutSop.datasetValidationStatus).toBe("ready");
+    expect(result.value?.timelineRolloutSop.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.timelineRolloutSop.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.timelineRolloutSop.protectedFieldsExposed).toBe(false);
+    expect(result.value?.timelineRolloutSop.clinicalOutputGenerated).toBe(false);
     expect(result.value?.blockers[0]?.code).toBe("production_asset_not_ready");
     expect(result.value?.blockers[0]?.nextAction).toBe("verify_production_asset");
     expect(result.value?.nextActions).toEqual(["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review"]);
@@ -1402,6 +1436,85 @@ describe("self-hosted-clinical-workspace-api", () => {
         body: JSON.stringify({
           rolloutStatus: "approved_for_clinical_operations",
           rolloutReasons: ["timeline_rollout_governance_approved_no_dynamic_conclusion"],
+        }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
+    );
+  });
+
+  it("reviews visit longitudinal timeline rollout SOP through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "sop-1",
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            status: "in_review",
+            reasons: ["timeline_rollout_sop_not_ready"],
+            validationStatus: "blocked",
+            rolloutStatus: "review_required",
+            datasetValidationStatus: "ready",
+            reviewerOperationsStatus: "ready",
+            rollbackPlanStatus: "ready",
+            monitoringPlanStatus: "ready",
+            rolloutWindowStatus: "ready",
+            ownerAckStatus: "ready",
+            lesionCount: 2,
+            readyTimelineCount: 1,
+            blockedTimelineCount: 1,
+            candidatePairCount: 3,
+            reviewerWorkflowReadyCount: 1,
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            clinicalOutputGenerated: true,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutSop({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        sopStatus: "ready_for_operational_rollout",
+        sopReasons: ["timeline_rollout_sop_ready_no_patient_delivery"],
+        datasetValidationStatus: "ready",
+        reviewerOperationsStatus: "ready",
+        rollbackPlanStatus: "ready",
+        monitoringPlanStatus: "ready",
+        rolloutWindowStatus: "ready",
+        ownerAckStatus: "ready",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.status).toBe("in_review");
+    expect(result.value?.rolloutStatus).toBe("review_required");
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(result.value?.clinicalOutputGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-timeline-rollout/sop",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          sopStatus: "ready_for_operational_rollout",
+          sopReasons: ["timeline_rollout_sop_ready_no_patient_delivery"],
+          datasetValidationStatus: "ready",
+          reviewerOperationsStatus: "ready",
+          rollbackPlanStatus: "ready",
+          monitoringPlanStatus: "ready",
+          rolloutWindowStatus: "ready",
+          ownerAckStatus: "ready",
         }),
       }),
     );

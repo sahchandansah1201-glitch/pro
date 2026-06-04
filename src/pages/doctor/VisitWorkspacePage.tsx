@@ -43,6 +43,7 @@ import {
   getSelfHostedVisitLongitudinalDatasetValidation,
   getSelfHostedVisitReport,
   reviewSelfHostedVisitLongitudinalTimelineRollout,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
   updateSelfHostedVisitReportContract,
@@ -50,6 +51,7 @@ import {
   type SelfHostedClinicalConclusionDTO,
   type SelfHostedLesionComparisonViewerQaReviewQueueDTO,
   type SelfHostedVisitLongitudinalDatasetValidationDTO,
+  type SelfHostedVisitLongitudinalTimelineRolloutSopStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutStatus,
 } from "@/lib/self-hosted-clinical-workspace-api";
 import {
@@ -478,6 +480,7 @@ function ProductionClinicalWorkspacePanel({
   });
   const [policySaving, setPolicySaving] = useState(false);
   const [timelineRolloutSaving, setTimelineRolloutSaving] = useState(false);
+  const [timelineRolloutSopSaving, setTimelineRolloutSopSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
     patientFileProxyEnabled: false,
@@ -680,6 +683,44 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Timeline rollout governance сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutSop = async (sopStatus: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const datasetReady = readiness.status === "ready_for_rollout";
+    const reviewerReady =
+      readiness.candidatePairCount > 0
+      && readiness.reviewerWorkflowReadyCount >= readiness.candidatePairCount;
+    const readyPayload = sopStatus === "ready_for_operational_rollout";
+    setTimelineRolloutSopSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutSop({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        sopStatus,
+        sopReasons: readyPayload
+          ? ["timeline_rollout_sop_ready_no_patient_delivery"]
+          : ["timeline_rollout_sop_requires_operational_review"],
+        datasetValidationStatus: readyPayload ? "ready" : datasetReady ? "ready" : "needs_review",
+        reviewerOperationsStatus: readyPayload ? "ready" : reviewerReady ? "ready" : "needs_review",
+        rollbackPlanStatus: readyPayload ? "ready" : "needs_review",
+        monitoringPlanStatus: readyPayload ? "ready" : "needs_review",
+        rolloutWindowStatus: readyPayload ? "ready" : "needs_review",
+        ownerAckStatus: readyPayload ? "ready" : "needs_review",
+      },
+    });
+    setTimelineRolloutSopSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить timeline rollout SOP.");
+      return;
+    }
+    await load();
+    setStatus("Timeline rollout SOP сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -717,7 +758,9 @@ function ProductionClinicalWorkspacePanel({
               <LongitudinalDatasetValidationPanel
                 validation={state.longitudinalDatasetValidation}
                 saving={timelineRolloutSaving}
+                sopSaving={timelineRolloutSopSaving}
                 onReviewRollout={saveTimelineRollout}
+                onReviewSop={saveTimelineRolloutSop}
               />
             )}
             <PhotoProtocolPolicyGovernancePanel
@@ -981,6 +1024,20 @@ function timelineRolloutStatusLabel(status: SelfHostedVisitLongitudinalTimelineR
   return "Не утверждён";
 }
 
+function timelineRolloutSopStatusLabel(status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus): string {
+  if (status === "ready_for_operational_rollout") return "SOP ready";
+  if (status === "in_review") return "SOP review";
+  return "SOP не начат";
+}
+
+function timelineRolloutSopChecklistLabel(
+  status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
+): string {
+  if (status === "ready") return "ready";
+  if (status === "needs_review") return "review";
+  return "missing";
+}
+
 function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatasetValidationDTO["nextActions"][number]): string {
   if (action === "request_recapture") return "Запросить переснимок";
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
@@ -1002,15 +1059,21 @@ function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatas
 function LongitudinalDatasetValidationPanel({
   validation,
   saving,
+  sopSaving,
   onReviewRollout,
+  onReviewSop,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
   saving: boolean;
+  sopSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
+  onReviewSop: (status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => void;
 }) {
   const readiness = validation.readiness;
   const rollout = validation.timelineRollout;
+  const sop = validation.timelineRolloutSop;
   const rolloutReady = readiness.status === "ready_for_rollout";
+  const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -1122,6 +1185,62 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewRollout("review_required")}
           >
             Нужен разбор rollout
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="SOP timeline rollout"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">SOP timeline rollout</h4>
+            <p className="text-muted-foreground">
+              SOP фиксирует только operational checklist · Clinical dynamic conclusion: выключен · Выдача пациенту:
+              выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutSopStatusLabel(sop.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Dataset" value={timelineRolloutSopChecklistLabel(sop.datasetValidationStatus)} />
+          <Field term="Reviewer" value={timelineRolloutSopChecklistLabel(sop.reviewerOperationsStatus)} />
+          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(sop.rollbackPlanStatus)} />
+          <Field term="Monitoring" value={timelineRolloutSopChecklistLabel(sop.monitoringPlanStatus)} />
+          <Field term="Window" value={timelineRolloutSopChecklistLabel(sop.rolloutWindowStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(sop.ownerAckStatus)} />
+        </dl>
+        {sop.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {sop.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={sopSaving}
+            onClick={() => onReviewSop("in_review")}
+          >
+            Зафиксировать SOP review
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={sopSaving || !sopPrerequisitesReady}
+            onClick={() => onReviewSop("ready_for_operational_rollout")}
+          >
+            Утвердить SOP rollout
           </Button>
         </div>
       </div>
