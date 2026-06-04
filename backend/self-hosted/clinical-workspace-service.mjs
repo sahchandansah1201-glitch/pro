@@ -69,6 +69,11 @@ const VIEWER_QA_REVIEW_QUEUE_STATUS_VALUES = new Set([
   "needs_recapture",
   "not_suitable_for_comparison",
 ]);
+const TIMELINE_ROLLOUT_STATUS_VALUES = new Set([
+  "not_approved",
+  "review_required",
+  "approved_for_clinical_operations",
+]);
 const MAX_TEXT = 8000;
 const MAX_REASON_TEXT = 120;
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9._:+-]{1,160}$/;
@@ -740,6 +745,31 @@ export function normalizeLesionComparisonProductionAnalysisPolicyPayload(input =
     productionAnalysisPolicyReasons: productionAnalysisPolicyReasons ?? [],
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+  };
+}
+
+export function normalizeVisitLongitudinalTimelineRolloutPayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in timeline rollout payloads." });
+  }
+  const rolloutStatus = cleanString(input.rolloutStatus);
+  if (!rolloutStatus || !TIMELINE_ROLLOUT_STATUS_VALUES.has(rolloutStatus)) {
+    details.push({
+      field: "rolloutStatus",
+      message: "rolloutStatus must be not_approved, review_required, or approved_for_clinical_operations.",
+    });
+  }
+  const rolloutReasons = normalizeTechnicalStrings(input.rolloutReasons, "rolloutReasons", details);
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    rolloutStatus,
+    rolloutReasons: rolloutReasons ?? [],
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
     protectedFieldsExposed: false,
     clinicalOutputGenerated: false,
   };
@@ -1532,6 +1562,83 @@ export function createClinicalWorkspaceService({
         },
       });
       return { validation, scope };
+    },
+
+    async reviewVisitLongitudinalTimelineRollout(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeVisitLongitudinalTimelineRolloutPayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const validation = await clinicalWorkspaceRepository.getVisitLongitudinalDatasetValidation({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!validation) {
+        throw new VisitWorkspaceNotFoundError("Longitudinal dataset validation was not found in the allowed clinic scope.");
+      }
+      const readiness = validation.readiness || {};
+      const validationStatus = String(readiness.status ?? "blocked");
+      const validationReady = validationStatus === "ready_for_rollout";
+      const effectiveStatus =
+        payload.rolloutStatus === "approved_for_clinical_operations" && !validationReady
+          ? "review_required"
+          : payload.rolloutStatus;
+      const effectiveReasons = [
+        ...payload.rolloutReasons,
+        ...(payload.rolloutStatus === "approved_for_clinical_operations" && !validationReady
+          ? ["timeline_dataset_not_ready"]
+          : []),
+      ];
+      const rollout = await clinicalWorkspaceRepository.reviewVisitLongitudinalTimelineRollout({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        rollout: {
+          rolloutStatus: effectiveStatus,
+          rolloutReasons: effectiveReasons,
+          validationStatus,
+          lesionCount: Number(readiness.lesionCount ?? 0),
+          readyTimelineCount: Number(readiness.readyTimelineCount ?? 0),
+          needsReviewTimelineCount: Number(readiness.needsReviewTimelineCount ?? 0),
+          blockedTimelineCount: Number(readiness.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(readiness.reviewerWorkflowReadyCount ?? 0),
+        },
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!rollout) throw new VisitWorkspaceNotFoundError("Timeline rollout review could not be saved.");
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: rollout.clinicId ?? visit.clinic.id,
+        actorUserId: authContext.userId,
+        action: "visit_longitudinal_timeline_rollout.review",
+        entityType: "visit_longitudinal_timeline_rollout_review",
+        entityId: rollout.id ?? safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          rolloutStatus: rollout.status,
+          validationStatus: rollout.validationStatus,
+          lesionCount: Number(rollout.lesionCount ?? 0),
+          readyTimelineCount: Number(rollout.readyTimelineCount ?? 0),
+          needsReviewTimelineCount: Number(rollout.needsReviewTimelineCount ?? 0),
+          blockedTimelineCount: Number(rollout.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(rollout.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(rollout.reviewerWorkflowReadyCount ?? 0),
+          reasonsCount: rollout.reasons?.length ?? 0,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+        },
+      });
+      return { rollout, scope };
     },
 
     async getLesionLongitudinalQa(patientId, lesionId, authContext, { correlationId } = {}) {

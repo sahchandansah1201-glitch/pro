@@ -12,6 +12,7 @@ import {
   normalizeLesionComparisonReviewerAssignmentPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
   normalizeLesionComparisonViewerQaReviewerWorkflowPayload,
+  normalizeVisitLongitudinalTimelineRolloutPayload,
   normalizeUpdateAssessmentPayload,
   normalizeUpdateConclusionPayload,
 } from "./clinical-workspace-service.mjs";
@@ -629,6 +630,28 @@ function createService({ auditEvents = [], repo = {} } = {}) {
           doctorOnlyTextExposed: false,
           clinicalConclusionGenerated: false,
         },
+      };
+    },
+    async reviewVisitLongitudinalTimelineRollout({ rollout }) {
+      return {
+        id: "rollout-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: rollout.rolloutStatus,
+        reasons: rollout.rolloutReasons,
+        validationStatus: rollout.validationStatus,
+        lesionCount: rollout.lesionCount,
+        readyTimelineCount: rollout.readyTimelineCount,
+        needsReviewTimelineCount: rollout.needsReviewTimelineCount,
+        blockedTimelineCount: rollout.blockedTimelineCount,
+        candidatePairCount: rollout.candidatePairCount,
+        reviewerWorkflowReadyCount: rollout.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-04T00:00:00.000Z",
       };
     },
   };
@@ -1517,6 +1540,75 @@ test("Batch BJ Stage 5H service reads visit dataset validation with audit-safe m
   assert.doesNotMatch(
     JSON.stringify(result.validation) + JSON.stringify(auditEvents.at(-1)),
     /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BR Stage 5H service reviews timeline rollout with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRollout(
+    VISIT_ID,
+    {
+      rolloutStatus: "approved_for_clinical_operations",
+      rolloutReasons: ["timeline_rollout_governance_approved_no_dynamic_conclusion"],
+    },
+    authContext,
+    { correlationId: "c16" },
+  );
+
+  assert.equal(result.rollout.status, "review_required");
+  assert.deepEqual(result.rollout.reasons, [
+    "timeline_rollout_governance_approved_no_dynamic_conclusion",
+    "timeline_dataset_not_ready",
+  ]);
+  assert.equal(result.rollout.validationStatus, "blocked");
+  assert.equal(result.rollout.patientDeliveryAllowed, false);
+  assert.equal(result.rollout.medicalMeasurementAllowed, false);
+  assert.equal(result.rollout.protectedFieldsExposed, false);
+  assert.equal(result.rollout.clinicalOutputGenerated, false);
+  assert.equal(auditEvents.at(-1).action, "visit_longitudinal_timeline_rollout.review");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    rolloutStatus: "review_required",
+    validationStatus: "blocked",
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    needsReviewTimelineCount: 0,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.rollout) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BR Stage 5H timeline rollout payload rejects protected and clinical fields", () => {
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutPayload({
+        rolloutStatus: "approved_for_clinical_operations",
+        rolloutReasons: ["готово"],
+        dynamicConclusion: "рост очага",
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutPayload({
+        rolloutStatus: "approved_for_clinical_operations",
+        rolloutReasons: ["вероятность меланомы низкая"],
+      }),
+    VisitWorkspaceValidationError,
   );
 });
 

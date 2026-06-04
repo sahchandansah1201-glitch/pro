@@ -1333,6 +1333,101 @@ Frontend behavior:
   doctor-side metadata-only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BR Timeline Rollout Governance
+
+Пункт плана: `production dataset validation / timeline-level QA rollout ->
+timeline rollout governance`.
+
+Batch BR adds a production-safe approval/review ledger for visit-level
+longitudinal timeline rollout. It sits on top of
+`GET /api/v1/visits/{visitId}/longitudinal-dataset-validation` and stores only
+aggregate governance metadata. It does not approve patient delivery, does not
+generate a clinical dynamic conclusion, and does not expose pair keys, image
+IDs, reviewer identities, storage fields, signed URLs, QR/session/credential
+material, diagnosis/risk/prognosis/treatment, measurement values, doctor-only
+text, or patient report text.
+
+Migration:
+
+- `0068_stage5h_timeline_rollout_governance.sql` creates
+  `visit_longitudinal_timeline_rollout_reviews`;
+- allowed statuses are `not_approved`, `review_required`, and
+  `approved_for_clinical_operations`;
+- stored counters are visit-level aggregates only:
+  `lesion_count`, `ready_timeline_count`, `needs_review_timeline_count`,
+  `blocked_timeline_count`, `candidate_pair_count`, and
+  `reviewer_workflow_ready_count`;
+- CHECK `visit_longitudinal_timeline_rollout_reviews_metadata_no_protected_keys`
+  blocks pair/image keys, storage/object/signed URL keys, reviewer identity
+  keys, dynamic/clinical conclusion keys, diagnosis/risk/prognosis/treatment
+  keys, measurement value keys, QR/session/token keys, and doctor/patient text
+  keys;
+- boundary flags remain forced false:
+  `patient_delivery_allowed`, `medical_measurement_allowed`,
+  `protected_fields_exposed`, and `clinical_output_generated`.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout` persists a
+  metadata-only timeline rollout governance review;
+- `buildReviewVisitLongitudinalTimelineRolloutSql` scopes the write to the
+  visit, patient, clinic, and caller clinic scope, then upserts one review row
+  per visit;
+- service method `reviewVisitLongitudinalTimelineRollout` uses the current
+  longitudinal dataset validation snapshot and downgrades requested
+  `approved_for_clinical_operations` to `review_required` when validation is
+  not `ready_for_rollout`;
+- service audit action `visit_longitudinal_timeline_rollout.review` stores
+  aggregate counters, status, reason count, and forced-false boundary flags
+  only;
+- `VisitLongitudinalDatasetValidation` now includes `timelineRollout` so the
+  report workspace can show the latest governance state beside readiness.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab adds region `Контур timeline rollout` inside
+  `Готовность timeline QA`;
+- visible copy states: `Rollout сохраняет только aggregate metadata`,
+  `Clinical dynamic conclusion: выключен`, and `Выдача пациенту: выключена`;
+- `Утвердить timeline rollout` is disabled unless readiness is
+  `ready_for_rollout`;
+- `Нужен разбор rollout` remains available and writes a metadata-only review;
+- after saving, the workspace reloads the self-hosted read model and shows
+  `Timeline rollout governance сохранён`.
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`, `patientDeliveryAllowed=false`,
+  `protectedFieldsExposed=false`, and `clinicalOutputGenerated=false` are
+  forced in repository, service, OpenAPI schema, frontend DTO normalizer, and
+  UI copy;
+- no patient delivery or clinical dynamic conclusion is produced by this
+  batch;
+- no pair keys, image IDs, object bucket/key, storage path, checksum, signed
+  URL, QR/session/credential, reviewer identity, doctor-only text,
+  patient-safe report text, diagnosis, risk, prognosis, treatment, or
+  measurement values are returned in rollout read/write responses or audit
+  metadata.
+
+### Batch BR Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BR adds a
+  visit-level rollout governance decision over the timeline validation result.
+  Remaining gate: validation on real clinical production datasets and rollout
+  SOP.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BR
+  prevents clinical operations rollout until pair review, policy, assignment,
+  and second-review counters are ready at timeline level. Remaining gate:
+  production reviewer operations validation.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BR still keeps
+  `Clinical dynamic conclusion: выключен`; readiness approval is governance
+  metadata, not a medical conclusion. Remaining gate: approved production
+  analysis procedure and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch BR is
+  doctor-side metadata-only timeline governance; patient delivery remains off
+  until privacy/security/retention/session/approved-copy gates are explicitly
+  closed.
+
 ## Product Boundary
 
 - managed runtime: none

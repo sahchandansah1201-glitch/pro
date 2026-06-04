@@ -3948,6 +3948,7 @@ function clinicalWorkspaceRuntime({
   lesionComparisonReviewerAssignment = null,
   lesionComparisonViewerQaReviewQueue = null,
   visitLongitudinalDatasetValidation = null,
+  visitLongitudinalTimelineRollout = null,
   protectedLesionImageDownload = null,
   reportPackage = null,
   photoProtocolRelease = null,
@@ -4049,6 +4050,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           validation: visitLongitudinalDatasetValidation,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async reviewVisitLongitudinalTimelineRollout() {
+        if (clinicalError) throw clinicalError;
+        return {
+          rollout: visitLongitudinalTimelineRollout,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -5703,6 +5711,56 @@ test("Batch BJ Stage 5H · GET /api/v1/visits/{visitId}/longitudinal-dataset-val
   );
 });
 
+test("Batch BR Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout stores aggregate-only rollout governance", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/longitudinal-timeline-rollout`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      visitLongitudinalTimelineRollout: {
+        id: "rollout-review-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "review_required",
+        reasons: ["timeline_dataset_not_ready"],
+        validationStatus: "blocked",
+        lesionCount: 2,
+        readyTimelineCount: 1,
+        needsReviewTimelineCount: 0,
+        blockedTimelineCount: 1,
+        candidatePairCount: 3,
+        reviewerWorkflowReadyCount: 1,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-04T00:00:00.000Z",
+        createdAt: "2026-06-04T00:00:00.000Z",
+        updatedAt: "2026-06-04T00:00:00.000Z",
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      rolloutStatus: "approved_for_clinical_operations",
+      rolloutReasons: ["timeline_rollout_governance_approved_no_dynamic_conclusion"],
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.item.status, "review_required");
+  assert.equal(response.json.item.validationStatus, "blocked");
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.equal(response.json.item.clinicalOutputGenerated, false);
+  assert.doesNotMatch(
+    response.body,
+    /"pairKey"|"imageIds"|i-011|i-012|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|reviewerName|reviewerEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
 test("Batch AX Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render streams protected image bytes", async () => {
   const lesionId = "10000000-0000-4000-8000-000000000801";
   const assetId = "10000000-0000-4000-8000-000000000901";
@@ -5738,6 +5796,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-assignment"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-dataset-validation"].get);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata"].patch);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history"].get);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa"].get);
@@ -5750,10 +5809,11 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.components.schemas.LesionComparisonReviewerAssignment);
   assert.ok(response.json.components.schemas.LesionComparisonViewerQaReviewQueue);
   assert.ok(response.json.components.schemas.VisitLongitudinalDatasetValidation);
+  assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRollout);
   assert.ok(response.json.components.schemas.LesionCaptureMetadata);
   assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
   assert.ok(response.json.components.schemas.LesionLongitudinalQa);
-  assert.match(JSON.stringify(response.json.components.schemas), /productionAssetNotReadyCount|productionAssetReadiness|verify_production_asset/);
+  assert.match(JSON.stringify(response.json.components.schemas), /productionAssetNotReadyCount|productionAssetReadiness|verify_production_asset|approved_for_clinical_operations|clinicalOutputGenerated/);
 });
 
 test("Stage 8G-8I · GET /api/v1/visits/{id}/report-package returns readiness without protected fields", async () => {

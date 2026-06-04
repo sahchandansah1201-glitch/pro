@@ -42,6 +42,7 @@ import {
   getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
   getSelfHostedVisitLongitudinalDatasetValidation,
   getSelfHostedVisitReport,
+  reviewSelfHostedVisitLongitudinalTimelineRollout,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
   updateSelfHostedVisitReportContract,
@@ -49,6 +50,7 @@ import {
   type SelfHostedClinicalConclusionDTO,
   type SelfHostedLesionComparisonViewerQaReviewQueueDTO,
   type SelfHostedVisitLongitudinalDatasetValidationDTO,
+  type SelfHostedVisitLongitudinalTimelineRolloutStatus,
 } from "@/lib/self-hosted-clinical-workspace-api";
 import {
   clinicalReportMissingLabel,
@@ -475,6 +477,7 @@ function ProductionClinicalWorkspacePanel({
     patientText: "",
   });
   const [policySaving, setPolicySaving] = useState(false);
+  const [timelineRolloutSaving, setTimelineRolloutSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
     patientFileProxyEnabled: false,
@@ -652,6 +655,31 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Политика выдачи фото сохранена в self-hosted backend.");
   };
 
+  const saveTimelineRollout = async (rolloutStatus: SelfHostedVisitLongitudinalTimelineRolloutStatus) => {
+    if (kind !== "report") return;
+    setTimelineRolloutSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRollout({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        rolloutStatus,
+        rolloutReasons:
+          rolloutStatus === "approved_for_clinical_operations"
+            ? ["timeline_rollout_governance_approved_no_dynamic_conclusion"]
+            : ["timeline_rollout_needs_clinical_ops_review"],
+      },
+    });
+    setTimelineRolloutSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить timeline rollout governance.");
+      return;
+    }
+    await load();
+    setStatus("Timeline rollout governance сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -686,7 +714,11 @@ function ProductionClinicalWorkspacePanel({
             <ClinicalReportCompletionSummary reportPackage={state.reportPackage} releaseAudit={state.releaseAudit} />
             {state.viewerQaReviewQueue && <ViewerQaReviewQueuePanel queue={state.viewerQaReviewQueue} />}
             {state.longitudinalDatasetValidation && (
-              <LongitudinalDatasetValidationPanel validation={state.longitudinalDatasetValidation} />
+              <LongitudinalDatasetValidationPanel
+                validation={state.longitudinalDatasetValidation}
+                saving={timelineRolloutSaving}
+                onReviewRollout={saveTimelineRollout}
+              />
             )}
             <PhotoProtocolPolicyGovernancePanel
               photoProtocol={state.reportPackage.patientPhotoProtocol}
@@ -943,6 +975,12 @@ function longitudinalDatasetStatusLabel(status: SelfHostedVisitLongitudinalDatas
   return "Заблокировано";
 }
 
+function timelineRolloutStatusLabel(status: SelfHostedVisitLongitudinalTimelineRolloutStatus): string {
+  if (status === "approved_for_clinical_operations") return "Approved for clinical ops";
+  if (status === "review_required") return "Нужен governance review";
+  return "Не утверждён";
+}
+
 function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatasetValidationDTO["nextActions"][number]): string {
   if (action === "request_recapture") return "Запросить переснимок";
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
@@ -963,10 +1001,16 @@ function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatas
 
 function LongitudinalDatasetValidationPanel({
   validation,
+  saving,
+  onReviewRollout,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
+  saving: boolean;
+  onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
 }) {
   const readiness = validation.readiness;
+  const rollout = validation.timelineRollout;
+  const rolloutReady = readiness.status === "ready_for_rollout";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -1027,6 +1071,60 @@ function LongitudinalDatasetValidationPanel({
           ))}
         </div>
       )}
+      <div
+        role="region"
+        aria-label="Контур timeline rollout"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Контур timeline rollout</h4>
+            <p className="text-muted-foreground">
+              Rollout сохраняет только aggregate metadata · Clinical dynamic conclusion: выключен · Выдача пациенту:
+              выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutStatusLabel(rollout.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Field term="Validation" value={longitudinalDatasetStatusLabel(rollout.validationStatus)} />
+          <Field term="Ready" value={rollout.readyTimelineCount} />
+          <Field term="Review" value={rollout.needsReviewTimelineCount} />
+          <Field term="Blocked" value={rollout.blockedTimelineCount} />
+        </dl>
+        {rollout.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {rollout.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={saving || !rolloutReady}
+            onClick={() => onReviewRollout("approved_for_clinical_operations")}
+          >
+            Утвердить timeline rollout
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={saving}
+            onClick={() => onReviewRollout("review_required")}
+          >
+            Нужен разбор rollout
+          </Button>
+        </div>
+      </div>
       {validation.items.length > 0 ? (
         <ol className="mt-3 grid grid-cols-1 gap-2">
           {validation.items.slice(0, 5).map((item) => (

@@ -550,6 +550,39 @@ export type SelfHostedVisitLongitudinalDatasetValidationStatus =
   | "needs_review"
   | "ready_for_rollout";
 
+export type SelfHostedVisitLongitudinalTimelineRolloutStatus =
+  | "not_approved"
+  | "review_required"
+  | "approved_for_clinical_operations";
+
+export interface VisitLongitudinalTimelineRolloutPayload {
+  rolloutStatus: SelfHostedVisitLongitudinalTimelineRolloutStatus;
+  rolloutReasons: string[];
+}
+
+export interface SelfHostedVisitLongitudinalTimelineRolloutDTO {
+  id: string;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  status: SelfHostedVisitLongitudinalTimelineRolloutStatus;
+  reasons: string[];
+  validationStatus: SelfHostedVisitLongitudinalDatasetValidationStatus;
+  lesionCount: number;
+  readyTimelineCount: number;
+  needsReviewTimelineCount: number;
+  blockedTimelineCount: number;
+  candidatePairCount: number;
+  reviewerWorkflowReadyCount: number;
+  patientDeliveryAllowed: false;
+  medicalMeasurementAllowed: false;
+  protectedFieldsExposed: false;
+  clinicalOutputGenerated: false;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
   clinicId: string | null;
   patientId: string | null;
@@ -606,6 +639,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     nextAction: SelfHostedLesionLongitudinalQaAction;
   }>;
   blockers: SelfHostedLesionLongitudinalQaDTO["blockers"];
+  timelineRollout: SelfHostedVisitLongitudinalTimelineRolloutDTO;
   nextActions: SelfHostedLesionLongitudinalQaAction[];
   boundaries: SelfHostedLesionLongitudinalQaDTO["boundaries"];
 }
@@ -680,6 +714,10 @@ interface PatchLesionComparisonReviewerAssignmentArgs extends VisitArgs {
 interface VisitViewerQaReviewQueueArgs extends VisitArgs {
   status?: LesionComparisonViewerQaReviewQueueStatus;
   limit?: number;
+}
+
+interface PatchVisitLongitudinalTimelineRolloutArgs extends VisitArgs {
+  payload: VisitLongitudinalTimelineRolloutPayload;
 }
 
 interface LesionLongitudinalHistoryArgs extends BaseArgs {
@@ -1458,6 +1496,38 @@ function toVisitLongitudinalDatasetValidationStatus(
   return value === "needs_review" || value === "ready_for_rollout" ? value : "blocked";
 }
 
+function toVisitLongitudinalTimelineRolloutStatus(
+  value: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutStatus {
+  return value === "review_required" || value === "approved_for_clinical_operations" ? value : "not_approved";
+}
+
+function toVisitLongitudinalTimelineRollout(input: unknown): SelfHostedVisitLongitudinalTimelineRolloutDTO {
+  const rollout = isRecord(input) ? input : {};
+  return {
+    id: String(rollout.id ?? ""),
+    clinicId: textOrNull(rollout.clinicId),
+    patientId: textOrNull(rollout.patientId),
+    visitId: textOrNull(rollout.visitId),
+    status: toVisitLongitudinalTimelineRolloutStatus(rollout.status),
+    reasons: toStringArray(rollout.reasons),
+    validationStatus: toVisitLongitudinalDatasetValidationStatus(rollout.validationStatus),
+    lesionCount: numberOrZero(rollout.lesionCount),
+    readyTimelineCount: numberOrZero(rollout.readyTimelineCount),
+    needsReviewTimelineCount: numberOrZero(rollout.needsReviewTimelineCount),
+    blockedTimelineCount: numberOrZero(rollout.blockedTimelineCount),
+    candidatePairCount: numberOrZero(rollout.candidatePairCount),
+    reviewerWorkflowReadyCount: numberOrZero(rollout.reviewerWorkflowReadyCount),
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    reviewedAt: textOrNull(rollout.reviewedAt),
+    createdAt: textOrNull(rollout.createdAt),
+    updatedAt: textOrNull(rollout.updatedAt),
+  };
+}
+
 function toVisitLongitudinalDatasetValidation(
   input: Record<string, unknown>,
 ): SelfHostedVisitLongitudinalDatasetValidationDTO {
@@ -1536,6 +1606,7 @@ function toVisitLongitudinalDatasetValidation(
       nextAction: toLongitudinalQaAction(item.nextAction) ?? "review_queue",
     })),
     blockers,
+    timelineRollout: toVisitLongitudinalTimelineRollout(input.timelineRollout),
     nextActions,
     boundaries: SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
   };
@@ -1776,6 +1847,20 @@ export async function getSelfHostedVisitLongitudinalDatasetValidation(
     "GET",
     null,
     toVisitLongitudinalDatasetValidation,
+  );
+}
+
+export async function reviewSelfHostedVisitLongitudinalTimelineRollout(
+  args: PatchVisitLongitudinalTimelineRolloutArgs,
+): Promise<SelfHostedApiResult<SelfHostedVisitLongitudinalTimelineRolloutDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/longitudinal-timeline-rollout"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toVisitLongitudinalTimelineRollout,
   );
 }
 

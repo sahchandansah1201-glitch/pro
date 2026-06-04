@@ -828,6 +828,32 @@ from (
       row_number() over (order by c.status asc, c.lesion_label asc, c.lesion_id asc)::int as queue_number,
       c.*
     from classified c
+  ),
+  latest_rollout as (
+    select
+      r.rollout_status,
+      r.rollout_reasons,
+      r.validation_status,
+      r.lesion_count,
+      r.ready_timeline_count,
+      r.needs_review_timeline_count,
+      r.blocked_timeline_count,
+      r.candidate_pair_count,
+      r.reviewer_workflow_ready_count,
+      r.reviewed_at,
+      r.updated_at
+    from visit_longitudinal_timeline_rollout_reviews r
+    join target_visit v
+      on r.visit_id = v.id
+     and r.patient_id = v.patient_id
+     and r.clinic_id = v.clinic_id
+    where r.patient_delivery_allowed = false
+      and r.medical_measurement_allowed = false
+      and r.protected_fields_exposed = false
+      and r.clinical_output_generated = false
+      ${clinicScopeWhere({ alias: "r", clinicIds, allClinics })}
+    order by r.updated_at desc
+    limit 1
   )
   select
     v.clinic_id::text as "clinicId",
@@ -902,6 +928,22 @@ from (
       from blocker_rows b
       where b.count > 0
     ), '[]'::jsonb) as "blockers",
+    jsonb_build_object(
+      'status', coalesce((select rollout_status from latest_rollout), 'not_approved'),
+      'reasons', coalesce((select rollout_reasons from latest_rollout), '[]'::jsonb),
+      'validationStatus', coalesce((select validation_status from latest_rollout), 'blocked'),
+      'lesionCount', coalesce((select lesion_count from latest_rollout), 0),
+      'readyTimelineCount', coalesce((select ready_timeline_count from latest_rollout), 0),
+      'needsReviewTimelineCount', coalesce((select needs_review_timeline_count from latest_rollout), 0),
+      'blockedTimelineCount', coalesce((select blocked_timeline_count from latest_rollout), 0),
+      'candidatePairCount', coalesce((select candidate_pair_count from latest_rollout), 0),
+      'reviewerWorkflowReadyCount', coalesce((select reviewer_workflow_ready_count from latest_rollout), 0),
+      'reviewedAt', (select reviewed_at from latest_rollout),
+      'patientDeliveryAllowed', false,
+      'medicalMeasurementAllowed', false,
+      'protectedFieldsExposed', false,
+      'clinicalOutputGenerated', false
+    ) as "timelineRollout",
     array_remove(array[
       case when exists(select 1 from classified where candidate_pair_count = 0 or unreviewed_pair_count > 0) then 'review_queue' end,
       case when exists(select 1 from classified where needs_recapture_count > 0) then 'request_recapture' end,
@@ -931,6 +973,133 @@ from (
     ) as "boundaries",
     'visit_longitudinal_dataset_validation.read' as "auditAction"
   from target_visit v
+) result;
+`.trim();
+}
+
+export function buildReviewVisitLongitudinalTimelineRolloutSql({
+  visitId,
+  patientId,
+  clinicId,
+  doctorUserId = null,
+  rollout = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const visitScope = clinicScopeWhere({ alias: "v", clinicIds, allClinics });
+  const reviewScope = clinicScopeWhere({ alias: "visit_longitudinal_timeline_rollout_reviews", clinicIds, allClinics });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_visit as (
+    select
+      v.id,
+      v.clinic_id,
+      v.patient_id
+    from visits v
+    where v.id = ${sqlUuid(visitId)}
+      and v.patient_id = ${sqlUuid(patientId)}
+      and v.clinic_id = ${sqlUuid(clinicId)}
+      ${visitScope}
+    limit 1
+  ),
+  upserted as (
+    insert into visit_longitudinal_timeline_rollout_reviews (
+      clinic_id,
+      patient_id,
+      visit_id,
+      reviewed_by_user_id,
+      rollout_status,
+      rollout_reasons,
+      validation_status,
+      lesion_count,
+      ready_timeline_count,
+      needs_review_timeline_count,
+      blocked_timeline_count,
+      candidate_pair_count,
+      reviewer_workflow_ready_count,
+      patient_delivery_allowed,
+      medical_measurement_allowed,
+      protected_fields_exposed,
+      clinical_output_generated,
+      metadata_json,
+      reviewed_at
+    )
+    select
+      v.clinic_id,
+      v.patient_id,
+      v.id,
+      ${sqlNullableUuid(doctorUserId)},
+      ${sqlLiteral(rollout.rolloutStatus ?? "not_approved")},
+      ${sqlJsonb(rollout.rolloutReasons ?? [])},
+      ${sqlLiteral(rollout.validationStatus ?? "blocked")},
+      ${sqlNullableInteger(rollout.lesionCount ?? 0)},
+      ${sqlNullableInteger(rollout.readyTimelineCount ?? 0)},
+      ${sqlNullableInteger(rollout.needsReviewTimelineCount ?? 0)},
+      ${sqlNullableInteger(rollout.blockedTimelineCount ?? 0)},
+      ${sqlNullableInteger(rollout.candidatePairCount ?? 0)},
+      ${sqlNullableInteger(rollout.reviewerWorkflowReadyCount ?? 0)},
+      false,
+      false,
+      false,
+      false,
+      ${sqlJsonb({
+        brainstormTask: "SD-MF-025/026/028",
+        timelineRolloutBoundary: "metadata_only",
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        pairKeysExposed: false,
+        imageIdsExposed: false,
+      })},
+      now()
+    from target_visit v
+    on conflict (visit_id) do update
+    set
+      reviewed_by_user_id = excluded.reviewed_by_user_id,
+      rollout_status = excluded.rollout_status,
+      rollout_reasons = excluded.rollout_reasons,
+      validation_status = excluded.validation_status,
+      lesion_count = excluded.lesion_count,
+      ready_timeline_count = excluded.ready_timeline_count,
+      needs_review_timeline_count = excluded.needs_review_timeline_count,
+      blocked_timeline_count = excluded.blocked_timeline_count,
+      candidate_pair_count = excluded.candidate_pair_count,
+      reviewer_workflow_ready_count = excluded.reviewer_workflow_ready_count,
+      patient_delivery_allowed = false,
+      medical_measurement_allowed = false,
+      protected_fields_exposed = false,
+      clinical_output_generated = false,
+      metadata_json = visit_longitudinal_timeline_rollout_reviews.metadata_json || excluded.metadata_json,
+      reviewed_at = now(),
+      updated_at = now()
+    where true ${reviewScope}
+    returning *
+  )
+  select
+    r.id::text as "id",
+    r.clinic_id::text as "clinicId",
+    r.patient_id::text as "patientId",
+    r.visit_id::text as "visitId",
+    r.rollout_status as "status",
+    r.rollout_reasons as "reasons",
+    r.validation_status as "validationStatus",
+    r.lesion_count as "lesionCount",
+    r.ready_timeline_count as "readyTimelineCount",
+    r.needs_review_timeline_count as "needsReviewTimelineCount",
+    r.blocked_timeline_count as "blockedTimelineCount",
+    r.candidate_pair_count as "candidatePairCount",
+    r.reviewer_workflow_ready_count as "reviewerWorkflowReadyCount",
+    r.patient_delivery_allowed as "patientDeliveryAllowed",
+    r.medical_measurement_allowed as "medicalMeasurementAllowed",
+    r.protected_fields_exposed as "protectedFieldsExposed",
+    r.clinical_output_generated as "clinicalOutputGenerated",
+    r.reviewed_at as "reviewedAt",
+    r.created_at as "createdAt",
+    r.updated_at as "updatedAt"
+  from upserted r
+  limit 1
 ) result;
 `.trim();
 }
@@ -3353,9 +3522,20 @@ const VISIT_LONGITUDINAL_DATASET_VALIDATION_STATUS_VALUES = new Set([
   "ready_for_rollout",
 ]);
 
+const VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_STATUS_VALUES = new Set([
+  "not_approved",
+  "review_required",
+  "approved_for_clinical_operations",
+]);
+
 function normalizeVisitLongitudinalDatasetValidationStatus(value) {
   const status = String(value ?? "blocked");
   return VISIT_LONGITUDINAL_DATASET_VALIDATION_STATUS_VALUES.has(status) ? status : "blocked";
+}
+
+function normalizeVisitLongitudinalTimelineRolloutStatus(value) {
+  const status = String(value ?? "not_approved");
+  return VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_STATUS_VALUES.has(status) ? status : "not_approved";
 }
 
 function normalizeVisitLongitudinalDatasetValidationReadiness(value) {
@@ -3418,6 +3598,32 @@ function normalizeVisitLongitudinalDatasetValidationItem(row) {
   };
 }
 
+function normalizeVisitLongitudinalTimelineRollout(row) {
+  const source = parseJsonObject(row);
+  return {
+    id: source.id ? String(source.id) : null,
+    clinicId: source.clinicId ? String(source.clinicId) : null,
+    patientId: source.patientId ? String(source.patientId) : null,
+    visitId: source.visitId ? String(source.visitId) : null,
+    status: normalizeVisitLongitudinalTimelineRolloutStatus(source.status),
+    reasons: parseJsonArray(source.reasons),
+    validationStatus: normalizeVisitLongitudinalDatasetValidationStatus(source.validationStatus),
+    lesionCount: numberOrZero(source.lesionCount),
+    readyTimelineCount: numberOrZero(source.readyTimelineCount),
+    needsReviewTimelineCount: numberOrZero(source.needsReviewTimelineCount),
+    blockedTimelineCount: numberOrZero(source.blockedTimelineCount),
+    candidatePairCount: numberOrZero(source.candidatePairCount),
+    reviewerWorkflowReadyCount: numberOrZero(source.reviewerWorkflowReadyCount),
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    reviewedAt: source.reviewedAt ?? null,
+    createdAt: source.createdAt ?? null,
+    updatedAt: source.updatedAt ?? null,
+  };
+}
+
 function normalizeVisitLongitudinalDatasetValidation(row) {
   return {
     clinicId: row.clinicId ? String(row.clinicId) : null,
@@ -3428,6 +3634,7 @@ function normalizeVisitLongitudinalDatasetValidation(row) {
     blockers: parseObjectArray(row.blockers)
       .map(normalizeLongitudinalQaBlocker)
       .filter(Boolean),
+    timelineRollout: normalizeVisitLongitudinalTimelineRollout(row.timelineRollout),
     nextActions: normalizeLongitudinalQaActions(row.nextActions),
     boundaries: {
       patientDeliveryAllowed: false,
@@ -3606,6 +3813,13 @@ export function createClinicalWorkspaceRepository(dbClient) {
         dbClient,
         buildGetVisitLongitudinalDatasetValidationSql(params),
         normalizeVisitLongitudinalDatasetValidation,
+      );
+    },
+    async reviewVisitLongitudinalTimelineRollout(params) {
+      return queryOne(
+        dbClient,
+        buildReviewVisitLongitudinalTimelineRolloutSql(params),
+        normalizeVisitLongitudinalTimelineRollout,
       );
     },
     async getLesionLongitudinalHistory(params) {

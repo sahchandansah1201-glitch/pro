@@ -12,6 +12,7 @@ import {
   buildGetVisitLongitudinalDatasetValidationSql,
   buildGetVisitReportSql,
   buildAssignLesionComparisonReviewerSql,
+  buildReviewVisitLongitudinalTimelineRolloutSql,
   buildReviewLesionComparisonMeasurementPolicySql,
   buildReviewLesionComparisonProductionAnalysisPolicySql,
   buildReviewLesionComparisonViewerQaSql,
@@ -135,6 +136,10 @@ test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset valid
   assert.match(sql, /object_bucket is null or a\.object_key is null/);
   assert.match(sql, /reviewer_workflow_status/);
   assert.match(sql, /visit_longitudinal_dataset_validation\.read/i);
+  assert.match(sql, /visit_longitudinal_timeline_rollout_reviews/);
+  assert.match(sql, /timelineRollout/);
+  assert.match(sql, /approved_for_clinical_operations|not_approved/);
+  assert.match(sql, /clinicalOutputGenerated/);
   assert.match(sql, /ready_for_rollout/);
   assert.match(sql, /dynamicConclusionAllowed/);
   assert.match(sql, /pairKeysExposed/);
@@ -143,6 +148,43 @@ test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset valid
   assert.doesNotMatch(
     sql,
     /q\.pair_key|q\.image_ids|d\.serial|b\.host_name|worker_metadata_json|checksum_sha256|signed_url\b|storage_object_path|physician_text|patient_safe_text|access_token|qrToken|sessionId/i,
+  );
+});
+
+test("Batch BR Stage 5H repository builds metadata-only timeline rollout governance SQL", () => {
+  const sql = buildReviewVisitLongitudinalTimelineRolloutSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    rollout: {
+      rolloutStatus: "approved_for_clinical_operations",
+      rolloutReasons: ["timeline_rollout_governance_approved_no_dynamic_conclusion"],
+      validationStatus: "ready_for_rollout",
+      lesionCount: 2,
+      readyTimelineCount: 2,
+      needsReviewTimelineCount: 0,
+      blockedTimelineCount: 0,
+      candidatePairCount: 3,
+      reviewerWorkflowReadyCount: 3,
+    },
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /insert into visit_longitudinal_timeline_rollout_reviews/);
+  assert.match(sql, /rollout_status/);
+  assert.match(sql, /approved_for_clinical_operations/);
+  assert.match(sql, /timelineRolloutBoundary/);
+  assert.match(sql, /metadata_only/);
+  assert.match(sql, /patientDeliveryAllowed/);
+  assert.match(sql, /medicalMeasurementAllowed/);
+  assert.match(sql, /protectedFieldsExposed/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.match(sql, /pairKeysExposed/);
+  assert.match(sql, /imageIdsExposed/);
+  assert.doesNotMatch(
+    sql,
+    /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 
