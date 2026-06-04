@@ -6,6 +6,7 @@ import {
   getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
   getSelfHostedVisitLongitudinalDatasetValidation,
   reviewSelfHostedVisitLongitudinalTimelineRollout,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   getSelfHostedVisitAssessment,
   getSelfHostedLesionLongitudinalHistory,
@@ -1316,6 +1317,37 @@ describe("self-hosted-clinical-workspace-api", () => {
               pairKey: "secret-pair",
               imageIds: ["i-011", "i-012"],
             },
+            timelineRolloutEvidence: {
+              id: "evidence-1",
+              clinicId: "clinic-1",
+              patientId: "patient-1",
+              visitId: "visit-1",
+              status: "ready_for_monitored_rollout",
+              reasons: ["timeline_rollout_evidence_ready_no_dynamic_conclusion"],
+              sopStatus: "ready_for_operational_rollout",
+              validationStatus: "ready_for_rollout",
+              rolloutStatus: "approved_for_clinical_operations",
+              monitoringEvidenceStatus: "ready",
+              sampleAuditStatus: "ready",
+              exceptionLogStatus: "ready",
+              rollbackDrillStatus: "ready",
+              ownerSignoffStatus: "ready",
+              monitoringWindowDays: 14,
+              sampledTimelineCount: 2,
+              exceptionCount: 0,
+              rollbackDrillCount: 1,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 0,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              clinicalOutputGenerated: true,
+              pairKey: "secret-pair",
+              imageIds: ["i-011", "i-012"],
+            },
             nextActions: ["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review", "unsafe_action"],
             boundaries: {
               patientDeliveryAllowed: true,
@@ -1369,6 +1401,12 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(result.value?.timelineRolloutSop.medicalMeasurementAllowed).toBe(false);
     expect(result.value?.timelineRolloutSop.protectedFieldsExposed).toBe(false);
     expect(result.value?.timelineRolloutSop.clinicalOutputGenerated).toBe(false);
+    expect(result.value?.timelineRolloutEvidence.status).toBe("ready_for_monitored_rollout");
+    expect(result.value?.timelineRolloutEvidence.monitoringEvidenceStatus).toBe("ready");
+    expect(result.value?.timelineRolloutEvidence.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.timelineRolloutEvidence.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.timelineRolloutEvidence.protectedFieldsExposed).toBe(false);
+    expect(result.value?.timelineRolloutEvidence.clinicalOutputGenerated).toBe(false);
     expect(result.value?.blockers[0]?.code).toBe("production_asset_not_ready");
     expect(result.value?.blockers[0]?.nextAction).toBe("verify_production_asset");
     expect(result.value?.nextActions).toEqual(["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review"]);
@@ -1515,6 +1553,95 @@ describe("self-hosted-clinical-workspace-api", () => {
           monitoringPlanStatus: "ready",
           rolloutWindowStatus: "ready",
           ownerAckStatus: "ready",
+        }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
+    );
+  });
+
+  it("reviews visit longitudinal timeline rollout evidence through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "evidence-1",
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            status: "in_review",
+            reasons: ["timeline_rollout_evidence_not_ready"],
+            sopStatus: "not_started",
+            validationStatus: "blocked",
+            rolloutStatus: "review_required",
+            monitoringEvidenceStatus: "needs_review",
+            sampleAuditStatus: "needs_review",
+            exceptionLogStatus: "needs_review",
+            rollbackDrillStatus: "needs_review",
+            ownerSignoffStatus: "needs_review",
+            monitoringWindowDays: 0,
+            sampledTimelineCount: 0,
+            exceptionCount: 0,
+            rollbackDrillCount: 0,
+            lesionCount: 2,
+            readyTimelineCount: 1,
+            blockedTimelineCount: 1,
+            candidatePairCount: 3,
+            reviewerWorkflowReadyCount: 1,
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            clinicalOutputGenerated: true,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        evidenceStatus: "ready_for_monitored_rollout",
+        evidenceReasons: ["timeline_rollout_evidence_ready_no_dynamic_conclusion"],
+        monitoringEvidenceStatus: "ready",
+        sampleAuditStatus: "ready",
+        exceptionLogStatus: "ready",
+        rollbackDrillStatus: "ready",
+        ownerSignoffStatus: "ready",
+        monitoringWindowDays: 14,
+        sampledTimelineCount: 2,
+        exceptionCount: 0,
+        rollbackDrillCount: 1,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.status).toBe("in_review");
+    expect(result.value?.sopStatus).toBe("not_started");
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(result.value?.clinicalOutputGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-timeline-rollout/evidence",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          evidenceStatus: "ready_for_monitored_rollout",
+          evidenceReasons: ["timeline_rollout_evidence_ready_no_dynamic_conclusion"],
+          monitoringEvidenceStatus: "ready",
+          sampleAuditStatus: "ready",
+          exceptionLogStatus: "ready",
+          rollbackDrillStatus: "ready",
+          ownerSignoffStatus: "ready",
+          monitoringWindowDays: 14,
+          sampledTimelineCount: 2,
+          exceptionCount: 0,
+          rollbackDrillCount: 1,
         }),
       }),
     );

@@ -43,6 +43,7 @@ import {
   getSelfHostedVisitLongitudinalDatasetValidation,
   getSelfHostedVisitReport,
   reviewSelfHostedVisitLongitudinalTimelineRollout,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
@@ -51,6 +52,7 @@ import {
   type SelfHostedClinicalConclusionDTO,
   type SelfHostedLesionComparisonViewerQaReviewQueueDTO,
   type SelfHostedVisitLongitudinalDatasetValidationDTO,
+  type SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutSopStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutStatus,
 } from "@/lib/self-hosted-clinical-workspace-api";
@@ -481,6 +483,7 @@ function ProductionClinicalWorkspacePanel({
   const [policySaving, setPolicySaving] = useState(false);
   const [timelineRolloutSaving, setTimelineRolloutSaving] = useState(false);
   const [timelineRolloutSopSaving, setTimelineRolloutSopSaving] = useState(false);
+  const [timelineRolloutEvidenceSaving, setTimelineRolloutEvidenceSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
     patientFileProxyEnabled: false,
@@ -721,6 +724,52 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Timeline rollout SOP сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutEvidence = async (
+    evidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const rollout = validation.timelineRollout;
+    const sop = validation.timelineRolloutSop;
+    const prerequisitesReady =
+      readiness.status === "ready_for_rollout"
+      && rollout.status === "approved_for_clinical_operations"
+      && sop.status === "ready_for_operational_rollout";
+    const readyPayload = evidenceStatus === "ready_for_monitored_rollout";
+    const evidenceReady = readyPayload && prerequisitesReady;
+    setTimelineRolloutEvidenceSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        evidenceStatus,
+        evidenceReasons: evidenceReady
+          ? ["timeline_rollout_evidence_ready_no_dynamic_conclusion"]
+          : ["timeline_rollout_evidence_requires_monitoring_review"],
+        monitoringEvidenceStatus: evidenceReady ? "ready" : "needs_review",
+        sampleAuditStatus: evidenceReady ? "ready" : "needs_review",
+        exceptionLogStatus: evidenceReady ? "ready" : "needs_review",
+        rollbackDrillStatus: evidenceReady ? "ready" : "needs_review",
+        ownerSignoffStatus: evidenceReady ? "ready" : "needs_review",
+        monitoringWindowDays: evidenceReady ? 14 : 0,
+        sampledTimelineCount: evidenceReady ? Math.max(1, readiness.readyTimelineCount) : 0,
+        exceptionCount: 0,
+        rollbackDrillCount: evidenceReady ? 1 : 0,
+      },
+    });
+    setTimelineRolloutEvidenceSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить timeline rollout evidence.");
+      return;
+    }
+    await load();
+    setStatus("Timeline rollout evidence сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -759,8 +808,10 @@ function ProductionClinicalWorkspacePanel({
                 validation={state.longitudinalDatasetValidation}
                 saving={timelineRolloutSaving}
                 sopSaving={timelineRolloutSopSaving}
+                evidenceSaving={timelineRolloutEvidenceSaving}
                 onReviewRollout={saveTimelineRollout}
                 onReviewSop={saveTimelineRolloutSop}
+                onReviewEvidence={saveTimelineRolloutEvidence}
               />
             )}
             <PhotoProtocolPolicyGovernancePanel
@@ -1030,6 +1081,12 @@ function timelineRolloutSopStatusLabel(status: SelfHostedVisitLongitudinalTimeli
   return "SOP не начат";
 }
 
+function timelineRolloutEvidenceStatusLabel(status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus): string {
+  if (status === "ready_for_monitored_rollout") return "Evidence ready";
+  if (status === "in_review") return "Evidence review";
+  return "Evidence не начат";
+}
+
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
@@ -1060,20 +1117,26 @@ function LongitudinalDatasetValidationPanel({
   validation,
   saving,
   sopSaving,
+  evidenceSaving,
   onReviewRollout,
   onReviewSop,
+  onReviewEvidence,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
   saving: boolean;
   sopSaving: boolean;
+  evidenceSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
   onReviewSop: (status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => void;
+  onReviewEvidence: (status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus) => void;
 }) {
   const readiness = validation.readiness;
   const rollout = validation.timelineRollout;
   const sop = validation.timelineRolloutSop;
+  const evidence = validation.timelineRolloutEvidence;
   const rolloutReady = readiness.status === "ready_for_rollout";
   const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
+  const evidencePrerequisitesReady = sopPrerequisitesReady && sop.status === "ready_for_operational_rollout";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -1241,6 +1304,65 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewSop("ready_for_operational_rollout")}
           >
             Утвердить SOP rollout
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Evidence timeline rollout"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Evidence timeline rollout</h4>
+            <p className="text-muted-foreground">
+              Evidence фиксирует только aggregate monitoring · Clinical dynamic conclusion: выключен · Выдача
+              пациенту: выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutEvidenceStatusLabel(evidence.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Monitoring" value={timelineRolloutSopChecklistLabel(evidence.monitoringEvidenceStatus)} />
+          <Field term="Sample" value={timelineRolloutSopChecklistLabel(evidence.sampleAuditStatus)} />
+          <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(evidence.exceptionLogStatus)} />
+          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(evidence.rollbackDrillStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(evidence.ownerSignoffStatus)} />
+          <Field term="Window" value={`${evidence.monitoringWindowDays} дн.`} />
+          <Field term="Sampled" value={evidence.sampledTimelineCount} />
+          <Field term="Incidents" value={evidence.exceptionCount} />
+          <Field term="Drills" value={evidence.rollbackDrillCount} />
+        </dl>
+        {evidence.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {evidence.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={evidenceSaving}
+            onClick={() => onReviewEvidence("in_review")}
+          >
+            Зафиксировать evidence review
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={evidenceSaving || !evidencePrerequisitesReady}
+            onClick={() => onReviewEvidence("ready_for_monitored_rollout")}
+          >
+            Утвердить monitored rollout
           </Button>
         </div>
       </div>

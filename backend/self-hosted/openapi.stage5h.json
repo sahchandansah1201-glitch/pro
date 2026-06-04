@@ -2148,6 +2148,9 @@
           },
           "timelineRolloutSop": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutSop"
+          },
+          "timelineRolloutEvidence": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutEvidence"
           }
         }
       },
@@ -2923,6 +2926,264 @@
           }
         },
         "additionalProperties": false
+      },
+      "VisitLongitudinalTimelineRolloutEvidence": {
+        "type": "object",
+        "description": "Batch BT metadata-only monitoring evidence receipt for timeline rollout. No patient delivery, measurements, protected fields, or clinical dynamic conclusions.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visitId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_monitored_rollout"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sopStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_operational_rollout"
+            ]
+          },
+          "validationStatus": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "needs_review",
+              "ready_for_rollout"
+            ]
+          },
+          "rolloutStatus": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_clinical_operations"
+            ]
+          },
+          "monitoringEvidenceStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "sampleAuditStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "exceptionLogStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackDrillStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "monitoringWindowDays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sampledTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackDrillCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lesionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "readyTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidatePairCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewerWorkflowReadyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          },
+          "reviewedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "VisitLongitudinalTimelineRolloutEvidencePayload": {
+        "type": "object",
+        "description": "Batch BT timeline rollout evidence review payload. Protected fields and clinical claims are rejected by service validation.",
+        "properties": {
+          "evidenceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_monitored_rollout"
+            ]
+          },
+          "evidenceReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "monitoringEvidenceStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "sampleAuditStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "exceptionLogStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackDrillStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "monitoringWindowDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "sampledTimelineCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "exceptionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "rollbackDrillCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          }
+        }
       }
     }
   },
@@ -3756,6 +4017,68 @@
                     },
                     "auth": {
                       "type": "object"
+                    },
+                    "generatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/evidence": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review timeline rollout monitoring evidence for a visit",
+        "operationId": "reviewVisitLongitudinalTimelineRolloutEvidence",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutEvidencePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline rollout evidence review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": {
+                      "type": "string",
+                      "const": "5H"
+                    },
+                    "source": {
+                      "type": "string",
+                      "const": "postgres"
+                    },
+                    "item": {
+                      "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutEvidence"
                     },
                     "generatedAt": {
                       "type": "string",

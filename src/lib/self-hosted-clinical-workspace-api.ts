@@ -560,6 +560,11 @@ export type SelfHostedVisitLongitudinalTimelineRolloutSopStatus =
   | "in_review"
   | "ready_for_operational_rollout";
 
+export type SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus =
+  | "not_started"
+  | "in_review"
+  | "ready_for_monitored_rollout";
+
 export type SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus =
   | "missing"
   | "needs_review"
@@ -579,6 +584,20 @@ export interface VisitLongitudinalTimelineRolloutSopPayload {
   monitoringPlanStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
   rolloutWindowStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
   ownerAckStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+}
+
+export interface VisitLongitudinalTimelineRolloutEvidencePayload {
+  evidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus;
+  evidenceReasons: string[];
+  monitoringEvidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  sampleAuditStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  exceptionLogStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  rollbackDrillStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  ownerSignoffStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  monitoringWindowDays: number;
+  sampledTimelineCount: number;
+  exceptionCount: number;
+  rollbackDrillCount: number;
 }
 
 export interface SelfHostedVisitLongitudinalTimelineRolloutDTO {
@@ -619,6 +638,39 @@ export interface SelfHostedVisitLongitudinalTimelineRolloutSopDTO {
   monitoringPlanStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
   rolloutWindowStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
   ownerAckStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  lesionCount: number;
+  readyTimelineCount: number;
+  blockedTimelineCount: number;
+  candidatePairCount: number;
+  reviewerWorkflowReadyCount: number;
+  patientDeliveryAllowed: false;
+  medicalMeasurementAllowed: false;
+  protectedFieldsExposed: false;
+  clinicalOutputGenerated: false;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface SelfHostedVisitLongitudinalTimelineRolloutEvidenceDTO {
+  id: string;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus;
+  reasons: string[];
+  sopStatus: SelfHostedVisitLongitudinalTimelineRolloutSopStatus;
+  validationStatus: SelfHostedVisitLongitudinalDatasetValidationStatus;
+  rolloutStatus: SelfHostedVisitLongitudinalTimelineRolloutStatus;
+  monitoringEvidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  sampleAuditStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  exceptionLogStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  rollbackDrillStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  ownerSignoffStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  monitoringWindowDays: number;
+  sampledTimelineCount: number;
+  exceptionCount: number;
+  rollbackDrillCount: number;
   lesionCount: number;
   readyTimelineCount: number;
   blockedTimelineCount: number;
@@ -691,6 +743,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
   blockers: SelfHostedLesionLongitudinalQaDTO["blockers"];
   timelineRollout: SelfHostedVisitLongitudinalTimelineRolloutDTO;
   timelineRolloutSop: SelfHostedVisitLongitudinalTimelineRolloutSopDTO;
+  timelineRolloutEvidence: SelfHostedVisitLongitudinalTimelineRolloutEvidenceDTO;
   nextActions: SelfHostedLesionLongitudinalQaAction[];
   boundaries: SelfHostedLesionLongitudinalQaDTO["boundaries"];
 }
@@ -773,6 +826,10 @@ interface PatchVisitLongitudinalTimelineRolloutArgs extends VisitArgs {
 
 interface PatchVisitLongitudinalTimelineRolloutSopArgs extends VisitArgs {
   payload: VisitLongitudinalTimelineRolloutSopPayload;
+}
+
+interface PatchVisitLongitudinalTimelineRolloutEvidenceArgs extends VisitArgs {
+  payload: VisitLongitudinalTimelineRolloutEvidencePayload;
 }
 
 interface LesionLongitudinalHistoryArgs extends BaseArgs {
@@ -1563,6 +1620,12 @@ function toVisitLongitudinalTimelineRolloutSopStatus(
   return value === "in_review" || value === "ready_for_operational_rollout" ? value : "not_started";
 }
 
+function toVisitLongitudinalTimelineRolloutEvidenceStatus(
+  value: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus {
+  return value === "in_review" || value === "ready_for_monitored_rollout" ? value : "not_started";
+}
+
 function toVisitLongitudinalTimelineRolloutSopChecklistStatus(
   value: unknown,
 ): SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus {
@@ -1624,6 +1687,46 @@ function toVisitLongitudinalTimelineRolloutSop(input: unknown): SelfHostedVisitL
     reviewedAt: textOrNull(sop.reviewedAt),
     createdAt: textOrNull(sop.createdAt),
     updatedAt: textOrNull(sop.updatedAt),
+  };
+}
+
+function toVisitLongitudinalTimelineRolloutEvidence(
+  input: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutEvidenceDTO {
+  const evidence = isRecord(input) ? input : {};
+  return {
+    id: String(evidence.id ?? ""),
+    clinicId: textOrNull(evidence.clinicId),
+    patientId: textOrNull(evidence.patientId),
+    visitId: textOrNull(evidence.visitId),
+    status: toVisitLongitudinalTimelineRolloutEvidenceStatus(evidence.status),
+    reasons: toStringArray(evidence.reasons),
+    sopStatus: toVisitLongitudinalTimelineRolloutSopStatus(evidence.sopStatus),
+    validationStatus: toVisitLongitudinalDatasetValidationStatus(evidence.validationStatus),
+    rolloutStatus: toVisitLongitudinalTimelineRolloutStatus(evidence.rolloutStatus),
+    monitoringEvidenceStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      evidence.monitoringEvidenceStatus,
+    ),
+    sampleAuditStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(evidence.sampleAuditStatus),
+    exceptionLogStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(evidence.exceptionLogStatus),
+    rollbackDrillStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(evidence.rollbackDrillStatus),
+    ownerSignoffStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(evidence.ownerSignoffStatus),
+    monitoringWindowDays: numberOrZero(evidence.monitoringWindowDays),
+    sampledTimelineCount: numberOrZero(evidence.sampledTimelineCount),
+    exceptionCount: numberOrZero(evidence.exceptionCount),
+    rollbackDrillCount: numberOrZero(evidence.rollbackDrillCount),
+    lesionCount: numberOrZero(evidence.lesionCount),
+    readyTimelineCount: numberOrZero(evidence.readyTimelineCount),
+    blockedTimelineCount: numberOrZero(evidence.blockedTimelineCount),
+    candidatePairCount: numberOrZero(evidence.candidatePairCount),
+    reviewerWorkflowReadyCount: numberOrZero(evidence.reviewerWorkflowReadyCount),
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    reviewedAt: textOrNull(evidence.reviewedAt),
+    createdAt: textOrNull(evidence.createdAt),
+    updatedAt: textOrNull(evidence.updatedAt),
   };
 }
 
@@ -1707,6 +1810,7 @@ function toVisitLongitudinalDatasetValidation(
     blockers,
     timelineRollout: toVisitLongitudinalTimelineRollout(input.timelineRollout),
     timelineRolloutSop: toVisitLongitudinalTimelineRolloutSop(input.timelineRolloutSop),
+    timelineRolloutEvidence: toVisitLongitudinalTimelineRolloutEvidence(input.timelineRolloutEvidence),
     nextActions,
     boundaries: SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
   };
@@ -1975,6 +2079,20 @@ export async function reviewSelfHostedVisitLongitudinalTimelineRolloutSop(
     "PATCH",
     args.payload,
     toVisitLongitudinalTimelineRolloutSop,
+  );
+}
+
+export async function reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence(
+  args: PatchVisitLongitudinalTimelineRolloutEvidenceArgs,
+): Promise<SelfHostedApiResult<SelfHostedVisitLongitudinalTimelineRolloutEvidenceDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/longitudinal-timeline-rollout/evidence"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toVisitLongitudinalTimelineRolloutEvidence,
   );
 }
 

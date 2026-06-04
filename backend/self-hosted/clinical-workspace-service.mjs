@@ -79,6 +79,11 @@ const TIMELINE_ROLLOUT_SOP_STATUS_VALUES = new Set([
   "in_review",
   "ready_for_operational_rollout",
 ]);
+const TIMELINE_ROLLOUT_EVIDENCE_STATUS_VALUES = new Set([
+  "not_started",
+  "in_review",
+  "ready_for_monitored_rollout",
+]);
 const TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES = new Set(["missing", "needs_review", "ready"]);
 const MAX_TEXT = 8000;
 const MAX_REASON_TEXT = 120;
@@ -819,6 +824,58 @@ export function normalizeVisitLongitudinalTimelineRolloutSopPayload(input = {}) 
     monitoringPlanStatus,
     rolloutWindowStatus,
     ownerAckStatus,
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+  };
+}
+
+export function normalizeVisitLongitudinalTimelineRolloutEvidencePayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in timeline rollout evidence payloads." });
+  }
+  const evidenceStatus = cleanString(input.evidenceStatus);
+  if (!evidenceStatus || !TIMELINE_ROLLOUT_EVIDENCE_STATUS_VALUES.has(evidenceStatus)) {
+    details.push({
+      field: "evidenceStatus",
+      message: "evidenceStatus must be not_started, in_review, or ready_for_monitored_rollout.",
+    });
+  }
+  const checklistStatus = (field) => {
+    const value = cleanString(input[field]) || "missing";
+    if (!TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES.has(value)) {
+      details.push({ field, message: `${field} must be missing, needs_review, or ready.` });
+      return "missing";
+    }
+    return value;
+  };
+  const count = (field, max) => normalizeNumber(input[field], field, details, { integer: true, min: 0, max }) ?? 0;
+  const evidenceReasons = normalizeTechnicalStrings(input.evidenceReasons, "evidenceReasons", details);
+  const monitoringEvidenceStatus = checklistStatus("monitoringEvidenceStatus");
+  const sampleAuditStatus = checklistStatus("sampleAuditStatus");
+  const exceptionLogStatus = checklistStatus("exceptionLogStatus");
+  const rollbackDrillStatus = checklistStatus("rollbackDrillStatus");
+  const ownerSignoffStatus = checklistStatus("ownerSignoffStatus");
+  const monitoringWindowDays = count("monitoringWindowDays", 365);
+  const sampledTimelineCount = count("sampledTimelineCount", 20000);
+  const exceptionCount = count("exceptionCount", 20000);
+  const rollbackDrillCount = count("rollbackDrillCount", 20000);
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    evidenceStatus,
+    evidenceReasons: evidenceReasons ?? [],
+    monitoringEvidenceStatus,
+    sampleAuditStatus,
+    exceptionLogStatus,
+    rollbackDrillStatus,
+    ownerSignoffStatus,
+    monitoringWindowDays,
+    sampledTimelineCount,
+    exceptionCount,
+    rollbackDrillCount,
     patientDeliveryAllowed: false,
     medicalMeasurementAllowed: false,
     protectedFieldsExposed: false,
@@ -1787,6 +1844,122 @@ export function createClinicalWorkspaceService({
         },
       });
       return { sop, scope };
+    },
+
+    async reviewVisitLongitudinalTimelineRolloutEvidence(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeVisitLongitudinalTimelineRolloutEvidencePayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const validation = await clinicalWorkspaceRepository.getVisitLongitudinalDatasetValidation({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!validation) {
+        throw new VisitWorkspaceNotFoundError("Longitudinal dataset validation was not found in the allowed clinic scope.");
+      }
+      const readiness = validation.readiness || {};
+      const rollout = validation.timelineRollout || {};
+      const sop = validation.timelineRolloutSop || {};
+      const validationStatus = String(readiness.status ?? "blocked");
+      const rolloutStatus = String(rollout.status ?? "not_approved");
+      const sopStatus = String(sop.status ?? "not_started");
+      const evidenceChecklistReady = [
+        payload.monitoringEvidenceStatus,
+        payload.sampleAuditStatus,
+        payload.exceptionLogStatus,
+        payload.rollbackDrillStatus,
+        payload.ownerSignoffStatus,
+      ].every((status) => status === "ready");
+      const aggregateEvidenceReady =
+        payload.monitoringWindowDays > 0
+        && payload.sampledTimelineCount > 0
+        && payload.rollbackDrillCount > 0
+        && payload.exceptionCount === 0;
+      const productionReady =
+        validationStatus === "ready_for_rollout"
+        && rolloutStatus === "approved_for_clinical_operations"
+        && sopStatus === "ready_for_operational_rollout"
+        && evidenceChecklistReady
+        && aggregateEvidenceReady;
+      const effectiveStatus =
+        payload.evidenceStatus === "ready_for_monitored_rollout" && !productionReady
+          ? "in_review"
+          : payload.evidenceStatus;
+      const effectiveReasons = [
+        ...payload.evidenceReasons,
+        ...(payload.evidenceStatus === "ready_for_monitored_rollout" && !productionReady
+          ? ["timeline_rollout_evidence_not_ready"]
+          : []),
+      ];
+      const evidence = await clinicalWorkspaceRepository.reviewVisitLongitudinalTimelineRolloutEvidence({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        evidence: {
+          evidenceStatus: effectiveStatus,
+          evidenceReasons: effectiveReasons,
+          sopStatus,
+          validationStatus,
+          rolloutStatus,
+          monitoringEvidenceStatus: payload.monitoringEvidenceStatus,
+          sampleAuditStatus: payload.sampleAuditStatus,
+          exceptionLogStatus: payload.exceptionLogStatus,
+          rollbackDrillStatus: payload.rollbackDrillStatus,
+          ownerSignoffStatus: payload.ownerSignoffStatus,
+          monitoringWindowDays: payload.monitoringWindowDays,
+          sampledTimelineCount: payload.sampledTimelineCount,
+          exceptionCount: payload.exceptionCount,
+          rollbackDrillCount: payload.rollbackDrillCount,
+          lesionCount: Number(readiness.lesionCount ?? 0),
+          readyTimelineCount: Number(readiness.readyTimelineCount ?? 0),
+          blockedTimelineCount: Number(readiness.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(readiness.reviewerWorkflowReadyCount ?? 0),
+        },
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!evidence) throw new VisitWorkspaceNotFoundError("Timeline rollout evidence could not be saved.");
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: evidence.clinicId ?? visit.clinic.id,
+        actorUserId: authContext.userId,
+        action: "visit_longitudinal_timeline_rollout_evidence.review",
+        entityType: "visit_longitudinal_timeline_rollout_evidence_review",
+        entityId: evidence.id ?? safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          evidenceStatus: evidence.status,
+          validationStatus: evidence.validationStatus,
+          rolloutStatus: evidence.rolloutStatus,
+          sopStatus: evidence.sopStatus,
+          monitoringWindowDays: Number(evidence.monitoringWindowDays ?? 0),
+          sampledTimelineCount: Number(evidence.sampledTimelineCount ?? 0),
+          exceptionCount: Number(evidence.exceptionCount ?? 0),
+          rollbackDrillCount: Number(evidence.rollbackDrillCount ?? 0),
+          lesionCount: Number(evidence.lesionCount ?? 0),
+          readyTimelineCount: Number(evidence.readyTimelineCount ?? 0),
+          blockedTimelineCount: Number(evidence.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(evidence.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(evidence.reviewerWorkflowReadyCount ?? 0),
+          evidenceChecklistReady,
+          aggregateEvidenceReady,
+          reasonsCount: evidence.reasons?.length ?? 0,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          patientRowsExposed: false,
+        },
+      });
+      return { evidence, scope };
     },
 
     async getLesionLongitudinalQa(patientId, lesionId, authContext, { correlationId } = {}) {
