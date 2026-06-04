@@ -226,6 +226,24 @@ export interface LesionComparisonMeasurementPolicyPayload {
   measurementPolicyReasons: string[];
 }
 
+export interface LesionComparisonReviewerAssignmentPayload {
+  lesionId: string;
+  pairKey: string;
+  imageIds: [string, string];
+  assignmentStatus:
+    | "unassigned"
+    | "assigned"
+    | "second_review_required"
+    | "second_review_assigned"
+    | "second_review_completed"
+    | "assignment_blocked";
+  assignmentReasons: string[];
+  assignedReviewerUserId: string | null;
+  secondReviewStatus: "not_required" | "required" | "assigned" | "completed" | "blocked";
+  secondReviewReasons: string[];
+  secondReviewerUserId: string | null;
+}
+
 type LesionComparisonMeasurementPolicyDTO = {
   status: "not_approved" | "review_required" | "approved_for_technical_review";
   reasons: string[];
@@ -234,6 +252,30 @@ type LesionComparisonMeasurementPolicyDTO = {
   medicalMeasurementAllowed: false;
   patientDeliveryAllowed: false;
   clinicalOutputGenerated: false;
+};
+
+type LesionComparisonReviewerAssignmentDTO = {
+  status:
+    | "unassigned"
+    | "assigned"
+    | "second_review_required"
+    | "second_review_assigned"
+    | "second_review_completed"
+    | "assignment_blocked";
+  reasons: string[];
+  assignedAt: string | null;
+  reviewerIdentityExposed: false;
+  patientDeliveryAllowed: false;
+  medicalMeasurementAllowed: false;
+};
+
+type LesionComparisonSecondReviewDTO = {
+  status: "not_required" | "required" | "assigned" | "completed" | "blocked";
+  reasons: string[];
+  reviewedAt: string | null;
+  reviewerIdentityExposed: false;
+  patientDeliveryAllowed: false;
+  medicalMeasurementAllowed: false;
 };
 
 export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonViewerQaPayload {
@@ -259,12 +301,16 @@ export interface SelfHostedLesionComparisonViewerQaDTO extends LesionComparisonV
       captureMetadataReady: boolean;
       markerGateReady: boolean;
       measurementPolicyApproved: boolean;
+      reviewerAssignmentReady: boolean;
+      secondReviewReady: boolean;
       medicalMeasurementAllowed: false;
       patientDeliveryAllowed: false;
       clinicalConclusionGenerated: false;
     };
   };
   measurementPolicy: LesionComparisonMeasurementPolicyDTO;
+  reviewerAssignment: LesionComparisonReviewerAssignmentDTO;
+  secondReview: LesionComparisonSecondReviewDTO;
   medicalMeasurementAllowed: false;
   patientDeliveryAllowed: false;
   protectedFieldsExposed: false;
@@ -295,6 +341,8 @@ export interface SelfHostedLesionComparisonViewerQaReviewQueueDTO {
     needsRecapture: number;
     notSuitableForComparison: number;
     measurementPolicyRequired: number;
+    reviewerAssignmentRequired: number;
+    secondReviewRequired: number;
     actionable: number;
   };
   items: Array<{
@@ -310,6 +358,8 @@ export interface SelfHostedLesionComparisonViewerQaReviewQueueDTO {
       reviewedByUserId: string | null;
     };
     measurementPolicy: LesionComparisonMeasurementPolicyDTO;
+    reviewerAssignment: LesionComparisonReviewerAssignmentDTO;
+    secondReview: LesionComparisonSecondReviewDTO;
     calibrationStatus: string;
     calibrationReasons: string[];
     captureMetadataStatus: string;
@@ -320,6 +370,8 @@ export interface SelfHostedLesionComparisonViewerQaReviewQueueDTO {
       | "request_recapture"
       | "exclude_from_dynamic_review"
       | "approve_measurement_policy"
+      | "assign_reviewer"
+      | "complete_second_review"
       | "continue_review";
   }>;
   boundaries: {
@@ -400,6 +452,8 @@ export type SelfHostedLesionLongitudinalQaAction =
   | "complete_calibration"
   | "place_markers"
   | "approve_measurement_policy"
+  | "assign_reviewer"
+  | "complete_second_review"
   | "continue_review";
 
 export interface SelfHostedLesionLongitudinalQaDTO {
@@ -425,6 +479,8 @@ export interface SelfHostedLesionLongitudinalQaDTO {
     calibrationBlockedCount: number;
     markerMissingCount: number;
     measurementPolicyNotReadyCount: number;
+    reviewerAssignmentNotReadyCount: number;
+    secondReviewNotReadyCount: number;
     technicalRolloutReady: boolean;
     dynamicConclusionAllowed: false;
   };
@@ -441,7 +497,9 @@ export interface SelfHostedLesionLongitudinalQaDTO {
       | "capture_protocol_not_ready"
       | "calibration_not_ready"
       | "technical_markers_missing"
-      | "measurement_policy_required";
+      | "measurement_policy_required"
+      | "reviewer_assignment_required"
+      | "second_review_required";
     label: string;
     count: number;
     nextAction: SelfHostedLesionLongitudinalQaAction;
@@ -489,6 +547,8 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     calibrationBlockedCount: number;
     markerMissingCount: number;
     measurementPolicyNotReadyCount: number;
+    reviewerAssignmentNotReadyCount: number;
+    secondReviewNotReadyCount: number;
     reviewerWorkflowReadyCount: number;
     dynamicConclusionAllowed: false;
   };
@@ -512,6 +572,8 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     calibrationBlockedCount: number;
     markerMissingCount: number;
     measurementPolicyNotReadyCount: number;
+    reviewerAssignmentNotReadyCount: number;
+    secondReviewNotReadyCount: number;
     reviewerWorkflowReadyCount: number;
     nextAction: SelfHostedLesionLongitudinalQaAction;
   }>;
@@ -577,6 +639,10 @@ interface PatchLesionComparisonViewerQaReviewerWorkflowArgs extends VisitArgs {
 
 interface PatchLesionComparisonMeasurementPolicyArgs extends VisitArgs {
   payload: LesionComparisonMeasurementPolicyPayload;
+}
+
+interface PatchLesionComparisonReviewerAssignmentArgs extends VisitArgs {
+  payload: LesionComparisonReviewerAssignmentPayload;
 }
 
 interface VisitViewerQaReviewQueueArgs extends VisitArgs {
@@ -984,6 +1050,46 @@ function toMeasurementPolicy(input: unknown): LesionComparisonMeasurementPolicyD
   };
 }
 
+function toReviewerAssignmentStatus(value: unknown): LesionComparisonReviewerAssignmentDTO["status"] {
+  return value === "assigned"
+    || value === "second_review_required"
+    || value === "second_review_assigned"
+    || value === "second_review_completed"
+    || value === "assignment_blocked"
+    ? value
+    : "unassigned";
+}
+
+function toSecondReviewStatus(value: unknown): LesionComparisonSecondReviewDTO["status"] {
+  return value === "required" || value === "assigned" || value === "completed" || value === "blocked"
+    ? value
+    : "not_required";
+}
+
+function toReviewerAssignment(input: unknown): LesionComparisonReviewerAssignmentDTO {
+  const assignment = isRecord(input) ? input : {};
+  return {
+    status: toReviewerAssignmentStatus(assignment.status),
+    reasons: toStringArray(assignment.reasons),
+    assignedAt: textOrNull(assignment.assignedAt),
+    reviewerIdentityExposed: false,
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+  };
+}
+
+function toSecondReview(input: unknown): LesionComparisonSecondReviewDTO {
+  const review = isRecord(input) ? input : {};
+  return {
+    status: toSecondReviewStatus(review.status),
+    reasons: toStringArray(review.reasons),
+    reviewedAt: textOrNull(review.reviewedAt),
+    reviewerIdentityExposed: false,
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+  };
+}
+
 function toViewerQaReviewerWorkflowGate(
   input: unknown,
 ): SelfHostedLesionComparisonViewerQaDTO["reviewerWorkflow"]["gate"] {
@@ -994,6 +1100,8 @@ function toViewerQaReviewerWorkflowGate(
     captureMetadataReady: gate.captureMetadataReady === true,
     markerGateReady: gate.markerGateReady === true,
     measurementPolicyApproved: gate.measurementPolicyApproved === true,
+    reviewerAssignmentReady: gate.reviewerAssignmentReady === true,
+    secondReviewReady: gate.secondReviewReady === true,
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     clinicalConclusionGenerated: false,
@@ -1038,6 +1146,8 @@ function toLesionComparisonViewerQa(input: Record<string, unknown>): SelfHostedL
       gate: toViewerQaReviewerWorkflowGate(reviewerWorkflow.gate),
     },
     measurementPolicy: toMeasurementPolicy(input.measurementPolicy),
+    reviewerAssignment: toReviewerAssignment(input.reviewerAssignment),
+    secondReview: toSecondReview(input.secondReview),
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
@@ -1062,6 +1172,8 @@ function toViewerQaReviewQueueNextAction(
   return value === "request_recapture"
     || value === "exclude_from_dynamic_review"
     || value === "approve_measurement_policy"
+    || value === "assign_reviewer"
+    || value === "complete_second_review"
     || value === "continue_review"
     ? value
     : "review_pair";
@@ -1087,11 +1199,15 @@ function toLesionComparisonViewerQaReviewQueue(
       needsRecapture: numberOrZero(summary.needsRecapture),
       notSuitableForComparison: numberOrZero(summary.notSuitableForComparison),
       measurementPolicyRequired: numberOrZero(summary.measurementPolicyRequired),
+      reviewerAssignmentRequired: numberOrZero(summary.reviewerAssignmentRequired),
+      secondReviewRequired: numberOrZero(summary.secondReviewRequired),
       actionable: numberOrZero(summary.actionable),
     },
     items: toRecordArray(input.items).map((item) => {
       const review = isRecord(item.review) ? item.review : {};
       const measurementPolicy = isRecord(item.measurementPolicy) ? item.measurementPolicy : {};
+      const reviewerAssignment = isRecord(item.reviewerAssignment) ? item.reviewerAssignment : {};
+      const secondReview = isRecord(item.secondReview) ? item.secondReview : {};
       return {
         queueNumber: numberOrZero(item.queueNumber),
         lesionId: String(item.lesionId ?? ""),
@@ -1105,6 +1221,8 @@ function toLesionComparisonViewerQaReviewQueue(
           reviewedByUserId: textOrNull(review.reviewedByUserId),
         },
         measurementPolicy: toMeasurementPolicy(measurementPolicy),
+        reviewerAssignment: toReviewerAssignment(reviewerAssignment),
+        secondReview: toSecondReview(secondReview),
         calibrationStatus: String(item.calibrationStatus ?? "not_ready"),
         calibrationReasons: toStringArray(item.calibrationReasons),
         captureMetadataStatus: String(item.captureMetadataStatus ?? "needs_review"),
@@ -1193,6 +1311,8 @@ const LONGITUDINAL_QA_BLOCKER_CODES = new Set<SelfHostedLesionLongitudinalQaDTO[
   "calibration_not_ready",
   "technical_markers_missing",
   "measurement_policy_required",
+  "reviewer_assignment_required",
+  "second_review_required",
 ]);
 
 function toLongitudinalQaStatus(value: unknown): SelfHostedLesionLongitudinalQaStatus {
@@ -1211,6 +1331,8 @@ function toLongitudinalQaAction(value: unknown): SelfHostedLesionLongitudinalQaA
     || value === "complete_calibration"
     || value === "place_markers"
     || value === "approve_measurement_policy"
+    || value === "assign_reviewer"
+    || value === "complete_second_review"
     || value === "continue_review"
     ? value
     : null;
@@ -1259,6 +1381,8 @@ function toLesionLongitudinalQa(input: Record<string, unknown>): SelfHostedLesio
       calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
       markerMissingCount: numberOrZero(readiness.markerMissingCount),
       measurementPolicyNotReadyCount: numberOrZero(readiness.measurementPolicyNotReadyCount),
+      reviewerAssignmentNotReadyCount: numberOrZero(readiness.reviewerAssignmentNotReadyCount),
+      secondReviewNotReadyCount: numberOrZero(readiness.secondReviewNotReadyCount),
       technicalRolloutReady: readiness.technicalRolloutReady === true,
       dynamicConclusionAllowed: false,
     },
@@ -1319,6 +1443,8 @@ function toVisitLongitudinalDatasetValidation(
       calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
       markerMissingCount: numberOrZero(readiness.markerMissingCount),
       measurementPolicyNotReadyCount: numberOrZero(readiness.measurementPolicyNotReadyCount),
+      reviewerAssignmentNotReadyCount: numberOrZero(readiness.reviewerAssignmentNotReadyCount),
+      secondReviewNotReadyCount: numberOrZero(readiness.secondReviewNotReadyCount),
       reviewerWorkflowReadyCount: numberOrZero(readiness.reviewerWorkflowReadyCount),
       dynamicConclusionAllowed: false,
     },
@@ -1342,6 +1468,8 @@ function toVisitLongitudinalDatasetValidation(
       calibrationBlockedCount: numberOrZero(item.calibrationBlockedCount),
       markerMissingCount: numberOrZero(item.markerMissingCount),
       measurementPolicyNotReadyCount: numberOrZero(item.measurementPolicyNotReadyCount),
+      reviewerAssignmentNotReadyCount: numberOrZero(item.reviewerAssignmentNotReadyCount),
+      secondReviewNotReadyCount: numberOrZero(item.secondReviewNotReadyCount),
       reviewerWorkflowReadyCount: numberOrZero(item.reviewerWorkflowReadyCount),
       nextAction: toLongitudinalQaAction(item.nextAction) ?? "review_queue",
     })),
@@ -1526,6 +1654,20 @@ export async function reviewSelfHostedLesionComparisonMeasurementPolicy(
   if (cfg) return fail(cfg);
   return requestJson(
     visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa/measurement-policy"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toLesionComparisonViewerQa,
+  );
+}
+
+export async function reviewSelfHostedLesionComparisonReviewerAssignment(
+  args: PatchLesionComparisonReviewerAssignmentArgs,
+): Promise<SelfHostedApiResult<SelfHostedLesionComparisonViewerQaDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/lesion-comparison-viewer-qa/reviewer-assignment"),
     args.apiToken as string,
     "PATCH",
     args.payload,

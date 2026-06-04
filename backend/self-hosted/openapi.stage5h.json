@@ -4,117 +4,371 @@
     "title": "Dermatolog Pro Self-hosted Clinical Workspace Contracts",
     "version": "5H-clinical-workspace-contracts"
   },
-  "servers": [{ "url": "/" }],
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
   "components": {
     "securitySchemes": {
-      "bearerAuth": { "type": "http", "scheme": "bearer" }
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
     },
     "schemas": {
       "ClinicalAssessment": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "visitId": { "type": "string" },
-          "status": { "type": "string", "enum": ["draft", "ready", "signed"] },
-          "riskLevel": { "type": ["string", "null"], "enum": ["low", "moderate", "high", "urgent", null] },
-          "abcdTotal": { "type": ["number", "null"] },
-          "sevenPointTotal": { "type": ["integer", "null"] },
-          "summary": { "type": ["string", "null"] },
-          "recommendation": { "type": ["string", "null"] }
+          "id": {
+            "type": "string"
+          },
+          "visitId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "ready",
+              "signed"
+            ]
+          },
+          "riskLevel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "low",
+              "moderate",
+              "high",
+              "urgent",
+              null
+            ]
+          },
+          "abcdTotal": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sevenPointTotal": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recommendation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "ClinicalConclusion": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "visitId": { "type": "string" },
-          "status": { "type": "string", "enum": ["draft", "ready", "signed"] },
-          "summary": { "type": ["string", "null"] },
-          "nextStep": { "type": ["string", "null"] },
-          "followUpAt": { "type": ["string", "null"] }
+          "id": {
+            "type": "string"
+          },
+          "visitId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "ready",
+              "signed"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextStep": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "followUpAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "VisitReport": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "visitId": { "type": "string" },
-          "status": { "type": "string" },
-          "physicianText": { "type": ["string", "null"] },
-          "patientSafeText": { "type": ["string", "null"] }
+          "id": {
+            "type": "string"
+          },
+          "visitId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "physicianText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientSafeText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "LesionComparisonDecisionDraft": {
         "type": "object",
         "description": "Metadata-only doctor draft for a selected lesion image-pair decision. No patient delivery or protected file fields.",
         "properties": {
-          "id": { "type": "string" },
-          "visitId": { "type": "string" },
-          "lesionId": { "type": "string" },
-          "pairKey": { "type": "string" },
-          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
-          "action": { "type": "string", "enum": ["retake", "excluded", "report_limit"] },
-          "comparability": { "type": "string", "enum": ["comparable", "not_comparable"] },
-          "reasons": { "type": "array", "items": { "type": "string" } },
-          "patientDeliveryAllowed": { "type": "boolean", "const": false },
-          "protectedFieldsExposed": { "type": "boolean", "const": false },
-          "createdAt": { "type": ["string", "null"] },
-          "updatedAt": { "type": ["string", "null"] }
+          "id": {
+            "type": "string"
+          },
+          "visitId": {
+            "type": "string"
+          },
+          "lesionId": {
+            "type": "string"
+          },
+          "pairKey": {
+            "type": "string"
+          },
+          "imageIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "retake",
+              "excluded",
+              "report_limit"
+            ]
+          },
+          "comparability": {
+            "type": "string",
+            "enum": [
+              "comparable",
+              "not_comparable"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       },
       "AssetCaptureMetadata": {
         "type": "object",
         "description": "Production capture metadata for one clinical asset. No image bytes, storage paths, signed URLs, QR/session/credential material, or patient delivery.",
         "properties": {
-          "id": { "type": "string" },
-          "visitId": { "type": "string" },
-          "assetId": { "type": "string" },
-          "captureSource": { "type": "string", "enum": ["phone", "device_bridge", "file_import", "camera", "local_transfer", "unknown"] },
-          "deviceId": { "type": ["string", "null"] },
+          "id": {
+            "type": "string"
+          },
+          "visitId": {
+            "type": "string"
+          },
+          "assetId": {
+            "type": "string"
+          },
+          "captureSource": {
+            "type": "string",
+            "enum": [
+              "phone",
+              "device_bridge",
+              "file_import",
+              "camera",
+              "local_transfer",
+              "unknown"
+            ]
+          },
+          "deviceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "frame": {
             "type": "object",
             "properties": {
-              "width": { "type": ["integer", "null"], "minimum": 1 },
-              "height": { "type": ["integer", "null"], "minimum": 1 }
+              "width": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "height": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              }
             }
           },
           "quality": {
             "type": "object",
             "properties": {
-              "score": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-              "issues": { "type": "array", "items": { "type": "string" } }
+              "score": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           },
           "calibration": {
             "type": "object",
             "properties": {
-              "scaleMarkerDetected": { "type": "boolean" },
-              "millimetersAvailable": { "type": "boolean" }
+              "scaleMarkerDetected": {
+                "type": "boolean"
+              },
+              "millimetersAvailable": {
+                "type": "boolean"
+              }
             }
           },
           "deviceEvidence": {
             "type": "object",
             "description": "Batch BK production device-provided capture evidence. Metadata-only: no serials, credentials, network identifiers, image paths, or patient delivery.",
             "properties": {
-              "captureProfile": { "type": "string", "enum": ["standard_dermoscopy", "standard_macro", "overview", "unknown"] },
-              "lightingProfile": { "type": "string", "enum": ["polarized", "non_polarized", "cross_polarized", "ambient", "unknown"] },
-              "focusProfile": { "type": "string", "enum": ["locked", "auto", "manual", "unknown"] },
-              "distanceProfile": { "type": "string", "enum": ["fixed", "estimated", "unknown"] },
-              "calibrationStatus": { "type": "string", "enum": ["valid", "due_soon", "expired", "missing", "not_applicable", "unknown"] },
-              "calibrationCheckedAt": { "type": ["string", "null"] },
-              "status": { "type": "string", "enum": ["ready", "needs_review", "missing"] }
+              "captureProfile": {
+                "type": "string",
+                "enum": [
+                  "standard_dermoscopy",
+                  "standard_macro",
+                  "overview",
+                  "unknown"
+                ]
+              },
+              "lightingProfile": {
+                "type": "string",
+                "enum": [
+                  "polarized",
+                  "non_polarized",
+                  "cross_polarized",
+                  "ambient",
+                  "unknown"
+                ]
+              },
+              "focusProfile": {
+                "type": "string",
+                "enum": [
+                  "locked",
+                  "auto",
+                  "manual",
+                  "unknown"
+                ]
+              },
+              "distanceProfile": {
+                "type": "string",
+                "enum": [
+                  "fixed",
+                  "estimated",
+                  "unknown"
+                ]
+              },
+              "calibrationStatus": {
+                "type": "string",
+                "enum": [
+                  "valid",
+                  "due_soon",
+                  "expired",
+                  "missing",
+                  "not_applicable",
+                  "unknown"
+                ]
+              },
+              "calibrationCheckedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "needs_review",
+                  "missing"
+                ]
+              }
             }
           },
           "productionAssetReadiness": {
             "type": "object",
             "description": "Batch BM protected production asset readiness. Metadata-only: exposes only readiness status and reason codes, never bucket, key, path, signed URL, bytes, or patient delivery.",
             "properties": {
-              "status": { "type": "string", "enum": ["ready", "needs_review"] },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "needs_review"
+                ]
+              },
               "reasons": {
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["protected_storage_missing", "byte_size_missing", "capture_time_missing"]
+                  "enum": [
+                    "protected_storage_missing",
+                    "byte_size_missing",
+                    "capture_time_missing"
+                  ]
                 }
               }
             }
@@ -123,7 +377,14 @@
             "type": "object",
             "description": "Batch BL Device Bridge quality gate. Metadata-only: no serials, hostnames, network identifiers, worker payloads, credentials, storage paths, signed URLs, or patient delivery.",
             "properties": {
-              "status": { "type": "string", "enum": ["ready", "needs_review", "not_applicable"] },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "needs_review",
+                  "not_applicable"
+                ]
+              },
               "reasons": {
                 "type": "array",
                 "items": {
@@ -146,41 +407,144 @@
             "type": "object",
             "description": "Batch BN capture protocol evidence. Metadata-only: no EXIF payloads, GPS, operator names, serials, credentials, storage paths, signed URLs, or patient delivery.",
             "properties": {
-              "version": { "type": "string", "enum": ["clinic_standard_v1", "device_standard_v1", "imported_standard", "unknown"] },
-              "lensProfile": { "type": "string", "enum": ["dermoscope_contact", "dermoscope_non_contact", "macro_lens", "phone_camera", "unknown"] },
-              "polarizationMode": { "type": "string", "enum": ["polarized", "non_polarized", "cross_polarized", "not_applicable", "unknown"] },
-              "colorReferenceStatus": { "type": "string", "enum": ["captured", "not_required", "missing", "unknown"] },
-              "clockSyncStatus": { "type": "string", "enum": ["synced", "stale", "missing", "unknown"] },
-              "status": { "type": "string", "enum": ["ready", "needs_review", "missing"] }
+              "version": {
+                "type": "string",
+                "enum": [
+                  "clinic_standard_v1",
+                  "device_standard_v1",
+                  "imported_standard",
+                  "unknown"
+                ]
+              },
+              "lensProfile": {
+                "type": "string",
+                "enum": [
+                  "dermoscope_contact",
+                  "dermoscope_non_contact",
+                  "macro_lens",
+                  "phone_camera",
+                  "unknown"
+                ]
+              },
+              "polarizationMode": {
+                "type": "string",
+                "enum": [
+                  "polarized",
+                  "non_polarized",
+                  "cross_polarized",
+                  "not_applicable",
+                  "unknown"
+                ]
+              },
+              "colorReferenceStatus": {
+                "type": "string",
+                "enum": [
+                  "captured",
+                  "not_required",
+                  "missing",
+                  "unknown"
+                ]
+              },
+              "clockSyncStatus": {
+                "type": "string",
+                "enum": [
+                  "synced",
+                  "stale",
+                  "missing",
+                  "unknown"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "needs_review",
+                  "missing"
+                ]
+              }
             }
           },
-          "patientDeliveryAllowed": { "type": "boolean", "const": false },
-          "protectedFieldsExposed": { "type": "boolean", "const": false }
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          }
         }
       },
       "LesionCaptureMetadata": {
         "type": "object",
         "description": "Doctor-side production capture metadata ledger for one lesion. Metadata-only and no clinical conclusion.",
         "properties": {
-          "clinicId": { "type": ["string", "null"] },
-          "patientId": { "type": "string" },
-          "lesionId": { "type": "string" },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "lesionId": {
+            "type": "string"
+          },
           "summary": {
             "type": "object",
             "properties": {
-              "assetCount": { "type": "integer", "minimum": 0 },
-              "metadataCount": { "type": "integer", "minimum": 0 },
-              "missingMetadataCount": { "type": "integer", "minimum": 0 },
-              "readyForTechnicalCompareCount": { "type": "integer", "minimum": 0 },
-              "scaleReadyCount": { "type": "integer", "minimum": 0 },
-              "deviceEvidenceReadyCount": { "type": "integer", "minimum": 0 },
-              "deviceEvidenceReviewCount": { "type": "integer", "minimum": 0 },
-              "productionAssetReadyCount": { "type": "integer", "minimum": 0 },
-              "productionAssetReviewCount": { "type": "integer", "minimum": 0 },
-              "deviceBridgeQualityReadyCount": { "type": "integer", "minimum": 0 },
-              "deviceBridgeQualityReviewCount": { "type": "integer", "minimum": 0 },
-              "captureProtocolReadyCount": { "type": "integer", "minimum": 0 },
-              "captureProtocolReviewCount": { "type": "integer", "minimum": 0 }
+              "assetCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "metadataCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "missingMetadataCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "readyForTechnicalCompareCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "scaleReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviceEvidenceReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviceEvidenceReviewCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "productionAssetReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "productionAssetReviewCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviceBridgeQualityReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviceBridgeQualityReviewCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "captureProtocolReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "captureProtocolReviewCount": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           },
           "items": {
@@ -188,36 +552,114 @@
             "items": {
               "type": "object",
               "properties": {
-                "assetId": { "type": "string" },
-                "visitId": { "type": ["string", "null"] },
-                "kind": { "type": "string" },
-                "contentType": { "type": ["string", "null"] },
-                "capturedAt": { "type": ["string", "null"] },
-                "captureSource": { "type": "string" },
-                "deviceId": { "type": ["string", "null"] },
-                "deviceProfile": { "type": ["string", "null"] },
-                "frame": { "type": "object" },
-                "quality": { "type": "object" },
-                "calibration": { "type": "object" },
-                "deviceEvidence": { "type": "object" },
-                "productionAssetReadiness": { "type": "object" },
-                "deviceBridgeQuality": { "type": "object" },
-                "captureProtocol": { "type": "object" },
-                "technicalStatus": { "type": "string", "enum": ["ready", "warning", "missing"] },
-                "technicalReasons": { "type": "array", "items": { "type": "string" } }
+                "assetId": {
+                  "type": "string"
+                },
+                "visitId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "contentType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "capturedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "captureSource": {
+                  "type": "string"
+                },
+                "deviceId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "deviceProfile": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "frame": {
+                  "type": "object"
+                },
+                "quality": {
+                  "type": "object"
+                },
+                "calibration": {
+                  "type": "object"
+                },
+                "deviceEvidence": {
+                  "type": "object"
+                },
+                "productionAssetReadiness": {
+                  "type": "object"
+                },
+                "deviceBridgeQuality": {
+                  "type": "object"
+                },
+                "captureProtocol": {
+                  "type": "object"
+                },
+                "technicalStatus": {
+                  "type": "string",
+                  "enum": [
+                    "ready",
+                    "warning",
+                    "missing"
+                  ]
+                },
+                "technicalReasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
               }
             }
           },
           "boundaries": {
             "type": "object",
             "properties": {
-              "patientDeliveryAllowed": { "type": "boolean", "const": false },
-              "protectedFieldsExposed": { "type": "boolean", "const": false },
-              "storagePathsExposed": { "type": "boolean", "const": false },
-              "signedUrlsIssued": { "type": "boolean", "const": false },
-              "rawImageBytesExposed": { "type": "boolean", "const": false },
-              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
-              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "protectedFieldsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "storagePathsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "signedUrlsIssued": {
+                "type": "boolean",
+                "const": false
+              },
+              "rawImageBytesExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "doctorOnlyTextExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "clinicalConclusionGenerated": {
+                "type": "boolean",
+                "const": false
+              }
             }
           }
         }
@@ -226,35 +668,103 @@
         "type": "object",
         "description": "Metadata-only doctor viewer QA draft for technical markers and calibration limits. Patient delivery and medical measurements are disabled.",
         "properties": {
-          "id": { "type": "string" },
-          "visitId": { "type": "string" },
-          "lesionId": { "type": "string" },
-          "pairKey": { "type": "string" },
-          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "id": {
+            "type": "string"
+          },
+          "visitId": {
+            "type": "string"
+          },
+          "lesionId": {
+            "type": "string"
+          },
+          "pairKey": {
+            "type": "string"
+          },
+          "imageIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
           "technicalMarkers": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "enum": ["A", "B"] },
-                "xPercent": { "type": "number", "minimum": 0, "maximum": 100 },
-                "yPercent": { "type": "number", "minimum": 0, "maximum": 100 }
+                "target": {
+                  "type": "string",
+                  "enum": [
+                    "A",
+                    "B"
+                  ]
+                },
+                "xPercent": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "yPercent": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
               }
             }
           },
-          "calibrationStatus": { "type": "string", "enum": ["ready", "not_ready", "limited"] },
-          "calibrationReasons": { "type": "array", "items": { "type": "string" } },
-          "captureMetadataStatus": { "type": "string", "enum": ["ready", "needs_review", "missing"] },
+          "calibrationStatus": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready",
+              "limited"
+            ]
+          },
+          "calibrationReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "captureMetadataStatus": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "needs_review",
+              "missing"
+            ]
+          },
           "review": {
             "type": "object",
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["unreviewed", "technical_ready", "needs_recapture", "not_suitable_for_comparison"]
+                "enum": [
+                  "unreviewed",
+                  "technical_ready",
+                  "needs_recapture",
+                  "not_suitable_for_comparison"
+                ]
               },
-              "reasons": { "type": "array", "items": { "type": "string" } },
-              "reviewedAt": { "type": ["string", "null"] },
-              "reviewedByUserId": { "type": ["string", "null"] }
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reviewedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reviewedByUserId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           },
           "reviewerWorkflow": {
@@ -263,129 +773,449 @@
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["technical_gate_blocked", "ready_for_reviewer", "reviewer_accepted", "reviewer_rejected"]
+                "enum": [
+                  "technical_gate_blocked",
+                  "ready_for_reviewer",
+                  "reviewer_accepted",
+                  "reviewer_rejected"
+                ]
               },
-              "reasons": { "type": "array", "items": { "type": "string" } },
-              "reviewedAt": { "type": ["string", "null"] },
-              "reviewedByUserId": { "type": ["string", "null"] },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reviewedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reviewedByUserId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "gate": {
                 "type": "object",
                 "properties": {
-                  "technicalReviewReady": { "type": "boolean" },
-	                  "calibrationReady": { "type": "boolean" },
-	                  "captureMetadataReady": { "type": "boolean" },
-	                  "markerGateReady": { "type": "boolean" },
-	                  "measurementPolicyApproved": { "type": "boolean" },
-	                  "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-                  "patientDeliveryAllowed": { "type": "boolean", "const": false },
-                  "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+                  "technicalReviewReady": {
+                    "type": "boolean"
+                  },
+                  "calibrationReady": {
+                    "type": "boolean"
+                  },
+                  "captureMetadataReady": {
+                    "type": "boolean"
+                  },
+                  "markerGateReady": {
+                    "type": "boolean"
+                  },
+                  "measurementPolicyApproved": {
+                    "type": "boolean"
+                  },
+                  "medicalMeasurementAllowed": {
+                    "type": "boolean",
+                    "const": false
+                  },
+                  "patientDeliveryAllowed": {
+                    "type": "boolean",
+                    "const": false
+                  },
+                  "clinicalConclusionGenerated": {
+                    "type": "boolean",
+                    "const": false
+                  },
+                  "reviewerAssignmentReady": {
+                    "type": "boolean"
+                  },
+                  "secondReviewReady": {
+                    "type": "boolean"
+                  }
                 }
               }
             }
-	          },
-	          "measurementPolicy": {
-	            "type": "object",
-	            "description": "Batch BO measurement policy status. This approves only technical reviewer workflow boundaries; medical measurement remains disabled.",
-	            "properties": {
-	              "status": {
-	                "type": "string",
-	                "enum": ["not_approved", "review_required", "approved_for_technical_review"]
-	              },
-	              "reasons": { "type": "array", "items": { "type": "string" } },
-	              "reviewedAt": { "type": ["string", "null"] },
-	              "reviewedByUserId": { "type": ["string", "null"] },
-	              "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-	              "patientDeliveryAllowed": { "type": "boolean", "const": false },
-	              "clinicalOutputGenerated": { "type": "boolean", "const": false }
-	            }
-	          },
-	          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-          "patientDeliveryAllowed": { "type": "boolean", "const": false },
-          "protectedFieldsExposed": { "type": "boolean", "const": false }
+          },
+          "measurementPolicy": {
+            "type": "object",
+            "description": "Batch BO measurement policy status. This approves only technical reviewer workflow boundaries; medical measurement remains disabled.",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "not_approved",
+                  "review_required",
+                  "approved_for_technical_review"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reviewedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reviewedByUserId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "medicalMeasurementAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "clinicalOutputGenerated": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "reviewerAssignment": {
+            "type": "object",
+            "description": "Batch BP metadata-only reviewer assignment status. Reviewer identity values are not exposed in API/UI/audit responses.",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unassigned",
+                  "assigned",
+                  "second_review_required",
+                  "second_review_assigned",
+                  "second_review_completed",
+                  "assignment_blocked"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "assignedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reviewerIdentityExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "medicalMeasurementAllowed": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          },
+          "secondReview": {
+            "type": "object",
+            "description": "Batch BP metadata-only second-review status. Reviewer identities and patient delivery remain disabled.",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "not_required",
+                  "required",
+                  "assigned",
+                  "completed",
+                  "blocked"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reviewedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reviewerIdentityExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "medicalMeasurementAllowed": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          }
         }
       },
       "LesionComparisonViewerQaReview": {
         "type": "object",
         "description": "Metadata-only doctor technical review over an existing viewer QA draft. Patient delivery, medical measurements and clinical dynamic conclusions are disabled.",
         "properties": {
-          "lesionId": { "type": "string" },
-          "pairKey": { "type": "string" },
-          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "lesionId": {
+            "type": "string"
+          },
+          "pairKey": {
+            "type": "string"
+          },
+          "imageIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
           "reviewStatus": {
             "type": "string",
-            "enum": ["technical_ready", "needs_recapture", "not_suitable_for_comparison"]
+            "enum": [
+              "technical_ready",
+              "needs_recapture",
+              "not_suitable_for_comparison"
+            ]
           },
-          "reviewReasons": { "type": "array", "items": { "type": "string" } },
-          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-          "patientDeliveryAllowed": { "type": "boolean", "const": false },
-          "protectedFieldsExposed": { "type": "boolean", "const": false }
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          }
         },
-        "required": ["lesionId", "pairKey", "imageIds", "reviewStatus"]
+        "required": [
+          "lesionId",
+          "pairKey",
+          "imageIds",
+          "reviewStatus"
+        ]
       },
       "LesionComparisonViewerQaReviewerWorkflow": {
         "type": "object",
-        "description": "Batch BH metadata-only calibrated reviewer workflow over an existing technical-ready viewer QA draft. Backend gates require technical_ready review, ready calibration, ready capture metadata, and two technical markers.",
+        "description": "Batch BH/BP metadata-only calibrated reviewer workflow over an existing technical-ready viewer QA draft. Backend gates require technical_ready review, ready calibration, ready capture metadata, two technical markers, approved measurement policy, reviewer assignment, and completed/not-required second review.",
         "properties": {
-          "lesionId": { "type": "string" },
-          "pairKey": { "type": "string" },
-          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "lesionId": {
+            "type": "string"
+          },
+          "pairKey": {
+            "type": "string"
+          },
+          "imageIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
           "workflowStatus": {
             "type": "string",
-            "enum": ["ready_for_reviewer", "reviewer_accepted", "reviewer_rejected"]
+            "enum": [
+              "ready_for_reviewer",
+              "reviewer_accepted",
+              "reviewer_rejected"
+            ]
           },
-          "workflowReasons": { "type": "array", "items": { "type": "string" } },
-          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-          "patientDeliveryAllowed": { "type": "boolean", "const": false },
-          "protectedFieldsExposed": { "type": "boolean", "const": false }
+          "workflowReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          }
         },
-        "required": ["lesionId", "pairKey", "imageIds", "workflowStatus"]
+        "required": [
+          "lesionId",
+          "pairKey",
+          "imageIds",
+          "workflowStatus"
+        ]
       },
       "LesionComparisonMeasurementPolicy": {
         "type": "object",
         "description": "Batch BO metadata-only measurement policy gate for clinical-grade reviewer operations. It approves only the technical reviewer workflow boundary and never enables medical measurement, patient delivery, or clinical dynamic conclusions.",
         "properties": {
-          "lesionId": { "type": "string" },
-          "pairKey": { "type": "string" },
-          "imageIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "lesionId": {
+            "type": "string"
+          },
+          "pairKey": {
+            "type": "string"
+          },
+          "imageIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
           "measurementPolicyStatus": {
             "type": "string",
-            "enum": ["not_approved", "review_required", "approved_for_technical_review"]
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_technical_review"
+            ]
           },
-          "measurementPolicyReasons": { "type": "array", "items": { "type": "string" } },
-          "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-          "patientDeliveryAllowed": { "type": "boolean", "const": false },
-          "protectedFieldsExposed": { "type": "boolean", "const": false },
-          "clinicalOutputGenerated": { "type": "boolean", "const": false }
+          "measurementPolicyReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          }
         },
-        "required": ["lesionId", "pairKey", "imageIds", "measurementPolicyStatus"]
+        "required": [
+          "lesionId",
+          "pairKey",
+          "imageIds",
+          "measurementPolicyStatus"
+        ]
       },
       "LesionComparisonViewerQaReviewQueue": {
         "type": "object",
         "description": "Visit-scoped doctor queue for metadata-only viewer QA review decisions. Pair keys, image IDs, protected image fields, patient delivery, medical measurements, and clinical dynamic conclusions are not exposed.",
         "properties": {
-          "clinicId": { "type": ["string", "null"] },
-          "patientId": { "type": ["string", "null"] },
-          "visitId": { "type": "string" },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visitId": {
+            "type": "string"
+          },
           "filters": {
             "type": "object",
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["actionable", "all", "unreviewed", "technical_ready", "needs_recapture", "not_suitable_for_comparison"]
+                "enum": [
+                  "actionable",
+                  "all",
+                  "unreviewed",
+                  "technical_ready",
+                  "needs_recapture",
+                  "not_suitable_for_comparison"
+                ]
               },
-              "limit": { "type": "integer", "minimum": 1, "maximum": 100 }
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              }
             }
           },
           "summary": {
             "type": "object",
             "properties": {
-              "total": { "type": "integer", "minimum": 0 },
-              "unreviewed": { "type": "integer", "minimum": 0 },
-              "technicalReady": { "type": "integer", "minimum": 0 },
-              "needsRecapture": { "type": "integer", "minimum": 0 },
-              "notSuitableForComparison": { "type": "integer", "minimum": 0 },
-              "measurementPolicyRequired": { "type": "integer", "minimum": 0 },
-              "actionable": { "type": "integer", "minimum": 0 }
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unreviewed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "technicalReady": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "needsRecapture": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "notSuitableForComparison": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "measurementPolicyRequired": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "actionable": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reviewerAssignmentRequired": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "secondReviewRequired": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           },
           "items": {
@@ -393,34 +1223,182 @@
             "items": {
               "type": "object",
               "properties": {
-                "queueNumber": { "type": "integer", "minimum": 0 },
-                "lesionId": { "type": "string" },
-                "lesionLabel": { "type": "string" },
-                "bodyZone": { "type": ["string", "null"] },
-                "bodySurface": { "type": ["string", "null"] },
-                "review": { "type": "object" },
+                "queueNumber": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "lesionId": {
+                  "type": "string"
+                },
+                "lesionLabel": {
+                  "type": "string"
+                },
+                "bodyZone": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bodySurface": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "review": {
+                  "type": "object"
+                },
                 "measurementPolicy": {
                   "type": "object",
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["not_approved", "review_required", "approved_for_technical_review"]
+                      "enum": [
+                        "not_approved",
+                        "review_required",
+                        "approved_for_technical_review"
+                      ]
                     },
-                    "reasons": { "type": "array", "items": { "type": "string" } },
-                    "reviewedAt": { "type": ["string", "null"] },
-                    "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-                    "patientDeliveryAllowed": { "type": "boolean", "const": false },
-                    "clinicalOutputGenerated": { "type": "boolean", "const": false }
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "reviewedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "medicalMeasurementAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "patientDeliveryAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "clinicalOutputGenerated": {
+                      "type": "boolean",
+                      "const": false
+                    }
                   }
                 },
-                "calibrationStatus": { "type": "string" },
-                "calibrationReasons": { "type": "array", "items": { "type": "string" } },
-                "captureMetadataStatus": { "type": "string" },
-                "technicalMarkerCount": { "type": "integer", "minimum": 0 },
-                "updatedAt": { "type": ["string", "null"] },
+                "calibrationStatus": {
+                  "type": "string"
+                },
+                "calibrationReasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "captureMetadataStatus": {
+                  "type": "string"
+                },
+                "technicalMarkerCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "updatedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "nextAction": {
                   "type": "string",
-                  "enum": ["review_pair", "request_recapture", "exclude_from_dynamic_review", "approve_measurement_policy", "continue_review"]
+                  "enum": [
+                    "review_pair",
+                    "request_recapture",
+                    "exclude_from_dynamic_review",
+                    "approve_measurement_policy",
+                    "continue_review",
+                    "assign_reviewer",
+                    "complete_second_review"
+                  ]
+                },
+                "reviewerAssignment": {
+                  "type": "object",
+                  "description": "Batch BP metadata-only reviewer assignment status. Reviewer identity values are not exposed in API/UI/audit responses.",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "unassigned",
+                        "assigned",
+                        "second_review_required",
+                        "second_review_assigned",
+                        "second_review_completed",
+                        "assignment_blocked"
+                      ]
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "assignedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reviewerIdentityExposed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "patientDeliveryAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "medicalMeasurementAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  }
+                },
+                "secondReview": {
+                  "type": "object",
+                  "description": "Batch BP metadata-only second-review status. Reviewer identities and patient delivery remain disabled.",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "not_required",
+                        "required",
+                        "assigned",
+                        "completed",
+                        "blocked"
+                      ]
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "reviewedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reviewerIdentityExposed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "patientDeliveryAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "medicalMeasurementAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  }
                 }
               }
             }
@@ -428,12 +1406,30 @@
           "boundaries": {
             "type": "object",
             "properties": {
-              "patientDeliveryAllowed": { "type": "boolean", "const": false },
-              "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-              "protectedFieldsExposed": { "type": "boolean", "const": false },
-              "pairKeysExposed": { "type": "boolean", "const": false },
-              "imageIdsExposed": { "type": "boolean", "const": false },
-              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "medicalMeasurementAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "protectedFieldsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "pairKeysExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "imageIdsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "clinicalConclusionGenerated": {
+                "type": "boolean",
+                "const": false
+              }
             }
           }
         }
@@ -442,32 +1438,117 @@
         "type": "object",
         "description": "Metadata-only longitudinal QA readiness gate for a lesion timeline. It exposes aggregate technical readiness only: no pair keys, image IDs, protected image fields, patient delivery, medical measurements, or clinical dynamic conclusions.",
         "properties": {
-          "clinicId": { "type": ["string", "null"] },
-          "patientId": { "type": ["string", "null"] },
-          "lesionId": { "type": "string" },
-          "label": { "type": ["string", "null"] },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lesionId": {
+            "type": "string"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "readiness": {
             "type": "object",
             "properties": {
-              "status": { "type": "string", "enum": ["blocked", "needs_review", "technical_ready"] },
-              "visitCount": { "type": "integer", "minimum": 0 },
-              "imageCount": { "type": "integer", "minimum": 0 },
-              "candidatePairCount": { "type": "integer", "minimum": 0 },
-              "reviewedPairCount": { "type": "integer", "minimum": 0 },
-              "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
-              "needsRecaptureCount": { "type": "integer", "minimum": 0 },
-              "notSuitableForComparisonCount": { "type": "integer", "minimum": 0 },
-              "unreviewedPairCount": { "type": "integer", "minimum": 0 },
-              "productionAssetNotReadyCount": { "type": "integer", "minimum": 0 },
-              "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
-              "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
-              "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
-              "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
-              "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
-              "markerMissingCount": { "type": "integer", "minimum": 0 },
-              "measurementPolicyNotReadyCount": { "type": "integer", "minimum": 0 },
-              "technicalRolloutReady": { "type": "boolean" },
-              "dynamicConclusionAllowed": { "type": "boolean", "const": false }
+              "status": {
+                "type": "string",
+                "enum": [
+                  "blocked",
+                  "needs_review",
+                  "technical_ready"
+                ]
+              },
+              "visitCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "imageCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "candidatePairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reviewedPairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "technicalReadyPairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "needsRecaptureCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "notSuitableForComparisonCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unreviewedPairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "productionAssetNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "missingCaptureMetadataCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviceEvidenceNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviceBridgeQualityNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "captureProtocolNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "calibrationBlockedCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "markerMissingCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "measurementPolicyNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "technicalRolloutReady": {
+                "type": "boolean"
+              },
+              "dynamicConclusionAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "reviewerAssignmentNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "secondReviewNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           },
           "blockers": {
@@ -489,11 +1570,18 @@
                     "capture_protocol_not_ready",
                     "calibration_not_ready",
                     "technical_markers_missing",
-                    "measurement_policy_required"
+                    "measurement_policy_required",
+                    "reviewer_assignment_required",
+                    "second_review_required"
                   ]
                 },
-                "label": { "type": "string" },
-                "count": { "type": "integer", "minimum": 1 },
+                "label": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
                 "nextAction": {
                   "type": "string",
                   "enum": [
@@ -508,7 +1596,9 @@
                     "complete_calibration",
                     "place_markers",
                     "approve_measurement_policy",
-                    "continue_review"
+                    "continue_review",
+                    "assign_reviewer",
+                    "complete_second_review"
                   ]
                 }
               }
@@ -530,23 +1620,55 @@
                 "complete_calibration",
                 "place_markers",
                 "approve_measurement_policy",
-                "continue_review"
+                "continue_review",
+                "assign_reviewer",
+                "complete_second_review"
               ]
             }
           },
           "boundaries": {
             "type": "object",
             "properties": {
-              "patientDeliveryAllowed": { "type": "boolean", "const": false },
-              "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-              "protectedFieldsExposed": { "type": "boolean", "const": false },
-              "pairKeysExposed": { "type": "boolean", "const": false },
-              "imageIdsExposed": { "type": "boolean", "const": false },
-              "storagePathsExposed": { "type": "boolean", "const": false },
-              "signedUrlsIssued": { "type": "boolean", "const": false },
-              "rawImageBytesExposed": { "type": "boolean", "const": false },
-              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
-              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "medicalMeasurementAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "protectedFieldsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "pairKeysExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "imageIdsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "storagePathsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "signedUrlsIssued": {
+                "type": "boolean",
+                "const": false
+              },
+              "rawImageBytesExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "doctorOnlyTextExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "clinicalConclusionGenerated": {
+                "type": "boolean",
+                "const": false
+              }
             }
           }
         }
@@ -555,32 +1677,116 @@
         "type": "object",
         "description": "Batch BJ visit-scoped production dataset validation for lesion timelines. Metadata-only: no pair keys, image IDs, protected image fields, patient delivery, medical measurements, or clinical dynamic conclusions.",
         "properties": {
-          "clinicId": { "type": ["string", "null"] },
-          "patientId": { "type": ["string", "null"] },
-          "visitId": { "type": "string" },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visitId": {
+            "type": "string"
+          },
           "readiness": {
             "type": "object",
             "properties": {
-              "status": { "type": "string", "enum": ["blocked", "needs_review", "ready_for_rollout"] },
-              "lesionCount": { "type": "integer", "minimum": 0 },
-              "timelineCandidateCount": { "type": "integer", "minimum": 0 },
-              "readyTimelineCount": { "type": "integer", "minimum": 0 },
-              "needsReviewTimelineCount": { "type": "integer", "minimum": 0 },
-              "blockedTimelineCount": { "type": "integer", "minimum": 0 },
-              "imageCount": { "type": "integer", "minimum": 0 },
-              "candidatePairCount": { "type": "integer", "minimum": 0 },
-              "reviewedPairCount": { "type": "integer", "minimum": 0 },
-              "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
-              "productionAssetNotReadyCount": { "type": "integer", "minimum": 0 },
-              "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
-              "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
-              "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
-              "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
-              "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
-              "markerMissingCount": { "type": "integer", "minimum": 0 },
-              "measurementPolicyNotReadyCount": { "type": "integer", "minimum": 0 },
-              "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
-              "dynamicConclusionAllowed": { "type": "boolean", "const": false }
+              "status": {
+                "type": "string",
+                "enum": [
+                  "blocked",
+                  "needs_review",
+                  "ready_for_rollout"
+                ]
+              },
+              "lesionCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "timelineCandidateCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "readyTimelineCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "needsReviewTimelineCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "blockedTimelineCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "imageCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "candidatePairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reviewedPairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "technicalReadyPairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "productionAssetNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "missingCaptureMetadataCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviceEvidenceNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deviceBridgeQualityNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "captureProtocolNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "calibrationBlockedCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "markerMissingCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "measurementPolicyNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reviewerWorkflowReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dynamicConclusionAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "reviewerAssignmentNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "secondReviewNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           },
           "items": {
@@ -588,26 +1794,92 @@
             "items": {
               "type": "object",
               "properties": {
-                "queueNumber": { "type": "integer", "minimum": 0 },
-                "lesionId": { "type": "string" },
-                "lesionLabel": { "type": "string" },
-                "bodyZone": { "type": ["string", "null"] },
-                "bodySurface": { "type": ["string", "null"] },
-                "status": { "type": "string", "enum": ["blocked", "needs_review", "ready_for_rollout"] },
-                "visitCount": { "type": "integer", "minimum": 0 },
-                "imageCount": { "type": "integer", "minimum": 0 },
-                "candidatePairCount": { "type": "integer", "minimum": 0 },
-                "reviewedPairCount": { "type": "integer", "minimum": 0 },
-                "technicalReadyPairCount": { "type": "integer", "minimum": 0 },
-                "productionAssetNotReadyCount": { "type": "integer", "minimum": 0 },
-                "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
-                "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
-                "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
-                "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
-                "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
-                "markerMissingCount": { "type": "integer", "minimum": 0 },
-                "measurementPolicyNotReadyCount": { "type": "integer", "minimum": 0 },
-                "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
+                "queueNumber": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "lesionId": {
+                  "type": "string"
+                },
+                "lesionLabel": {
+                  "type": "string"
+                },
+                "bodyZone": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bodySurface": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "blocked",
+                    "needs_review",
+                    "ready_for_rollout"
+                  ]
+                },
+                "visitCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "imageCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "candidatePairCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reviewedPairCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "technicalReadyPairCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "productionAssetNotReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "missingCaptureMetadataCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "deviceEvidenceNotReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "deviceBridgeQualityNotReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "captureProtocolNotReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "calibrationBlockedCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "markerMissingCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "measurementPolicyNotReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reviewerWorkflowReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
                 "nextAction": {
                   "type": "string",
                   "enum": [
@@ -621,8 +1893,18 @@
                     "complete_capture_protocol",
                     "complete_calibration",
                     "place_markers",
-                    "continue_review"
+                    "continue_review",
+                    "assign_reviewer",
+                    "complete_second_review"
                   ]
+                },
+                "reviewerAssignmentNotReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "secondReviewNotReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
                 }
               }
             }
@@ -646,11 +1928,18 @@
                     "capture_protocol_not_ready",
                     "calibration_not_ready",
                     "technical_markers_missing",
-                    "measurement_policy_required"
+                    "measurement_policy_required",
+                    "reviewer_assignment_required",
+                    "second_review_required"
                   ]
                 },
-                "label": { "type": "string" },
-                "count": { "type": "integer", "minimum": 1 },
+                "label": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
                 "nextAction": {
                   "type": "string",
                   "enum": [
@@ -665,7 +1954,9 @@
                     "complete_calibration",
                     "place_markers",
                     "approve_measurement_policy",
-                    "continue_review"
+                    "continue_review",
+                    "assign_reviewer",
+                    "complete_second_review"
                   ]
                 }
               }
@@ -687,23 +1978,55 @@
                 "complete_calibration",
                 "place_markers",
                 "approve_measurement_policy",
-                "continue_review"
+                "continue_review",
+                "assign_reviewer",
+                "complete_second_review"
               ]
             }
           },
           "boundaries": {
             "type": "object",
             "properties": {
-              "patientDeliveryAllowed": { "type": "boolean", "const": false },
-              "medicalMeasurementAllowed": { "type": "boolean", "const": false },
-              "protectedFieldsExposed": { "type": "boolean", "const": false },
-              "pairKeysExposed": { "type": "boolean", "const": false },
-              "imageIdsExposed": { "type": "boolean", "const": false },
-              "storagePathsExposed": { "type": "boolean", "const": false },
-              "signedUrlsIssued": { "type": "boolean", "const": false },
-              "rawImageBytesExposed": { "type": "boolean", "const": false },
-              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
-              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "medicalMeasurementAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "protectedFieldsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "pairKeysExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "imageIdsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "storagePathsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "signedUrlsIssued": {
+                "type": "boolean",
+                "const": false
+              },
+              "rawImageBytesExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "doctorOnlyTextExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "clinicalConclusionGenerated": {
+                "type": "boolean",
+                "const": false
+              }
             }
           }
         }
@@ -712,23 +2035,70 @@
         "type": "object",
         "description": "Production-safe doctor-side longitudinal lesion ledger assembled from visits and clinical asset metadata. No protected image bytes, storage paths, signed URLs, patient delivery, or clinical conclusion is exposed.",
         "properties": {
-          "clinicId": { "type": ["string", "null"] },
-          "patientId": { "type": "string" },
-          "lesionId": { "type": "string" },
-          "label": { "type": ["string", "null"] },
-          "bodyZone": { "type": ["string", "null"] },
-          "bodySurface": { "type": ["string", "null"] },
-          "status": { "type": "string" },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "lesionId": {
+            "type": "string"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bodyZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bodySurface": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
           "summary": {
             "type": "object",
             "properties": {
-              "visitCount": { "type": "integer", "minimum": 0 },
-              "imageCount": { "type": "integer", "minimum": 0 },
-              "candidatePairCount": { "type": "integer", "minimum": 0 },
-              "comparablePairCount": { "type": "integer", "minimum": 0 },
-              "warningPairCount": { "type": "integer", "minimum": 0 },
-              "blockedPairCount": { "type": "integer", "minimum": 0 },
-              "assessmentCount": { "type": "integer", "minimum": 0 }
+              "visitCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "imageCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "candidatePairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "comparablePairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "warningPairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "blockedPairCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "assessmentCount": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           },
           "visits": {
@@ -736,16 +2106,52 @@
             "items": {
               "type": "object",
               "properties": {
-                "visitId": { "type": "string" },
-                "startedAt": { "type": ["string", "null"] },
-                "signedAt": { "type": ["string", "null"] },
-                "status": { "type": "string" },
-                "imageCount": { "type": "integer", "minimum": 0 },
-                "dermoscopyCount": { "type": "integer", "minimum": 0 },
-                "overviewCount": { "type": "integer", "minimum": 0 },
-                "assessmentCount": { "type": "integer", "minimum": 0 },
-                "capturedAtFirst": { "type": ["string", "null"] },
-                "capturedAtLast": { "type": ["string", "null"] }
+                "visitId": {
+                  "type": "string"
+                },
+                "startedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "signedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "imageCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "dermoscopyCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "overviewCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "assessmentCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "capturedAtFirst": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "capturedAtLast": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
               }
             }
           },
@@ -754,139 +2160,472 @@
             "items": {
               "type": "object",
               "properties": {
-                "previousVisitId": { "type": "string" },
-                "currentVisitId": { "type": "string" },
-                "previousImageId": { "type": "string" },
-                "currentImageId": { "type": "string" },
-                "kind": { "type": "string" },
-                "status": { "type": "string", "enum": ["ready", "warning", "blocked"] },
-                "reasons": { "type": "array", "items": { "type": "string" } }
+                "previousVisitId": {
+                  "type": "string"
+                },
+                "currentVisitId": {
+                  "type": "string"
+                },
+                "previousImageId": {
+                  "type": "string"
+                },
+                "currentImageId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "ready",
+                    "warning",
+                    "blocked"
+                  ]
+                },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
               }
             }
           },
           "boundaries": {
             "type": "object",
             "properties": {
-              "patientDeliveryAllowed": { "type": "boolean", "const": false },
-              "protectedFieldsExposed": { "type": "boolean", "const": false },
-              "storagePathsExposed": { "type": "boolean", "const": false },
-              "signedUrlsIssued": { "type": "boolean", "const": false },
-              "rawImageBytesExposed": { "type": "boolean", "const": false },
-              "doctorOnlyTextExposed": { "type": "boolean", "const": false },
-              "clinicalConclusionGenerated": { "type": "boolean", "const": false }
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "protectedFieldsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "storagePathsExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "signedUrlsIssued": {
+                "type": "boolean",
+                "const": false
+              },
+              "rawImageBytesExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "doctorOnlyTextExposed": {
+                "type": "boolean",
+                "const": false
+              },
+              "clinicalConclusionGenerated": {
+                "type": "boolean",
+                "const": false
+              }
             }
           }
         }
+      },
+      "LesionComparisonReviewerAssignment": {
+        "type": "object",
+        "description": "Batch BP write-only reviewer assignment / second-review request. Reviewer UUIDs are accepted only as write-only backend payload and are not exposed in response, UI, or audit metadata.",
+        "properties": {
+          "lesionId": {
+            "type": "string"
+          },
+          "pairKey": {
+            "type": "string"
+          },
+          "imageIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignmentStatus": {
+            "type": "string",
+            "enum": [
+              "unassigned",
+              "assigned",
+              "second_review_required",
+              "second_review_assigned",
+              "second_review_completed",
+              "assignment_blocked"
+            ]
+          },
+          "assignmentReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignedReviewerUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "writeOnly": true
+          },
+          "secondReviewStatus": {
+            "type": "string",
+            "enum": [
+              "not_required",
+              "required",
+              "assigned",
+              "completed",
+              "blocked"
+            ]
+          },
+          "secondReviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "secondReviewerUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "writeOnly": true
+          },
+          "reviewerIdentityExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          }
+        },
+        "required": [
+          "lesionId",
+          "pairKey",
+          "imageIds",
+          "assignmentStatus",
+          "assignedReviewerUserId",
+          "secondReviewStatus"
+        ]
       }
     }
   },
-  "security": [{ "bearerAuth": [] }],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "paths": {
     "/api/v1/visits/{visitId}/assessment": {
       "get": {
         "summary": "Read the production clinical assessment for a visit",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Assessment or null" } }
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assessment or null"
+          }
+        }
       },
       "patch": {
         "summary": "Create or update the production clinical assessment for a visit",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicalAssessment" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicalAssessment"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved assessment" } }
+        "responses": {
+          "200": {
+            "description": "Saved assessment"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/conclusion": {
       "get": {
         "summary": "Read the production clinical conclusion for a visit",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Conclusion or null" } }
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conclusion or null"
+          }
+        }
       },
       "patch": {
         "summary": "Create or update the production clinical conclusion for a visit",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClinicalConclusion" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicalConclusion"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved conclusion" } }
+        "responses": {
+          "200": {
+            "description": "Saved conclusion"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/report": {
       "get": {
         "summary": "Read the production visit report",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Report or null" } }
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report or null"
+          }
+        }
       },
       "patch": {
         "summary": "Create or update the production visit report",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VisitReport" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitReport"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved report" } }
+        "responses": {
+          "200": {
+            "description": "Saved report"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/lesion-comparison-draft": {
       "patch": {
         "summary": "Persist a metadata-only doctor draft for a selected lesion image-pair comparison decision",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonDecisionDraft" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonDecisionDraft"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved metadata-only comparison draft" } }
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only comparison draft"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa": {
       "patch": {
         "summary": "Persist metadata-only doctor viewer QA for technical markers and calibration limits",
         "description": "Doctor-side metadata only. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonViewerQaDraft" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonViewerQaDraft"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved metadata-only viewer QA draft" } }
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only viewer QA draft"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review": {
       "patch": {
         "summary": "Persist a metadata-only doctor technical review for an existing viewer QA draft",
         "description": "Doctor-side technical review only. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonViewerQaReview" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonViewerQaReview"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved metadata-only viewer QA review" } }
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only viewer QA review"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-workflow": {
       "patch": {
         "summary": "Persist Batch BH calibrated reviewer workflow metadata for an existing viewer QA draft",
         "description": "Backend gates require technical_ready review, ready calibration, ready capture metadata, two technical markers, and approved measurement policy. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonViewerQaReviewerWorkflow" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonViewerQaReviewerWorkflow"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved metadata-only calibrated reviewer workflow" } }
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only calibrated reviewer workflow"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/measurement-policy": {
       "patch": {
         "summary": "Persist Batch BO measurement policy gate metadata for an existing viewer QA draft",
         "description": "Doctor-side technical policy only. Approval allows reviewer workflow gating but never enables medical measurement, patient delivery, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [{ "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionComparisonMeasurementPolicy" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonMeasurementPolicy"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved metadata-only measurement policy gate" } }
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only measurement policy gate"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue": {
@@ -894,20 +2633,48 @@
         "summary": "Read the visit-scoped metadata-only viewer QA review queue",
         "description": "Doctor-side operational queue only. This never exposes pair keys, image IDs, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
         "parameters": [
-          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "status",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["actionable", "all", "unreviewed", "technical_ready", "needs_recapture", "not_suitable_for_comparison"],
+              "enum": [
+                "actionable",
+                "all",
+                "unreviewed",
+                "technical_ready",
+                "needs_recapture",
+                "not_suitable_for_comparison"
+              ],
               "default": "actionable"
             }
           },
-          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
         ],
-        "responses": { "200": { "description": "Metadata-only viewer QA review queue" } }
+        "responses": {
+          "200": {
+            "description": "Metadata-only viewer QA review queue"
+          }
+        }
       }
     },
     "/api/v1/visits/{visitId}/longitudinal-dataset-validation": {
@@ -915,12 +2682,25 @@
         "summary": "Read visit-scoped metadata-only longitudinal dataset validation",
         "description": "Batch BJ doctor-side production dataset validation for timeline QA rollout. This never exposes pair keys, image IDs, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
         "parameters": [
-          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Metadata-only visit longitudinal dataset validation",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VisitLongitudinalDatasetValidation" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitLongitudinalDatasetValidation"
+                }
+              }
+            }
           }
         }
       }
@@ -930,24 +2710,66 @@
         "summary": "Create or update production capture metadata for one visit asset",
         "description": "Metadata-only asset capture conditions for doctor-side technical comparison. No image bytes, object bucket/key, signed URL, storage path, QR/session/credential material, or patient delivery.",
         "parameters": [
-          { "name": "visitId", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AssetCaptureMetadata" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetCaptureMetadata"
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Saved production capture metadata" } }
+        "responses": {
+          "200": {
+            "description": "Saved production capture metadata"
+          }
+        }
       }
     },
     "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history": {
       "get": {
         "summary": "Read a doctor-side metadata-only longitudinal ledger for one lesion across visits",
         "parameters": [
-          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lesionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "responses": { "200": { "description": "Metadata-only longitudinal lesion history" } }
+        "responses": {
+          "200": {
+            "description": "Metadata-only longitudinal lesion history"
+          }
+        }
       }
     },
     "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa": {
@@ -955,13 +2777,33 @@
         "summary": "Read the metadata-only longitudinal QA readiness gate for one lesion timeline",
         "description": "Doctor-side technical QA gate only. No pair keys, image IDs, protected image fields, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
         "parameters": [
-          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lesionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Metadata-only longitudinal QA readiness gate",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LesionLongitudinalQa" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LesionLongitudinalQa"
+                }
+              }
+            }
           }
         }
       }
@@ -971,10 +2813,28 @@
         "summary": "Read production capture metadata for one lesion",
         "description": "Doctor-side metadata ledger for capture source, device, frame, quality, and calibration readiness. No protected image bytes, object bucket/key, signed URLs, storage paths, patient delivery, or clinical conclusions.",
         "parameters": [
-          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lesionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "responses": { "200": { "description": "Metadata-only lesion capture metadata" } }
+        "responses": {
+          "200": {
+            "description": "Metadata-only lesion capture metadata"
+          }
+        }
       }
     },
     "/api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render": {
@@ -982,24 +2842,117 @@
         "summary": "Stream a protected lesion image through the self-hosted doctor backend proxy",
         "description": "Doctor-side binary proxy only. The response is image bytes with no JSON body, no signed URL, no storage path, no object bucket/key, no QR/session/credential material, and no patient delivery.",
         "parameters": [
-          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "lesionId", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "assetId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lesionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Protected image bytes streamed by the backend proxy",
             "content": {
-              "image/jpeg": { "schema": { "type": "string", "format": "binary" } },
-              "image/png": { "schema": { "type": "string", "format": "binary" } },
-              "image/webp": { "schema": { "type": "string", "format": "binary" } },
-              "image/heic": { "schema": { "type": "string", "format": "binary" } },
-              "image/heif": { "schema": { "type": "string", "format": "binary" } }
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/heic": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/heif": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
             }
           },
-          "401": { "description": "Authentication is required" },
-          "403": { "description": "The staff user is outside the allowed clinic scope" },
-          "404": { "description": "Image metadata or binary object was not found" }
+          "401": {
+            "description": "Authentication is required"
+          },
+          "403": {
+            "description": "The staff user is outside the allowed clinic scope"
+          },
+          "404": {
+            "description": "Image metadata or binary object was not found"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-assignment": {
+      "patch": {
+        "tags": [
+          "Stage 5H Clinical Workspace"
+        ],
+        "summary": "Assign reviewer / second-review gate for viewer QA",
+        "operationId": "reviewLesionComparisonReviewerAssignment",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonReviewerAssignment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stage 5H envelope with metadata-only viewer QA draft. Reviewer identity values are not exposed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stage5HItemEnvelope"
+                }
+              }
+            }
+          }
         }
       }
     }

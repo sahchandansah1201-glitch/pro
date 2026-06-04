@@ -1155,6 +1155,101 @@ Frontend behavior:
   doctor-side metadata-only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BP Reviewer Assignment And Second Review
+
+Batch BP adds reviewer assignment and second-review gates after the Batch BO
+measurement policy gate and before clinical-grade reviewer workflow acceptance.
+This is an operational safety workflow, not a medical conclusion. It stores
+assignment state and second-review state as metadata only.
+
+Migration:
+
+- `0066_stage5h_reviewer_assignment_second_review.sql` extends
+  `lesion_comparison_viewer_qa_drafts` with `reviewer_assignment_status`,
+  `reviewer_assignment_reasons`, `assigned_reviewer_user_id`,
+  `reviewer_assigned_by_user_id`, `reviewer_assigned_at`,
+  `second_review_status`, `second_review_reasons`,
+  `second_reviewer_user_id`, `second_reviewed_by_user_id`, and
+  `second_reviewed_at`;
+- allowed assignment statuses are `unassigned`, `assigned`,
+  `second_review_required`, `second_review_assigned`,
+  `second_review_completed`, and `assignment_blocked`;
+- allowed second-review statuses are `not_required`, `required`, `assigned`,
+  `completed`, and `blocked`;
+- CHECK `lesion_comparison_viewer_qa_reviewer_assignment_no_protected_keys`
+  blocks reviewer names/emails, protected image/storage fields,
+  QR/session/token fields, doctor/patient report text, diagnosis/risk/
+  prognosis/treatment claims, and dynamic clinical conclusion keys.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-assignment`
+  persists the metadata-only reviewer assignment / second-review decision;
+- request fields `assignedReviewerUserId` and `secondReviewerUserId` are
+  backend write-only values. Responses, UI, and audit expose only status,
+  reason counts, timestamps, and boundary booleans;
+- service audit action `lesion_comparison_reviewer_assignment.review` stores
+  only visit/lesion/status/reason counts, reviewer-present booleans, and
+  forced-false boundary flags;
+- `reviewerWorkflow.gate.reviewerAssignmentReady` and
+  `reviewerWorkflow.gate.secondReviewReady` are required before reviewer
+  workflow can be accepted;
+- review queue adds `reviewerAssignmentRequired`,
+  `secondReviewRequired`, item-level `reviewerAssignment` and `secondReview`,
+  and next actions `assign_reviewer` / `complete_second_review`;
+- lesion longitudinal QA and visit longitudinal dataset validation add
+  `reviewerAssignmentNotReadyCount`, `secondReviewNotReadyCount`, blockers
+  `reviewer_assignment_required` / `second_review_required`, and corresponding
+  next actions.
+
+Safety boundary:
+
+- `reviewerIdentityExposed=false`, `medicalMeasurementAllowed=false`,
+  `patientDeliveryAllowed=false`, and `protectedFieldsExposed=false` remain
+  forced across DB metadata, repository normalizers, service responses,
+  frontend DTOs, and UI copy;
+- no reviewer names/emails, pair keys, image IDs in rollups/audit, raw image
+  bytes, object bucket/key, storage path, checksum, signed URL,
+  QR/session/credential material, diagnosis/risk/prognosis/treatment,
+  clinical dynamic conclusion, doctor-only text, or patient-safe report text is
+  exposed.
+
+Frontend behavior:
+
+- `LesionDetailPage` full-screen comparison now shows region
+  `Назначение reviewer` after `Политика измерений` and before
+  `Clinical-grade reviewer workflow`;
+- actions `Назначить reviewer`, `Потребовать second review`, and
+  `Second review завершён` save locally in demo mode and use the self-hosted
+  backend when configured;
+- the UI states that UUID reviewer values are backend write-only and that names
+  and contacts are hidden;
+- final reviewer acceptance remains disabled until technical review, capture
+  metadata, calibration, markers, measurement policy, reviewer assignment, and
+  second-review requirements are all satisfied;
+- `VisitWorkspacePage` shows compact `Assign` and `Second` counters, per-lesion
+  `assignment:` / `second:` fragments, and action labels `Назначить reviewer`
+  and `Закрыть second review`.
+
+### Batch BP Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BP adds
+  reviewer assignment and second-review readiness to lesion/timeline rollout,
+  so chronology does not advance from technical QA without an assigned reviewer
+  workflow. Remaining gate: validation on real production assets and reviewer
+  operations data.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BP
+  closes reviewer assignment and second-review prerequisites for
+  clinical-grade workflow acceptance. Remaining gate: production analysis
+  policy and clinical validation beyond technical metadata.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BP blocks
+  dynamic interpretation when reviewer assignment or second review is missing;
+  no clinical dynamic conclusion is generated. Remaining gate: approved
+  production analysis policy.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BP is
+  doctor-side metadata-only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

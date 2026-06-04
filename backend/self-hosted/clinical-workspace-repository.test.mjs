@@ -11,6 +11,7 @@ import {
   buildGetVisitLesionComparisonViewerQaReviewQueueSql,
   buildGetVisitLongitudinalDatasetValidationSql,
   buildGetVisitReportSql,
+  buildAssignLesionComparisonReviewerSql,
   buildReviewLesionComparisonMeasurementPolicySql,
   buildReviewLesionComparisonViewerQaSql,
   buildReviewLesionComparisonViewerQaReviewerWorkflowSql,
@@ -436,7 +437,11 @@ test("Batch BH Stage 5H reviewer workflow requires calibrated technical gates", 
   assert.match(sql, /q\.calibration_status = 'ready'/);
   assert.match(sql, /q\.capture_metadata_status = 'ready'/);
   assert.match(sql, /q\.measurement_policy_status = 'approved_for_technical_review'/);
+  assert.match(sql, /q\.reviewer_assignment_status in \('assigned', 'second_review_assigned', 'second_review_completed'\)/);
+  assert.match(sql, /q\.second_review_status in \('not_required', 'completed'\)/);
   assert.match(sql, /measurement_policy_required/);
+  assert.match(sql, /reviewer_assignment_required/);
+  assert.match(sql, /second_review_required/);
   assert.match(sql, /jsonb_array_length\(q\.technical_markers\) >= 2/);
   assert.match(sql, /reviewer_workflow_status/);
   assert.match(sql, /'technical_gate_blocked'/);
@@ -485,6 +490,47 @@ test("Batch BO Stage 5H measurement policy review updates only metadata-safe pol
   );
 });
 
+test("Batch BP Stage 5H reviewer assignment stores only metadata-safe assignment state", () => {
+  const sql = buildAssignLesionComparisonReviewerSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    assignment: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      assignmentStatus: "second_review_required",
+      assignmentReasons: ["second_review_required_for_clinical_grade_workflow"],
+      assignedReviewerUserId: "10000000-0000-4000-8000-000000000201",
+      secondReviewStatus: "required",
+      secondReviewReasons: [],
+      secondReviewerUserId: "10000000-0000-4000-8000-000000000202",
+    },
+  });
+
+  assert.match(sql, /update lesion_comparison_viewer_qa_drafts q/);
+  assert.match(sql, /reviewer_assignment_status/);
+  assert.match(sql, /second_review_status/);
+  assert.match(sql, /assigned_reviewer_user_id/);
+  assert.match(sql, /second_reviewer_user_id/);
+  assert.match(sql, /measurement_policy_required/);
+  assert.match(sql, /reviewer_assignment_required/);
+  assert.match(sql, /second_reviewer_must_differ/);
+  assert.match(sql, /reviewerIdentityExposed/);
+  assert.match(sql, /'reviewerAssignmentReady'/);
+  assert.match(sql, /'secondReviewReady'/);
+  assert.match(sql, /medical_measurement_allowed = false/);
+  assert.match(sql, /patient_delivery_allowed = false/);
+  assert.match(sql, /protected_fields_exposed = false/);
+  assert.match(sql, /and q\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /reviewerName|reviewerEmail|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|doctorVersionText|patientSafeText|diagnosis|treatment|riskScore/i,
+  );
+});
+
 test("Batch BF Stage 5H viewer QA review queue SQL is visit-scoped and metadata-only", () => {
   const sql = buildGetVisitLesionComparisonViewerQaReviewQueueSql({
     visitId: VISIT_ID,
@@ -499,10 +545,14 @@ test("Batch BF Stage 5H viewer QA review queue SQL is visit-scoped and metadata-
   assert.match(sql, /from lesion_comparison_viewer_qa_drafts q/);
   assert.match(sql, /left join lesions l/);
   assert.match(sql, /q\.visit_id = v\.id/);
-  assert.match(sql, /q\.review_status = any\(array\['unreviewed', 'needs_recapture', 'not_suitable_for_comparison'\]::text\[\]\)/);
+  assert.match(sql, /q\.review_status = any\(array\['unreviewed', 'technical_ready', 'needs_recapture', 'not_suitable_for_comparison'\]::text\[\]\)/);
   assert.match(sql, /jsonb_build_object\('total'/);
   assert.match(sql, /measurementPolicyRequired/);
+  assert.match(sql, /reviewerAssignmentRequired/);
+  assert.match(sql, /secondReviewRequired/);
   assert.match(sql, /approve_measurement_policy/);
+  assert.match(sql, /assign_reviewer/);
+  assert.match(sql, /complete_second_review/);
   assert.match(sql, /'pairKeysExposed', false/);
   assert.match(sql, /'imageIdsExposed', false/);
   assert.match(sql, /limit 20/);

@@ -585,6 +585,8 @@ describe("LesionDetailPage", () => {
               captureMetadataReady: true,
               markerGateReady: true,
               measurementPolicyApproved: true,
+              reviewerAssignmentReady: true,
+              secondReviewReady: true,
               medicalMeasurementAllowed: true,
               patientDeliveryAllowed: true,
               clinicalConclusionGenerated: true,
@@ -601,6 +603,8 @@ describe("LesionDetailPage", () => {
               captureMetadataReady: true,
               markerGateReady: true,
               measurementPolicyApproved: url.endsWith("/measurement-policy"),
+              reviewerAssignmentReady: url.endsWith("/reviewer-assignment"),
+              secondReviewReady: url.endsWith("/reviewer-assignment"),
               medicalMeasurementAllowed: false,
               patientDeliveryAllowed: false,
               clinicalConclusionGenerated: false,
@@ -628,6 +632,7 @@ describe("LesionDetailPage", () => {
               : { status: "unreviewed", reasons: [], reviewedAt: null, reviewedByUserId: null },
             reviewerWorkflow,
             measurementPolicy: url.endsWith("/measurement-policy") || url.endsWith("/reviewer-workflow")
+              || url.endsWith("/reviewer-assignment")
               ? {
                   status: "approved_for_technical_review",
                   reasons: ["technical_measurement_policy_approved_no_mm_output"],
@@ -645,6 +650,40 @@ describe("LesionDetailPage", () => {
                   medicalMeasurementAllowed: false,
                   patientDeliveryAllowed: false,
                   clinicalOutputGenerated: false,
+                },
+            reviewerAssignment: url.endsWith("/reviewer-assignment") || url.endsWith("/reviewer-workflow")
+              ? {
+                  status: "second_review_completed",
+                  reasons: ["second_review_required_for_clinical_grade_workflow"],
+                  assignedAt: "2026-05-19T10:57:00.000Z",
+                  reviewerIdentityExposed: true,
+                  patientDeliveryAllowed: true,
+                  medicalMeasurementAllowed: true,
+                }
+              : {
+                  status: "unassigned",
+                  reasons: [],
+                  assignedAt: null,
+                  reviewerIdentityExposed: false,
+                  patientDeliveryAllowed: false,
+                  medicalMeasurementAllowed: false,
+                },
+            secondReview: url.endsWith("/reviewer-assignment") || url.endsWith("/reviewer-workflow")
+              ? {
+                  status: "completed",
+                  reasons: ["second_review_completed_metadata_only"],
+                  reviewedAt: "2026-05-19T10:58:00.000Z",
+                  reviewerIdentityExposed: true,
+                  patientDeliveryAllowed: true,
+                  medicalMeasurementAllowed: true,
+                }
+              : {
+                  status: "not_required",
+                  reasons: [],
+                  reviewedAt: null,
+                  reviewerIdentityExposed: false,
+                  patientDeliveryAllowed: false,
+                  medicalMeasurementAllowed: false,
                 },
             medicalMeasurementAllowed: true,
             patientDeliveryAllowed: true,
@@ -669,6 +708,7 @@ describe("LesionDetailPage", () => {
     const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
     const review = within(tools).getByRole("region", { name: /Технический review viewer QA/ });
     const policy = within(tools).getByRole("region", { name: /Политика измерений/ });
+    const assignment = within(tools).getByRole("region", { name: /Назначение reviewer/ });
     const workflow = within(tools).getByRole("region", { name: /Clinical-grade reviewer workflow/ });
 
     expect(within(calibration).getByText(/Калибровка: готова/)).toBeInTheDocument();
@@ -685,6 +725,11 @@ describe("LesionDetailPage", () => {
     fireEvent.click(within(policy).getByRole("button", { name: /Утвердить technical policy/ }));
     expect(await within(policy).findByText(/Policy измерений сохранена в self-hosted backend/)).toBeInTheDocument();
     expect(within(policy).getByText(/Измерения остаются выключены/)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Reviewer gate: заблокирован/)).toBeInTheDocument();
+
+    fireEvent.click(within(assignment).getByRole("button", { name: /Second review завершён/ }));
+    expect(await within(assignment).findByText(/Reviewer assignment сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(within(assignment).getByText(/контакты reviewer.*не выводятся/i)).toBeInTheDocument();
     expect(within(workflow).getByText(/Reviewer gate: готов/)).toBeInTheDocument();
 
     fireEvent.click(within(workflow).getByRole("button", { name: /Reviewer workflow принят/ }));
@@ -697,6 +742,10 @@ describe("LesionDetailPage", () => {
     );
     expect(fetchMock).toHaveBeenCalledWith(
       `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/measurement-policy`,
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:3001/api/v1/visits/${CALIBRATED_VIEWER_QA_IDS.visitId}/lesion-comparison-viewer-qa/reviewer-assignment`,
       expect.objectContaining({ method: "PATCH" }),
     );
     expect(JSON.stringify(fetchMock.mock.calls)).not.toMatch(

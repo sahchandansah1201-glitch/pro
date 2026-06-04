@@ -3944,6 +3944,7 @@ function clinicalWorkspaceRuntime({
   lesionComparisonViewerQaReview = null,
   lesionComparisonViewerQaReviewerWorkflow = null,
   lesionComparisonMeasurementPolicy = null,
+  lesionComparisonReviewerAssignment = null,
   lesionComparisonViewerQaReviewQueue = null,
   visitLongitudinalDatasetValidation = null,
   protectedLesionImageDownload = null,
@@ -4019,6 +4020,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           qa: lesionComparisonMeasurementPolicy,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async assignLesionComparisonReviewer() {
+        if (clinicalError) throw clinicalError;
+        return {
+          qa: lesionComparisonReviewerAssignment,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -5270,6 +5278,106 @@ test("Batch BO Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-viewer-qa
   );
 });
 
+test("Batch BP Stage 5H · PATCH /api/v1/visits/{id}/lesion-comparison-viewer-qa/reviewer-assignment saves reviewer assignment metadata", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/lesion-comparison-viewer-qa/reviewer-assignment`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      lesionComparisonReviewerAssignment: {
+        id: "viewer-qa-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+        calibrationStatus: "ready",
+        calibrationReasons: [],
+        captureMetadataStatus: "ready",
+        review: {
+          status: "technical_ready",
+          reasons: ["technical_review_ready"],
+          reviewedAt: "2026-05-19T10:50:00.000Z",
+          reviewedByUserId: "doctor-1",
+        },
+        reviewerWorkflow: {
+          status: "technical_gate_blocked",
+          reasons: ["second_review_required"],
+          reviewedAt: null,
+          reviewedByUserId: null,
+          gate: {
+            technicalReviewReady: true,
+            calibrationReady: true,
+            captureMetadataReady: true,
+            markerGateReady: true,
+            measurementPolicyApproved: true,
+            reviewerAssignmentReady: true,
+            secondReviewReady: false,
+            medicalMeasurementAllowed: false,
+            patientDeliveryAllowed: false,
+            clinicalConclusionGenerated: false,
+          },
+        },
+        measurementPolicy: {
+          status: "approved_for_technical_review",
+          reasons: ["technical_measurement_policy_approved_no_mm_output"],
+          reviewedAt: "2026-05-19T10:56:00.000Z",
+          reviewedByUserId: "doctor-1",
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          clinicalOutputGenerated: false,
+        },
+        reviewerAssignment: {
+          status: "second_review_required",
+          reasons: ["second_review_required_for_clinical_grade_workflow"],
+          assignedAt: "2026-05-19T10:57:00.000Z",
+          reviewerIdentityExposed: false,
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+        },
+        secondReview: {
+          status: "required",
+          reasons: [],
+          reviewedAt: null,
+          reviewerIdentityExposed: false,
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+        },
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      assignmentStatus: "second_review_required",
+      assignmentReasons: ["second_review_required_for_clinical_grade_workflow"],
+      assignedReviewerUserId: "10000000-0000-4000-8000-000000000201",
+      secondReviewStatus: "required",
+      secondReviewReasons: [],
+      secondReviewerUserId: "10000000-0000-4000-8000-000000000202",
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.item.reviewerAssignment.status, "second_review_required");
+  assert.equal(response.json.item.reviewerAssignment.reviewerIdentityExposed, false);
+  assert.equal(response.json.item.secondReview.status, "required");
+  assert.equal(response.json.item.secondReview.reviewerIdentityExposed, false);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.doesNotMatch(
+    response.body,
+    /reviewerName|reviewerEmail|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|меланома|рак кожи|doctorVersionText|patientSafeText|diameterMm|areaMm2|diagnosis|treatment|riskScore/i,
+  );
+});
+
 test("Batch BF Stage 5H · GET /api/v1/visits/{id}/lesion-comparison-viewer-qa/review-queue returns metadata-only queue", async () => {
   const response = await request(
     `/api/v1/visits/${STAGE4G_VISIT_ID}/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20`,
@@ -5536,6 +5644,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-draft"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review"].patch);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-assignment"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-dataset-validation"].get);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata"].patch);
@@ -5546,6 +5655,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.components.schemas.LesionComparisonDecisionDraft);
   assert.ok(response.json.components.schemas.LesionComparisonViewerQaDraft);
   assert.ok(response.json.components.schemas.LesionComparisonViewerQaReview);
+  assert.ok(response.json.components.schemas.LesionComparisonReviewerAssignment);
   assert.ok(response.json.components.schemas.LesionComparisonViewerQaReviewQueue);
   assert.ok(response.json.components.schemas.VisitLongitudinalDatasetValidation);
   assert.ok(response.json.components.schemas.LesionCaptureMetadata);

@@ -57,6 +57,7 @@ import {
   downloadSelfHostedProtectedLesionImage,
   getSelfHostedLesionLongitudinalQa,
   reviewSelfHostedLesionComparisonMeasurementPolicy,
+  reviewSelfHostedLesionComparisonReviewerAssignment,
   reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow,
   reviewSelfHostedLesionComparisonViewerQa,
   SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
@@ -109,6 +110,15 @@ type ViewerQaReviewerWorkflowBackendStatus = "idle" | "saving" | "saved" | "loca
 type ViewerQaReviewerWorkflowStatus = "ready_for_reviewer" | "reviewer_accepted" | "reviewer_rejected";
 type MeasurementPolicyBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type MeasurementPolicyStatus = "not_approved" | "review_required" | "approved_for_technical_review";
+type ReviewerAssignmentBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
+type ReviewerAssignmentStatus =
+  | "unassigned"
+  | "assigned"
+  | "second_review_required"
+  | "second_review_assigned"
+  | "second_review_completed"
+  | "assignment_blocked";
+type SecondReviewStatus = "not_required" | "required" | "assigned" | "completed" | "blocked";
 type ProtectedRenderStatus = "idle" | "loading" | "ready" | "error";
 type LongitudinalQaLoadStatus = "idle" | "loading" | "loaded" | "error";
 type ProtectedRenderReadinessItem = {
@@ -148,6 +158,14 @@ type ViewerQaReviewerWorkflowPayload = ViewerQaSavePayload & {
 type MeasurementPolicyPayload = ViewerQaSavePayload & {
   measurementPolicyStatus: MeasurementPolicyStatus;
   measurementPolicyReasons: string[];
+};
+type ReviewerAssignmentPayload = ViewerQaSavePayload & {
+  assignmentStatus: ReviewerAssignmentStatus;
+  assignmentReasons: string[];
+  assignedReviewerUserId: string | null;
+  secondReviewStatus: SecondReviewStatus;
+  secondReviewReasons: string[];
+  secondReviewerUserId: string | null;
 };
 type ComparisonOverlay = "grid" | "center" | "off";
 type ComparisonViewport = {
@@ -224,6 +242,23 @@ const MEASUREMENT_POLICY_LABEL: Record<MeasurementPolicyStatus, string> = {
   review_required: "Нужен разбор policy",
   approved_for_technical_review: "Policy утверждена для техreview",
 };
+const REVIEWER_ASSIGNMENT_LABEL: Record<ReviewerAssignmentStatus, string> = {
+  unassigned: "Reviewer не назначен",
+  assigned: "Reviewer назначен",
+  second_review_required: "Нужен второй review",
+  second_review_assigned: "Second reviewer назначен",
+  second_review_completed: "Second review закрыт",
+  assignment_blocked: "Назначение заблокировано",
+};
+const SECOND_REVIEW_LABEL: Record<SecondReviewStatus, string> = {
+  not_required: "Second review не требуется",
+  required: "Second review требуется",
+  assigned: "Second reviewer назначен",
+  completed: "Second review завершён",
+  blocked: "Second review заблокирован",
+};
+const REVIEWER_ASSIGNMENT_PRIMARY_ID = "10000000-0000-4000-8000-000000000201";
+const REVIEWER_ASSIGNMENT_SECOND_ID = "10000000-0000-4000-8000-000000000202";
 const LONGITUDINAL_QA_STATUS_LABEL: Record<SelfHostedLesionLongitudinalQaDTO["readiness"]["status"], string> = {
   blocked: "Динамика заблокирована",
   needs_review: "Нужен технический review",
@@ -241,6 +276,8 @@ const LONGITUDINAL_QA_ACTION_LABEL: Record<SelfHostedLesionLongitudinalQaAction,
   complete_calibration: "Закрыть калибровку",
   place_markers: "Поставить технические маркеры",
   approve_measurement_policy: "Утвердить policy измерений",
+  assign_reviewer: "Назначить reviewer",
+  complete_second_review: "Закрыть second review",
   continue_review: "Продолжить врачебный разбор",
 };
 
@@ -612,6 +649,8 @@ function buildLocalLongitudinalQaGate({
       calibrationBlockedCount,
       markerMissingCount,
       measurementPolicyNotReadyCount: 0,
+      reviewerAssignmentNotReadyCount: 0,
+      secondReviewNotReadyCount: 0,
       technicalRolloutReady,
       dynamicConclusionAllowed: false,
     },
@@ -1064,6 +1103,11 @@ function ComparisonFullScreenDialog({
   onReviewMeasurementPolicy,
   measurementPolicyBackendStatus,
   measurementPolicyMessage,
+  reviewerAssignmentStatus,
+  secondReviewStatus,
+  onAssignReviewer,
+  reviewerAssignmentBackendStatus,
+  reviewerAssignmentMessage,
   onReviewViewerWorkflow,
   viewerQaReviewerWorkflowStatus,
   viewerQaReviewerWorkflowMessage,
@@ -1095,6 +1139,11 @@ function ComparisonFullScreenDialog({
   onReviewMeasurementPolicy: (payload: MeasurementPolicyPayload) => void;
   measurementPolicyBackendStatus: MeasurementPolicyBackendStatus;
   measurementPolicyMessage: string;
+  reviewerAssignmentStatus: ReviewerAssignmentStatus;
+  secondReviewStatus: SecondReviewStatus;
+  onAssignReviewer: (payload: ReviewerAssignmentPayload) => void;
+  reviewerAssignmentBackendStatus: ReviewerAssignmentBackendStatus;
+  reviewerAssignmentMessage: string;
   onReviewViewerWorkflow: (payload: ViewerQaReviewerWorkflowPayload) => void;
   viewerQaReviewerWorkflowStatus: ViewerQaReviewerWorkflowBackendStatus;
   viewerQaReviewerWorkflowMessage: string;
@@ -1185,6 +1234,20 @@ function ComparisonFullScreenDialog({
         : ["measurement_policy_requires_review"],
     });
   };
+  const assignReviewer = (mode: "primary" | "second_required" | "second_completed") => {
+    setCalibrationLimitSaved(true);
+    onAssignReviewer({
+      ...currentViewerQaPayload(),
+      assignmentStatus: mode === "primary" ? "assigned" : mode === "second_required" ? "second_review_required" : "second_review_completed",
+      assignmentReasons: mode === "primary"
+        ? ["primary_reviewer_assigned"]
+        : ["second_review_required_for_clinical_grade_workflow"],
+      assignedReviewerUserId: REVIEWER_ASSIGNMENT_PRIMARY_ID,
+      secondReviewStatus: mode === "primary" ? "not_required" : mode === "second_required" ? "required" : "completed",
+      secondReviewReasons: mode === "second_completed" ? ["second_review_completed_metadata_only"] : [],
+      secondReviewerUserId: mode === "primary" ? null : REVIEWER_ASSIGNMENT_SECOND_ID,
+    });
+  };
   const markerFor = (target: TechnicalGeometryMarker["target"]) =>
     geometryMarkers.find((item) => item.target === target);
   if (!images) return null;
@@ -1194,6 +1257,19 @@ function ComparisonFullScreenDialog({
   const calibrationChecks = calibrationReadinessChecks(imageA, imageB);
   const calibrationReady = calibrationChecks.every((item) => item.ready);
   const measurementPolicyApproved = measurementPolicyStatus === "approved_for_technical_review";
+  const reviewerAssigned =
+    reviewerAssignmentStatus === "assigned"
+    || reviewerAssignmentStatus === "second_review_assigned"
+    || reviewerAssignmentStatus === "second_review_completed";
+  const secondReviewReady = secondReviewStatus === "not_required" || secondReviewStatus === "completed";
+  const reviewerWorkflowReady =
+    technicalReviewReady
+    && captureReady
+    && calibrationReady
+    && geometryMarkers.length === 2
+    && measurementPolicyApproved
+    && reviewerAssigned
+    && secondReviewReady;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1578,6 +1654,72 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                aria-label="Назначение reviewer"
+                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Назначение reviewer
+                    </div>
+                    <div className="text-[12px] font-medium">
+                      {REVIEWER_ASSIGNMENT_LABEL[reviewerAssignmentStatus]} · {SECOND_REVIEW_LABEL[secondReviewStatus]}
+                    </div>
+                  </div>
+                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    identity hidden
+                  </span>
+                </div>
+                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                  <span>UUID reviewer используется только backend как write-only payload.</span>
+                  <span>Имена, контакты reviewer и идентификаторы пары не выводятся в UI/audit.</span>
+                  <span>Выдача пациенту: выключена · medical measurement: выключен</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={reviewerAssignmentBackendStatus === "saving" || !measurementPolicyApproved}
+                    onClick={() => assignReviewer("primary")}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Назначить reviewer
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={reviewerAssignmentBackendStatus === "saving" || !measurementPolicyApproved}
+                    onClick={() => assignReviewer("second_required")}
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Потребовать second review
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={reviewerAssignmentBackendStatus === "saving" || !measurementPolicyApproved}
+                    onClick={() => assignReviewer("second_completed")}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Second review завершён
+                  </Button>
+                </div>
+                {reviewerAssignmentMessage && (
+                  <p
+                    className={`mt-2 text-[12px] font-medium ${
+                      reviewerAssignmentBackendStatus === "error" ? "text-destructive" : "text-primary"
+                    }`}
+                    role="status"
+                  >
+                    {reviewerAssignmentMessage}
+                  </p>
+                )}
+              </section>
+              <section
+                role="region"
                 aria-label="Clinical-grade reviewer workflow"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1587,9 +1729,7 @@ function ComparisonFullScreenDialog({
                       Clinical-grade reviewer workflow
                     </div>
                     <div className="text-[12px] font-medium">
-                      Reviewer gate: {technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2 && measurementPolicyApproved
-                        ? "готов"
-                        : "заблокирован"}
+                      Reviewer gate: {reviewerWorkflowReady ? "готов" : "заблокирован"}
                     </div>
                   </div>
                   <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
@@ -1623,6 +1763,16 @@ function ComparisonFullScreenDialog({
                       ready: measurementPolicyApproved,
                       detail: measurementPolicyApproved ? "technical policy утверждена" : "измерения остаются выключены",
                     },
+                    {
+                      label: "Reviewer assignment",
+                      ready: reviewerAssigned,
+                      detail: reviewerAssigned ? "reviewer назначен; identity hidden" : "назначьте reviewer",
+                    },
+                    {
+                      label: "Second review",
+                      ready: secondReviewReady,
+                      detail: secondReviewReady ? "не требуется или закрыт" : "нужен second review",
+                    },
                   ].map((item) => (
                     <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
                       {item.ready ? (
@@ -1645,7 +1795,7 @@ function ComparisonFullScreenDialog({
                     className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                     disabled={
                       viewerQaReviewerWorkflowStatus === "saving"
-                      || !(technicalReviewReady && captureReady && calibrationReady && geometryMarkers.length === 2 && measurementPolicyApproved)
+                      || !reviewerWorkflowReady
                     }
                     onClick={() => reviewViewerWorkflow("reviewer_accepted")}
                   >
@@ -2039,6 +2189,11 @@ export default function LesionDetailPage() {
     useState<MeasurementPolicyBackendStatus>("idle");
   const [measurementPolicyMessage, setMeasurementPolicyMessage] = useState("");
   const [measurementPolicyStatus, setMeasurementPolicyStatus] = useState<MeasurementPolicyStatus>("not_approved");
+  const [reviewerAssignmentBackendStatus, setReviewerAssignmentBackendStatus] =
+    useState<ReviewerAssignmentBackendStatus>("idle");
+  const [reviewerAssignmentMessage, setReviewerAssignmentMessage] = useState("");
+  const [reviewerAssignmentStatus, setReviewerAssignmentStatus] = useState<ReviewerAssignmentStatus>("unassigned");
+  const [secondReviewStatus, setSecondReviewStatus] = useState<SecondReviewStatus>("not_required");
   const [protectedRenderStatus, setProtectedRenderStatus] = useState<ProtectedRenderStatus>("idle");
   const [protectedRenderMessage, setProtectedRenderMessage] = useState("");
   const [protectedImageUrls, setProtectedImageUrls] = useState<Record<string, string>>({});
@@ -2123,6 +2278,10 @@ export default function LesionDetailPage() {
     setMeasurementPolicyBackendStatus("idle");
     setMeasurementPolicyMessage("");
     setMeasurementPolicyStatus("not_approved");
+    setReviewerAssignmentBackendStatus("idle");
+    setReviewerAssignmentMessage("");
+    setReviewerAssignmentStatus("unassigned");
+    setSecondReviewStatus("not_required");
     setProtectedImageUrls((current) => {
       revokePreviewUrls(current);
       return {};
@@ -2387,6 +2546,67 @@ export default function LesionDetailPage() {
     } else {
       setMeasurementPolicyBackendStatus("error");
       setMeasurementPolicyMessage(result.error?.message ?? "Policy измерений не сохранена.");
+    }
+  };
+
+  const assignReviewer = async (payload: ReviewerAssignmentPayload) => {
+    const applyLocal = (message: string) => {
+      setReviewerAssignmentBackendStatus("local_only");
+      setReviewerAssignmentMessage(message);
+      setReviewerAssignmentStatus(payload.assignmentStatus);
+      setSecondReviewStatus(payload.secondReviewStatus);
+    };
+    if (!selectedPairDraftKey || !comparePair || !latestVisit) {
+      applyLocal("Назначение reviewer зафиксировано локально. Identity скрыта.");
+      return;
+    }
+    if (!selfHostedConfigured) {
+      applyLocal("Назначение reviewer зафиксировано локально. Identity скрыта.");
+      return;
+    }
+    const apiPayload = viewerQaApiPayload(payload);
+    if (!apiPayload) {
+      applyLocal("Назначение reviewer зафиксировано локально. Identity скрыта.");
+      return;
+    }
+
+    setReviewerAssignmentBackendStatus("saving");
+    setReviewerAssignmentMessage("Назначение reviewer сохраняется в self-hosted backend.");
+    const saveResult = await saveSelfHostedLesionComparisonViewerQa({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: apiPayload,
+    });
+    if (!saveResult.ok) {
+      setReviewerAssignmentBackendStatus("error");
+      setReviewerAssignmentMessage(saveResult.error?.message ?? "Viewer QA draft не сохранён перед reviewer assignment.");
+      return;
+    }
+    const result = await reviewSelfHostedLesionComparisonReviewerAssignment({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: {
+        lesionId,
+        pairKey: selectedPairDraftKey,
+        imageIds: [comparePair[0].id, comparePair[1].id],
+        assignmentStatus: payload.assignmentStatus,
+        assignmentReasons: payload.assignmentReasons,
+        assignedReviewerUserId: payload.assignedReviewerUserId,
+        secondReviewStatus: payload.secondReviewStatus,
+        secondReviewReasons: payload.secondReviewReasons,
+        secondReviewerUserId: payload.secondReviewerUserId,
+      },
+    });
+    if (result.ok) {
+      setReviewerAssignmentBackendStatus("saved");
+      setReviewerAssignmentStatus(result.value?.reviewerAssignment.status ?? payload.assignmentStatus);
+      setSecondReviewStatus(result.value?.secondReview.status ?? payload.secondReviewStatus);
+      setReviewerAssignmentMessage("Reviewer assignment сохранён в self-hosted backend. Identity скрыта.");
+    } else {
+      setReviewerAssignmentBackendStatus("error");
+      setReviewerAssignmentMessage(result.error?.message ?? "Reviewer assignment не сохранён.");
     }
   };
 
@@ -3080,6 +3300,11 @@ export default function LesionDetailPage() {
         onReviewMeasurementPolicy={reviewMeasurementPolicy}
         measurementPolicyBackendStatus={measurementPolicyBackendStatus}
         measurementPolicyMessage={measurementPolicyMessage}
+        reviewerAssignmentStatus={reviewerAssignmentStatus}
+        secondReviewStatus={secondReviewStatus}
+        onAssignReviewer={assignReviewer}
+        reviewerAssignmentBackendStatus={reviewerAssignmentBackendStatus}
+        reviewerAssignmentMessage={reviewerAssignmentMessage}
         onReviewViewerWorkflow={reviewReviewerWorkflow}
         viewerQaReviewerWorkflowStatus={viewerQaReviewerWorkflowStatus}
         viewerQaReviewerWorkflowMessage={viewerQaReviewerWorkflowMessage}

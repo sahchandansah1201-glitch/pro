@@ -41,6 +41,21 @@ const VIEWER_QA_MEASUREMENT_POLICY_STATUS_VALUES = new Set([
   "review_required",
   "approved_for_technical_review",
 ]);
+const VIEWER_QA_REVIEWER_ASSIGNMENT_STATUS_VALUES = new Set([
+  "unassigned",
+  "assigned",
+  "second_review_required",
+  "second_review_assigned",
+  "second_review_completed",
+  "assignment_blocked",
+]);
+const VIEWER_QA_SECOND_REVIEW_STATUS_VALUES = new Set([
+  "not_required",
+  "required",
+  "assigned",
+  "completed",
+  "blocked",
+]);
 const VIEWER_QA_REVIEW_QUEUE_STATUS_VALUES = new Set([
   "actionable",
   "all",
@@ -100,6 +115,12 @@ const PROTECTED_INPUT_KEYS = new Set([
   "riskScore",
   "prognosis",
   "treatment",
+  "reviewerName",
+  "reviewerEmail",
+  "assignedReviewerName",
+  "assignedReviewerEmail",
+  "secondReviewerName",
+  "secondReviewerEmail",
 ]);
 
 function extensionForContentType(contentType) {
@@ -783,6 +804,70 @@ export function normalizeLesionComparisonDraftPayload(input = {}) {
   };
 }
 
+export function normalizeLesionComparisonReviewerAssignmentPayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in reviewer assignment payloads." });
+  }
+  const lesionId = normalizeSafeIdentifier(input.lesionId, "lesionId", details);
+  const pairKey = normalizeSafeIdentifier(input.pairKey, "pairKey", details);
+  const imageIds = Array.isArray(input.imageIds)
+    ? input.imageIds.map((id, index) => normalizeSafeIdentifier(id, `imageIds[${index}]`, details))
+    : undefined;
+  if (!imageIds || imageIds.length !== 2 || imageIds.some((id) => !id)) {
+    details.push({ field: "imageIds", message: "Exactly two safe image IDs are required." });
+  }
+  if (imageIds?.length === 2 && new Set(imageIds).size !== 2) {
+    details.push({ field: "imageIds", message: "imageIds must reference two different images." });
+  }
+  const expectedPairKey =
+    lesionId && imageIds?.length === 2 && imageIds.every(Boolean)
+      ? `${lesionId}:${[...imageIds].sort().join("+")}`
+      : null;
+  if (pairKey && expectedPairKey && pairKey !== expectedPairKey) {
+    details.push({ field: "pairKey", message: "pairKey must match lesionId and sorted imageIds." });
+  }
+  const assignmentStatus = cleanString(input.assignmentStatus) || "assigned";
+  if (!VIEWER_QA_REVIEWER_ASSIGNMENT_STATUS_VALUES.has(assignmentStatus)) {
+    details.push({ field: "assignmentStatus", message: "assignmentStatus is not supported." });
+  }
+  const secondReviewStatus = cleanString(input.secondReviewStatus) || "not_required";
+  if (!VIEWER_QA_SECOND_REVIEW_STATUS_VALUES.has(secondReviewStatus)) {
+    details.push({ field: "secondReviewStatus", message: "secondReviewStatus is not supported." });
+  }
+  const assignedReviewerUserId = normalizeUuidOrNull(input.assignedReviewerUserId, "assignedReviewerUserId", details);
+  const secondReviewerUserId = normalizeUuidOrNull(input.secondReviewerUserId, "secondReviewerUserId", details);
+  if ((assignmentStatus === "assigned" || assignmentStatus.startsWith("second_review")) && !assignedReviewerUserId) {
+    details.push({ field: "assignedReviewerUserId", message: "assignedReviewerUserId is required for reviewer assignment." });
+  }
+  if ((secondReviewStatus === "assigned" || secondReviewStatus === "completed") && !secondReviewerUserId) {
+    details.push({ field: "secondReviewerUserId", message: "secondReviewerUserId is required for second review." });
+  }
+  if (assignedReviewerUserId && secondReviewerUserId && assignedReviewerUserId === secondReviewerUserId) {
+    details.push({ field: "secondReviewerUserId", message: "Second reviewer must differ from assigned reviewer." });
+  }
+  const assignmentReasons = normalizeTechnicalStrings(input.assignmentReasons, "assignmentReasons", details);
+  const secondReviewReasons = normalizeTechnicalStrings(input.secondReviewReasons, "secondReviewReasons", details);
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    lesionId,
+    pairKey,
+    imageIds,
+    assignmentStatus,
+    assignmentReasons: assignmentReasons ?? [],
+    assignedReviewerUserId,
+    secondReviewStatus,
+    secondReviewReasons: secondReviewReasons ?? [],
+    secondReviewerUserId,
+    reviewerIdentityExposed: false,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+  };
+}
+
 function ensureScopeAllowsClinic(scope, clinicId) {
   if (scope.allClinics) return;
   if (!clinicId || !scope.clinicIds.includes(clinicId)) {
@@ -1163,6 +1248,9 @@ export function createClinicalWorkspaceService({
           calibrationReady: gate.calibrationReady === true,
           captureMetadataReady: gate.captureMetadataReady === true,
           markerGateReady: gate.markerGateReady === true,
+          measurementPolicyApproved: gate.measurementPolicyApproved === true,
+          reviewerAssignmentReady: gate.reviewerAssignmentReady === true,
+          secondReviewReady: gate.secondReviewReady === true,
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,
@@ -1208,6 +1296,49 @@ export function createClinicalWorkspaceService({
       return { qa, scope };
     },
 
+    async assignLesionComparisonReviewer(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeLesionComparisonReviewerAssignmentPayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const qa = await clinicalWorkspaceRepository.assignLesionComparisonReviewer({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        assignment: payload,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!qa) throw new VisitWorkspaceNotFoundError("Reviewer assignment could not be saved.");
+      const assignment = qa.reviewerAssignment || {};
+      const secondReview = qa.secondReview || {};
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: qa.clinicId,
+        actorUserId: authContext.userId,
+        action: "lesion_comparison_reviewer_assignment.review",
+        entityType: "lesion_comparison_viewer_qa_draft",
+        entityId: qa.id,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          lesionId: payload.lesionId,
+          assignmentStatus: assignment.status ?? payload.assignmentStatus,
+          assignmentReasonsCount: payload.assignmentReasons.length,
+          secondReviewStatus: secondReview.status ?? payload.secondReviewStatus,
+          secondReviewReasonsCount: payload.secondReviewReasons.length,
+          assignedReviewerPresent: Boolean(payload.assignedReviewerUserId),
+          secondReviewerPresent: Boolean(payload.secondReviewerUserId),
+          reviewerIdentityExposed: false,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+        },
+      });
+      return { qa, scope };
+    },
+
     async getVisitLesionComparisonViewerQaReviewQueue(visitId, input, authContext, { correlationId } = {}) {
       const safeVisitId = assertUuid(visitId, "visitId");
       const scope = visitReadScope(authContext);
@@ -1240,6 +1371,8 @@ export function createClinicalWorkspaceService({
           needsRecapture: Number(summary.needsRecapture ?? 0),
           notSuitableForComparison: Number(summary.notSuitableForComparison ?? 0),
           measurementPolicyRequired: Number(summary.measurementPolicyRequired ?? 0),
+          reviewerAssignmentRequired: Number(summary.reviewerAssignmentRequired ?? 0),
+          secondReviewRequired: Number(summary.secondReviewRequired ?? 0),
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,

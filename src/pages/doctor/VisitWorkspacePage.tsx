@@ -930,6 +930,8 @@ function viewerQaNextActionLabel(action: SelfHostedLesionComparisonViewerQaRevie
   if (action === "request_recapture") return "Запросить переснимок";
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
   if (action === "approve_measurement_policy") return "Утвердить policy измерений";
+  if (action === "assign_reviewer") return "Назначить reviewer";
+  if (action === "complete_second_review") return "Закрыть second review";
   if (action === "continue_review") return "Продолжить врачебный разбор";
   return "Проверить пару";
 }
@@ -951,6 +953,8 @@ function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatas
   if (action === "complete_calibration") return "Закрыть калибровку";
   if (action === "place_markers") return "Поставить маркеры";
   if (action === "approve_measurement_policy") return "Утвердить policy измерений";
+  if (action === "assign_reviewer") return "Назначить reviewer";
+  if (action === "complete_second_review") return "Закрыть second review";
   if (action === "continue_review") return "Продолжить review";
   return "Открыть очередь";
 }
@@ -993,6 +997,8 @@ function LongitudinalDatasetValidationPanel({
         <Field term="Bridge" value={readiness.deviceBridgeQualityNotReadyCount} />
         <Field term="Protocol" value={readiness.captureProtocolNotReadyCount} />
         <Field term="Policy" value={readiness.measurementPolicyNotReadyCount} />
+        <Field term="Assign" value={readiness.reviewerAssignmentNotReadyCount} />
+        <Field term="Second" value={readiness.secondReviewNotReadyCount} />
       </dl>
       {validation.blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1039,7 +1045,9 @@ function LongitudinalDatasetValidationPanel({
                   {item.deviceEvidenceNotReadyCount} · bridge:{" "}
                   {item.deviceBridgeQualityNotReadyCount} · protocol:{" "}
                   {item.captureProtocolNotReadyCount} · policy:{" "}
-                  {item.measurementPolicyNotReadyCount} ·
+                  {item.measurementPolicyNotReadyCount} · assignment:{" "}
+                  {item.reviewerAssignmentNotReadyCount} · second:{" "}
+                  {item.secondReviewNotReadyCount} ·
                   калибровка: {item.calibrationBlockedCount} · маркеры: {item.markerMissingCount}
                 </p>
               </div>
@@ -1090,6 +1098,8 @@ function ViewerQaReviewQueuePanel({
         <Field term="Переснять" value={queue.summary.needsRecapture} />
         <Field term="Не динамика" value={queue.summary.notSuitableForComparison} />
         <Field term="Policy" value={queue.summary.measurementPolicyRequired} />
+        <Field term="Assign" value={queue.summary.reviewerAssignmentRequired} />
+        <Field term="Second" value={queue.summary.secondReviewRequired} />
       </dl>
       {queue.items.length > 0 ? (
         <ol className="mt-3 grid grid-cols-1 gap-2">
@@ -1105,7 +1115,8 @@ function ViewerQaReviewQueuePanel({
                 </div>
                 <p className="mt-1 text-muted-foreground">
                   {item.bodyZone ?? "зона не указана"} · калибровка: {item.calibrationStatus} · маркеров:{" "}
-                  {item.technicalMarkerCount} · policy: {item.measurementPolicy.status}
+                  {item.technicalMarkerCount} · policy: {item.measurementPolicy.status} · assignment:{" "}
+                  {item.reviewerAssignment.status} · second: {item.secondReview.status}
                 </p>
                 {item.review.reasons.length > 0 && (
                   <p className="mt-1 text-muted-foreground">{item.review.reasons.slice(0, 2).join(", ")}</p>
