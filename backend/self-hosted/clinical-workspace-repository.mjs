@@ -436,6 +436,7 @@ from (
       q.calibration_status,
       q.capture_metadata_status,
       q.measurement_policy_status,
+      q.production_analysis_policy_status,
       q.reviewer_assignment_status,
       q.second_review_status,
       jsonb_array_length(coalesce(q.technical_markers, '[]'::jsonb))::int as technical_marker_count
@@ -467,7 +468,8 @@ from (
       coalesce((select count(*)::int from qa_rows where calibration_status <> 'ready'), 0) as calibration_blocked_count,
       coalesce((select count(*)::int from qa_rows where technical_marker_count < 2), 0) as marker_missing_count,
       coalesce((select count(*)::int from qa_rows where review_status = 'technical_ready' and measurement_policy_status <> 'approved_for_technical_review'), 0) as measurement_policy_not_ready_count,
-      coalesce((select count(*)::int from qa_rows where review_status = 'technical_ready' and measurement_policy_status = 'approved_for_technical_review' and reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed')), 0) as reviewer_assignment_not_ready_count,
+      coalesce((select count(*)::int from qa_rows where review_status = 'technical_ready' and measurement_policy_status = 'approved_for_technical_review' and production_analysis_policy_status <> 'approved_for_production_analysis'), 0) as production_analysis_policy_not_ready_count,
+      coalesce((select count(*)::int from qa_rows where review_status = 'technical_ready' and measurement_policy_status = 'approved_for_technical_review' and production_analysis_policy_status = 'approved_for_production_analysis' and reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed')), 0) as reviewer_assignment_not_ready_count,
       coalesce((select count(*)::int from qa_rows where second_review_status in ('required', 'assigned', 'blocked')), 0) as second_review_not_ready_count
   ),
   readiness as (
@@ -485,6 +487,7 @@ from (
           or calibration_blocked_count > 0
           or marker_missing_count > 0
           or measurement_policy_not_ready_count > 0
+          or production_analysis_policy_not_ready_count > 0
           or reviewer_assignment_not_ready_count > 0
           or second_review_not_ready_count > 0 then 'blocked'
         when unreviewed_pair_count > 0 then 'needs_review'
@@ -504,6 +507,7 @@ from (
         and calibration_blocked_count = 0
         and marker_missing_count = 0
         and measurement_policy_not_ready_count = 0
+        and production_analysis_policy_not_ready_count = 0
         and reviewer_assignment_not_ready_count = 0
         and second_review_not_ready_count = 0
       ) as technical_rollout_ready
@@ -532,6 +536,7 @@ from (
       'calibrationBlockedCount', r.calibration_blocked_count,
       'markerMissingCount', r.marker_missing_count,
       'measurementPolicyNotReadyCount', r.measurement_policy_not_ready_count,
+      'productionAnalysisPolicyNotReadyCount', r.production_analysis_policy_not_ready_count,
       'reviewerAssignmentNotReadyCount', r.reviewer_assignment_not_ready_count,
       'secondReviewNotReadyCount', r.second_review_not_ready_count,
       'technicalRolloutReady', r.technical_rollout_ready,
@@ -550,6 +555,7 @@ from (
       jsonb_build_object('code', 'calibration_not_ready', 'label', 'Калибровка не готова', 'count', r.calibration_blocked_count, 'nextAction', 'complete_calibration'),
       jsonb_build_object('code', 'technical_markers_missing', 'label', 'Не хватает технических маркеров', 'count', r.marker_missing_count, 'nextAction', 'place_markers'),
       jsonb_build_object('code', 'measurement_policy_required', 'label', 'Нужна политика измерений', 'count', r.measurement_policy_not_ready_count, 'nextAction', 'approve_measurement_policy'),
+      jsonb_build_object('code', 'production_analysis_policy_required', 'label', 'Нужна production analysis policy', 'count', r.production_analysis_policy_not_ready_count, 'nextAction', 'approve_production_analysis_policy'),
       jsonb_build_object('code', 'reviewer_assignment_required', 'label', 'Нужно назначить reviewer', 'count', r.reviewer_assignment_not_ready_count, 'nextAction', 'assign_reviewer'),
       jsonb_build_object('code', 'second_review_required', 'label', 'Нужен второй review', 'count', r.second_review_not_ready_count, 'nextAction', 'complete_second_review')
     ) as "blockers",
@@ -565,6 +571,7 @@ from (
       case when r.calibration_blocked_count > 0 then 'complete_calibration' end,
       case when r.marker_missing_count > 0 then 'place_markers' end,
       case when r.measurement_policy_not_ready_count > 0 then 'approve_measurement_policy' end,
+      case when r.production_analysis_policy_not_ready_count > 0 then 'approve_production_analysis_policy' end,
       case when r.reviewer_assignment_not_ready_count > 0 then 'assign_reviewer' end,
       case when r.second_review_not_ready_count > 0 then 'complete_second_review' end,
       case when r.technical_rollout_ready then 'continue_review' end
@@ -688,6 +695,7 @@ from (
       q.capture_metadata_status,
       q.reviewer_workflow_status,
       q.measurement_policy_status,
+      q.production_analysis_policy_status,
       q.reviewer_assignment_status,
       q.second_review_status,
       jsonb_array_length(coalesce(q.technical_markers, '[]'::jsonb))::int as technical_marker_count
@@ -723,7 +731,8 @@ from (
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.calibration_status <> 'ready'), 0) as calibration_blocked_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.technical_marker_count < 2), 0) as marker_missing_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'technical_ready' and q.measurement_policy_status <> 'approved_for_technical_review'), 0) as measurement_policy_not_ready_count,
-      coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'technical_ready' and q.measurement_policy_status = 'approved_for_technical_review' and q.reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed')), 0) as reviewer_assignment_not_ready_count,
+      coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'technical_ready' and q.measurement_policy_status = 'approved_for_technical_review' and q.production_analysis_policy_status <> 'approved_for_production_analysis'), 0) as production_analysis_policy_not_ready_count,
+      coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.review_status = 'technical_ready' and q.measurement_policy_status = 'approved_for_technical_review' and q.production_analysis_policy_status = 'approved_for_production_analysis' and q.reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed')), 0) as reviewer_assignment_not_ready_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.second_review_status in ('required', 'assigned', 'blocked')), 0) as second_review_not_ready_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.reviewer_workflow_status in ('ready_for_reviewer', 'reviewer_accepted')), 0) as reviewer_workflow_ready_count
     from target_lesions l
@@ -743,6 +752,7 @@ from (
           or calibration_blocked_count > 0
           or marker_missing_count > 0
           or measurement_policy_not_ready_count > 0
+          or production_analysis_policy_not_ready_count > 0
           or reviewer_assignment_not_ready_count > 0
           or second_review_not_ready_count > 0 then 'blocked'
         when unreviewed_pair_count > 0 then 'needs_review'
@@ -760,6 +770,7 @@ from (
         when calibration_blocked_count > 0 then 'complete_calibration'
         when marker_missing_count > 0 then 'place_markers'
         when measurement_policy_not_ready_count > 0 then 'approve_measurement_policy'
+        when production_analysis_policy_not_ready_count > 0 then 'approve_production_analysis_policy'
         when reviewer_assignment_not_ready_count > 0 then 'assign_reviewer'
         when second_review_not_ready_count > 0 then 'complete_second_review'
         else 'continue_review'
@@ -803,6 +814,9 @@ from (
     select 'measurement_policy_required', 'Нужна политика измерений', 'approve_measurement_policy',
       coalesce((select sum(measurement_policy_not_ready_count)::int from classified), 0)
     union all
+    select 'production_analysis_policy_required', 'Нужна production analysis policy', 'approve_production_analysis_policy',
+      coalesce((select sum(production_analysis_policy_not_ready_count)::int from classified), 0)
+    union all
     select 'reviewer_assignment_required', 'Нужно назначить reviewer', 'assign_reviewer',
       coalesce((select sum(reviewer_assignment_not_ready_count)::int from classified), 0)
     union all
@@ -843,6 +857,7 @@ from (
       'calibrationBlockedCount', coalesce((select sum(calibration_blocked_count)::int from classified), 0),
       'markerMissingCount', coalesce((select sum(marker_missing_count)::int from classified), 0),
       'measurementPolicyNotReadyCount', coalesce((select sum(measurement_policy_not_ready_count)::int from classified), 0),
+      'productionAnalysisPolicyNotReadyCount', coalesce((select sum(production_analysis_policy_not_ready_count)::int from classified), 0),
       'reviewerAssignmentNotReadyCount', coalesce((select sum(reviewer_assignment_not_ready_count)::int from classified), 0),
       'secondReviewNotReadyCount', coalesce((select sum(second_review_not_ready_count)::int from classified), 0),
       'reviewerWorkflowReadyCount', coalesce((select sum(reviewer_workflow_ready_count)::int from classified), 0),
@@ -869,6 +884,7 @@ from (
         'calibrationBlockedCount', c.calibration_blocked_count,
         'markerMissingCount', c.marker_missing_count,
         'measurementPolicyNotReadyCount', c.measurement_policy_not_ready_count,
+        'productionAnalysisPolicyNotReadyCount', c.production_analysis_policy_not_ready_count,
         'reviewerAssignmentNotReadyCount', c.reviewer_assignment_not_ready_count,
         'secondReviewNotReadyCount', c.second_review_not_ready_count,
         'reviewerWorkflowReadyCount', c.reviewer_workflow_ready_count,
@@ -898,6 +914,7 @@ from (
       case when exists(select 1 from classified where calibration_blocked_count > 0) then 'complete_calibration' end,
       case when exists(select 1 from classified where marker_missing_count > 0) then 'place_markers' end,
       case when exists(select 1 from classified where measurement_policy_not_ready_count > 0) then 'approve_measurement_policy' end,
+      case when exists(select 1 from classified where production_analysis_policy_not_ready_count > 0) then 'approve_production_analysis_policy' end,
       case when exists(select 1 from classified where status = 'ready_for_rollout') then 'continue_review' end
     ]::text[], null) as "nextActions",
     jsonb_build_object(
@@ -1677,6 +1694,10 @@ from (
     q.measurement_policy_reasons as "measurementPolicyReasons",
     q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
     q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
+    q.production_analysis_policy_status as "productionAnalysisPolicyStatus",
+    q.production_analysis_policy_reasons as "productionAnalysisPolicyReasons",
+    q.production_analysis_policy_reviewed_by_user_id::text as "productionAnalysisPolicyReviewedByUserId",
+    q.production_analysis_policy_reviewed_at as "productionAnalysisPolicyReviewedAt",
     q.reviewer_assignment_status as "reviewerAssignmentStatus",
     q.reviewer_assignment_reasons as "reviewerAssignmentReasons",
     q.reviewer_assigned_at as "reviewerAssignedAt",
@@ -1689,6 +1710,7 @@ from (
       'captureMetadataReady', q.capture_metadata_status = 'ready',
       'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
       'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
+      'productionAnalysisPolicyApproved', q.production_analysis_policy_status = 'approved_for_production_analysis',
       'reviewerAssignmentReady', q.reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed'),
       'secondReviewReady', q.second_review_status in ('not_required', 'completed'),
       'medicalMeasurementAllowed', false,
@@ -1808,6 +1830,10 @@ from (
     q.measurement_policy_reasons as "measurementPolicyReasons",
     q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
     q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
+    q.production_analysis_policy_status as "productionAnalysisPolicyStatus",
+    q.production_analysis_policy_reasons as "productionAnalysisPolicyReasons",
+    q.production_analysis_policy_reviewed_by_user_id::text as "productionAnalysisPolicyReviewedByUserId",
+    q.production_analysis_policy_reviewed_at as "productionAnalysisPolicyReviewedAt",
     q.reviewer_assignment_status as "reviewerAssignmentStatus",
     q.reviewer_assignment_reasons as "reviewerAssignmentReasons",
     q.reviewer_assigned_at as "reviewerAssignedAt",
@@ -1820,6 +1846,7 @@ from (
       'captureMetadataReady', q.capture_metadata_status = 'ready',
       'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
       'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
+      'productionAnalysisPolicyApproved', q.production_analysis_policy_status = 'approved_for_production_analysis',
       'reviewerAssignmentReady', q.reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed'),
       'secondReviewReady', q.second_review_status in ('not_required', 'completed'),
       'medicalMeasurementAllowed', false,
@@ -1893,6 +1920,7 @@ from (
           and q.calibration_status = 'ready'
           and q.capture_metadata_status = 'ready'
           and q.measurement_policy_status = 'approved_for_technical_review'
+          and q.production_analysis_policy_status = 'approved_for_production_analysis'
           and q.reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed')
           and q.second_review_status in ('not_required', 'completed')
           and jsonb_array_length(q.technical_markers) >= 2
@@ -1904,6 +1932,7 @@ from (
           and q.calibration_status = 'ready'
           and q.capture_metadata_status = 'ready'
           and q.measurement_policy_status = 'approved_for_technical_review'
+          and q.production_analysis_policy_status = 'approved_for_production_analysis'
           and q.reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed')
           and q.second_review_status in ('not_required', 'completed')
           and jsonb_array_length(q.technical_markers) >= 2
@@ -1911,6 +1940,8 @@ from (
         else case
           when q.measurement_policy_status <> 'approved_for_technical_review'
           then ${sqlJsonb(["measurement_policy_required"])}
+          when q.production_analysis_policy_status <> 'approved_for_production_analysis'
+          then ${sqlJsonb(["production_analysis_policy_required"])}
           when q.reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed')
           then ${sqlJsonb(["reviewer_assignment_required"])}
           when q.second_review_status not in ('not_required', 'completed')
@@ -1968,6 +1999,10 @@ from (
     q.measurement_policy_reasons as "measurementPolicyReasons",
     q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
     q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
+    q.production_analysis_policy_status as "productionAnalysisPolicyStatus",
+    q.production_analysis_policy_reasons as "productionAnalysisPolicyReasons",
+    q.production_analysis_policy_reviewed_by_user_id::text as "productionAnalysisPolicyReviewedByUserId",
+    q.production_analysis_policy_reviewed_at as "productionAnalysisPolicyReviewedAt",
     q.reviewer_assignment_status as "reviewerAssignmentStatus",
     q.reviewer_assignment_reasons as "reviewerAssignmentReasons",
     q.reviewer_assigned_at as "reviewerAssignedAt",
@@ -1980,6 +2015,7 @@ from (
       'captureMetadataReady', q.capture_metadata_status = 'ready',
       'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
       'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
+      'productionAnalysisPolicyApproved', q.production_analysis_policy_status = 'approved_for_production_analysis',
       'reviewerAssignmentReady', q.reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed'),
       'secondReviewReady', q.second_review_status in ('not_required', 'completed'),
       'medicalMeasurementAllowed', false,
@@ -2110,6 +2146,10 @@ from (
     q.measurement_policy_reasons as "measurementPolicyReasons",
     q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
     q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
+    q.production_analysis_policy_status as "productionAnalysisPolicyStatus",
+    q.production_analysis_policy_reasons as "productionAnalysisPolicyReasons",
+    q.production_analysis_policy_reviewed_by_user_id::text as "productionAnalysisPolicyReviewedByUserId",
+    q.production_analysis_policy_reviewed_at as "productionAnalysisPolicyReviewedAt",
     q.reviewer_assignment_status as "reviewerAssignmentStatus",
     q.reviewer_assignment_reasons as "reviewerAssignmentReasons",
     q.reviewer_assigned_at as "reviewerAssignedAt",
@@ -2122,6 +2162,165 @@ from (
       'captureMetadataReady', q.capture_metadata_status = 'ready',
       'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
       'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
+      'productionAnalysisPolicyApproved', q.production_analysis_policy_status = 'approved_for_production_analysis',
+      'reviewerAssignmentReady', q.reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed'),
+      'secondReviewReady', q.second_review_status in ('not_required', 'completed'),
+      'medicalMeasurementAllowed', false,
+      'patientDeliveryAllowed', false,
+      'clinicalOutputGenerated', false
+    ) as "reviewerWorkflowGate",
+    q.medical_measurement_allowed as "medicalMeasurementAllowed",
+    q.patient_delivery_allowed as "patientDeliveryAllowed",
+    q.protected_fields_exposed as "protectedFieldsExposed",
+    q.created_at as "createdAt",
+    q.updated_at as "updatedAt"
+  from reviewed q
+  limit 1
+) result;
+`.trim();
+}
+
+export function buildReviewLesionComparisonProductionAnalysisPolicySql({
+  visitId,
+  patientId,
+  clinicId,
+  doctorUserId = null,
+  policy = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const draftScope = clinicScopeWhere({ alias: "q", clinicIds, allClinics });
+  const lesionScope = clinicScopeWhere({ alias: "l", clinicIds, allClinics });
+  const assetScope = clinicScopeWhere({ alias: "a", clinicIds, allClinics });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_lesion as (
+    select
+      l.id::text as lesion_id,
+      l.clinic_id,
+      l.patient_id,
+      l.visit_id
+    from lesions l
+    where l.id::text = ${sqlLiteral(policy.lesionId)}
+      and l.visit_id = ${sqlUuid(visitId)}
+      and l.patient_id = ${sqlUuid(patientId)}
+      and l.clinic_id = ${sqlUuid(clinicId)}
+      ${lesionScope}
+    limit 1
+  ),
+  target_assets as (
+    select count(distinct a.id)::int as asset_count
+    from clinical_assets a
+    join target_lesion l
+      on l.lesion_id = a.lesion_id::text
+     and l.visit_id = a.visit_id
+     and l.patient_id = a.patient_id
+     and l.clinic_id = a.clinic_id
+    where a.id::text = any(${sqlTextArray(policy.imageIds)})
+      and a.kind in ('overview_photo', 'dermoscopy')
+      and a.content_type like 'image/%'
+      ${assetScope}
+  ),
+  target_pair as (
+    select l.*
+    from target_lesion l
+    cross join target_assets a
+    where a.asset_count = 2
+  ),
+  reviewed as (
+    update lesion_comparison_viewer_qa_drafts q
+    set
+      production_analysis_policy_status = case
+        when q.measurement_policy_status = 'approved_for_technical_review'
+        then ${sqlLiteral(policy.productionAnalysisPolicyStatus)}
+        else 'not_approved'
+      end,
+      production_analysis_policy_reasons = case
+        when q.measurement_policy_status = 'approved_for_technical_review'
+        then ${sqlJsonb(policy.productionAnalysisPolicyReasons ?? [])}
+        else ${sqlJsonb(["measurement_policy_required"])}
+      end,
+      production_analysis_policy_reviewed_by_user_id = ${sqlNullableUuid(doctorUserId)},
+      production_analysis_policy_reviewed_at = now(),
+      reviewer_workflow_status = case
+        when q.measurement_policy_status = 'approved_for_technical_review'
+          and ${sqlLiteral(policy.productionAnalysisPolicyStatus)} = 'approved_for_production_analysis'
+        then q.reviewer_workflow_status
+        else 'technical_gate_blocked'
+      end,
+      reviewer_workflow_reasons = case
+        when q.measurement_policy_status <> 'approved_for_technical_review'
+        then ${sqlJsonb(["measurement_policy_required"])}
+        when ${sqlLiteral(policy.productionAnalysisPolicyStatus)} = 'approved_for_production_analysis'
+        then q.reviewer_workflow_reasons
+        else ${sqlJsonb(["production_analysis_policy_required"])}
+      end,
+      medical_measurement_allowed = false,
+      patient_delivery_allowed = false,
+      protected_fields_exposed = false,
+      metadata_json = q.metadata_json || ${sqlJsonb({
+        brainstormTask: "SD-MF-026/028",
+        productionAnalysisPolicyBoundary: "metadata_only",
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+      })},
+      updated_at = now()
+    from target_pair p
+    where q.visit_id = p.visit_id
+      and q.patient_id = p.patient_id
+      and q.clinic_id = p.clinic_id
+      and q.lesion_id = p.lesion_id
+      and q.pair_key = ${sqlLiteral(policy.pairKey)}
+      and q.image_ids @> ${sqlTextArray(policy.imageIds)}
+      and ${sqlTextArray(policy.imageIds)} @> q.image_ids
+      ${draftScope}
+    returning q.*
+  )
+  select
+    q.id::text as "id",
+    q.clinic_id::text as "clinicId",
+    q.patient_id::text as "patientId",
+    q.visit_id::text as "visitId",
+    q.doctor_user_id::text as "doctorUserId",
+    q.lesion_id as "lesionId",
+    q.pair_key as "pairKey",
+    q.image_ids as "imageIds",
+    q.technical_markers as "technicalMarkers",
+    q.calibration_status as "calibrationStatus",
+    q.calibration_reasons as "calibrationReasons",
+    q.capture_metadata_status as "captureMetadataStatus",
+    q.review_status as "reviewStatus",
+    q.review_reasons as "reviewReasons",
+    q.reviewed_by_user_id::text as "reviewedByUserId",
+    q.reviewed_at as "reviewedAt",
+    q.reviewer_workflow_status as "reviewerWorkflowStatus",
+    q.reviewer_workflow_reasons as "reviewerWorkflowReasons",
+    q.reviewer_workflow_by_user_id::text as "reviewerWorkflowByUserId",
+    q.reviewer_workflow_at as "reviewerWorkflowAt",
+    q.measurement_policy_status as "measurementPolicyStatus",
+    q.measurement_policy_reasons as "measurementPolicyReasons",
+    q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
+    q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
+    q.production_analysis_policy_status as "productionAnalysisPolicyStatus",
+    q.production_analysis_policy_reasons as "productionAnalysisPolicyReasons",
+    q.production_analysis_policy_reviewed_by_user_id::text as "productionAnalysisPolicyReviewedByUserId",
+    q.production_analysis_policy_reviewed_at as "productionAnalysisPolicyReviewedAt",
+    q.reviewer_assignment_status as "reviewerAssignmentStatus",
+    q.reviewer_assignment_reasons as "reviewerAssignmentReasons",
+    q.reviewer_assigned_at as "reviewerAssignedAt",
+    q.second_review_status as "secondReviewStatus",
+    q.second_review_reasons as "secondReviewReasons",
+    q.second_reviewed_at as "secondReviewedAt",
+    jsonb_build_object(
+      'technicalReviewReady', q.review_status = 'technical_ready',
+      'calibrationReady', q.calibration_status = 'ready',
+      'captureMetadataReady', q.capture_metadata_status = 'ready',
+      'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
+      'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
+      'productionAnalysisPolicyApproved', q.production_analysis_policy_status = 'approved_for_production_analysis',
       'reviewerAssignmentReady', q.reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed'),
       'secondReviewReady', q.second_review_status in ('not_required', 'completed'),
       'medicalMeasurementAllowed', false,
@@ -2304,6 +2503,10 @@ from (
     q.measurement_policy_reasons as "measurementPolicyReasons",
     q.measurement_policy_reviewed_by_user_id::text as "measurementPolicyReviewedByUserId",
     q.measurement_policy_reviewed_at as "measurementPolicyReviewedAt",
+    q.production_analysis_policy_status as "productionAnalysisPolicyStatus",
+    q.production_analysis_policy_reasons as "productionAnalysisPolicyReasons",
+    q.production_analysis_policy_reviewed_by_user_id::text as "productionAnalysisPolicyReviewedByUserId",
+    q.production_analysis_policy_reviewed_at as "productionAnalysisPolicyReviewedAt",
     q.reviewer_assignment_status as "reviewerAssignmentStatus",
     q.reviewer_assignment_reasons as "reviewerAssignmentReasons",
     q.reviewer_assigned_at as "reviewerAssignedAt",
@@ -2316,6 +2519,7 @@ from (
       'captureMetadataReady', q.capture_metadata_status = 'ready',
       'markerGateReady', jsonb_array_length(q.technical_markers) >= 2,
       'measurementPolicyApproved', q.measurement_policy_status = 'approved_for_technical_review',
+      'productionAnalysisPolicyApproved', q.production_analysis_policy_status = 'approved_for_production_analysis',
       'reviewerAssignmentReady', q.reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed'),
       'secondReviewReady', q.second_review_status in ('not_required', 'completed'),
       'medicalMeasurementAllowed', false,
@@ -2389,6 +2593,9 @@ from (
       q.measurement_policy_status,
       q.measurement_policy_reasons,
       q.measurement_policy_reviewed_at,
+      q.production_analysis_policy_status,
+      q.production_analysis_policy_reasons,
+      q.production_analysis_policy_reviewed_at,
       q.reviewer_assignment_status,
       q.reviewer_assignment_reasons,
       q.reviewer_assigned_at,
@@ -2438,7 +2645,8 @@ from (
       'measurementPolicyRequired', coalesce((select count(*)::int from scoped_rows where review_status = 'technical_ready' and measurement_policy_status <> 'approved_for_technical_review'), 0),
       'reviewerAssignmentRequired', coalesce((select count(*)::int from scoped_rows where review_status = 'technical_ready' and measurement_policy_status = 'approved_for_technical_review' and reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed')), 0),
       'secondReviewRequired', coalesce((select count(*)::int from scoped_rows where second_review_status in ('required', 'assigned', 'blocked')), 0),
-      'actionable', coalesce((select count(*)::int from scoped_rows where review_status in ('unreviewed', 'needs_recapture', 'not_suitable_for_comparison') or (review_status = 'technical_ready' and (measurement_policy_status <> 'approved_for_technical_review' or reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed') or second_review_status in ('required', 'assigned', 'blocked')))), 0)
+      'productionAnalysisPolicyRequired', coalesce((select count(*)::int from scoped_rows where review_status = 'technical_ready' and measurement_policy_status = 'approved_for_technical_review' and reviewer_assignment_status in ('assigned', 'second_review_assigned', 'second_review_completed') and second_review_status in ('not_required', 'completed') and production_analysis_policy_status <> 'approved_for_production_analysis'), 0),
+      'actionable', coalesce((select count(*)::int from scoped_rows where review_status in ('unreviewed', 'needs_recapture', 'not_suitable_for_comparison') or (review_status = 'technical_ready' and (measurement_policy_status <> 'approved_for_technical_review' or reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed') or second_review_status in ('required', 'assigned', 'blocked') or production_analysis_policy_status <> 'approved_for_production_analysis'))), 0)
     ) as "summary",
     coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -2457,6 +2665,14 @@ from (
           'status', r.measurement_policy_status,
           'reasons', coalesce(r.measurement_policy_reasons, '[]'::jsonb),
           'reviewedAt', r.measurement_policy_reviewed_at
+        ),
+        'productionAnalysisPolicy', jsonb_build_object(
+          'status', r.production_analysis_policy_status,
+          'reasons', coalesce(r.production_analysis_policy_reasons, '[]'::jsonb),
+          'reviewedAt', r.production_analysis_policy_reviewed_at,
+          'medicalMeasurementAllowed', false,
+          'patientDeliveryAllowed', false,
+          'clinicalOutputGenerated', false
         ),
         'reviewerAssignment', jsonb_build_object(
           'status', r.reviewer_assignment_status,
@@ -2484,6 +2700,8 @@ from (
             and r.reviewer_assignment_status not in ('assigned', 'second_review_assigned', 'second_review_completed') then 'assign_reviewer'
           when r.review_status = 'technical_ready'
             and r.second_review_status in ('required', 'assigned', 'blocked') then 'complete_second_review'
+          when r.review_status = 'technical_ready'
+            and r.production_analysis_policy_status <> 'approved_for_production_analysis' then 'approve_production_analysis_policy'
           when r.review_status = 'technical_ready' then 'continue_review'
           else 'review_pair'
         end
@@ -2782,6 +3000,7 @@ function normalizeReviewerWorkflowGate(value) {
     captureMetadataReady: gate.captureMetadataReady === true,
     markerGateReady: gate.markerGateReady === true,
     measurementPolicyApproved: gate.measurementPolicyApproved === true,
+    productionAnalysisPolicyApproved: gate.productionAnalysisPolicyApproved === true,
     reviewerAssignmentReady: gate.reviewerAssignmentReady === true,
     secondReviewReady: gate.secondReviewReady === true,
     medicalMeasurementAllowed: false,
@@ -2793,6 +3012,11 @@ function normalizeReviewerWorkflowGate(value) {
 function normalizeMeasurementPolicyStatus(value) {
   const status = String(value ?? "not_approved");
   return status === "review_required" || status === "approved_for_technical_review" ? status : "not_approved";
+}
+
+function normalizeProductionAnalysisPolicyStatus(value) {
+  const status = String(value ?? "not_approved");
+  return status === "review_required" || status === "approved_for_production_analysis" ? status : "not_approved";
 }
 
 function normalizeReviewerAssignmentStatus(value) {
@@ -2859,6 +3083,17 @@ function normalizeLesionComparisonViewerQa(row) {
       patientDeliveryAllowed: false,
       clinicalOutputGenerated: false,
     },
+    productionAnalysisPolicy: {
+      status: normalizeProductionAnalysisPolicyStatus(row.productionAnalysisPolicyStatus),
+      reasons: parseJsonArray(row.productionAnalysisPolicyReasons),
+      reviewedAt: row.productionAnalysisPolicyReviewedAt ?? null,
+      reviewedByUserId: row.productionAnalysisPolicyReviewedByUserId
+        ? String(row.productionAnalysisPolicyReviewedByUserId)
+        : null,
+      medicalMeasurementAllowed: false,
+      patientDeliveryAllowed: false,
+      clinicalOutputGenerated: false,
+    },
     reviewerAssignment: {
       status: normalizeReviewerAssignmentStatus(row.reviewerAssignmentStatus),
       reasons: parseJsonArray(row.reviewerAssignmentReasons),
@@ -2894,6 +3129,7 @@ function normalizeViewerQaReviewQueueSummary(value) {
     measurementPolicyRequired: numberOrZero(source.measurementPolicyRequired),
     reviewerAssignmentRequired: numberOrZero(source.reviewerAssignmentRequired),
     secondReviewRequired: numberOrZero(source.secondReviewRequired),
+    productionAnalysisPolicyRequired: numberOrZero(source.productionAnalysisPolicyRequired),
     actionable: numberOrZero(source.actionable),
   };
 }
@@ -2925,6 +3161,16 @@ function normalizeViewerQaReviewQueueItem(row) {
       reviewedAt: row.measurementPolicy?.reviewedAt ?? row.measurementPolicyReviewedAt ?? null,
       medicalMeasurementAllowed: false,
     },
+    productionAnalysisPolicy: {
+      status: normalizeProductionAnalysisPolicyStatus(
+        row.productionAnalysisPolicy?.status ?? row.productionAnalysisPolicyStatus,
+      ),
+      reasons: parseJsonArray(row.productionAnalysisPolicy?.reasons ?? row.productionAnalysisPolicyReasons),
+      reviewedAt: row.productionAnalysisPolicy?.reviewedAt ?? row.productionAnalysisPolicyReviewedAt ?? null,
+      medicalMeasurementAllowed: false,
+      patientDeliveryAllowed: false,
+      clinicalOutputGenerated: false,
+    },
     reviewerAssignment: {
       status: normalizeReviewerAssignmentStatus(row.reviewerAssignment?.status ?? row.reviewerAssignmentStatus),
       reasons: parseJsonArray(row.reviewerAssignment?.reasons ?? row.reviewerAssignmentReasons),
@@ -2952,6 +3198,7 @@ function normalizeViewerQaReviewQueueItem(row) {
         || nextAction === "approve_measurement_policy"
         || nextAction === "assign_reviewer"
         || nextAction === "complete_second_review"
+        || nextAction === "approve_production_analysis_policy"
         || nextAction === "continue_review"
         ? nextAction
         : "review_pair",
@@ -2996,6 +3243,7 @@ const LONGITUDINAL_QA_BLOCKER_VALUES = new Set([
   "calibration_not_ready",
   "technical_markers_missing",
   "measurement_policy_required",
+  "production_analysis_policy_required",
   "reviewer_assignment_required",
   "second_review_required",
 ]);
@@ -3011,6 +3259,7 @@ const LONGITUDINAL_QA_ACTION_VALUES = new Set([
   "complete_calibration",
   "place_markers",
   "approve_measurement_policy",
+  "approve_production_analysis_policy",
   "assign_reviewer",
   "complete_second_review",
   "continue_review",
@@ -3046,6 +3295,7 @@ function normalizeLongitudinalQaReadiness(value) {
     calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
     markerMissingCount: numberOrZero(source.markerMissingCount),
     measurementPolicyNotReadyCount: numberOrZero(source.measurementPolicyNotReadyCount),
+    productionAnalysisPolicyNotReadyCount: numberOrZero(source.productionAnalysisPolicyNotReadyCount),
     reviewerAssignmentNotReadyCount: numberOrZero(source.reviewerAssignmentNotReadyCount),
     secondReviewNotReadyCount: numberOrZero(source.secondReviewNotReadyCount),
     technicalRolloutReady: source.technicalRolloutReady === true,
@@ -3129,6 +3379,7 @@ function normalizeVisitLongitudinalDatasetValidationReadiness(value) {
     calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
     markerMissingCount: numberOrZero(source.markerMissingCount),
     measurementPolicyNotReadyCount: numberOrZero(source.measurementPolicyNotReadyCount),
+    productionAnalysisPolicyNotReadyCount: numberOrZero(source.productionAnalysisPolicyNotReadyCount),
     reviewerAssignmentNotReadyCount: numberOrZero(source.reviewerAssignmentNotReadyCount),
     secondReviewNotReadyCount: numberOrZero(source.secondReviewNotReadyCount),
     reviewerWorkflowReadyCount: numberOrZero(source.reviewerWorkflowReadyCount),
@@ -3159,6 +3410,7 @@ function normalizeVisitLongitudinalDatasetValidationItem(row) {
     calibrationBlockedCount: numberOrZero(row.calibrationBlockedCount),
     markerMissingCount: numberOrZero(row.markerMissingCount),
     measurementPolicyNotReadyCount: numberOrZero(row.measurementPolicyNotReadyCount),
+    productionAnalysisPolicyNotReadyCount: numberOrZero(row.productionAnalysisPolicyNotReadyCount),
     reviewerAssignmentNotReadyCount: numberOrZero(row.reviewerAssignmentNotReadyCount),
     secondReviewNotReadyCount: numberOrZero(row.secondReviewNotReadyCount),
     reviewerWorkflowReadyCount: numberOrZero(row.reviewerWorkflowReadyCount),
@@ -3325,6 +3577,13 @@ export function createClinicalWorkspaceRepository(dbClient) {
       return queryOne(
         dbClient,
         buildReviewLesionComparisonMeasurementPolicySql(params),
+        normalizeLesionComparisonViewerQa,
+      );
+    },
+    async reviewLesionComparisonProductionAnalysisPolicy(params) {
+      return queryOne(
+        dbClient,
+        buildReviewLesionComparisonProductionAnalysisPolicySql(params),
         normalizeLesionComparisonViewerQa,
       );
     },

@@ -833,6 +833,9 @@
                   },
                   "secondReviewReady": {
                     "type": "boolean"
+                  },
+                  "productionAnalysisPolicyApproved": {
+                    "type": "boolean"
                   }
                 }
               }
@@ -970,6 +973,50 @@
                 "const": false
               },
               "medicalMeasurementAllowed": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          },
+          "productionAnalysisPolicy": {
+            "type": "object",
+            "description": "Batch BQ production analysis policy gate. Approves only production-readiness; no dynamic clinical conclusion or patient delivery is generated.",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "not_approved",
+                  "review_required",
+                  "approved_for_production_analysis"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reviewedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reviewedByUserId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "medicalMeasurementAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "patientDeliveryAllowed": {
+                "type": "boolean",
+                "const": false
+              },
+              "clinicalOutputGenerated": {
                 "type": "boolean",
                 "const": false
               }
@@ -1215,6 +1262,10 @@
               "secondReviewRequired": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "productionAnalysisPolicyRequired": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           },
@@ -1315,6 +1366,7 @@
                     "exclude_from_dynamic_review",
                     "approve_measurement_policy",
                     "continue_review",
+                    "approve_production_analysis_policy",
                     "assign_reviewer",
                     "complete_second_review"
                   ]
@@ -1395,6 +1447,50 @@
                       "const": false
                     },
                     "medicalMeasurementAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  }
+                },
+                "productionAnalysisPolicy": {
+                  "type": "object",
+                  "description": "Batch BQ production analysis policy gate. Approves only production-readiness; no dynamic clinical conclusion or patient delivery is generated.",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "not_approved",
+                        "review_required",
+                        "approved_for_production_analysis"
+                      ]
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "reviewedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reviewedByUserId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "medicalMeasurementAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "patientDeliveryAllowed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "clinicalOutputGenerated": {
                       "type": "boolean",
                       "const": false
                     }
@@ -1548,6 +1644,10 @@
               "secondReviewNotReadyCount": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "productionAnalysisPolicyNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           },
@@ -1571,6 +1671,7 @@
                     "calibration_not_ready",
                     "technical_markers_missing",
                     "measurement_policy_required",
+                    "production_analysis_policy_required",
                     "reviewer_assignment_required",
                     "second_review_required"
                   ]
@@ -1597,6 +1698,7 @@
                     "place_markers",
                     "approve_measurement_policy",
                     "continue_review",
+                    "approve_production_analysis_policy",
                     "assign_reviewer",
                     "complete_second_review"
                   ]
@@ -1621,6 +1723,7 @@
                 "place_markers",
                 "approve_measurement_policy",
                 "continue_review",
+                "approve_production_analysis_policy",
                 "assign_reviewer",
                 "complete_second_review"
               ]
@@ -1786,6 +1889,10 @@
               "secondReviewNotReadyCount": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "productionAnalysisPolicyNotReadyCount": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           },
@@ -1905,6 +2012,10 @@
                 "secondReviewNotReadyCount": {
                   "type": "integer",
                   "minimum": 0
+                },
+                "productionAnalysisPolicyNotReadyCount": {
+                  "type": "integer",
+                  "minimum": 0
                 }
               }
             }
@@ -1929,6 +2040,7 @@
                     "calibration_not_ready",
                     "technical_markers_missing",
                     "measurement_policy_required",
+                    "production_analysis_policy_required",
                     "reviewer_assignment_required",
                     "second_review_required"
                   ]
@@ -1955,6 +2067,7 @@
                     "place_markers",
                     "approve_measurement_policy",
                     "continue_review",
+                    "approve_production_analysis_policy",
                     "assign_reviewer",
                     "complete_second_review"
                   ]
@@ -1979,6 +2092,7 @@
                 "place_markers",
                 "approve_measurement_policy",
                 "continue_review",
+                "approve_production_analysis_policy",
                 "assign_reviewer",
                 "complete_second_review"
               ]
@@ -2321,6 +2435,62 @@
           "assignedReviewerUserId",
           "secondReviewStatus"
         ]
+      },
+      "LesionComparisonProductionAnalysisPolicy": {
+        "type": "object",
+        "required": [
+          "lesionId",
+          "pairKey",
+          "imageIds",
+          "productionAnalysisPolicyStatus",
+          "productionAnalysisPolicyReasons"
+        ],
+        "properties": {
+          "lesionId": {
+            "type": "string"
+          },
+          "pairKey": {
+            "type": "string"
+          },
+          "imageIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
+          "productionAnalysisPolicyStatus": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_production_analysis"
+            ]
+          },
+          "productionAnalysisPolicyReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          }
+        }
       }
     }
   },
@@ -2330,484 +2500,6 @@
     }
   ],
   "paths": {
-    "/api/v1/visits/{visitId}/assessment": {
-      "get": {
-        "summary": "Read the production clinical assessment for a visit",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Assessment or null"
-          }
-        }
-      },
-      "patch": {
-        "summary": "Create or update the production clinical assessment for a visit",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ClinicalAssessment"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved assessment"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/conclusion": {
-      "get": {
-        "summary": "Read the production clinical conclusion for a visit",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Conclusion or null"
-          }
-        }
-      },
-      "patch": {
-        "summary": "Create or update the production clinical conclusion for a visit",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ClinicalConclusion"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved conclusion"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/report": {
-      "get": {
-        "summary": "Read the production visit report",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Report or null"
-          }
-        }
-      },
-      "patch": {
-        "summary": "Create or update the production visit report",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VisitReport"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved report"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/lesion-comparison-draft": {
-      "patch": {
-        "summary": "Persist a metadata-only doctor draft for a selected lesion image-pair comparison decision",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LesionComparisonDecisionDraft"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved metadata-only comparison draft"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa": {
-      "patch": {
-        "summary": "Persist metadata-only doctor viewer QA for technical markers and calibration limits",
-        "description": "Doctor-side metadata only. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LesionComparisonViewerQaDraft"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved metadata-only viewer QA draft"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review": {
-      "patch": {
-        "summary": "Persist a metadata-only doctor technical review for an existing viewer QA draft",
-        "description": "Doctor-side technical review only. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LesionComparisonViewerQaReview"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved metadata-only viewer QA review"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-workflow": {
-      "patch": {
-        "summary": "Persist Batch BH calibrated reviewer workflow metadata for an existing viewer QA draft",
-        "description": "Backend gates require technical_ready review, ready calibration, ready capture metadata, two technical markers, and approved measurement policy. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LesionComparisonViewerQaReviewerWorkflow"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved metadata-only calibrated reviewer workflow"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/measurement-policy": {
-      "patch": {
-        "summary": "Persist Batch BO measurement policy gate metadata for an existing viewer QA draft",
-        "description": "Doctor-side technical policy only. Approval allows reviewer workflow gating but never enables medical measurement, patient delivery, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LesionComparisonMeasurementPolicy"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved metadata-only measurement policy gate"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue": {
-      "get": {
-        "summary": "Read the visit-scoped metadata-only viewer QA review queue",
-        "description": "Doctor-side operational queue only. This never exposes pair keys, image IDs, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "actionable",
-                "all",
-                "unreviewed",
-                "technical_ready",
-                "needs_recapture",
-                "not_suitable_for_comparison"
-              ],
-              "default": "actionable"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Metadata-only viewer QA review queue"
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/longitudinal-dataset-validation": {
-      "get": {
-        "summary": "Read visit-scoped metadata-only longitudinal dataset validation",
-        "description": "Batch BJ doctor-side production dataset validation for timeline QA rollout. This never exposes pair keys, image IDs, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Metadata-only visit longitudinal dataset validation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VisitLongitudinalDatasetValidation"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata": {
-      "patch": {
-        "summary": "Create or update production capture metadata for one visit asset",
-        "description": "Metadata-only asset capture conditions for doctor-side technical comparison. No image bytes, object bucket/key, signed URL, storage path, QR/session/credential material, or patient delivery.",
-        "parameters": [
-          {
-            "name": "visitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "assetId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AssetCaptureMetadata"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved production capture metadata"
-          }
-        }
-      }
-    },
-    "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history": {
-      "get": {
-        "summary": "Read a doctor-side metadata-only longitudinal ledger for one lesion across visits",
-        "parameters": [
-          {
-            "name": "patientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lesionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Metadata-only longitudinal lesion history"
-          }
-        }
-      }
-    },
-    "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa": {
-      "get": {
-        "summary": "Read the metadata-only longitudinal QA readiness gate for one lesion timeline",
-        "description": "Doctor-side technical QA gate only. No pair keys, image IDs, protected image fields, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
-        "parameters": [
-          {
-            "name": "patientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lesionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Metadata-only longitudinal QA readiness gate",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LesionLongitudinalQa"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata": {
       "get": {
         "summary": "Read production capture metadata for one lesion",
@@ -2915,6 +2607,435 @@
         }
       }
     },
+    "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history": {
+      "get": {
+        "summary": "Read a doctor-side metadata-only longitudinal ledger for one lesion across visits",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lesionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata-only longitudinal lesion history"
+          }
+        }
+      }
+    },
+    "/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa": {
+      "get": {
+        "summary": "Read the metadata-only longitudinal QA readiness gate for one lesion timeline",
+        "description": "Doctor-side technical QA gate only. No pair keys, image IDs, protected image fields, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lesionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata-only longitudinal QA readiness gate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LesionLongitudinalQa"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/assessment": {
+      "get": {
+        "summary": "Read the production clinical assessment for a visit",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assessment or null"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Create or update the production clinical assessment for a visit",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicalAssessment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved assessment"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata": {
+      "patch": {
+        "summary": "Create or update production capture metadata for one visit asset",
+        "description": "Metadata-only asset capture conditions for doctor-side technical comparison. No image bytes, object bucket/key, signed URL, storage path, QR/session/credential material, or patient delivery.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetCaptureMetadata"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved production capture metadata"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/conclusion": {
+      "get": {
+        "summary": "Read the production clinical conclusion for a visit",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conclusion or null"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Create or update the production clinical conclusion for a visit",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicalConclusion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved conclusion"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-draft": {
+      "patch": {
+        "summary": "Persist a metadata-only doctor draft for a selected lesion image-pair comparison decision",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonDecisionDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only comparison draft"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa": {
+      "patch": {
+        "summary": "Persist metadata-only doctor viewer QA for technical markers and calibration limits",
+        "description": "Doctor-side metadata only. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonViewerQaDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only viewer QA draft"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/measurement-policy": {
+      "patch": {
+        "summary": "Persist Batch BO measurement policy gate metadata for an existing viewer QA draft",
+        "description": "Doctor-side technical policy only. Approval allows reviewer workflow gating but never enables medical measurement, patient delivery, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonMeasurementPolicy"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only measurement policy gate"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/production-analysis-policy": {
+      "patch": {
+        "summary": "Review lesion comparison production analysis policy gate",
+        "description": "Batch BQ metadata-only production analysis policy gate. Does not generate clinical dynamic conclusions, patient delivery, measurements, signed URLs, or protected image payloads.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonProductionAnalysisPolicy"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Production analysis policy metadata saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stage": {
+                      "type": "string",
+                      "const": "5H"
+                    },
+                    "source": {
+                      "type": "string",
+                      "const": "postgres"
+                    },
+                    "item": {
+                      "$ref": "#/components/schemas/LesionComparisonViewerQaDraft"
+                    },
+                    "generatedAt": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review": {
+      "patch": {
+        "summary": "Persist a metadata-only doctor technical review for an existing viewer QA draft",
+        "description": "Doctor-side technical review only. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonViewerQaReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only viewer QA review"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/review-queue": {
+      "get": {
+        "summary": "Read the visit-scoped metadata-only viewer QA review queue",
+        "description": "Doctor-side operational queue only. This never exposes pair keys, image IDs, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "actionable",
+                "all",
+                "unreviewed",
+                "technical_ready",
+                "needs_recapture",
+                "not_suitable_for_comparison"
+              ],
+              "default": "actionable"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata-only viewer QA review queue"
+          }
+        }
+      }
+    },
     "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-assignment": {
       "patch": {
         "tags": [
@@ -2952,6 +3073,113 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/lesion-comparison-viewer-qa/reviewer-workflow": {
+      "patch": {
+        "summary": "Persist Batch BH calibrated reviewer workflow metadata for an existing viewer QA draft",
+        "description": "Backend gates require technical_ready review, ready calibration, ready capture metadata, two technical markers, and approved measurement policy. This never enables patient delivery, medical measurement, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LesionComparisonViewerQaReviewerWorkflow"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved metadata-only calibrated reviewer workflow"
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-dataset-validation": {
+      "get": {
+        "summary": "Read visit-scoped metadata-only longitudinal dataset validation",
+        "description": "Batch BJ doctor-side production dataset validation for timeline QA rollout. This never exposes pair keys, image IDs, patient delivery, medical measurements, signed URLs, storage paths, QR/session/credential material, or clinical dynamic conclusions.",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata-only visit longitudinal dataset validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitLongitudinalDatasetValidation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/report": {
+      "get": {
+        "summary": "Read the production visit report",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report or null"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Create or update the production visit report",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitReport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved report"
           }
         }
       }

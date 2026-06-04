@@ -12,6 +12,7 @@ import {
   saveSelfHostedLesionComparisonDraft,
   saveSelfHostedLesionComparisonViewerQa,
   reviewSelfHostedLesionComparisonMeasurementPolicy,
+  reviewSelfHostedLesionComparisonProductionAnalysisPolicy,
   reviewSelfHostedLesionComparisonReviewerAssignment,
   reviewSelfHostedLesionComparisonViewerQa,
   reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow,
@@ -760,6 +761,7 @@ describe("self-hosted-clinical-workspace-api", () => {
                 captureMetadataReady: true,
                 markerGateReady: true,
                 measurementPolicyApproved: true,
+                productionAnalysisPolicyApproved: false,
                 medicalMeasurementAllowed: true,
                 patientDeliveryAllowed: true,
                 clinicalConclusionGenerated: true,
@@ -770,6 +772,15 @@ describe("self-hosted-clinical-workspace-api", () => {
               reasons: ["technical_measurement_policy_approved_no_mm_output"],
               reviewedAt: "2026-05-19T10:53:00.000Z",
               reviewedByUserId: "doctor-1",
+              medicalMeasurementAllowed: true,
+              patientDeliveryAllowed: true,
+              clinicalOutputGenerated: true,
+            },
+            productionAnalysisPolicy: {
+              status: "not_approved",
+              reasons: [],
+              reviewedAt: null,
+              reviewedByUserId: null,
               medicalMeasurementAllowed: true,
               patientDeliveryAllowed: true,
               clinicalOutputGenerated: true,
@@ -819,6 +830,117 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
   });
 
+  it("reviews production analysis policy without enabling dynamic conclusions or patient delivery", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "viewer-qa-1",
+            visitId: "visit-1",
+            lesionId: "lesion-1",
+            pairKey: "lesion-1:image-a+image-b",
+            imageIds: ["image-a", "image-b"],
+            technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+            calibrationStatus: "ready",
+            calibrationReasons: [],
+            captureMetadataStatus: "ready",
+            review: { status: "technical_ready", reasons: [], reviewedAt: null, reviewedByUserId: null },
+            reviewerWorkflow: {
+              status: "technical_gate_blocked",
+              reasons: ["production_analysis_policy_required"],
+              reviewedAt: null,
+              reviewedByUserId: null,
+              gate: {
+                technicalReviewReady: true,
+                calibrationReady: true,
+                captureMetadataReady: true,
+                markerGateReady: true,
+                measurementPolicyApproved: true,
+                productionAnalysisPolicyApproved: true,
+                reviewerAssignmentReady: true,
+                secondReviewReady: true,
+                medicalMeasurementAllowed: true,
+                patientDeliveryAllowed: true,
+                clinicalConclusionGenerated: true,
+              },
+            },
+            measurementPolicy: {
+              status: "approved_for_technical_review",
+              reasons: ["technical_measurement_policy_approved_no_mm_output"],
+              reviewedAt: "2026-05-19T10:53:00.000Z",
+              reviewedByUserId: "doctor-1",
+              medicalMeasurementAllowed: true,
+              patientDeliveryAllowed: true,
+              clinicalOutputGenerated: true,
+            },
+            productionAnalysisPolicy: {
+              status: "approved_for_production_analysis",
+              reasons: ["production_analysis_policy_approved_no_dynamic_conclusion"],
+              reviewedAt: "2026-05-19T11:04:00.000Z",
+              reviewedByUserId: "doctor-1",
+              medicalMeasurementAllowed: true,
+              patientDeliveryAllowed: true,
+              clinicalOutputGenerated: true,
+            },
+            reviewerAssignment: {
+              status: "assigned",
+              reasons: [],
+              assignedAt: null,
+              reviewerIdentityExposed: true,
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+            },
+            secondReview: {
+              status: "completed",
+              reasons: [],
+              reviewedAt: "2026-05-19T11:02:00.000Z",
+              reviewerIdentityExposed: true,
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+            },
+            medicalMeasurementAllowed: true,
+            patientDeliveryAllowed: true,
+            protectedFieldsExposed: true,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedLesionComparisonProductionAnalysisPolicy({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        lesionId: "lesion-1",
+        pairKey: "lesion-1:image-a+image-b",
+        imageIds: ["image-a", "image-b"],
+        productionAnalysisPolicyStatus: "approved_for_production_analysis",
+        productionAnalysisPolicyReasons: ["production_analysis_policy_approved_no_dynamic_conclusion"],
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.productionAnalysisPolicy.status).toBe("approved_for_production_analysis");
+    expect(result.value?.productionAnalysisPolicy.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.productionAnalysisPolicy.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.productionAnalysisPolicy.clinicalOutputGenerated).toBe(false);
+    expect(result.value?.reviewerWorkflow.gate.productionAnalysisPolicyApproved).toBe(true);
+    expect(result.value?.reviewerWorkflow.gate.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.reviewerWorkflow.gate.clinicalConclusionGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/lesion-comparison-viewer-qa/production-analysis-policy",
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ Authorization: "Bearer jwt" }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /dynamicConclusion|clinicalDynamicConclusion|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи|diagnosis|treatment|diameterMm|areaMm2/i,
+    );
+  });
+
   it("saves reviewer assignment without exposing reviewer identity", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(
@@ -845,6 +967,7 @@ describe("self-hosted-clinical-workspace-api", () => {
                 captureMetadataReady: true,
                 markerGateReady: true,
                 measurementPolicyApproved: true,
+                productionAnalysisPolicyApproved: false,
                 reviewerAssignmentReady: true,
                 secondReviewReady: false,
                 medicalMeasurementAllowed: true,
@@ -855,6 +978,15 @@ describe("self-hosted-clinical-workspace-api", () => {
             measurementPolicy: {
               status: "approved_for_technical_review",
               reasons: ["technical_measurement_policy_approved_no_mm_output"],
+              reviewedAt: null,
+              reviewedByUserId: null,
+              medicalMeasurementAllowed: true,
+              patientDeliveryAllowed: true,
+              clinicalOutputGenerated: true,
+            },
+            productionAnalysisPolicy: {
+              status: "review_required",
+              reasons: ["production_analysis_policy_required"],
               reviewedAt: null,
               reviewedByUserId: null,
               medicalMeasurementAllowed: true,
@@ -941,6 +1073,7 @@ describe("self-hosted-clinical-workspace-api", () => {
               needsRecapture: 1,
 	              notSuitableForComparison: 1,
 	              measurementPolicyRequired: 1,
+              productionAnalysisPolicyRequired: 1,
               reviewerAssignmentRequired: 1,
               secondReviewRequired: 1,
 	              actionable: 3,
@@ -966,6 +1099,14 @@ describe("self-hosted-clinical-workspace-api", () => {
 	                  patientDeliveryAllowed: true,
 	                  clinicalOutputGenerated: true,
 	                },
+                productionAnalysisPolicy: {
+                  status: "review_required",
+                  reasons: ["production_analysis_policy_required"],
+                  reviewedAt: null,
+                  medicalMeasurementAllowed: true,
+                  patientDeliveryAllowed: true,
+                  clinicalOutputGenerated: true,
+                },
                 reviewerAssignment: {
                   status: "second_review_required",
                   reasons: ["second_review_required_for_clinical_grade_workflow"],
@@ -1018,11 +1159,15 @@ describe("self-hosted-clinical-workspace-api", () => {
 	    expect(result.ok).toBe(true);
 	    expect(result.value?.summary.actionable).toBe(3);
 	    expect(result.value?.summary.measurementPolicyRequired).toBe(1);
+    expect(result.value?.summary.productionAnalysisPolicyRequired).toBe(1);
     expect(result.value?.summary.reviewerAssignmentRequired).toBe(1);
     expect(result.value?.summary.secondReviewRequired).toBe(1);
 	    expect(result.value?.items[0]?.review.status).toBe("needs_recapture");
 	    expect(result.value?.items[0]?.measurementPolicy.status).toBe("review_required");
 	    expect(result.value?.items[0]?.measurementPolicy.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.items[0]?.productionAnalysisPolicy.status).toBe("review_required");
+    expect(result.value?.items[0]?.productionAnalysisPolicy.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.items[0]?.productionAnalysisPolicy.clinicalOutputGenerated).toBe(false);
     expect(result.value?.items[0]?.reviewerAssignment.reviewerIdentityExposed).toBe(false);
     expect(result.value?.items[0]?.secondReview.reviewerIdentityExposed).toBe(false);
     expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);
@@ -1057,6 +1202,7 @@ describe("self-hosted-clinical-workspace-api", () => {
               reviewedPairCount: 2,
               technicalReadyPairCount: 2,
               productionAssetNotReadyCount: 1,
+              productionAnalysisPolicyNotReadyCount: 1,
               missingCaptureMetadataCount: 0,
               deviceEvidenceNotReadyCount: 1,
               deviceBridgeQualityNotReadyCount: 1,
@@ -1079,6 +1225,7 @@ describe("self-hosted-clinical-workspace-api", () => {
                 reviewedPairCount: 2,
                 technicalReadyPairCount: 2,
                 productionAssetNotReadyCount: 1,
+                productionAnalysisPolicyNotReadyCount: 1,
                 missingCaptureMetadataCount: 0,
                 deviceEvidenceNotReadyCount: 1,
                 deviceBridgeQualityNotReadyCount: 1,
@@ -1145,11 +1292,13 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(result.ok).toBe(true);
     expect(result.value?.readiness.status).toBe("ready_for_rollout");
     expect(result.value?.readiness.productionAssetNotReadyCount).toBe(1);
+    expect(result.value?.readiness.productionAnalysisPolicyNotReadyCount).toBe(1);
     expect(result.value?.readiness.deviceEvidenceNotReadyCount).toBe(1);
     expect(result.value?.readiness.deviceBridgeQualityNotReadyCount).toBe(1);
     expect(result.value?.readiness.dynamicConclusionAllowed).toBe(false);
     expect(result.value?.items[0]?.nextAction).toBe("continue_review");
     expect(result.value?.items[0]?.productionAssetNotReadyCount).toBe(1);
+    expect(result.value?.items[0]?.productionAnalysisPolicyNotReadyCount).toBe(1);
     expect(result.value?.items[0]?.deviceEvidenceNotReadyCount).toBe(1);
     expect(result.value?.items[0]?.deviceBridgeQualityNotReadyCount).toBe(1);
     expect(result.value?.boundaries.patientDeliveryAllowed).toBe(false);

@@ -13,6 +13,7 @@ import {
   buildGetVisitReportSql,
   buildAssignLesionComparisonReviewerSql,
   buildReviewLesionComparisonMeasurementPolicySql,
+  buildReviewLesionComparisonProductionAnalysisPolicySql,
   buildReviewLesionComparisonViewerQaSql,
   buildReviewLesionComparisonViewerQaReviewerWorkflowSql,
   buildUpsertAssetCaptureMetadataSql,
@@ -86,6 +87,9 @@ test("Batch BG Stage 5H repository builds metadata-only lesion longitudinal QA S
   assert.match(sql, /productionAssetNotReadyCount/);
   assert.match(sql, /production_asset_not_ready/);
   assert.match(sql, /verify_production_asset/);
+  assert.match(sql, /productionAnalysisPolicyNotReadyCount/);
+  assert.match(sql, /production_analysis_policy_required/);
+  assert.match(sql, /approve_production_analysis_policy/);
   assert.match(sql, /object_bucket is null or a\.object_key is null/);
   assert.match(sql, /longitudinal_qa\.read/i);
   assert.match(sql, /technicalRolloutReady/);
@@ -125,6 +129,9 @@ test("Batch BJ Stage 5H repository builds visit-level longitudinal dataset valid
   assert.match(sql, /productionAssetNotReadyCount/);
   assert.match(sql, /production_asset_not_ready/);
   assert.match(sql, /verify_production_asset/);
+  assert.match(sql, /productionAnalysisPolicyNotReadyCount/);
+  assert.match(sql, /production_analysis_policy_required/);
+  assert.match(sql, /approve_production_analysis_policy/);
   assert.match(sql, /object_bucket is null or a\.object_key is null/);
   assert.match(sql, /reviewer_workflow_status/);
   assert.match(sql, /visit_longitudinal_dataset_validation\.read/i);
@@ -437,11 +444,14 @@ test("Batch BH Stage 5H reviewer workflow requires calibrated technical gates", 
   assert.match(sql, /q\.calibration_status = 'ready'/);
   assert.match(sql, /q\.capture_metadata_status = 'ready'/);
   assert.match(sql, /q\.measurement_policy_status = 'approved_for_technical_review'/);
+  assert.match(sql, /q\.production_analysis_policy_status = 'approved_for_production_analysis'/);
   assert.match(sql, /q\.reviewer_assignment_status in \('assigned', 'second_review_assigned', 'second_review_completed'\)/);
   assert.match(sql, /q\.second_review_status in \('not_required', 'completed'\)/);
   assert.match(sql, /measurement_policy_required/);
   assert.match(sql, /reviewer_assignment_required/);
   assert.match(sql, /second_review_required/);
+  assert.match(sql, /production_analysis_policy_required/);
+  assert.match(sql, /productionAnalysisPolicyApproved/);
   assert.match(sql, /jsonb_array_length\(q\.technical_markers\) >= 2/);
   assert.match(sql, /reviewer_workflow_status/);
   assert.match(sql, /'technical_gate_blocked'/);
@@ -487,6 +497,40 @@ test("Batch BO Stage 5H measurement policy review updates only metadata-safe pol
   assert.doesNotMatch(
     sql,
     /object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|doctorVersionText|patientSafeText|diameterMm|areaMm2|riskScore/i,
+  );
+});
+
+test("Batch BQ Stage 5H production analysis policy review updates only metadata-safe policy state", () => {
+  const sql = buildReviewLesionComparisonProductionAnalysisPolicySql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicIds: [CLINIC_ID],
+    policy: {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      productionAnalysisPolicyStatus: "approved_for_production_analysis",
+      productionAnalysisPolicyReasons: ["production_analysis_policy_approved_no_dynamic_conclusion"],
+    },
+  });
+
+  assert.match(sql, /update lesion_comparison_viewer_qa_drafts q/);
+  assert.match(sql, /from lesions l/);
+  assert.match(sql, /from clinical_assets a/);
+  assert.match(sql, /production_analysis_policy_status/);
+  assert.match(sql, /approved_for_production_analysis/);
+  assert.match(sql, /production_analysis_policy_required/);
+  assert.match(sql, /productionAnalysisPolicyBoundary/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.match(sql, /medical_measurement_allowed = false/);
+  assert.match(sql, /patient_delivery_allowed = false/);
+  assert.match(sql, /protected_fields_exposed = false/);
+  assert.match(sql, /and q\.clinic_id in/);
+  assert.doesNotMatch(
+    sql,
+    /diameterMm|areaMm2|dynamicConclusion|clinicalDynamicConclusion|diagnosis|riskScore|treatment|storagePath|signedUrl|objectBucket|objectKey|qrToken|sessionId|patientSafeText/i,
   );
 });
 
@@ -550,9 +594,11 @@ test("Batch BF Stage 5H viewer QA review queue SQL is visit-scoped and metadata-
   assert.match(sql, /measurementPolicyRequired/);
   assert.match(sql, /reviewerAssignmentRequired/);
   assert.match(sql, /secondReviewRequired/);
+  assert.match(sql, /productionAnalysisPolicyRequired/);
   assert.match(sql, /approve_measurement_policy/);
   assert.match(sql, /assign_reviewer/);
   assert.match(sql, /complete_second_review/);
+  assert.match(sql, /approve_production_analysis_policy/);
   assert.match(sql, /'pairKeysExposed', false/);
   assert.match(sql, /'imageIdsExposed', false/);
   assert.match(sql, /limit 20/);
@@ -690,6 +736,7 @@ test("Batch BH Stage 5H repository normalizes reviewer workflow with forced safe
             calibrationReady: true,
             captureMetadataReady: true,
             markerGateReady: true,
+            productionAnalysisPolicyApproved: true,
             medicalMeasurementAllowed: true,
             patientDeliveryAllowed: true,
             clinicalConclusionGenerated: true,
@@ -720,6 +767,7 @@ test("Batch BH Stage 5H repository normalizes reviewer workflow with forced safe
   assert.equal(qa.reviewerWorkflow.status, "reviewer_accepted");
   assert.deepEqual(qa.reviewerWorkflow.reasons, ["calibrated_reviewer_workflow_ready"]);
   assert.equal(qa.reviewerWorkflow.gate.technicalReviewReady, true);
+  assert.equal(qa.reviewerWorkflow.gate.productionAnalysisPolicyApproved, true);
   assert.equal(qa.reviewerWorkflow.gate.medicalMeasurementAllowed, false);
   assert.equal(qa.reviewerWorkflow.gate.patientDeliveryAllowed, false);
   assert.equal(qa.reviewerWorkflow.gate.clinicalConclusionGenerated, false);
@@ -744,6 +792,7 @@ test("Batch BF Stage 5H repository normalizes viewer QA review queue without pai
             needsRecapture: 1,
             notSuitableForComparison: 1,
             actionable: 3,
+            productionAnalysisPolicyRequired: 1,
           },
           items: [
             {
@@ -757,6 +806,14 @@ test("Batch BF Stage 5H repository normalizes viewer QA review queue without pai
               calibrationStatus: "not_ready",
               calibrationReasons: ["scale_marker_missing"],
               captureMetadataStatus: "needs_review",
+              productionAnalysisPolicy: {
+                status: "review_required",
+                reasons: ["production_analysis_policy_required"],
+                reviewedAt: null,
+                medicalMeasurementAllowed: true,
+                patientDeliveryAllowed: true,
+                clinicalOutputGenerated: true,
+              },
               technicalMarkerCount: 1,
               reviewedAt: "2026-05-19T10:50:00.000Z",
               updatedAt: "2026-05-19T10:55:00.000Z",
@@ -788,7 +845,11 @@ test("Batch BF Stage 5H repository normalizes viewer QA review queue without pai
   });
 
   assert.equal(queue.summary.needsRecapture, 1);
+  assert.equal(queue.summary.productionAnalysisPolicyRequired, 1);
   assert.equal(queue.items[0].review.status, "needs_recapture");
+  assert.equal(queue.items[0].productionAnalysisPolicy.status, "review_required");
+  assert.equal(queue.items[0].productionAnalysisPolicy.patientDeliveryAllowed, false);
+  assert.equal(queue.items[0].productionAnalysisPolicy.clinicalOutputGenerated, false);
   assert.equal(queue.items[0].nextAction, "request_recapture");
   assert.equal(queue.boundaries.patientDeliveryAllowed, false);
   assert.equal(queue.boundaries.pairKeysExposed, false);
@@ -1019,6 +1080,7 @@ test("Batch BG Stage 5H repository normalizes longitudinal QA with forced safe b
             unreviewedPairCount: 0,
             missingCaptureMetadataCount: 0,
             deviceEvidenceNotReadyCount: 1,
+            productionAnalysisPolicyNotReadyCount: 1,
             calibrationBlockedCount: 0,
             markerMissingCount: 0,
             technicalRolloutReady: true,
@@ -1062,6 +1124,7 @@ test("Batch BG Stage 5H repository normalizes longitudinal QA with forced safe b
   assert.equal(qa.readiness.technicalRolloutReady, true);
   assert.equal(qa.readiness.dynamicConclusionAllowed, false);
   assert.equal(qa.readiness.deviceEvidenceNotReadyCount, 1);
+  assert.equal(qa.readiness.productionAnalysisPolicyNotReadyCount, 1);
   assert.equal(qa.boundaries.patientDeliveryAllowed, false);
   assert.equal(qa.boundaries.medicalMeasurementAllowed, false);
   assert.equal(qa.boundaries.pairKeysExposed, false);
@@ -1097,6 +1160,7 @@ test("Batch BJ Stage 5H repository normalizes visit dataset validation with forc
             technicalReadyPairCount: 2,
             missingCaptureMetadataCount: 0,
             deviceEvidenceNotReadyCount: 1,
+            productionAnalysisPolicyNotReadyCount: 1,
             calibrationBlockedCount: 0,
             markerMissingCount: 0,
             reviewerWorkflowReadyCount: 1,
@@ -1117,6 +1181,7 @@ test("Batch BJ Stage 5H repository normalizes visit dataset validation with forc
               technicalReadyPairCount: 2,
               missingCaptureMetadataCount: 0,
               deviceEvidenceNotReadyCount: 1,
+              productionAnalysisPolicyNotReadyCount: 1,
               calibrationBlockedCount: 0,
               markerMissingCount: 0,
               reviewerWorkflowReadyCount: 1,
@@ -1163,7 +1228,9 @@ test("Batch BJ Stage 5H repository normalizes visit dataset validation with forc
   assert.equal(validation.readiness.status, "ready_for_rollout");
   assert.equal(validation.readiness.dynamicConclusionAllowed, false);
   assert.equal(validation.readiness.deviceEvidenceNotReadyCount, 1);
+  assert.equal(validation.readiness.productionAnalysisPolicyNotReadyCount, 1);
   assert.equal(validation.items[0].deviceEvidenceNotReadyCount, 1);
+  assert.equal(validation.items[0].productionAnalysisPolicyNotReadyCount, 1);
   assert.equal(validation.items[0].nextAction, "continue_review");
   assert.equal(validation.boundaries.patientDeliveryAllowed, false);
   assert.equal(validation.boundaries.medicalMeasurementAllowed, false);

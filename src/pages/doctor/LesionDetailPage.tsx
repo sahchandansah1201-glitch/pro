@@ -57,6 +57,7 @@ import {
   downloadSelfHostedProtectedLesionImage,
   getSelfHostedLesionLongitudinalQa,
   reviewSelfHostedLesionComparisonMeasurementPolicy,
+  reviewSelfHostedLesionComparisonProductionAnalysisPolicy,
   reviewSelfHostedLesionComparisonReviewerAssignment,
   reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow,
   reviewSelfHostedLesionComparisonViewerQa,
@@ -110,6 +111,8 @@ type ViewerQaReviewerWorkflowBackendStatus = "idle" | "saving" | "saved" | "loca
 type ViewerQaReviewerWorkflowStatus = "ready_for_reviewer" | "reviewer_accepted" | "reviewer_rejected";
 type MeasurementPolicyBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type MeasurementPolicyStatus = "not_approved" | "review_required" | "approved_for_technical_review";
+type ProductionAnalysisPolicyBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
+type ProductionAnalysisPolicyStatus = "not_approved" | "review_required" | "approved_for_production_analysis";
 type ReviewerAssignmentBackendStatus = "idle" | "saving" | "saved" | "local_only" | "error";
 type ReviewerAssignmentStatus =
   | "unassigned"
@@ -158,6 +161,10 @@ type ViewerQaReviewerWorkflowPayload = ViewerQaSavePayload & {
 type MeasurementPolicyPayload = ViewerQaSavePayload & {
   measurementPolicyStatus: MeasurementPolicyStatus;
   measurementPolicyReasons: string[];
+};
+type ProductionAnalysisPolicyPayload = ViewerQaSavePayload & {
+  productionAnalysisPolicyStatus: ProductionAnalysisPolicyStatus;
+  productionAnalysisPolicyReasons: string[];
 };
 type ReviewerAssignmentPayload = ViewerQaSavePayload & {
   assignmentStatus: ReviewerAssignmentStatus;
@@ -242,6 +249,11 @@ const MEASUREMENT_POLICY_LABEL: Record<MeasurementPolicyStatus, string> = {
   review_required: "Нужен разбор policy",
   approved_for_technical_review: "Policy утверждена для техreview",
 };
+const PRODUCTION_ANALYSIS_POLICY_LABEL: Record<ProductionAnalysisPolicyStatus, string> = {
+  not_approved: "Analysis policy не утверждена",
+  review_required: "Нужен разбор analysis policy",
+  approved_for_production_analysis: "Analysis policy утверждена",
+};
 const REVIEWER_ASSIGNMENT_LABEL: Record<ReviewerAssignmentStatus, string> = {
   unassigned: "Reviewer не назначен",
   assigned: "Reviewer назначен",
@@ -276,6 +288,7 @@ const LONGITUDINAL_QA_ACTION_LABEL: Record<SelfHostedLesionLongitudinalQaAction,
   complete_calibration: "Закрыть калибровку",
   place_markers: "Поставить технические маркеры",
   approve_measurement_policy: "Утвердить policy измерений",
+  approve_production_analysis_policy: "Утвердить analysis policy",
   assign_reviewer: "Назначить reviewer",
   complete_second_review: "Закрыть second review",
   continue_review: "Продолжить врачебный разбор",
@@ -649,6 +662,7 @@ function buildLocalLongitudinalQaGate({
       calibrationBlockedCount,
       markerMissingCount,
       measurementPolicyNotReadyCount: 0,
+      productionAnalysisPolicyNotReadyCount: 0,
       reviewerAssignmentNotReadyCount: 0,
       secondReviewNotReadyCount: 0,
       technicalRolloutReady,
@@ -833,7 +847,7 @@ function LongitudinalQaGateSection({
           </span>
         </div>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-9">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-10">
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Пары</div>
             <div className="mt-1 font-medium">Пар: {readiness.candidatePairCount}</div>
@@ -873,6 +887,11 @@ function LongitudinalQaGateSection({
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Policy</div>
             <div className="mt-1 font-medium">Проверить: {readiness.measurementPolicyNotReadyCount}</div>
             <div className="text-[11px] text-muted-foreground">Измерения выключены</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Analysis</div>
+            <div className="mt-1 font-medium">Проверить: {readiness.productionAnalysisPolicyNotReadyCount}</div>
+            <div className="text-[11px] text-muted-foreground">Динамика выключена</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Калибровка</div>
@@ -1103,6 +1122,10 @@ function ComparisonFullScreenDialog({
   onReviewMeasurementPolicy,
   measurementPolicyBackendStatus,
   measurementPolicyMessage,
+  productionAnalysisPolicyStatus,
+  onReviewProductionAnalysisPolicy,
+  productionAnalysisPolicyBackendStatus,
+  productionAnalysisPolicyMessage,
   reviewerAssignmentStatus,
   secondReviewStatus,
   onAssignReviewer,
@@ -1139,6 +1162,10 @@ function ComparisonFullScreenDialog({
   onReviewMeasurementPolicy: (payload: MeasurementPolicyPayload) => void;
   measurementPolicyBackendStatus: MeasurementPolicyBackendStatus;
   measurementPolicyMessage: string;
+  productionAnalysisPolicyStatus: ProductionAnalysisPolicyStatus;
+  onReviewProductionAnalysisPolicy: (payload: ProductionAnalysisPolicyPayload) => void;
+  productionAnalysisPolicyBackendStatus: ProductionAnalysisPolicyBackendStatus;
+  productionAnalysisPolicyMessage: string;
   reviewerAssignmentStatus: ReviewerAssignmentStatus;
   secondReviewStatus: SecondReviewStatus;
   onAssignReviewer: (payload: ReviewerAssignmentPayload) => void;
@@ -1234,6 +1261,16 @@ function ComparisonFullScreenDialog({
         : ["measurement_policy_requires_review"],
     });
   };
+  const reviewProductionAnalysisPolicy = (policyStatus: ProductionAnalysisPolicyStatus) => {
+    setCalibrationLimitSaved(true);
+    onReviewProductionAnalysisPolicy({
+      ...currentViewerQaPayload(),
+      productionAnalysisPolicyStatus: policyStatus,
+      productionAnalysisPolicyReasons: policyStatus === "approved_for_production_analysis"
+        ? ["production_analysis_policy_approved_no_dynamic_conclusion"]
+        : ["production_analysis_policy_requires_review"],
+    });
+  };
   const assignReviewer = (mode: "primary" | "second_required" | "second_completed") => {
     setCalibrationLimitSaved(true);
     onAssignReviewer({
@@ -1257,6 +1294,8 @@ function ComparisonFullScreenDialog({
   const calibrationChecks = calibrationReadinessChecks(imageA, imageB);
   const calibrationReady = calibrationChecks.every((item) => item.ready);
   const measurementPolicyApproved = measurementPolicyStatus === "approved_for_technical_review";
+  const productionAnalysisPolicyApproved =
+    productionAnalysisPolicyStatus === "approved_for_production_analysis";
   const reviewerAssigned =
     reviewerAssignmentStatus === "assigned"
     || reviewerAssignmentStatus === "second_review_assigned"
@@ -1269,7 +1308,8 @@ function ComparisonFullScreenDialog({
     && geometryMarkers.length === 2
     && measurementPolicyApproved
     && reviewerAssigned
-    && secondReviewReady;
+    && secondReviewReady
+    && productionAnalysisPolicyApproved;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1720,6 +1760,65 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                aria-label="Production analysis policy"
+                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Production analysis policy
+                    </div>
+                    <div className="text-[12px] font-medium">
+                      {PRODUCTION_ANALYSIS_POLICY_LABEL[productionAnalysisPolicyStatus]}
+                    </div>
+                  </div>
+                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    no dynamic output
+                  </span>
+                </div>
+                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                  <span>Policy разрешает только production-readiness gate, не вывод о динамике.</span>
+                  <span>Clinical dynamic conclusion: выключен · выдача пациенту: выключена</span>
+                  <span>Сначала должны быть закрыты technical policy, reviewer assignment и second review.</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={
+                      productionAnalysisPolicyBackendStatus === "saving"
+                      || !(measurementPolicyApproved && reviewerAssigned && secondReviewReady)
+                    }
+                    onClick={() => reviewProductionAnalysisPolicy("approved_for_production_analysis")}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Утвердить analysis policy
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    disabled={productionAnalysisPolicyBackendStatus === "saving"}
+                    onClick={() => reviewProductionAnalysisPolicy("review_required")}
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Нужен разбор analysis policy
+                  </Button>
+                </div>
+                {productionAnalysisPolicyMessage && (
+                  <p
+                    className={`mt-2 text-[12px] font-medium ${
+                      productionAnalysisPolicyBackendStatus === "error" ? "text-destructive" : "text-primary"
+                    }`}
+                    role="status"
+                  >
+                    {productionAnalysisPolicyMessage}
+                  </p>
+                )}
+              </section>
+              <section
+                role="region"
                 aria-label="Clinical-grade reviewer workflow"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1772,6 +1871,13 @@ function ComparisonFullScreenDialog({
                       label: "Second review",
                       ready: secondReviewReady,
                       detail: secondReviewReady ? "не требуется или закрыт" : "нужен second review",
+                    },
+                    {
+                      label: "Analysis policy",
+                      ready: productionAnalysisPolicyApproved,
+                      detail: productionAnalysisPolicyApproved
+                        ? "production policy утверждена"
+                        : "вывод о динамике остаётся выключен",
                     },
                   ].map((item) => (
                     <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
@@ -2189,6 +2295,11 @@ export default function LesionDetailPage() {
     useState<MeasurementPolicyBackendStatus>("idle");
   const [measurementPolicyMessage, setMeasurementPolicyMessage] = useState("");
   const [measurementPolicyStatus, setMeasurementPolicyStatus] = useState<MeasurementPolicyStatus>("not_approved");
+  const [productionAnalysisPolicyBackendStatus, setProductionAnalysisPolicyBackendStatus] =
+    useState<ProductionAnalysisPolicyBackendStatus>("idle");
+  const [productionAnalysisPolicyMessage, setProductionAnalysisPolicyMessage] = useState("");
+  const [productionAnalysisPolicyStatus, setProductionAnalysisPolicyStatus] =
+    useState<ProductionAnalysisPolicyStatus>("not_approved");
   const [reviewerAssignmentBackendStatus, setReviewerAssignmentBackendStatus] =
     useState<ReviewerAssignmentBackendStatus>("idle");
   const [reviewerAssignmentMessage, setReviewerAssignmentMessage] = useState("");
@@ -2278,6 +2389,9 @@ export default function LesionDetailPage() {
     setMeasurementPolicyBackendStatus("idle");
     setMeasurementPolicyMessage("");
     setMeasurementPolicyStatus("not_approved");
+    setProductionAnalysisPolicyBackendStatus("idle");
+    setProductionAnalysisPolicyMessage("");
+    setProductionAnalysisPolicyStatus("not_approved");
     setReviewerAssignmentBackendStatus("idle");
     setReviewerAssignmentMessage("");
     setReviewerAssignmentStatus("unassigned");
@@ -2376,6 +2490,9 @@ export default function LesionDetailPage() {
     setViewerQaLatestReviewStatus(null);
     setViewerQaReviewerWorkflowStatus("idle");
     setViewerQaReviewerWorkflowMessage("");
+    setProductionAnalysisPolicyBackendStatus("idle");
+    setProductionAnalysisPolicyMessage("");
+    setProductionAnalysisPolicyStatus("not_approved");
   };
 
   const viewerQaApiPayload = (payload: ViewerQaSavePayload) => {
@@ -2546,6 +2663,67 @@ export default function LesionDetailPage() {
     } else {
       setMeasurementPolicyBackendStatus("error");
       setMeasurementPolicyMessage(result.error?.message ?? "Policy измерений не сохранена.");
+    }
+  };
+
+  const reviewProductionAnalysisPolicy = async (payload: ProductionAnalysisPolicyPayload) => {
+    const applyLocal = (message: string) => {
+      setProductionAnalysisPolicyBackendStatus("local_only");
+      setProductionAnalysisPolicyMessage(message);
+      setProductionAnalysisPolicyStatus(payload.productionAnalysisPolicyStatus);
+    };
+    if (!selectedPairDraftKey || !comparePair || !latestVisit) {
+      applyLocal("Analysis policy зафиксирована локально. Вывод о динамике выключен.");
+      return;
+    }
+    if (!selfHostedConfigured) {
+      applyLocal("Analysis policy зафиксирована локально. Вывод о динамике выключен.");
+      return;
+    }
+    const apiPayload = viewerQaApiPayload(payload);
+    if (!apiPayload) {
+      applyLocal("Analysis policy зафиксирована локально. Вывод о динамике выключен.");
+      return;
+    }
+
+    setProductionAnalysisPolicyBackendStatus("saving");
+    setProductionAnalysisPolicyMessage("Analysis policy сохраняется в self-hosted backend.");
+    const saveResult = await saveSelfHostedLesionComparisonViewerQa({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: apiPayload,
+    });
+    if (!saveResult.ok) {
+      setProductionAnalysisPolicyBackendStatus("error");
+      setProductionAnalysisPolicyMessage(
+        saveResult.error?.message ?? "Viewer QA draft не сохранён перед analysis policy.",
+      );
+      return;
+    }
+    const result = await reviewSelfHostedLesionComparisonProductionAnalysisPolicy({
+      apiBaseUrl: selfHostedSession.apiBaseUrl,
+      apiToken: selfHostedSession.apiToken,
+      visitId: latestVisit.id,
+      payload: {
+        lesionId,
+        pairKey: selectedPairDraftKey,
+        imageIds: [comparePair[0].id, comparePair[1].id],
+        productionAnalysisPolicyStatus: payload.productionAnalysisPolicyStatus,
+        productionAnalysisPolicyReasons: payload.productionAnalysisPolicyReasons,
+      },
+    });
+    if (result.ok) {
+      setProductionAnalysisPolicyBackendStatus("saved");
+      setProductionAnalysisPolicyStatus(
+        result.value?.productionAnalysisPolicy.status ?? payload.productionAnalysisPolicyStatus,
+      );
+      setProductionAnalysisPolicyMessage(
+        "Analysis policy сохранена в self-hosted backend. Clinical dynamic conclusion выключен.",
+      );
+    } else {
+      setProductionAnalysisPolicyBackendStatus("error");
+      setProductionAnalysisPolicyMessage(result.error?.message ?? "Analysis policy не сохранена.");
     }
   };
 
@@ -3300,6 +3478,10 @@ export default function LesionDetailPage() {
         onReviewMeasurementPolicy={reviewMeasurementPolicy}
         measurementPolicyBackendStatus={measurementPolicyBackendStatus}
         measurementPolicyMessage={measurementPolicyMessage}
+        productionAnalysisPolicyStatus={productionAnalysisPolicyStatus}
+        onReviewProductionAnalysisPolicy={reviewProductionAnalysisPolicy}
+        productionAnalysisPolicyBackendStatus={productionAnalysisPolicyBackendStatus}
+        productionAnalysisPolicyMessage={productionAnalysisPolicyMessage}
         reviewerAssignmentStatus={reviewerAssignmentStatus}
         secondReviewStatus={secondReviewStatus}
         onAssignReviewer={assignReviewer}

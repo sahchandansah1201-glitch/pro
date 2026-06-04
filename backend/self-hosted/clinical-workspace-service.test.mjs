@@ -8,6 +8,7 @@ import {
   normalizeLesionComparisonDraftPayload,
   normalizeLesionComparisonViewerQaPayload,
   normalizeLesionComparisonMeasurementPolicyPayload,
+  normalizeLesionComparisonProductionAnalysisPolicyPayload,
   normalizeLesionComparisonReviewerAssignmentPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
   normalizeLesionComparisonViewerQaReviewerWorkflowPayload,
@@ -341,6 +342,7 @@ function createService({ auditEvents = [], repo = {} } = {}) {
             captureMetadataReady: true,
             markerGateReady: true,
             measurementPolicyApproved: true,
+            productionAnalysisPolicyApproved: false,
             reviewerAssignmentReady: false,
             secondReviewReady: true,
             medicalMeasurementAllowed: false,
@@ -352,6 +354,68 @@ function createService({ auditEvents = [], repo = {} } = {}) {
           status: "approved_for_technical_review",
           reasons: ["technical_measurement_policy_approved_no_mm_output"],
           reviewedAt: "2026-05-19T10:56:00.000Z",
+          reviewedByUserId: USER_ID,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          clinicalOutputGenerated: false,
+        },
+        productionAnalysisPolicy: {
+          status: "not_approved",
+          reasons: ["production_analysis_policy_required"],
+          reviewedAt: null,
+          reviewedByUserId: null,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          clinicalOutputGenerated: false,
+        },
+        medicalMeasurementAllowed: false,
+        patientDeliveryAllowed: false,
+        protectedFieldsExposed: false,
+      };
+    },
+    async reviewLesionComparisonProductionAnalysisPolicy() {
+      return {
+        id: "viewer-qa-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        doctorUserId: USER_ID,
+        lesionId: "l-008",
+        pairKey: "l-008:i-011+i-012",
+        imageIds: ["i-011", "i-012"],
+        technicalMarkers: [{ target: "A", xPercent: 48, yPercent: 52 }, { target: "B", xPercent: 52, yPercent: 52 }],
+        calibrationStatus: "ready",
+        calibrationReasons: [],
+        captureMetadataStatus: "ready",
+        review: {
+          status: "technical_ready",
+          reasons: ["technical_review_ready"],
+          reviewedAt: "2026-05-19T10:50:00.000Z",
+          reviewedByUserId: USER_ID,
+        },
+        reviewerWorkflow: {
+          status: "technical_gate_blocked",
+          reasons: ["production_analysis_policy_required"],
+          reviewedAt: null,
+          reviewedByUserId: null,
+          gate: {
+            technicalReviewReady: true,
+            calibrationReady: true,
+            captureMetadataReady: true,
+            markerGateReady: true,
+            measurementPolicyApproved: true,
+            productionAnalysisPolicyApproved: true,
+            reviewerAssignmentReady: true,
+            secondReviewReady: true,
+            medicalMeasurementAllowed: false,
+            patientDeliveryAllowed: false,
+            clinicalConclusionGenerated: false,
+          },
+        },
+        productionAnalysisPolicy: {
+          status: "approved_for_production_analysis",
+          reasons: ["production_analysis_policy_approved_no_dynamic_conclusion"],
+          reviewedAt: "2026-05-19T11:01:00.000Z",
           reviewedByUserId: USER_ID,
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
@@ -808,6 +872,43 @@ test("Batch BO Stage 5H measurement policy normalizer rejects measurement values
   );
 });
 
+test("Batch BQ Stage 5H production analysis policy normalizer rejects clinical dynamic claims", () => {
+  const policy = normalizeLesionComparisonProductionAnalysisPolicyPayload({
+    lesionId: "l-008",
+    pairKey: "l-008:i-011+i-012",
+    imageIds: ["i-011", "i-012"],
+    productionAnalysisPolicyStatus: "approved_for_production_analysis",
+    productionAnalysisPolicyReasons: ["production_analysis_policy_approved_no_dynamic_conclusion"],
+  });
+
+  assert.equal(policy.productionAnalysisPolicyStatus, "approved_for_production_analysis");
+  assert.equal(policy.medicalMeasurementAllowed, false);
+  assert.equal(policy.patientDeliveryAllowed, false);
+  assert.equal(policy.protectedFieldsExposed, false);
+  assert.equal(policy.clinicalOutputGenerated, false);
+  assert.throws(
+    () => normalizeLesionComparisonProductionAnalysisPolicyPayload({ ...policy, dynamicConclusion: "growth" }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeLesionComparisonProductionAnalysisPolicyPayload({
+        ...policy,
+        productionAnalysisPolicyReasons: ["вероятность меланомы"],
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeLesionComparisonProductionAnalysisPolicyPayload({
+        ...policy,
+        pairKey: "l-008:i-011+i-011",
+        imageIds: ["i-011", "i-011"],
+      }),
+    VisitWorkspaceValidationError,
+  );
+});
+
 test("Stage 5H service reads and writes assessment/conclusion/report with audit events", async () => {
   const auditEvents = [];
   const service = createService({ auditEvents });
@@ -1143,6 +1244,7 @@ test("Batch BH Stage 5H service persists reviewer workflow with audit-safe metad
     captureMetadataReady: true,
     markerGateReady: true,
     measurementPolicyApproved: true,
+    productionAnalysisPolicyApproved: false,
     reviewerAssignmentReady: true,
     secondReviewReady: true,
     medicalMeasurementAllowed: false,
@@ -1195,6 +1297,48 @@ test("Batch BO Stage 5H service persists measurement policy with audit-safe meta
   assert.doesNotMatch(
     JSON.stringify(auditEvents.at(-1)),
     /i-011|i-012|pairKey|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|diameterMm|areaMm2|меланома|рак кожи|diagnosis|treatment|riskScore/i,
+  );
+});
+
+test("Batch BQ Stage 5H service persists production analysis policy with audit-safe metadata", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewLesionComparisonProductionAnalysisPolicy(
+    VISIT_ID,
+    {
+      lesionId: "l-008",
+      pairKey: "l-008:i-011+i-012",
+      imageIds: ["i-011", "i-012"],
+      productionAnalysisPolicyStatus: "approved_for_production_analysis",
+      productionAnalysisPolicyReasons: ["production_analysis_policy_approved_no_dynamic_conclusion"],
+    },
+    authContext,
+    { correlationId: "c12d" },
+  );
+
+  assert.equal(result.qa.productionAnalysisPolicy.status, "approved_for_production_analysis");
+  assert.equal(result.qa.productionAnalysisPolicy.medicalMeasurementAllowed, false);
+  assert.equal(result.qa.productionAnalysisPolicy.patientDeliveryAllowed, false);
+  assert.equal(result.qa.productionAnalysisPolicy.clinicalOutputGenerated, false);
+  assert.equal(result.qa.reviewerWorkflow.gate.productionAnalysisPolicyApproved, true);
+  assert.equal(result.qa.medicalMeasurementAllowed, false);
+  assert.equal(result.qa.patientDeliveryAllowed, false);
+  assert.equal(result.qa.protectedFieldsExposed, false);
+  assert.equal(auditEvents.at(-1).action, "lesion_comparison_production_analysis_policy.review");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    lesionId: "l-008",
+    productionAnalysisPolicyStatus: "approved_for_production_analysis",
+    reasonsCount: 1,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|pairKey|storagePath|signedUrl|photoRef|heatmapRef|modelVersion|token|session|qr|dynamicConclusion|меланома|рак кожи|diagnosis|treatment/i,
   );
 });
 
@@ -1274,6 +1418,7 @@ test("Batch BF Stage 5H service reads viewer QA review queue with audit-safe met
     needsRecapture: 1,
     notSuitableForComparison: 1,
     measurementPolicyRequired: 0,
+    productionAnalysisPolicyRequired: 0,
     reviewerAssignmentRequired: 1,
     secondReviewRequired: 1,
     medicalMeasurementAllowed: false,
@@ -1319,6 +1464,7 @@ test("Batch BG Stage 5H service reads longitudinal QA with audit-safe metadata",
     deviceBridgeQualityNotReadyCount: 1,
     captureProtocolNotReadyCount: 0,
     measurementPolicyNotReadyCount: 0,
+    productionAnalysisPolicyNotReadyCount: 0,
     technicalRolloutReady: false,
     dynamicConclusionAllowed: false,
     medicalMeasurementAllowed: false,
@@ -1360,6 +1506,7 @@ test("Batch BJ Stage 5H service reads visit dataset validation with audit-safe m
     deviceBridgeQualityNotReadyCount: 1,
     captureProtocolNotReadyCount: 0,
     measurementPolicyNotReadyCount: 0,
+    productionAnalysisPolicyNotReadyCount: 0,
     dynamicConclusionAllowed: false,
     medicalMeasurementAllowed: false,
     patientDeliveryAllowed: false,

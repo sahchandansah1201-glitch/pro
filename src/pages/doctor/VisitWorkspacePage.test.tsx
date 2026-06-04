@@ -683,6 +683,10 @@ function createLiveWorkspaceFetchMock() {
                 technicalReady: 1,
                 needsRecapture: 1,
                 notSuitableForComparison: 1,
+                measurementPolicyRequired: 1,
+                productionAnalysisPolicyRequired: 1,
+                reviewerAssignmentRequired: 1,
+                secondReviewRequired: 1,
                 actionable: 3,
               },
               items: [
@@ -701,6 +705,38 @@ function createLiveWorkspaceFetchMock() {
                   calibrationStatus: "not_ready",
                   calibrationReasons: ["scale_marker_missing"],
                   captureMetadataStatus: "needs_review",
+                  measurementPolicy: {
+                    status: "review_required",
+                    reasons: ["measurement_policy_requires_review"],
+                    reviewedAt: null,
+                    medicalMeasurementAllowed: true,
+                    patientDeliveryAllowed: true,
+                    clinicalOutputGenerated: true,
+                  },
+                  productionAnalysisPolicy: {
+                    status: "review_required",
+                    reasons: ["production_analysis_policy_required"],
+                    reviewedAt: null,
+                    medicalMeasurementAllowed: true,
+                    patientDeliveryAllowed: true,
+                    clinicalOutputGenerated: true,
+                  },
+                  reviewerAssignment: {
+                    status: "unassigned",
+                    reasons: [],
+                    assignedAt: null,
+                    reviewerIdentityExposed: true,
+                    patientDeliveryAllowed: true,
+                    medicalMeasurementAllowed: true,
+                  },
+                  secondReview: {
+                    status: "required",
+                    reasons: [],
+                    reviewedAt: null,
+                    reviewerIdentityExposed: true,
+                    patientDeliveryAllowed: true,
+                    medicalMeasurementAllowed: true,
+                  },
                   technicalMarkerCount: 1,
                   updatedAt: "2026-05-19T10:55:00.000Z",
                   nextAction: "request_recapture",
@@ -740,6 +776,7 @@ function createLiveWorkspaceFetchMock() {
                 reviewedPairCount: 2,
                 technicalReadyPairCount: 2,
                 productionAssetNotReadyCount: 1,
+                productionAnalysisPolicyNotReadyCount: 1,
                 missingCaptureMetadataCount: 1,
                 deviceEvidenceNotReadyCount: 1,
                 deviceBridgeQualityNotReadyCount: 1,
@@ -762,6 +799,7 @@ function createLiveWorkspaceFetchMock() {
                   reviewedPairCount: 1,
                   technicalReadyPairCount: 1,
                   productionAssetNotReadyCount: 1,
+                  productionAnalysisPolicyNotReadyCount: 1,
                   missingCaptureMetadataCount: 1,
                   deviceEvidenceNotReadyCount: 1,
                   deviceBridgeQualityNotReadyCount: 1,
@@ -785,6 +823,7 @@ function createLiveWorkspaceFetchMock() {
                   reviewedPairCount: 1,
                   technicalReadyPairCount: 1,
                   productionAssetNotReadyCount: 0,
+                  productionAnalysisPolicyNotReadyCount: 1,
                   missingCaptureMetadataCount: 0,
                   deviceEvidenceNotReadyCount: 1,
                   deviceBridgeQualityNotReadyCount: 1,
@@ -822,6 +861,14 @@ function createLiveWorkspaceFetchMock() {
                   imageIds: ["i-011", "i-012"],
                 },
                 {
+                  code: "production_analysis_policy_required",
+                  label: "Нужна production analysis policy",
+                  count: 1,
+                  nextAction: "approve_production_analysis_policy",
+                  pairKey: "live-lesion:i-011+i-012",
+                  imageIds: ["i-011", "i-012"],
+                },
+                {
                   code: "device_bridge_quality_not_ready",
                   label: "Device Bridge требует проверки",
                   count: 1,
@@ -830,7 +877,13 @@ function createLiveWorkspaceFetchMock() {
                   imageIds: ["i-011", "i-012"],
                 },
               ],
-              nextActions: ["verify_production_asset", "complete_capture_metadata", "complete_device_metadata", "check_device_bridge"],
+              nextActions: [
+                "verify_production_asset",
+                "complete_capture_metadata",
+                "complete_device_metadata",
+                "check_device_bridge",
+                "approve_production_analysis_policy",
+              ],
               boundaries: {
                 patientDeliveryAllowed: true,
                 medicalMeasurementAllowed: true,
@@ -933,7 +986,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить Device Bridge/)).toBeInTheDocument();
+    expect(screen.getByText(/Утвердить analysis policy/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Analysis/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/assets: 1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/analysis: 1/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/bridge: 1/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Динамический вывод: выключен/)).toBeInTheDocument();
     expect(screen.getByText(/Неизменяемый backend-аудит/)).toBeInTheDocument();

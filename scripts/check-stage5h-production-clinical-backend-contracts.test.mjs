@@ -7,7 +7,7 @@ import { collectStage5HChecks } from "./check-stage5h-production-clinical-backen
 test("Stage 5H guard validates production clinical backend contracts", () => {
   const result = collectStage5HChecks();
   assert.equal(result.ok, true, result.errors.join("\n"));
-  assert.equal(result.checkedFiles, 25);
+  assert.equal(result.checkedFiles, 26);
 });
 
 test("Stage 5H guard CLI exits zero", () => {

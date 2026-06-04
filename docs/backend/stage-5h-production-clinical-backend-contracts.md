@@ -1250,6 +1250,89 @@ Frontend behavior:
   doctor-side metadata-only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BQ Production Analysis Policy Gate
+
+Batch BQ adds a production analysis policy gate after measurement policy,
+reviewer assignment, and second-review readiness. This gate authorizes only the
+production-readiness workflow boundary. It does not generate a clinical dynamic
+conclusion, diagnosis, prognosis, treatment recommendation, medical
+measurement, or patient delivery payload.
+
+Migration:
+
+- `0067_stage5h_production_analysis_policy_gate.sql` extends
+  `lesion_comparison_viewer_qa_drafts` with
+  `production_analysis_policy_status`,
+  `production_analysis_policy_reasons`,
+  `production_analysis_policy_reviewed_by_user_id`, and
+  `production_analysis_policy_reviewed_at`;
+- allowed statuses are `not_approved`, `review_required`, and
+  `approved_for_production_analysis`;
+- CHECK `lesion_comparison_viewer_qa_production_analysis_policy_no_protected_keys`
+  blocks diagnosis/risk/prognosis/treatment keys, dynamic clinical conclusion
+  keys such as `dynamicConclusion` / `clinicalDynamicConclusion`, measurement
+  value keys, patient delivery payloads, protected image/storage fields,
+  QR/session/token fields, and doctor/patient report text.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/lesion-comparison-viewer-qa/production-analysis-policy`
+  persists a metadata-only production analysis policy decision;
+- service audit action `lesion_comparison_production_analysis_policy.review`
+  stores visit/lesion/status/reason counts and forced-false boundaries only;
+- `reviewerWorkflow.gate.productionAnalysisPolicyApproved` is required before
+  reviewer workflow acceptance;
+- review queue adds `productionAnalysisPolicyRequired`, item-level
+  `productionAnalysisPolicy`, and next action
+  `approve_production_analysis_policy`;
+- lesion longitudinal QA and visit longitudinal dataset validation add
+  `productionAnalysisPolicyNotReadyCount`, blocker
+  `production_analysis_policy_required`, and next action
+  `approve_production_analysis_policy`.
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`, `patientDeliveryAllowed=false`,
+  `protectedFieldsExposed=false`, and `clinicalOutputGenerated=false` remain
+  forced by repository normalizers, service responses, frontend DTOs, and UI
+  copy;
+- no pair keys, image IDs in rollups/audit, reviewer identities in patient/UI
+  copy, raw image bytes, object bucket/key, storage path, checksum, signed URL,
+  QR/session/credential material, diagnosis/risk/prognosis/treatment,
+  clinical dynamic conclusion, doctor-only text, or patient-safe report text is
+  exposed.
+
+Frontend behavior:
+
+- `LesionDetailPage` full-screen comparison now shows region
+  `Production analysis policy` after `Назначение reviewer` and before
+  `Clinical-grade reviewer workflow`;
+- actions `Утвердить analysis policy` and `Нужен разбор analysis policy` save
+  locally in demo mode and use the self-hosted backend when configured;
+- the policy approval action is gated by approved technical measurement policy,
+  reviewer assignment, and second review;
+- `VisitWorkspacePage` shows compact `Analysis` counters, per-lesion
+  `analysis:` fragments, and action label `Утвердить analysis policy`.
+
+### Batch BQ Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BQ adds the
+  production analysis policy gate to lesion/timeline readiness, so chronology
+  rollout does not advance into production-analysis workflow without an
+  explicit policy approval. Remaining gate: validation on real production
+  datasets and clinical operations rollout.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BQ
+  closes the production analysis policy prerequisite after technical policy,
+  reviewer assignment, and second review. Remaining gate: production reviewer
+  operations validation and approved analysis procedure.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BQ keeps dynamic
+  interpretation blocked until production analysis policy is approved; clinical
+  dynamic conclusion remains disabled. Remaining gate: approved production
+  analysis policy governance and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BQ is
+  doctor-side metadata-only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none
