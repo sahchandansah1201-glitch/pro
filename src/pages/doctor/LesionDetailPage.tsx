@@ -225,6 +225,7 @@ const LONGITUDINAL_QA_ACTION_LABEL: Record<SelfHostedLesionLongitudinalQaAction,
   complete_capture_metadata: "Дозаполнить metadata съёмки",
   complete_device_metadata: "Дозаполнить device metadata",
   check_device_bridge: "Проверить Device Bridge",
+  complete_capture_protocol: "Дозаполнить протокол съёмки",
   complete_calibration: "Закрыть калибровку",
   place_markers: "Поставить технические маркеры",
   continue_review: "Продолжить врачебный разбор",
@@ -594,6 +595,7 @@ function buildLocalLongitudinalQaGate({
       missingCaptureMetadataCount: 0,
       deviceEvidenceNotReadyCount: 0,
       deviceBridgeQualityNotReadyCount: 0,
+      captureProtocolNotReadyCount: 0,
       calibrationBlockedCount,
       markerMissingCount,
       technicalRolloutReady,
@@ -778,7 +780,7 @@ function LongitudinalQaGateSection({
           </span>
         </div>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-8">
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Пары</div>
             <div className="mt-1 font-medium">Пар: {readiness.candidatePairCount}</div>
@@ -808,6 +810,11 @@ function LongitudinalQaGateSection({
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Bridge</div>
             <div className="mt-1 font-medium">Проверить: {readiness.deviceBridgeQualityNotReadyCount}</div>
             <div className="text-[11px] text-muted-foreground">Review: {readiness.unreviewedPairCount}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Protocol</div>
+            <div className="mt-1 font-medium">Проверить: {readiness.captureProtocolNotReadyCount}</div>
+            <div className="text-[11px] text-muted-foreground">Протокол съёмки</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Калибровка</div>

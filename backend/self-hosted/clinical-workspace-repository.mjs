@@ -387,6 +387,7 @@ from (
       end as production_asset_status,
       a.created_at,
       m.asset_id as metadata_asset_id,
+      m.capture_protocol_status,
       case
         when m.asset_id is null or coalesce(m.capture_source, 'unknown') <> 'device_bridge' then 'not_applicable'
         when m.device_id is null then 'needs_review'
@@ -406,6 +407,7 @@ from (
         when coalesce(m.quality_score, 0) < 75 then 'needs_review'
         when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'needs_review'
         when coalesce(m.device_evidence_status, 'missing') <> 'ready' then 'needs_review'
+        when coalesce(m.capture_protocol_status, 'missing') <> 'ready' then 'needs_review'
         else 'ready'
       end as capture_metadata_status
     from clinical_assets a
@@ -458,6 +460,7 @@ from (
       coalesce((select count(*)::int from lesion_assets where capture_metadata_status = 'missing'), 0) as missing_capture_metadata_count,
       coalesce((select count(*)::int from lesion_assets where metadata_asset_id is not null and capture_metadata_status <> 'ready'), 0) as device_evidence_not_ready_count,
       coalesce((select count(*)::int from lesion_assets where device_bridge_quality_status = 'needs_review'), 0) as device_bridge_quality_not_ready_count,
+      coalesce((select count(*)::int from lesion_assets where metadata_asset_id is not null and coalesce(capture_protocol_status, 'missing') <> 'ready'), 0) as capture_protocol_not_ready_count,
       coalesce((select count(*)::int from qa_rows where calibration_status <> 'ready'), 0) as calibration_blocked_count,
       coalesce((select count(*)::int from qa_rows where technical_marker_count < 2), 0) as marker_missing_count
   ),
@@ -472,6 +475,7 @@ from (
           or missing_capture_metadata_count > 0
           or device_evidence_not_ready_count > 0
           or device_bridge_quality_not_ready_count > 0
+          or capture_protocol_not_ready_count > 0
           or calibration_blocked_count > 0
           or marker_missing_count > 0 then 'blocked'
         when unreviewed_pair_count > 0 then 'needs_review'
@@ -487,6 +491,7 @@ from (
         and missing_capture_metadata_count = 0
         and device_evidence_not_ready_count = 0
         and device_bridge_quality_not_ready_count = 0
+        and capture_protocol_not_ready_count = 0
         and calibration_blocked_count = 0
         and marker_missing_count = 0
       ) as technical_rollout_ready
@@ -511,6 +516,7 @@ from (
       'missingCaptureMetadataCount', r.missing_capture_metadata_count,
       'deviceEvidenceNotReadyCount', r.device_evidence_not_ready_count,
       'deviceBridgeQualityNotReadyCount', r.device_bridge_quality_not_ready_count,
+      'captureProtocolNotReadyCount', r.capture_protocol_not_ready_count,
       'calibrationBlockedCount', r.calibration_blocked_count,
       'markerMissingCount', r.marker_missing_count,
       'technicalRolloutReady', r.technical_rollout_ready,
@@ -525,6 +531,7 @@ from (
       jsonb_build_object('code', 'missing_capture_metadata', 'label', 'Не хватает metadata съёмки', 'count', r.missing_capture_metadata_count, 'nextAction', 'complete_capture_metadata'),
       jsonb_build_object('code', 'device_metadata_not_ready', 'label', 'Device metadata требует проверки', 'count', r.device_evidence_not_ready_count, 'nextAction', 'complete_device_metadata'),
       jsonb_build_object('code', 'device_bridge_quality_not_ready', 'label', 'Device Bridge требует проверки', 'count', r.device_bridge_quality_not_ready_count, 'nextAction', 'check_device_bridge'),
+      jsonb_build_object('code', 'capture_protocol_not_ready', 'label', 'Протокол съёмки требует проверки', 'count', r.capture_protocol_not_ready_count, 'nextAction', 'complete_capture_protocol'),
       jsonb_build_object('code', 'calibration_not_ready', 'label', 'Калибровка не готова', 'count', r.calibration_blocked_count, 'nextAction', 'complete_calibration'),
       jsonb_build_object('code', 'technical_markers_missing', 'label', 'Не хватает технических маркеров', 'count', r.marker_missing_count, 'nextAction', 'place_markers')
     ) as "blockers",
@@ -536,6 +543,7 @@ from (
       case when r.missing_capture_metadata_count > 0 then 'complete_capture_metadata' end,
       case when r.device_evidence_not_ready_count > 0 then 'complete_device_metadata' end,
       case when r.device_bridge_quality_not_ready_count > 0 then 'check_device_bridge' end,
+      case when r.capture_protocol_not_ready_count > 0 then 'complete_capture_protocol' end,
       case when r.calibration_blocked_count > 0 then 'complete_calibration' end,
       case when r.marker_missing_count > 0 then 'place_markers' end,
       case when r.technical_rollout_ready then 'continue_review' end
@@ -608,6 +616,7 @@ from (
         else 'ready'
       end as production_asset_status,
       m.asset_id as metadata_asset_id,
+      m.capture_protocol_status,
       case
         when m.asset_id is null or coalesce(m.capture_source, 'unknown') <> 'device_bridge' then 'not_applicable'
         when m.device_id is null then 'needs_review'
@@ -627,6 +636,7 @@ from (
         when coalesce(m.quality_score, 0) < 75 then 'needs_review'
         when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'needs_review'
         when coalesce(m.device_evidence_status, 'missing') <> 'ready' then 'needs_review'
+        when coalesce(m.capture_protocol_status, 'missing') <> 'ready' then 'needs_review'
         else 'ready'
       end as capture_metadata_status
     from clinical_assets a
@@ -685,6 +695,7 @@ from (
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.capture_metadata_status = 'missing'), 0) as missing_capture_metadata_count,
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.metadata_asset_id is not null and a.capture_metadata_status <> 'ready'), 0) as device_evidence_not_ready_count,
       coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.device_bridge_quality_status = 'needs_review'), 0) as device_bridge_quality_not_ready_count,
+      coalesce((select count(*)::int from lesion_assets a where a.lesion_id = l.id and a.metadata_asset_id is not null and coalesce(a.capture_protocol_status, 'missing') <> 'ready'), 0) as capture_protocol_not_ready_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.calibration_status <> 'ready'), 0) as calibration_blocked_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.technical_marker_count < 2), 0) as marker_missing_count,
       coalesce((select count(*)::int from qa_rows q where q.lesion_id = l.id::text and q.reviewer_workflow_status in ('ready_for_reviewer', 'reviewer_accepted')), 0) as reviewer_workflow_ready_count
@@ -701,6 +712,7 @@ from (
           or missing_capture_metadata_count > 0
           or device_evidence_not_ready_count > 0
           or device_bridge_quality_not_ready_count > 0
+          or capture_protocol_not_ready_count > 0
           or calibration_blocked_count > 0
           or marker_missing_count > 0 then 'blocked'
         when unreviewed_pair_count > 0 then 'needs_review'
@@ -714,6 +726,7 @@ from (
         when missing_capture_metadata_count > 0 then 'complete_capture_metadata'
         when device_evidence_not_ready_count > 0 then 'complete_device_metadata'
         when device_bridge_quality_not_ready_count > 0 then 'check_device_bridge'
+        when capture_protocol_not_ready_count > 0 then 'complete_capture_protocol'
         when calibration_blocked_count > 0 then 'complete_calibration'
         when marker_missing_count > 0 then 'place_markers'
         else 'continue_review'
@@ -744,6 +757,9 @@ from (
     union all
     select 'device_bridge_quality_not_ready', 'Device Bridge требует проверки', 'check_device_bridge',
       coalesce((select sum(device_bridge_quality_not_ready_count)::int from classified), 0)
+    union all
+    select 'capture_protocol_not_ready', 'Протокол съёмки требует проверки', 'complete_capture_protocol',
+      coalesce((select sum(capture_protocol_not_ready_count)::int from classified), 0)
     union all
     select 'calibration_not_ready', 'Калибровка не готова', 'complete_calibration',
       coalesce((select sum(calibration_blocked_count)::int from classified), 0)
@@ -781,6 +797,7 @@ from (
       'missingCaptureMetadataCount', coalesce((select sum(missing_capture_metadata_count)::int from classified), 0),
       'deviceEvidenceNotReadyCount', coalesce((select sum(device_evidence_not_ready_count)::int from classified), 0),
       'deviceBridgeQualityNotReadyCount', coalesce((select sum(device_bridge_quality_not_ready_count)::int from classified), 0),
+      'captureProtocolNotReadyCount', coalesce((select sum(capture_protocol_not_ready_count)::int from classified), 0),
       'calibrationBlockedCount', coalesce((select sum(calibration_blocked_count)::int from classified), 0),
       'markerMissingCount', coalesce((select sum(marker_missing_count)::int from classified), 0),
       'reviewerWorkflowReadyCount', coalesce((select sum(reviewer_workflow_ready_count)::int from classified), 0),
@@ -803,6 +820,7 @@ from (
         'missingCaptureMetadataCount', c.missing_capture_metadata_count,
         'deviceEvidenceNotReadyCount', c.device_evidence_not_ready_count,
         'deviceBridgeQualityNotReadyCount', c.device_bridge_quality_not_ready_count,
+        'captureProtocolNotReadyCount', c.capture_protocol_not_ready_count,
         'calibrationBlockedCount', c.calibration_blocked_count,
         'markerMissingCount', c.marker_missing_count,
         'reviewerWorkflowReadyCount', c.reviewer_workflow_ready_count,
@@ -828,6 +846,7 @@ from (
       case when exists(select 1 from classified where missing_capture_metadata_count > 0) then 'complete_capture_metadata' end,
       case when exists(select 1 from classified where device_evidence_not_ready_count > 0) then 'complete_device_metadata' end,
       case when exists(select 1 from classified where device_bridge_quality_not_ready_count > 0) then 'check_device_bridge' end,
+      case when exists(select 1 from classified where capture_protocol_not_ready_count > 0) then 'complete_capture_protocol' end,
       case when exists(select 1 from classified where calibration_blocked_count > 0) then 'complete_calibration' end,
       case when exists(select 1 from classified where marker_missing_count > 0) then 'place_markers' end,
       case when exists(select 1 from classified where status = 'ready_for_rollout') then 'continue_review' end
@@ -943,6 +962,12 @@ from (
       m.device_calibration_status,
       m.device_calibration_checked_at,
       m.device_evidence_status,
+      m.capture_protocol_version,
+      m.lens_profile,
+      m.polarization_mode,
+      m.color_reference_status,
+      m.device_clock_sync_status,
+      m.capture_protocol_status,
       case
         when a.object_bucket is null or a.object_key is null then 'needs_review'
         when coalesce(a.byte_size, 0) <= 0 then 'needs_review'
@@ -986,6 +1011,7 @@ from (
         when coalesce(m.quality_score, 0) < 75 then 'warning'
         when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'warning'
         when coalesce(m.device_evidence_status, 'missing') <> 'ready' then 'warning'
+        when coalesce(m.capture_protocol_status, 'missing') <> 'ready' then 'warning'
         when coalesce(m.capture_source, 'unknown') = 'device_bridge'
           and (
             m.device_id is null
@@ -1011,6 +1037,7 @@ from (
         case when cardinality(coalesce(m.quality_issues, array[]::text[])) > 0 then 'quality_issue' end,
         case when m.asset_id is not null and m.scale_marker_detected = false then 'scale_marker_missing' end,
         case when m.asset_id is not null and coalesce(m.device_evidence_status, 'missing') <> 'ready' then 'device_metadata_not_ready' end,
+        case when m.asset_id is not null and coalesce(m.capture_protocol_status, 'missing') <> 'ready' then 'capture_protocol_not_ready' end,
         case when m.asset_id is not null and coalesce(m.capture_source, 'unknown') = 'device_bridge'
           and (
             m.device_id is null
@@ -1059,7 +1086,9 @@ from (
       'productionAssetReadyCount', coalesce((select count(*)::int from asset_rows where production_asset_status = 'ready'), 0),
       'productionAssetReviewCount', coalesce((select count(*)::int from asset_rows where production_asset_status = 'needs_review'), 0),
       'deviceBridgeQualityReadyCount', coalesce((select count(*)::int from asset_rows where device_bridge_quality_status = 'ready'), 0),
-      'deviceBridgeQualityReviewCount', coalesce((select count(*)::int from asset_rows where device_bridge_quality_status = 'needs_review'), 0)
+      'deviceBridgeQualityReviewCount', coalesce((select count(*)::int from asset_rows where device_bridge_quality_status = 'needs_review'), 0),
+      'captureProtocolReadyCount', coalesce((select count(*)::int from asset_rows where capture_protocol_status = 'ready'), 0),
+      'captureProtocolReviewCount', coalesce((select count(*)::int from asset_rows where capture_protocol_status in ('missing', 'needs_review')), 0)
     ) as "summary",
     coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -1084,6 +1113,12 @@ from (
         'deviceCalibrationStatus', coalesce(a.device_calibration_status, 'unknown'),
         'deviceCalibrationCheckedAt', a.device_calibration_checked_at,
         'deviceEvidenceStatus', coalesce(a.device_evidence_status, 'missing'),
+        'captureProtocolVersion', coalesce(a.capture_protocol_version, 'unknown'),
+        'lensProfile', coalesce(a.lens_profile, 'unknown'),
+        'polarizationMode', coalesce(a.polarization_mode, 'unknown'),
+        'colorReferenceStatus', coalesce(a.color_reference_status, 'unknown'),
+        'deviceClockSyncStatus', coalesce(a.device_clock_sync_status, 'unknown'),
+        'captureProtocolStatus', coalesce(a.capture_protocol_status, 'missing'),
         'productionAssetReadinessStatus', coalesce(a.production_asset_status, 'needs_review'),
         'productionAssetReadinessReasons', coalesce(a.production_asset_reasons, array[]::text[]),
         'deviceBridgeQualityStatus', coalesce(a.device_bridge_quality_status, 'not_applicable'),
@@ -1254,6 +1289,12 @@ function assetCaptureMetadataUpdateSet(metadata = {}) {
     `device_calibration_status = ${sqlLiteral(metadata.deviceCalibrationStatus ?? "unknown")}`,
     `device_calibration_checked_at = ${sqlNullableTimestamp(metadata.deviceCalibrationCheckedAt ?? null)}`,
     `device_evidence_status = ${sqlLiteral(metadata.deviceEvidenceStatus ?? "needs_review")}`,
+    `capture_protocol_version = ${sqlLiteral(metadata.captureProtocolVersion ?? "unknown")}`,
+    `lens_profile = ${sqlLiteral(metadata.lensProfile ?? "unknown")}`,
+    `polarization_mode = ${sqlLiteral(metadata.polarizationMode ?? "unknown")}`,
+    `color_reference_status = ${sqlLiteral(metadata.colorReferenceStatus ?? "unknown")}`,
+    `device_clock_sync_status = ${sqlLiteral(metadata.deviceClockSyncStatus ?? "unknown")}`,
+    `capture_protocol_status = ${sqlLiteral(metadata.captureProtocolStatus ?? "missing")}`,
     "patient_delivery_allowed = false",
     "protected_fields_exposed = false",
     `metadata_json = ${sqlJsonb({
@@ -1307,6 +1348,8 @@ from (
       quality_issues, scale_marker_detected, millimeters_available,
       device_capture_profile, lighting_profile, focus_profile, distance_profile,
       device_calibration_status, device_calibration_checked_at, device_evidence_status,
+      capture_protocol_version, lens_profile, polarization_mode, color_reference_status,
+      device_clock_sync_status, capture_protocol_status,
       metadata_json, patient_delivery_allowed, protected_fields_exposed
     )
     select
@@ -1331,6 +1374,12 @@ from (
       ${sqlLiteral(metadata.deviceCalibrationStatus ?? "unknown")},
       ${sqlNullableTimestamp(metadata.deviceCalibrationCheckedAt ?? null)},
       ${sqlLiteral(metadata.deviceEvidenceStatus ?? "needs_review")},
+      ${sqlLiteral(metadata.captureProtocolVersion ?? "unknown")},
+      ${sqlLiteral(metadata.lensProfile ?? "unknown")},
+      ${sqlLiteral(metadata.polarizationMode ?? "unknown")},
+      ${sqlLiteral(metadata.colorReferenceStatus ?? "unknown")},
+      ${sqlLiteral(metadata.deviceClockSyncStatus ?? "unknown")},
+      ${sqlLiteral(metadata.captureProtocolStatus ?? "missing")},
       ${sqlJsonb({
         brainstormTask: "SD-MF-025/026/028",
         auditBoundary: "metadata_only",
@@ -1370,6 +1419,12 @@ from (
     m.device_calibration_status as "deviceCalibrationStatus",
     m.device_calibration_checked_at as "deviceCalibrationCheckedAt",
     m.device_evidence_status as "deviceEvidenceStatus",
+    m.capture_protocol_version as "captureProtocolVersion",
+    m.lens_profile as "lensProfile",
+    m.polarization_mode as "polarizationMode",
+    m.color_reference_status as "colorReferenceStatus",
+    m.device_clock_sync_status as "deviceClockSyncStatus",
+    m.capture_protocol_status as "captureProtocolStatus",
     m.patient_delivery_allowed as "patientDeliveryAllowed",
     m.protected_fields_exposed as "protectedFieldsExposed",
     m.created_at as "createdAt",
@@ -2128,6 +2183,14 @@ function normalizeAssetCaptureMetadata(row) {
       calibrationCheckedAt: row.deviceCalibrationCheckedAt ?? null,
       status: String(row.deviceEvidenceStatus ?? "missing"),
     },
+    captureProtocol: {
+      version: String(row.captureProtocolVersion ?? "unknown"),
+      lensProfile: String(row.lensProfile ?? "unknown"),
+      polarizationMode: String(row.polarizationMode ?? "unknown"),
+      colorReferenceStatus: String(row.colorReferenceStatus ?? "unknown"),
+      clockSyncStatus: String(row.deviceClockSyncStatus ?? "unknown"),
+      status: String(row.captureProtocolStatus ?? "missing"),
+    },
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
     createdAt: row.createdAt ?? null,
@@ -2149,6 +2212,8 @@ function normalizeCaptureMetadataSummary(value) {
     productionAssetReviewCount: numberOrZero(source.productionAssetReviewCount),
     deviceBridgeQualityReadyCount: numberOrZero(source.deviceBridgeQualityReadyCount),
     deviceBridgeQualityReviewCount: numberOrZero(source.deviceBridgeQualityReviewCount),
+    captureProtocolReadyCount: numberOrZero(source.captureProtocolReadyCount),
+    captureProtocolReviewCount: numberOrZero(source.captureProtocolReviewCount),
   };
 }
 
@@ -2371,6 +2436,7 @@ const LONGITUDINAL_QA_BLOCKER_VALUES = new Set([
   "missing_capture_metadata",
   "device_metadata_not_ready",
   "device_bridge_quality_not_ready",
+  "capture_protocol_not_ready",
   "calibration_not_ready",
   "technical_markers_missing",
 ]);
@@ -2382,6 +2448,7 @@ const LONGITUDINAL_QA_ACTION_VALUES = new Set([
   "complete_capture_metadata",
   "complete_device_metadata",
   "check_device_bridge",
+  "complete_capture_protocol",
   "complete_calibration",
   "place_markers",
   "continue_review",
@@ -2413,6 +2480,7 @@ function normalizeLongitudinalQaReadiness(value) {
     missingCaptureMetadataCount: numberOrZero(source.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(source.deviceEvidenceNotReadyCount),
     deviceBridgeQualityNotReadyCount: numberOrZero(source.deviceBridgeQualityNotReadyCount),
+    captureProtocolNotReadyCount: numberOrZero(source.captureProtocolNotReadyCount),
     calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
     markerMissingCount: numberOrZero(source.markerMissingCount),
     technicalRolloutReady: source.technicalRolloutReady === true,
@@ -2492,6 +2560,7 @@ function normalizeVisitLongitudinalDatasetValidationReadiness(value) {
     missingCaptureMetadataCount: numberOrZero(source.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(source.deviceEvidenceNotReadyCount),
     deviceBridgeQualityNotReadyCount: numberOrZero(source.deviceBridgeQualityNotReadyCount),
+    captureProtocolNotReadyCount: numberOrZero(source.captureProtocolNotReadyCount),
     calibrationBlockedCount: numberOrZero(source.calibrationBlockedCount),
     markerMissingCount: numberOrZero(source.markerMissingCount),
     reviewerWorkflowReadyCount: numberOrZero(source.reviewerWorkflowReadyCount),
@@ -2518,6 +2587,7 @@ function normalizeVisitLongitudinalDatasetValidationItem(row) {
     missingCaptureMetadataCount: numberOrZero(row.missingCaptureMetadataCount),
     deviceEvidenceNotReadyCount: numberOrZero(row.deviceEvidenceNotReadyCount),
     deviceBridgeQualityNotReadyCount: numberOrZero(row.deviceBridgeQualityNotReadyCount),
+    captureProtocolNotReadyCount: numberOrZero(row.captureProtocolNotReadyCount),
     calibrationBlockedCount: numberOrZero(row.calibrationBlockedCount),
     markerMissingCount: numberOrZero(row.markerMissingCount),
     reviewerWorkflowReadyCount: numberOrZero(row.reviewerWorkflowReadyCount),

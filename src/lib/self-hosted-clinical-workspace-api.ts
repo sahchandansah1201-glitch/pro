@@ -93,6 +93,11 @@ export interface AssetCaptureMetadataPayload {
   distanceProfile?: "fixed" | "estimated" | "unknown";
   deviceCalibrationStatus?: "valid" | "due_soon" | "expired" | "missing" | "not_applicable" | "unknown";
   deviceCalibrationCheckedAt?: string | null;
+  captureProtocolVersion?: "clinic_standard_v1" | "device_standard_v1" | "imported_standard" | "unknown";
+  lensProfile?: "dermoscope_contact" | "dermoscope_non_contact" | "macro_lens" | "phone_camera" | "unknown";
+  polarizationMode?: "polarized" | "non_polarized" | "cross_polarized" | "not_applicable" | "unknown";
+  colorReferenceStatus?: "captured" | "not_required" | "missing" | "unknown";
+  deviceClockSyncStatus?: "synced" | "stale" | "missing" | "unknown";
 }
 
 export interface SelfHostedAssetCaptureMetadataDTO {
@@ -120,6 +125,14 @@ export interface SelfHostedAssetCaptureMetadataDTO {
     status: "ready" | "needs_review" | "not_applicable";
     reasons: string[];
   };
+  captureProtocol: {
+    version: string;
+    lensProfile: string;
+    polarizationMode: string;
+    colorReferenceStatus: string;
+    clockSyncStatus: string;
+    status: "ready" | "needs_review" | "missing";
+  };
   productionAssetReadiness: {
     status: "ready" | "needs_review";
     reasons: string[];
@@ -146,6 +159,8 @@ export interface SelfHostedLesionCaptureMetadataDTO {
     productionAssetReviewCount: number;
     deviceBridgeQualityReadyCount: number;
     deviceBridgeQualityReviewCount: number;
+    captureProtocolReadyCount: number;
+    captureProtocolReviewCount: number;
   };
   items: Array<{
     assetId: string;
@@ -162,6 +177,7 @@ export interface SelfHostedLesionCaptureMetadataDTO {
     deviceEvidence: SelfHostedAssetCaptureMetadataDTO["deviceEvidence"];
     productionAssetReadiness: SelfHostedAssetCaptureMetadataDTO["productionAssetReadiness"];
     deviceBridgeQuality: SelfHostedAssetCaptureMetadataDTO["deviceBridgeQuality"];
+    captureProtocol: SelfHostedAssetCaptureMetadataDTO["captureProtocol"];
     technicalStatus: "ready" | "warning" | "missing";
     technicalReasons: string[];
   }>;
@@ -353,6 +369,7 @@ export type SelfHostedLesionLongitudinalQaAction =
   | "complete_capture_metadata"
   | "complete_device_metadata"
   | "check_device_bridge"
+  | "complete_capture_protocol"
   | "complete_calibration"
   | "place_markers"
   | "continue_review";
@@ -376,6 +393,7 @@ export interface SelfHostedLesionLongitudinalQaDTO {
     missingCaptureMetadataCount: number;
     deviceEvidenceNotReadyCount: number;
     deviceBridgeQualityNotReadyCount: number;
+    captureProtocolNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
     technicalRolloutReady: boolean;
@@ -391,6 +409,7 @@ export interface SelfHostedLesionLongitudinalQaDTO {
       | "missing_capture_metadata"
       | "device_metadata_not_ready"
       | "device_bridge_quality_not_ready"
+      | "capture_protocol_not_ready"
       | "calibration_not_ready"
       | "technical_markers_missing";
     label: string;
@@ -436,6 +455,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     missingCaptureMetadataCount: number;
     deviceEvidenceNotReadyCount: number;
     deviceBridgeQualityNotReadyCount: number;
+    captureProtocolNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
     reviewerWorkflowReadyCount: number;
@@ -457,6 +477,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
     missingCaptureMetadataCount: number;
     deviceEvidenceNotReadyCount: number;
     deviceBridgeQualityNotReadyCount: number;
+    captureProtocolNotReadyCount: number;
     calibrationBlockedCount: number;
     markerMissingCount: number;
     reviewerWorkflowReadyCount: number;
@@ -782,6 +803,19 @@ function toDeviceBridgeQuality(input: unknown): SelfHostedAssetCaptureMetadataDT
   };
 }
 
+function toCaptureProtocol(input: unknown): SelfHostedAssetCaptureMetadataDTO["captureProtocol"] {
+  const row = isRecord(input) ? input : {};
+  const status = row.status === "ready" || row.status === "needs_review" ? row.status : "missing";
+  return {
+    version: String(row.version ?? "unknown"),
+    lensProfile: String(row.lensProfile ?? "unknown"),
+    polarizationMode: String(row.polarizationMode ?? "unknown"),
+    colorReferenceStatus: String(row.colorReferenceStatus ?? "unknown"),
+    clockSyncStatus: String(row.clockSyncStatus ?? "unknown"),
+    status,
+  };
+}
+
 function toProductionAssetReadiness(input: unknown): SelfHostedAssetCaptureMetadataDTO["productionAssetReadiness"] {
   const row = isRecord(input) ? input : {};
   const status = row.status === "ready" ? "ready" : "needs_review";
@@ -807,6 +841,7 @@ function toAssetCaptureMetadata(input: Record<string, unknown>): SelfHostedAsset
     deviceEvidence: toDeviceEvidence(input.deviceEvidence),
     productionAssetReadiness: toProductionAssetReadiness(input.productionAssetReadiness),
     deviceBridgeQuality: toDeviceBridgeQuality(input.deviceBridgeQuality),
+    captureProtocol: toCaptureProtocol(input.captureProtocol),
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
     createdAt: textOrNull(input.createdAt),
@@ -836,6 +871,8 @@ function toLesionCaptureMetadata(input: Record<string, unknown>): SelfHostedLesi
     productionAssetReviewCount: numberOrZero(summary.productionAssetReviewCount),
     deviceBridgeQualityReadyCount: numberOrZero(summary.deviceBridgeQualityReadyCount),
       deviceBridgeQualityReviewCount: numberOrZero(summary.deviceBridgeQualityReviewCount),
+      captureProtocolReadyCount: numberOrZero(summary.captureProtocolReadyCount),
+      captureProtocolReviewCount: numberOrZero(summary.captureProtocolReviewCount),
     },
     items: toRecordArray(input.items).map((item) => ({
       assetId: String(item.assetId ?? ""),
@@ -852,6 +889,7 @@ function toLesionCaptureMetadata(input: Record<string, unknown>): SelfHostedLesi
     deviceEvidence: toDeviceEvidence(item.deviceEvidence),
     productionAssetReadiness: toProductionAssetReadiness(item.productionAssetReadiness),
     deviceBridgeQuality: toDeviceBridgeQuality(item.deviceBridgeQuality),
+      captureProtocol: toCaptureProtocol(item.captureProtocol),
       technicalStatus: toCaptureMetadataStatus(item.technicalStatus),
       technicalReasons: toStringArray(item.technicalReasons),
     })),
@@ -1090,6 +1128,7 @@ const LONGITUDINAL_QA_BLOCKER_CODES = new Set<SelfHostedLesionLongitudinalQaDTO[
   "missing_capture_metadata",
   "device_metadata_not_ready",
   "device_bridge_quality_not_ready",
+  "capture_protocol_not_ready",
   "calibration_not_ready",
   "technical_markers_missing",
 ]);
@@ -1106,6 +1145,7 @@ function toLongitudinalQaAction(value: unknown): SelfHostedLesionLongitudinalQaA
     || value === "complete_capture_metadata"
     || value === "complete_device_metadata"
     || value === "check_device_bridge"
+    || value === "complete_capture_protocol"
     || value === "complete_calibration"
     || value === "place_markers"
     || value === "continue_review"
@@ -1152,6 +1192,7 @@ function toLesionLongitudinalQa(input: Record<string, unknown>): SelfHostedLesio
       missingCaptureMetadataCount: numberOrZero(readiness.missingCaptureMetadataCount),
       deviceEvidenceNotReadyCount: numberOrZero(readiness.deviceEvidenceNotReadyCount),
       deviceBridgeQualityNotReadyCount: numberOrZero(readiness.deviceBridgeQualityNotReadyCount),
+      captureProtocolNotReadyCount: numberOrZero(readiness.captureProtocolNotReadyCount),
       calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
       markerMissingCount: numberOrZero(readiness.markerMissingCount),
       technicalRolloutReady: readiness.technicalRolloutReady === true,
@@ -1210,6 +1251,7 @@ function toVisitLongitudinalDatasetValidation(
       missingCaptureMetadataCount: numberOrZero(readiness.missingCaptureMetadataCount),
       deviceEvidenceNotReadyCount: numberOrZero(readiness.deviceEvidenceNotReadyCount),
       deviceBridgeQualityNotReadyCount: numberOrZero(readiness.deviceBridgeQualityNotReadyCount),
+      captureProtocolNotReadyCount: numberOrZero(readiness.captureProtocolNotReadyCount),
       calibrationBlockedCount: numberOrZero(readiness.calibrationBlockedCount),
       markerMissingCount: numberOrZero(readiness.markerMissingCount),
       reviewerWorkflowReadyCount: numberOrZero(readiness.reviewerWorkflowReadyCount),
@@ -1231,6 +1273,7 @@ function toVisitLongitudinalDatasetValidation(
       missingCaptureMetadataCount: numberOrZero(item.missingCaptureMetadataCount),
       deviceEvidenceNotReadyCount: numberOrZero(item.deviceEvidenceNotReadyCount),
       deviceBridgeQualityNotReadyCount: numberOrZero(item.deviceBridgeQualityNotReadyCount),
+      captureProtocolNotReadyCount: numberOrZero(item.captureProtocolNotReadyCount),
       calibrationBlockedCount: numberOrZero(item.calibrationBlockedCount),
       markerMissingCount: numberOrZero(item.markerMissingCount),
       reviewerWorkflowReadyCount: numberOrZero(item.reviewerWorkflowReadyCount),

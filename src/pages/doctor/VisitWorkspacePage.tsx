@@ -946,6 +946,7 @@ function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatas
   if (action === "complete_capture_metadata") return "Дозаполнить metadata";
   if (action === "complete_device_metadata") return "Дозаполнить device metadata";
   if (action === "check_device_bridge") return "Проверить Device Bridge";
+  if (action === "complete_capture_protocol") return "Дозаполнить протокол съёмки";
   if (action === "complete_calibration") return "Закрыть калибровку";
   if (action === "place_markers") return "Поставить маркеры";
   if (action === "continue_review") return "Продолжить review";
@@ -977,7 +978,7 @@ function LongitudinalDatasetValidationPanel({
           {longitudinalDatasetStatusLabel(readiness.status)}
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-10">
+      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-11">
         <Field term="Очагов" value={readiness.lesionCount} />
         <Field term="Готово" value={readiness.readyTimelineCount} />
         <Field term="Review" value={readiness.needsReviewTimelineCount} />
@@ -988,6 +989,7 @@ function LongitudinalDatasetValidationPanel({
         <Field term="Assets" value={readiness.productionAssetNotReadyCount} />
         <Field term="Device" value={readiness.deviceEvidenceNotReadyCount} />
         <Field term="Bridge" value={readiness.deviceBridgeQualityNotReadyCount} />
+        <Field term="Protocol" value={readiness.captureProtocolNotReadyCount} />
       </dl>
       {validation.blockers.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1032,7 +1034,8 @@ function LongitudinalDatasetValidationPanel({
                 <p className="mt-1 text-muted-foreground">
                   assets: {item.productionAssetNotReadyCount} · metadata: {item.missingCaptureMetadataCount} · device:{" "}
                   {item.deviceEvidenceNotReadyCount} · bridge:{" "}
-                  {item.deviceBridgeQualityNotReadyCount} ·
+                  {item.deviceBridgeQualityNotReadyCount} · protocol:{" "}
+                  {item.captureProtocolNotReadyCount} ·
                   калибровка: {item.calibrationBlockedCount} · маркеры: {item.markerMissingCount}
                 </p>
               </div>

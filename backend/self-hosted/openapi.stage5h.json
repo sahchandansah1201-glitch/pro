@@ -142,6 +142,18 @@
               }
             }
           },
+          "captureProtocol": {
+            "type": "object",
+            "description": "Batch BN capture protocol evidence. Metadata-only: no EXIF payloads, GPS, operator names, serials, credentials, storage paths, signed URLs, or patient delivery.",
+            "properties": {
+              "version": { "type": "string", "enum": ["clinic_standard_v1", "device_standard_v1", "imported_standard", "unknown"] },
+              "lensProfile": { "type": "string", "enum": ["dermoscope_contact", "dermoscope_non_contact", "macro_lens", "phone_camera", "unknown"] },
+              "polarizationMode": { "type": "string", "enum": ["polarized", "non_polarized", "cross_polarized", "not_applicable", "unknown"] },
+              "colorReferenceStatus": { "type": "string", "enum": ["captured", "not_required", "missing", "unknown"] },
+              "clockSyncStatus": { "type": "string", "enum": ["synced", "stale", "missing", "unknown"] },
+              "status": { "type": "string", "enum": ["ready", "needs_review", "missing"] }
+            }
+          },
           "patientDeliveryAllowed": { "type": "boolean", "const": false },
           "protectedFieldsExposed": { "type": "boolean", "const": false }
         }
@@ -166,7 +178,9 @@
               "productionAssetReadyCount": { "type": "integer", "minimum": 0 },
               "productionAssetReviewCount": { "type": "integer", "minimum": 0 },
               "deviceBridgeQualityReadyCount": { "type": "integer", "minimum": 0 },
-              "deviceBridgeQualityReviewCount": { "type": "integer", "minimum": 0 }
+              "deviceBridgeQualityReviewCount": { "type": "integer", "minimum": 0 },
+              "captureProtocolReadyCount": { "type": "integer", "minimum": 0 },
+              "captureProtocolReviewCount": { "type": "integer", "minimum": 0 }
             }
           },
           "items": {
@@ -188,6 +202,7 @@
                 "deviceEvidence": { "type": "object" },
                 "productionAssetReadiness": { "type": "object" },
                 "deviceBridgeQuality": { "type": "object" },
+                "captureProtocol": { "type": "object" },
                 "technicalStatus": { "type": "string", "enum": ["ready", "warning", "missing"] },
                 "technicalReasons": { "type": "array", "items": { "type": "string" } }
               }
@@ -396,6 +411,7 @@
               "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
               "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
               "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
+              "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
               "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
               "markerMissingCount": { "type": "integer", "minimum": 0 },
               "technicalRolloutReady": { "type": "boolean" },
@@ -418,6 +434,7 @@
                     "missing_capture_metadata",
                     "device_metadata_not_ready",
                     "device_bridge_quality_not_ready",
+                    "capture_protocol_not_ready",
                     "calibration_not_ready",
                     "technical_markers_missing"
                   ]
@@ -434,6 +451,7 @@
                     "complete_capture_metadata",
                     "complete_device_metadata",
                     "check_device_bridge",
+                    "complete_capture_protocol",
                     "complete_calibration",
                     "place_markers",
                     "continue_review"
@@ -454,6 +472,7 @@
                 "complete_capture_metadata",
                 "complete_device_metadata",
                 "check_device_bridge",
+                "complete_capture_protocol",
                 "complete_calibration",
                 "place_markers",
                 "continue_review"
@@ -501,6 +520,7 @@
               "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
               "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
               "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
+              "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
               "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
               "markerMissingCount": { "type": "integer", "minimum": 0 },
               "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
@@ -527,6 +547,7 @@
                 "missingCaptureMetadataCount": { "type": "integer", "minimum": 0 },
                 "deviceEvidenceNotReadyCount": { "type": "integer", "minimum": 0 },
                 "deviceBridgeQualityNotReadyCount": { "type": "integer", "minimum": 0 },
+                "captureProtocolNotReadyCount": { "type": "integer", "minimum": 0 },
                 "calibrationBlockedCount": { "type": "integer", "minimum": 0 },
                 "markerMissingCount": { "type": "integer", "minimum": 0 },
                 "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
@@ -540,6 +561,7 @@
                     "complete_capture_metadata",
                     "complete_device_metadata",
                     "check_device_bridge",
+                    "complete_capture_protocol",
                     "complete_calibration",
                     "place_markers",
                     "continue_review"
@@ -564,6 +586,7 @@
                     "missing_capture_metadata",
                     "device_metadata_not_ready",
                     "device_bridge_quality_not_ready",
+                    "capture_protocol_not_ready",
                     "calibration_not_ready",
                     "technical_markers_missing"
                   ]
@@ -580,6 +603,7 @@
                     "complete_capture_metadata",
                     "complete_device_metadata",
                     "check_device_bridge",
+                    "complete_capture_protocol",
                     "complete_calibration",
                     "place_markers",
                     "continue_review"
@@ -600,6 +624,7 @@
                 "complete_capture_metadata",
                 "complete_device_metadata",
                 "check_device_bridge",
+                "complete_capture_protocol",
                 "complete_calibration",
                 "place_markers",
                 "continue_review"

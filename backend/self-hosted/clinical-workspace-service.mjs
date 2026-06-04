@@ -19,6 +19,11 @@ const LIGHTING_PROFILE_VALUES = new Set(["polarized", "non_polarized", "cross_po
 const FOCUS_PROFILE_VALUES = new Set(["locked", "auto", "manual", "unknown"]);
 const DISTANCE_PROFILE_VALUES = new Set(["fixed", "estimated", "unknown"]);
 const DEVICE_CALIBRATION_STATUS_VALUES = new Set(["valid", "due_soon", "expired", "missing", "not_applicable", "unknown"]);
+const CAPTURE_PROTOCOL_VERSION_VALUES = new Set(["clinic_standard_v1", "device_standard_v1", "imported_standard", "unknown"]);
+const LENS_PROFILE_VALUES = new Set(["dermoscope_contact", "dermoscope_non_contact", "macro_lens", "phone_camera", "unknown"]);
+const POLARIZATION_MODE_VALUES = new Set(["polarized", "non_polarized", "cross_polarized", "not_applicable", "unknown"]);
+const COLOR_REFERENCE_STATUS_VALUES = new Set(["captured", "not_required", "missing", "unknown"]);
+const DEVICE_CLOCK_SYNC_STATUS_VALUES = new Set(["synced", "stale", "missing", "unknown"]);
 const CALIBRATION_STATUS_VALUES = new Set(["ready", "not_ready", "limited"]);
 const CAPTURE_METADATA_STATUS_VALUES = new Set(["ready", "needs_review", "missing"]);
 const VIEWER_QA_REVIEW_STATUS_VALUES = new Set([
@@ -64,6 +69,16 @@ const PROTECTED_INPUT_KEYS = new Set([
   "serialNumber",
   "rawDeviceId",
   "rawDeviceIdentifier",
+  "rawExif",
+  "exifJson",
+  "gpsLatitude",
+  "gpsLongitude",
+  "gpsLocation",
+  "locationCoordinates",
+  "operatorName",
+  "patientName",
+  "rawCapturePayload",
+  "firmwareSerial",
   "macAddress",
   "ipAddress",
   "bluetoothAddress",
@@ -263,6 +278,33 @@ function deriveDeviceEvidenceStatus({
   return "needs_review";
 }
 
+function deriveCaptureProtocolStatus({
+  captureProtocolVersion,
+  lensProfile,
+  polarizationMode,
+  colorReferenceStatus,
+  deviceClockSyncStatus,
+}) {
+  const allUnknown = [
+    captureProtocolVersion,
+    lensProfile,
+    polarizationMode,
+    colorReferenceStatus,
+    deviceClockSyncStatus,
+  ].every((value) => value === "unknown");
+  if (allUnknown) return "missing";
+  if (
+    captureProtocolVersion !== "unknown"
+    && lensProfile !== "unknown"
+    && polarizationMode !== "unknown"
+    && (colorReferenceStatus === "captured" || colorReferenceStatus === "not_required")
+    && deviceClockSyncStatus === "synced"
+  ) {
+    return "ready";
+  }
+  return "needs_review";
+}
+
 export function normalizeAssetCaptureMetadataPayload(input = {}) {
   requireObject(input);
   const details = [];
@@ -313,6 +355,35 @@ export function normalizeAssetCaptureMetadataPayload(input = {}) {
   if (deviceCalibrationCheckedAt && Number.isNaN(Date.parse(deviceCalibrationCheckedAt))) {
     details.push({ field: "deviceCalibrationCheckedAt", message: "deviceCalibrationCheckedAt must be an ISO timestamp." });
   }
+  const captureProtocolVersion = normalizeEnumField(
+    input.captureProtocolVersion,
+    "captureProtocolVersion",
+    CAPTURE_PROTOCOL_VERSION_VALUES,
+    "unknown",
+    details,
+  );
+  const lensProfile = normalizeEnumField(input.lensProfile, "lensProfile", LENS_PROFILE_VALUES, "unknown", details);
+  const polarizationMode = normalizeEnumField(
+    input.polarizationMode,
+    "polarizationMode",
+    POLARIZATION_MODE_VALUES,
+    "unknown",
+    details,
+  );
+  const colorReferenceStatus = normalizeEnumField(
+    input.colorReferenceStatus,
+    "colorReferenceStatus",
+    COLOR_REFERENCE_STATUS_VALUES,
+    "unknown",
+    details,
+  );
+  const deviceClockSyncStatus = normalizeEnumField(
+    input.deviceClockSyncStatus,
+    "deviceClockSyncStatus",
+    DEVICE_CLOCK_SYNC_STATUS_VALUES,
+    "unknown",
+    details,
+  );
   if (millimetersAvailable && !scaleMarkerDetected) {
     details.push({ field: "millimetersAvailable", message: "millimetersAvailable requires scaleMarkerDetected." });
   }
@@ -324,6 +395,13 @@ export function normalizeAssetCaptureMetadataPayload(input = {}) {
     focusProfile,
     distanceProfile,
     deviceCalibrationStatus,
+  });
+  const captureProtocolStatus = deriveCaptureProtocolStatus({
+    captureProtocolVersion,
+    lensProfile,
+    polarizationMode,
+    colorReferenceStatus,
+    deviceClockSyncStatus,
   });
   return {
     captureSource,
@@ -341,6 +419,12 @@ export function normalizeAssetCaptureMetadataPayload(input = {}) {
     deviceCalibrationStatus,
     deviceCalibrationCheckedAt: deviceCalibrationCheckedAt || null,
     deviceEvidenceStatus,
+    captureProtocolVersion,
+    lensProfile,
+    polarizationMode,
+    colorReferenceStatus,
+    deviceClockSyncStatus,
+    captureProtocolStatus,
     patientDeliveryAllowed: false,
     protectedFieldsExposed: false,
   };
@@ -864,6 +948,8 @@ export function createClinicalWorkspaceService({
           deviceEvidenceStatus: payload.deviceEvidenceStatus,
           deviceCalibrationStatus: payload.deviceCalibrationStatus,
           deviceCaptureProfile: payload.deviceCaptureProfile,
+          captureProtocolStatus: payload.captureProtocolStatus,
+          captureProtocolVersion: payload.captureProtocolVersion,
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,
         },
@@ -901,6 +987,8 @@ export function createClinicalWorkspaceService({
           productionAssetReviewCount: Number(summary.productionAssetReviewCount ?? 0),
           deviceBridgeQualityReadyCount: Number(summary.deviceBridgeQualityReadyCount ?? 0),
           deviceBridgeQualityReviewCount: Number(summary.deviceBridgeQualityReviewCount ?? 0),
+          captureProtocolReadyCount: Number(summary.captureProtocolReadyCount ?? 0),
+          captureProtocolReviewCount: Number(summary.captureProtocolReviewCount ?? 0),
           patientDeliveryAllowed: false,
           protectedFieldsExposed: false,
         },
@@ -1096,6 +1184,7 @@ export function createClinicalWorkspaceService({
           deviceEvidenceNotReadyCount: Number(readiness.deviceEvidenceNotReadyCount ?? 0),
           productionAssetNotReadyCount: Number(readiness.productionAssetNotReadyCount ?? 0),
           deviceBridgeQualityNotReadyCount: Number(readiness.deviceBridgeQualityNotReadyCount ?? 0),
+          captureProtocolNotReadyCount: Number(readiness.captureProtocolNotReadyCount ?? 0),
           dynamicConclusionAllowed: false,
           medicalMeasurementAllowed: false,
           patientDeliveryAllowed: false,
@@ -1139,6 +1228,7 @@ export function createClinicalWorkspaceService({
           deviceEvidenceNotReadyCount: Number(readiness.deviceEvidenceNotReadyCount ?? 0),
           productionAssetNotReadyCount: Number(readiness.productionAssetNotReadyCount ?? 0),
           deviceBridgeQualityNotReadyCount: Number(readiness.deviceBridgeQualityNotReadyCount ?? 0),
+          captureProtocolNotReadyCount: Number(readiness.captureProtocolNotReadyCount ?? 0),
           technicalRolloutReady: readiness.technicalRolloutReady === true,
           dynamicConclusionAllowed: false,
           medicalMeasurementAllowed: false,

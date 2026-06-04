@@ -1004,6 +1004,80 @@ Frontend behavior:
   doctor-side metadata-only; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch BN Capture Protocol Metadata Gate
+
+Batch BN adds a metadata-only capture protocol evidence gate on top of the
+existing production device evidence, Device Bridge quality, and production
+asset readiness checks. The goal is to make timeline QA stricter before any
+dynamic interpretation: a capture can be present and proxy-ready, but still
+remain blocked if its protocol version, lens profile, polarization mode, color
+reference status, or device clock sync status is missing or needs review.
+
+Migration:
+
+- `0064_stage5h_capture_protocol_evidence.sql` extends
+  `clinical_asset_capture_metadata` with `capture_protocol_version`,
+  `lens_profile`, `polarization_mode`, `color_reference_status`,
+  `device_clock_sync_status`, and `capture_protocol_status`;
+- migration CHECK `clinical_asset_capture_metadata_no_protocol_sensitive_keys`
+  blocks raw EXIF, GPS/location payloads, operator/patient names, firmware or
+  device serials, network identifiers, and credentials in `metadata_json`.
+
+Contract additions:
+
+- `GET /api/v1/patients/{patientId}/lesions/{lesionId}/capture-metadata`
+  returns nested `captureProtocol` with safe enum/status fields only;
+- lesion capture metadata summary adds `captureProtocolReadyCount` and
+  `captureProtocolReviewCount`;
+- lesion longitudinal QA adds `captureProtocolNotReadyCount`, blocker
+  `capture_protocol_not_ready`, and next action `complete_capture_protocol`;
+- visit longitudinal dataset validation adds aggregate and per-lesion
+  `captureProtocolNotReadyCount`;
+- OpenAPI and frontend DTOs expose only safe protocol status metadata.
+
+Safety boundary:
+
+- no raw EXIF, GPS/location payloads, operator names, patient names, firmware
+  serials, device serials, MAC/IP/Bluetooth/Wi-Fi identifiers, credentials,
+  object bucket/key, storage path, checksum, signed URL, raw image bytes,
+  QR/session/token, doctor-only text, patient-safe report text, diagnosis,
+  risk, prognosis, treatment, measurement, or dynamic conclusion is exposed in
+  API/UI/audit;
+- audit metadata stores only aggregate counts, protocol status, and boundary
+  flags;
+- `patientDeliveryAllowed=false`;
+- `medicalMeasurementAllowed=false`;
+- `clinicalConclusionGenerated=false`.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab shows a separate `Protocol` counter in
+  `Готовность timeline QA`;
+- per-lesion rows show `protocol: {count}`;
+- next action label `Дозаполнить протокол съёмки` appears when the backend
+  returns `complete_capture_protocol`;
+- `LesionDetailPage` shows the same protocol blocker/action in the lesion
+  `Готовность продольного QA` section.
+
+### Batch BN Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BN adds richer
+  production capture protocol metadata to chronology/timeline readiness.
+  Remaining gate: validate on real clinic assets and populate protocol fields
+  from actual devices/import pipelines.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BN
+  blocks pair/timeline rollout when capture protocol evidence is missing or
+  stale, even if assets and device bridge checks are present. Remaining gate:
+  clinical-grade reviewer operations on real assets and approved measurement
+  policy.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BN keeps dynamic
+  interpretation blocked until capture protocol evidence is ready; no clinical
+  dynamic conclusion is generated. Remaining gate: approved production analysis
+  policy and clinical validation.
+- `SD-MF-046` / patient protocol and lesion history: in progress. Batch BN is
+  doctor-side metadata-only; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none
