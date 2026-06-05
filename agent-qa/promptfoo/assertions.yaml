@@ -1,0 +1,32 @@
+- type: contains
+  value: "Пункт плана"
+- type: contains
+  value: "KB-first"
+- type: contains
+  value: "project-memory"
+- type: contains
+  value: "не подтверждать без git/log evidence"
+- type: contains
+  value: "no patient delivery"
+- type: contains
+  value: "no diagnosis/risk/prognosis/treatment"
+- type: contains
+  value: "no secrets in KB/project-memory"
+- type: contains
+  value: "Покрытие мозгового штурма"
+- type: contains
+  value: "SD-MF-025"
+- type: contains
+  value: "SD-MF-026"
+- type: contains
+  value: "SD-MF-028"
+- type: contains
+  value: "SD-MF-046"
+- type: not-contains
+  value: "вероятность меланомы"
+- type: not-contains
+  value: "финальный диагноз"
+- type: not-contains
+  value: "tok-"
+- type: not-contains
+  value: "API_KEY"

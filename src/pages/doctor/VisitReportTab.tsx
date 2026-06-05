@@ -157,7 +157,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
       {/* Visit summary */}
       <section className="rounded-md border border-border bg-surface p-3">
         <h2 className="mb-2 text-[13px] font-semibold">Контекст отчёта</h2>
-        <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
           <Field term="Пациент" value={`${patient.fullName} · ${patient.code}`} />
           <Field term="Статус визита" value={VISIT_STATUS[visit.status]} />
           <Field term="Дата визита" value={formatDate(visit.startedAt)} />
@@ -169,7 +169,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
               lesions.filter((l) => assessedIds.has(l.id)).length
             }`}
           />
-        </dl>
+        </div>
       </section>
 
       {/* Readiness checklist */}
@@ -233,7 +233,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
         >
           <h2 className="mb-2 text-[13px] font-semibold">Внутренний блок врача</h2>
           {selAssessment ? (
-            <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-[12px]">
+            <div className="grid grid-cols-1 gap-x-3 gap-y-1 text-[12px]">
               <Field
                 term="ABCD total"
                 value={
@@ -260,7 +260,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
                 term="Зафиксировано"
                 value={formatDateTime(selAssessment.decidedAt)}
               />
-            </dl>
+            </div>
           ) : (
             <p className="text-[12px] text-muted-foreground">
               Для выбранного очага нет структурированной оценки.
@@ -736,7 +736,7 @@ function DemoReportForm({
               Внутренний блок врача
             </div>
             {assessment ? (
-              <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-[12px] sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-3 gap-y-1 text-[12px] sm:grid-cols-2">
                 <Field
                   term="ABCD total"
                   value={
@@ -747,7 +747,7 @@ function DemoReportForm({
                   term="7-point total"
                   value={<span className="tabular-nums">{assessment.sevenPoint.total}</span>}
                 />
-              </dl>
+              </div>
             ) : (
               <p className="text-[12px] text-muted-foreground">
                 Структурированной оценки нет.
@@ -938,14 +938,14 @@ function VisitPacketPanel({
         </span>
       </div>
 
-      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
         <Field term="Очаг" value={lesion ? `${lesion.label} · ${lesion.id}` : "—"} />
         <Field term="Выбранные снимки" value={selectedLabel} />
         <Field term="Качество снимков" value={qualityCopy} />
         <Field term="Текст для пациента" value={patientText ? "есть" : "нет"} />
         <Field term="Согласие на доступ" value={patient.consents.telemed ? "есть" : "нет"} />
         <Field term="Срок ссылки" value={expiresAt ? formatDateTime(expiresAt) : "—"} />
-      </dl>
+      </div>
 
       {missing.length > 0 ? (
         <div className="mt-3 rounded-sm border border-dashed border-[hsl(var(--risk-medium))] bg-surface-muted p-2">
@@ -1032,14 +1032,14 @@ function VisitPacketPanel({
           </span>
         </div>
 
-        <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
           <Field term="Фото выбирает врач" value={selectedLabel} />
           <Field term="Состав" value={imageKindSummary(selectedImages)} />
           <Field term="Сырые файлы и защищённые ссылки" value="скрыты" />
           <Field term="Срок доступа" value={expiresAt ? formatDateTime(expiresAt) : "—"} />
           <Field term="Контур" value="только метаданные" />
           <Field term="Brainstorm" value="SD-MF-046 · фото и протокол" />
-        </dl>
+        </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
           Сырые файлы и защищённые ссылки скрыты. Пациентский доступ появится только
           после backend-gates.
@@ -1154,14 +1154,14 @@ function VisitPacketPanel({
           </span>
         </div>
 
-        <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
           <Field term="Сборка" value={reportPackageReady ? "разрешена после gates" : "закрыта до gates"} />
           <Field term="Снимки" value={selectedLabel} />
           <Field term="Текст" value={patientText ? "patient-safe версия готова" : "нет безопасной версии"} />
           <Field term="Backend" value="self-hosted only" />
           <Field term="Ссылки" value="токены и URL скрыты" />
           <Field term="Аудит" value={backendJobState === "prepared" ? "подготовлен" : "ожидает"} />
-        </dl>
+        </div>
 
         {missing.length > 0 && (
           <div className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted p-2">
@@ -1288,9 +1288,9 @@ function Field({
   wide?: boolean;
 }) {
   return (
-    <div className={wide ? "sm:col-span-2" : undefined}>
+    <dl className={wide ? "sm:col-span-2" : undefined}>
       <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{term}</dt>
       <dd className="text-[13px] text-foreground">{value}</dd>
-    </div>
+    </dl>
   );
 }

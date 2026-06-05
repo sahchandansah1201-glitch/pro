@@ -1,0 +1,38 @@
+rules:
+  - id: skindoctor.patient-facing-protected-field
+    message: "Patient/public UI must not expose protected storage/session/doctor-only fields."
+    severity: ERROR
+    languages:
+      - typescript
+      - javascript
+    paths:
+      include:
+        - /src/pages/patient/**/*.ts
+        - /src/pages/patient/**/*.tsx
+        - /src/pages/public/**/*.ts
+        - /src/pages/public/**/*.tsx
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/*.hygiene.test.ts"
+        - "**/*.hygiene.test.tsx"
+    pattern-regex: "(doctorVersionText|sharedLink|signedUrl|storagePath|photoRef|modelVersion|heatmapRef|qrToken|sessionId|accessToken|objectBucket|objectKey|protectedAnalysisLink)"
+
+  - id: skindoctor.patient-facing-unsafe-medical-claim
+    message: "Patient/public UI must avoid unsupported diagnosis, melanoma-risk, prognosis, treatment, or measurement claims."
+    severity: ERROR
+    languages:
+      - typescript
+      - javascript
+    paths:
+      include:
+        - /src/pages/patient/**/*.ts
+        - /src/pages/patient/**/*.tsx
+        - /src/pages/public/**/*.ts
+        - /src/pages/public/**/*.tsx
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/*.hygiene.test.ts"
+        - "**/*.hygiene.test.tsx"
+    pattern-regex: "(вероятность меланомы|риск меланомы|рак кожи|финальный диагноз|окончательный диагноз|назначено лечение|диаметр очага|площадь очага|dynamicConclusion|clinicalDynamicConclusion|riskScore|prognosis|treatmentPlan|diameterMm|areaMm2)"
