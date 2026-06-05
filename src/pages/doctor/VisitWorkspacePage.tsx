@@ -43,6 +43,7 @@ import {
   getSelfHostedVisitLongitudinalDatasetValidation,
   getSelfHostedVisitReport,
   reviewSelfHostedVisitLongitudinalTimelineRollout,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutClinicalValidation,
   reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure,
   reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
@@ -54,6 +55,7 @@ import {
   type SelfHostedClinicalConclusionDTO,
   type SelfHostedLesionComparisonViewerQaReviewQueueDTO,
   type SelfHostedVisitLongitudinalDatasetValidationDTO,
+  type SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus,
@@ -490,6 +492,7 @@ function ProductionClinicalWorkspacePanel({
   const [timelineRolloutEvidenceSaving, setTimelineRolloutEvidenceSaving] = useState(false);
   const [timelineRolloutMonitoringSaving, setTimelineRolloutMonitoringSaving] = useState(false);
   const [timelineRolloutIncidentProcedureSaving, setTimelineRolloutIncidentProcedureSaving] = useState(false);
+  const [timelineRolloutClinicalValidationSaving, setTimelineRolloutClinicalValidationSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
     patientFileProxyEnabled: false,
@@ -881,6 +884,55 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Incident procedure сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutClinicalValidation = async (
+    clinicalValidationStatus: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const incidentProcedure = validation.timelineRolloutIncidentProcedure;
+    const validationReadyPayload = clinicalValidationStatus === "ready_for_clinical_validation";
+    const clinicalValidationReady =
+      validationReadyPayload
+      && readiness.status === "ready_for_rollout"
+      && incidentProcedure.status === "ready_for_clinic_monitoring";
+    setTimelineRolloutClinicalValidationSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutClinicalValidation({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        clinicalValidationStatus,
+        clinicalValidationReasons: clinicalValidationReady
+          ? ["timeline_rollout_clinical_validation_ready_no_dynamic_conclusion"]
+          : ["timeline_rollout_clinical_validation_requires_real_dataset_review"],
+        realDatasetLockStatus: clinicalValidationReady ? "ready" : "needs_review",
+        validatorTrainingStatus: clinicalValidationReady ? "ready" : "needs_review",
+        blindedSampleStatus: clinicalValidationReady ? "ready" : "needs_review",
+        adjudicationStatus: clinicalValidationReady ? "ready" : "needs_review",
+        decisionLogStatus: clinicalValidationReady ? "ready" : "needs_review",
+        ownerAcceptanceStatus: clinicalValidationReady ? "ready" : "needs_review",
+        realDatasetTimelineCount: clinicalValidationReady
+          ? Math.max(1, incidentProcedure.realDatasetTimelineCount)
+          : 0,
+        validationSampleCount: clinicalValidationReady ? Math.max(1, incidentProcedure.sampledOutcomeCount) : 0,
+        disagreementCaseCount: 0,
+        adjudicatedCaseCount: 0,
+        followupWindowDays: clinicalValidationReady ? 90 : 0,
+        blockerCount: 0,
+      },
+    });
+    setTimelineRolloutClinicalValidationSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить clinical validation.");
+      return;
+    }
+    await load();
+    setStatus("Clinical validation metadata сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -922,11 +974,13 @@ function ProductionClinicalWorkspacePanel({
                 evidenceSaving={timelineRolloutEvidenceSaving}
                 monitoringSaving={timelineRolloutMonitoringSaving}
                 incidentProcedureSaving={timelineRolloutIncidentProcedureSaving}
+                clinicalValidationSaving={timelineRolloutClinicalValidationSaving}
                 onReviewRollout={saveTimelineRollout}
                 onReviewSop={saveTimelineRolloutSop}
                 onReviewEvidence={saveTimelineRolloutEvidence}
                 onReviewMonitoring={saveTimelineRolloutMonitoring}
                 onReviewIncidentProcedure={saveTimelineRolloutIncidentProcedure}
+                onReviewClinicalValidation={saveTimelineRolloutClinicalValidation}
               />
             )}
             <PhotoProtocolPolicyGovernancePanel
@@ -1216,6 +1270,14 @@ function timelineRolloutIncidentProcedureStatusLabel(
   return "Incident procedure не начат";
 }
 
+function timelineRolloutClinicalValidationStatusLabel(
+  status: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus,
+): string {
+  if (status === "ready_for_clinical_validation") return "Clinical validation ready";
+  if (status === "in_review") return "Clinical validation review";
+  return "Clinical validation не начат";
+}
+
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
@@ -1249,11 +1311,13 @@ function LongitudinalDatasetValidationPanel({
   evidenceSaving,
   monitoringSaving,
   incidentProcedureSaving,
+  clinicalValidationSaving,
   onReviewRollout,
   onReviewSop,
   onReviewEvidence,
   onReviewMonitoring,
   onReviewIncidentProcedure,
+  onReviewClinicalValidation,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
   saving: boolean;
@@ -1261,11 +1325,13 @@ function LongitudinalDatasetValidationPanel({
   evidenceSaving: boolean;
   monitoringSaving: boolean;
   incidentProcedureSaving: boolean;
+  clinicalValidationSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
   onReviewSop: (status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => void;
   onReviewEvidence: (status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus) => void;
   onReviewMonitoring: (status: SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus) => void;
   onReviewIncidentProcedure: (status: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus) => void;
+  onReviewClinicalValidation: (status: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus) => void;
 }) {
   const readiness = validation.readiness;
   const rollout = validation.timelineRollout;
@@ -1273,6 +1339,7 @@ function LongitudinalDatasetValidationPanel({
   const evidence = validation.timelineRolloutEvidence;
   const monitoring = validation.timelineRolloutMonitoring;
   const incidentProcedure = validation.timelineRolloutIncidentProcedure;
+  const clinicalValidation = validation.timelineRolloutClinicalValidation;
   const rolloutReady = readiness.status === "ready_for_rollout";
   const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
   const evidencePrerequisitesReady = sopPrerequisitesReady && sop.status === "ready_for_operational_rollout";
@@ -1280,6 +1347,8 @@ function LongitudinalDatasetValidationPanel({
     evidencePrerequisitesReady && evidence.status === "ready_for_monitored_rollout";
   const incidentProcedurePrerequisitesReady =
     monitoringPrerequisitesReady && monitoring.status === "ready_for_production_rollout";
+  const clinicalValidationPrerequisitesReady =
+    incidentProcedurePrerequisitesReady && incidentProcedure.status === "ready_for_clinic_monitoring";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -1632,6 +1701,68 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewIncidentProcedure("ready_for_clinic_monitoring")}
           >
             Утвердить clinic monitoring
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Clinical validation rollout"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Clinical validation rollout</h4>
+            <p className="text-muted-foreground">
+              Clinical validation фиксирует только aggregate validation metadata · Clinical dynamic conclusion:
+              выключен · Выдача пациенту: выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutClinicalValidationStatusLabel(clinicalValidation.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Dataset lock" value={timelineRolloutSopChecklistLabel(clinicalValidation.realDatasetLockStatus)} />
+          <Field term="Validators" value={timelineRolloutSopChecklistLabel(clinicalValidation.validatorTrainingStatus)} />
+          <Field term="Blinded" value={timelineRolloutSopChecklistLabel(clinicalValidation.blindedSampleStatus)} />
+          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(clinicalValidation.adjudicationStatus)} />
+          <Field term="Decision log" value={timelineRolloutSopChecklistLabel(clinicalValidation.decisionLogStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(clinicalValidation.ownerAcceptanceStatus)} />
+          <Field term="Real Set" value={clinicalValidation.realDatasetTimelineCount} />
+          <Field term="Sample" value={clinicalValidation.validationSampleCount} />
+          <Field term="Disagree" value={clinicalValidation.disagreementCaseCount} />
+          <Field term="Adjudicated" value={clinicalValidation.adjudicatedCaseCount} />
+          <Field term="Follow-up" value={`${clinicalValidation.followupWindowDays} дн.`} />
+          <Field term="Blockers" value={clinicalValidation.blockerCount} />
+        </dl>
+        {clinicalValidation.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {clinicalValidation.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={clinicalValidationSaving}
+            onClick={() => onReviewClinicalValidation("in_review")}
+          >
+            Зафиксировать clinical validation
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={clinicalValidationSaving || !clinicalValidationPrerequisitesReady}
+            onClick={() => onReviewClinicalValidation("ready_for_clinical_validation")}
+          >
+            Утвердить clinical validation
           </Button>
         </div>
       </div>

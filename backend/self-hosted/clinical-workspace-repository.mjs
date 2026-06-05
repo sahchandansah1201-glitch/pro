@@ -1029,6 +1029,53 @@ from (
       ${clinicScopeWhere({ alias: "p", clinicIds, allClinics })}
     order by p.updated_at desc
     limit 1
+  ),
+  latest_clinical_validation as (
+    select
+      c.id,
+      c.clinic_id,
+      c.patient_id,
+      c.visit_id,
+      c.clinical_validation_status,
+      c.clinical_validation_reasons,
+      c.incident_procedure_status,
+      c.monitoring_status,
+      c.evidence_status,
+      c.sop_status,
+      c.dataset_validation_status,
+      c.rollout_status,
+      c.real_dataset_lock_status,
+      c.validator_training_status,
+      c.blinded_sample_status,
+      c.adjudication_status,
+      c.decision_log_status,
+      c.owner_acceptance_status,
+      c.real_dataset_timeline_count,
+      c.validation_sample_count,
+      c.disagreement_case_count,
+      c.adjudicated_case_count,
+      c.followup_window_days,
+      c.blocker_count,
+      c.lesion_count,
+      c.ready_timeline_count,
+      c.blocked_timeline_count,
+      c.candidate_pair_count,
+      c.reviewer_workflow_ready_count,
+      c.reviewed_at,
+      c.created_at,
+      c.updated_at
+    from visit_longitudinal_timeline_rollout_clinical_validation_reviews c
+    join target_visit v
+      on c.visit_id = v.id
+     and c.patient_id = v.patient_id
+     and c.clinic_id = v.clinic_id
+    where c.patient_delivery_allowed = false
+      and c.medical_measurement_allowed = false
+      and c.protected_fields_exposed = false
+      and c.clinical_output_generated = false
+      ${clinicScopeWhere({ alias: "c", clinicIds, allClinics })}
+    order by c.updated_at desc
+    limit 1
   )
   select
     v.clinic_id::text as "clinicId",
@@ -1259,6 +1306,44 @@ from (
       'protectedFieldsExposed', false,
       'clinicalOutputGenerated', false
     ) as "timelineRolloutIncidentProcedure",
+    jsonb_build_object(
+      'id', coalesce((select id::text from latest_clinical_validation), ''),
+      'clinicId', coalesce((select clinic_id::text from latest_clinical_validation), v.clinic_id::text),
+      'patientId', coalesce((select patient_id::text from latest_clinical_validation), v.patient_id::text),
+      'visitId', coalesce((select visit_id::text from latest_clinical_validation), v.id::text),
+      'status', coalesce((select clinical_validation_status from latest_clinical_validation), 'not_started'),
+      'reasons', coalesce((select clinical_validation_reasons from latest_clinical_validation), '[]'::jsonb),
+      'incidentProcedureStatus', coalesce((select incident_procedure_status from latest_clinical_validation), 'not_started'),
+      'monitoringStatus', coalesce((select monitoring_status from latest_clinical_validation), 'not_started'),
+      'evidenceStatus', coalesce((select evidence_status from latest_clinical_validation), 'not_started'),
+      'sopStatus', coalesce((select sop_status from latest_clinical_validation), 'not_started'),
+      'validationStatus', coalesce((select dataset_validation_status from latest_clinical_validation), 'blocked'),
+      'rolloutStatus', coalesce((select rollout_status from latest_clinical_validation), 'not_approved'),
+      'realDatasetLockStatus', coalesce((select real_dataset_lock_status from latest_clinical_validation), 'missing'),
+      'validatorTrainingStatus', coalesce((select validator_training_status from latest_clinical_validation), 'missing'),
+      'blindedSampleStatus', coalesce((select blinded_sample_status from latest_clinical_validation), 'missing'),
+      'adjudicationStatus', coalesce((select adjudication_status from latest_clinical_validation), 'missing'),
+      'decisionLogStatus', coalesce((select decision_log_status from latest_clinical_validation), 'missing'),
+      'ownerAcceptanceStatus', coalesce((select owner_acceptance_status from latest_clinical_validation), 'missing'),
+      'realDatasetTimelineCount', coalesce((select real_dataset_timeline_count from latest_clinical_validation), 0),
+      'validationSampleCount', coalesce((select validation_sample_count from latest_clinical_validation), 0),
+      'disagreementCaseCount', coalesce((select disagreement_case_count from latest_clinical_validation), 0),
+      'adjudicatedCaseCount', coalesce((select adjudicated_case_count from latest_clinical_validation), 0),
+      'followupWindowDays', coalesce((select followup_window_days from latest_clinical_validation), 0),
+      'blockerCount', coalesce((select blocker_count from latest_clinical_validation), 0),
+      'lesionCount', coalesce((select lesion_count from latest_clinical_validation), 0),
+      'readyTimelineCount', coalesce((select ready_timeline_count from latest_clinical_validation), 0),
+      'blockedTimelineCount', coalesce((select blocked_timeline_count from latest_clinical_validation), 0),
+      'candidatePairCount', coalesce((select candidate_pair_count from latest_clinical_validation), 0),
+      'reviewerWorkflowReadyCount', coalesce((select reviewer_workflow_ready_count from latest_clinical_validation), 0),
+      'reviewedAt', (select reviewed_at from latest_clinical_validation),
+      'createdAt', (select created_at from latest_clinical_validation),
+      'updatedAt', (select updated_at from latest_clinical_validation),
+      'patientDeliveryAllowed', false,
+      'medicalMeasurementAllowed', false,
+      'protectedFieldsExposed', false,
+      'clinicalOutputGenerated', false
+    ) as "timelineRolloutClinicalValidation",
     array_remove(array[
       case when exists(select 1 from classified where candidate_pair_count = 0 or unreviewed_pair_count > 0) then 'review_queue' end,
       case when exists(select 1 from classified where needs_recapture_count > 0) then 'request_recapture' end,
@@ -1989,6 +2074,201 @@ from (
     p.created_at as "createdAt",
     p.updated_at as "updatedAt"
   from upserted p
+  limit 1
+) result;
+`.trim();
+}
+
+export function buildReviewVisitLongitudinalTimelineRolloutClinicalValidationSql({
+  visitId,
+  patientId,
+  clinicId,
+  doctorUserId = null,
+  clinicalValidation = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const visitScope = clinicScopeWhere({ alias: "v", clinicIds, allClinics });
+  const clinicalValidationScope = clinicScopeWhere({
+    alias: "visit_longitudinal_timeline_rollout_clinical_validation_reviews",
+    clinicIds,
+    allClinics,
+  });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_visit as (
+    select
+      v.id,
+      v.clinic_id,
+      v.patient_id
+    from visits v
+    where v.id = ${sqlUuid(visitId)}
+      and v.patient_id = ${sqlUuid(patientId)}
+      and v.clinic_id = ${sqlUuid(clinicId)}
+      ${visitScope}
+    limit 1
+  ),
+  upserted as (
+    insert into visit_longitudinal_timeline_rollout_clinical_validation_reviews (
+      clinic_id,
+      patient_id,
+      visit_id,
+      reviewed_by_user_id,
+      clinical_validation_status,
+      clinical_validation_reasons,
+      incident_procedure_status,
+      monitoring_status,
+      evidence_status,
+      sop_status,
+      dataset_validation_status,
+      rollout_status,
+      real_dataset_lock_status,
+      validator_training_status,
+      blinded_sample_status,
+      adjudication_status,
+      decision_log_status,
+      owner_acceptance_status,
+      real_dataset_timeline_count,
+      validation_sample_count,
+      disagreement_case_count,
+      adjudicated_case_count,
+      followup_window_days,
+      blocker_count,
+      lesion_count,
+      ready_timeline_count,
+      blocked_timeline_count,
+      candidate_pair_count,
+      reviewer_workflow_ready_count,
+      patient_delivery_allowed,
+      medical_measurement_allowed,
+      protected_fields_exposed,
+      clinical_output_generated,
+      metadata_json,
+      reviewed_at
+    )
+    select
+      v.clinic_id,
+      v.patient_id,
+      v.id,
+      ${sqlNullableUuid(doctorUserId)},
+      ${sqlLiteral(clinicalValidation.clinicalValidationStatus ?? "not_started")},
+      ${sqlJsonb(clinicalValidation.clinicalValidationReasons ?? [])},
+      ${sqlLiteral(clinicalValidation.incidentProcedureStatus ?? "not_started")},
+      ${sqlLiteral(clinicalValidation.monitoringStatus ?? "not_started")},
+      ${sqlLiteral(clinicalValidation.evidenceStatus ?? "not_started")},
+      ${sqlLiteral(clinicalValidation.sopStatus ?? "not_started")},
+      ${sqlLiteral(clinicalValidation.validationStatus ?? "blocked")},
+      ${sqlLiteral(clinicalValidation.rolloutStatus ?? "not_approved")},
+      ${sqlLiteral(clinicalValidation.realDatasetLockStatus ?? "missing")},
+      ${sqlLiteral(clinicalValidation.validatorTrainingStatus ?? "missing")},
+      ${sqlLiteral(clinicalValidation.blindedSampleStatus ?? "missing")},
+      ${sqlLiteral(clinicalValidation.adjudicationStatus ?? "missing")},
+      ${sqlLiteral(clinicalValidation.decisionLogStatus ?? "missing")},
+      ${sqlLiteral(clinicalValidation.ownerAcceptanceStatus ?? "missing")},
+      ${sqlNullableInteger(clinicalValidation.realDatasetTimelineCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.validationSampleCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.disagreementCaseCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.adjudicatedCaseCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.followupWindowDays ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.blockerCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.lesionCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.readyTimelineCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.blockedTimelineCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.candidatePairCount ?? 0)},
+      ${sqlNullableInteger(clinicalValidation.reviewerWorkflowReadyCount ?? 0)},
+      false,
+      false,
+      false,
+      false,
+      ${sqlJsonb({
+        brainstormTask: "SD-MF-025/026/028",
+        timelineRolloutClinicalValidationBoundary: "metadata_only",
+        realClinicalDatasetBoundary: "aggregate_only",
+        validationReviewBoundary: "counts_only",
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+      })},
+      now()
+    from target_visit v
+    on conflict (visit_id) do update
+    set
+      reviewed_by_user_id = excluded.reviewed_by_user_id,
+      clinical_validation_status = excluded.clinical_validation_status,
+      clinical_validation_reasons = excluded.clinical_validation_reasons,
+      incident_procedure_status = excluded.incident_procedure_status,
+      monitoring_status = excluded.monitoring_status,
+      evidence_status = excluded.evidence_status,
+      sop_status = excluded.sop_status,
+      dataset_validation_status = excluded.dataset_validation_status,
+      rollout_status = excluded.rollout_status,
+      real_dataset_lock_status = excluded.real_dataset_lock_status,
+      validator_training_status = excluded.validator_training_status,
+      blinded_sample_status = excluded.blinded_sample_status,
+      adjudication_status = excluded.adjudication_status,
+      decision_log_status = excluded.decision_log_status,
+      owner_acceptance_status = excluded.owner_acceptance_status,
+      real_dataset_timeline_count = excluded.real_dataset_timeline_count,
+      validation_sample_count = excluded.validation_sample_count,
+      disagreement_case_count = excluded.disagreement_case_count,
+      adjudicated_case_count = excluded.adjudicated_case_count,
+      followup_window_days = excluded.followup_window_days,
+      blocker_count = excluded.blocker_count,
+      lesion_count = excluded.lesion_count,
+      ready_timeline_count = excluded.ready_timeline_count,
+      blocked_timeline_count = excluded.blocked_timeline_count,
+      candidate_pair_count = excluded.candidate_pair_count,
+      reviewer_workflow_ready_count = excluded.reviewer_workflow_ready_count,
+      patient_delivery_allowed = false,
+      medical_measurement_allowed = false,
+      protected_fields_exposed = false,
+      clinical_output_generated = false,
+      metadata_json = visit_longitudinal_timeline_rollout_clinical_validation_reviews.metadata_json || excluded.metadata_json,
+      reviewed_at = now(),
+      updated_at = now()
+    where true ${clinicalValidationScope}
+    returning *
+  )
+  select
+    c.id::text as "id",
+    c.clinic_id::text as "clinicId",
+    c.patient_id::text as "patientId",
+    c.visit_id::text as "visitId",
+    c.clinical_validation_status as "status",
+    c.clinical_validation_reasons as "reasons",
+    c.incident_procedure_status as "incidentProcedureStatus",
+    c.monitoring_status as "monitoringStatus",
+    c.evidence_status as "evidenceStatus",
+    c.sop_status as "sopStatus",
+    c.dataset_validation_status as "validationStatus",
+    c.rollout_status as "rolloutStatus",
+    c.real_dataset_lock_status as "realDatasetLockStatus",
+    c.validator_training_status as "validatorTrainingStatus",
+    c.blinded_sample_status as "blindedSampleStatus",
+    c.adjudication_status as "adjudicationStatus",
+    c.decision_log_status as "decisionLogStatus",
+    c.owner_acceptance_status as "ownerAcceptanceStatus",
+    c.real_dataset_timeline_count as "realDatasetTimelineCount",
+    c.validation_sample_count as "validationSampleCount",
+    c.disagreement_case_count as "disagreementCaseCount",
+    c.adjudicated_case_count as "adjudicatedCaseCount",
+    c.followup_window_days as "followupWindowDays",
+    c.blocker_count as "blockerCount",
+    c.lesion_count as "lesionCount",
+    c.ready_timeline_count as "readyTimelineCount",
+    c.blocked_timeline_count as "blockedTimelineCount",
+    c.candidate_pair_count as "candidatePairCount",
+    c.reviewer_workflow_ready_count as "reviewerWorkflowReadyCount",
+    c.patient_delivery_allowed as "patientDeliveryAllowed",
+    c.medical_measurement_allowed as "medicalMeasurementAllowed",
+    c.protected_fields_exposed as "protectedFieldsExposed",
+    c.clinical_output_generated as "clinicalOutputGenerated",
+    c.reviewed_at as "reviewedAt",
+    c.created_at as "createdAt",
+    c.updated_at as "updatedAt"
+  from upserted c
   limit 1
 ) result;
 `.trim();
@@ -4569,6 +4849,12 @@ const VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_INCIDENT_PROCEDURE_STATUS_VALUES = new
   "ready_for_clinic_monitoring",
 ]);
 
+const VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_CLINICAL_VALIDATION_STATUS_VALUES = new Set([
+  "not_started",
+  "in_review",
+  "ready_for_clinical_validation",
+]);
+
 const VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES = new Set([
   "missing",
   "needs_review",
@@ -4603,6 +4889,13 @@ function normalizeVisitLongitudinalTimelineRolloutMonitoringStatus(value) {
 function normalizeVisitLongitudinalTimelineRolloutIncidentProcedureStatus(value) {
   const status = String(value ?? "not_started");
   return VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_INCIDENT_PROCEDURE_STATUS_VALUES.has(status)
+    ? status
+    : "not_started";
+}
+
+function normalizeVisitLongitudinalTimelineRolloutClinicalValidationStatus(value) {
+  const status = String(value ?? "not_started");
+  return VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_CLINICAL_VALIDATION_STATUS_VALUES.has(status)
     ? status
     : "not_started";
 }
@@ -4858,6 +5151,54 @@ function normalizeVisitLongitudinalTimelineRolloutIncidentProcedure(row) {
   };
 }
 
+function normalizeVisitLongitudinalTimelineRolloutClinicalValidation(row) {
+  const source = parseJsonObject(row);
+  return {
+    id: source.id ? String(source.id) : null,
+    clinicId: source.clinicId ? String(source.clinicId) : null,
+    patientId: source.patientId ? String(source.patientId) : null,
+    visitId: source.visitId ? String(source.visitId) : null,
+    status: normalizeVisitLongitudinalTimelineRolloutClinicalValidationStatus(source.status),
+    reasons: parseJsonArray(source.reasons),
+    incidentProcedureStatus: normalizeVisitLongitudinalTimelineRolloutIncidentProcedureStatus(
+      source.incidentProcedureStatus,
+    ),
+    monitoringStatus: normalizeVisitLongitudinalTimelineRolloutMonitoringStatus(source.monitoringStatus),
+    evidenceStatus: normalizeVisitLongitudinalTimelineRolloutEvidenceStatus(source.evidenceStatus),
+    sopStatus: normalizeVisitLongitudinalTimelineRolloutSopStatus(source.sopStatus),
+    validationStatus: normalizeVisitLongitudinalDatasetValidationStatus(source.validationStatus),
+    rolloutStatus: normalizeVisitLongitudinalTimelineRolloutStatus(source.rolloutStatus),
+    realDatasetLockStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      source.realDatasetLockStatus,
+    ),
+    validatorTrainingStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      source.validatorTrainingStatus,
+    ),
+    blindedSampleStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(source.blindedSampleStatus),
+    adjudicationStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(source.adjudicationStatus),
+    decisionLogStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(source.decisionLogStatus),
+    ownerAcceptanceStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(source.ownerAcceptanceStatus),
+    realDatasetTimelineCount: numberOrZero(source.realDatasetTimelineCount),
+    validationSampleCount: numberOrZero(source.validationSampleCount),
+    disagreementCaseCount: numberOrZero(source.disagreementCaseCount),
+    adjudicatedCaseCount: numberOrZero(source.adjudicatedCaseCount),
+    followupWindowDays: numberOrZero(source.followupWindowDays),
+    blockerCount: numberOrZero(source.blockerCount),
+    lesionCount: numberOrZero(source.lesionCount),
+    readyTimelineCount: numberOrZero(source.readyTimelineCount),
+    blockedTimelineCount: numberOrZero(source.blockedTimelineCount),
+    candidatePairCount: numberOrZero(source.candidatePairCount),
+    reviewerWorkflowReadyCount: numberOrZero(source.reviewerWorkflowReadyCount),
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    reviewedAt: source.reviewedAt ?? null,
+    createdAt: source.createdAt ?? null,
+    updatedAt: source.updatedAt ?? null,
+  };
+}
+
 function normalizeVisitLongitudinalDatasetValidation(row) {
   return {
     clinicId: row.clinicId ? String(row.clinicId) : null,
@@ -4874,6 +5215,9 @@ function normalizeVisitLongitudinalDatasetValidation(row) {
     timelineRolloutMonitoring: normalizeVisitLongitudinalTimelineRolloutMonitoring(row.timelineRolloutMonitoring),
     timelineRolloutIncidentProcedure: normalizeVisitLongitudinalTimelineRolloutIncidentProcedure(
       row.timelineRolloutIncidentProcedure,
+    ),
+    timelineRolloutClinicalValidation: normalizeVisitLongitudinalTimelineRolloutClinicalValidation(
+      row.timelineRolloutClinicalValidation,
     ),
     nextActions: normalizeLongitudinalQaActions(row.nextActions),
     boundaries: {
@@ -5088,6 +5432,13 @@ export function createClinicalWorkspaceRepository(dbClient) {
         dbClient,
         buildReviewVisitLongitudinalTimelineRolloutIncidentProcedureSql(params),
         normalizeVisitLongitudinalTimelineRolloutIncidentProcedure,
+      );
+    },
+    async reviewVisitLongitudinalTimelineRolloutClinicalValidation(params) {
+      return queryOne(
+        dbClient,
+        buildReviewVisitLongitudinalTimelineRolloutClinicalValidationSql(params),
+        normalizeVisitLongitudinalTimelineRolloutClinicalValidation,
       );
     },
     async getLesionLongitudinalHistory(params) {

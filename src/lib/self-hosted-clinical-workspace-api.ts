@@ -575,6 +575,11 @@ export type SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus =
   | "in_review"
   | "ready_for_clinic_monitoring";
 
+export type SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus =
+  | "not_started"
+  | "in_review"
+  | "ready_for_clinical_validation";
+
 export type SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus =
   | "missing"
   | "needs_review"
@@ -643,6 +648,23 @@ export interface VisitLongitudinalTimelineRolloutIncidentProcedurePayload {
   unresolvedIncidentCount: number;
   escalatedIncidentCount: number;
   rollbackDecisionCount: number;
+}
+
+export interface VisitLongitudinalTimelineRolloutClinicalValidationPayload {
+  clinicalValidationStatus: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus;
+  clinicalValidationReasons: string[];
+  realDatasetLockStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  validatorTrainingStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  blindedSampleStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  adjudicationStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  decisionLogStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  ownerAcceptanceStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  realDatasetTimelineCount: number;
+  validationSampleCount: number;
+  disagreementCaseCount: number;
+  adjudicatedCaseCount: number;
+  followupWindowDays: number;
+  blockerCount: number;
 }
 
 export interface SelfHostedVisitLongitudinalTimelineRolloutDTO {
@@ -806,6 +828,45 @@ export interface SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureDTO 
   updatedAt: string | null;
 }
 
+export interface SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationDTO {
+  id: string;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  status: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus;
+  reasons: string[];
+  incidentProcedureStatus: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus;
+  monitoringStatus: SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus;
+  evidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus;
+  sopStatus: SelfHostedVisitLongitudinalTimelineRolloutSopStatus;
+  validationStatus: SelfHostedVisitLongitudinalDatasetValidationStatus;
+  rolloutStatus: SelfHostedVisitLongitudinalTimelineRolloutStatus;
+  realDatasetLockStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  validatorTrainingStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  blindedSampleStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  adjudicationStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  decisionLogStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  ownerAcceptanceStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  realDatasetTimelineCount: number;
+  validationSampleCount: number;
+  disagreementCaseCount: number;
+  adjudicatedCaseCount: number;
+  followupWindowDays: number;
+  blockerCount: number;
+  lesionCount: number;
+  readyTimelineCount: number;
+  blockedTimelineCount: number;
+  candidatePairCount: number;
+  reviewerWorkflowReadyCount: number;
+  patientDeliveryAllowed: false;
+  medicalMeasurementAllowed: false;
+  protectedFieldsExposed: false;
+  clinicalOutputGenerated: false;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
   clinicId: string | null;
   patientId: string | null;
@@ -867,6 +928,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
   timelineRolloutEvidence: SelfHostedVisitLongitudinalTimelineRolloutEvidenceDTO;
   timelineRolloutMonitoring: SelfHostedVisitLongitudinalTimelineRolloutMonitoringDTO;
   timelineRolloutIncidentProcedure: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureDTO;
+  timelineRolloutClinicalValidation: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationDTO;
   nextActions: SelfHostedLesionLongitudinalQaAction[];
   boundaries: SelfHostedLesionLongitudinalQaDTO["boundaries"];
 }
@@ -961,6 +1023,10 @@ interface PatchVisitLongitudinalTimelineRolloutMonitoringArgs extends VisitArgs 
 
 interface PatchVisitLongitudinalTimelineRolloutIncidentProcedureArgs extends VisitArgs {
   payload: VisitLongitudinalTimelineRolloutIncidentProcedurePayload;
+}
+
+interface PatchVisitLongitudinalTimelineRolloutClinicalValidationArgs extends VisitArgs {
+  payload: VisitLongitudinalTimelineRolloutClinicalValidationPayload;
 }
 
 interface LesionLongitudinalHistoryArgs extends BaseArgs {
@@ -1769,6 +1835,12 @@ function toVisitLongitudinalTimelineRolloutIncidentProcedureStatus(
   return value === "in_review" || value === "ready_for_clinic_monitoring" ? value : "not_started";
 }
 
+function toVisitLongitudinalTimelineRolloutClinicalValidationStatus(
+  value: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus {
+  return value === "in_review" || value === "ready_for_clinical_validation" ? value : "not_started";
+}
+
 function toVisitLongitudinalTimelineRolloutSopChecklistStatus(
   value: unknown,
 ): SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus {
@@ -1971,6 +2043,64 @@ function toVisitLongitudinalTimelineRolloutIncidentProcedure(
   };
 }
 
+function toVisitLongitudinalTimelineRolloutClinicalValidation(
+  input: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationDTO {
+  const clinicalValidation = isRecord(input) ? input : {};
+  return {
+    id: String(clinicalValidation.id ?? ""),
+    clinicId: textOrNull(clinicalValidation.clinicId),
+    patientId: textOrNull(clinicalValidation.patientId),
+    visitId: textOrNull(clinicalValidation.visitId),
+    status: toVisitLongitudinalTimelineRolloutClinicalValidationStatus(clinicalValidation.status),
+    reasons: toStringArray(clinicalValidation.reasons),
+    incidentProcedureStatus: toVisitLongitudinalTimelineRolloutIncidentProcedureStatus(
+      clinicalValidation.incidentProcedureStatus,
+    ),
+    monitoringStatus: toVisitLongitudinalTimelineRolloutMonitoringStatus(clinicalValidation.monitoringStatus),
+    evidenceStatus: toVisitLongitudinalTimelineRolloutEvidenceStatus(clinicalValidation.evidenceStatus),
+    sopStatus: toVisitLongitudinalTimelineRolloutSopStatus(clinicalValidation.sopStatus),
+    validationStatus: toVisitLongitudinalDatasetValidationStatus(clinicalValidation.validationStatus),
+    rolloutStatus: toVisitLongitudinalTimelineRolloutStatus(clinicalValidation.rolloutStatus),
+    realDatasetLockStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      clinicalValidation.realDatasetLockStatus,
+    ),
+    validatorTrainingStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      clinicalValidation.validatorTrainingStatus,
+    ),
+    blindedSampleStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      clinicalValidation.blindedSampleStatus,
+    ),
+    adjudicationStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      clinicalValidation.adjudicationStatus,
+    ),
+    decisionLogStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      clinicalValidation.decisionLogStatus,
+    ),
+    ownerAcceptanceStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      clinicalValidation.ownerAcceptanceStatus,
+    ),
+    realDatasetTimelineCount: numberOrZero(clinicalValidation.realDatasetTimelineCount),
+    validationSampleCount: numberOrZero(clinicalValidation.validationSampleCount),
+    disagreementCaseCount: numberOrZero(clinicalValidation.disagreementCaseCount),
+    adjudicatedCaseCount: numberOrZero(clinicalValidation.adjudicatedCaseCount),
+    followupWindowDays: numberOrZero(clinicalValidation.followupWindowDays),
+    blockerCount: numberOrZero(clinicalValidation.blockerCount),
+    lesionCount: numberOrZero(clinicalValidation.lesionCount),
+    readyTimelineCount: numberOrZero(clinicalValidation.readyTimelineCount),
+    blockedTimelineCount: numberOrZero(clinicalValidation.blockedTimelineCount),
+    candidatePairCount: numberOrZero(clinicalValidation.candidatePairCount),
+    reviewerWorkflowReadyCount: numberOrZero(clinicalValidation.reviewerWorkflowReadyCount),
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    reviewedAt: textOrNull(clinicalValidation.reviewedAt),
+    createdAt: textOrNull(clinicalValidation.createdAt),
+    updatedAt: textOrNull(clinicalValidation.updatedAt),
+  };
+}
+
 function toVisitLongitudinalDatasetValidation(
   input: Record<string, unknown>,
 ): SelfHostedVisitLongitudinalDatasetValidationDTO {
@@ -2055,6 +2185,9 @@ function toVisitLongitudinalDatasetValidation(
     timelineRolloutMonitoring: toVisitLongitudinalTimelineRolloutMonitoring(input.timelineRolloutMonitoring),
     timelineRolloutIncidentProcedure: toVisitLongitudinalTimelineRolloutIncidentProcedure(
       input.timelineRolloutIncidentProcedure,
+    ),
+    timelineRolloutClinicalValidation: toVisitLongitudinalTimelineRolloutClinicalValidation(
+      input.timelineRolloutClinicalValidation,
     ),
     nextActions,
     boundaries: SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
@@ -2366,6 +2499,20 @@ export async function reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentPr
     "PATCH",
     args.payload,
     toVisitLongitudinalTimelineRolloutIncidentProcedure,
+  );
+}
+
+export async function reviewSelfHostedVisitLongitudinalTimelineRolloutClinicalValidation(
+  args: PatchVisitLongitudinalTimelineRolloutClinicalValidationArgs,
+): Promise<SelfHostedApiResult<SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/longitudinal-timeline-rollout/clinical-validation"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toVisitLongitudinalTimelineRolloutClinicalValidation,
   );
 }
 

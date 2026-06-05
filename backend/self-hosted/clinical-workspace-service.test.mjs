@@ -10,6 +10,7 @@ import {
   normalizeLesionComparisonMeasurementPolicyPayload,
   normalizeLesionComparisonProductionAnalysisPolicyPayload,
   normalizeLesionComparisonReviewerAssignmentPayload,
+  normalizeVisitLongitudinalTimelineRolloutClinicalValidationPayload,
   normalizeVisitLongitudinalTimelineRolloutEvidencePayload,
   normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload,
   normalizeVisitLongitudinalTimelineRolloutMonitoringPayload,
@@ -931,6 +932,44 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         protectedFieldsExposed: false,
         clinicalOutputGenerated: false,
         reviewedAt: "2026-06-04T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutClinicalValidation({ clinicalValidation }) {
+      return {
+        id: "clinical-validation-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: clinicalValidation.clinicalValidationStatus,
+        reasons: clinicalValidation.clinicalValidationReasons,
+        incidentProcedureStatus: clinicalValidation.incidentProcedureStatus,
+        monitoringStatus: clinicalValidation.monitoringStatus,
+        evidenceStatus: clinicalValidation.evidenceStatus,
+        sopStatus: clinicalValidation.sopStatus,
+        validationStatus: clinicalValidation.validationStatus,
+        rolloutStatus: clinicalValidation.rolloutStatus,
+        realDatasetLockStatus: clinicalValidation.realDatasetLockStatus,
+        validatorTrainingStatus: clinicalValidation.validatorTrainingStatus,
+        blindedSampleStatus: clinicalValidation.blindedSampleStatus,
+        adjudicationStatus: clinicalValidation.adjudicationStatus,
+        decisionLogStatus: clinicalValidation.decisionLogStatus,
+        ownerAcceptanceStatus: clinicalValidation.ownerAcceptanceStatus,
+        realDatasetTimelineCount: clinicalValidation.realDatasetTimelineCount,
+        validationSampleCount: clinicalValidation.validationSampleCount,
+        disagreementCaseCount: clinicalValidation.disagreementCaseCount,
+        adjudicatedCaseCount: clinicalValidation.adjudicatedCaseCount,
+        followupWindowDays: clinicalValidation.followupWindowDays,
+        blockerCount: clinicalValidation.blockerCount,
+        lesionCount: clinicalValidation.lesionCount,
+        readyTimelineCount: clinicalValidation.readyTimelineCount,
+        blockedTimelineCount: clinicalValidation.blockedTimelineCount,
+        candidatePairCount: clinicalValidation.candidatePairCount,
+        reviewerWorkflowReadyCount: clinicalValidation.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-05T00:00:00.000Z",
       };
     },
   };
@@ -2325,6 +2364,147 @@ test("Batch BV Stage 5H incident procedure payload rejects protected and clinica
         unresolvedIncidentCount: 0,
         escalatedIncidentCount: 0,
         rollbackDecisionCount: 1,
+      }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch BW Stage 5H service reviews clinical validation with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutClinicalValidation(
+    VISIT_ID,
+    {
+      clinicalValidationStatus: "ready_for_clinical_validation",
+      clinicalValidationReasons: ["timeline_rollout_clinical_validation_ready_no_dynamic_conclusion"],
+      realDatasetLockStatus: "ready",
+      validatorTrainingStatus: "ready",
+      blindedSampleStatus: "ready",
+      adjudicationStatus: "ready",
+      decisionLogStatus: "ready",
+      ownerAcceptanceStatus: "ready",
+      realDatasetTimelineCount: 8,
+      validationSampleCount: 4,
+      disagreementCaseCount: 1,
+      adjudicatedCaseCount: 1,
+      followupWindowDays: 90,
+      blockerCount: 0,
+    },
+    authContext,
+    { correlationId: "c21" },
+  );
+
+  assert.equal(result.clinicalValidation.status, "in_review");
+  assert.deepEqual(result.clinicalValidation.reasons, [
+    "timeline_rollout_clinical_validation_ready_no_dynamic_conclusion",
+    "timeline_rollout_clinical_validation_not_ready",
+  ]);
+  assert.equal(result.clinicalValidation.incidentProcedureStatus, "not_started");
+  assert.equal(result.clinicalValidation.validationStatus, "blocked");
+  assert.equal(result.clinicalValidation.patientDeliveryAllowed, false);
+  assert.equal(result.clinicalValidation.medicalMeasurementAllowed, false);
+  assert.equal(result.clinicalValidation.protectedFieldsExposed, false);
+  assert.equal(result.clinicalValidation.clinicalOutputGenerated, false);
+  assert.equal(auditEvents.at(-1).action, "visit_longitudinal_timeline_rollout_clinical_validation.review");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    clinicalValidationStatus: "in_review",
+    validationStatus: "blocked",
+    rolloutStatus: "review_required",
+    sopStatus: "not_started",
+    evidenceStatus: "not_started",
+    monitoringStatus: "not_started",
+    incidentProcedureStatus: "not_started",
+    realDatasetTimelineCount: 8,
+    validationSampleCount: 4,
+    disagreementCaseCount: 1,
+    adjudicatedCaseCount: 1,
+    followupWindowDays: 90,
+    blockerCount: 0,
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    clinicalValidationChecklistReady: true,
+    aggregateClinicalValidationReady: true,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+    patientRowsExposed: false,
+    rawValidationLogsExposed: false,
+    rawAdjudicationLogsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.clinicalValidation) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|"rawValidationLog"\s*:|"rawAdjudicationLog"\s*:|"clinicalValidationPayload"\s*:|"validationDetails"\s*:|"adjudicationDetails"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|validatorName|validatorEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BW Stage 5H clinical validation payload rejects protected and clinical fields", () => {
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutClinicalValidationPayload({
+        clinicalValidationStatus: "ready_for_clinical_validation",
+        clinicalValidationReasons: ["готово"],
+        realDatasetLockStatus: "ready",
+        validatorTrainingStatus: "ready",
+        blindedSampleStatus: "ready",
+        adjudicationStatus: "ready",
+        decisionLogStatus: "ready",
+        ownerAcceptanceStatus: "ready",
+        realDatasetTimelineCount: 8,
+        validationSampleCount: 4,
+        disagreementCaseCount: 1,
+        adjudicatedCaseCount: 1,
+        followupWindowDays: 90,
+        blockerCount: 0,
+        rawValidationLog: [{ unsafe: true }],
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutClinicalValidationPayload({
+        clinicalValidationStatus: "ready_for_clinical_validation",
+        clinicalValidationReasons: ["динамика подтверждает диагноз"],
+        realDatasetLockStatus: "ready",
+        validatorTrainingStatus: "ready",
+        blindedSampleStatus: "ready",
+        adjudicationStatus: "ready",
+        decisionLogStatus: "ready",
+        ownerAcceptanceStatus: "ready",
+        realDatasetTimelineCount: 8,
+        validationSampleCount: 4,
+        disagreementCaseCount: 1,
+        adjudicatedCaseCount: 1,
+        followupWindowDays: 90,
+        blockerCount: 0,
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutClinicalValidationPayload({
+        clinicalValidationStatus: "ready_for_clinical_validation",
+        clinicalValidationReasons: ["готово"],
+        realDatasetLockStatus: "ready",
+        validatorTrainingStatus: "ready",
+        blindedSampleStatus: "ready",
+        adjudicationStatus: "ready",
+        decisionLogStatus: "ready",
+        ownerAcceptanceStatus: "ready",
+        realDatasetTimelineCount: 8,
+        validationSampleCount: 4,
+        disagreementCaseCount: 3,
+        adjudicatedCaseCount: 1,
+        followupWindowDays: 90,
+        blockerCount: 0,
       }),
     VisitWorkspaceValidationError,
   );

@@ -16,6 +16,7 @@ import {
   buildReviewLesionComparisonMeasurementPolicySql,
   buildReviewLesionComparisonProductionAnalysisPolicySql,
   buildReviewVisitLongitudinalTimelineRolloutEvidenceSql,
+  buildReviewVisitLongitudinalTimelineRolloutClinicalValidationSql,
   buildReviewVisitLongitudinalTimelineRolloutIncidentProcedureSql,
   buildReviewVisitLongitudinalTimelineRolloutMonitoringSql,
   buildReviewVisitLongitudinalTimelineRolloutSopSql,
@@ -351,6 +352,58 @@ test("Batch BV Stage 5H repository builds metadata-only incident procedure SQL",
   assert.doesNotMatch(
     sql,
     /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawMonitoringLog|rawOutcomeLog|incidentPayload|incidentDetails|incidentTimeline|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
+test("Batch BW Stage 5H repository builds metadata-only clinical validation SQL", () => {
+  const sql = buildReviewVisitLongitudinalTimelineRolloutClinicalValidationSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    clinicalValidation: {
+      clinicalValidationStatus: "ready_for_clinical_validation",
+      clinicalValidationReasons: ["timeline_rollout_clinical_validation_ready_no_dynamic_conclusion"],
+      incidentProcedureStatus: "ready_for_clinic_monitoring",
+      monitoringStatus: "ready_for_production_rollout",
+      evidenceStatus: "ready_for_monitored_rollout",
+      sopStatus: "ready_for_operational_rollout",
+      validationStatus: "ready_for_rollout",
+      rolloutStatus: "approved_for_clinical_operations",
+      realDatasetLockStatus: "ready",
+      validatorTrainingStatus: "ready",
+      blindedSampleStatus: "ready",
+      adjudicationStatus: "ready",
+      decisionLogStatus: "ready",
+      ownerAcceptanceStatus: "ready",
+      realDatasetTimelineCount: 8,
+      validationSampleCount: 4,
+      disagreementCaseCount: 1,
+      adjudicatedCaseCount: 1,
+      followupWindowDays: 90,
+      blockerCount: 0,
+      lesionCount: 2,
+      readyTimelineCount: 2,
+      blockedTimelineCount: 0,
+      candidatePairCount: 3,
+      reviewerWorkflowReadyCount: 3,
+    },
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /insert into visit_longitudinal_timeline_rollout_clinical_validation_reviews/);
+  assert.match(sql, /clinical_validation_status/);
+  assert.match(sql, /ready_for_clinical_validation/);
+  assert.match(sql, /timelineRolloutClinicalValidationBoundary/);
+  assert.match(sql, /realClinicalDatasetBoundary/);
+  assert.match(sql, /validationReviewBoundary/);
+  assert.match(sql, /patientDeliveryAllowed/);
+  assert.match(sql, /medicalMeasurementAllowed/);
+  assert.match(sql, /protectedFieldsExposed/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.doesNotMatch(
+    sql,
+    /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawValidationLog|rawAdjudicationLog|clinicalValidationPayload|validationDetails|adjudicationDetails|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

@@ -6,6 +6,7 @@ import {
   getSelfHostedVisitLesionComparisonViewerQaReviewQueue,
   getSelfHostedVisitLongitudinalDatasetValidation,
   reviewSelfHostedVisitLongitudinalTimelineRollout,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutClinicalValidation,
   reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure,
   reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
@@ -1427,6 +1428,50 @@ describe("self-hosted-clinical-workspace-api", () => {
               pairKey: "secret-pair",
               imageIds: ["i-011", "i-012"],
             },
+            timelineRolloutClinicalValidation: {
+              id: "clinical-validation-1",
+              clinicId: "clinic-1",
+              patientId: "patient-1",
+              visitId: "visit-1",
+              status: "ready_for_clinical_validation",
+              reasons: ["timeline_rollout_clinical_validation_ready_no_dynamic_conclusion"],
+              incidentProcedureStatus: "ready_for_clinic_monitoring",
+              monitoringStatus: "ready_for_production_rollout",
+              evidenceStatus: "ready_for_monitored_rollout",
+              sopStatus: "ready_for_operational_rollout",
+              validationStatus: "ready_for_rollout",
+              rolloutStatus: "approved_for_clinical_operations",
+              realDatasetLockStatus: "ready",
+              validatorTrainingStatus: "ready",
+              blindedSampleStatus: "ready",
+              adjudicationStatus: "ready",
+              decisionLogStatus: "ready",
+              ownerAcceptanceStatus: "ready",
+              realDatasetTimelineCount: 8,
+              validationSampleCount: 4,
+              disagreementCaseCount: 1,
+              adjudicatedCaseCount: 1,
+              followupWindowDays: 90,
+              blockerCount: 0,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 0,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              clinicalOutputGenerated: true,
+              rawValidationLog: "unsafe",
+              rawAdjudicationLog: "unsafe",
+              clinicalValidationPayload: { unsafe: true },
+              validationDetails: { unsafe: true },
+              adjudicationDetails: { unsafe: true },
+              validatorName: "Unsafe Name",
+              validatorEmail: "unsafe@example.com",
+              pairKey: "secret-pair",
+              imageIds: ["i-011", "i-012"],
+            },
             nextActions: ["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review", "unsafe_action"],
             boundaries: {
               patientDeliveryAllowed: true,
@@ -1501,11 +1546,19 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(result.value?.timelineRolloutIncidentProcedure.medicalMeasurementAllowed).toBe(false);
     expect(result.value?.timelineRolloutIncidentProcedure.protectedFieldsExposed).toBe(false);
     expect(result.value?.timelineRolloutIncidentProcedure.clinicalOutputGenerated).toBe(false);
+    expect(result.value?.timelineRolloutClinicalValidation.status).toBe("ready_for_clinical_validation");
+    expect(result.value?.timelineRolloutClinicalValidation.realDatasetLockStatus).toBe("ready");
+    expect(result.value?.timelineRolloutClinicalValidation.validationSampleCount).toBe(4);
+    expect(result.value?.timelineRolloutClinicalValidation.adjudicatedCaseCount).toBe(1);
+    expect(result.value?.timelineRolloutClinicalValidation.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.timelineRolloutClinicalValidation.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.timelineRolloutClinicalValidation.protectedFieldsExposed).toBe(false);
+    expect(result.value?.timelineRolloutClinicalValidation.clinicalOutputGenerated).toBe(false);
     expect(result.value?.blockers[0]?.code).toBe("production_asset_not_ready");
     expect(result.value?.blockers[0]?.nextAction).toBe("verify_production_asset");
     expect(result.value?.nextActions).toEqual(["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review"]);
     expect(JSON.stringify(result.value)).not.toMatch(
-      /secret-pair|"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawMonitoringLog|rawOutcomeLog|incidentPayload|incidentDetails|incidentTimeline|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
+      /secret-pair|"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawMonitoringLog|rawOutcomeLog|incidentPayload|incidentDetails|incidentTimeline|rawValidationLog|rawAdjudicationLog|clinicalValidationPayload|validationDetails|adjudicationDetails|validatorName|validatorEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|меланома|рак кожи/i,
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/visits/visit-1/longitudinal-dataset-validation",
@@ -1948,6 +2001,115 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(result.value)).not.toMatch(
       /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawOutcomeLog|incidentDetails|incidentTimeline|rawMonitoringLog|incidentPayload|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
+    );
+  });
+
+  it("reviews visit longitudinal timeline rollout clinical validation through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "clinical-validation-1",
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            status: "in_review",
+            reasons: ["timeline_rollout_clinical_validation_not_ready"],
+            incidentProcedureStatus: "not_started",
+            monitoringStatus: "not_started",
+            evidenceStatus: "not_started",
+            sopStatus: "not_started",
+            validationStatus: "blocked",
+            rolloutStatus: "review_required",
+            realDatasetLockStatus: "needs_review",
+            validatorTrainingStatus: "needs_review",
+            blindedSampleStatus: "needs_review",
+            adjudicationStatus: "needs_review",
+            decisionLogStatus: "needs_review",
+            ownerAcceptanceStatus: "needs_review",
+            realDatasetTimelineCount: 0,
+            validationSampleCount: 0,
+            disagreementCaseCount: 0,
+            adjudicatedCaseCount: 0,
+            followupWindowDays: 0,
+            blockerCount: 1,
+            lesionCount: 2,
+            readyTimelineCount: 1,
+            blockedTimelineCount: 1,
+            candidatePairCount: 3,
+            reviewerWorkflowReadyCount: 1,
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            clinicalOutputGenerated: true,
+            rawValidationLog: "unsafe",
+            rawAdjudicationLog: "unsafe",
+            clinicalValidationPayload: { unsafe: true },
+            validationDetails: { unsafe: true },
+            adjudicationDetails: { unsafe: true },
+            validatorName: "Unsafe Name",
+            validatorEmail: "unsafe@example.com",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutClinicalValidation({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        clinicalValidationStatus: "ready_for_clinical_validation",
+        clinicalValidationReasons: ["timeline_rollout_clinical_validation_ready_no_dynamic_conclusion"],
+        realDatasetLockStatus: "ready",
+        validatorTrainingStatus: "ready",
+        blindedSampleStatus: "ready",
+        adjudicationStatus: "ready",
+        decisionLogStatus: "ready",
+        ownerAcceptanceStatus: "ready",
+        realDatasetTimelineCount: 8,
+        validationSampleCount: 4,
+        disagreementCaseCount: 1,
+        adjudicatedCaseCount: 1,
+        followupWindowDays: 90,
+        blockerCount: 0,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.status).toBe("in_review");
+    expect(result.value?.incidentProcedureStatus).toBe("not_started");
+    expect(result.value?.realDatasetLockStatus).toBe("needs_review");
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(result.value?.clinicalOutputGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-timeline-rollout/clinical-validation",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          clinicalValidationStatus: "ready_for_clinical_validation",
+          clinicalValidationReasons: ["timeline_rollout_clinical_validation_ready_no_dynamic_conclusion"],
+          realDatasetLockStatus: "ready",
+          validatorTrainingStatus: "ready",
+          blindedSampleStatus: "ready",
+          adjudicationStatus: "ready",
+          decisionLogStatus: "ready",
+          ownerAcceptanceStatus: "ready",
+          realDatasetTimelineCount: 8,
+          validationSampleCount: 4,
+          disagreementCaseCount: 1,
+          adjudicatedCaseCount: 1,
+          followupWindowDays: 90,
+          blockerCount: 0,
+        }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawValidationLog|rawAdjudicationLog|clinicalValidationPayload|validationDetails|adjudicationDetails|validatorName|validatorEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
     );
   });
 });

@@ -1860,6 +1860,127 @@ Safety boundary:
   remains off until privacy/security/retention/session/approved-copy gates are
   explicitly closed.
 
+## Batch BW Clinical Validation Review
+
+Batch BW adds the clinical-validation review receipt after Batch BV incident
+procedure monitoring. The batch is a production-readiness gate for real clinical
+datasets and adjudication workflow, but it still does not generate clinical
+dynamic conclusions, measurements, diagnosis, risk, prognosis, or treatment
+copy.
+
+Plan item:
+
+- production outcome monitoring on real clinical datasets / clinical validation
+  review.
+
+Persistence:
+
+- migration `0073_stage5h_timeline_rollout_clinical_validation.sql` creates
+  `visit_longitudinal_timeline_rollout_clinical_validation_reviews`;
+- the ledger stores only visit-scoped aggregate validation metadata:
+  `clinical_validation_status`, previous rollout layer statuses, six checklist
+  statuses, real dataset/sample/disagreement/adjudication/follow-up/blocker
+  counters, and existing rollout aggregate counters;
+- allowed clinical-validation statuses are `not_started`, `in_review`, and
+  `ready_for_clinical_validation`;
+- CHECK constraints force `patient_delivery_allowed=false`,
+  `medical_measurement_allowed=false`, `protected_fields_exposed=false`, and
+  `clinical_output_generated=false`;
+- CHECK
+  `visit_longitudinal_timeline_rollout_clinical_validation_metadata_no_protected_keys`
+  blocks pair keys, image IDs, asset IDs, patient rows/IDs, case IDs,
+  object/storage/signed URL fields, evidence/incident/validation/adjudication
+  URLs, raw evidence/monitoring/outcome/validation/adjudication logs, raw
+  clinical-validation payload/details, QR/session/credential material, reviewer
+  and validator names/emails, doctor/patient report text, diagnosis/risk/
+  prognosis/treatment, measurement values, and dynamic clinical conclusion keys.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/clinical-validation`
+  persists the metadata-only clinical-validation review;
+- repository builder
+  `buildReviewVisitLongitudinalTimelineRolloutClinicalValidationSql` upserts by
+  `visit_id` inside the clinic-scoped visit boundary;
+- the `GET /api/v1/visits/{visitId}/longitudinal-dataset-validation` read model
+  now includes `timelineRolloutClinicalValidation`;
+- service validator
+  `normalizeVisitLongitudinalTimelineRolloutClinicalValidationPayload` rejects
+  protected keys and clinical claim wording;
+- service review method downgrades requested
+  `ready_for_clinical_validation` to `in_review` with reason
+  `timeline_rollout_clinical_validation_not_ready` unless dataset validation is
+  `ready_for_rollout`, Batch BR rollout is
+  `approved_for_clinical_operations`, Batch BS SOP is
+  `ready_for_operational_rollout`, Batch BT evidence is
+  `ready_for_monitored_rollout`, Batch BU monitoring is
+  `ready_for_production_rollout`, Batch BV incident procedure is
+  `ready_for_clinic_monitoring`, all six clinical-validation checklist fields
+  are `ready`, real dataset/sample counts are positive, adjudicated cases cover
+  disagreement cases, and blocker count is zero;
+- audit action `visit_longitudinal_timeline_rollout_clinical_validation.review`
+  stores aggregate counts, statuses, checklist readiness booleans, reason
+  count, and forced-false boundary flags only.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab adds region `Clinical validation rollout`
+  inside `Готовность timeline QA`, after `Incident procedure rollout`;
+- visible copy states `Clinical validation фиксирует только aggregate
+  validation metadata`, `Clinical dynamic conclusion: выключен`, and `Выдача
+  пациенту: выключена`;
+- compact fields show `Dataset lock`, `Validators`, `Blinded`,
+  `Adjudication`, `Decision log`, `Owner`, `Real Set`, `Sample`, `Disagree`,
+  `Adjudicated`, `Follow-up`, and `Blockers`;
+- `Утвердить clinical validation` is disabled unless dataset readiness is
+  `ready_for_rollout`, Batch BR rollout governance is
+  `approved_for_clinical_operations`, Batch BS SOP is
+  `ready_for_operational_rollout`, Batch BT evidence is
+  `ready_for_monitored_rollout`, Batch BU monitoring is
+  `ready_for_production_rollout`, and Batch BV incident procedure is
+  `ready_for_clinic_monitoring`;
+- `Зафиксировать clinical validation` remains available and writes
+  metadata-only review state;
+- after saving, the workspace reloads the self-hosted read model and shows
+  `Clinical validation metadata сохранён. Clinical dynamic conclusion:
+  выключен.`
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`, `patientDeliveryAllowed=false`,
+  `protectedFieldsExposed=false`, and `clinicalOutputGenerated=false` are
+  forced in repository, service, OpenAPI schema, frontend DTO normalizer, and
+  UI copy;
+- no patient delivery, medical measurement, clinical dynamic conclusion, or
+  diagnosis/risk/prognosis/treatment wording is produced by this batch;
+- no pair keys, image IDs, asset IDs, patient rows, case IDs, object bucket/key,
+  storage path, checksum, signed URL, QR/session/credential, reviewer or
+  validator identity, doctor-only text, patient-safe report text, validation
+  URL, adjudication URL, raw validation log, raw adjudication log, clinical
+  validation payload, validation details, or adjudication details are returned
+  in clinical-validation read/write responses or audit metadata.
+
+### Batch BW Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BW adds
+  clinical-validation receipt over real dataset/sample/adjudication counters
+  after incident-procedure readiness. Remaining gate: real production dataset
+  validation results and post-validation monitoring over time.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BW
+  requires validator training, blinded sample review, adjudication, decision
+  log, and owner acceptance before the workflow can be marked ready for
+  clinical validation. Remaining gate: clinical operations validation on real
+  assets and reviewer governance.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BW keeps
+  `Clinical dynamic conclusion: выключен`; validation approval remains
+  operational metadata only and is downgraded if previous rollout gates or
+  adjudication counters are incomplete. Remaining gate: approved clinical
+  validation procedure and monitored post-rollout outcome review.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch BW is
+  doctor-side metadata-only clinical-validation governance; patient delivery
+  remains off until privacy/security/retention/session/approved-copy gates are
+  explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none
