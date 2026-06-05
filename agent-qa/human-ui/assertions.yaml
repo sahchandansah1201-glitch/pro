@@ -1,0 +1,48 @@
+- type: contains
+  value: "Пункт плана"
+- type: contains
+  value: "Экран/route"
+- type: contains
+  value: "Роль пользователя"
+- type: contains
+  value: "Primary task"
+- type: contains
+  value: "Primary CTA"
+- type: contains
+  value: "3-second findability"
+- type: contains
+  value: "Visual attention path"
+- type: contains
+  value: "Recovery check"
+- type: contains
+  value: "Responsive/accessibility"
+- type: contains
+  value: "Medical-safety copy"
+- type: contains
+  value: "Agent usage"
+- type: contains
+  value: "Покрытие мозгового штурма"
+- type: contains
+  value: "SD-MF-025"
+- type: contains
+  value: "SD-MF-026"
+- type: contains
+  value: "SD-MF-028"
+- type: contains
+  value: "SD-MF-046"
+- type: contains
+  value: "no diagnosis/risk/prognosis/treatment"
+- type: contains
+  value: "patient delivery remains off"
+- type: not-contains
+  value: "вероятность меланомы"
+- type: not-contains
+  value: "финальный диагноз"
+- type: not-contains
+  value: "меланома"
+- type: not-contains
+  value: "рак кожи"
+- type: not-contains
+  value: "tok-"
+- type: not-contains
+  value: "API_KEY"
