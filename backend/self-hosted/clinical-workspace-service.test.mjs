@@ -11,6 +11,7 @@ import {
   normalizeLesionComparisonProductionAnalysisPolicyPayload,
   normalizeLesionComparisonReviewerAssignmentPayload,
   normalizeVisitLongitudinalTimelineRolloutEvidencePayload,
+  normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload,
   normalizeVisitLongitudinalTimelineRolloutMonitoringPayload,
   normalizeVisitLongitudinalTimelineRolloutSopPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
@@ -726,6 +727,41 @@ function createService({ auditEvents = [], repo = {} } = {}) {
           protectedFieldsExposed: false,
           clinicalOutputGenerated: false,
         },
+        timelineRolloutIncidentProcedure: {
+          id: "incident-procedure-review-1",
+          clinicId: CLINIC_ID,
+          patientId: PATIENT_ID,
+          visitId: VISIT_ID,
+          status: "not_started",
+          reasons: [],
+          monitoringStatus: "not_started",
+          evidenceStatus: "not_started",
+          sopStatus: "not_started",
+          validationStatus: "blocked",
+          rolloutStatus: "review_required",
+          realDatasetStatus: "missing",
+          outcomeSamplingProcedureStatus: "missing",
+          incidentTriageStatus: "missing",
+          escalationPathStatus: "missing",
+          rollbackDecisionStatus: "missing",
+          ownerReviewStatus: "missing",
+          realDatasetTimelineCount: 0,
+          monitoredTimelineCount: 0,
+          sampledOutcomeCount: 0,
+          incidentCaseCount: 0,
+          unresolvedIncidentCount: 0,
+          escalatedIncidentCount: 0,
+          rollbackDecisionCount: 0,
+          lesionCount: 0,
+          readyTimelineCount: 0,
+          blockedTimelineCount: 0,
+          candidatePairCount: 0,
+          reviewerWorkflowReadyCount: 0,
+          patientDeliveryAllowed: false,
+          medicalMeasurementAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+        },
         nextActions: ["verify_production_asset", "complete_capture_metadata", "complete_device_metadata", "check_device_bridge", "complete_calibration", "place_markers"],
         boundaries: {
           patientDeliveryAllowed: false,
@@ -852,6 +888,44 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         blockedTimelineCount: monitoring.blockedTimelineCount,
         candidatePairCount: monitoring.candidatePairCount,
         reviewerWorkflowReadyCount: monitoring.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-04T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutIncidentProcedure({ procedure }) {
+      return {
+        id: "incident-procedure-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: procedure.procedureStatus,
+        reasons: procedure.procedureReasons,
+        monitoringStatus: procedure.monitoringStatus,
+        evidenceStatus: procedure.evidenceStatus,
+        sopStatus: procedure.sopStatus,
+        validationStatus: procedure.validationStatus,
+        rolloutStatus: procedure.rolloutStatus,
+        realDatasetStatus: procedure.realDatasetStatus,
+        outcomeSamplingProcedureStatus: procedure.outcomeSamplingProcedureStatus,
+        incidentTriageStatus: procedure.incidentTriageStatus,
+        escalationPathStatus: procedure.escalationPathStatus,
+        rollbackDecisionStatus: procedure.rollbackDecisionStatus,
+        ownerReviewStatus: procedure.ownerReviewStatus,
+        realDatasetTimelineCount: procedure.realDatasetTimelineCount,
+        monitoredTimelineCount: procedure.monitoredTimelineCount,
+        sampledOutcomeCount: procedure.sampledOutcomeCount,
+        incidentCaseCount: procedure.incidentCaseCount,
+        unresolvedIncidentCount: procedure.unresolvedIncidentCount,
+        escalatedIncidentCount: procedure.escalatedIncidentCount,
+        rollbackDecisionCount: procedure.rollbackDecisionCount,
+        lesionCount: procedure.lesionCount,
+        readyTimelineCount: procedure.readyTimelineCount,
+        blockedTimelineCount: procedure.blockedTimelineCount,
+        candidatePairCount: procedure.candidatePairCount,
+        reviewerWorkflowReadyCount: procedure.reviewerWorkflowReadyCount,
         patientDeliveryAllowed: false,
         medicalMeasurementAllowed: false,
         protectedFieldsExposed: false,
@@ -2127,6 +2201,130 @@ test("Batch BU Stage 5H timeline rollout monitoring payload rejects protected an
         unresolvedIncidentCount: 0,
         closedExceptionCount: 0,
         rollbackExecutionCount: 1,
+      }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch BV Stage 5H service reviews incident procedure with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutIncidentProcedure(
+    VISIT_ID,
+    {
+      procedureStatus: "ready_for_clinic_monitoring",
+      procedureReasons: ["timeline_rollout_incident_procedure_ready_no_dynamic_conclusion"],
+      realDatasetStatus: "ready",
+      outcomeSamplingProcedureStatus: "ready",
+      incidentTriageStatus: "ready",
+      escalationPathStatus: "ready",
+      rollbackDecisionStatus: "ready",
+      ownerReviewStatus: "ready",
+      realDatasetTimelineCount: 2,
+      monitoredTimelineCount: 2,
+      sampledOutcomeCount: 2,
+      incidentCaseCount: 1,
+      unresolvedIncidentCount: 0,
+      escalatedIncidentCount: 0,
+      rollbackDecisionCount: 1,
+    },
+    authContext,
+    { correlationId: "c20" },
+  );
+
+  assert.equal(result.incidentProcedure.status, "in_review");
+  assert.deepEqual(result.incidentProcedure.reasons, [
+    "timeline_rollout_incident_procedure_ready_no_dynamic_conclusion",
+    "timeline_rollout_incident_procedure_not_ready",
+  ]);
+  assert.equal(result.incidentProcedure.monitoringStatus, "not_started");
+  assert.equal(result.incidentProcedure.validationStatus, "blocked");
+  assert.equal(result.incidentProcedure.patientDeliveryAllowed, false);
+  assert.equal(result.incidentProcedure.medicalMeasurementAllowed, false);
+  assert.equal(result.incidentProcedure.protectedFieldsExposed, false);
+  assert.equal(result.incidentProcedure.clinicalOutputGenerated, false);
+  assert.equal(auditEvents.at(-1).action, "visit_longitudinal_timeline_rollout_incident_procedure.review");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    procedureStatus: "in_review",
+    validationStatus: "blocked",
+    rolloutStatus: "review_required",
+    sopStatus: "not_started",
+    evidenceStatus: "not_started",
+    monitoringStatus: "not_started",
+    realDatasetTimelineCount: 2,
+    monitoredTimelineCount: 2,
+    sampledOutcomeCount: 2,
+    incidentCaseCount: 1,
+    unresolvedIncidentCount: 0,
+    escalatedIncidentCount: 0,
+    rollbackDecisionCount: 1,
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    procedureChecklistReady: true,
+    aggregateProcedureReady: true,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+    patientRowsExposed: false,
+    rawIncidentDetailsExposed: false,
+    rawOutcomeLogsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.incidentProcedure) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|"rawMonitoringLog"\s*:|"rawOutcomeLog"\s*:|"incidentPayload"\s*:|"incidentDetails"\s*:|"incidentTimeline"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BV Stage 5H incident procedure payload rejects protected and clinical fields", () => {
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload({
+        procedureStatus: "ready_for_clinic_monitoring",
+        procedureReasons: ["готово"],
+        realDatasetStatus: "ready",
+        outcomeSamplingProcedureStatus: "ready",
+        incidentTriageStatus: "ready",
+        escalationPathStatus: "ready",
+        rollbackDecisionStatus: "ready",
+        ownerReviewStatus: "ready",
+        realDatasetTimelineCount: 2,
+        monitoredTimelineCount: 2,
+        sampledOutcomeCount: 2,
+        incidentCaseCount: 1,
+        unresolvedIncidentCount: 0,
+        escalatedIncidentCount: 0,
+        rollbackDecisionCount: 1,
+        incidentPayload: { unsafe: true },
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload({
+        procedureStatus: "ready_for_clinic_monitoring",
+        procedureReasons: ["вероятность меланомы низкая"],
+        realDatasetStatus: "ready",
+        outcomeSamplingProcedureStatus: "ready",
+        incidentTriageStatus: "ready",
+        escalationPathStatus: "ready",
+        rollbackDecisionStatus: "ready",
+        ownerReviewStatus: "ready",
+        realDatasetTimelineCount: 2,
+        monitoredTimelineCount: 2,
+        sampledOutcomeCount: 2,
+        incidentCaseCount: 1,
+        unresolvedIncidentCount: 0,
+        escalatedIncidentCount: 0,
+        rollbackDecisionCount: 1,
       }),
     VisitWorkspaceValidationError,
   );

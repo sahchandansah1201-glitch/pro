@@ -44,6 +44,7 @@ import {
   getSelfHostedVisitReport,
   reviewSelfHostedVisitLongitudinalTimelineRollout,
   reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure,
   reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   updateSelfHostedVisitAssessment,
@@ -54,6 +55,7 @@ import {
   type SelfHostedLesionComparisonViewerQaReviewQueueDTO,
   type SelfHostedVisitLongitudinalDatasetValidationDTO,
   type SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus,
+  type SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutSopStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutStatus,
@@ -487,6 +489,7 @@ function ProductionClinicalWorkspacePanel({
   const [timelineRolloutSopSaving, setTimelineRolloutSopSaving] = useState(false);
   const [timelineRolloutEvidenceSaving, setTimelineRolloutEvidenceSaving] = useState(false);
   const [timelineRolloutMonitoringSaving, setTimelineRolloutMonitoringSaving] = useState(false);
+  const [timelineRolloutIncidentProcedureSaving, setTimelineRolloutIncidentProcedureSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
     patientFileProxyEnabled: false,
@@ -824,6 +827,60 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Timeline rollout monitoring сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutIncidentProcedure = async (
+    procedureStatus: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const rollout = validation.timelineRollout;
+    const sop = validation.timelineRolloutSop;
+    const evidence = validation.timelineRolloutEvidence;
+    const monitoring = validation.timelineRolloutMonitoring;
+    const prerequisitesReady =
+      readiness.status === "ready_for_rollout"
+      && rollout.status === "approved_for_clinical_operations"
+      && sop.status === "ready_for_operational_rollout"
+      && evidence.status === "ready_for_monitored_rollout"
+      && monitoring.status === "ready_for_production_rollout";
+    const readyPayload = procedureStatus === "ready_for_clinic_monitoring";
+    const procedureReady = readyPayload && prerequisitesReady;
+    setTimelineRolloutIncidentProcedureSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        procedureStatus,
+        procedureReasons: procedureReady
+          ? ["timeline_rollout_incident_procedure_ready_no_dynamic_conclusion"]
+          : ["timeline_rollout_incident_procedure_requires_real_dataset_review"],
+        realDatasetStatus: procedureReady ? "ready" : "needs_review",
+        outcomeSamplingProcedureStatus: procedureReady ? "ready" : "needs_review",
+        incidentTriageStatus: procedureReady ? "ready" : "needs_review",
+        escalationPathStatus: procedureReady ? "ready" : "needs_review",
+        rollbackDecisionStatus: procedureReady ? "ready" : "needs_review",
+        ownerReviewStatus: procedureReady ? "ready" : "needs_review",
+        realDatasetTimelineCount: procedureReady ? Math.max(1, monitoring.monitoredTimelineCount) : 0,
+        monitoredTimelineCount: procedureReady ? Math.max(1, monitoring.monitoredTimelineCount) : 0,
+        sampledOutcomeCount: procedureReady ? Math.max(1, monitoring.sampledTimelineCount) : 0,
+        incidentCaseCount: monitoring.incidentCount,
+        unresolvedIncidentCount: 0,
+        escalatedIncidentCount: 0,
+        rollbackDecisionCount: procedureReady ? Math.max(1, monitoring.rollbackExecutionCount) : 0,
+      },
+    });
+    setTimelineRolloutIncidentProcedureSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить incident procedure.");
+      return;
+    }
+    await load();
+    setStatus("Incident procedure сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -864,10 +921,12 @@ function ProductionClinicalWorkspacePanel({
                 sopSaving={timelineRolloutSopSaving}
                 evidenceSaving={timelineRolloutEvidenceSaving}
                 monitoringSaving={timelineRolloutMonitoringSaving}
+                incidentProcedureSaving={timelineRolloutIncidentProcedureSaving}
                 onReviewRollout={saveTimelineRollout}
                 onReviewSop={saveTimelineRolloutSop}
                 onReviewEvidence={saveTimelineRolloutEvidence}
                 onReviewMonitoring={saveTimelineRolloutMonitoring}
+                onReviewIncidentProcedure={saveTimelineRolloutIncidentProcedure}
               />
             )}
             <PhotoProtocolPolicyGovernancePanel
@@ -1149,6 +1208,14 @@ function timelineRolloutMonitoringStatusLabel(status: SelfHostedVisitLongitudina
   return "Monitoring не начат";
 }
 
+function timelineRolloutIncidentProcedureStatusLabel(
+  status: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
+): string {
+  if (status === "ready_for_clinic_monitoring") return "Incident procedure ready";
+  if (status === "in_review") return "Incident procedure review";
+  return "Incident procedure не начат";
+}
+
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
@@ -1181,31 +1248,38 @@ function LongitudinalDatasetValidationPanel({
   sopSaving,
   evidenceSaving,
   monitoringSaving,
+  incidentProcedureSaving,
   onReviewRollout,
   onReviewSop,
   onReviewEvidence,
   onReviewMonitoring,
+  onReviewIncidentProcedure,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
   saving: boolean;
   sopSaving: boolean;
   evidenceSaving: boolean;
   monitoringSaving: boolean;
+  incidentProcedureSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
   onReviewSop: (status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => void;
   onReviewEvidence: (status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus) => void;
   onReviewMonitoring: (status: SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus) => void;
+  onReviewIncidentProcedure: (status: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus) => void;
 }) {
   const readiness = validation.readiness;
   const rollout = validation.timelineRollout;
   const sop = validation.timelineRolloutSop;
   const evidence = validation.timelineRolloutEvidence;
   const monitoring = validation.timelineRolloutMonitoring;
+  const incidentProcedure = validation.timelineRolloutIncidentProcedure;
   const rolloutReady = readiness.status === "ready_for_rollout";
   const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
   const evidencePrerequisitesReady = sopPrerequisitesReady && sop.status === "ready_for_operational_rollout";
   const monitoringPrerequisitesReady =
     evidencePrerequisitesReady && evidence.status === "ready_for_monitored_rollout";
+  const incidentProcedurePrerequisitesReady =
+    monitoringPrerequisitesReady && monitoring.status === "ready_for_production_rollout";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -1493,6 +1567,71 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewMonitoring("ready_for_production_rollout")}
           >
             Утвердить production rollout
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Incident procedure rollout"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Incident procedure rollout</h4>
+            <p className="text-muted-foreground">
+              Incident procedure фиксирует только aggregate production outcomes · Clinical dynamic conclusion:
+              выключен · Выдача пациенту: выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutIncidentProcedureStatusLabel(incidentProcedure.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Dataset" value={timelineRolloutSopChecklistLabel(incidentProcedure.realDatasetStatus)} />
+          <Field
+            term="Outcome SOP"
+            value={timelineRolloutSopChecklistLabel(incidentProcedure.outcomeSamplingProcedureStatus)}
+          />
+          <Field term="Triage" value={timelineRolloutSopChecklistLabel(incidentProcedure.incidentTriageStatus)} />
+          <Field term="Escalation" value={timelineRolloutSopChecklistLabel(incidentProcedure.escalationPathStatus)} />
+          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(incidentProcedure.rollbackDecisionStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(incidentProcedure.ownerReviewStatus)} />
+          <Field term="Real Set" value={incidentProcedure.realDatasetTimelineCount} />
+          <Field term="Monitored" value={incidentProcedure.monitoredTimelineCount} />
+          <Field term="Sampled" value={incidentProcedure.sampledOutcomeCount} />
+          <Field term="Open Inc." value={incidentProcedure.unresolvedIncidentCount} />
+          <Field term="Escalated" value={incidentProcedure.escalatedIncidentCount} />
+          <Field term="Rollback" value={incidentProcedure.rollbackDecisionCount} />
+        </dl>
+        {incidentProcedure.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {incidentProcedure.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={incidentProcedureSaving}
+            onClick={() => onReviewIncidentProcedure("in_review")}
+          >
+            Зафиксировать incident procedure
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={incidentProcedureSaving || !incidentProcedurePrerequisitesReady}
+            onClick={() => onReviewIncidentProcedure("ready_for_clinic_monitoring")}
+          >
+            Утвердить clinic monitoring
           </Button>
         </div>
       </div>

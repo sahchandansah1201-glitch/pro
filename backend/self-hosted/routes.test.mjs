@@ -3952,6 +3952,7 @@ function clinicalWorkspaceRuntime({
   visitLongitudinalTimelineRolloutSop = null,
   visitLongitudinalTimelineRolloutEvidence = null,
   visitLongitudinalTimelineRolloutMonitoring = null,
+  visitLongitudinalTimelineRolloutIncidentProcedure = null,
   protectedLesionImageDownload = null,
   reportPackage = null,
   photoProtocolRelease = null,
@@ -4081,6 +4082,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           monitoring: visitLongitudinalTimelineRolloutMonitoring,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async reviewVisitLongitudinalTimelineRolloutIncidentProcedure() {
+        if (clinicalError) throw clinicalError;
+        return {
+          incidentProcedure: visitLongitudinalTimelineRolloutIncidentProcedure,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -5992,6 +6000,85 @@ test("Batch BU Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-
   );
 });
 
+test("Batch BV Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/incident-procedure stores aggregate-only incident procedure", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/longitudinal-timeline-rollout/incident-procedure`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      visitLongitudinalTimelineRolloutIncidentProcedure: {
+        id: "incident-procedure-review-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "in_review",
+        reasons: ["timeline_rollout_incident_procedure_not_ready"],
+        monitoringStatus: "not_started",
+        evidenceStatus: "not_started",
+        sopStatus: "not_started",
+        validationStatus: "blocked",
+        rolloutStatus: "review_required",
+        realDatasetStatus: "needs_review",
+        outcomeSamplingProcedureStatus: "needs_review",
+        incidentTriageStatus: "needs_review",
+        escalationPathStatus: "needs_review",
+        rollbackDecisionStatus: "needs_review",
+        ownerReviewStatus: "needs_review",
+        realDatasetTimelineCount: 0,
+        monitoredTimelineCount: 0,
+        sampledOutcomeCount: 0,
+        incidentCaseCount: 0,
+        unresolvedIncidentCount: 0,
+        escalatedIncidentCount: 0,
+        rollbackDecisionCount: 0,
+        lesionCount: 2,
+        readyTimelineCount: 1,
+        blockedTimelineCount: 1,
+        candidatePairCount: 3,
+        reviewerWorkflowReadyCount: 1,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-05T00:00:00.000Z",
+        createdAt: "2026-06-05T00:00:00.000Z",
+        updatedAt: "2026-06-05T00:00:00.000Z",
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      procedureStatus: "ready_for_clinic_monitoring",
+      procedureReasons: ["timeline_rollout_incident_procedure_ready_no_dynamic_conclusion"],
+      realDatasetStatus: "ready",
+      outcomeSamplingProcedureStatus: "ready",
+      incidentTriageStatus: "ready",
+      escalationPathStatus: "ready",
+      rollbackDecisionStatus: "ready",
+      ownerReviewStatus: "ready",
+      realDatasetTimelineCount: 2,
+      monitoredTimelineCount: 2,
+      sampledOutcomeCount: 2,
+      incidentCaseCount: 0,
+      unresolvedIncidentCount: 0,
+      escalatedIncidentCount: 0,
+      rollbackDecisionCount: 1,
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.item.status, "in_review");
+  assert.equal(response.json.item.monitoringStatus, "not_started");
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.equal(response.json.item.clinicalOutputGenerated, false);
+  assert.doesNotMatch(
+    response.body,
+    /"pairKey"|"imageIds"|patientRows|rawOutcomeLog|rawMonitoringLog|incidentPayload|incidentDetails|incidentTimeline|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|reviewerName|reviewerEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
 test("Batch AX Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render streams protected image bytes", async () => {
   const lesionId = "10000000-0000-4000-8000-000000000801";
   const assetId = "10000000-0000-4000-8000-000000000901";
@@ -6031,6 +6118,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/sop"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/evidence"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/monitoring"].patch);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/incident-procedure"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata"].patch);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history"].get);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa"].get);
@@ -6050,6 +6138,8 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutEvidencePayload);
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutMonitoring);
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutMonitoringPayload);
+  assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutIncidentProcedure);
+  assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutIncidentProcedurePayload);
   assert.ok(response.json.components.schemas.LesionCaptureMetadata);
   assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
   assert.ok(response.json.components.schemas.LesionLongitudinalQa);

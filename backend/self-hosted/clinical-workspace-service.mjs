@@ -89,6 +89,11 @@ const TIMELINE_ROLLOUT_MONITORING_STATUS_VALUES = new Set([
   "in_review",
   "ready_for_production_rollout",
 ]);
+const TIMELINE_ROLLOUT_INCIDENT_PROCEDURE_STATUS_VALUES = new Set([
+  "not_started",
+  "in_review",
+  "ready_for_clinic_monitoring",
+]);
 const TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES = new Set(["missing", "needs_review", "ready"]);
 const MAX_TEXT = 8000;
 const MAX_REASON_TEXT = 120;
@@ -103,10 +108,13 @@ const PROTECTED_INPUT_KEYS = new Set([
   "signedUrl",
   "sharedLink",
   "evidenceUrl",
+  "incidentUrl",
   "rawEvidenceLog",
   "rawMonitoringLog",
+  "rawOutcomeLog",
   "incidentPayload",
   "incidentDetails",
+  "incidentTimeline",
   "photoRef",
   "heatmapRef",
   "modelVersion",
@@ -944,6 +952,66 @@ export function normalizeVisitLongitudinalTimelineRolloutMonitoringPayload(input
     unresolvedIncidentCount,
     closedExceptionCount,
     rollbackExecutionCount,
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+  };
+}
+
+export function normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in incident procedure payloads." });
+  }
+  const procedureStatus = cleanString(input.procedureStatus);
+  if (!procedureStatus || !TIMELINE_ROLLOUT_INCIDENT_PROCEDURE_STATUS_VALUES.has(procedureStatus)) {
+    details.push({
+      field: "procedureStatus",
+      message: "procedureStatus must be not_started, in_review, or ready_for_clinic_monitoring.",
+    });
+  }
+  const checklistStatus = (field) => {
+    const value = cleanString(input[field]) || "missing";
+    if (!TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES.has(value)) {
+      details.push({ field, message: `${field} must be missing, needs_review, or ready.` });
+      return "missing";
+    }
+    return value;
+  };
+  const count = (field, max) => normalizeNumber(input[field], field, details, { integer: true, min: 0, max }) ?? 0;
+  const procedureReasons = normalizeTechnicalStrings(input.procedureReasons, "procedureReasons", details);
+  const realDatasetStatus = checklistStatus("realDatasetStatus");
+  const outcomeSamplingProcedureStatus = checklistStatus("outcomeSamplingProcedureStatus");
+  const incidentTriageStatus = checklistStatus("incidentTriageStatus");
+  const escalationPathStatus = checklistStatus("escalationPathStatus");
+  const rollbackDecisionStatus = checklistStatus("rollbackDecisionStatus");
+  const ownerReviewStatus = checklistStatus("ownerReviewStatus");
+  const realDatasetTimelineCount = count("realDatasetTimelineCount", 20000);
+  const monitoredTimelineCount = count("monitoredTimelineCount", 20000);
+  const sampledOutcomeCount = count("sampledOutcomeCount", 20000);
+  const incidentCaseCount = count("incidentCaseCount", 20000);
+  const unresolvedIncidentCount = count("unresolvedIncidentCount", 20000);
+  const escalatedIncidentCount = count("escalatedIncidentCount", 20000);
+  const rollbackDecisionCount = count("rollbackDecisionCount", 20000);
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    procedureStatus,
+    procedureReasons: procedureReasons ?? [],
+    realDatasetStatus,
+    outcomeSamplingProcedureStatus,
+    incidentTriageStatus,
+    escalationPathStatus,
+    rollbackDecisionStatus,
+    ownerReviewStatus,
+    realDatasetTimelineCount,
+    monitoredTimelineCount,
+    sampledOutcomeCount,
+    incidentCaseCount,
+    unresolvedIncidentCount,
+    escalatedIncidentCount,
+    rollbackDecisionCount,
     patientDeliveryAllowed: false,
     medicalMeasurementAllowed: false,
     protectedFieldsExposed: false,
@@ -2156,6 +2224,142 @@ export function createClinicalWorkspaceService({
         },
       });
       return { monitoring, scope };
+    },
+
+    async reviewVisitLongitudinalTimelineRolloutIncidentProcedure(visitId, input, authContext, { correlationId } = {}) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const validation = await clinicalWorkspaceRepository.getVisitLongitudinalDatasetValidation({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!validation) {
+        throw new VisitWorkspaceNotFoundError("Longitudinal dataset validation was not found in the allowed clinic scope.");
+      }
+      const readiness = validation.readiness || {};
+      const rollout = validation.timelineRollout || {};
+      const sop = validation.timelineRolloutSop || {};
+      const evidence = validation.timelineRolloutEvidence || {};
+      const monitoring = validation.timelineRolloutMonitoring || {};
+      const validationStatus = String(readiness.status ?? "blocked");
+      const rolloutStatus = String(rollout.status ?? "not_approved");
+      const sopStatus = String(sop.status ?? "not_started");
+      const evidenceStatus = String(evidence.status ?? "not_started");
+      const monitoringStatus = String(monitoring.status ?? "not_started");
+      const procedureChecklistReady = [
+        payload.realDatasetStatus,
+        payload.outcomeSamplingProcedureStatus,
+        payload.incidentTriageStatus,
+        payload.escalationPathStatus,
+        payload.rollbackDecisionStatus,
+        payload.ownerReviewStatus,
+      ].every((status) => status === "ready");
+      const aggregateProcedureReady =
+        payload.realDatasetTimelineCount > 0
+        && payload.monitoredTimelineCount > 0
+        && payload.sampledOutcomeCount > 0
+        && payload.unresolvedIncidentCount === 0;
+      const clinicMonitoringReady =
+        validationStatus === "ready_for_rollout"
+        && rolloutStatus === "approved_for_clinical_operations"
+        && sopStatus === "ready_for_operational_rollout"
+        && evidenceStatus === "ready_for_monitored_rollout"
+        && monitoringStatus === "ready_for_production_rollout"
+        && procedureChecklistReady
+        && aggregateProcedureReady;
+      const effectiveStatus =
+        payload.procedureStatus === "ready_for_clinic_monitoring" && !clinicMonitoringReady
+          ? "in_review"
+          : payload.procedureStatus;
+      const effectiveReasons = [
+        ...payload.procedureReasons,
+        ...(payload.procedureStatus === "ready_for_clinic_monitoring" && !clinicMonitoringReady
+          ? ["timeline_rollout_incident_procedure_not_ready"]
+          : []),
+      ];
+      const incidentProcedure = await clinicalWorkspaceRepository.reviewVisitLongitudinalTimelineRolloutIncidentProcedure({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        doctorUserId: authContext.userId,
+        procedure: {
+          procedureStatus: effectiveStatus,
+          procedureReasons: effectiveReasons,
+          monitoringStatus,
+          evidenceStatus,
+          sopStatus,
+          validationStatus,
+          rolloutStatus,
+          realDatasetStatus: payload.realDatasetStatus,
+          outcomeSamplingProcedureStatus: payload.outcomeSamplingProcedureStatus,
+          incidentTriageStatus: payload.incidentTriageStatus,
+          escalationPathStatus: payload.escalationPathStatus,
+          rollbackDecisionStatus: payload.rollbackDecisionStatus,
+          ownerReviewStatus: payload.ownerReviewStatus,
+          realDatasetTimelineCount: payload.realDatasetTimelineCount,
+          monitoredTimelineCount: payload.monitoredTimelineCount,
+          sampledOutcomeCount: payload.sampledOutcomeCount,
+          incidentCaseCount: payload.incidentCaseCount,
+          unresolvedIncidentCount: payload.unresolvedIncidentCount,
+          escalatedIncidentCount: payload.escalatedIncidentCount,
+          rollbackDecisionCount: payload.rollbackDecisionCount,
+          lesionCount: Number(readiness.lesionCount ?? 0),
+          readyTimelineCount: Number(readiness.readyTimelineCount ?? 0),
+          blockedTimelineCount: Number(readiness.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(readiness.reviewerWorkflowReadyCount ?? 0),
+        },
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!incidentProcedure) throw new VisitWorkspaceNotFoundError("Timeline rollout incident procedure could not be saved.");
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: incidentProcedure.clinicId ?? visit.clinic.id,
+        actorUserId: authContext.userId,
+        action: "visit_longitudinal_timeline_rollout_incident_procedure.review",
+        entityType: "visit_longitudinal_timeline_rollout_incident_procedure_review",
+        entityId: incidentProcedure.id ?? safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          procedureStatus: incidentProcedure.status,
+          validationStatus: incidentProcedure.validationStatus,
+          rolloutStatus: incidentProcedure.rolloutStatus,
+          sopStatus: incidentProcedure.sopStatus,
+          evidenceStatus: incidentProcedure.evidenceStatus,
+          monitoringStatus: incidentProcedure.monitoringStatus,
+          realDatasetTimelineCount: Number(incidentProcedure.realDatasetTimelineCount ?? 0),
+          monitoredTimelineCount: Number(incidentProcedure.monitoredTimelineCount ?? 0),
+          sampledOutcomeCount: Number(incidentProcedure.sampledOutcomeCount ?? 0),
+          incidentCaseCount: Number(incidentProcedure.incidentCaseCount ?? 0),
+          unresolvedIncidentCount: Number(incidentProcedure.unresolvedIncidentCount ?? 0),
+          escalatedIncidentCount: Number(incidentProcedure.escalatedIncidentCount ?? 0),
+          rollbackDecisionCount: Number(incidentProcedure.rollbackDecisionCount ?? 0),
+          lesionCount: Number(incidentProcedure.lesionCount ?? 0),
+          readyTimelineCount: Number(incidentProcedure.readyTimelineCount ?? 0),
+          blockedTimelineCount: Number(incidentProcedure.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(incidentProcedure.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(incidentProcedure.reviewerWorkflowReadyCount ?? 0),
+          procedureChecklistReady,
+          aggregateProcedureReady,
+          reasonsCount: incidentProcedure.reasons?.length ?? 0,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          patientRowsExposed: false,
+          rawIncidentDetailsExposed: false,
+          rawOutcomeLogsExposed: false,
+        },
+      });
+      return { incidentProcedure, scope };
     },
 
     async getLesionLongitudinalQa(patientId, lesionId, authContext, { correlationId } = {}) {

@@ -1744,6 +1744,122 @@ Safety boundary:
   until privacy/security/retention/session/approved-copy gates are explicitly
   closed.
 
+## Batch BV Timeline Rollout Incident Procedure
+
+Plan item: `production outcome monitoring on real clinical datasets / incident
+monitoring procedure`.
+
+Batch BV adds the incident-procedure layer after Batch BU monitoring outcomes.
+It is still a doctor-side, metadata-only production operations gate: it records
+whether the team has an aggregate real-dataset procedure for outcome sampling,
+incident triage, escalation, rollback decision, and owner review. It does not
+create a clinical dynamic conclusion, does not store raw incident logs, and does
+not enable patient delivery.
+
+Persistence:
+
+- `0072_stage5h_timeline_rollout_incident_procedure.sql` creates
+  `visit_longitudinal_timeline_rollout_incident_procedure_reviews`;
+- stored fields are aggregate operational metadata only:
+  `procedure_status`, `procedure_reasons`, validation/rollout/SOP/evidence/
+  monitoring statuses, six checklist statuses, real-dataset timeline count,
+  monitored timeline count, sampled outcome count, incident case count,
+  unresolved incident count, escalated incident count, rollback decision count,
+  and existing rollout aggregate counters;
+- allowed procedure statuses are `not_started`, `in_review`, and
+  `ready_for_clinic_monitoring`;
+- CHECK constraints force `patient_delivery_allowed=false`,
+  `medical_measurement_allowed=false`, `protected_fields_exposed=false`, and
+  `clinical_output_generated=false`;
+- CHECK
+  `visit_longitudinal_timeline_rollout_incident_procedure_metadata_no_protected_keys`
+  blocks pair keys, image IDs, asset IDs, patient rows/IDs, case IDs,
+  object/storage/signed URL fields, raw evidence/monitoring/outcome logs, raw
+  incident payload/details/timeline fields, QR/session/credential material,
+  reviewer names/emails, doctor/patient report text, diagnosis/risk/prognosis/
+  treatment, measurement values, and dynamic clinical conclusion keys.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/incident-procedure`
+  persists the metadata-only incident procedure review;
+- repository builder
+  `buildReviewVisitLongitudinalTimelineRolloutIncidentProcedureSql` upserts by
+  `visit_id` inside the clinic-scoped visit boundary;
+- the `GET /api/v1/visits/{visitId}/longitudinal-dataset-validation` read model
+  now includes `timelineRolloutIncidentProcedure`;
+- service validator
+  `normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload` rejects
+  protected keys and clinical claim wording;
+- service review method downgrades requested `ready_for_clinic_monitoring` to
+  `in_review` with reason `timeline_rollout_incident_procedure_not_ready`
+  unless dataset validation is `ready_for_rollout`, Batch BR rollout is
+  `approved_for_clinical_operations`, Batch BS SOP is
+  `ready_for_operational_rollout`, Batch BT evidence is
+  `ready_for_monitored_rollout`, Batch BU monitoring is
+  `ready_for_production_rollout`, all six procedure checklist fields are
+  `ready`, real dataset/monitored/sample counts are positive, and unresolved
+  incident count is zero;
+- audit action `visit_longitudinal_timeline_rollout_incident_procedure.review`
+  stores aggregate counts, statuses, checklist readiness booleans, reason
+  count, and forced-false boundary flags only.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab adds region `Incident procedure rollout`
+  inside `Готовность timeline QA`, after `Monitoring outcomes rollout`;
+- visible copy states `Incident procedure фиксирует только aggregate
+  production outcomes`, `Clinical dynamic conclusion: выключен`, and `Выдача
+  пациенту: выключена`;
+- compact fields show `Dataset`, `Outcome SOP`, `Triage`, `Escalation`,
+  `Rollback`, `Owner`, `Real Set`, `Monitored`, `Sampled`, `Open Inc.`,
+  `Escalated`, and `Rollback`;
+- `Утвердить clinic monitoring` is disabled unless dataset readiness is
+  `ready_for_rollout`, Batch BR rollout governance is
+  `approved_for_clinical_operations`, Batch BS SOP is
+  `ready_for_operational_rollout`, Batch BT evidence is
+  `ready_for_monitored_rollout`, and Batch BU monitoring is
+  `ready_for_production_rollout`;
+- `Зафиксировать incident procedure` remains available and writes
+  metadata-only review state;
+- after saving, the workspace reloads the self-hosted read model and shows
+  `Incident procedure сохранён. Clinical dynamic conclusion: выключен.`
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`, `patientDeliveryAllowed=false`,
+  `protectedFieldsExposed=false`, and `clinicalOutputGenerated=false` are
+  forced in repository, service, OpenAPI schema, frontend DTO normalizer, and
+  UI copy;
+- no patient delivery, medical measurement, clinical dynamic conclusion, or
+  diagnosis/risk/prognosis/treatment wording is produced by this batch;
+- no pair keys, image IDs, asset IDs, patient rows, case IDs, object bucket/key,
+  storage path, checksum, signed URL, QR/session/credential, reviewer identity,
+  doctor-only text, patient-safe report text, evidence URL, raw outcome log,
+  raw monitoring log, incident payload, incident details, or incident timeline
+  are returned in incident procedure read/write responses or audit metadata.
+
+### Batch BV Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BV adds the
+  real-dataset incident-procedure receipt after monitored timeline rollout, so
+  chronology rollout can prove that outcome sampling and incident handling are
+  operationally ready before clinic monitoring. Remaining gate: validation on
+  real production datasets with ongoing monitoring evidence.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BV adds
+  incident triage, escalation, rollback decision, and owner review procedure
+  gates around reviewer operations. Remaining gate: clinical operations
+  validation on real assets and reviewer governance.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BV keeps
+  `Clinical dynamic conclusion: выключен`; clinic monitoring is blocked until
+  real-dataset procedure and incident-handling readiness are recorded.
+  Remaining gate: approved production analysis procedure, clinical validation,
+  and post-rollout incident monitoring over time.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch BV is
+  doctor-side metadata-only incident-procedure governance; patient delivery
+  remains off until privacy/security/retention/session/approved-copy gates are
+  explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

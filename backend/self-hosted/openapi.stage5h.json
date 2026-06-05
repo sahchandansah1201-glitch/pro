@@ -2154,6 +2154,9 @@
           },
           "timelineRolloutMonitoring": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutMonitoring"
+          },
+          "timelineRolloutIncidentProcedure": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutIncidentProcedure"
           }
         }
       },
@@ -3474,6 +3477,362 @@
           }
         },
         "additionalProperties": false
+      },
+      "VisitLongitudinalTimelineRolloutIncidentProcedure": {
+        "type": "object",
+        "required": [
+          "id",
+          "clinicId",
+          "patientId",
+          "visitId",
+          "status",
+          "reasons",
+          "monitoringStatus",
+          "evidenceStatus",
+          "sopStatus",
+          "validationStatus",
+          "rolloutStatus",
+          "realDatasetStatus",
+          "outcomeSamplingProcedureStatus",
+          "incidentTriageStatus",
+          "escalationPathStatus",
+          "rollbackDecisionStatus",
+          "ownerReviewStatus",
+          "realDatasetTimelineCount",
+          "monitoredTimelineCount",
+          "sampledOutcomeCount",
+          "incidentCaseCount",
+          "unresolvedIncidentCount",
+          "escalatedIncidentCount",
+          "rollbackDecisionCount",
+          "lesionCount",
+          "readyTimelineCount",
+          "blockedTimelineCount",
+          "candidatePairCount",
+          "reviewerWorkflowReadyCount",
+          "patientDeliveryAllowed",
+          "medicalMeasurementAllowed",
+          "protectedFieldsExposed",
+          "clinicalOutputGenerated",
+          "reviewedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clinicId": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientId": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_clinic_monitoring"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "monitoringStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_rollout"
+            ]
+          },
+          "evidenceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_monitored_rollout"
+            ]
+          },
+          "sopStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_operational_rollout"
+            ]
+          },
+          "validationStatus": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "needs_review",
+              "ready_for_rollout"
+            ]
+          },
+          "rolloutStatus": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_clinical_operations"
+            ]
+          },
+          "realDatasetStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "outcomeSamplingProcedureStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "incidentTriageStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "escalationPathStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackDecisionStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "realDatasetTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "monitoredTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sampledOutcomeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "incidentCaseCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedIncidentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "escalatedIncidentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackDecisionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lesionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "readyTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidatePairCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewerWorkflowReadyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          },
+          "reviewedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "VisitLongitudinalTimelineRolloutIncidentProcedurePayload": {
+        "type": "object",
+        "required": [
+          "procedureStatus",
+          "procedureReasons",
+          "realDatasetStatus",
+          "outcomeSamplingProcedureStatus",
+          "incidentTriageStatus",
+          "escalationPathStatus",
+          "rollbackDecisionStatus",
+          "ownerReviewStatus",
+          "realDatasetTimelineCount",
+          "monitoredTimelineCount",
+          "sampledOutcomeCount",
+          "incidentCaseCount",
+          "unresolvedIncidentCount",
+          "escalatedIncidentCount",
+          "rollbackDecisionCount"
+        ],
+        "properties": {
+          "procedureStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_clinic_monitoring"
+            ]
+          },
+          "procedureReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "realDatasetStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "outcomeSamplingProcedureStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "incidentTriageStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "escalationPathStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "rollbackDecisionStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "realDatasetTimelineCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "monitoredTimelineCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "sampledOutcomeCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "incidentCaseCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "unresolvedIncidentCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "escalatedIncidentCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "rollbackDecisionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
@@ -4440,6 +4799,58 @@
                       "type": "string"
                     }
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/incident-procedure": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review metadata-only production incident monitoring procedure for timeline rollout",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutIncidentProcedurePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident procedure review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutIncidentProcedure"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }

@@ -570,6 +570,11 @@ export type SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus =
   | "in_review"
   | "ready_for_production_rollout";
 
+export type SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus =
+  | "not_started"
+  | "in_review"
+  | "ready_for_clinic_monitoring";
+
 export type SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus =
   | "missing"
   | "needs_review"
@@ -620,6 +625,24 @@ export interface VisitLongitudinalTimelineRolloutMonitoringPayload {
   unresolvedIncidentCount: number;
   closedExceptionCount: number;
   rollbackExecutionCount: number;
+}
+
+export interface VisitLongitudinalTimelineRolloutIncidentProcedurePayload {
+  procedureStatus: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus;
+  procedureReasons: string[];
+  realDatasetStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  outcomeSamplingProcedureStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  incidentTriageStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  escalationPathStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  rollbackDecisionStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  ownerReviewStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  realDatasetTimelineCount: number;
+  monitoredTimelineCount: number;
+  sampledOutcomeCount: number;
+  incidentCaseCount: number;
+  unresolvedIncidentCount: number;
+  escalatedIncidentCount: number;
+  rollbackDecisionCount: number;
 }
 
 export interface SelfHostedVisitLongitudinalTimelineRolloutDTO {
@@ -744,6 +767,45 @@ export interface SelfHostedVisitLongitudinalTimelineRolloutMonitoringDTO {
   updatedAt: string | null;
 }
 
+export interface SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureDTO {
+  id: string;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  status: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus;
+  reasons: string[];
+  monitoringStatus: SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus;
+  evidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus;
+  sopStatus: SelfHostedVisitLongitudinalTimelineRolloutSopStatus;
+  validationStatus: SelfHostedVisitLongitudinalDatasetValidationStatus;
+  rolloutStatus: SelfHostedVisitLongitudinalTimelineRolloutStatus;
+  realDatasetStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  outcomeSamplingProcedureStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  incidentTriageStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  escalationPathStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  rollbackDecisionStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  ownerReviewStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  realDatasetTimelineCount: number;
+  monitoredTimelineCount: number;
+  sampledOutcomeCount: number;
+  incidentCaseCount: number;
+  unresolvedIncidentCount: number;
+  escalatedIncidentCount: number;
+  rollbackDecisionCount: number;
+  lesionCount: number;
+  readyTimelineCount: number;
+  blockedTimelineCount: number;
+  candidatePairCount: number;
+  reviewerWorkflowReadyCount: number;
+  patientDeliveryAllowed: false;
+  medicalMeasurementAllowed: false;
+  protectedFieldsExposed: false;
+  clinicalOutputGenerated: false;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
   clinicId: string | null;
   patientId: string | null;
@@ -804,6 +866,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
   timelineRolloutSop: SelfHostedVisitLongitudinalTimelineRolloutSopDTO;
   timelineRolloutEvidence: SelfHostedVisitLongitudinalTimelineRolloutEvidenceDTO;
   timelineRolloutMonitoring: SelfHostedVisitLongitudinalTimelineRolloutMonitoringDTO;
+  timelineRolloutIncidentProcedure: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureDTO;
   nextActions: SelfHostedLesionLongitudinalQaAction[];
   boundaries: SelfHostedLesionLongitudinalQaDTO["boundaries"];
 }
@@ -894,6 +957,10 @@ interface PatchVisitLongitudinalTimelineRolloutEvidenceArgs extends VisitArgs {
 
 interface PatchVisitLongitudinalTimelineRolloutMonitoringArgs extends VisitArgs {
   payload: VisitLongitudinalTimelineRolloutMonitoringPayload;
+}
+
+interface PatchVisitLongitudinalTimelineRolloutIncidentProcedureArgs extends VisitArgs {
+  payload: VisitLongitudinalTimelineRolloutIncidentProcedurePayload;
 }
 
 interface LesionLongitudinalHistoryArgs extends BaseArgs {
@@ -1696,6 +1763,12 @@ function toVisitLongitudinalTimelineRolloutMonitoringStatus(
   return value === "in_review" || value === "ready_for_production_rollout" ? value : "not_started";
 }
 
+function toVisitLongitudinalTimelineRolloutIncidentProcedureStatus(
+  value: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus {
+  return value === "in_review" || value === "ready_for_clinic_monitoring" ? value : "not_started";
+}
+
 function toVisitLongitudinalTimelineRolloutSopChecklistStatus(
   value: unknown,
 ): SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus {
@@ -1850,6 +1923,54 @@ function toVisitLongitudinalTimelineRolloutMonitoring(
   };
 }
 
+function toVisitLongitudinalTimelineRolloutIncidentProcedure(
+  input: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureDTO {
+  const procedure = isRecord(input) ? input : {};
+  return {
+    id: String(procedure.id ?? ""),
+    clinicId: textOrNull(procedure.clinicId),
+    patientId: textOrNull(procedure.patientId),
+    visitId: textOrNull(procedure.visitId),
+    status: toVisitLongitudinalTimelineRolloutIncidentProcedureStatus(procedure.status),
+    reasons: toStringArray(procedure.reasons),
+    monitoringStatus: toVisitLongitudinalTimelineRolloutMonitoringStatus(procedure.monitoringStatus),
+    evidenceStatus: toVisitLongitudinalTimelineRolloutEvidenceStatus(procedure.evidenceStatus),
+    sopStatus: toVisitLongitudinalTimelineRolloutSopStatus(procedure.sopStatus),
+    validationStatus: toVisitLongitudinalDatasetValidationStatus(procedure.validationStatus),
+    rolloutStatus: toVisitLongitudinalTimelineRolloutStatus(procedure.rolloutStatus),
+    realDatasetStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(procedure.realDatasetStatus),
+    outcomeSamplingProcedureStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      procedure.outcomeSamplingProcedureStatus,
+    ),
+    incidentTriageStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(procedure.incidentTriageStatus),
+    escalationPathStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(procedure.escalationPathStatus),
+    rollbackDecisionStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      procedure.rollbackDecisionStatus,
+    ),
+    ownerReviewStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(procedure.ownerReviewStatus),
+    realDatasetTimelineCount: numberOrZero(procedure.realDatasetTimelineCount),
+    monitoredTimelineCount: numberOrZero(procedure.monitoredTimelineCount),
+    sampledOutcomeCount: numberOrZero(procedure.sampledOutcomeCount),
+    incidentCaseCount: numberOrZero(procedure.incidentCaseCount),
+    unresolvedIncidentCount: numberOrZero(procedure.unresolvedIncidentCount),
+    escalatedIncidentCount: numberOrZero(procedure.escalatedIncidentCount),
+    rollbackDecisionCount: numberOrZero(procedure.rollbackDecisionCount),
+    lesionCount: numberOrZero(procedure.lesionCount),
+    readyTimelineCount: numberOrZero(procedure.readyTimelineCount),
+    blockedTimelineCount: numberOrZero(procedure.blockedTimelineCount),
+    candidatePairCount: numberOrZero(procedure.candidatePairCount),
+    reviewerWorkflowReadyCount: numberOrZero(procedure.reviewerWorkflowReadyCount),
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    reviewedAt: textOrNull(procedure.reviewedAt),
+    createdAt: textOrNull(procedure.createdAt),
+    updatedAt: textOrNull(procedure.updatedAt),
+  };
+}
+
 function toVisitLongitudinalDatasetValidation(
   input: Record<string, unknown>,
 ): SelfHostedVisitLongitudinalDatasetValidationDTO {
@@ -1932,6 +2053,9 @@ function toVisitLongitudinalDatasetValidation(
     timelineRolloutSop: toVisitLongitudinalTimelineRolloutSop(input.timelineRolloutSop),
     timelineRolloutEvidence: toVisitLongitudinalTimelineRolloutEvidence(input.timelineRolloutEvidence),
     timelineRolloutMonitoring: toVisitLongitudinalTimelineRolloutMonitoring(input.timelineRolloutMonitoring),
+    timelineRolloutIncidentProcedure: toVisitLongitudinalTimelineRolloutIncidentProcedure(
+      input.timelineRolloutIncidentProcedure,
+    ),
     nextActions,
     boundaries: SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
   };
@@ -2228,6 +2352,20 @@ export async function reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring
     "PATCH",
     args.payload,
     toVisitLongitudinalTimelineRolloutMonitoring,
+  );
+}
+
+export async function reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure(
+  args: PatchVisitLongitudinalTimelineRolloutIncidentProcedureArgs,
+): Promise<SelfHostedApiResult<SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/longitudinal-timeline-rollout/incident-procedure"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toVisitLongitudinalTimelineRolloutIncidentProcedure,
   );
 }
 
