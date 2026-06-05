@@ -2160,6 +2160,9 @@
           },
           "timelineRolloutClinicalValidation": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutClinicalValidation"
+          },
+          "timelineRolloutPostValidationMonitoring": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutPostValidationMonitoring"
           }
         }
       },
@@ -4185,6 +4188,404 @@
           }
         },
         "additionalProperties": false
+      },
+      "VisitLongitudinalTimelineRolloutPostValidationMonitoring": {
+        "type": "object",
+        "required": [
+          "id",
+          "clinicId",
+          "patientId",
+          "visitId",
+          "status",
+          "reasons",
+          "clinicalValidationStatus",
+          "incidentProcedureStatus",
+          "monitoringStatus",
+          "evidenceStatus",
+          "sopStatus",
+          "validationStatus",
+          "rolloutStatus",
+          "monitoringWindowStatus",
+          "outcomeReviewStatus",
+          "driftReviewStatus",
+          "incidentFollowupStatus",
+          "validatorRecheckStatus",
+          "ownerSignoffStatus",
+          "realDatasetTimelineCount",
+          "clinicalValidationSampleCount",
+          "monitoredTimelineCount",
+          "sampledOutcomeCount",
+          "driftSignalCount",
+          "unresolvedDriftSignalCount",
+          "incidentFollowupCount",
+          "unresolvedIncidentFollowupCount",
+          "validatorRecheckCount",
+          "blockerCount",
+          "lesionCount",
+          "readyTimelineCount",
+          "blockedTimelineCount",
+          "candidatePairCount",
+          "reviewerWorkflowReadyCount",
+          "patientDeliveryAllowed",
+          "medicalMeasurementAllowed",
+          "protectedFieldsExposed",
+          "clinicalOutputGenerated",
+          "reviewedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clinicId": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientId": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_post_validation_monitoring"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "clinicalValidationStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_clinical_validation"
+            ]
+          },
+          "incidentProcedureStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_clinic_monitoring"
+            ]
+          },
+          "monitoringStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_rollout"
+            ]
+          },
+          "evidenceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_monitored_rollout"
+            ]
+          },
+          "sopStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_operational_rollout"
+            ]
+          },
+          "validationStatus": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "needs_review",
+              "ready_for_rollout"
+            ]
+          },
+          "rolloutStatus": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_clinical_operations"
+            ]
+          },
+          "monitoringWindowStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "outcomeReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "driftReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "incidentFollowupStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "validatorRecheckStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "realDatasetTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "clinicalValidationSampleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "monitoredTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sampledOutcomeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "driftSignalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedDriftSignalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "incidentFollowupCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedIncidentFollowupCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "validatorRecheckCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockerCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lesionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "readyTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidatePairCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewerWorkflowReadyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          },
+          "reviewedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VisitLongitudinalTimelineRolloutPostValidationMonitoringPayload": {
+        "type": "object",
+        "required": [
+          "postValidationMonitoringStatus",
+          "postValidationMonitoringReasons",
+          "monitoringWindowStatus",
+          "outcomeReviewStatus",
+          "driftReviewStatus",
+          "incidentFollowupStatus",
+          "validatorRecheckStatus",
+          "ownerSignoffStatus",
+          "realDatasetTimelineCount",
+          "clinicalValidationSampleCount",
+          "monitoredTimelineCount",
+          "sampledOutcomeCount",
+          "driftSignalCount",
+          "unresolvedDriftSignalCount",
+          "incidentFollowupCount",
+          "unresolvedIncidentFollowupCount",
+          "validatorRecheckCount",
+          "blockerCount"
+        ],
+        "properties": {
+          "postValidationMonitoringStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_post_validation_monitoring"
+            ]
+          },
+          "postValidationMonitoringReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "monitoringWindowStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "outcomeReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "driftReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "incidentFollowupStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "validatorRecheckStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "realDatasetTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "clinicalValidationSampleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "monitoredTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sampledOutcomeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "driftSignalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedDriftSignalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "incidentFollowupCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedIncidentFollowupCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "validatorRecheckCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockerCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
@@ -5251,6 +5652,58 @@
                       "properties": {
                         "item": {
                           "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutClinicalValidation"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/post-validation-monitoring": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review metadata-only post-validation monitoring readiness for timeline rollout",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutPostValidationMonitoringPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Post-validation monitoring review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutPostValidationMonitoring"
                         }
                       }
                     }

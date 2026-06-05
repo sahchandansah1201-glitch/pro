@@ -1981,6 +1981,133 @@ Safety boundary:
   remains off until privacy/security/retention/session/approved-copy gates are
   explicitly closed.
 
+## Batch BX Post-validation Monitoring
+
+Batch BX adds the post-validation monitoring receipt after Batch BW clinical
+validation. The batch covers the next product plan item:
+
+- production outcome monitoring on real clinical datasets / post-validation
+  monitoring.
+
+The layer records whether the validated timeline rollout has a follow-up window,
+outcome review, drift review, incident follow-up, validator recheck, and owner
+signoff. It remains an operational metadata gate. It does not create a clinical
+dynamic conclusion, diagnosis, risk, prognosis, treatment recommendation,
+measurement value, or patient-delivered protocol.
+
+Persistence:
+
+- migration
+  `0074_stage5h_timeline_rollout_post_validation_monitoring.sql` creates
+  `visit_longitudinal_timeline_rollout_post_validation_monitoring_reviews`;
+- allowed post-validation statuses are `not_started`, `in_review`, and
+  `ready_for_post_validation_monitoring`;
+- stored fields are visit-scoped aggregate statuses and counts:
+  previous rollout layer statuses, six checklist statuses, real dataset
+  timeline count, clinical validation sample count, monitored timeline count,
+  sampled outcome count, drift signal counts, incident follow-up counts,
+  validator recheck count, blocker count, lesion count, candidate pair count,
+  and reviewer workflow ready count;
+- CHECK constraints force `patient_delivery_allowed=false`,
+  `medical_measurement_allowed=false`, `protected_fields_exposed=false`, and
+  `clinical_output_generated=false`;
+- CHECK
+  `visit_longitudinal_timeline_rollout_post_validation_monitoring_metadata_no_protected_keys`
+  blocks pair keys, image IDs, asset IDs, patient rows/IDs, case IDs,
+  object/storage/signed URL fields, evidence/incident/validation/monitoring/
+  drift/follow-up/adjudication URLs, raw evidence/monitoring/outcome/
+  validation/adjudication/drift/follow-up logs, raw clinical-validation or
+  post-validation payloads/details, QR/session/credential material, reviewer
+  and validator names/emails, doctor/patient report text, diagnosis/risk/
+  prognosis/treatment, measurement values, and dynamic clinical conclusion
+  keys.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/post-validation-monitoring`
+  persists the metadata-only post-validation monitoring review;
+- repository builder
+  `buildReviewVisitLongitudinalTimelineRolloutPostValidationMonitoringSql`
+  upserts by `visit_id` inside the clinic-scoped visit boundary;
+- the `GET /api/v1/visits/{visitId}/longitudinal-dataset-validation` read model
+  now includes `timelineRolloutPostValidationMonitoring`;
+- service validator
+  `normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringPayload`
+  rejects protected keys and clinical claim wording;
+- service review method downgrades requested
+  `ready_for_post_validation_monitoring` to `in_review` with reason
+  `timeline_rollout_post_validation_monitoring_not_ready` unless dataset
+  validation is `ready_for_rollout`, Batch BR rollout is
+  `approved_for_clinical_operations`, Batch BS SOP is
+  `ready_for_operational_rollout`, Batch BT evidence is
+  `ready_for_monitored_rollout`, Batch BU monitoring is
+  `ready_for_production_rollout`, Batch BV incident procedure is
+  `ready_for_clinic_monitoring`, Batch BW clinical validation is
+  `ready_for_clinical_validation`, all six post-validation checklist fields are
+  `ready`, real dataset/sample/monitored/outcome counts are positive, and
+  unresolved drift, unresolved incident follow-up, and blocker counts are zero;
+- audit action
+  `visit_longitudinal_timeline_rollout_post_validation_monitoring.review`
+  stores aggregate counts, statuses, checklist readiness booleans, reason
+  count, and forced-false boundary flags only.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab adds region
+  `Post-validation monitoring rollout` inside `Готовность timeline QA`, after
+  `Clinical validation rollout`;
+- visible copy states `Post-validation monitoring фиксирует только aggregate
+  follow-up/drift metadata`, `Clinical dynamic conclusion: выключен`, and
+  `Выдача пациенту: выключена`;
+- compact fields show `Window`, `Outcomes`, `Drift`, `Follow-up`, `Recheck`,
+  `Owner`, `Real Set`, `Validated`, `Monitored`, `Sampled`, `Drift open`, and
+  `Follow open`;
+- `Утвердить post-validation monitoring` is disabled unless the previous
+  rollout gates through Batch BW clinical validation are ready;
+- `Зафиксировать post-validation monitoring` remains available and writes
+  metadata-only review state;
+- after saving, the workspace reloads the self-hosted read model and shows
+  `Post-validation monitoring metadata сохранён. Clinical dynamic conclusion:
+  выключен.`
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`, `patientDeliveryAllowed=false`,
+  `protectedFieldsExposed=false`, and `clinicalOutputGenerated=false` are
+  forced in repository, service, OpenAPI schema, frontend DTO normalizer, and
+  UI copy;
+- no patient delivery, medical measurement, clinical dynamic conclusion, or
+  diagnosis/risk/prognosis/treatment wording is produced by this batch;
+- no pair keys, image IDs, asset IDs, patient rows, case IDs, object bucket/key,
+  storage path, checksum, signed URL, QR/session/credential, reviewer or
+  validator identity, doctor-only text, patient-safe report text, monitoring
+  URL, drift URL, follow-up URL, raw monitoring log, raw drift log, raw
+  follow-up log, post-validation payload, monitoring details, drift details, or
+  follow-up details are returned in post-validation monitoring read/write
+  responses or audit metadata.
+
+### Batch BX Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BX adds the
+  post-validation monitoring receipt after clinical validation, so timeline
+  rollout can record follow-up and drift readiness before any broader clinical
+  use. Remaining gate: real longitudinal outcome observation over production
+  datasets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BX
+  records outcome review, drift review, incident follow-up, validator recheck,
+  and owner signoff counters for the reviewer workflow. Remaining gate:
+  reviewer operations validation on real protected assets and ongoing SOP
+  monitoring.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BX keeps
+  `Clinical dynamic conclusion: выключен`; post-validation monitoring is
+  aggregate operational metadata only and is downgraded when prior rollout or
+  follow-up gates are incomplete. Remaining gate: approved post-rollout outcome
+  review procedure and clinical governance over time.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch BX is
+  doctor-side metadata-only post-validation monitoring; patient delivery
+  remains off until privacy/security/retention/session/approved-copy gates are
+  explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

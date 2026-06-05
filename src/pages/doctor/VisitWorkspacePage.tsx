@@ -47,6 +47,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure,
   reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   updateSelfHostedVisitAssessment,
   updateSelfHostedVisitConclusion,
@@ -59,6 +60,7 @@ import {
   type SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus,
+  type SelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutSopStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutStatus,
 } from "@/lib/self-hosted-clinical-workspace-api";
@@ -493,6 +495,7 @@ function ProductionClinicalWorkspacePanel({
   const [timelineRolloutMonitoringSaving, setTimelineRolloutMonitoringSaving] = useState(false);
   const [timelineRolloutIncidentProcedureSaving, setTimelineRolloutIncidentProcedureSaving] = useState(false);
   const [timelineRolloutClinicalValidationSaving, setTimelineRolloutClinicalValidationSaving] = useState(false);
+  const [timelineRolloutPostValidationMonitoringSaving, setTimelineRolloutPostValidationMonitoringSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
     patientFileProxyEnabled: false,
@@ -933,6 +936,63 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Clinical validation metadata сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutPostValidationMonitoring = async (
+    postValidationMonitoringStatus: SelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const clinicalValidation = validation.timelineRolloutClinicalValidation;
+    const monitoring = validation.timelineRolloutMonitoring;
+    const incidentProcedure = validation.timelineRolloutIncidentProcedure;
+    const readyPayload = postValidationMonitoringStatus === "ready_for_post_validation_monitoring";
+    const monitoringReady =
+      readyPayload
+      && readiness.status === "ready_for_rollout"
+      && clinicalValidation.status === "ready_for_clinical_validation";
+    setTimelineRolloutPostValidationMonitoringSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoring({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        postValidationMonitoringStatus,
+        postValidationMonitoringReasons: monitoringReady
+          ? ["timeline_rollout_post_validation_monitoring_ready_no_dynamic_conclusion"]
+          : ["timeline_rollout_post_validation_monitoring_requires_followup_review"],
+        monitoringWindowStatus: monitoringReady ? "ready" : "needs_review",
+        outcomeReviewStatus: monitoringReady ? "ready" : "needs_review",
+        driftReviewStatus: monitoringReady ? "ready" : "needs_review",
+        incidentFollowupStatus: monitoringReady ? "ready" : "needs_review",
+        validatorRecheckStatus: monitoringReady ? "ready" : "needs_review",
+        ownerSignoffStatus: monitoringReady ? "ready" : "needs_review",
+        realDatasetTimelineCount: monitoringReady
+          ? Math.max(1, clinicalValidation.realDatasetTimelineCount)
+          : 0,
+        clinicalValidationSampleCount: monitoringReady
+          ? Math.max(1, clinicalValidation.validationSampleCount)
+          : 0,
+        monitoredTimelineCount: monitoringReady ? Math.max(1, monitoring.monitoredTimelineCount) : 0,
+        sampledOutcomeCount: monitoringReady ? Math.max(1, monitoring.sampledTimelineCount) : 0,
+        driftSignalCount: 0,
+        unresolvedDriftSignalCount: 0,
+        incidentFollowupCount: monitoringReady ? Math.max(1, incidentProcedure.incidentCaseCount) : 0,
+        unresolvedIncidentFollowupCount: 0,
+        validatorRecheckCount: monitoringReady ? 1 : 0,
+        blockerCount: 0,
+      },
+    });
+    setTimelineRolloutPostValidationMonitoringSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить post-validation monitoring.");
+      return;
+    }
+    await load();
+    setStatus("Post-validation monitoring metadata сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -975,12 +1035,14 @@ function ProductionClinicalWorkspacePanel({
                 monitoringSaving={timelineRolloutMonitoringSaving}
                 incidentProcedureSaving={timelineRolloutIncidentProcedureSaving}
                 clinicalValidationSaving={timelineRolloutClinicalValidationSaving}
+                postValidationMonitoringSaving={timelineRolloutPostValidationMonitoringSaving}
                 onReviewRollout={saveTimelineRollout}
                 onReviewSop={saveTimelineRolloutSop}
                 onReviewEvidence={saveTimelineRolloutEvidence}
                 onReviewMonitoring={saveTimelineRolloutMonitoring}
                 onReviewIncidentProcedure={saveTimelineRolloutIncidentProcedure}
                 onReviewClinicalValidation={saveTimelineRolloutClinicalValidation}
+                onReviewPostValidationMonitoring={saveTimelineRolloutPostValidationMonitoring}
               />
             )}
             <PhotoProtocolPolicyGovernancePanel
@@ -1278,6 +1340,14 @@ function timelineRolloutClinicalValidationStatusLabel(
   return "Clinical validation не начат";
 }
 
+function timelineRolloutPostValidationMonitoringStatusLabel(
+  status: SelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus,
+): string {
+  if (status === "ready_for_post_validation_monitoring") return "Post-validation ready";
+  if (status === "in_review") return "Post-validation review";
+  return "Post-validation не начат";
+}
+
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
@@ -1312,12 +1382,14 @@ function LongitudinalDatasetValidationPanel({
   monitoringSaving,
   incidentProcedureSaving,
   clinicalValidationSaving,
+  postValidationMonitoringSaving,
   onReviewRollout,
   onReviewSop,
   onReviewEvidence,
   onReviewMonitoring,
   onReviewIncidentProcedure,
   onReviewClinicalValidation,
+  onReviewPostValidationMonitoring,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
   saving: boolean;
@@ -1326,12 +1398,16 @@ function LongitudinalDatasetValidationPanel({
   monitoringSaving: boolean;
   incidentProcedureSaving: boolean;
   clinicalValidationSaving: boolean;
+  postValidationMonitoringSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
   onReviewSop: (status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => void;
   onReviewEvidence: (status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus) => void;
   onReviewMonitoring: (status: SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus) => void;
   onReviewIncidentProcedure: (status: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus) => void;
   onReviewClinicalValidation: (status: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus) => void;
+  onReviewPostValidationMonitoring: (
+    status: SelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus,
+  ) => void;
 }) {
   const readiness = validation.readiness;
   const rollout = validation.timelineRollout;
@@ -1340,6 +1416,7 @@ function LongitudinalDatasetValidationPanel({
   const monitoring = validation.timelineRolloutMonitoring;
   const incidentProcedure = validation.timelineRolloutIncidentProcedure;
   const clinicalValidation = validation.timelineRolloutClinicalValidation;
+  const postValidationMonitoring = validation.timelineRolloutPostValidationMonitoring;
   const rolloutReady = readiness.status === "ready_for_rollout";
   const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
   const evidencePrerequisitesReady = sopPrerequisitesReady && sop.status === "ready_for_operational_rollout";
@@ -1349,6 +1426,8 @@ function LongitudinalDatasetValidationPanel({
     monitoringPrerequisitesReady && monitoring.status === "ready_for_production_rollout";
   const clinicalValidationPrerequisitesReady =
     incidentProcedurePrerequisitesReady && incidentProcedure.status === "ready_for_clinic_monitoring";
+  const postValidationMonitoringPrerequisitesReady =
+    clinicalValidationPrerequisitesReady && clinicalValidation.status === "ready_for_clinical_validation";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -1763,6 +1842,68 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewClinicalValidation("ready_for_clinical_validation")}
           >
             Утвердить clinical validation
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Post-validation monitoring rollout"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Post-validation monitoring rollout</h4>
+            <p className="text-muted-foreground">
+              Post-validation monitoring фиксирует только aggregate follow-up/drift metadata · Clinical dynamic
+              conclusion: выключен · Выдача пациенту: выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutPostValidationMonitoringStatusLabel(postValidationMonitoring.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Window" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.monitoringWindowStatus)} />
+          <Field term="Outcomes" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.outcomeReviewStatus)} />
+          <Field term="Drift" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.driftReviewStatus)} />
+          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.incidentFollowupStatus)} />
+          <Field term="Recheck" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.validatorRecheckStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(postValidationMonitoring.ownerSignoffStatus)} />
+          <Field term="Real Set" value={postValidationMonitoring.realDatasetTimelineCount} />
+          <Field term="Validated" value={postValidationMonitoring.clinicalValidationSampleCount} />
+          <Field term="Monitored" value={postValidationMonitoring.monitoredTimelineCount} />
+          <Field term="Sampled" value={postValidationMonitoring.sampledOutcomeCount} />
+          <Field term="Drift open" value={postValidationMonitoring.unresolvedDriftSignalCount} />
+          <Field term="Follow open" value={postValidationMonitoring.unresolvedIncidentFollowupCount} />
+        </dl>
+        {postValidationMonitoring.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {postValidationMonitoring.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={postValidationMonitoringSaving}
+            onClick={() => onReviewPostValidationMonitoring("in_review")}
+          >
+            Зафиксировать post-validation monitoring
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={postValidationMonitoringSaving || !postValidationMonitoringPrerequisitesReady}
+            onClick={() => onReviewPostValidationMonitoring("ready_for_post_validation_monitoring")}
+          >
+            Утвердить post-validation monitoring
           </Button>
         </div>
       </div>

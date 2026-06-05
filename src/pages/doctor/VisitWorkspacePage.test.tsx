@@ -918,6 +918,58 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/post-validation-monitoring")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-post-validation-monitoring-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_post_validation_monitoring_not_ready"],
+              clinicalValidationStatus: "not_started",
+              incidentProcedureStatus: "not_started",
+              monitoringStatus: "not_started",
+              evidenceStatus: "not_started",
+              sopStatus: "not_started",
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              monitoringWindowStatus: "needs_review",
+              outcomeReviewStatus: "needs_review",
+              driftReviewStatus: "needs_review",
+              incidentFollowupStatus: "needs_review",
+              validatorRecheckStatus: "needs_review",
+              ownerSignoffStatus: "needs_review",
+              realDatasetTimelineCount: 0,
+              clinicalValidationSampleCount: 0,
+              monitoredTimelineCount: 0,
+              sampledOutcomeCount: 0,
+              driftSignalCount: 1,
+              unresolvedDriftSignalCount: 1,
+              incidentFollowupCount: 1,
+              unresolvedIncidentFollowupCount: 1,
+              validatorRecheckCount: 0,
+              blockerCount: 1,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 1,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-05T00:00:00.000Z",
+              createdAt: "2026-06-05T00:00:00.000Z",
+              updatedAt: "2026-06-05T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
     if (href.endsWith("/api/v1/visits/live-visit/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20")) {
       return Promise.resolve(
         new Response(
@@ -1328,6 +1380,56 @@ function createLiveWorkspaceFetchMock() {
                 pairKey: "live-lesion:i-011+i-012",
                 imageIds: ["i-011", "i-012"],
               },
+              timelineRolloutPostValidationMonitoring: {
+                id: "timeline-rollout-post-validation-monitoring-1",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                status: "not_started",
+                reasons: [],
+                clinicalValidationStatus: "not_started",
+                incidentProcedureStatus: "not_started",
+                monitoringStatus: "not_started",
+                evidenceStatus: "not_started",
+                sopStatus: "not_started",
+                validationStatus: "blocked",
+                rolloutStatus: "review_required",
+                monitoringWindowStatus: "missing",
+                outcomeReviewStatus: "missing",
+                driftReviewStatus: "missing",
+                incidentFollowupStatus: "missing",
+                validatorRecheckStatus: "missing",
+                ownerSignoffStatus: "missing",
+                realDatasetTimelineCount: 0,
+                clinicalValidationSampleCount: 0,
+                monitoredTimelineCount: 0,
+                sampledOutcomeCount: 0,
+                driftSignalCount: 0,
+                unresolvedDriftSignalCount: 0,
+                incidentFollowupCount: 0,
+                unresolvedIncidentFollowupCount: 0,
+                validatorRecheckCount: 0,
+                blockerCount: 0,
+                lesionCount: 0,
+                readyTimelineCount: 0,
+                blockedTimelineCount: 0,
+                candidatePairCount: 0,
+                reviewerWorkflowReadyCount: 0,
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                clinicalOutputGenerated: true,
+                rawDriftLog: "unsafe",
+                rawFollowupLog: "unsafe",
+                postValidationPayload: { unsafe: true },
+                monitoringDetails: { unsafe: true },
+                driftDetails: { unsafe: true },
+                followupDetails: { unsafe: true },
+                validatorName: "Unsafe Name",
+                validatorEmail: "unsafe@example.com",
+                pairKey: "live-lesion:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
               nextActions: [
                 "verify_production_asset",
                 "complete_capture_metadata",
@@ -1455,6 +1557,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Clinical validation фиксирует только aggregate validation metadata/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Утвердить clinical validation/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Зафиксировать clinical validation/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Post-validation monitoring rollout" })).toBeInTheDocument();
+    expect(screen.getByText(/Post-validation monitoring фиксирует только aggregate follow-up\/drift metadata/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить post-validation monitoring/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать post-validation monitoring/ })).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
@@ -1623,6 +1729,12 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("imageIds");
     expect(document.body.textContent).not.toContain("incidentPayload");
     expect(document.body.textContent).not.toContain("rawOutcomeLog");
+    expect(document.body.textContent).not.toContain("rawDriftLog");
+    expect(document.body.textContent).not.toContain("rawFollowupLog");
+    expect(document.body.textContent).not.toContain("postValidationPayload");
+    expect(document.body.textContent).not.toContain("monitoringDetails");
+    expect(document.body.textContent).not.toContain("driftDetails");
+    expect(document.body.textContent).not.toContain("followupDetails");
   });
 
   it("posts timeline rollout clinical validation review without patient delivery or dynamic conclusion", async () => {
@@ -1656,6 +1768,41 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("imageIds");
     expect(document.body.textContent).not.toContain("rawValidationLog");
     expect(document.body.textContent).not.toContain("rawAdjudicationLog");
+  });
+
+  it("posts timeline rollout post-validation monitoring review without patient delivery or dynamic conclusion", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Post-validation monitoring rollout" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать post-validation monitoring/ }));
+    await screen.findByText(/Post-validation monitoring metadata сохранён/);
+
+    const postValidationMonitoringCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/post-validation-monitoring")
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(postValidationMonitoringCall).toBeTruthy();
+    const body = String((postValidationMonitoringCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("monitoringWindowStatus");
+    expect(body).toContain("outcomeReviewStatus");
+    expect(body).toContain("driftReviewStatus");
+    expect(body).toContain("validatorRecheckStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("rawMonitoringLog");
+    expect(body).not.toContain("rawDriftLog");
+    expect(body).not.toContain("rawFollowupLog");
+    expect(body).not.toContain("postValidationPayload");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("rawDriftLog");
+    expect(document.body.textContent).not.toContain("rawFollowupLog");
   });
 
   it("posts policy governance updates for photo release in production report tab", async () => {

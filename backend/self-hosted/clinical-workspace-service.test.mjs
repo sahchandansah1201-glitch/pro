@@ -14,6 +14,7 @@ import {
   normalizeVisitLongitudinalTimelineRolloutEvidencePayload,
   normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload,
   normalizeVisitLongitudinalTimelineRolloutMonitoringPayload,
+  normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringPayload,
   normalizeVisitLongitudinalTimelineRolloutSopPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
   normalizeLesionComparisonViewerQaReviewerWorkflowPayload,
@@ -965,6 +966,49 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         blockedTimelineCount: clinicalValidation.blockedTimelineCount,
         candidatePairCount: clinicalValidation.candidatePairCount,
         reviewerWorkflowReadyCount: clinicalValidation.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-05T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutPostValidationMonitoring({ postValidationMonitoring }) {
+      return {
+        id: "post-validation-monitoring-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: postValidationMonitoring.postValidationMonitoringStatus,
+        reasons: postValidationMonitoring.postValidationMonitoringReasons,
+        clinicalValidationStatus: postValidationMonitoring.clinicalValidationStatus,
+        incidentProcedureStatus: postValidationMonitoring.incidentProcedureStatus,
+        monitoringStatus: postValidationMonitoring.monitoringStatus,
+        evidenceStatus: postValidationMonitoring.evidenceStatus,
+        sopStatus: postValidationMonitoring.sopStatus,
+        validationStatus: postValidationMonitoring.validationStatus,
+        rolloutStatus: postValidationMonitoring.rolloutStatus,
+        monitoringWindowStatus: postValidationMonitoring.monitoringWindowStatus,
+        outcomeReviewStatus: postValidationMonitoring.outcomeReviewStatus,
+        driftReviewStatus: postValidationMonitoring.driftReviewStatus,
+        incidentFollowupStatus: postValidationMonitoring.incidentFollowupStatus,
+        validatorRecheckStatus: postValidationMonitoring.validatorRecheckStatus,
+        ownerSignoffStatus: postValidationMonitoring.ownerSignoffStatus,
+        realDatasetTimelineCount: postValidationMonitoring.realDatasetTimelineCount,
+        clinicalValidationSampleCount: postValidationMonitoring.clinicalValidationSampleCount,
+        monitoredTimelineCount: postValidationMonitoring.monitoredTimelineCount,
+        sampledOutcomeCount: postValidationMonitoring.sampledOutcomeCount,
+        driftSignalCount: postValidationMonitoring.driftSignalCount,
+        unresolvedDriftSignalCount: postValidationMonitoring.unresolvedDriftSignalCount,
+        incidentFollowupCount: postValidationMonitoring.incidentFollowupCount,
+        unresolvedIncidentFollowupCount: postValidationMonitoring.unresolvedIncidentFollowupCount,
+        validatorRecheckCount: postValidationMonitoring.validatorRecheckCount,
+        blockerCount: postValidationMonitoring.blockerCount,
+        lesionCount: postValidationMonitoring.lesionCount,
+        readyTimelineCount: postValidationMonitoring.readyTimelineCount,
+        blockedTimelineCount: postValidationMonitoring.blockedTimelineCount,
+        candidatePairCount: postValidationMonitoring.candidatePairCount,
+        reviewerWorkflowReadyCount: postValidationMonitoring.reviewerWorkflowReadyCount,
         patientDeliveryAllowed: false,
         medicalMeasurementAllowed: false,
         protectedFieldsExposed: false,
@@ -2504,6 +2548,169 @@ test("Batch BW Stage 5H clinical validation payload rejects protected and clinic
         disagreementCaseCount: 3,
         adjudicatedCaseCount: 1,
         followupWindowDays: 90,
+        blockerCount: 0,
+      }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch BX Stage 5H service reviews post-validation monitoring with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutPostValidationMonitoring(
+    VISIT_ID,
+    {
+      postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+      postValidationMonitoringReasons: ["timeline_rollout_post_validation_monitoring_ready_no_dynamic_conclusion"],
+      monitoringWindowStatus: "ready",
+      outcomeReviewStatus: "ready",
+      driftReviewStatus: "ready",
+      incidentFollowupStatus: "ready",
+      validatorRecheckStatus: "ready",
+      ownerSignoffStatus: "ready",
+      realDatasetTimelineCount: 8,
+      clinicalValidationSampleCount: 4,
+      monitoredTimelineCount: 8,
+      sampledOutcomeCount: 4,
+      driftSignalCount: 1,
+      unresolvedDriftSignalCount: 0,
+      incidentFollowupCount: 1,
+      unresolvedIncidentFollowupCount: 0,
+      validatorRecheckCount: 1,
+      blockerCount: 0,
+    },
+    authContext,
+    { correlationId: "c22" },
+  );
+
+  assert.equal(result.postValidationMonitoring.status, "in_review");
+  assert.deepEqual(result.postValidationMonitoring.reasons, [
+    "timeline_rollout_post_validation_monitoring_ready_no_dynamic_conclusion",
+    "timeline_rollout_post_validation_monitoring_not_ready",
+  ]);
+  assert.equal(result.postValidationMonitoring.clinicalValidationStatus, "not_started");
+  assert.equal(result.postValidationMonitoring.validationStatus, "blocked");
+  assert.equal(result.postValidationMonitoring.patientDeliveryAllowed, false);
+  assert.equal(result.postValidationMonitoring.medicalMeasurementAllowed, false);
+  assert.equal(result.postValidationMonitoring.protectedFieldsExposed, false);
+  assert.equal(result.postValidationMonitoring.clinicalOutputGenerated, false);
+  assert.equal(auditEvents.at(-1).action, "visit_longitudinal_timeline_rollout_post_validation_monitoring.review");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    postValidationMonitoringStatus: "in_review",
+    clinicalValidationStatus: "not_started",
+    validationStatus: "blocked",
+    rolloutStatus: "review_required",
+    sopStatus: "not_started",
+    evidenceStatus: "not_started",
+    monitoringStatus: "not_started",
+    incidentProcedureStatus: "not_started",
+    realDatasetTimelineCount: 8,
+    clinicalValidationSampleCount: 4,
+    monitoredTimelineCount: 8,
+    sampledOutcomeCount: 4,
+    driftSignalCount: 1,
+    unresolvedDriftSignalCount: 0,
+    incidentFollowupCount: 1,
+    unresolvedIncidentFollowupCount: 0,
+    validatorRecheckCount: 1,
+    blockerCount: 0,
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    postValidationChecklistReady: true,
+    aggregatePostValidationMonitoringReady: true,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+    patientRowsExposed: false,
+    rawMonitoringLogsExposed: false,
+    rawDriftLogsExposed: false,
+    rawFollowupLogsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.postValidationMonitoring) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|"rawMonitoringLog"\s*:|"rawOutcomeLog"\s*:|"rawDriftLog"\s*:|"rawFollowupLog"\s*:|"postValidationPayload"\s*:|"monitoringDetails"\s*:|"driftDetails"\s*:|"followupDetails"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|validatorName|validatorEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BX Stage 5H post-validation monitoring payload rejects protected and clinical fields", () => {
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringPayload({
+        postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+        postValidationMonitoringReasons: ["готово"],
+        monitoringWindowStatus: "ready",
+        outcomeReviewStatus: "ready",
+        driftReviewStatus: "ready",
+        incidentFollowupStatus: "ready",
+        validatorRecheckStatus: "ready",
+        ownerSignoffStatus: "ready",
+        realDatasetTimelineCount: 8,
+        clinicalValidationSampleCount: 4,
+        monitoredTimelineCount: 8,
+        sampledOutcomeCount: 4,
+        driftSignalCount: 1,
+        unresolvedDriftSignalCount: 0,
+        incidentFollowupCount: 1,
+        unresolvedIncidentFollowupCount: 0,
+        validatorRecheckCount: 1,
+        blockerCount: 0,
+        rawDriftLog: [{ unsafe: true }],
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringPayload({
+        postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+        postValidationMonitoringReasons: ["динамика подтверждает диагноз"],
+        monitoringWindowStatus: "ready",
+        outcomeReviewStatus: "ready",
+        driftReviewStatus: "ready",
+        incidentFollowupStatus: "ready",
+        validatorRecheckStatus: "ready",
+        ownerSignoffStatus: "ready",
+        realDatasetTimelineCount: 8,
+        clinicalValidationSampleCount: 4,
+        monitoredTimelineCount: 8,
+        sampledOutcomeCount: 4,
+        driftSignalCount: 1,
+        unresolvedDriftSignalCount: 0,
+        incidentFollowupCount: 1,
+        unresolvedIncidentFollowupCount: 0,
+        validatorRecheckCount: 1,
+        blockerCount: 0,
+      }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () =>
+      normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringPayload({
+        postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+        postValidationMonitoringReasons: ["готово"],
+        monitoringWindowStatus: "ready",
+        outcomeReviewStatus: "ready",
+        driftReviewStatus: "ready",
+        incidentFollowupStatus: "ready",
+        validatorRecheckStatus: "ready",
+        ownerSignoffStatus: "ready",
+        realDatasetTimelineCount: 8,
+        clinicalValidationSampleCount: 4,
+        monitoredTimelineCount: 8,
+        sampledOutcomeCount: 4,
+        driftSignalCount: 1,
+        unresolvedDriftSignalCount: 2,
+        incidentFollowupCount: 1,
+        unresolvedIncidentFollowupCount: 0,
+        validatorRecheckCount: 1,
         blockerCount: 0,
       }),
     VisitWorkspaceValidationError,
