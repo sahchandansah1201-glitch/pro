@@ -12,6 +12,7 @@ import {
   normalizeLesionComparisonReviewerAssignmentPayload,
   normalizeVisitLongitudinalTimelineRolloutClinicalValidationPayload,
   normalizeVisitLongitudinalTimelineRolloutEvidencePayload,
+  normalizeVisitLongitudinalTimelineRolloutExceptionGovernancePayload,
   normalizeVisitLongitudinalTimelineRolloutIncidentProcedurePayload,
   normalizeVisitLongitudinalTimelineRolloutMonitoringPayload,
   normalizeVisitLongitudinalTimelineRolloutObservationGovernancePayload,
@@ -1057,6 +1058,51 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         blockedTimelineCount: observationGovernance.blockedTimelineCount,
         candidatePairCount: observationGovernance.candidatePairCount,
         reviewerWorkflowReadyCount: observationGovernance.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-06T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutExceptionGovernance({ exceptionGovernance }) {
+      return {
+        id: "exception-governance-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: exceptionGovernance.exceptionGovernanceStatus,
+        reasons: exceptionGovernance.exceptionGovernanceReasons,
+        observationGovernanceStatus: exceptionGovernance.observationGovernanceStatus,
+        postValidationMonitoringStatus: exceptionGovernance.postValidationMonitoringStatus,
+        clinicalValidationStatus: exceptionGovernance.clinicalValidationStatus,
+        incidentProcedureStatus: exceptionGovernance.incidentProcedureStatus,
+        monitoringStatus: exceptionGovernance.monitoringStatus,
+        evidenceStatus: exceptionGovernance.evidenceStatus,
+        sopStatus: exceptionGovernance.sopStatus,
+        validationStatus: exceptionGovernance.validationStatus,
+        rolloutStatus: exceptionGovernance.rolloutStatus,
+        exceptionRegisterStatus: exceptionGovernance.exceptionRegisterStatus,
+        triageSlaStatus: exceptionGovernance.triageSlaStatus,
+        resolutionEvidenceStatus: exceptionGovernance.resolutionEvidenceStatus,
+        recurrenceReviewStatus: exceptionGovernance.recurrenceReviewStatus,
+        rollbackReadinessStatus: exceptionGovernance.rollbackReadinessStatus,
+        governanceArchiveStatus: exceptionGovernance.governanceArchiveStatus,
+        ownerSignoffStatus: exceptionGovernance.ownerSignoffStatus,
+        realDatasetTimelineCount: exceptionGovernance.realDatasetTimelineCount,
+        observedTimelineCount: exceptionGovernance.observedTimelineCount,
+        governanceExceptionCount: exceptionGovernance.governanceExceptionCount,
+        resolvedGovernanceExceptionCount: exceptionGovernance.resolvedGovernanceExceptionCount,
+        unresolvedGovernanceExceptionCount: exceptionGovernance.unresolvedGovernanceExceptionCount,
+        recurrenceSignalCount: exceptionGovernance.recurrenceSignalCount,
+        unresolvedRecurrenceSignalCount: exceptionGovernance.unresolvedRecurrenceSignalCount,
+        rollbackDrillCount: exceptionGovernance.rollbackDrillCount,
+        blockerCount: exceptionGovernance.blockerCount,
+        lesionCount: exceptionGovernance.lesionCount,
+        readyTimelineCount: exceptionGovernance.readyTimelineCount,
+        blockedTimelineCount: exceptionGovernance.blockedTimelineCount,
+        candidatePairCount: exceptionGovernance.candidatePairCount,
+        reviewerWorkflowReadyCount: exceptionGovernance.reviewerWorkflowReadyCount,
         patientDeliveryAllowed: false,
         medicalMeasurementAllowed: false,
         protectedFieldsExposed: false,
@@ -2940,6 +2986,139 @@ test("Batch BY Stage 5H observation governance payload rejects protected and cli
         unresolvedGovernanceExceptionCount: 0,
         blockerCount: 0,
       }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch BZ Stage 5H service reviews exception governance with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutExceptionGovernance(
+    VISIT_ID,
+    {
+      exceptionGovernanceStatus: "ready_for_exception_governance",
+      exceptionGovernanceReasons: ["timeline_rollout_exception_governance_ready_no_dynamic_conclusion"],
+      exceptionRegisterStatus: "ready",
+      triageSlaStatus: "ready",
+      resolutionEvidenceStatus: "ready",
+      recurrenceReviewStatus: "ready",
+      rollbackReadinessStatus: "ready",
+      governanceArchiveStatus: "ready",
+      ownerSignoffStatus: "ready",
+      realDatasetTimelineCount: 8,
+      observedTimelineCount: 8,
+      governanceExceptionCount: 1,
+      resolvedGovernanceExceptionCount: 1,
+      unresolvedGovernanceExceptionCount: 0,
+      recurrenceSignalCount: 1,
+      unresolvedRecurrenceSignalCount: 0,
+      rollbackDrillCount: 1,
+      blockerCount: 0,
+    },
+    authContext,
+    { correlationId: "c24" },
+  );
+
+  assert.equal(result.exceptionGovernance.status, "in_review");
+  assert.deepEqual(result.exceptionGovernance.reasons, [
+    "timeline_rollout_exception_governance_ready_no_dynamic_conclusion",
+    "timeline_rollout_exception_governance_not_ready",
+  ]);
+  assert.equal(result.exceptionGovernance.observationGovernanceStatus, "not_started");
+  assert.equal(result.exceptionGovernance.validationStatus, "blocked");
+  assert.equal(result.exceptionGovernance.patientDeliveryAllowed, false);
+  assert.equal(result.exceptionGovernance.medicalMeasurementAllowed, false);
+  assert.equal(result.exceptionGovernance.protectedFieldsExposed, false);
+  assert.equal(result.exceptionGovernance.clinicalOutputGenerated, false);
+  assert.equal(auditEvents.at(-1).action, "visit_longitudinal_timeline_rollout_exception_governance.review");
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    exceptionGovernanceStatus: "in_review",
+    observationGovernanceStatus: "not_started",
+    postValidationMonitoringStatus: "not_started",
+    clinicalValidationStatus: "not_started",
+    validationStatus: "blocked",
+    rolloutStatus: "review_required",
+    sopStatus: "not_started",
+    evidenceStatus: "not_started",
+    monitoringStatus: "not_started",
+    incidentProcedureStatus: "not_started",
+    realDatasetTimelineCount: 8,
+    observedTimelineCount: 8,
+    governanceExceptionCount: 1,
+    resolvedGovernanceExceptionCount: 1,
+    unresolvedGovernanceExceptionCount: 0,
+    recurrenceSignalCount: 1,
+    unresolvedRecurrenceSignalCount: 0,
+    rollbackDrillCount: 1,
+    blockerCount: 0,
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    exceptionChecklistReady: true,
+    aggregateExceptionGovernanceReady: true,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+    patientRowsExposed: false,
+    rawExceptionLogsExposed: false,
+    rawRecurrenceLogsExposed: false,
+    rawRollbackLogsExposed: false,
+    rawGovernancePayloadsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.exceptionGovernance) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|"rawExceptionLog"\s*:|"rawRecurrenceLog"\s*:|"rawRollbackLog"\s*:|"exceptionPayload"\s*:|"recurrencePayload"\s*:|"rollbackPayload"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|validatorName|validatorEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
+test("Batch BZ Stage 5H exception governance payload rejects protected and clinical fields", () => {
+  const base = {
+    exceptionGovernanceStatus: "ready_for_exception_governance",
+    exceptionGovernanceReasons: ["готово"],
+    exceptionRegisterStatus: "ready",
+    triageSlaStatus: "ready",
+    resolutionEvidenceStatus: "ready",
+    recurrenceReviewStatus: "ready",
+    rollbackReadinessStatus: "ready",
+    governanceArchiveStatus: "ready",
+    ownerSignoffStatus: "ready",
+    realDatasetTimelineCount: 8,
+    observedTimelineCount: 8,
+    governanceExceptionCount: 1,
+    resolvedGovernanceExceptionCount: 1,
+    unresolvedGovernanceExceptionCount: 0,
+    recurrenceSignalCount: 1,
+    unresolvedRecurrenceSignalCount: 0,
+    rollbackDrillCount: 1,
+    blockerCount: 0,
+  };
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutExceptionGovernancePayload({
+      ...base,
+      rawExceptionLog: [{ unsafe: true }],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutExceptionGovernancePayload({
+      ...base,
+      exceptionGovernanceReasons: ["динамика подтверждает диагноз"],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutExceptionGovernancePayload({
+      ...base,
+      unresolvedRecurrenceSignalCount: 2,
+    }),
     VisitWorkspaceValidationError,
   );
 });

@@ -45,6 +45,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRollout,
   reviewSelfHostedVisitLongitudinalTimelineRolloutClinicalValidation,
   reviewSelfHostedVisitLongitudinalTimelineRolloutEvidence,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutExceptionGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure,
   reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutObservationGovernance,
@@ -59,6 +60,7 @@ import {
   type SelfHostedVisitLongitudinalDatasetValidationDTO,
   type SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus,
+  type SelfHostedVisitLongitudinalTimelineRolloutExceptionGovernanceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutObservationGovernanceStatus,
@@ -499,6 +501,7 @@ function ProductionClinicalWorkspacePanel({
   const [timelineRolloutClinicalValidationSaving, setTimelineRolloutClinicalValidationSaving] = useState(false);
   const [timelineRolloutPostValidationMonitoringSaving, setTimelineRolloutPostValidationMonitoringSaving] = useState(false);
   const [timelineRolloutObservationGovernanceSaving, setTimelineRolloutObservationGovernanceSaving] = useState(false);
+  const [timelineRolloutExceptionGovernanceSaving, setTimelineRolloutExceptionGovernanceSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
     patientFileProxyEnabled: false,
@@ -1058,6 +1061,60 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Observation governance metadata сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutExceptionGovernance = async (
+    exceptionGovernanceStatus: SelfHostedVisitLongitudinalTimelineRolloutExceptionGovernanceStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const observationGovernance = validation.timelineRolloutObservationGovernance;
+    const readyPayload = exceptionGovernanceStatus === "ready_for_exception_governance";
+    const governanceReady =
+      readyPayload
+      && readiness.status === "ready_for_rollout"
+      && observationGovernance.status === "ready_for_observation_governance";
+    const governanceExceptionCount = governanceReady ? observationGovernance.governanceExceptionCount : 0;
+    setTimelineRolloutExceptionGovernanceSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutExceptionGovernance({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        exceptionGovernanceStatus,
+        exceptionGovernanceReasons: governanceReady
+          ? ["timeline_rollout_exception_governance_ready_no_dynamic_conclusion"]
+          : ["timeline_rollout_exception_governance_requires_exception_closure"],
+        exceptionRegisterStatus: governanceReady ? "ready" : "needs_review",
+        triageSlaStatus: governanceReady ? "ready" : "needs_review",
+        resolutionEvidenceStatus: governanceReady ? "ready" : "needs_review",
+        recurrenceReviewStatus: governanceReady ? "ready" : "needs_review",
+        rollbackReadinessStatus: governanceReady ? "ready" : "needs_review",
+        governanceArchiveStatus: governanceReady ? "ready" : "needs_review",
+        ownerSignoffStatus: governanceReady ? "ready" : "needs_review",
+        realDatasetTimelineCount: governanceReady
+          ? Math.max(1, observationGovernance.realDatasetTimelineCount)
+          : 0,
+        observedTimelineCount: governanceReady ? Math.max(1, observationGovernance.observedTimelineCount) : 0,
+        governanceExceptionCount,
+        resolvedGovernanceExceptionCount: governanceExceptionCount,
+        unresolvedGovernanceExceptionCount: 0,
+        recurrenceSignalCount: governanceReady ? observationGovernance.driftSignalCount : 0,
+        unresolvedRecurrenceSignalCount: 0,
+        rollbackDrillCount: governanceReady ? 1 : 0,
+        blockerCount: 0,
+      },
+    });
+    setTimelineRolloutExceptionGovernanceSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить exception governance.");
+      return;
+    }
+    await load();
+    setStatus("Exception governance metadata сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -1102,6 +1159,7 @@ function ProductionClinicalWorkspacePanel({
                 clinicalValidationSaving={timelineRolloutClinicalValidationSaving}
                 postValidationMonitoringSaving={timelineRolloutPostValidationMonitoringSaving}
                 observationGovernanceSaving={timelineRolloutObservationGovernanceSaving}
+                exceptionGovernanceSaving={timelineRolloutExceptionGovernanceSaving}
                 onReviewRollout={saveTimelineRollout}
                 onReviewSop={saveTimelineRolloutSop}
                 onReviewEvidence={saveTimelineRolloutEvidence}
@@ -1110,6 +1168,7 @@ function ProductionClinicalWorkspacePanel({
                 onReviewClinicalValidation={saveTimelineRolloutClinicalValidation}
                 onReviewPostValidationMonitoring={saveTimelineRolloutPostValidationMonitoring}
                 onReviewObservationGovernance={saveTimelineRolloutObservationGovernance}
+                onReviewExceptionGovernance={saveTimelineRolloutExceptionGovernance}
               />
             )}
             <PhotoProtocolPolicyGovernancePanel
@@ -1423,6 +1482,14 @@ function timelineRolloutObservationGovernanceStatusLabel(
   return "Observation governance не начат";
 }
 
+function timelineRolloutExceptionGovernanceStatusLabel(
+  status: SelfHostedVisitLongitudinalTimelineRolloutExceptionGovernanceStatus,
+): string {
+  if (status === "ready_for_exception_governance") return "Exception governance ready";
+  if (status === "in_review") return "Exception governance review";
+  return "Exception governance не начат";
+}
+
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
@@ -1459,6 +1526,7 @@ function LongitudinalDatasetValidationPanel({
   clinicalValidationSaving,
   postValidationMonitoringSaving,
   observationGovernanceSaving,
+  exceptionGovernanceSaving,
   onReviewRollout,
   onReviewSop,
   onReviewEvidence,
@@ -1467,6 +1535,7 @@ function LongitudinalDatasetValidationPanel({
   onReviewClinicalValidation,
   onReviewPostValidationMonitoring,
   onReviewObservationGovernance,
+  onReviewExceptionGovernance,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
   saving: boolean;
@@ -1477,6 +1546,7 @@ function LongitudinalDatasetValidationPanel({
   clinicalValidationSaving: boolean;
   postValidationMonitoringSaving: boolean;
   observationGovernanceSaving: boolean;
+  exceptionGovernanceSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
   onReviewSop: (status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => void;
   onReviewEvidence: (status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus) => void;
@@ -1489,6 +1559,9 @@ function LongitudinalDatasetValidationPanel({
   onReviewObservationGovernance: (
     status: SelfHostedVisitLongitudinalTimelineRolloutObservationGovernanceStatus,
   ) => void;
+  onReviewExceptionGovernance: (
+    status: SelfHostedVisitLongitudinalTimelineRolloutExceptionGovernanceStatus,
+  ) => void;
 }) {
   const readiness = validation.readiness;
   const rollout = validation.timelineRollout;
@@ -1499,6 +1572,7 @@ function LongitudinalDatasetValidationPanel({
   const clinicalValidation = validation.timelineRolloutClinicalValidation;
   const postValidationMonitoring = validation.timelineRolloutPostValidationMonitoring;
   const observationGovernance = validation.timelineRolloutObservationGovernance;
+  const exceptionGovernance = validation.timelineRolloutExceptionGovernance;
   const rolloutReady = readiness.status === "ready_for_rollout";
   const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
   const evidencePrerequisitesReady = sopPrerequisitesReady && sop.status === "ready_for_operational_rollout";
@@ -1513,6 +1587,9 @@ function LongitudinalDatasetValidationPanel({
   const observationGovernancePrerequisitesReady =
     postValidationMonitoringPrerequisitesReady
     && postValidationMonitoring.status === "ready_for_post_validation_monitoring";
+  const exceptionGovernancePrerequisitesReady =
+    observationGovernancePrerequisitesReady
+    && observationGovernance.status === "ready_for_observation_governance";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -2057,6 +2134,71 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewObservationGovernance("ready_for_observation_governance")}
           >
             Утвердить observation governance
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Exception governance closure"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Exception governance closure</h4>
+            <p className="text-muted-foreground">
+              Exception governance фиксирует только aggregate exception closure · Clinical dynamic conclusion:
+              выключен · Выдача пациенту: выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutExceptionGovernanceStatusLabel(exceptionGovernance.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Register" value={timelineRolloutSopChecklistLabel(exceptionGovernance.exceptionRegisterStatus)} />
+          <Field term="SLA" value={timelineRolloutSopChecklistLabel(exceptionGovernance.triageSlaStatus)} />
+          <Field term="Evidence" value={timelineRolloutSopChecklistLabel(exceptionGovernance.resolutionEvidenceStatus)} />
+          <Field term="Recurrence" value={timelineRolloutSopChecklistLabel(exceptionGovernance.recurrenceReviewStatus)} />
+          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(exceptionGovernance.rollbackReadinessStatus)} />
+          <Field term="Archive" value={timelineRolloutSopChecklistLabel(exceptionGovernance.governanceArchiveStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(exceptionGovernance.ownerSignoffStatus)} />
+          <Field term="Real Set" value={exceptionGovernance.realDatasetTimelineCount} />
+          <Field term="Observed" value={exceptionGovernance.observedTimelineCount} />
+          <Field term="Exceptions" value={exceptionGovernance.governanceExceptionCount} />
+          <Field term="Resolved" value={exceptionGovernance.resolvedGovernanceExceptionCount} />
+          <Field term="Gov. open" value={exceptionGovernance.unresolvedGovernanceExceptionCount} />
+          <Field term="Recurrence open" value={exceptionGovernance.unresolvedRecurrenceSignalCount} />
+          <Field term="Rollback" value={exceptionGovernance.rollbackDrillCount} />
+          <Field term="Blockers" value={exceptionGovernance.blockerCount} />
+        </dl>
+        {exceptionGovernance.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {exceptionGovernance.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={exceptionGovernanceSaving}
+            onClick={() => onReviewExceptionGovernance("in_review")}
+          >
+            Зафиксировать exception governance
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={exceptionGovernanceSaving || !exceptionGovernancePrerequisitesReady}
+            onClick={() => onReviewExceptionGovernance("ready_for_exception_governance")}
+          >
+            Утвердить exception governance
           </Button>
         </div>
       </div>

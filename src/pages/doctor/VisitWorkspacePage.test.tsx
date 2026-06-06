@@ -1430,6 +1430,109 @@ function createLiveWorkspaceFetchMock() {
                 pairKey: "live-lesion:i-011+i-012",
                 imageIds: ["i-011", "i-012"],
               },
+              timelineRolloutObservationGovernance: {
+                id: "timeline-rollout-observation-governance-1",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                status: "not_started",
+                reasons: [],
+                postValidationMonitoringStatus: "not_started",
+                clinicalValidationStatus: "not_started",
+                incidentProcedureStatus: "not_started",
+                monitoringStatus: "not_started",
+                evidenceStatus: "not_started",
+                sopStatus: "not_started",
+                validationStatus: "blocked",
+                rolloutStatus: "review_required",
+                observationWindowStatus: "missing",
+                outcomeObservationStatus: "missing",
+                driftSignalReviewStatus: "missing",
+                incidentOutcomeReviewStatus: "missing",
+                followupClosureStatus: "missing",
+                governanceReviewStatus: "missing",
+                ownerSignoffStatus: "missing",
+                realDatasetTimelineCount: 0,
+                postValidationSampleCount: 0,
+                observedTimelineCount: 0,
+                expectedFollowupCount: 0,
+                completedFollowupCount: 0,
+                driftSignalCount: 0,
+                unresolvedDriftSignalCount: 0,
+                incidentOutcomeCount: 0,
+                unresolvedIncidentOutcomeCount: 0,
+                governanceExceptionCount: 0,
+                unresolvedGovernanceExceptionCount: 0,
+                blockerCount: 0,
+                lesionCount: 0,
+                readyTimelineCount: 0,
+                blockedTimelineCount: 0,
+                candidatePairCount: 0,
+                reviewerWorkflowReadyCount: 0,
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                clinicalOutputGenerated: true,
+                rawObservationLog: "unsafe",
+                rawOutcomeReviewLog: "unsafe",
+                rawIncidentOutcomeLog: "unsafe",
+                observationPayload: { unsafe: true },
+                outcomeReviewPayload: { unsafe: true },
+                incidentOutcomePayload: { unsafe: true },
+                governancePayload: { unsafe: true },
+                pairKey: "live-lesion:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
+              timelineRolloutExceptionGovernance: {
+                id: "timeline-rollout-exception-governance-1",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                status: "not_started",
+                reasons: [],
+                observationGovernanceStatus: "not_started",
+                postValidationMonitoringStatus: "not_started",
+                clinicalValidationStatus: "not_started",
+                incidentProcedureStatus: "not_started",
+                monitoringStatus: "not_started",
+                evidenceStatus: "not_started",
+                sopStatus: "not_started",
+                validationStatus: "blocked",
+                rolloutStatus: "review_required",
+                exceptionRegisterStatus: "missing",
+                triageSlaStatus: "missing",
+                resolutionEvidenceStatus: "missing",
+                recurrenceReviewStatus: "missing",
+                rollbackReadinessStatus: "missing",
+                governanceArchiveStatus: "missing",
+                ownerSignoffStatus: "missing",
+                realDatasetTimelineCount: 0,
+                observedTimelineCount: 0,
+                governanceExceptionCount: 0,
+                resolvedGovernanceExceptionCount: 0,
+                unresolvedGovernanceExceptionCount: 0,
+                recurrenceSignalCount: 0,
+                unresolvedRecurrenceSignalCount: 0,
+                rollbackDrillCount: 0,
+                blockerCount: 0,
+                lesionCount: 0,
+                readyTimelineCount: 0,
+                blockedTimelineCount: 0,
+                candidatePairCount: 0,
+                reviewerWorkflowReadyCount: 0,
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                clinicalOutputGenerated: true,
+                rawExceptionLog: "unsafe",
+                rawRecurrenceLog: "unsafe",
+                rawRollbackLog: "unsafe",
+                exceptionPayload: { unsafe: true },
+                recurrencePayload: { unsafe: true },
+                rollbackPayload: { unsafe: true },
+                pairKey: "live-lesion:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
               nextActions: [
                 "verify_production_asset",
                 "complete_capture_metadata",
@@ -1561,6 +1664,14 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Post-validation monitoring фиксирует только aggregate follow-up\/drift metadata/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Утвердить post-validation monitoring/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Зафиксировать post-validation monitoring/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Outcome observation governance" })).toBeInTheDocument();
+    expect(screen.getByText(/Observation governance фиксирует только aggregate outcome metadata/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить observation governance/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать observation governance/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Exception governance closure" })).toBeInTheDocument();
+    expect(screen.getByText(/Exception governance фиксирует только aggregate exception closure/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить exception governance/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать exception governance/ })).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
@@ -1803,6 +1914,42 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("imageIds");
     expect(document.body.textContent).not.toContain("rawDriftLog");
     expect(document.body.textContent).not.toContain("rawFollowupLog");
+  });
+
+  it("posts timeline rollout exception governance review without patient delivery or clinical output", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Exception governance closure" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать exception governance/ }));
+    await screen.findByText(/Exception governance metadata сохранён/);
+
+    const exceptionGovernanceCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/exception-governance")
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(exceptionGovernanceCall).toBeTruthy();
+    const body = String((exceptionGovernanceCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("exceptionRegisterStatus");
+    expect(body).toContain("resolutionEvidenceStatus");
+    expect(body).toContain("recurrenceReviewStatus");
+    expect(body).toContain("rollbackReadinessStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("rawExceptionLog");
+    expect(body).not.toContain("rawRecurrenceLog");
+    expect(body).not.toContain("rawRollbackLog");
+    expect(body).not.toContain("exceptionPayload");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("rawExceptionLog");
+    expect(document.body.textContent).not.toContain("rawRecurrenceLog");
+    expect(document.body.textContent).not.toContain("rawRollbackLog");
   });
 
   it("posts policy governance updates for photo release in production report tab", async () => {

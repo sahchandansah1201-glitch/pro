@@ -2239,6 +2239,92 @@ Safety boundary:
   until privacy/security/retention/session/approved-copy gates are explicitly
   closed.
 
+## Batch BZ Exception Governance Closure
+
+Batch BZ adds the metadata-only exception governance closure receipt after
+ongoing observation governance. It is an operational governance layer for
+exception register closure, triage SLA, resolution evidence, recurrence review,
+rollback readiness, archive readiness, and owner signoff. It does not generate
+clinical dynamic conclusions and does not enable patient delivery.
+
+Data boundary:
+
+- migration `0076_stage5h_timeline_rollout_exception_governance.sql` creates
+  `visit_longitudinal_timeline_rollout_exception_governance_reviews`;
+- allowed exception-governance statuses are `not_started`, `in_review`, and
+  `ready_for_exception_governance`;
+- persisted checklist statuses are `exception_register_status`,
+  `triage_sla_status`, `resolution_evidence_status`,
+  `recurrence_review_status`, `rollback_readiness_status`,
+  `governance_archive_status`, and `owner_signoff_status`;
+- persisted counters are aggregate only: real/observed timelines, governance
+  exceptions, resolved/unresolved exception counts, recurrence signal counts,
+  rollback drill count, blockers, lesion totals, candidate pairs, and reviewer
+  workflow count;
+- boundary flags remain hard-false: `patient_delivery_allowed`,
+  `medical_measurement_allowed`, `protected_fields_exposed`, and
+  `clinical_output_generated`;
+- CHECK constraint
+  `visit_longitudinal_timeline_rollout_exception_governance_metadata_no_protected_keys`
+  blocks pair keys, image IDs, patient rows, storage/object paths, signed URLs,
+  raw exception/recurrence/rollback/governance logs, reviewer/validator
+  identity, doctor-only text, patient-safe text, delivery payloads, measurements,
+  dynamic conclusions, diagnosis, risk, prognosis, and treatment.
+
+API contract:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/exception-governance`
+  persists the metadata-only exception-governance review;
+- repository builder:
+  `buildReviewVisitLongitudinalTimelineRolloutExceptionGovernanceSql`;
+- read model `buildGetVisitLongitudinalDatasetValidationSql` now includes
+  `timelineRolloutExceptionGovernance`;
+- service normalizer:
+  `normalizeVisitLongitudinalTimelineRolloutExceptionGovernancePayload`;
+- requested `ready_for_exception_governance` is downgraded to `in_review` with
+  reason `timeline_rollout_exception_governance_not_ready` unless dataset
+  validation, rollout, SOP, evidence, monitoring, incident procedure, clinical
+  validation, post-validation monitoring, observation governance, all seven
+  exception-governance checklist items, exception closure, recurrence closure,
+  rollback drill, and blocker gates are ready;
+- audit action:
+  `visit_longitudinal_timeline_rollout_exception_governance.review`;
+- audit metadata is aggregate-only and explicitly records that patient delivery,
+  medical measurement, protected fields, clinical output, pair keys, image IDs,
+  patient rows, raw exception logs, raw recurrence logs, raw rollback logs, and
+  raw governance payloads are not exposed.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` adds region `Exception governance closure` inside
+  `Готовность timeline QA`;
+- visible copy states that only aggregate exception closure is recorded,
+  `Clinical dynamic conclusion: выключен`, and `Выдача пациенту: выключена`;
+- actions are `Зафиксировать exception governance` and
+  `Утвердить exception governance`;
+- approval is disabled until `timelineRolloutObservationGovernance.status` is
+  `ready_for_observation_governance`;
+- the UI shows only checklist labels and aggregate counters. No raw exceptions,
+  recurrence details, rollback details, patient rows, pair keys, image IDs,
+  storage paths, signed URLs, doctor text, or patient text are rendered.
+
+### Batch BZ Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BZ closes the
+  exception-governance receipt after observation governance for the timeline
+  rollout. Remaining gate: longer-running production dataset monitoring and
+  real clinical operations validation.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BZ adds
+  exception register, SLA, resolution, recurrence, rollback, archive, and owner
+  governance around reviewer operations. Remaining gate: reviewer operations
+  validation on real protected assets.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BZ keeps clinical
+  dynamic conclusion disabled and stores only operational metadata. Remaining
+  gate: approved longitudinal outcome governance over time.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch BZ is
+  doctor-side metadata-only governance; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

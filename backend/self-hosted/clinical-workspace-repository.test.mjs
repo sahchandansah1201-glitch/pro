@@ -20,6 +20,7 @@ import {
   buildReviewVisitLongitudinalTimelineRolloutIncidentProcedureSql,
   buildReviewVisitLongitudinalTimelineRolloutMonitoringSql,
   buildReviewVisitLongitudinalTimelineRolloutObservationGovernanceSql,
+  buildReviewVisitLongitudinalTimelineRolloutExceptionGovernanceSql,
   buildReviewVisitLongitudinalTimelineRolloutPostValidationMonitoringSql,
   buildReviewVisitLongitudinalTimelineRolloutSopSql,
   buildReviewLesionComparisonViewerQaSql,
@@ -524,6 +525,66 @@ test("Batch BY Stage 5H repository builds metadata-only observation governance S
   assert.doesNotMatch(
     sql,
     /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawObservationLog|rawOutcomeReviewLog|rawIncidentOutcomeLog|observationPayload|outcomeReviewPayload|incidentOutcomePayload|governancePayload|outcomeDetails|incidentOutcomeDetails|governanceDetails|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
+test("Batch BZ Stage 5H repository builds metadata-only exception governance SQL", () => {
+  const sql = buildReviewVisitLongitudinalTimelineRolloutExceptionGovernanceSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    exceptionGovernance: {
+      exceptionGovernanceStatus: "ready_for_exception_governance",
+      exceptionGovernanceReasons: ["timeline_rollout_exception_governance_ready_no_dynamic_conclusion"],
+      observationGovernanceStatus: "ready_for_observation_governance",
+      postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+      clinicalValidationStatus: "ready_for_clinical_validation",
+      incidentProcedureStatus: "ready_for_clinic_monitoring",
+      monitoringStatus: "ready_for_production_rollout",
+      evidenceStatus: "ready_for_monitored_rollout",
+      sopStatus: "ready_for_operational_rollout",
+      validationStatus: "ready_for_rollout",
+      rolloutStatus: "approved_for_clinical_operations",
+      exceptionRegisterStatus: "ready",
+      triageSlaStatus: "ready",
+      resolutionEvidenceStatus: "ready",
+      recurrenceReviewStatus: "ready",
+      rollbackReadinessStatus: "ready",
+      governanceArchiveStatus: "ready",
+      ownerSignoffStatus: "ready",
+      realDatasetTimelineCount: 8,
+      observedTimelineCount: 8,
+      governanceExceptionCount: 1,
+      resolvedGovernanceExceptionCount: 1,
+      unresolvedGovernanceExceptionCount: 0,
+      recurrenceSignalCount: 1,
+      unresolvedRecurrenceSignalCount: 0,
+      rollbackDrillCount: 1,
+      blockerCount: 0,
+      lesionCount: 2,
+      readyTimelineCount: 2,
+      blockedTimelineCount: 0,
+      candidatePairCount: 3,
+      reviewerWorkflowReadyCount: 3,
+    },
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /insert into visit_longitudinal_timeline_rollout_exception_governance_reviews/);
+  assert.match(sql, /exception_governance_status/);
+  assert.match(sql, /ready_for_exception_governance/);
+  assert.match(sql, /timelineRolloutExceptionGovernanceBoundary/);
+  assert.match(sql, /exceptionGovernanceBoundary/);
+  assert.match(sql, /recurrenceReviewBoundary/);
+  assert.match(sql, /rollbackReadinessBoundary/);
+  assert.match(sql, /patientDeliveryAllowed/);
+  assert.match(sql, /medicalMeasurementAllowed/);
+  assert.match(sql, /protectedFieldsExposed/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.doesNotMatch(
+    sql,
+    /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawExceptionLog|rawRecurrenceLog|rawRollbackLog|exceptionPayload|recurrencePayload|rollbackPayload|exceptionDetails|recurrenceDetails|rollbackDetails|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

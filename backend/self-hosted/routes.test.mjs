@@ -3956,6 +3956,7 @@ function clinicalWorkspaceRuntime({
   visitLongitudinalTimelineRolloutClinicalValidation = null,
   visitLongitudinalTimelineRolloutPostValidationMonitoring = null,
   visitLongitudinalTimelineRolloutObservationGovernance = null,
+  visitLongitudinalTimelineRolloutExceptionGovernance = null,
   protectedLesionImageDownload = null,
   reportPackage = null,
   photoProtocolRelease = null,
@@ -4113,6 +4114,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           observationGovernance: visitLongitudinalTimelineRolloutObservationGovernance,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async reviewVisitLongitudinalTimelineRolloutExceptionGovernance() {
+        if (clinicalError) throw clinicalError;
+        return {
+          exceptionGovernance: visitLongitudinalTimelineRolloutExceptionGovernance,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -6362,6 +6370,95 @@ test("Batch BY Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-
   );
 });
 
+test("Batch BZ Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/exception-governance stores aggregate-only exception closure", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/longitudinal-timeline-rollout/exception-governance`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      visitLongitudinalTimelineRolloutExceptionGovernance: {
+        id: "exception-governance-review-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "in_review",
+        reasons: ["timeline_rollout_exception_governance_not_ready"],
+        observationGovernanceStatus: "not_started",
+        postValidationMonitoringStatus: "not_started",
+        clinicalValidationStatus: "not_started",
+        incidentProcedureStatus: "not_started",
+        monitoringStatus: "not_started",
+        evidenceStatus: "not_started",
+        sopStatus: "not_started",
+        validationStatus: "blocked",
+        rolloutStatus: "review_required",
+        exceptionRegisterStatus: "needs_review",
+        triageSlaStatus: "needs_review",
+        resolutionEvidenceStatus: "needs_review",
+        recurrenceReviewStatus: "needs_review",
+        rollbackReadinessStatus: "needs_review",
+        governanceArchiveStatus: "needs_review",
+        ownerSignoffStatus: "needs_review",
+        realDatasetTimelineCount: 0,
+        observedTimelineCount: 0,
+        governanceExceptionCount: 1,
+        resolvedGovernanceExceptionCount: 0,
+        unresolvedGovernanceExceptionCount: 1,
+        recurrenceSignalCount: 1,
+        unresolvedRecurrenceSignalCount: 1,
+        rollbackDrillCount: 0,
+        blockerCount: 1,
+        lesionCount: 2,
+        readyTimelineCount: 1,
+        blockedTimelineCount: 1,
+        candidatePairCount: 3,
+        reviewerWorkflowReadyCount: 1,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-06T00:00:00.000Z",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:00.000Z",
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      exceptionGovernanceStatus: "ready_for_exception_governance",
+      exceptionGovernanceReasons: ["timeline_rollout_exception_governance_ready_no_dynamic_conclusion"],
+      exceptionRegisterStatus: "ready",
+      triageSlaStatus: "ready",
+      resolutionEvidenceStatus: "ready",
+      recurrenceReviewStatus: "ready",
+      rollbackReadinessStatus: "ready",
+      governanceArchiveStatus: "ready",
+      ownerSignoffStatus: "ready",
+      realDatasetTimelineCount: 8,
+      observedTimelineCount: 8,
+      governanceExceptionCount: 1,
+      resolvedGovernanceExceptionCount: 1,
+      unresolvedGovernanceExceptionCount: 0,
+      recurrenceSignalCount: 1,
+      unresolvedRecurrenceSignalCount: 0,
+      rollbackDrillCount: 1,
+      blockerCount: 0,
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.item.status, "in_review");
+  assert.equal(response.json.item.observationGovernanceStatus, "not_started");
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.equal(response.json.item.clinicalOutputGenerated, false);
+  assert.doesNotMatch(
+    response.body,
+    /"pairKey"|"imageIds"|patientRows|rawExceptionLog|rawRecurrenceLog|rawRollbackLog|exceptionPayload|recurrencePayload|rollbackPayload|exceptionDetails|recurrenceDetails|rollbackDetails|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
 test("Batch AX Stage 5H · GET /api/v1/patients/{patientId}/lesions/{lesionId}/images/{assetId}/render streams protected image bytes", async () => {
   const lesionId = "10000000-0000-4000-8000-000000000801";
   const assetId = "10000000-0000-4000-8000-000000000901";
@@ -6405,6 +6502,7 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/clinical-validation"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/post-validation-monitoring"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/observation-governance"].patch);
+  assert.ok(response.json.paths["/api/v1/visits/{visitId}/longitudinal-timeline-rollout/exception-governance"].patch);
   assert.ok(response.json.paths["/api/v1/visits/{visitId}/assets/{assetId}/capture-metadata"].patch);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-history"].get);
   assert.ok(response.json.paths["/api/v1/patients/{patientId}/lesions/{lesionId}/longitudinal-qa"].get);
@@ -6432,6 +6530,8 @@ test("Stage 5H · /openapi.stage5h.json documents production clinical contracts"
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutPostValidationMonitoringPayload);
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutObservationGovernance);
   assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutObservationGovernancePayload);
+  assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutExceptionGovernance);
+  assert.ok(response.json.components.schemas.VisitLongitudinalTimelineRolloutExceptionGovernancePayload);
   assert.ok(response.json.components.schemas.LesionCaptureMetadata);
   assert.ok(response.json.components.schemas.LesionLongitudinalHistory);
   assert.ok(response.json.components.schemas.LesionLongitudinalQa);
