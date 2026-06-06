@@ -1989,6 +1989,41 @@ export async function handleSelfHostedRequest(
   const visitLongitudinalTimelineRolloutPostValidationMonitoringMatch = url.pathname.match(
     /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/post-validation-monitoring$/,
   );
+  const visitLongitudinalTimelineRolloutObservationGovernanceMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/observation-governance$/,
+  );
+  if (visitLongitudinalTimelineRolloutObservationGovernanceMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result =
+        await runtimeServices.clinicalWorkspaceService.reviewVisitLongitudinalTimelineRolloutObservationGovernance(
+          decodeURIComponent(visitLongitudinalTimelineRolloutObservationGovernanceMatch[1]),
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.observationGovernance,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
   if (visitLongitudinalTimelineRolloutPostValidationMonitoringMatch && method === "PATCH") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);

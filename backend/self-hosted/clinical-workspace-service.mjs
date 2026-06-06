@@ -104,6 +104,11 @@ const TIMELINE_ROLLOUT_POST_VALIDATION_MONITORING_STATUS_VALUES = new Set([
   "in_review",
   "ready_for_post_validation_monitoring",
 ]);
+const TIMELINE_ROLLOUT_OBSERVATION_GOVERNANCE_STATUS_VALUES = new Set([
+  "not_started",
+  "in_review",
+  "ready_for_observation_governance",
+]);
 const TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES = new Set(["missing", "needs_review", "ready"]);
 const MAX_TEXT = 8000;
 const MAX_REASON_TEXT = 120;
@@ -128,12 +133,22 @@ const PROTECTED_INPUT_KEYS = new Set([
   "rawAdjudicationLog",
   "rawDriftLog",
   "rawFollowupLog",
+  "rawObservationLog",
+  "rawOutcomeReviewLog",
+  "rawIncidentOutcomeLog",
   "clinicalValidationPayload",
   "postValidationPayload",
+  "observationPayload",
+  "outcomeReviewPayload",
+  "incidentOutcomePayload",
+  "governancePayload",
   "validationDetails",
   "monitoringDetails",
   "driftDetails",
   "followupDetails",
+  "outcomeDetails",
+  "incidentOutcomeDetails",
+  "governanceDetails",
   "adjudicationDetails",
   "incidentPayload",
   "incidentDetails",
@@ -1192,6 +1207,109 @@ export function normalizeVisitLongitudinalTimelineRolloutPostValidationMonitorin
     incidentFollowupCount,
     unresolvedIncidentFollowupCount,
     validatorRecheckCount,
+    blockerCount,
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+  };
+}
+
+export function normalizeVisitLongitudinalTimelineRolloutObservationGovernancePayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({ field: "body", message: "Protected fields are not accepted in observation governance payloads." });
+  }
+  const observationGovernanceStatus = cleanString(input.observationGovernanceStatus);
+  if (
+    !observationGovernanceStatus
+    || !TIMELINE_ROLLOUT_OBSERVATION_GOVERNANCE_STATUS_VALUES.has(observationGovernanceStatus)
+  ) {
+    details.push({
+      field: "observationGovernanceStatus",
+      message: "observationGovernanceStatus must be not_started, in_review, or ready_for_observation_governance.",
+    });
+  }
+  const checklistStatus = (field) => {
+    const value = cleanString(input[field]) || "missing";
+    if (!TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES.has(value)) {
+      details.push({ field, message: `${field} must be missing, needs_review, or ready.` });
+      return "missing";
+    }
+    return value;
+  };
+  const count = (field, max) => normalizeNumber(input[field], field, details, { integer: true, min: 0, max }) ?? 0;
+  const observationGovernanceReasons = normalizeTechnicalStrings(
+    input.observationGovernanceReasons,
+    "observationGovernanceReasons",
+    details,
+  );
+  const observationWindowStatus = checklistStatus("observationWindowStatus");
+  const outcomeObservationStatus = checklistStatus("outcomeObservationStatus");
+  const driftSignalReviewStatus = checklistStatus("driftSignalReviewStatus");
+  const incidentOutcomeReviewStatus = checklistStatus("incidentOutcomeReviewStatus");
+  const followupClosureStatus = checklistStatus("followupClosureStatus");
+  const governanceReviewStatus = checklistStatus("governanceReviewStatus");
+  const ownerSignoffStatus = checklistStatus("ownerSignoffStatus");
+  const realDatasetTimelineCount = count("realDatasetTimelineCount", 20000);
+  const postValidationSampleCount = count("postValidationSampleCount", 20000);
+  const observedTimelineCount = count("observedTimelineCount", 20000);
+  const expectedFollowupCount = count("expectedFollowupCount", 20000);
+  const completedFollowupCount = count("completedFollowupCount", 20000);
+  const driftSignalCount = count("driftSignalCount", 20000);
+  const unresolvedDriftSignalCount = count("unresolvedDriftSignalCount", 20000);
+  const incidentOutcomeCount = count("incidentOutcomeCount", 20000);
+  const unresolvedIncidentOutcomeCount = count("unresolvedIncidentOutcomeCount", 20000);
+  const governanceExceptionCount = count("governanceExceptionCount", 20000);
+  const unresolvedGovernanceExceptionCount = count("unresolvedGovernanceExceptionCount", 20000);
+  const blockerCount = count("blockerCount", 20000);
+  if (completedFollowupCount > expectedFollowupCount) {
+    details.push({
+      field: "completedFollowupCount",
+      message: "completedFollowupCount must be less than or equal to expectedFollowupCount.",
+    });
+  }
+  if (unresolvedDriftSignalCount > driftSignalCount) {
+    details.push({
+      field: "unresolvedDriftSignalCount",
+      message: "unresolvedDriftSignalCount must be less than or equal to driftSignalCount.",
+    });
+  }
+  if (unresolvedIncidentOutcomeCount > incidentOutcomeCount) {
+    details.push({
+      field: "unresolvedIncidentOutcomeCount",
+      message: "unresolvedIncidentOutcomeCount must be less than or equal to incidentOutcomeCount.",
+    });
+  }
+  if (unresolvedGovernanceExceptionCount > governanceExceptionCount) {
+    details.push({
+      field: "unresolvedGovernanceExceptionCount",
+      message: "unresolvedGovernanceExceptionCount must be less than or equal to governanceExceptionCount.",
+    });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    observationGovernanceStatus,
+    observationGovernanceReasons: observationGovernanceReasons ?? [],
+    observationWindowStatus,
+    outcomeObservationStatus,
+    driftSignalReviewStatus,
+    incidentOutcomeReviewStatus,
+    followupClosureStatus,
+    governanceReviewStatus,
+    ownerSignoffStatus,
+    realDatasetTimelineCount,
+    postValidationSampleCount,
+    observedTimelineCount,
+    expectedFollowupCount,
+    completedFollowupCount,
+    driftSignalCount,
+    unresolvedDriftSignalCount,
+    incidentOutcomeCount,
+    unresolvedIncidentOutcomeCount,
+    governanceExceptionCount,
+    unresolvedGovernanceExceptionCount,
     blockerCount,
     patientDeliveryAllowed: false,
     medicalMeasurementAllowed: false,
@@ -2848,6 +2966,186 @@ export function createClinicalWorkspaceService({
         },
       });
       return { postValidationMonitoring, scope };
+    },
+
+    async reviewVisitLongitudinalTimelineRolloutObservationGovernance(
+      visitId,
+      input,
+      authContext,
+      { correlationId } = {},
+    ) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const scope = visitWriteScope(authContext);
+      const payload = normalizeVisitLongitudinalTimelineRolloutObservationGovernancePayload(input);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const validation = await clinicalWorkspaceRepository.getVisitLongitudinalDatasetValidation({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicId: visit.clinic.id,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      if (!validation) {
+        throw new VisitWorkspaceNotFoundError("Longitudinal dataset validation was not found in the allowed clinic scope.");
+      }
+      const readiness = validation.readiness || {};
+      const rollout = validation.timelineRollout || {};
+      const sop = validation.timelineRolloutSop || {};
+      const evidence = validation.timelineRolloutEvidence || {};
+      const monitoring = validation.timelineRolloutMonitoring || {};
+      const incidentProcedure = validation.timelineRolloutIncidentProcedure || {};
+      const clinicalValidation = validation.timelineRolloutClinicalValidation || {};
+      const postValidationMonitoring = validation.timelineRolloutPostValidationMonitoring || {};
+      const validationStatus = String(readiness.status ?? "blocked");
+      const rolloutStatus = String(rollout.status ?? "not_approved");
+      const sopStatus = String(sop.status ?? "not_started");
+      const evidenceStatus = String(evidence.status ?? "not_started");
+      const monitoringStatus = String(monitoring.status ?? "not_started");
+      const incidentProcedureStatus = String(incidentProcedure.status ?? "not_started");
+      const clinicalValidationStatus = String(clinicalValidation.status ?? "not_started");
+      const postValidationMonitoringStatus = String(postValidationMonitoring.status ?? "not_started");
+      const observationChecklistReady = [
+        payload.observationWindowStatus,
+        payload.outcomeObservationStatus,
+        payload.driftSignalReviewStatus,
+        payload.incidentOutcomeReviewStatus,
+        payload.followupClosureStatus,
+        payload.governanceReviewStatus,
+        payload.ownerSignoffStatus,
+      ].every((status) => status === "ready");
+      const aggregateObservationGovernanceReady =
+        payload.realDatasetTimelineCount > 0
+        && payload.postValidationSampleCount > 0
+        && payload.observedTimelineCount > 0
+        && payload.expectedFollowupCount > 0
+        && payload.completedFollowupCount === payload.expectedFollowupCount
+        && payload.unresolvedDriftSignalCount === 0
+        && payload.unresolvedIncidentOutcomeCount === 0
+        && payload.unresolvedGovernanceExceptionCount === 0
+        && payload.blockerCount === 0;
+      const observationGovernanceReady =
+        validationStatus === "ready_for_rollout"
+        && rolloutStatus === "approved_for_clinical_operations"
+        && sopStatus === "ready_for_operational_rollout"
+        && evidenceStatus === "ready_for_monitored_rollout"
+        && monitoringStatus === "ready_for_production_rollout"
+        && incidentProcedureStatus === "ready_for_clinic_monitoring"
+        && clinicalValidationStatus === "ready_for_clinical_validation"
+        && postValidationMonitoringStatus === "ready_for_post_validation_monitoring"
+        && observationChecklistReady
+        && aggregateObservationGovernanceReady;
+      const effectiveStatus =
+        payload.observationGovernanceStatus === "ready_for_observation_governance"
+          && !observationGovernanceReady
+          ? "in_review"
+          : payload.observationGovernanceStatus;
+      const effectiveReasons = [
+        ...payload.observationGovernanceReasons,
+        ...(payload.observationGovernanceStatus === "ready_for_observation_governance"
+          && !observationGovernanceReady
+          ? ["timeline_rollout_observation_governance_not_ready"]
+          : []),
+      ];
+      const observationGovernance =
+        await clinicalWorkspaceRepository.reviewVisitLongitudinalTimelineRolloutObservationGovernance({
+          visitId: safeVisitId,
+          patientId: visit.patient.id,
+          clinicId: visit.clinic.id,
+          doctorUserId: authContext.userId,
+          observationGovernance: {
+            observationGovernanceStatus: effectiveStatus,
+            observationGovernanceReasons: effectiveReasons,
+            postValidationMonitoringStatus,
+            clinicalValidationStatus,
+            incidentProcedureStatus,
+            monitoringStatus,
+            evidenceStatus,
+            sopStatus,
+            validationStatus,
+            rolloutStatus,
+            observationWindowStatus: payload.observationWindowStatus,
+            outcomeObservationStatus: payload.outcomeObservationStatus,
+            driftSignalReviewStatus: payload.driftSignalReviewStatus,
+            incidentOutcomeReviewStatus: payload.incidentOutcomeReviewStatus,
+            followupClosureStatus: payload.followupClosureStatus,
+            governanceReviewStatus: payload.governanceReviewStatus,
+            ownerSignoffStatus: payload.ownerSignoffStatus,
+            realDatasetTimelineCount: payload.realDatasetTimelineCount,
+            postValidationSampleCount: payload.postValidationSampleCount,
+            observedTimelineCount: payload.observedTimelineCount,
+            expectedFollowupCount: payload.expectedFollowupCount,
+            completedFollowupCount: payload.completedFollowupCount,
+            driftSignalCount: payload.driftSignalCount,
+            unresolvedDriftSignalCount: payload.unresolvedDriftSignalCount,
+            incidentOutcomeCount: payload.incidentOutcomeCount,
+            unresolvedIncidentOutcomeCount: payload.unresolvedIncidentOutcomeCount,
+            governanceExceptionCount: payload.governanceExceptionCount,
+            unresolvedGovernanceExceptionCount: payload.unresolvedGovernanceExceptionCount,
+            blockerCount: payload.blockerCount,
+            lesionCount: Number(readiness.lesionCount ?? 0),
+            readyTimelineCount: Number(readiness.readyTimelineCount ?? 0),
+            blockedTimelineCount: Number(readiness.blockedTimelineCount ?? 0),
+            candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+            reviewerWorkflowReadyCount: Number(readiness.reviewerWorkflowReadyCount ?? 0),
+          },
+          clinicIds: scope.clinicIds,
+          allClinics: scope.allClinics,
+        });
+      if (!observationGovernance) {
+        throw new VisitWorkspaceNotFoundError("Timeline rollout observation governance could not be saved.");
+      }
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: observationGovernance.clinicId ?? visit.clinic.id,
+        actorUserId: authContext.userId,
+        action: "visit_longitudinal_timeline_rollout_observation_governance.review",
+        entityType: "visit_longitudinal_timeline_rollout_observation_governance_review",
+        entityId: observationGovernance.id ?? safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          observationGovernanceStatus: observationGovernance.status,
+          postValidationMonitoringStatus: observationGovernance.postValidationMonitoringStatus,
+          clinicalValidationStatus: observationGovernance.clinicalValidationStatus,
+          validationStatus: observationGovernance.validationStatus,
+          rolloutStatus: observationGovernance.rolloutStatus,
+          sopStatus: observationGovernance.sopStatus,
+          evidenceStatus: observationGovernance.evidenceStatus,
+          monitoringStatus: observationGovernance.monitoringStatus,
+          incidentProcedureStatus: observationGovernance.incidentProcedureStatus,
+          realDatasetTimelineCount: Number(observationGovernance.realDatasetTimelineCount ?? 0),
+          postValidationSampleCount: Number(observationGovernance.postValidationSampleCount ?? 0),
+          observedTimelineCount: Number(observationGovernance.observedTimelineCount ?? 0),
+          expectedFollowupCount: Number(observationGovernance.expectedFollowupCount ?? 0),
+          completedFollowupCount: Number(observationGovernance.completedFollowupCount ?? 0),
+          driftSignalCount: Number(observationGovernance.driftSignalCount ?? 0),
+          unresolvedDriftSignalCount: Number(observationGovernance.unresolvedDriftSignalCount ?? 0),
+          incidentOutcomeCount: Number(observationGovernance.incidentOutcomeCount ?? 0),
+          unresolvedIncidentOutcomeCount: Number(observationGovernance.unresolvedIncidentOutcomeCount ?? 0),
+          governanceExceptionCount: Number(observationGovernance.governanceExceptionCount ?? 0),
+          unresolvedGovernanceExceptionCount: Number(observationGovernance.unresolvedGovernanceExceptionCount ?? 0),
+          blockerCount: Number(observationGovernance.blockerCount ?? 0),
+          lesionCount: Number(observationGovernance.lesionCount ?? 0),
+          readyTimelineCount: Number(observationGovernance.readyTimelineCount ?? 0),
+          blockedTimelineCount: Number(observationGovernance.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(observationGovernance.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(observationGovernance.reviewerWorkflowReadyCount ?? 0),
+          observationChecklistReady,
+          aggregateObservationGovernanceReady,
+          reasonsCount: observationGovernance.reasons?.length ?? 0,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          patientRowsExposed: false,
+          rawObservationLogsExposed: false,
+          rawOutcomeReviewLogsExposed: false,
+          rawIncidentOutcomeLogsExposed: false,
+          rawGovernancePayloadsExposed: false,
+        },
+      });
+      return { observationGovernance, scope };
     },
 
     async getLesionLongitudinalQa(patientId, lesionId, authContext, { correlationId } = {}) {

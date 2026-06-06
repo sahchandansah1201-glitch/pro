@@ -1128,6 +1128,62 @@ from (
       ${clinicScopeWhere({ alias: "p", clinicIds, allClinics })}
     order by p.updated_at desc
     limit 1
+  ),
+  latest_observation_governance as (
+    select
+      g.id,
+      g.clinic_id,
+      g.patient_id,
+      g.visit_id,
+      g.observation_governance_status,
+      g.observation_governance_reasons,
+      g.post_validation_monitoring_status,
+      g.clinical_validation_status,
+      g.incident_procedure_status,
+      g.monitoring_status,
+      g.evidence_status,
+      g.sop_status,
+      g.dataset_validation_status,
+      g.rollout_status,
+      g.observation_window_status,
+      g.outcome_observation_status,
+      g.drift_signal_review_status,
+      g.incident_outcome_review_status,
+      g.followup_closure_status,
+      g.governance_review_status,
+      g.owner_signoff_status,
+      g.real_dataset_timeline_count,
+      g.post_validation_sample_count,
+      g.observed_timeline_count,
+      g.expected_followup_count,
+      g.completed_followup_count,
+      g.drift_signal_count,
+      g.unresolved_drift_signal_count,
+      g.incident_outcome_count,
+      g.unresolved_incident_outcome_count,
+      g.governance_exception_count,
+      g.unresolved_governance_exception_count,
+      g.blocker_count,
+      g.lesion_count,
+      g.ready_timeline_count,
+      g.blocked_timeline_count,
+      g.candidate_pair_count,
+      g.reviewer_workflow_ready_count,
+      g.reviewed_at,
+      g.created_at,
+      g.updated_at
+    from visit_longitudinal_timeline_rollout_observation_governance_reviews g
+    join target_visit v
+      on g.visit_id = v.id
+     and g.patient_id = v.patient_id
+     and g.clinic_id = v.clinic_id
+    where g.patient_delivery_allowed = false
+      and g.medical_measurement_allowed = false
+      and g.protected_fields_exposed = false
+      and g.clinical_output_generated = false
+      ${clinicScopeWhere({ alias: "g", clinicIds, allClinics })}
+    order by g.updated_at desc
+    limit 1
   )
   select
     v.clinic_id::text as "clinicId",
@@ -1439,6 +1495,53 @@ from (
       'protectedFieldsExposed', false,
       'clinicalOutputGenerated', false
     ) as "timelineRolloutPostValidationMonitoring",
+    jsonb_build_object(
+      'id', coalesce((select id::text from latest_observation_governance), ''),
+      'clinicId', coalesce((select clinic_id::text from latest_observation_governance), v.clinic_id::text),
+      'patientId', coalesce((select patient_id::text from latest_observation_governance), v.patient_id::text),
+      'visitId', coalesce((select visit_id::text from latest_observation_governance), v.id::text),
+      'status', coalesce((select observation_governance_status from latest_observation_governance), 'not_started'),
+      'reasons', coalesce((select observation_governance_reasons from latest_observation_governance), '[]'::jsonb),
+      'postValidationMonitoringStatus', coalesce((select post_validation_monitoring_status from latest_observation_governance), 'not_started'),
+      'clinicalValidationStatus', coalesce((select clinical_validation_status from latest_observation_governance), 'not_started'),
+      'incidentProcedureStatus', coalesce((select incident_procedure_status from latest_observation_governance), 'not_started'),
+      'monitoringStatus', coalesce((select monitoring_status from latest_observation_governance), 'not_started'),
+      'evidenceStatus', coalesce((select evidence_status from latest_observation_governance), 'not_started'),
+      'sopStatus', coalesce((select sop_status from latest_observation_governance), 'not_started'),
+      'validationStatus', coalesce((select dataset_validation_status from latest_observation_governance), 'blocked'),
+      'rolloutStatus', coalesce((select rollout_status from latest_observation_governance), 'not_approved'),
+      'observationWindowStatus', coalesce((select observation_window_status from latest_observation_governance), 'missing'),
+      'outcomeObservationStatus', coalesce((select outcome_observation_status from latest_observation_governance), 'missing'),
+      'driftSignalReviewStatus', coalesce((select drift_signal_review_status from latest_observation_governance), 'missing'),
+      'incidentOutcomeReviewStatus', coalesce((select incident_outcome_review_status from latest_observation_governance), 'missing'),
+      'followupClosureStatus', coalesce((select followup_closure_status from latest_observation_governance), 'missing'),
+      'governanceReviewStatus', coalesce((select governance_review_status from latest_observation_governance), 'missing'),
+      'ownerSignoffStatus', coalesce((select owner_signoff_status from latest_observation_governance), 'missing'),
+      'realDatasetTimelineCount', coalesce((select real_dataset_timeline_count from latest_observation_governance), 0),
+      'postValidationSampleCount', coalesce((select post_validation_sample_count from latest_observation_governance), 0),
+      'observedTimelineCount', coalesce((select observed_timeline_count from latest_observation_governance), 0),
+      'expectedFollowupCount', coalesce((select expected_followup_count from latest_observation_governance), 0),
+      'completedFollowupCount', coalesce((select completed_followup_count from latest_observation_governance), 0),
+      'driftSignalCount', coalesce((select drift_signal_count from latest_observation_governance), 0),
+      'unresolvedDriftSignalCount', coalesce((select unresolved_drift_signal_count from latest_observation_governance), 0),
+      'incidentOutcomeCount', coalesce((select incident_outcome_count from latest_observation_governance), 0),
+      'unresolvedIncidentOutcomeCount', coalesce((select unresolved_incident_outcome_count from latest_observation_governance), 0),
+      'governanceExceptionCount', coalesce((select governance_exception_count from latest_observation_governance), 0),
+      'unresolvedGovernanceExceptionCount', coalesce((select unresolved_governance_exception_count from latest_observation_governance), 0),
+      'blockerCount', coalesce((select blocker_count from latest_observation_governance), 0),
+      'lesionCount', coalesce((select lesion_count from latest_observation_governance), 0),
+      'readyTimelineCount', coalesce((select ready_timeline_count from latest_observation_governance), 0),
+      'blockedTimelineCount', coalesce((select blocked_timeline_count from latest_observation_governance), 0),
+      'candidatePairCount', coalesce((select candidate_pair_count from latest_observation_governance), 0),
+      'reviewerWorkflowReadyCount', coalesce((select reviewer_workflow_ready_count from latest_observation_governance), 0),
+      'reviewedAt', (select reviewed_at from latest_observation_governance),
+      'createdAt', (select created_at from latest_observation_governance),
+      'updatedAt', (select updated_at from latest_observation_governance),
+      'patientDeliveryAllowed', false,
+      'medicalMeasurementAllowed', false,
+      'protectedFieldsExposed', false,
+      'clinicalOutputGenerated', false
+    ) as "timelineRolloutObservationGovernance",
     array_remove(array[
       case when exists(select 1 from classified where candidate_pair_count = 0 or unreviewed_pair_count > 0) then 'review_queue' end,
       case when exists(select 1 from classified where needs_recapture_count > 0) then 'request_recapture' end,
@@ -2579,6 +2682,237 @@ from (
     p.created_at as "createdAt",
     p.updated_at as "updatedAt"
   from upserted p
+  limit 1
+) result;
+`.trim();
+}
+
+export function buildReviewVisitLongitudinalTimelineRolloutObservationGovernanceSql({
+  visitId,
+  patientId,
+  clinicId,
+  doctorUserId = null,
+  observationGovernance = {},
+  clinicIds = [],
+  allClinics = false,
+} = {}) {
+  const visitScope = clinicScopeWhere({ alias: "v", clinicIds, allClinics });
+  const observationGovernanceScope = clinicScopeWhere({
+    alias: "visit_longitudinal_timeline_rollout_observation_governance_reviews",
+    clinicIds,
+    allClinics,
+  });
+  return `
+select coalesce(jsonb_agg(row_to_json(result)), '[]'::jsonb)::text
+from (
+  with target_visit as (
+    select
+      v.id,
+      v.clinic_id,
+      v.patient_id
+    from visits v
+    where v.id = ${sqlUuid(visitId)}
+      and v.patient_id = ${sqlUuid(patientId)}
+      and v.clinic_id = ${sqlUuid(clinicId)}
+      ${visitScope}
+    limit 1
+  ),
+  upserted as (
+    insert into visit_longitudinal_timeline_rollout_observation_governance_reviews (
+      clinic_id,
+      patient_id,
+      visit_id,
+      reviewed_by_user_id,
+      observation_governance_status,
+      observation_governance_reasons,
+      post_validation_monitoring_status,
+      clinical_validation_status,
+      incident_procedure_status,
+      monitoring_status,
+      evidence_status,
+      sop_status,
+      dataset_validation_status,
+      rollout_status,
+      observation_window_status,
+      outcome_observation_status,
+      drift_signal_review_status,
+      incident_outcome_review_status,
+      followup_closure_status,
+      governance_review_status,
+      owner_signoff_status,
+      real_dataset_timeline_count,
+      post_validation_sample_count,
+      observed_timeline_count,
+      expected_followup_count,
+      completed_followup_count,
+      drift_signal_count,
+      unresolved_drift_signal_count,
+      incident_outcome_count,
+      unresolved_incident_outcome_count,
+      governance_exception_count,
+      unresolved_governance_exception_count,
+      blocker_count,
+      lesion_count,
+      ready_timeline_count,
+      blocked_timeline_count,
+      candidate_pair_count,
+      reviewer_workflow_ready_count,
+      patient_delivery_allowed,
+      medical_measurement_allowed,
+      protected_fields_exposed,
+      clinical_output_generated,
+      metadata_json,
+      reviewed_at
+    )
+    select
+      v.clinic_id,
+      v.patient_id,
+      v.id,
+      ${sqlNullableUuid(doctorUserId)},
+      ${sqlLiteral(observationGovernance.observationGovernanceStatus ?? "not_started")},
+      ${sqlJsonb(observationGovernance.observationGovernanceReasons ?? [])},
+      ${sqlLiteral(observationGovernance.postValidationMonitoringStatus ?? "not_started")},
+      ${sqlLiteral(observationGovernance.clinicalValidationStatus ?? "not_started")},
+      ${sqlLiteral(observationGovernance.incidentProcedureStatus ?? "not_started")},
+      ${sqlLiteral(observationGovernance.monitoringStatus ?? "not_started")},
+      ${sqlLiteral(observationGovernance.evidenceStatus ?? "not_started")},
+      ${sqlLiteral(observationGovernance.sopStatus ?? "not_started")},
+      ${sqlLiteral(observationGovernance.validationStatus ?? "blocked")},
+      ${sqlLiteral(observationGovernance.rolloutStatus ?? "not_approved")},
+      ${sqlLiteral(observationGovernance.observationWindowStatus ?? "missing")},
+      ${sqlLiteral(observationGovernance.outcomeObservationStatus ?? "missing")},
+      ${sqlLiteral(observationGovernance.driftSignalReviewStatus ?? "missing")},
+      ${sqlLiteral(observationGovernance.incidentOutcomeReviewStatus ?? "missing")},
+      ${sqlLiteral(observationGovernance.followupClosureStatus ?? "missing")},
+      ${sqlLiteral(observationGovernance.governanceReviewStatus ?? "missing")},
+      ${sqlLiteral(observationGovernance.ownerSignoffStatus ?? "missing")},
+      ${sqlNullableInteger(observationGovernance.realDatasetTimelineCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.postValidationSampleCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.observedTimelineCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.expectedFollowupCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.completedFollowupCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.driftSignalCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.unresolvedDriftSignalCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.incidentOutcomeCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.unresolvedIncidentOutcomeCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.governanceExceptionCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.unresolvedGovernanceExceptionCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.blockerCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.lesionCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.readyTimelineCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.blockedTimelineCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.candidatePairCount ?? 0)},
+      ${sqlNullableInteger(observationGovernance.reviewerWorkflowReadyCount ?? 0)},
+      false,
+      false,
+      false,
+      false,
+      ${sqlJsonb({
+        brainstormTask: "SD-MF-025/026/028",
+        timelineRolloutObservationGovernanceBoundary: "metadata_only",
+        observationGovernanceBoundary: "aggregate_only",
+        incidentOutcomeReviewBoundary: "counts_only",
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+      })},
+      now()
+    from target_visit v
+    on conflict (visit_id) do update
+    set
+      reviewed_by_user_id = excluded.reviewed_by_user_id,
+      observation_governance_status = excluded.observation_governance_status,
+      observation_governance_reasons = excluded.observation_governance_reasons,
+      post_validation_monitoring_status = excluded.post_validation_monitoring_status,
+      clinical_validation_status = excluded.clinical_validation_status,
+      incident_procedure_status = excluded.incident_procedure_status,
+      monitoring_status = excluded.monitoring_status,
+      evidence_status = excluded.evidence_status,
+      sop_status = excluded.sop_status,
+      dataset_validation_status = excluded.dataset_validation_status,
+      rollout_status = excluded.rollout_status,
+      observation_window_status = excluded.observation_window_status,
+      outcome_observation_status = excluded.outcome_observation_status,
+      drift_signal_review_status = excluded.drift_signal_review_status,
+      incident_outcome_review_status = excluded.incident_outcome_review_status,
+      followup_closure_status = excluded.followup_closure_status,
+      governance_review_status = excluded.governance_review_status,
+      owner_signoff_status = excluded.owner_signoff_status,
+      real_dataset_timeline_count = excluded.real_dataset_timeline_count,
+      post_validation_sample_count = excluded.post_validation_sample_count,
+      observed_timeline_count = excluded.observed_timeline_count,
+      expected_followup_count = excluded.expected_followup_count,
+      completed_followup_count = excluded.completed_followup_count,
+      drift_signal_count = excluded.drift_signal_count,
+      unresolved_drift_signal_count = excluded.unresolved_drift_signal_count,
+      incident_outcome_count = excluded.incident_outcome_count,
+      unresolved_incident_outcome_count = excluded.unresolved_incident_outcome_count,
+      governance_exception_count = excluded.governance_exception_count,
+      unresolved_governance_exception_count = excluded.unresolved_governance_exception_count,
+      blocker_count = excluded.blocker_count,
+      lesion_count = excluded.lesion_count,
+      ready_timeline_count = excluded.ready_timeline_count,
+      blocked_timeline_count = excluded.blocked_timeline_count,
+      candidate_pair_count = excluded.candidate_pair_count,
+      reviewer_workflow_ready_count = excluded.reviewer_workflow_ready_count,
+      patient_delivery_allowed = false,
+      medical_measurement_allowed = false,
+      protected_fields_exposed = false,
+      clinical_output_generated = false,
+      metadata_json = visit_longitudinal_timeline_rollout_observation_governance_reviews.metadata_json || excluded.metadata_json,
+      reviewed_at = now(),
+      updated_at = now()
+    where true ${observationGovernanceScope}
+    returning *
+  )
+  select
+    g.id::text as "id",
+    g.clinic_id::text as "clinicId",
+    g.patient_id::text as "patientId",
+    g.visit_id::text as "visitId",
+    g.observation_governance_status as "status",
+    g.observation_governance_reasons as "reasons",
+    g.post_validation_monitoring_status as "postValidationMonitoringStatus",
+    g.clinical_validation_status as "clinicalValidationStatus",
+    g.incident_procedure_status as "incidentProcedureStatus",
+    g.monitoring_status as "monitoringStatus",
+    g.evidence_status as "evidenceStatus",
+    g.sop_status as "sopStatus",
+    g.dataset_validation_status as "validationStatus",
+    g.rollout_status as "rolloutStatus",
+    g.observation_window_status as "observationWindowStatus",
+    g.outcome_observation_status as "outcomeObservationStatus",
+    g.drift_signal_review_status as "driftSignalReviewStatus",
+    g.incident_outcome_review_status as "incidentOutcomeReviewStatus",
+    g.followup_closure_status as "followupClosureStatus",
+    g.governance_review_status as "governanceReviewStatus",
+    g.owner_signoff_status as "ownerSignoffStatus",
+    g.real_dataset_timeline_count as "realDatasetTimelineCount",
+    g.post_validation_sample_count as "postValidationSampleCount",
+    g.observed_timeline_count as "observedTimelineCount",
+    g.expected_followup_count as "expectedFollowupCount",
+    g.completed_followup_count as "completedFollowupCount",
+    g.drift_signal_count as "driftSignalCount",
+    g.unresolved_drift_signal_count as "unresolvedDriftSignalCount",
+    g.incident_outcome_count as "incidentOutcomeCount",
+    g.unresolved_incident_outcome_count as "unresolvedIncidentOutcomeCount",
+    g.governance_exception_count as "governanceExceptionCount",
+    g.unresolved_governance_exception_count as "unresolvedGovernanceExceptionCount",
+    g.blocker_count as "blockerCount",
+    g.lesion_count as "lesionCount",
+    g.ready_timeline_count as "readyTimelineCount",
+    g.blocked_timeline_count as "blockedTimelineCount",
+    g.candidate_pair_count as "candidatePairCount",
+    g.reviewer_workflow_ready_count as "reviewerWorkflowReadyCount",
+    g.patient_delivery_allowed as "patientDeliveryAllowed",
+    g.medical_measurement_allowed as "medicalMeasurementAllowed",
+    g.protected_fields_exposed as "protectedFieldsExposed",
+    g.clinical_output_generated as "clinicalOutputGenerated",
+    g.reviewed_at as "reviewedAt",
+    g.created_at as "createdAt",
+    g.updated_at as "updatedAt"
+  from upserted g
   limit 1
 ) result;
 `.trim();
@@ -5171,6 +5505,12 @@ const VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_POST_VALIDATION_MONITORING_STATUS_VALU
   "ready_for_post_validation_monitoring",
 ]);
 
+const VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_OBSERVATION_GOVERNANCE_STATUS_VALUES = new Set([
+  "not_started",
+  "in_review",
+  "ready_for_observation_governance",
+]);
+
 const VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES = new Set([
   "missing",
   "needs_review",
@@ -5219,6 +5559,13 @@ function normalizeVisitLongitudinalTimelineRolloutClinicalValidationStatus(value
 function normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus(value) {
   const status = String(value ?? "not_started");
   return VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_POST_VALIDATION_MONITORING_STATUS_VALUES.has(status)
+    ? status
+    : "not_started";
+}
+
+function normalizeVisitLongitudinalTimelineRolloutObservationGovernanceStatus(value) {
+  const status = String(value ?? "not_started");
+  return VISIT_LONGITUDINAL_TIMELINE_ROLLOUT_OBSERVATION_GOVERNANCE_STATUS_VALUES.has(status)
     ? status
     : "not_started";
 }
@@ -5579,6 +5926,75 @@ function normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoring(row) 
   };
 }
 
+function normalizeVisitLongitudinalTimelineRolloutObservationGovernance(row) {
+  const source = parseJsonObject(row);
+  return {
+    id: source.id ? String(source.id) : null,
+    clinicId: source.clinicId ? String(source.clinicId) : null,
+    patientId: source.patientId ? String(source.patientId) : null,
+    visitId: source.visitId ? String(source.visitId) : null,
+    status: normalizeVisitLongitudinalTimelineRolloutObservationGovernanceStatus(source.status),
+    reasons: parseJsonArray(source.reasons),
+    postValidationMonitoringStatus: normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus(
+      source.postValidationMonitoringStatus,
+    ),
+    clinicalValidationStatus: normalizeVisitLongitudinalTimelineRolloutClinicalValidationStatus(
+      source.clinicalValidationStatus,
+    ),
+    incidentProcedureStatus: normalizeVisitLongitudinalTimelineRolloutIncidentProcedureStatus(
+      source.incidentProcedureStatus,
+    ),
+    monitoringStatus: normalizeVisitLongitudinalTimelineRolloutMonitoringStatus(source.monitoringStatus),
+    evidenceStatus: normalizeVisitLongitudinalTimelineRolloutEvidenceStatus(source.evidenceStatus),
+    sopStatus: normalizeVisitLongitudinalTimelineRolloutSopStatus(source.sopStatus),
+    validationStatus: normalizeVisitLongitudinalDatasetValidationStatus(source.validationStatus),
+    rolloutStatus: normalizeVisitLongitudinalTimelineRolloutStatus(source.rolloutStatus),
+    observationWindowStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      source.observationWindowStatus,
+    ),
+    outcomeObservationStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      source.outcomeObservationStatus,
+    ),
+    driftSignalReviewStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      source.driftSignalReviewStatus,
+    ),
+    incidentOutcomeReviewStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      source.incidentOutcomeReviewStatus,
+    ),
+    followupClosureStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      source.followupClosureStatus,
+    ),
+    governanceReviewStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      source.governanceReviewStatus,
+    ),
+    ownerSignoffStatus: normalizeVisitLongitudinalTimelineRolloutSopChecklistStatus(source.ownerSignoffStatus),
+    realDatasetTimelineCount: numberOrZero(source.realDatasetTimelineCount),
+    postValidationSampleCount: numberOrZero(source.postValidationSampleCount),
+    observedTimelineCount: numberOrZero(source.observedTimelineCount),
+    expectedFollowupCount: numberOrZero(source.expectedFollowupCount),
+    completedFollowupCount: numberOrZero(source.completedFollowupCount),
+    driftSignalCount: numberOrZero(source.driftSignalCount),
+    unresolvedDriftSignalCount: numberOrZero(source.unresolvedDriftSignalCount),
+    incidentOutcomeCount: numberOrZero(source.incidentOutcomeCount),
+    unresolvedIncidentOutcomeCount: numberOrZero(source.unresolvedIncidentOutcomeCount),
+    governanceExceptionCount: numberOrZero(source.governanceExceptionCount),
+    unresolvedGovernanceExceptionCount: numberOrZero(source.unresolvedGovernanceExceptionCount),
+    blockerCount: numberOrZero(source.blockerCount),
+    lesionCount: numberOrZero(source.lesionCount),
+    readyTimelineCount: numberOrZero(source.readyTimelineCount),
+    blockedTimelineCount: numberOrZero(source.blockedTimelineCount),
+    candidatePairCount: numberOrZero(source.candidatePairCount),
+    reviewerWorkflowReadyCount: numberOrZero(source.reviewerWorkflowReadyCount),
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    reviewedAt: source.reviewedAt ?? null,
+    createdAt: source.createdAt ?? null,
+    updatedAt: source.updatedAt ?? null,
+  };
+}
+
 function normalizeVisitLongitudinalDatasetValidation(row) {
   return {
     clinicId: row.clinicId ? String(row.clinicId) : null,
@@ -5601,6 +6017,9 @@ function normalizeVisitLongitudinalDatasetValidation(row) {
     ),
     timelineRolloutPostValidationMonitoring: normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoring(
       row.timelineRolloutPostValidationMonitoring,
+    ),
+    timelineRolloutObservationGovernance: normalizeVisitLongitudinalTimelineRolloutObservationGovernance(
+      row.timelineRolloutObservationGovernance,
     ),
     nextActions: normalizeLongitudinalQaActions(row.nextActions),
     boundaries: {
@@ -5829,6 +6248,13 @@ export function createClinicalWorkspaceRepository(dbClient) {
         dbClient,
         buildReviewVisitLongitudinalTimelineRolloutPostValidationMonitoringSql(params),
         normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoring,
+      );
+    },
+    async reviewVisitLongitudinalTimelineRolloutObservationGovernance(params) {
+      return queryOne(
+        dbClient,
+        buildReviewVisitLongitudinalTimelineRolloutObservationGovernanceSql(params),
+        normalizeVisitLongitudinalTimelineRolloutObservationGovernance,
       );
     },
     async getLesionLongitudinalHistory(params) {

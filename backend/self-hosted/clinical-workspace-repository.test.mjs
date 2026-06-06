@@ -19,6 +19,7 @@ import {
   buildReviewVisitLongitudinalTimelineRolloutClinicalValidationSql,
   buildReviewVisitLongitudinalTimelineRolloutIncidentProcedureSql,
   buildReviewVisitLongitudinalTimelineRolloutMonitoringSql,
+  buildReviewVisitLongitudinalTimelineRolloutObservationGovernanceSql,
   buildReviewVisitLongitudinalTimelineRolloutPostValidationMonitoringSql,
   buildReviewVisitLongitudinalTimelineRolloutSopSql,
   buildReviewLesionComparisonViewerQaSql,
@@ -462,6 +463,67 @@ test("Batch BX Stage 5H repository builds metadata-only post-validation monitori
   assert.doesNotMatch(
     sql,
     /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawMonitoringLog|rawOutcomeLog|rawValidationLog|rawDriftLog|rawFollowupLog|postValidationPayload|monitoringDetails|driftDetails|followupDetails|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
+test("Batch BY Stage 5H repository builds metadata-only observation governance SQL", () => {
+  const sql = buildReviewVisitLongitudinalTimelineRolloutObservationGovernanceSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    observationGovernance: {
+      observationGovernanceStatus: "ready_for_observation_governance",
+      observationGovernanceReasons: ["timeline_rollout_observation_governance_ready_no_dynamic_conclusion"],
+      postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+      clinicalValidationStatus: "ready_for_clinical_validation",
+      incidentProcedureStatus: "ready_for_clinic_monitoring",
+      monitoringStatus: "ready_for_production_rollout",
+      evidenceStatus: "ready_for_monitored_rollout",
+      sopStatus: "ready_for_operational_rollout",
+      validationStatus: "ready_for_rollout",
+      rolloutStatus: "approved_for_clinical_operations",
+      observationWindowStatus: "ready",
+      outcomeObservationStatus: "ready",
+      driftSignalReviewStatus: "ready",
+      incidentOutcomeReviewStatus: "ready",
+      followupClosureStatus: "ready",
+      governanceReviewStatus: "ready",
+      ownerSignoffStatus: "ready",
+      realDatasetTimelineCount: 8,
+      postValidationSampleCount: 4,
+      observedTimelineCount: 8,
+      expectedFollowupCount: 1,
+      completedFollowupCount: 1,
+      driftSignalCount: 1,
+      unresolvedDriftSignalCount: 0,
+      incidentOutcomeCount: 1,
+      unresolvedIncidentOutcomeCount: 0,
+      governanceExceptionCount: 1,
+      unresolvedGovernanceExceptionCount: 0,
+      blockerCount: 0,
+      lesionCount: 2,
+      readyTimelineCount: 2,
+      blockedTimelineCount: 0,
+      candidatePairCount: 3,
+      reviewerWorkflowReadyCount: 3,
+    },
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /insert into visit_longitudinal_timeline_rollout_observation_governance_reviews/);
+  assert.match(sql, /observation_governance_status/);
+  assert.match(sql, /ready_for_observation_governance/);
+  assert.match(sql, /timelineRolloutObservationGovernanceBoundary/);
+  assert.match(sql, /observationGovernanceBoundary/);
+  assert.match(sql, /incidentOutcomeReviewBoundary/);
+  assert.match(sql, /patientDeliveryAllowed/);
+  assert.match(sql, /medicalMeasurementAllowed/);
+  assert.match(sql, /protectedFieldsExposed/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.doesNotMatch(
+    sql,
+    /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawObservationLog|rawOutcomeReviewLog|rawIncidentOutcomeLog|observationPayload|outcomeReviewPayload|incidentOutcomePayload|governancePayload|outcomeDetails|incidentOutcomeDetails|governanceDetails|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

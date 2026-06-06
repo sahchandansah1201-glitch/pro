@@ -2163,6 +2163,9 @@
           },
           "timelineRolloutPostValidationMonitoring": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutPostValidationMonitoring"
+          },
+          "timelineRolloutObservationGovernance": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutObservationGovernance"
           }
         }
       },
@@ -4586,6 +4589,451 @@
           }
         },
         "additionalProperties": false
+      },
+      "VisitLongitudinalTimelineRolloutObservationGovernance": {
+        "type": "object",
+        "required": [
+          "id",
+          "clinicId",
+          "patientId",
+          "visitId",
+          "status",
+          "reasons",
+          "postValidationMonitoringStatus",
+          "clinicalValidationStatus",
+          "incidentProcedureStatus",
+          "monitoringStatus",
+          "evidenceStatus",
+          "sopStatus",
+          "validationStatus",
+          "rolloutStatus",
+          "observationWindowStatus",
+          "outcomeObservationStatus",
+          "driftSignalReviewStatus",
+          "incidentOutcomeReviewStatus",
+          "followupClosureStatus",
+          "governanceReviewStatus",
+          "ownerSignoffStatus",
+          "realDatasetTimelineCount",
+          "postValidationSampleCount",
+          "observedTimelineCount",
+          "expectedFollowupCount",
+          "completedFollowupCount",
+          "driftSignalCount",
+          "unresolvedDriftSignalCount",
+          "incidentOutcomeCount",
+          "unresolvedIncidentOutcomeCount",
+          "governanceExceptionCount",
+          "unresolvedGovernanceExceptionCount",
+          "blockerCount",
+          "lesionCount",
+          "readyTimelineCount",
+          "blockedTimelineCount",
+          "candidatePairCount",
+          "reviewerWorkflowReadyCount",
+          "patientDeliveryAllowed",
+          "medicalMeasurementAllowed",
+          "protectedFieldsExposed",
+          "clinicalOutputGenerated",
+          "reviewedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clinicId": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientId": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_observation_governance"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "postValidationMonitoringStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_post_validation_monitoring"
+            ]
+          },
+          "clinicalValidationStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_clinical_validation"
+            ]
+          },
+          "incidentProcedureStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_clinic_monitoring"
+            ]
+          },
+          "monitoringStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_rollout"
+            ]
+          },
+          "evidenceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_monitored_rollout"
+            ]
+          },
+          "sopStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_operational_rollout"
+            ]
+          },
+          "validationStatus": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "needs_review",
+              "ready_for_rollout"
+            ]
+          },
+          "rolloutStatus": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_clinical_operations"
+            ]
+          },
+          "observationWindowStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "outcomeObservationStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "driftSignalReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "incidentOutcomeReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "followupClosureStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "governanceReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "realDatasetTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "postValidationSampleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "observedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expectedFollowupCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completedFollowupCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "driftSignalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedDriftSignalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "incidentOutcomeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedIncidentOutcomeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "governanceExceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedGovernanceExceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockerCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lesionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "readyTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidatePairCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewerWorkflowReadyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "const": false
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "const": false
+          },
+          "reviewedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VisitLongitudinalTimelineRolloutObservationGovernancePayload": {
+        "type": "object",
+        "required": [
+          "observationGovernanceStatus",
+          "observationGovernanceReasons",
+          "observationWindowStatus",
+          "outcomeObservationStatus",
+          "driftSignalReviewStatus",
+          "incidentOutcomeReviewStatus",
+          "followupClosureStatus",
+          "governanceReviewStatus",
+          "ownerSignoffStatus",
+          "realDatasetTimelineCount",
+          "postValidationSampleCount",
+          "observedTimelineCount",
+          "expectedFollowupCount",
+          "completedFollowupCount",
+          "driftSignalCount",
+          "unresolvedDriftSignalCount",
+          "incidentOutcomeCount",
+          "unresolvedIncidentOutcomeCount",
+          "governanceExceptionCount",
+          "unresolvedGovernanceExceptionCount",
+          "blockerCount"
+        ],
+        "properties": {
+          "observationGovernanceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_observation_governance"
+            ]
+          },
+          "observationGovernanceReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "observationWindowStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "outcomeObservationStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "driftSignalReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "incidentOutcomeReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "followupClosureStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "governanceReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "realDatasetTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "postValidationSampleCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "observedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expectedFollowupCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completedFollowupCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "driftSignalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedDriftSignalCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "incidentOutcomeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedIncidentOutcomeCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "governanceExceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedGovernanceExceptionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockerCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
@@ -5704,6 +6152,58 @@
                       "properties": {
                         "item": {
                           "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutPostValidationMonitoring"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/observation-governance": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review metadata-only outcome observation governance for timeline rollout",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutObservationGovernancePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Outcome observation governance review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutObservationGovernance"
                         }
                       }
                     }

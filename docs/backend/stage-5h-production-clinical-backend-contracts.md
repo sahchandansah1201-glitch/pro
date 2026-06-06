@@ -2108,6 +2108,137 @@ Safety boundary:
   remains off until privacy/security/retention/session/approved-copy gates are
   explicitly closed.
 
+## Batch BY Observation Governance
+
+Batch BY adds the ongoing production outcome observation governance receipt
+after Batch BX post-validation monitoring. The batch covers the next product
+plan item:
+
+- production outcome monitoring on real clinical datasets / ongoing outcome
+  observation governance.
+
+The layer records whether the already validated and monitored timeline rollout
+has an observation window, outcome observation, drift-signal review, incident
+outcome review, follow-up closure, governance review, and owner signoff. It is
+still an operational metadata gate only. It does not create a clinical dynamic
+conclusion, diagnosis, risk, prognosis, treatment recommendation, measurement
+value, or patient-delivered protocol.
+
+Persistence:
+
+- migration
+  `0075_stage5h_timeline_rollout_observation_governance.sql` creates
+  `visit_longitudinal_timeline_rollout_observation_governance_reviews`;
+- allowed observation-governance statuses are `not_started`, `in_review`, and
+  `ready_for_observation_governance`;
+- stored fields are visit-scoped aggregate statuses and counts:
+  previous rollout layer statuses, seven checklist statuses, real dataset
+  timeline count, post-validation sample count, observed timeline count,
+  expected/completed follow-up counts, drift-signal counts, incident-outcome
+  counts, governance-exception counts, blocker count, lesion count, candidate
+  pair count, and reviewer workflow ready count;
+- CHECK constraints force `patient_delivery_allowed=false`,
+  `medical_measurement_allowed=false`, `protected_fields_exposed=false`, and
+  `clinical_output_generated=false`;
+- CHECK
+  `visit_longitudinal_timeline_rollout_observation_governance_metadata_no_protected_keys`
+  blocks pair keys, image IDs, asset IDs, patient rows/IDs, case IDs,
+  object/storage/signed URL fields, evidence/incident/validation/monitoring/
+  drift/follow-up/outcome/governance URLs, raw evidence/monitoring/outcome/
+  validation/adjudication/drift/follow-up/observation/outcome-review/
+  incident-outcome logs, raw clinical-validation, post-validation,
+  observation, outcome-review, incident-outcome, or governance payloads/details,
+  QR/session/credential material, reviewer and validator names/emails,
+  doctor/patient report text, diagnosis/risk/prognosis/treatment, measurement
+  values, and dynamic clinical conclusion keys.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/observation-governance`
+  persists the metadata-only observation-governance review;
+- repository builder
+  `buildReviewVisitLongitudinalTimelineRolloutObservationGovernanceSql`
+  upserts by `visit_id` inside the clinic-scoped visit boundary;
+- the `GET /api/v1/visits/{visitId}/longitudinal-dataset-validation` read model
+  now includes `timelineRolloutObservationGovernance`;
+- service validator
+  `normalizeVisitLongitudinalTimelineRolloutObservationGovernancePayload`
+  rejects protected keys and clinical claim wording;
+- service review method downgrades requested
+  `ready_for_observation_governance` to `in_review` with reason
+  `timeline_rollout_observation_governance_not_ready` unless dataset
+  validation is `ready_for_rollout`, Batch BR rollout is
+  `approved_for_clinical_operations`, Batch BS SOP is
+  `ready_for_operational_rollout`, Batch BT evidence is
+  `ready_for_monitored_rollout`, Batch BU monitoring is
+  `ready_for_production_rollout`, Batch BV incident procedure is
+  `ready_for_clinic_monitoring`, Batch BW clinical validation is
+  `ready_for_clinical_validation`, Batch BX post-validation monitoring is
+  `ready_for_post_validation_monitoring`, all seven observation-governance
+  checklist fields are `ready`, real dataset/sample/observed/follow-up counts
+  are positive, completed follow-up covers expected follow-up, and unresolved
+  drift, incident outcome, governance exception, and blocker counts are zero;
+- audit action
+  `visit_longitudinal_timeline_rollout_observation_governance.review`
+  stores aggregate counts, statuses, checklist readiness booleans, reason
+  count, and forced-false boundary flags only.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` report tab adds region `Outcome observation governance`
+  inside `Готовность timeline QA`, after `Post-validation monitoring rollout`;
+- visible copy states `Observation governance фиксирует только aggregate
+  outcome metadata`, `Clinical dynamic conclusion: выключен`, and `Выдача
+  пациенту: выключена`;
+- compact fields show `Window`, `Outcomes`, `Drift`, `Incidents`,
+  `Follow-up`, `Governance`, `Owner`, `Real Set`, `Validated`, `Observed`,
+  `Follow closed`, `Drift open`, `Incident open`, `Gov. open`, and `Blockers`;
+- `Утвердить observation governance` is disabled unless the previous rollout
+  gates through Batch BX post-validation monitoring are ready;
+- `Зафиксировать observation governance` remains available and writes
+  metadata-only review state;
+- after saving, the workspace reloads the self-hosted read model and shows
+  `Observation governance metadata сохранён. Clinical dynamic conclusion:
+  выключен.`
+
+Safety boundary:
+
+- `medicalMeasurementAllowed=false`, `patientDeliveryAllowed=false`,
+  `protectedFieldsExposed=false`, and `clinicalOutputGenerated=false` are
+  forced in repository, service, OpenAPI schema, frontend DTO normalizer, and
+  UI copy;
+- no patient delivery, medical measurement, clinical dynamic conclusion, or
+  diagnosis/risk/prognosis/treatment wording is produced by this batch;
+- no pair keys, image IDs, asset IDs, patient rows, case IDs, object bucket/key,
+  storage path, checksum, signed URL, QR/session/credential, reviewer or
+  validator identity, doctor-only text, patient-safe report text, raw
+  observation/outcome/incident/governance logs, observation/governance payloads,
+  or outcome/governance details are returned in observation-governance read/write
+  responses or audit metadata.
+
+### Batch BY Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch BY adds the
+  ongoing observation-governance receipt after post-validation monitoring, so
+  production timeline use can track observed timelines and follow-up closure
+  before broader clinical conclusions are considered. Remaining gate:
+  longitudinal outcome observation over real clinical datasets plus operational
+  exception handling over time.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch BY
+  records outcome observation, drift-signal review, incident outcome review,
+  governance exceptions, and owner signoff as aggregate reviewer-workflow
+  governance. Remaining gate: reviewer operations validation on real protected
+  assets and ongoing SOP monitoring.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch BY keeps
+  `Clinical dynamic conclusion: выключен`; observation governance is aggregate
+  operational metadata only and is downgraded when prior rollout or observation
+  gates are incomplete. Remaining gate: approved longitudinal outcome
+  governance and clinical review procedure over time.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch BY is
+  doctor-side metadata-only observation governance; patient delivery remains off
+  until privacy/security/retention/session/approved-copy gates are explicitly
+  closed.
+
 ## Product Boundary
 
 - managed runtime: none
