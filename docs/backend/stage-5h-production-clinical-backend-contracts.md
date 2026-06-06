@@ -2325,6 +2325,96 @@ Frontend behavior:
   doctor-side metadata-only governance; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch CA Longitudinal Outcome Governance
+
+Batch CA adds the metadata-only longitudinal outcome governance receipt after
+exception governance closure. It is an operational longitudinal follow-up layer
+for multi-window observation over real datasets, reviewer-operations validation
+over time, exception-trend review, follow-up cadence, governance cadence, and
+owner signoff. It does not generate clinical dynamic conclusions and does not
+enable patient delivery.
+
+Data boundary:
+
+- migration `0077_stage5h_longitudinal_outcome_governance.sql` creates
+  `visit_longitudinal_timeline_rollout_outcome_governance_reviews`;
+- allowed outcome-governance statuses are `not_started`, `in_review`, and
+  `ready_for_outcome_governance`;
+- persisted checklist statuses are `longitudinal_window_status`,
+  `real_dataset_coverage_status`, `reviewer_operations_validation_status`,
+  `exception_trend_review_status`, `followup_cadence_status`,
+  `governance_cadence_status`, and `owner_signoff_status`;
+- persisted counters are aggregate only: real/observed timelines,
+  follow-up windows, completed follow-ups, governance exceptions,
+  unresolved governance exceptions, recurrence signals, unresolved recurrence
+  signals, governance reviews, blockers, lesion totals, candidate pairs, and
+  reviewer workflow totals;
+- boundary flags remain hard-false: `patient_delivery_allowed`,
+  `medical_measurement_allowed`, `protected_fields_exposed`, and
+  `clinical_output_generated`;
+- CHECK constraint
+  `visit_longitudinal_timeline_rollout_outcome_governance_metadata_no_protected_keys`
+  blocks pair keys, image IDs, patient rows, storage/object paths, signed URLs,
+  raw outcome/follow-up/governance logs, reviewer/validator identity,
+  doctor-only text, patient-safe text, delivery payloads, measurements,
+  dynamic conclusions, diagnosis, risk, prognosis, and treatment.
+
+API contract:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/outcome-governance`
+  persists the metadata-only longitudinal outcome governance review;
+- repository builder:
+  `buildReviewVisitLongitudinalTimelineRolloutOutcomeGovernanceSql`;
+- read model `buildGetVisitLongitudinalDatasetValidationSql` now includes
+  `timelineRolloutOutcomeGovernance`;
+- service normalizer:
+  `normalizeVisitLongitudinalTimelineRolloutOutcomeGovernancePayload`;
+- requested `ready_for_outcome_governance` is downgraded to `in_review` with
+  reason `timeline_rollout_outcome_governance_not_ready` unless dataset
+  validation, rollout, SOP, evidence, monitoring, incident procedure, clinical
+  validation, post-validation monitoring, observation governance, exception
+  governance, all seven outcome-governance checklist items, follow-up closure,
+  recurrence closure, governance review, and blocker gates are ready;
+- audit action:
+  `visit_longitudinal_timeline_rollout_outcome_governance.review`;
+- audit metadata is aggregate-only and explicitly records that patient
+  delivery, medical measurement, protected fields, clinical output, pair keys,
+  image IDs, patient rows, raw outcome logs, raw follow-up logs, and raw
+  governance payloads are not exposed.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` adds region `Longitudinal outcome governance` inside
+  `Готовность timeline QA`;
+- visible copy states that only aggregate longitudinal metadata over time is
+  recorded, `Clinical dynamic conclusion: выключен`, and
+  `Выдача пациенту: выключена`;
+- actions are `Зафиксировать outcome governance` and
+  `Утвердить outcome governance`;
+- approval is disabled until `timelineRolloutExceptionGovernance.status` is
+  `ready_for_exception_governance`;
+- the UI shows only checklist labels and aggregate counters. No raw outcome
+  logs, follow-up details, governance details, patient rows, pair keys, image
+  IDs, storage paths, signed URLs, doctor text, or patient text are rendered.
+
+### Batch CA Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch CA closes the
+  longitudinal outcome-governance receipt after exception governance for the
+  timeline rollout. Remaining gate: longer-running production dataset evidence
+  on real clinical operations.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch CA adds
+  longitudinal reviewer-operations validation and cadence governance around
+  comparison workflows. Remaining gate: reviewer operations validation on real
+  protected assets over time.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch CA keeps clinical
+  dynamic conclusion disabled and stores only aggregate operational metadata
+  over time. Remaining gate: approved longitudinal clinical validation over
+  real outcome windows.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch CA is
+  doctor-side metadata-only governance; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly closed.
+
 ## Product Boundary
 
 - managed runtime: none

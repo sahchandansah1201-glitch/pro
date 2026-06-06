@@ -1995,6 +1995,41 @@ export async function handleSelfHostedRequest(
   const visitLongitudinalTimelineRolloutExceptionGovernanceMatch = url.pathname.match(
     /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/exception-governance$/,
   );
+  const visitLongitudinalTimelineRolloutOutcomeGovernanceMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/outcome-governance$/,
+  );
+  if (visitLongitudinalTimelineRolloutOutcomeGovernanceMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result =
+        await runtimeServices.clinicalWorkspaceService.reviewVisitLongitudinalTimelineRolloutOutcomeGovernance(
+          decodeURIComponent(visitLongitudinalTimelineRolloutOutcomeGovernanceMatch[1]),
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.outcomeGovernance,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
   if (visitLongitudinalTimelineRolloutExceptionGovernanceMatch && method === "PATCH") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);

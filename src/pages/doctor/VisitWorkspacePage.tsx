@@ -49,6 +49,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure,
   reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutObservationGovernance,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   updateSelfHostedVisitAssessment,
@@ -64,6 +65,7 @@ import {
   type SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutObservationGovernanceStatus,
+  type SelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernanceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutSopStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutStatus,
@@ -502,6 +504,7 @@ function ProductionClinicalWorkspacePanel({
   const [timelineRolloutPostValidationMonitoringSaving, setTimelineRolloutPostValidationMonitoringSaving] = useState(false);
   const [timelineRolloutObservationGovernanceSaving, setTimelineRolloutObservationGovernanceSaving] = useState(false);
   const [timelineRolloutExceptionGovernanceSaving, setTimelineRolloutExceptionGovernanceSaving] = useState(false);
+  const [timelineRolloutOutcomeGovernanceSaving, setTimelineRolloutOutcomeGovernanceSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
     patientFileProxyEnabled: false,
@@ -1115,6 +1118,61 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Exception governance metadata сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutOutcomeGovernance = async (
+    outcomeGovernanceStatus: SelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernanceStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const exceptionGovernance = validation.timelineRolloutExceptionGovernance;
+    const readyPayload = outcomeGovernanceStatus === "ready_for_outcome_governance";
+    const governanceReady =
+      readyPayload
+      && readiness.status === "ready_for_rollout"
+      && exceptionGovernance.status === "ready_for_exception_governance";
+    const followupWindowCount = governanceReady ? Math.max(1, exceptionGovernance.observedTimelineCount) : 0;
+    setTimelineRolloutOutcomeGovernanceSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernance({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        outcomeGovernanceStatus,
+        outcomeGovernanceReasons: governanceReady
+          ? ["timeline_rollout_outcome_governance_ready_no_dynamic_conclusion"]
+          : ["timeline_rollout_outcome_governance_requires_longitudinal_followup"],
+        longitudinalWindowStatus: governanceReady ? "ready" : "needs_review",
+        realDatasetCoverageStatus: governanceReady ? "ready" : "needs_review",
+        reviewerOperationsValidationStatus: governanceReady ? "ready" : "needs_review",
+        exceptionTrendReviewStatus: governanceReady ? "ready" : "needs_review",
+        followupCadenceStatus: governanceReady ? "ready" : "needs_review",
+        governanceCadenceStatus: governanceReady ? "ready" : "needs_review",
+        ownerSignoffStatus: governanceReady ? "ready" : "needs_review",
+        realDatasetTimelineCount: governanceReady
+          ? Math.max(1, exceptionGovernance.realDatasetTimelineCount)
+          : 0,
+        observedTimelineCount: governanceReady ? Math.max(1, exceptionGovernance.observedTimelineCount) : 0,
+        followupWindowCount,
+        completedFollowupCount: followupWindowCount,
+        governanceExceptionCount: governanceReady ? exceptionGovernance.governanceExceptionCount : 0,
+        unresolvedGovernanceExceptionCount: 0,
+        recurrenceSignalCount: governanceReady ? exceptionGovernance.recurrenceSignalCount : 0,
+        unresolvedRecurrenceSignalCount: 0,
+        governanceReviewCount: governanceReady ? 1 : 0,
+        blockerCount: 0,
+      },
+    });
+    setTimelineRolloutOutcomeGovernanceSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить outcome governance.");
+      return;
+    }
+    await load();
+    setStatus("Outcome governance metadata сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -1160,6 +1218,7 @@ function ProductionClinicalWorkspacePanel({
                 postValidationMonitoringSaving={timelineRolloutPostValidationMonitoringSaving}
                 observationGovernanceSaving={timelineRolloutObservationGovernanceSaving}
                 exceptionGovernanceSaving={timelineRolloutExceptionGovernanceSaving}
+                outcomeGovernanceSaving={timelineRolloutOutcomeGovernanceSaving}
                 onReviewRollout={saveTimelineRollout}
                 onReviewSop={saveTimelineRolloutSop}
                 onReviewEvidence={saveTimelineRolloutEvidence}
@@ -1169,6 +1228,7 @@ function ProductionClinicalWorkspacePanel({
                 onReviewPostValidationMonitoring={saveTimelineRolloutPostValidationMonitoring}
                 onReviewObservationGovernance={saveTimelineRolloutObservationGovernance}
                 onReviewExceptionGovernance={saveTimelineRolloutExceptionGovernance}
+                onReviewOutcomeGovernance={saveTimelineRolloutOutcomeGovernance}
               />
             )}
             <PhotoProtocolPolicyGovernancePanel
@@ -1490,6 +1550,14 @@ function timelineRolloutExceptionGovernanceStatusLabel(
   return "Exception governance не начат";
 }
 
+function timelineRolloutOutcomeGovernanceStatusLabel(
+  status: SelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernanceStatus,
+): string {
+  if (status === "ready_for_outcome_governance") return "Outcome governance ready";
+  if (status === "in_review") return "Outcome governance review";
+  return "Outcome governance не начат";
+}
+
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
@@ -1527,6 +1595,7 @@ function LongitudinalDatasetValidationPanel({
   postValidationMonitoringSaving,
   observationGovernanceSaving,
   exceptionGovernanceSaving,
+  outcomeGovernanceSaving,
   onReviewRollout,
   onReviewSop,
   onReviewEvidence,
@@ -1536,6 +1605,7 @@ function LongitudinalDatasetValidationPanel({
   onReviewPostValidationMonitoring,
   onReviewObservationGovernance,
   onReviewExceptionGovernance,
+  onReviewOutcomeGovernance,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
   saving: boolean;
@@ -1547,6 +1617,7 @@ function LongitudinalDatasetValidationPanel({
   postValidationMonitoringSaving: boolean;
   observationGovernanceSaving: boolean;
   exceptionGovernanceSaving: boolean;
+  outcomeGovernanceSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
   onReviewSop: (status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => void;
   onReviewEvidence: (status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus) => void;
@@ -1562,6 +1633,9 @@ function LongitudinalDatasetValidationPanel({
   onReviewExceptionGovernance: (
     status: SelfHostedVisitLongitudinalTimelineRolloutExceptionGovernanceStatus,
   ) => void;
+  onReviewOutcomeGovernance: (
+    status: SelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernanceStatus,
+  ) => void;
 }) {
   const readiness = validation.readiness;
   const rollout = validation.timelineRollout;
@@ -1573,6 +1647,7 @@ function LongitudinalDatasetValidationPanel({
   const postValidationMonitoring = validation.timelineRolloutPostValidationMonitoring;
   const observationGovernance = validation.timelineRolloutObservationGovernance;
   const exceptionGovernance = validation.timelineRolloutExceptionGovernance;
+  const outcomeGovernance = validation.timelineRolloutOutcomeGovernance;
   const rolloutReady = readiness.status === "ready_for_rollout";
   const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
   const evidencePrerequisitesReady = sopPrerequisitesReady && sop.status === "ready_for_operational_rollout";
@@ -1590,6 +1665,9 @@ function LongitudinalDatasetValidationPanel({
   const exceptionGovernancePrerequisitesReady =
     observationGovernancePrerequisitesReady
     && observationGovernance.status === "ready_for_observation_governance";
+  const outcomeGovernancePrerequisitesReady =
+    exceptionGovernancePrerequisitesReady
+    && exceptionGovernance.status === "ready_for_exception_governance";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -2199,6 +2277,76 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewExceptionGovernance("ready_for_exception_governance")}
           >
             Утвердить exception governance
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Longitudinal outcome governance"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Longitudinal outcome governance</h4>
+            <p className="text-muted-foreground">
+              Outcome governance фиксирует только aggregate longitudinal metadata over time · Clinical dynamic
+              conclusion: выключен · Выдача пациенту: выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutOutcomeGovernanceStatusLabel(outcomeGovernance.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Window" value={timelineRolloutSopChecklistLabel(outcomeGovernance.longitudinalWindowStatus)} />
+          <Field term="Coverage" value={timelineRolloutSopChecklistLabel(outcomeGovernance.realDatasetCoverageStatus)} />
+          <Field
+            term="Reviewer ops"
+            value={timelineRolloutSopChecklistLabel(outcomeGovernance.reviewerOperationsValidationStatus)}
+          />
+          <Field term="Trend" value={timelineRolloutSopChecklistLabel(outcomeGovernance.exceptionTrendReviewStatus)} />
+          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(outcomeGovernance.followupCadenceStatus)} />
+          <Field term="Governance" value={timelineRolloutSopChecklistLabel(outcomeGovernance.governanceCadenceStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(outcomeGovernance.ownerSignoffStatus)} />
+          <Field term="Real Set" value={outcomeGovernance.realDatasetTimelineCount} />
+          <Field term="Observed" value={outcomeGovernance.observedTimelineCount} />
+          <Field
+            term="Follow closed"
+            value={`${outcomeGovernance.completedFollowupCount}/${outcomeGovernance.followupWindowCount}`}
+          />
+          <Field term="Gov. open" value={outcomeGovernance.unresolvedGovernanceExceptionCount} />
+          <Field term="Recurrence open" value={outcomeGovernance.unresolvedRecurrenceSignalCount} />
+          <Field term="Reviews" value={outcomeGovernance.governanceReviewCount} />
+          <Field term="Blockers" value={outcomeGovernance.blockerCount} />
+        </dl>
+        {outcomeGovernance.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {outcomeGovernance.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={outcomeGovernanceSaving}
+            onClick={() => onReviewOutcomeGovernance("in_review")}
+          >
+            Зафиксировать outcome governance
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={outcomeGovernanceSaving || !outcomeGovernancePrerequisitesReady}
+            onClick={() => onReviewOutcomeGovernance("ready_for_outcome_governance")}
+          >
+            Утвердить outcome governance
           </Button>
         </div>
       </div>

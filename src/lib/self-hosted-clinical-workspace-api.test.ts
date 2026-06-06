@@ -12,6 +12,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutObservationGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutExceptionGovernance,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
   getSelfHostedVisitAssessment,
@@ -1635,6 +1636,60 @@ describe("self-hosted-clinical-workspace-api", () => {
               pairKey: "secret-pair",
               imageIds: ["i-011", "i-012"],
             },
+            timelineRolloutOutcomeGovernance: {
+              id: "outcome-governance-1",
+              clinicId: "clinic-1",
+              patientId: "patient-1",
+              visitId: "visit-1",
+              status: "ready_for_outcome_governance",
+              reasons: ["timeline_rollout_outcome_governance_ready_no_dynamic_conclusion"],
+              exceptionGovernanceStatus: "ready_for_exception_governance",
+              observationGovernanceStatus: "ready_for_observation_governance",
+              postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+              clinicalValidationStatus: "ready_for_clinical_validation",
+              incidentProcedureStatus: "ready_for_clinic_monitoring",
+              monitoringStatus: "ready_for_production_rollout",
+              evidenceStatus: "ready_for_monitored_rollout",
+              sopStatus: "ready_for_operational_rollout",
+              validationStatus: "ready_for_rollout",
+              rolloutStatus: "approved_for_clinical_operations",
+              longitudinalWindowStatus: "ready",
+              realDatasetCoverageStatus: "ready",
+              reviewerOperationsValidationStatus: "ready",
+              exceptionTrendReviewStatus: "ready",
+              followupCadenceStatus: "ready",
+              governanceCadenceStatus: "ready",
+              ownerSignoffStatus: "ready",
+              realDatasetTimelineCount: 8,
+              observedTimelineCount: 8,
+              followupWindowCount: 3,
+              completedFollowupCount: 3,
+              governanceExceptionCount: 1,
+              unresolvedGovernanceExceptionCount: 0,
+              recurrenceSignalCount: 1,
+              unresolvedRecurrenceSignalCount: 0,
+              governanceReviewCount: 2,
+              blockerCount: 0,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 0,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: true,
+              medicalMeasurementAllowed: true,
+              protectedFieldsExposed: true,
+              clinicalOutputGenerated: true,
+              rawOutcomeLog: "unsafe",
+              rawFollowupLog: "unsafe",
+              rawGovernanceLog: "unsafe",
+              outcomePayload: { unsafe: true },
+              followupPayload: { unsafe: true },
+              governancePayload: { unsafe: true },
+              reviewerName: "Unsafe Name",
+              validatorEmail: "unsafe@example.com",
+              pairKey: "secret-pair",
+              imageIds: ["i-011", "i-012"],
+            },
             nextActions: ["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review", "unsafe_action"],
             boundaries: {
               patientDeliveryAllowed: true,
@@ -1744,6 +1799,15 @@ describe("self-hosted-clinical-workspace-api", () => {
     expect(result.value?.timelineRolloutExceptionGovernance.medicalMeasurementAllowed).toBe(false);
     expect(result.value?.timelineRolloutExceptionGovernance.protectedFieldsExposed).toBe(false);
     expect(result.value?.timelineRolloutExceptionGovernance.clinicalOutputGenerated).toBe(false);
+    expect(result.value?.timelineRolloutOutcomeGovernance.status).toBe("ready_for_outcome_governance");
+    expect(result.value?.timelineRolloutOutcomeGovernance.longitudinalWindowStatus).toBe("ready");
+    expect(result.value?.timelineRolloutOutcomeGovernance.followupWindowCount).toBe(3);
+    expect(result.value?.timelineRolloutOutcomeGovernance.completedFollowupCount).toBe(3);
+    expect(result.value?.timelineRolloutOutcomeGovernance.governanceReviewCount).toBe(2);
+    expect(result.value?.timelineRolloutOutcomeGovernance.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.timelineRolloutOutcomeGovernance.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.timelineRolloutOutcomeGovernance.protectedFieldsExposed).toBe(false);
+    expect(result.value?.timelineRolloutOutcomeGovernance.clinicalOutputGenerated).toBe(false);
     expect(result.value?.blockers[0]?.code).toBe("production_asset_not_ready");
     expect(result.value?.blockers[0]?.nextAction).toBe("verify_production_asset");
     expect(result.value?.nextActions).toEqual(["verify_production_asset", "complete_device_metadata", "check_device_bridge", "continue_review"]);
@@ -2680,6 +2744,136 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(result.value)).not.toMatch(
       /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawExceptionLog|rawRecurrenceLog|rawRollbackLog|exceptionPayload|recurrencePayload|rollbackPayload|exceptionDetails|recurrenceDetails|rollbackDetails|reviewerName|reviewerEmail|validatorName|validatorEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
+    );
+  });
+
+  it("reviews visit longitudinal timeline rollout outcome governance through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "outcome-governance-1",
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            status: "in_review",
+            reasons: ["timeline_rollout_outcome_governance_not_ready"],
+            exceptionGovernanceStatus: "not_started",
+            observationGovernanceStatus: "not_started",
+            postValidationMonitoringStatus: "not_started",
+            clinicalValidationStatus: "not_started",
+            incidentProcedureStatus: "not_started",
+            monitoringStatus: "not_started",
+            evidenceStatus: "not_started",
+            sopStatus: "not_started",
+            validationStatus: "blocked",
+            rolloutStatus: "review_required",
+            longitudinalWindowStatus: "needs_review",
+            realDatasetCoverageStatus: "needs_review",
+            reviewerOperationsValidationStatus: "needs_review",
+            exceptionTrendReviewStatus: "needs_review",
+            followupCadenceStatus: "needs_review",
+            governanceCadenceStatus: "needs_review",
+            ownerSignoffStatus: "needs_review",
+            realDatasetTimelineCount: 0,
+            observedTimelineCount: 0,
+            followupWindowCount: 0,
+            completedFollowupCount: 0,
+            governanceExceptionCount: 1,
+            unresolvedGovernanceExceptionCount: 1,
+            recurrenceSignalCount: 1,
+            unresolvedRecurrenceSignalCount: 1,
+            governanceReviewCount: 0,
+            blockerCount: 1,
+            lesionCount: 2,
+            readyTimelineCount: 1,
+            blockedTimelineCount: 1,
+            candidatePairCount: 3,
+            reviewerWorkflowReadyCount: 1,
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            clinicalOutputGenerated: true,
+            rawOutcomeLog: "unsafe",
+            rawFollowupLog: "unsafe",
+            rawGovernanceLog: "unsafe",
+            outcomePayload: { unsafe: true },
+            followupPayload: { unsafe: true },
+            governancePayload: { unsafe: true },
+            reviewerName: "Unsafe Name",
+            validatorEmail: "unsafe@example.com",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernance({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        outcomeGovernanceStatus: "ready_for_outcome_governance",
+        outcomeGovernanceReasons: ["timeline_rollout_outcome_governance_ready_no_dynamic_conclusion"],
+        longitudinalWindowStatus: "ready",
+        realDatasetCoverageStatus: "ready",
+        reviewerOperationsValidationStatus: "ready",
+        exceptionTrendReviewStatus: "ready",
+        followupCadenceStatus: "ready",
+        governanceCadenceStatus: "ready",
+        ownerSignoffStatus: "ready",
+        realDatasetTimelineCount: 8,
+        observedTimelineCount: 8,
+        followupWindowCount: 3,
+        completedFollowupCount: 3,
+        governanceExceptionCount: 1,
+        unresolvedGovernanceExceptionCount: 0,
+        recurrenceSignalCount: 1,
+        unresolvedRecurrenceSignalCount: 0,
+        governanceReviewCount: 2,
+        blockerCount: 0,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.status).toBe("in_review");
+    expect(result.value?.exceptionGovernanceStatus).toBe("not_started");
+    expect(result.value?.longitudinalWindowStatus).toBe("needs_review");
+    expect(result.value?.followupWindowCount).toBe(0);
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(result.value?.clinicalOutputGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-timeline-rollout/outcome-governance",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          outcomeGovernanceStatus: "ready_for_outcome_governance",
+          outcomeGovernanceReasons: ["timeline_rollout_outcome_governance_ready_no_dynamic_conclusion"],
+          longitudinalWindowStatus: "ready",
+          realDatasetCoverageStatus: "ready",
+          reviewerOperationsValidationStatus: "ready",
+          exceptionTrendReviewStatus: "ready",
+          followupCadenceStatus: "ready",
+          governanceCadenceStatus: "ready",
+          ownerSignoffStatus: "ready",
+          realDatasetTimelineCount: 8,
+          observedTimelineCount: 8,
+          followupWindowCount: 3,
+          completedFollowupCount: 3,
+          governanceExceptionCount: 1,
+          unresolvedGovernanceExceptionCount: 0,
+          recurrenceSignalCount: 1,
+          unresolvedRecurrenceSignalCount: 0,
+          governanceReviewCount: 2,
+          blockerCount: 0,
+        }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawOutcomeLog|rawFollowupLog|rawGovernanceLog|outcomePayload|followupPayload|governancePayload|reviewerName|reviewerEmail|validatorName|validatorEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
     );
   });
 });

@@ -1533,6 +1533,58 @@ function createLiveWorkspaceFetchMock() {
                 pairKey: "live-lesion:i-011+i-012",
                 imageIds: ["i-011", "i-012"],
               },
+              timelineRolloutOutcomeGovernance: {
+                id: "timeline-rollout-outcome-governance-1",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                status: "not_started",
+                reasons: [],
+                exceptionGovernanceStatus: "not_started",
+                observationGovernanceStatus: "not_started",
+                postValidationMonitoringStatus: "not_started",
+                clinicalValidationStatus: "not_started",
+                incidentProcedureStatus: "not_started",
+                monitoringStatus: "not_started",
+                evidenceStatus: "not_started",
+                sopStatus: "not_started",
+                validationStatus: "blocked",
+                rolloutStatus: "review_required",
+                longitudinalWindowStatus: "missing",
+                realDatasetCoverageStatus: "missing",
+                reviewerOperationsValidationStatus: "missing",
+                exceptionTrendReviewStatus: "missing",
+                followupCadenceStatus: "missing",
+                governanceCadenceStatus: "missing",
+                ownerSignoffStatus: "missing",
+                realDatasetTimelineCount: 0,
+                observedTimelineCount: 0,
+                followupWindowCount: 0,
+                completedFollowupCount: 0,
+                governanceExceptionCount: 0,
+                unresolvedGovernanceExceptionCount: 0,
+                recurrenceSignalCount: 0,
+                unresolvedRecurrenceSignalCount: 0,
+                governanceReviewCount: 0,
+                blockerCount: 0,
+                lesionCount: 0,
+                readyTimelineCount: 0,
+                blockedTimelineCount: 0,
+                candidatePairCount: 0,
+                reviewerWorkflowReadyCount: 0,
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                clinicalOutputGenerated: true,
+                rawOutcomeLog: "unsafe",
+                rawFollowupLog: "unsafe",
+                rawGovernanceLog: "unsafe",
+                outcomePayload: { unsafe: true },
+                followupPayload: { unsafe: true },
+                governancePayload: { unsafe: true },
+                pairKey: "live-lesion:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
               nextActions: [
                 "verify_production_asset",
                 "complete_capture_metadata",
@@ -1672,6 +1724,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Exception governance фиксирует только aggregate exception closure/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Утвердить exception governance/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Зафиксировать exception governance/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Longitudinal outcome governance" })).toBeInTheDocument();
+    expect(screen.getByText(/Outcome governance фиксирует только aggregate longitudinal metadata over time/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить outcome governance/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать outcome governance/ })).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
@@ -1950,6 +2006,42 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("rawExceptionLog");
     expect(document.body.textContent).not.toContain("rawRecurrenceLog");
     expect(document.body.textContent).not.toContain("rawRollbackLog");
+  });
+
+  it("posts timeline rollout outcome governance review without patient delivery or clinical output", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Longitudinal outcome governance" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать outcome governance/ }));
+    await screen.findByText(/Outcome governance metadata сохранён/);
+
+    const outcomeGovernanceCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/outcome-governance")
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(outcomeGovernanceCall).toBeTruthy();
+    const body = String((outcomeGovernanceCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("longitudinalWindowStatus");
+    expect(body).toContain("realDatasetCoverageStatus");
+    expect(body).toContain("followupCadenceStatus");
+    expect(body).toContain("governanceCadenceStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("rawOutcomeLog");
+    expect(body).not.toContain("rawFollowupLog");
+    expect(body).not.toContain("rawGovernanceLog");
+    expect(body).not.toContain("outcomePayload");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("rawOutcomeLog");
+    expect(document.body.textContent).not.toContain("rawFollowupLog");
+    expect(document.body.textContent).not.toContain("rawGovernanceLog");
   });
 
   it("posts policy governance updates for photo release in production report tab", async () => {
