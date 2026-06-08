@@ -970,6 +970,227 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/observation-governance")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-observation-governance-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_observation_governance_not_ready"],
+              postValidationMonitoringStatus: "not_started",
+              clinicalValidationStatus: "not_started",
+              incidentProcedureStatus: "not_started",
+              monitoringStatus: "not_started",
+              evidenceStatus: "not_started",
+              sopStatus: "not_started",
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              observationWindowStatus: "needs_review",
+              outcomeObservationStatus: "needs_review",
+              driftSignalReviewStatus: "needs_review",
+              incidentOutcomeReviewStatus: "needs_review",
+              followupClosureStatus: "needs_review",
+              governanceReviewStatus: "needs_review",
+              ownerSignoffStatus: "needs_review",
+              realDatasetTimelineCount: 0,
+              postValidationSampleCount: 0,
+              observedTimelineCount: 0,
+              expectedFollowupCount: 0,
+              completedFollowupCount: 0,
+              driftSignalCount: 1,
+              unresolvedDriftSignalCount: 1,
+              incidentOutcomeCount: 1,
+              unresolvedIncidentOutcomeCount: 1,
+              governanceExceptionCount: 1,
+              unresolvedGovernanceExceptionCount: 1,
+              blockerCount: 1,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 1,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-06T00:00:00.000Z",
+              createdAt: "2026-06-06T00:00:00.000Z",
+              updatedAt: "2026-06-06T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/exception-governance")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-exception-governance-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_exception_governance_not_ready"],
+              observationGovernanceStatus: "not_started",
+              postValidationMonitoringStatus: "not_started",
+              clinicalValidationStatus: "not_started",
+              incidentProcedureStatus: "not_started",
+              monitoringStatus: "not_started",
+              evidenceStatus: "not_started",
+              sopStatus: "not_started",
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              exceptionRegisterStatus: "needs_review",
+              triageSlaStatus: "needs_review",
+              resolutionEvidenceStatus: "needs_review",
+              recurrenceReviewStatus: "needs_review",
+              rollbackReadinessStatus: "needs_review",
+              governanceArchiveStatus: "needs_review",
+              ownerSignoffStatus: "needs_review",
+              realDatasetTimelineCount: 0,
+              observedTimelineCount: 0,
+              governanceExceptionCount: 1,
+              resolvedGovernanceExceptionCount: 0,
+              unresolvedGovernanceExceptionCount: 1,
+              recurrenceSignalCount: 1,
+              unresolvedRecurrenceSignalCount: 1,
+              rollbackDrillCount: 0,
+              blockerCount: 1,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 1,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-06T00:00:00.000Z",
+              createdAt: "2026-06-06T00:00:00.000Z",
+              updatedAt: "2026-06-06T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/outcome-governance")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-outcome-governance-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_outcome_governance_not_ready"],
+              exceptionGovernanceStatus: "not_started",
+              observationGovernanceStatus: "not_started",
+              postValidationMonitoringStatus: "not_started",
+              clinicalValidationStatus: "not_started",
+              incidentProcedureStatus: "not_started",
+              monitoringStatus: "not_started",
+              evidenceStatus: "not_started",
+              sopStatus: "not_started",
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              longitudinalWindowStatus: "needs_review",
+              realDatasetCoverageStatus: "needs_review",
+              reviewerOperationsValidationStatus: "needs_review",
+              exceptionTrendReviewStatus: "needs_review",
+              followupCadenceStatus: "needs_review",
+              governanceCadenceStatus: "needs_review",
+              ownerSignoffStatus: "needs_review",
+              realDatasetTimelineCount: 0,
+              observedTimelineCount: 0,
+              followupWindowCount: 0,
+              completedFollowupCount: 0,
+              governanceExceptionCount: 1,
+              unresolvedGovernanceExceptionCount: 1,
+              recurrenceSignalCount: 1,
+              unresolvedRecurrenceSignalCount: 1,
+              governanceReviewCount: 0,
+              blockerCount: 1,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 1,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-06T00:00:00.000Z",
+              createdAt: "2026-06-06T00:00:00.000Z",
+              updatedAt: "2026-06-06T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/longitudinal-clinical-validation")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-longitudinal-clinical-validation-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_longitudinal_clinical_validation_not_ready"],
+              outcomeGovernanceStatus: "not_started",
+              exceptionGovernanceStatus: "not_started",
+              observationGovernanceStatus: "not_started",
+              postValidationMonitoringStatus: "not_started",
+              clinicalValidationStatus: "not_started",
+              incidentProcedureStatus: "not_started",
+              monitoringStatus: "not_started",
+              evidenceStatus: "not_started",
+              sopStatus: "not_started",
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              outcomeWindowStatus: "needs_review",
+              clinicianCoverageStatus: "needs_review",
+              adjudicationStatus: "needs_review",
+              consensusReviewStatus: "needs_review",
+              followupValidationStatus: "needs_review",
+              governanceCadenceStatus: "needs_review",
+              ownerSignoffStatus: "needs_review",
+              realOutcomeWindowCount: 0,
+              clinicallyValidatedWindowCount: 0,
+              adjudicatedWindowCount: 0,
+              followupValidatedWindowCount: 0,
+              consensusReviewCount: 0,
+              unresolvedConsensusCaseCount: 0,
+              governanceReviewCount: 0,
+              blockerCount: 1,
+              lesionCount: 2,
+              readyTimelineCount: 1,
+              blockedTimelineCount: 1,
+              candidatePairCount: 3,
+              reviewerWorkflowReadyCount: 1,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-08T00:00:00.000Z",
+              createdAt: "2026-06-08T00:00:00.000Z",
+              updatedAt: "2026-06-08T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
     if (href.endsWith("/api/v1/visits/live-visit/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20")) {
       return Promise.resolve(
         new Response(
@@ -1585,6 +1806,57 @@ function createLiveWorkspaceFetchMock() {
                 pairKey: "live-lesion:i-011+i-012",
                 imageIds: ["i-011", "i-012"],
               },
+              timelineRolloutLongitudinalClinicalValidation: {
+                id: "timeline-rollout-longitudinal-clinical-validation-1",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                status: "not_started",
+                reasons: [],
+                outcomeGovernanceStatus: "not_started",
+                exceptionGovernanceStatus: "not_started",
+                observationGovernanceStatus: "not_started",
+                postValidationMonitoringStatus: "not_started",
+                clinicalValidationStatus: "not_started",
+                incidentProcedureStatus: "not_started",
+                monitoringStatus: "not_started",
+                evidenceStatus: "not_started",
+                sopStatus: "not_started",
+                validationStatus: "blocked",
+                rolloutStatus: "review_required",
+                outcomeWindowStatus: "missing",
+                clinicianCoverageStatus: "missing",
+                adjudicationStatus: "missing",
+                consensusReviewStatus: "missing",
+                followupValidationStatus: "missing",
+                governanceCadenceStatus: "missing",
+                ownerSignoffStatus: "missing",
+                realOutcomeWindowCount: 0,
+                clinicallyValidatedWindowCount: 0,
+                adjudicatedWindowCount: 0,
+                followupValidatedWindowCount: 0,
+                consensusReviewCount: 0,
+                unresolvedConsensusCaseCount: 0,
+                governanceReviewCount: 0,
+                blockerCount: 0,
+                lesionCount: 0,
+                readyTimelineCount: 0,
+                blockedTimelineCount: 0,
+                candidatePairCount: 0,
+                reviewerWorkflowReadyCount: 0,
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                clinicalOutputGenerated: true,
+                rawLongitudinalClinicalValidationLog: "unsafe",
+                longitudinalClinicalValidationPayload: { unsafe: true },
+                longitudinalClinicalValidationDetails: { unsafe: true },
+                rawAdjudicationLog: "unsafe",
+                adjudicationPayload: { unsafe: true },
+                adjudicationDetails: { unsafe: true },
+                pairKey: "live-lesion:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
               nextActions: [
                 "verify_production_asset",
                 "complete_capture_metadata",
@@ -1728,6 +2000,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Outcome governance фиксирует только aggregate longitudinal metadata over time/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Утвердить outcome governance/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Зафиксировать outcome governance/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Longitudinal clinical validation" })).toBeInTheDocument();
+    expect(screen.getByText(/Clinical longitudinal validation фиксирует только aggregate clinical longitudinal metadata over time/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить longitudinal clinical validation/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать longitudinal clinical validation/ })).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
@@ -1763,6 +2039,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("clinicalValidationPayload");
     expect(document.body.textContent).not.toContain("validationDetails");
     expect(document.body.textContent).not.toContain("adjudicationDetails");
+    expect(document.body.textContent).not.toContain("rawLongitudinalClinicalValidationLog");
+    expect(document.body.textContent).not.toContain("longitudinalClinicalValidationPayload");
+    expect(document.body.textContent).not.toContain("longitudinalClinicalValidationDetails");
+    expect(document.body.textContent).not.toContain("adjudicationPayload");
     expect(document.body.textContent).not.toContain("validatorName");
     expect(document.body.textContent).not.toContain("validatorEmail");
     expect(document.body.textContent).not.toContain("i-011");
@@ -2042,6 +2322,45 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("rawOutcomeLog");
     expect(document.body.textContent).not.toContain("rawFollowupLog");
     expect(document.body.textContent).not.toContain("rawGovernanceLog");
+  });
+
+  it("posts longitudinal clinical validation review without patient delivery or clinical output", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Longitudinal clinical validation" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать longitudinal clinical validation/ }));
+    await screen.findByText(/Longitudinal clinical validation metadata сохранён/);
+
+    const longitudinalClinicalValidationCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/longitudinal-clinical-validation")
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(longitudinalClinicalValidationCall).toBeTruthy();
+    const body = String((longitudinalClinicalValidationCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("outcomeWindowStatus");
+    expect(body).toContain("clinicianCoverageStatus");
+    expect(body).toContain("adjudicationStatus");
+    expect(body).toContain("consensusReviewStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("rawLongitudinalClinicalValidationLog");
+    expect(body).not.toContain("longitudinalClinicalValidationPayload");
+    expect(body).not.toContain("longitudinalClinicalValidationDetails");
+    expect(body).not.toContain("adjudicationPayload");
+    expect(body).not.toContain("adjudicationDetails");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("rawLongitudinalClinicalValidationLog");
+    expect(document.body.textContent).not.toContain("longitudinalClinicalValidationPayload");
+    expect(document.body.textContent).not.toContain("longitudinalClinicalValidationDetails");
+    expect(document.body.textContent).not.toContain("adjudicationPayload");
+    expect(document.body.textContent).not.toContain("adjudicationDetails");
   });
 
   it("posts policy governance updates for photo release in production report tab", async () => {

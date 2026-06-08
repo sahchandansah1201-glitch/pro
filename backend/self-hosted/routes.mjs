@@ -1998,6 +1998,9 @@ export async function handleSelfHostedRequest(
   const visitLongitudinalTimelineRolloutOutcomeGovernanceMatch = url.pathname.match(
     /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/outcome-governance$/,
   );
+  const visitLongitudinalTimelineRolloutLongitudinalClinicalValidationMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/longitudinal-clinical-validation$/,
+  );
   if (visitLongitudinalTimelineRolloutOutcomeGovernanceMatch && method === "PATCH") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -2014,6 +2017,38 @@ export async function handleSelfHostedRequest(
           stage: "5H",
           source: "postgres",
           item: result.outcomeGovernance,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+  if (visitLongitudinalTimelineRolloutLongitudinalClinicalValidationMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result =
+        await runtimeServices.clinicalWorkspaceService.reviewVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation(
+          decodeURIComponent(visitLongitudinalTimelineRolloutLongitudinalClinicalValidationMatch[1]),
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.longitudinalClinicalValidation,
           auth: {
             userId: authContext.userId,
             roles: authContext.roles,

@@ -22,6 +22,7 @@ import {
   buildReviewVisitLongitudinalTimelineRolloutObservationGovernanceSql,
   buildReviewVisitLongitudinalTimelineRolloutExceptionGovernanceSql,
   buildReviewVisitLongitudinalTimelineRolloutOutcomeGovernanceSql,
+  buildReviewVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationSql,
   buildReviewVisitLongitudinalTimelineRolloutPostValidationMonitoringSql,
   buildReviewVisitLongitudinalTimelineRolloutSopSql,
   buildReviewLesionComparisonViewerQaSql,
@@ -648,6 +649,69 @@ test("Batch CA Stage 5H repository builds metadata-only longitudinal outcome gov
   assert.doesNotMatch(
     sql,
     /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawOutcomeLog|rawFollowupLog|rawGovernanceLog|outcomePayload|followupPayload|governancePayload|outcomeDetails|followupDetails|governanceDetails|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
+test("Batch CB Stage 5H repository builds metadata-only longitudinal clinical validation SQL", () => {
+  const sql = buildReviewVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    longitudinalClinicalValidation: {
+      longitudinalClinicalValidationStatus: "ready_for_longitudinal_clinical_validation",
+      longitudinalClinicalValidationReasons: [
+        "timeline_rollout_longitudinal_clinical_validation_ready_no_dynamic_conclusion",
+      ],
+      outcomeGovernanceStatus: "ready_for_outcome_governance",
+      exceptionGovernanceStatus: "ready_for_exception_governance",
+      observationGovernanceStatus: "ready_for_observation_governance",
+      postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+      clinicalValidationStatus: "ready_for_clinical_validation",
+      incidentProcedureStatus: "ready_for_clinic_monitoring",
+      monitoringStatus: "ready_for_production_rollout",
+      evidenceStatus: "ready_for_monitored_rollout",
+      sopStatus: "ready_for_operational_rollout",
+      validationStatus: "ready_for_rollout",
+      rolloutStatus: "approved_for_clinical_operations",
+      outcomeWindowStatus: "ready",
+      clinicianCoverageStatus: "ready",
+      adjudicationStatus: "ready",
+      consensusReviewStatus: "ready",
+      followupValidationStatus: "ready",
+      governanceCadenceStatus: "ready",
+      ownerSignoffStatus: "ready",
+      realOutcomeWindowCount: 6,
+      clinicallyValidatedWindowCount: 6,
+      adjudicatedWindowCount: 4,
+      followupValidatedWindowCount: 4,
+      consensusReviewCount: 4,
+      unresolvedConsensusCaseCount: 0,
+      governanceReviewCount: 3,
+      blockerCount: 0,
+      lesionCount: 2,
+      readyTimelineCount: 2,
+      blockedTimelineCount: 0,
+      candidatePairCount: 3,
+      reviewerWorkflowReadyCount: 3,
+    },
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /insert into visit_longitudinal_timeline_rollout_longitudinal_clinical_validation_reviews/);
+  assert.match(sql, /longitudinal_clinical_validation_status/);
+  assert.match(sql, /ready_for_longitudinal_clinical_validation/);
+  assert.match(sql, /timelineRolloutLongitudinalClinicalValidationBoundary/);
+  assert.match(sql, /longitudinalClinicalValidationBoundary/);
+  assert.match(sql, /adjudicationBoundary/);
+  assert.match(sql, /consensusReviewBoundary/);
+  assert.match(sql, /patientDeliveryAllowed/);
+  assert.match(sql, /medicalMeasurementAllowed/);
+  assert.match(sql, /protectedFieldsExposed/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.doesNotMatch(
+    sql,
+    /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawLongitudinalClinicalValidationLog|longitudinalClinicalValidationPayload|longitudinalClinicalValidationDetails|rawAdjudicationLog|adjudicationPayload|adjudicationDetails|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

@@ -17,6 +17,7 @@ import {
   normalizeVisitLongitudinalTimelineRolloutMonitoringPayload,
   normalizeVisitLongitudinalTimelineRolloutObservationGovernancePayload,
   normalizeVisitLongitudinalTimelineRolloutOutcomeGovernancePayload,
+  normalizeVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationPayload,
   normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringPayload,
   normalizeVisitLongitudinalTimelineRolloutSopPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
@@ -1156,6 +1157,52 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         protectedFieldsExposed: false,
         clinicalOutputGenerated: false,
         reviewedAt: "2026-06-06T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation({ longitudinalClinicalValidation }) {
+      return {
+        id: "longitudinal-clinical-validation-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: longitudinalClinicalValidation.longitudinalClinicalValidationStatus,
+        reasons: longitudinalClinicalValidation.longitudinalClinicalValidationReasons,
+        outcomeGovernanceStatus: longitudinalClinicalValidation.outcomeGovernanceStatus,
+        exceptionGovernanceStatus: longitudinalClinicalValidation.exceptionGovernanceStatus,
+        observationGovernanceStatus: longitudinalClinicalValidation.observationGovernanceStatus,
+        postValidationMonitoringStatus: longitudinalClinicalValidation.postValidationMonitoringStatus,
+        clinicalValidationStatus: longitudinalClinicalValidation.clinicalValidationStatus,
+        incidentProcedureStatus: longitudinalClinicalValidation.incidentProcedureStatus,
+        monitoringStatus: longitudinalClinicalValidation.monitoringStatus,
+        evidenceStatus: longitudinalClinicalValidation.evidenceStatus,
+        sopStatus: longitudinalClinicalValidation.sopStatus,
+        validationStatus: longitudinalClinicalValidation.validationStatus,
+        rolloutStatus: longitudinalClinicalValidation.rolloutStatus,
+        outcomeWindowStatus: longitudinalClinicalValidation.outcomeWindowStatus,
+        clinicianCoverageStatus: longitudinalClinicalValidation.clinicianCoverageStatus,
+        adjudicationStatus: longitudinalClinicalValidation.adjudicationStatus,
+        consensusReviewStatus: longitudinalClinicalValidation.consensusReviewStatus,
+        followupValidationStatus: longitudinalClinicalValidation.followupValidationStatus,
+        governanceCadenceStatus: longitudinalClinicalValidation.governanceCadenceStatus,
+        ownerSignoffStatus: longitudinalClinicalValidation.ownerSignoffStatus,
+        realOutcomeWindowCount: longitudinalClinicalValidation.realOutcomeWindowCount,
+        clinicallyValidatedWindowCount: longitudinalClinicalValidation.clinicallyValidatedWindowCount,
+        adjudicatedWindowCount: longitudinalClinicalValidation.adjudicatedWindowCount,
+        followupValidatedWindowCount: longitudinalClinicalValidation.followupValidatedWindowCount,
+        consensusReviewCount: longitudinalClinicalValidation.consensusReviewCount,
+        unresolvedConsensusCaseCount: longitudinalClinicalValidation.unresolvedConsensusCaseCount,
+        governanceReviewCount: longitudinalClinicalValidation.governanceReviewCount,
+        blockerCount: longitudinalClinicalValidation.blockerCount,
+        lesionCount: longitudinalClinicalValidation.lesionCount,
+        readyTimelineCount: longitudinalClinicalValidation.readyTimelineCount,
+        blockedTimelineCount: longitudinalClinicalValidation.blockedTimelineCount,
+        candidatePairCount: longitudinalClinicalValidation.candidatePairCount,
+        reviewerWorkflowReadyCount: longitudinalClinicalValidation.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-08T00:00:00.000Z",
       };
     },
   };
@@ -3217,6 +3264,98 @@ test("Batch CA Stage 5H service reviews longitudinal outcome governance with dow
   );
 });
 
+test("Batch CB Stage 5H service reviews longitudinal clinical validation with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation(
+    VISIT_ID,
+    {
+      longitudinalClinicalValidationStatus: "ready_for_longitudinal_clinical_validation",
+      longitudinalClinicalValidationReasons: [
+        "timeline_rollout_longitudinal_clinical_validation_ready_no_dynamic_conclusion",
+      ],
+      outcomeWindowStatus: "ready",
+      clinicianCoverageStatus: "ready",
+      adjudicationStatus: "ready",
+      consensusReviewStatus: "ready",
+      followupValidationStatus: "ready",
+      governanceCadenceStatus: "ready",
+      ownerSignoffStatus: "ready",
+      realOutcomeWindowCount: 6,
+      clinicallyValidatedWindowCount: 6,
+      adjudicatedWindowCount: 4,
+      followupValidatedWindowCount: 4,
+      consensusReviewCount: 4,
+      unresolvedConsensusCaseCount: 0,
+      governanceReviewCount: 3,
+      blockerCount: 0,
+    },
+    authContext,
+    { correlationId: "c26" },
+  );
+
+  assert.equal(result.longitudinalClinicalValidation.status, "in_review");
+  assert.deepEqual(result.longitudinalClinicalValidation.reasons, [
+    "timeline_rollout_longitudinal_clinical_validation_ready_no_dynamic_conclusion",
+    "timeline_rollout_longitudinal_clinical_validation_not_ready",
+  ]);
+  assert.equal(result.longitudinalClinicalValidation.outcomeGovernanceStatus, "not_started");
+  assert.equal(result.longitudinalClinicalValidation.validationStatus, "blocked");
+  assert.equal(result.longitudinalClinicalValidation.patientDeliveryAllowed, false);
+  assert.equal(result.longitudinalClinicalValidation.medicalMeasurementAllowed, false);
+  assert.equal(result.longitudinalClinicalValidation.protectedFieldsExposed, false);
+  assert.equal(result.longitudinalClinicalValidation.clinicalOutputGenerated, false);
+  assert.equal(
+    auditEvents.at(-1).action,
+    "visit_longitudinal_timeline_rollout_longitudinal_clinical_validation.review",
+  );
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    longitudinalClinicalValidationStatus: "in_review",
+    outcomeGovernanceStatus: "not_started",
+    exceptionGovernanceStatus: "not_started",
+    observationGovernanceStatus: "not_started",
+    postValidationMonitoringStatus: "not_started",
+    clinicalValidationStatus: "not_started",
+    validationStatus: "blocked",
+    rolloutStatus: "review_required",
+    sopStatus: "not_started",
+    evidenceStatus: "not_started",
+    monitoringStatus: "not_started",
+    incidentProcedureStatus: "not_started",
+    realOutcomeWindowCount: 6,
+    clinicallyValidatedWindowCount: 6,
+    adjudicatedWindowCount: 4,
+    followupValidatedWindowCount: 4,
+    consensusReviewCount: 4,
+    unresolvedConsensusCaseCount: 0,
+    governanceReviewCount: 3,
+    blockerCount: 0,
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    validationChecklistReady: true,
+    aggregateValidationReady: true,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+    patientRowsExposed: false,
+    rawLongitudinalClinicalValidationLogsExposed: false,
+    rawAdjudicationPayloadsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.longitudinalClinicalValidation) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|"rawLongitudinalClinicalValidationLog"\s*:|"longitudinalClinicalValidationPayload"\s*:|"longitudinalClinicalValidationDetails"\s*:|"rawAdjudicationLog"\s*:|"adjudicationPayload"\s*:|"adjudicationDetails"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|validatorName|validatorEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
 test("Batch BZ Stage 5H exception governance payload rejects protected and clinical fields", () => {
   const base = {
     exceptionGovernanceStatus: "ready_for_exception_governance",
@@ -3301,6 +3440,49 @@ test("Batch CA Stage 5H outcome governance payload rejects protected and clinica
     () => normalizeVisitLongitudinalTimelineRolloutOutcomeGovernancePayload({
       ...base,
       completedFollowupCount: 4,
+    }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch CB Stage 5H longitudinal clinical validation payload rejects protected and clinical fields", () => {
+  const base = {
+    longitudinalClinicalValidationStatus: "ready_for_longitudinal_clinical_validation",
+    longitudinalClinicalValidationReasons: ["готово"],
+    outcomeWindowStatus: "ready",
+    clinicianCoverageStatus: "ready",
+    adjudicationStatus: "ready",
+    consensusReviewStatus: "ready",
+    followupValidationStatus: "ready",
+    governanceCadenceStatus: "ready",
+    ownerSignoffStatus: "ready",
+    realOutcomeWindowCount: 6,
+    clinicallyValidatedWindowCount: 6,
+    adjudicatedWindowCount: 4,
+    followupValidatedWindowCount: 4,
+    consensusReviewCount: 4,
+    unresolvedConsensusCaseCount: 0,
+    governanceReviewCount: 3,
+    blockerCount: 0,
+  };
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationPayload({
+      ...base,
+      rawLongitudinalClinicalValidationLog: [{ unsafe: true }],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationPayload({
+      ...base,
+      longitudinalClinicalValidationReasons: ["клинический диагноз подтверждён"],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationPayload({
+      ...base,
+      adjudicatedWindowCount: 7,
     }),
     VisitWorkspaceValidationError,
   );

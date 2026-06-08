@@ -2415,6 +2415,98 @@ Frontend behavior:
   doctor-side metadata-only governance; patient delivery remains off until
   privacy/security/retention/session/approved-copy gates are explicitly closed.
 
+## Batch CB Longitudinal Clinical Validation
+
+Batch CB adds the next metadata-only gate after Batch CA outcome governance:
+real clinical longitudinal validation over time. This layer does not emit a
+clinical dynamic conclusion. It records only aggregate evidence that real
+outcome windows, clinical coverage, adjudication, consensus review, follow-up
+validation, governance cadence, and owner signoff have been reviewed for a
+timeline rollout.
+
+Migration:
+
+- `0078_stage5h_longitudinal_clinical_validation.sql` creates
+  `visit_longitudinal_timeline_rollout_longitudinal_clinical_validation_reviews`;
+- persisted fields include `longitudinal_clinical_validation_status`,
+  `longitudinal_clinical_validation_reasons`, previous-layer statuses from
+  outcome governance backward, seven checklist statuses, and aggregate counts:
+  `real_outcome_window_count`, `clinically_validated_window_count`,
+  `adjudicated_window_count`, `followup_validated_window_count`,
+  `consensus_review_count`, `unresolved_consensus_case_count`,
+  `governance_review_count`, and `blocker_count`;
+- CHECK constraints enforce count consistency and force
+  `patient_delivery_allowed=false`,
+  `medical_measurement_allowed=false`,
+  `protected_fields_exposed=false`, and
+  `clinical_output_generated=false`;
+- CHECK
+  `visit_longitudinal_timeline_rollout_longitudinal_clinical_validation_metadata_no_protected_keys`
+  blocks pair keys, image IDs, asset/patient/case identifiers, raw
+  longitudinal validation logs, adjudication payload/details, storage/object
+  fields, signed URLs, QR/session/credential material, reviewer/validator
+  identity, doctor/patient text, diagnosis/risk/prognosis/treatment,
+  measurement values, and dynamic conclusion fields.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/longitudinal-clinical-validation`
+  persists the metadata-only review;
+- repository builder:
+  `buildReviewVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationSql`;
+- read model `buildGetVisitLongitudinalDatasetValidationSql` now includes
+  `timelineRolloutLongitudinalClinicalValidation`;
+- service normalizer:
+  `normalizeVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationPayload`;
+- requested `ready_for_longitudinal_clinical_validation` is downgraded to
+  `in_review` with reason
+  `timeline_rollout_longitudinal_clinical_validation_not_ready` unless dataset
+  validation, rollout, SOP, evidence, monitoring, incident procedure,
+  clinical validation, post-validation monitoring, observation governance,
+  exception governance, outcome governance, all seven checklist items, zero
+  unresolved consensus cases, and zero blockers are ready;
+- audit action:
+  `visit_longitudinal_timeline_rollout_longitudinal_clinical_validation.review`;
+- audit metadata remains aggregate-only and explicitly records that patient
+  delivery, measurement, protected fields, clinical output, pair keys, image
+  IDs, patient rows, raw longitudinal validation logs, and raw adjudication
+  payloads are not exposed.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` adds region `Longitudinal clinical validation` inside
+  `Готовность timeline QA`;
+- visible copy states:
+  `Clinical longitudinal validation фиксирует только aggregate clinical longitudinal metadata over time · Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.`
+- actions are `Зафиксировать longitudinal clinical validation` and
+  `Утвердить longitudinal clinical validation`;
+- approval is disabled until
+  `timelineRolloutOutcomeGovernance.status === "ready_for_outcome_governance"`;
+- the UI shows only checklist labels and aggregate counters for outcome-set,
+  validated windows, adjudicated windows, follow-up validated windows,
+  consensus counts, governance reviews, and blockers. No raw clinical logs,
+  adjudication details, patient rows, pair keys, image IDs, storage paths,
+  signed URLs, doctor text, or patient text are rendered.
+
+### Batch CB Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch CB adds a
+  real-clinical longitudinal validation receipt over time on top of outcome
+  governance. Remaining gate: long-running production dataset evidence across
+  real clinic operations.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch CB
+  closes the longitudinal validation layer around comparison outputs without
+  exposing protected assets or measurements. Remaining gate: reviewer
+  operations validation on real protected assets.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch CB keeps
+  clinical dynamic conclusion disabled and records only aggregate validation
+  metadata over outcome windows. Remaining gate: approved longitudinal
+  clinical validation procedure on real protected assets over time.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch CB is
+  doctor-side metadata-only governance; patient delivery remains off until
+  privacy/security/retention/session/approved-copy gates are explicitly
+  closed.
+
 ## Product Boundary
 
 - managed runtime: none
