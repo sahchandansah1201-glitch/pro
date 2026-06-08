@@ -2175,6 +2175,9 @@
           },
           "timelineRolloutLongitudinalClinicalValidation": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutLongitudinalClinicalValidation"
+          },
+          "timelineRolloutProtectedReviewerValidation": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProtectedReviewerValidation"
           }
         }
       },
@@ -6350,6 +6353,211 @@
             "minimum": 0
           }
         }
+      },
+      "VisitLongitudinalTimelineRolloutProtectedReviewerValidation": {
+        "type": "object",
+        "required": [
+          "id",
+          "clinicId",
+          "patientId",
+          "visitId",
+          "status",
+          "reasons",
+          "longitudinalClinicalValidationStatus",
+          "outcomeGovernanceStatus",
+          "exceptionGovernanceStatus",
+          "observationGovernanceStatus",
+          "postValidationMonitoringStatus",
+          "clinicalValidationStatus",
+          "incidentProcedureStatus",
+          "monitoringStatus",
+          "evidenceStatus",
+          "sopStatus",
+          "validationStatus",
+          "rolloutStatus",
+          "protectedAssetWindowStatus",
+          "protectedRenderStatus",
+          "reviewerAssignmentStatus",
+          "secondReviewStatus",
+          "adjudicationOpsStatus",
+          "followupOpsStatus",
+          "ownerSignoffStatus",
+          "protectedAssetTimelineCount",
+          "protectedRenderReadyCount",
+          "reviewerAssignedProtectedCount",
+          "secondReviewedProtectedCount",
+          "adjudicatedProtectedCount",
+          "followupValidatedProtectedCount",
+          "unresolvedProtectedReviewCount",
+          "blockerCount",
+          "lesionCount",
+          "readyTimelineCount",
+          "blockedTimelineCount",
+          "candidatePairCount",
+          "reviewerWorkflowReadyCount",
+          "patientDeliveryAllowed",
+          "medicalMeasurementAllowed",
+          "protectedFieldsExposed",
+          "clinicalOutputGenerated",
+          "reviewedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "clinicId": { "type": "string", "nullable": true },
+          "patientId": { "type": "string", "nullable": true },
+          "visitId": { "type": "string", "nullable": true },
+          "status": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_protected_reviewer_validation"]
+          },
+          "reasons": { "type": "array", "items": { "type": "string" } },
+          "longitudinalClinicalValidationStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_longitudinal_clinical_validation"]
+          },
+          "outcomeGovernanceStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_outcome_governance"]
+          },
+          "exceptionGovernanceStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_exception_governance"]
+          },
+          "observationGovernanceStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_observation_governance"]
+          },
+          "postValidationMonitoringStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_post_validation_monitoring"]
+          },
+          "clinicalValidationStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_clinical_validation"]
+          },
+          "incidentProcedureStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_clinic_monitoring"]
+          },
+          "monitoringStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_production_rollout"]
+          },
+          "evidenceStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_monitored_rollout"]
+          },
+          "sopStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_operational_rollout"]
+          },
+          "validationStatus": {
+            "type": "string",
+            "enum": ["blocked", "needs_review", "ready_for_rollout"]
+          },
+          "rolloutStatus": {
+            "type": "string",
+            "enum": ["not_approved", "review_required", "approved_for_clinical_operations"]
+          },
+          "protectedAssetWindowStatus": {
+            "type": "string",
+            "enum": ["missing", "needs_review", "ready"]
+          },
+          "protectedRenderStatus": {
+            "type": "string",
+            "enum": ["missing", "needs_review", "ready"]
+          },
+          "reviewerAssignmentStatus": {
+            "type": "string",
+            "enum": ["missing", "needs_review", "ready"]
+          },
+          "secondReviewStatus": {
+            "type": "string",
+            "enum": ["missing", "needs_review", "ready"]
+          },
+          "adjudicationOpsStatus": {
+            "type": "string",
+            "enum": ["missing", "needs_review", "ready"]
+          },
+          "followupOpsStatus": {
+            "type": "string",
+            "enum": ["missing", "needs_review", "ready"]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": ["missing", "needs_review", "ready"]
+          },
+          "protectedAssetTimelineCount": { "type": "integer", "minimum": 0 },
+          "protectedRenderReadyCount": { "type": "integer", "minimum": 0 },
+          "reviewerAssignedProtectedCount": { "type": "integer", "minimum": 0 },
+          "secondReviewedProtectedCount": { "type": "integer", "minimum": 0 },
+          "adjudicatedProtectedCount": { "type": "integer", "minimum": 0 },
+          "followupValidatedProtectedCount": { "type": "integer", "minimum": 0 },
+          "unresolvedProtectedReviewCount": { "type": "integer", "minimum": 0 },
+          "blockerCount": { "type": "integer", "minimum": 0 },
+          "lesionCount": { "type": "integer", "minimum": 0 },
+          "readyTimelineCount": { "type": "integer", "minimum": 0 },
+          "blockedTimelineCount": { "type": "integer", "minimum": 0 },
+          "candidatePairCount": { "type": "integer", "minimum": 0 },
+          "reviewerWorkflowReadyCount": { "type": "integer", "minimum": 0 },
+          "patientDeliveryAllowed": { "type": "boolean", "enum": [false] },
+          "medicalMeasurementAllowed": { "type": "boolean", "enum": [false] },
+          "protectedFieldsExposed": { "type": "boolean", "enum": [false] },
+          "clinicalOutputGenerated": { "type": "boolean", "enum": [false] },
+          "reviewedAt": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "nullable": true },
+          "updatedAt": { "type": "string", "nullable": true }
+        }
+      },
+      "VisitLongitudinalTimelineRolloutProtectedReviewerValidationPayload": {
+        "type": "object",
+        "description": "Batch CC protected reviewer validation payload. Protected fields, patient rows, raw protected reviewer logs, reviewer identity, and clinical claims are rejected by service validation.",
+        "required": [
+          "protectedReviewerValidationStatus",
+          "protectedReviewerValidationReasons",
+          "protectedAssetWindowStatus",
+          "protectedRenderStatus",
+          "reviewerAssignmentStatus",
+          "secondReviewStatus",
+          "adjudicationOpsStatus",
+          "followupOpsStatus",
+          "ownerSignoffStatus",
+          "protectedAssetTimelineCount",
+          "protectedRenderReadyCount",
+          "reviewerAssignedProtectedCount",
+          "secondReviewedProtectedCount",
+          "adjudicatedProtectedCount",
+          "followupValidatedProtectedCount",
+          "unresolvedProtectedReviewCount",
+          "blockerCount"
+        ],
+        "properties": {
+          "protectedReviewerValidationStatus": {
+            "type": "string",
+            "enum": ["not_started", "in_review", "ready_for_protected_reviewer_validation"]
+          },
+          "protectedReviewerValidationReasons": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "protectedAssetWindowStatus": { "type": "string", "enum": ["missing", "needs_review", "ready"] },
+          "protectedRenderStatus": { "type": "string", "enum": ["missing", "needs_review", "ready"] },
+          "reviewerAssignmentStatus": { "type": "string", "enum": ["missing", "needs_review", "ready"] },
+          "secondReviewStatus": { "type": "string", "enum": ["missing", "needs_review", "ready"] },
+          "adjudicationOpsStatus": { "type": "string", "enum": ["missing", "needs_review", "ready"] },
+          "followupOpsStatus": { "type": "string", "enum": ["missing", "needs_review", "ready"] },
+          "ownerSignoffStatus": { "type": "string", "enum": ["missing", "needs_review", "ready"] },
+          "protectedAssetTimelineCount": { "type": "integer", "minimum": 0 },
+          "protectedRenderReadyCount": { "type": "integer", "minimum": 0 },
+          "reviewerAssignedProtectedCount": { "type": "integer", "minimum": 0 },
+          "secondReviewedProtectedCount": { "type": "integer", "minimum": 0 },
+          "adjudicatedProtectedCount": { "type": "integer", "minimum": 0 },
+          "followupValidatedProtectedCount": { "type": "integer", "minimum": 0 },
+          "unresolvedProtectedReviewCount": { "type": "integer", "minimum": 0 },
+          "blockerCount": { "type": "integer", "minimum": 0 }
+        }
       }
     }
   },
@@ -7676,6 +7884,58 @@
                       "properties": {
                         "item": {
                           "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutLongitudinalClinicalValidation"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/protected-reviewer-validation": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review metadata-only protected reviewer operations validation on real protected assets",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProtectedReviewerValidationPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Protected reviewer validation review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProtectedReviewerValidation"
                         }
                       }
                     }

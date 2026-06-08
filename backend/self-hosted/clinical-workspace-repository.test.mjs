@@ -23,6 +23,7 @@ import {
   buildReviewVisitLongitudinalTimelineRolloutExceptionGovernanceSql,
   buildReviewVisitLongitudinalTimelineRolloutOutcomeGovernanceSql,
   buildReviewVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationSql,
+  buildReviewVisitLongitudinalTimelineRolloutProtectedReviewerValidationSql,
   buildReviewVisitLongitudinalTimelineRolloutPostValidationMonitoringSql,
   buildReviewVisitLongitudinalTimelineRolloutSopSql,
   buildReviewLesionComparisonViewerQaSql,
@@ -712,6 +713,67 @@ test("Batch CB Stage 5H repository builds metadata-only longitudinal clinical va
   assert.doesNotMatch(
     sql,
     /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawLongitudinalClinicalValidationLog|longitudinalClinicalValidationPayload|longitudinalClinicalValidationDetails|rawAdjudicationLog|adjudicationPayload|adjudicationDetails|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
+test("Batch CC Stage 5H repository builds metadata-only protected reviewer validation SQL", () => {
+  const sql = buildReviewVisitLongitudinalTimelineRolloutProtectedReviewerValidationSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    protectedReviewerValidation: {
+      protectedReviewerValidationStatus: "ready_for_protected_reviewer_validation",
+      protectedReviewerValidationReasons: ["protected_reviewer_validation_ready_no_patient_delivery"],
+      longitudinalClinicalValidationStatus: "ready_for_longitudinal_clinical_validation",
+      outcomeGovernanceStatus: "ready_for_outcome_governance",
+      exceptionGovernanceStatus: "ready_for_exception_governance",
+      observationGovernanceStatus: "ready_for_observation_governance",
+      postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+      clinicalValidationStatus: "ready_for_clinical_validation",
+      incidentProcedureStatus: "ready_for_clinic_monitoring",
+      monitoringStatus: "ready_for_production_rollout",
+      evidenceStatus: "ready_for_monitored_rollout",
+      sopStatus: "ready_for_operational_rollout",
+      validationStatus: "ready_for_rollout",
+      rolloutStatus: "approved_for_clinical_operations",
+      protectedAssetWindowStatus: "ready",
+      protectedRenderStatus: "ready",
+      reviewerAssignmentStatus: "ready",
+      secondReviewStatus: "ready",
+      adjudicationOpsStatus: "ready",
+      followupOpsStatus: "ready",
+      ownerSignoffStatus: "ready",
+      protectedAssetTimelineCount: 6,
+      protectedRenderReadyCount: 6,
+      reviewerAssignedProtectedCount: 4,
+      secondReviewedProtectedCount: 4,
+      adjudicatedProtectedCount: 4,
+      followupValidatedProtectedCount: 4,
+      unresolvedProtectedReviewCount: 0,
+      blockerCount: 0,
+      lesionCount: 2,
+      readyTimelineCount: 2,
+      blockedTimelineCount: 0,
+      candidatePairCount: 3,
+      reviewerWorkflowReadyCount: 3,
+    },
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /insert into visit_longitudinal_timeline_rollout_protected_reviewer_validation_reviews/);
+  assert.match(sql, /protected_reviewer_validation_status/);
+  assert.match(sql, /ready_for_protected_reviewer_validation/);
+  assert.match(sql, /timelineRolloutProtectedReviewerValidationBoundary/);
+  assert.match(sql, /protectedReviewerValidationBoundary/);
+  assert.match(sql, /protectedAssetReviewBoundary/);
+  assert.match(sql, /patientDeliveryAllowed/);
+  assert.match(sql, /medicalMeasurementAllowed/);
+  assert.match(sql, /protectedFieldsExposed/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.doesNotMatch(
+    sql,
+    /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawProtectedReviewLog|rawReviewerOpsLog|rawFollowupOpsLog|rawAdjudicationOpsLog|protectedReviewerValidationPayload|protectedReviewerValidationDetails|reviewerAssignmentPayload|secondReviewPayload|adjudicationOpsPayload|followupOpsPayload|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

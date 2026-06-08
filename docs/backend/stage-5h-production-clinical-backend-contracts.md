@@ -2507,6 +2507,111 @@ Frontend behavior:
   privacy/security/retention/session/approved-copy gates are explicitly
   closed.
 
+## Batch CC Protected Reviewer Validation
+
+Batch CC extends Stage 5H from longitudinal clinical validation to reviewer
+operations validation on real protected assets. It remains metadata-only: no
+patient delivery, no medical measurements, no clinical dynamic conclusion, no
+diagnosis/risk/prognosis/treatment, no reviewer identity, no pair keys, no
+image IDs, and no storage or signed-URL fields are exposed.
+
+New migration:
+
+- `backend/self-hosted/db/migrations/0079_stage5h_protected_reviewer_validation.sql`
+
+New metadata ledger:
+
+- `visit_longitudinal_timeline_rollout_protected_reviewer_validation_reviews`
+
+The migration adds aggregate checklist and count fields for:
+
+- protected asset window readiness;
+- protected render readiness;
+- reviewer assignment;
+- second review;
+- adjudication operations;
+- follow-up operations;
+- owner signoff;
+- protected asset timeline counts and unresolved protected review counts.
+
+Safety boundary:
+
+- `patient_delivery_allowed = false`
+- `medical_measurement_allowed = false`
+- `protected_fields_exposed = false`
+- `clinical_output_generated = false`
+
+Metadata guard:
+
+- `visit_longitudinal_timeline_rollout_protected_reviewer_validation_metadata_no_protected_keys`
+  blocks pair keys, image IDs, asset/patient/case identifiers, reviewer names
+  and emails, raw protected review logs, reviewer-assignment payloads,
+  second-review payloads, follow-up/adjudication ops payloads, storage/object
+  fields, signed URLs, QR/session/credential material, doctor/patient text,
+  diagnosis/risk/prognosis/treatment, measurement values, and dynamic
+  conclusion fields.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/protected-reviewer-validation`
+  persists the metadata-only protected reviewer review;
+- repository builder:
+  `buildReviewVisitLongitudinalTimelineRolloutProtectedReviewerValidationSql`;
+- read model `buildGetVisitLongitudinalDatasetValidationSql` now includes
+  `timelineRolloutProtectedReviewerValidation`;
+- service normalizer:
+  `normalizeVisitLongitudinalTimelineRolloutProtectedReviewerValidationPayload`;
+- requested `ready_for_protected_reviewer_validation` is downgraded to
+  `in_review` with reason
+  `timeline_rollout_protected_reviewer_validation_not_ready` unless dataset
+  validation, rollout, SOP, evidence, monitoring, incident procedure,
+  clinical validation, post-validation monitoring, observation governance,
+  exception governance, outcome governance, longitudinal clinical validation,
+  all seven protected-review checklist items, zero unresolved protected
+  reviews, and zero blockers are ready;
+- audit action:
+  `visit_longitudinal_timeline_rollout_protected_reviewer_validation.review`;
+- audit metadata remains aggregate-only and explicitly records that patient
+  delivery, measurement, protected fields, clinical output, pair keys, image
+  IDs, patient rows, raw protected reviewer logs, and raw protected reviewer
+  payloads are not exposed.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` adds region `Protected reviewer validation` inside
+  `Готовность timeline QA`;
+- visible copy states:
+  `Protected reviewer validation фиксирует только aggregate reviewer operations metadata on protected assets · Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.`
+- actions are `Зафиксировать protected reviewer validation` and
+  `Утвердить protected reviewer validation`;
+- approval is disabled until
+  `timelineRolloutLongitudinalClinicalValidation.status === "ready_for_longitudinal_clinical_validation"`;
+- the UI shows only checklist labels and aggregate counters for protected-set,
+  render-ready, assigned, second-review, adjudicated, follow-up-validated,
+  open-review, and blockers. No raw protected review logs, reviewer identity,
+  patient rows, pair keys, image IDs, storage paths, signed URLs, doctor
+  text, or patient text are rendered.
+
+### Batch CC Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch CC adds
+  reviewer-operations validation on real protected assets as a separate gate
+  after longitudinal clinical validation. Remaining gate: long-running
+  production dataset evidence across real clinic operations.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch CC
+  closes protected render, reviewer assignment, second review, adjudication,
+  and follow-up reviewer ops as aggregate readiness without exposing protected
+  assets. Remaining gate: approved reviewer operations validation on real
+  protected assets over time in live operations.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch CC keeps
+  clinical dynamic conclusion disabled and records only aggregate protected
+  reviewer workflow metadata. Remaining gate: approved clinical longitudinal
+  validation procedure on real protected assets over time.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch CC is
+  doctor-side metadata-only protected reviewer validation. Patient delivery
+  remains off until privacy/security/retention/session/approved-copy gates are
+  closed.
+
 ## Product Boundary
 
 - managed runtime: none

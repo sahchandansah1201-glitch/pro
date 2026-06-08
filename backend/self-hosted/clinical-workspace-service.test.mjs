@@ -18,6 +18,7 @@ import {
   normalizeVisitLongitudinalTimelineRolloutObservationGovernancePayload,
   normalizeVisitLongitudinalTimelineRolloutOutcomeGovernancePayload,
   normalizeVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationPayload,
+  normalizeVisitLongitudinalTimelineRolloutProtectedReviewerValidationPayload,
   normalizeVisitLongitudinalTimelineRolloutPostValidationMonitoringPayload,
   normalizeVisitLongitudinalTimelineRolloutSopPayload,
   normalizeLesionComparisonViewerQaReviewPayload,
@@ -1198,6 +1199,53 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         blockedTimelineCount: longitudinalClinicalValidation.blockedTimelineCount,
         candidatePairCount: longitudinalClinicalValidation.candidatePairCount,
         reviewerWorkflowReadyCount: longitudinalClinicalValidation.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-08T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutProtectedReviewerValidation({ protectedReviewerValidation }) {
+      return {
+        id: "protected-reviewer-validation-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: protectedReviewerValidation.protectedReviewerValidationStatus,
+        reasons: protectedReviewerValidation.protectedReviewerValidationReasons,
+        longitudinalClinicalValidationStatus: protectedReviewerValidation.longitudinalClinicalValidationStatus,
+        outcomeGovernanceStatus: protectedReviewerValidation.outcomeGovernanceStatus,
+        exceptionGovernanceStatus: protectedReviewerValidation.exceptionGovernanceStatus,
+        observationGovernanceStatus: protectedReviewerValidation.observationGovernanceStatus,
+        postValidationMonitoringStatus: protectedReviewerValidation.postValidationMonitoringStatus,
+        clinicalValidationStatus: protectedReviewerValidation.clinicalValidationStatus,
+        incidentProcedureStatus: protectedReviewerValidation.incidentProcedureStatus,
+        monitoringStatus: protectedReviewerValidation.monitoringStatus,
+        evidenceStatus: protectedReviewerValidation.evidenceStatus,
+        sopStatus: protectedReviewerValidation.sopStatus,
+        validationStatus: protectedReviewerValidation.validationStatus,
+        rolloutStatus: protectedReviewerValidation.rolloutStatus,
+        protectedAssetWindowStatus: protectedReviewerValidation.protectedAssetWindowStatus,
+        protectedRenderStatus: protectedReviewerValidation.protectedRenderStatus,
+        reviewerAssignmentStatus: protectedReviewerValidation.reviewerAssignmentStatus,
+        secondReviewStatus: protectedReviewerValidation.secondReviewStatus,
+        adjudicationOpsStatus: protectedReviewerValidation.adjudicationOpsStatus,
+        followupOpsStatus: protectedReviewerValidation.followupOpsStatus,
+        ownerSignoffStatus: protectedReviewerValidation.ownerSignoffStatus,
+        protectedAssetTimelineCount: protectedReviewerValidation.protectedAssetTimelineCount,
+        protectedRenderReadyCount: protectedReviewerValidation.protectedRenderReadyCount,
+        reviewerAssignedProtectedCount: protectedReviewerValidation.reviewerAssignedProtectedCount,
+        secondReviewedProtectedCount: protectedReviewerValidation.secondReviewedProtectedCount,
+        adjudicatedProtectedCount: protectedReviewerValidation.adjudicatedProtectedCount,
+        followupValidatedProtectedCount: protectedReviewerValidation.followupValidatedProtectedCount,
+        unresolvedProtectedReviewCount: protectedReviewerValidation.unresolvedProtectedReviewCount,
+        blockerCount: protectedReviewerValidation.blockerCount,
+        lesionCount: protectedReviewerValidation.lesionCount,
+        readyTimelineCount: protectedReviewerValidation.readyTimelineCount,
+        blockedTimelineCount: protectedReviewerValidation.blockedTimelineCount,
+        candidatePairCount: protectedReviewerValidation.candidatePairCount,
+        reviewerWorkflowReadyCount: protectedReviewerValidation.reviewerWorkflowReadyCount,
         patientDeliveryAllowed: false,
         medicalMeasurementAllowed: false,
         protectedFieldsExposed: false,
@@ -3356,6 +3404,97 @@ test("Batch CB Stage 5H service reviews longitudinal clinical validation with do
   );
 });
 
+test("Batch CC Stage 5H service reviews protected reviewer validation with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutProtectedReviewerValidation(
+    VISIT_ID,
+    {
+      protectedReviewerValidationStatus: "ready_for_protected_reviewer_validation",
+      protectedReviewerValidationReasons: ["protected_reviewer_validation_ready_no_patient_delivery"],
+      protectedAssetWindowStatus: "ready",
+      protectedRenderStatus: "ready",
+      reviewerAssignmentStatus: "ready",
+      secondReviewStatus: "ready",
+      adjudicationOpsStatus: "ready",
+      followupOpsStatus: "ready",
+      ownerSignoffStatus: "ready",
+      protectedAssetTimelineCount: 6,
+      protectedRenderReadyCount: 6,
+      reviewerAssignedProtectedCount: 4,
+      secondReviewedProtectedCount: 4,
+      adjudicatedProtectedCount: 4,
+      followupValidatedProtectedCount: 4,
+      unresolvedProtectedReviewCount: 0,
+      blockerCount: 0,
+    },
+    authContext,
+    { correlationId: "c27" },
+  );
+
+  assert.equal(result.protectedReviewerValidation.status, "in_review");
+  assert.deepEqual(result.protectedReviewerValidation.reasons, [
+    "protected_reviewer_validation_ready_no_patient_delivery",
+    "timeline_rollout_protected_reviewer_validation_not_ready",
+  ]);
+  assert.equal(result.protectedReviewerValidation.longitudinalClinicalValidationStatus, "not_started");
+  assert.equal(result.protectedReviewerValidation.validationStatus, "blocked");
+  assert.equal(result.protectedReviewerValidation.patientDeliveryAllowed, false);
+  assert.equal(result.protectedReviewerValidation.medicalMeasurementAllowed, false);
+  assert.equal(result.protectedReviewerValidation.protectedFieldsExposed, false);
+  assert.equal(result.protectedReviewerValidation.clinicalOutputGenerated, false);
+  assert.equal(
+    auditEvents.at(-1).action,
+    "visit_longitudinal_timeline_rollout_protected_reviewer_validation.review",
+  );
+  assert.deepEqual(auditEvents.at(-1).metadata, {
+    visitId: VISIT_ID,
+    protectedReviewerValidationStatus: "in_review",
+    longitudinalClinicalValidationStatus: "not_started",
+    outcomeGovernanceStatus: "not_started",
+    exceptionGovernanceStatus: "not_started",
+    observationGovernanceStatus: "not_started",
+    postValidationMonitoringStatus: "not_started",
+    clinicalValidationStatus: "not_started",
+    incidentProcedureStatus: "not_started",
+    monitoringStatus: "not_started",
+    evidenceStatus: "not_started",
+    sopStatus: "not_started",
+    validationStatus: "blocked",
+    rolloutStatus: "review_required",
+    protectedAssetTimelineCount: 6,
+    protectedRenderReadyCount: 6,
+    reviewerAssignedProtectedCount: 4,
+    secondReviewedProtectedCount: 4,
+    adjudicatedProtectedCount: 4,
+    followupValidatedProtectedCount: 4,
+    unresolvedProtectedReviewCount: 0,
+    blockerCount: 0,
+    lesionCount: 2,
+    readyTimelineCount: 1,
+    blockedTimelineCount: 1,
+    candidatePairCount: 3,
+    reviewerWorkflowReadyCount: 1,
+    validationChecklistReady: true,
+    aggregateValidationReady: true,
+    reasonsCount: 2,
+    medicalMeasurementAllowed: false,
+    patientDeliveryAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    pairKeysExposed: false,
+    imageIdsExposed: false,
+    patientRowsExposed: false,
+    rawProtectedReviewerLogsExposed: false,
+    rawProtectedReviewerPayloadsExposed: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(result.protectedReviewerValidation) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|"rawProtectedReviewLog"\s*:|"rawReviewerOpsLog"\s*:|"rawFollowupOpsLog"\s*:|"rawAdjudicationOpsLog"\s*:|"protectedReviewerValidationPayload"\s*:|"protectedReviewerValidationDetails"\s*:|"reviewerAssignmentPayload"\s*:|"secondReviewPayload"\s*:|"adjudicationOpsPayload"\s*:|"followupOpsPayload"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|validatorName|validatorEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
 test("Batch BZ Stage 5H exception governance payload rejects protected and clinical fields", () => {
   const base = {
     exceptionGovernanceStatus: "ready_for_exception_governance",
@@ -3483,6 +3622,49 @@ test("Batch CB Stage 5H longitudinal clinical validation payload rejects protect
     () => normalizeVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationPayload({
       ...base,
       adjudicatedWindowCount: 7,
+    }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch CC Stage 5H protected reviewer validation payload rejects protected and clinical fields", () => {
+  const base = {
+    protectedReviewerValidationStatus: "ready_for_protected_reviewer_validation",
+    protectedReviewerValidationReasons: ["готово"],
+    protectedAssetWindowStatus: "ready",
+    protectedRenderStatus: "ready",
+    reviewerAssignmentStatus: "ready",
+    secondReviewStatus: "ready",
+    adjudicationOpsStatus: "ready",
+    followupOpsStatus: "ready",
+    ownerSignoffStatus: "ready",
+    protectedAssetTimelineCount: 6,
+    protectedRenderReadyCount: 6,
+    reviewerAssignedProtectedCount: 4,
+    secondReviewedProtectedCount: 4,
+    adjudicatedProtectedCount: 4,
+    followupValidatedProtectedCount: 4,
+    unresolvedProtectedReviewCount: 0,
+    blockerCount: 0,
+  };
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutProtectedReviewerValidationPayload({
+      ...base,
+      rawProtectedReviewLog: [{ unsafe: true }],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutProtectedReviewerValidationPayload({
+      ...base,
+      protectedReviewerValidationReasons: ["клинический диагноз подтверждён"],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutProtectedReviewerValidationPayload({
+      ...base,
+      secondReviewedProtectedCount: 5,
     }),
     VisitWorkspaceValidationError,
   );
