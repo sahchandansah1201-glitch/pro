@@ -25,14 +25,14 @@ const authValue: AuthContextValue = {
   signOut: noop,
 };
 
-function renderLayout() {
+function renderLayout(initialEntry = "/") {
   return render(
-    <MemoryRouter initialEntries={["/"]}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <AuthContext.Provider value={authValue}>
         <RoleProvider>
           <Routes>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<div data-testid="content">content</div>} />
+              <Route path="*" element={<div data-testid="content">content</div>} />
             </Route>
           </Routes>
         </RoleProvider>
@@ -92,6 +92,33 @@ describe("AppLayout production mode", () => {
       "/admin/governance",
     );
     expect(screen.queryByRole("link", { name: /^Обзор$/ })).not.toBeInTheDocument();
+  });
+
+  it("marks only the most specific admin sidebar entry as active", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "clinic_admin");
+    renderLayout("/admin/governance");
+
+    expect(screen.getByRole("link", { name: /Операционный центр/ })).toHaveAttribute(
+      "data-active",
+      "false",
+    );
+    expect(screen.getByRole("link", { name: /Управление доступом/ })).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+  });
+
+  it("marks body map active without also marking the generic patients entry active", () => {
+    renderLayout("/patients/p-004/visits/v-005?tab=bodymap");
+
+    expect(screen.getByRole("link", { name: /^Пациенты$/ })).toHaveAttribute(
+      "data-active",
+      "false",
+    );
+    expect(screen.getByRole("link", { name: /Карта тела/ })).toHaveAttribute(
+      "data-active",
+      "true",
+    );
   });
 
   it("shows the private practice center entry only for private doctor", () => {

@@ -182,6 +182,15 @@ const PRODUCTION_NAV_BY_ROLE: Partial<Record<Role, NavGroup[]>> = {
   ],
 };
 
+const pathOnly = (path: string) => path.split("?")[0];
+
+const matchesPath = (pathname: string, itemUrl: string) => {
+  const targetPath = pathOnly(itemUrl);
+  return targetPath === "/"
+    ? pathname === "/"
+    : pathname === targetPath || pathname.startsWith(targetPath + "/");
+};
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -189,13 +198,6 @@ export function AppSidebar() {
   const { role } = useRole();
   const session = useSelfHostedApiSession();
   const productionMode = isProductionAppMode();
-
-  const isActive = (path: string) => {
-    const targetPath = path.split("?")[0];
-    return targetPath === "/"
-      ? pathname === "/"
-      : pathname === targetPath || pathname.startsWith(targetPath + "/");
-  };
 
   const productionRoles = selfHostedRoles(session);
   const roleGroups = productionMode
@@ -205,6 +207,10 @@ export function AppSidebar() {
     (group, index, all) => all.findIndex((candidate) => candidate.label === group.label) === index,
   );
   const groups = [...uniqueGroups, SHARED];
+  const activeUrl = groups
+    .flatMap((group) => group.items)
+    .filter((item) => matchesPath(pathname, item.url))
+    .sort((a, b) => pathOnly(b.url).length - pathOnly(a.url).length)[0]?.url;
 
   return (
     <Sidebar collapsible="icon">
@@ -225,7 +231,7 @@ export function AppSidebar() {
               <SidebarMenu>
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                    <SidebarMenuButton asChild isActive={item.url === activeUrl} tooltip={item.title}>
                       <NavLink to={item.url} end={item.url === "/"} className="flex items-center gap-2">
                         <item.icon className="h-4 w-4" />
                         {!collapsed && <span className="text-[13px]">{item.title}</span>}
