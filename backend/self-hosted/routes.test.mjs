@@ -3963,6 +3963,7 @@ function clinicalWorkspaceRuntime({
   visitLongitudinalTimelineRolloutProtectedReviewerValidation = null,
   visitLongitudinalTimelineRolloutProtectedReviewerEvidence = null,
   visitLongitudinalTimelineRolloutProductionDatasetEvidence = null,
+  visitLongitudinalTimelineRolloutProductionReviewerGovernance = null,
   protectedLesionImageDownload = null,
   reportPackage = null,
   photoProtocolRelease = null,
@@ -4169,6 +4170,13 @@ function clinicalWorkspaceRuntime({
         if (clinicalError) throw clinicalError;
         return {
           productionDatasetEvidence: visitLongitudinalTimelineRolloutProductionDatasetEvidence,
+          scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
+        };
+      },
+      async reviewVisitLongitudinalTimelineRolloutProductionReviewerGovernance() {
+        if (clinicalError) throw clinicalError;
+        return {
+          productionReviewerGovernance: visitLongitudinalTimelineRolloutProductionReviewerGovernance,
           scope: { allClinics: false, clinicIds: [STAGE4G_CLINIC_ID] },
         };
       },
@@ -7059,6 +7067,102 @@ test("Batch CF Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-
   assert.doesNotMatch(
     response.body,
     /"pairKey"|"imageIds"|patientRows|clinicOperationIds|longitudinalWindowIds|rawProductionDatasetEvidenceLog|productionDatasetEvidencePayload|productionDatasetEvidenceDetails|clinicOperationPayload|longitudinalFollowupPayload|protectedReviewerLinkagePayload|outcomeObservationPayload|incidentLinkagePayload|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
+test("Batch CG Stage 5H · PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/production-reviewer-governance stores aggregate-only governance", async () => {
+  const response = await request(
+    `/api/v1/visits/${STAGE4G_VISIT_ID}/longitudinal-timeline-rollout/production-reviewer-governance`,
+    configuredEnv,
+    clinicalWorkspaceRuntime({
+      visitLongitudinalTimelineRolloutProductionReviewerGovernance: {
+        id: "production-reviewer-governance-review-1",
+        clinicId: STAGE4G_CLINIC_ID,
+        patientId: STAGE4G_PATIENT_ID,
+        visitId: STAGE4G_VISIT_ID,
+        status: "in_review",
+        reasons: ["timeline_rollout_production_reviewer_governance_not_ready"],
+        productionDatasetEvidenceStatus: "not_started",
+        protectedReviewerEvidenceStatus: "not_started",
+        protectedReviewerGovernanceStatus: "not_started",
+        protectedReviewerValidationStatus: "not_started",
+        longitudinalClinicalValidationStatus: "not_started",
+        outcomeGovernanceStatus: "not_started",
+        exceptionGovernanceStatus: "not_started",
+        observationGovernanceStatus: "not_started",
+        postValidationMonitoringStatus: "not_started",
+        clinicalValidationStatus: "not_started",
+        incidentProcedureStatus: "not_started",
+        monitoringStatus: "not_started",
+        evidenceStatus: "not_started",
+        sopStatus: "not_started",
+        validationStatus: "blocked",
+        rolloutStatus: "review_required",
+        productionReviewerAssignmentStatus: "needs_review",
+        productionSecondReviewStatus: "needs_review",
+        productionAdjudicationStatus: "needs_review",
+        productionFollowupStatus: "needs_review",
+        productionExceptionStatus: "needs_review",
+        productionRollbackStatus: "needs_review",
+        ownerSignoffStatus: "needs_review",
+        productionReviewWindowCount: 0,
+        assignedProductionReviewerCount: 0,
+        secondReviewedProductionCount: 0,
+        adjudicatedProductionReviewCount: 0,
+        followupClosedProductionCount: 0,
+        exceptionClosedProductionCount: 0,
+        rollbackReadyProductionCount: 0,
+        unresolvedProductionReviewerGovernanceCount: 0,
+        blockerCount: 1,
+        lesionCount: 2,
+        readyTimelineCount: 1,
+        blockedTimelineCount: 1,
+        candidatePairCount: 3,
+        reviewerWorkflowReadyCount: 1,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-09T00:00:00.000Z",
+        createdAt: "2026-06-09T00:00:00.000Z",
+        updatedAt: "2026-06-09T00:00:00.000Z",
+      },
+    }),
+    "PATCH",
+    JSON.stringify({
+      productionReviewerGovernanceStatus: "ready_for_production_reviewer_governance",
+      productionReviewerGovernanceReasons: ["production_reviewer_governance_ready_no_patient_delivery"],
+      productionReviewerAssignmentStatus: "ready",
+      productionSecondReviewStatus: "ready",
+      productionAdjudicationStatus: "ready",
+      productionFollowupStatus: "ready",
+      productionExceptionStatus: "ready",
+      productionRollbackStatus: "ready",
+      ownerSignoffStatus: "ready",
+      productionReviewWindowCount: 8,
+      assignedProductionReviewerCount: 6,
+      secondReviewedProductionCount: 5,
+      adjudicatedProductionReviewCount: 4,
+      followupClosedProductionCount: 4,
+      exceptionClosedProductionCount: 2,
+      rollbackReadyProductionCount: 1,
+      unresolvedProductionReviewerGovernanceCount: 0,
+      blockerCount: 0,
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.stage, "5H");
+  assert.equal(response.json.source, "postgres");
+  assert.equal(response.json.item.status, "in_review");
+  assert.equal(response.json.item.productionDatasetEvidenceStatus, "not_started");
+  assert.equal(response.json.item.patientDeliveryAllowed, false);
+  assert.equal(response.json.item.medicalMeasurementAllowed, false);
+  assert.equal(response.json.item.protectedFieldsExposed, false);
+  assert.equal(response.json.item.clinicalOutputGenerated, false);
+  assert.doesNotMatch(
+    response.body,
+    /"pairKey"|"imageIds"|patientRows|rawProductionReviewerGovernanceLog|productionReviewerGovernancePayload|productionReviewerOpsPayload|object_bucket|object_key|storage_object_path|signed_url|access_token|photoRef|heatmapRef|modelVersion|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

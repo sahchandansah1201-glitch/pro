@@ -625,6 +625,11 @@ export type SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceS
   | "in_review"
   | "ready_for_production_dataset_evidence";
 
+export type SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus =
+  | "not_started"
+  | "in_review"
+  | "ready_for_production_reviewer_governance";
+
 export type SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus =
   | "missing"
   | "needs_review"
@@ -900,6 +905,27 @@ export interface VisitLongitudinalTimelineRolloutProductionDatasetEvidencePayloa
   observedOutcomeCount: number;
   incidentLinkedCount: number;
   unresolvedProductionDatasetEvidenceCount: number;
+  blockerCount: number;
+}
+
+export interface VisitLongitudinalTimelineRolloutProductionReviewerGovernancePayload {
+  productionReviewerGovernanceStatus: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus;
+  productionReviewerGovernanceReasons: string[];
+  productionReviewerAssignmentStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionSecondReviewStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionAdjudicationStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionFollowupStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionExceptionStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionRollbackStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  ownerSignoffStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionReviewWindowCount: number;
+  assignedProductionReviewerCount: number;
+  secondReviewedProductionCount: number;
+  adjudicatedProductionReviewCount: number;
+  followupClosedProductionCount: number;
+  exceptionClosedProductionCount: number;
+  rollbackReadyProductionCount: number;
+  unresolvedProductionReviewerGovernanceCount: number;
   blockerCount: number;
 }
 
@@ -1537,6 +1563,59 @@ export interface SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvid
   updatedAt: string | null;
 }
 
+export interface SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceDTO {
+  id: string;
+  clinicId: string | null;
+  patientId: string | null;
+  visitId: string | null;
+  status: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus;
+  reasons: string[];
+  productionDatasetEvidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus;
+  protectedReviewerEvidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus;
+  protectedReviewerGovernanceStatus: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceStatus;
+  protectedReviewerValidationStatus: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidationStatus;
+  longitudinalClinicalValidationStatus: SelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationStatus;
+  outcomeGovernanceStatus: SelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernanceStatus;
+  exceptionGovernanceStatus: SelfHostedVisitLongitudinalTimelineRolloutExceptionGovernanceStatus;
+  observationGovernanceStatus: SelfHostedVisitLongitudinalTimelineRolloutObservationGovernanceStatus;
+  postValidationMonitoringStatus: SelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus;
+  clinicalValidationStatus: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus;
+  incidentProcedureStatus: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus;
+  monitoringStatus: SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus;
+  evidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus;
+  sopStatus: SelfHostedVisitLongitudinalTimelineRolloutSopStatus;
+  validationStatus: SelfHostedVisitLongitudinalDatasetValidationStatus;
+  rolloutStatus: SelfHostedVisitLongitudinalTimelineRolloutStatus;
+  productionReviewerAssignmentStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionSecondReviewStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionAdjudicationStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionFollowupStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionExceptionStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionRollbackStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  ownerSignoffStatus: SelfHostedVisitLongitudinalTimelineRolloutSopChecklistStatus;
+  productionReviewWindowCount: number;
+  assignedProductionReviewerCount: number;
+  secondReviewedProductionCount: number;
+  adjudicatedProductionReviewCount: number;
+  followupClosedProductionCount: number;
+  exceptionClosedProductionCount: number;
+  rollbackReadyProductionCount: number;
+  unresolvedProductionReviewerGovernanceCount: number;
+  blockerCount: number;
+  lesionCount: number;
+  readyTimelineCount: number;
+  blockedTimelineCount: number;
+  candidatePairCount: number;
+  reviewerWorkflowReadyCount: number;
+  patientDeliveryAllowed: false;
+  medicalMeasurementAllowed: false;
+  protectedFieldsExposed: false;
+  clinicalOutputGenerated: false;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
   clinicId: string | null;
   patientId: string | null;
@@ -1608,6 +1687,7 @@ export interface SelfHostedVisitLongitudinalDatasetValidationDTO {
   timelineRolloutProtectedReviewerGovernance: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceDTO;
   timelineRolloutProtectedReviewerEvidence: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceDTO;
   timelineRolloutProductionDatasetEvidence: SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceDTO;
+  timelineRolloutProductionReviewerGovernance: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceDTO;
   nextActions: SelfHostedLesionLongitudinalQaAction[];
   boundaries: SelfHostedLesionLongitudinalQaDTO["boundaries"];
 }
@@ -1742,6 +1822,10 @@ interface PatchVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceArgs ext
 
 interface PatchVisitLongitudinalTimelineRolloutProductionDatasetEvidenceArgs extends VisitArgs {
   payload: VisitLongitudinalTimelineRolloutProductionDatasetEvidencePayload;
+}
+
+interface PatchVisitLongitudinalTimelineRolloutProductionReviewerGovernanceArgs extends VisitArgs {
+  payload: VisitLongitudinalTimelineRolloutProductionReviewerGovernancePayload;
 }
 
 interface LesionLongitudinalHistoryArgs extends BaseArgs {
@@ -2616,6 +2700,14 @@ function toVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus(
   value: unknown,
 ): SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus {
   return value === "in_review" || value === "ready_for_production_dataset_evidence"
+    ? value
+    : "not_started";
+}
+
+function toVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus(
+  value: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus {
+  return value === "in_review" || value === "ready_for_production_reviewer_governance"
     ? value
     : "not_started";
 }
@@ -3567,6 +3659,104 @@ function toVisitLongitudinalTimelineRolloutProductionDatasetEvidence(
   };
 }
 
+function toVisitLongitudinalTimelineRolloutProductionReviewerGovernance(
+  input: unknown,
+): SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceDTO {
+  const governance = isRecord(input) ? input : {};
+  return {
+    id: String(governance.id ?? ""),
+    clinicId: textOrNull(governance.clinicId),
+    patientId: textOrNull(governance.patientId),
+    visitId: textOrNull(governance.visitId),
+    status: toVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus(governance.status),
+    reasons: toStringArray(governance.reasons),
+    productionDatasetEvidenceStatus: toVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus(
+      governance.productionDatasetEvidenceStatus,
+    ),
+    protectedReviewerEvidenceStatus:
+      toVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus(
+        governance.protectedReviewerEvidenceStatus,
+      ),
+    protectedReviewerGovernanceStatus:
+      toVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceStatus(
+        governance.protectedReviewerGovernanceStatus,
+      ),
+    protectedReviewerValidationStatus:
+      toVisitLongitudinalTimelineRolloutProtectedReviewerValidationStatus(
+        governance.protectedReviewerValidationStatus,
+      ),
+    longitudinalClinicalValidationStatus:
+      toVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationStatus(
+        governance.longitudinalClinicalValidationStatus,
+      ),
+    outcomeGovernanceStatus: toVisitLongitudinalTimelineRolloutOutcomeGovernanceStatus(
+      governance.outcomeGovernanceStatus,
+    ),
+    exceptionGovernanceStatus: toVisitLongitudinalTimelineRolloutExceptionGovernanceStatus(
+      governance.exceptionGovernanceStatus,
+    ),
+    observationGovernanceStatus: toVisitLongitudinalTimelineRolloutObservationGovernanceStatus(
+      governance.observationGovernanceStatus,
+    ),
+    postValidationMonitoringStatus: toVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus(
+      governance.postValidationMonitoringStatus,
+    ),
+    clinicalValidationStatus: toVisitLongitudinalTimelineRolloutClinicalValidationStatus(
+      governance.clinicalValidationStatus,
+    ),
+    incidentProcedureStatus: toVisitLongitudinalTimelineRolloutIncidentProcedureStatus(
+      governance.incidentProcedureStatus,
+    ),
+    monitoringStatus: toVisitLongitudinalTimelineRolloutMonitoringStatus(governance.monitoringStatus),
+    evidenceStatus: toVisitLongitudinalTimelineRolloutEvidenceStatus(governance.evidenceStatus),
+    sopStatus: toVisitLongitudinalTimelineRolloutSopStatus(governance.sopStatus),
+    validationStatus: toVisitLongitudinalDatasetValidationStatus(governance.validationStatus),
+    rolloutStatus: toVisitLongitudinalTimelineRolloutStatus(governance.rolloutStatus),
+    productionReviewerAssignmentStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      governance.productionReviewerAssignmentStatus,
+    ),
+    productionSecondReviewStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      governance.productionSecondReviewStatus,
+    ),
+    productionAdjudicationStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      governance.productionAdjudicationStatus,
+    ),
+    productionFollowupStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      governance.productionFollowupStatus,
+    ),
+    productionExceptionStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      governance.productionExceptionStatus,
+    ),
+    productionRollbackStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(
+      governance.productionRollbackStatus,
+    ),
+    ownerSignoffStatus: toVisitLongitudinalTimelineRolloutSopChecklistStatus(governance.ownerSignoffStatus),
+    productionReviewWindowCount: numberOrZero(governance.productionReviewWindowCount),
+    assignedProductionReviewerCount: numberOrZero(governance.assignedProductionReviewerCount),
+    secondReviewedProductionCount: numberOrZero(governance.secondReviewedProductionCount),
+    adjudicatedProductionReviewCount: numberOrZero(governance.adjudicatedProductionReviewCount),
+    followupClosedProductionCount: numberOrZero(governance.followupClosedProductionCount),
+    exceptionClosedProductionCount: numberOrZero(governance.exceptionClosedProductionCount),
+    rollbackReadyProductionCount: numberOrZero(governance.rollbackReadyProductionCount),
+    unresolvedProductionReviewerGovernanceCount: numberOrZero(
+      governance.unresolvedProductionReviewerGovernanceCount,
+    ),
+    blockerCount: numberOrZero(governance.blockerCount),
+    lesionCount: numberOrZero(governance.lesionCount),
+    readyTimelineCount: numberOrZero(governance.readyTimelineCount),
+    blockedTimelineCount: numberOrZero(governance.blockedTimelineCount),
+    candidatePairCount: numberOrZero(governance.candidatePairCount),
+    reviewerWorkflowReadyCount: numberOrZero(governance.reviewerWorkflowReadyCount),
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+    reviewedAt: textOrNull(governance.reviewedAt),
+    createdAt: textOrNull(governance.createdAt),
+    updatedAt: textOrNull(governance.updatedAt),
+  };
+}
+
 function toVisitLongitudinalDatasetValidation(
   input: Record<string, unknown>,
 ): SelfHostedVisitLongitudinalDatasetValidationDTO {
@@ -3686,6 +3876,10 @@ function toVisitLongitudinalDatasetValidation(
     timelineRolloutProductionDatasetEvidence:
       toVisitLongitudinalTimelineRolloutProductionDatasetEvidence(
         input.timelineRolloutProductionDatasetEvidence,
+      ),
+    timelineRolloutProductionReviewerGovernance:
+      toVisitLongitudinalTimelineRolloutProductionReviewerGovernance(
+        input.timelineRolloutProductionReviewerGovernance,
       ),
     nextActions,
     boundaries: SAFE_LESION_LONGITUDINAL_QA_BOUNDARIES,
@@ -4137,6 +4331,20 @@ export async function reviewSelfHostedVisitLongitudinalTimelineRolloutProduction
     "PATCH",
     args.payload,
     toVisitLongitudinalTimelineRolloutProductionDatasetEvidence,
+  );
+}
+
+export async function reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernance(
+  args: PatchVisitLongitudinalTimelineRolloutProductionReviewerGovernanceArgs,
+): Promise<SelfHostedApiResult<SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceDTO | null>> {
+  const cfg = ensureConfigured(args);
+  if (cfg) return fail(cfg);
+  return requestJson(
+    visitUrl(args.apiBaseUrl, args.visitId, "/longitudinal-timeline-rollout/production-reviewer-governance"),
+    args.apiToken as string,
+    "PATCH",
+    args.payload,
+    toVisitLongitudinalTimelineRolloutProductionReviewerGovernance,
   );
 }
 

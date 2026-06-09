@@ -2896,6 +2896,44 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("clinicOperationPayload");
   });
 
+  it("posts production reviewer governance review without patient delivery or reviewer identity leaks", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Production reviewer governance" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать production reviewer governance/ }));
+    await screen.findByText(/Production reviewer governance metadata сохранён/);
+
+    const governanceCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith(
+          "/api/v1/visits/live-visit/longitudinal-timeline-rollout/production-reviewer-governance",
+        )
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(governanceCall).toBeTruthy();
+    const body = String((governanceCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("productionReviewerAssignmentStatus");
+    expect(body).toContain("productionSecondReviewStatus");
+    expect(body).toContain("productionAdjudicationStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("rawProductionReviewerGovernanceLog");
+    expect(body).not.toContain("productionReviewerGovernancePayload");
+    expect(body).not.toContain("reviewerName");
+    expect(body).not.toContain("reviewerEmail");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("rawProductionReviewerGovernanceLog");
+    expect(document.body.textContent).not.toContain("productionReviewerGovernancePayload");
+    expect(document.body.textContent).not.toContain("reviewerName");
+    expect(document.body.textContent).not.toContain("reviewerEmail");
+  });
+
   it("posts policy governance updates for photo release in production report tab", async () => {
     const fetchMock = createLiveWorkspaceFetchMock();
     vi.stubGlobal("fetch", fetchMock);

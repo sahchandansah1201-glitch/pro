@@ -2013,6 +2013,9 @@ export async function handleSelfHostedRequest(
   const visitLongitudinalTimelineRolloutProductionDatasetEvidenceMatch = url.pathname.match(
     /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/production-dataset-evidence$/,
   );
+  const visitLongitudinalTimelineRolloutProductionReviewerGovernanceMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/production-reviewer-governance$/,
+  );
   if (visitLongitudinalTimelineRolloutOutcomeGovernanceMatch && method === "PATCH") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -2120,6 +2123,32 @@ export async function handleSelfHostedRequest(
           stage: "5H",
           source: "postgres",
           item: result.productionDatasetEvidence,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+  if (visitLongitudinalTimelineRolloutProductionReviewerGovernanceMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result =
+        await runtimeServices.clinicalWorkspaceService.reviewVisitLongitudinalTimelineRolloutProductionReviewerGovernance(
+          decodeURIComponent(visitLongitudinalTimelineRolloutProductionReviewerGovernanceMatch[1]),
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+      return jsonResponse(
+        200,
+        {
+          ok: true,
+          stage: "5H",
+          source: "postgres",
+          item: result.productionReviewerGovernance,
         },
         config,
         requestOrigin,

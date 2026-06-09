@@ -2880,6 +2880,114 @@ Frontend behavior:
   until privacy/security/retention/session/approved-copy gates are explicitly
   closed.
 
+## Batch CG Production Reviewer Governance
+
+Batch CG closes the next production gate after Batch CF:
+approved reviewer-ops governance over time on production protected assets. The
+layer is still metadata-only and operational: it does not expose patient rows,
+pair keys, image IDs, reviewer identity, storage/object details, signed URLs,
+raw reviewer logs, medical measurements, diagnosis/risk/prognosis/treatment, or
+clinical dynamic conclusions.
+
+New migration:
+
+- `backend/self-hosted/db/migrations/0083_stage5h_production_reviewer_governance.sql`
+
+New metadata ledger:
+
+- `visit_longitudinal_timeline_rollout_production_reviewer_governance_reviews`
+
+The migration adds aggregate checklist and count fields for:
+
+- production reviewer assignment;
+- production second review;
+- production adjudication;
+- production follow-up closure;
+- production exception closure;
+- production rollback readiness;
+- owner signoff;
+- production review windows, assigned production reviewers, second-reviewed
+  production cases, adjudicated production reviews, closed production
+  follow-ups, closed production exceptions, rollback-ready production windows,
+  unresolved production reviewer governance, and blockers.
+
+Safety boundary:
+
+- `patient_delivery_allowed = false`
+- `medical_measurement_allowed = false`
+- `protected_fields_exposed = false`
+- `clinical_output_generated = false`
+
+Metadata guard:
+
+- `visit_longitudinal_timeline_rollout_production_reviewer_governance_metadata_no_protected_keys`
+  blocks pair keys, image IDs, asset/patient/case identifiers, raw production
+  reviewer governance logs, raw production reviewer ops/adjudication/follow-up/
+  exception/rollback payloads, storage/object fields, signed URLs,
+  QR/session/credential material, reviewer/validator identity,
+  doctor/patient text, diagnosis/risk/prognosis/treatment, measurement values,
+  and dynamic conclusion fields.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/production-reviewer-governance`
+  persists the metadata-only production reviewer governance review;
+- repository builder:
+  `buildReviewVisitLongitudinalTimelineRolloutProductionReviewerGovernanceSql`;
+- read model `buildGetVisitLongitudinalDatasetValidationSql` now includes
+  `timelineRolloutProductionReviewerGovernance`;
+- service normalizer:
+  `normalizeVisitLongitudinalTimelineRolloutProductionReviewerGovernancePayload`;
+- requested `ready_for_production_reviewer_governance` is downgraded to
+  `in_review` with reason
+  `timeline_rollout_production_reviewer_governance_not_ready` unless all prior
+  timeline rollout, clinical validation, protected reviewer, and production
+  dataset evidence gates are ready, all seven production reviewer governance
+  checklist items are ready, production reviewer counts are non-zero, unresolved
+  production reviewer governance is zero, and blockers are zero;
+- audit action:
+  `visit_longitudinal_timeline_rollout_production_reviewer_governance.review`;
+- audit metadata remains aggregate-only and records that patient delivery,
+  measurement, protected fields, clinical output, pair keys, image IDs, patient
+  rows, reviewer identity, raw production reviewer governance logs, and raw
+  production reviewer governance payloads are not exposed.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` adds region `Production reviewer governance` inside
+  `Готовность timeline QA`;
+- visible copy states:
+  `Production reviewer governance фиксирует только aggregate reviewer-ops metadata on production assets · Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.`
+- actions are `Зафиксировать production reviewer governance` and
+  `Утвердить production reviewer governance`;
+- approval is disabled until
+  `timelineRolloutProductionDatasetEvidence.status === "ready_for_production_dataset_evidence"`;
+- the UI shows only checklist labels and aggregate counters for assignment,
+  second review, adjudication, follow-up, exceptions, rollback, owner signoff,
+  production review windows, assigned reviewers, second reviews, adjudicated
+  reviews, closed follow-ups, closed exceptions, rollback readiness, unresolved
+  governance, and blockers.
+
+### Batch CG Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch CG closes the
+  production reviewer governance receipt over real protected assets after the
+  production dataset evidence gate. Remaining gate: monitored reviewer-ops
+  outcome evidence over time on production assets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch CG
+  records assignment, second review, adjudication, follow-up, exception,
+  rollback, and owner signoff as aggregate reviewer-ops governance metadata.
+  Remaining gate: reviewer-ops monitoring evidence over time on production
+  assets.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch CG keeps clinical
+  dynamic conclusion disabled and requires reviewer governance metadata before
+  any production dynamic-analysis gate can advance. Remaining gate: approved
+  monitoring/evidence procedure over production reviewer operations.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch CG is
+  doctor-side metadata-only reviewer governance; patient delivery remains off
+  until privacy/security/retention/session/approved-copy gates are explicitly
+  closed.
+
 ## Validation
 
 ```bash

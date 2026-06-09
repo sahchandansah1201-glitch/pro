@@ -2187,6 +2187,9 @@
           },
           "timelineRolloutProductionDatasetEvidence": {
             "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProductionDatasetEvidence"
+          },
+          "timelineRolloutProductionReviewerGovernance": {
+            "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProductionReviewerGovernance"
           }
         }
       },
@@ -8101,6 +8104,442 @@
             "minimum": 0
           }
         }
+      },
+      "VisitLongitudinalTimelineRolloutProductionReviewerGovernance": {
+        "type": "object",
+        "description": "Aggregate-only production reviewer governance metadata for real protected assets. Patient delivery, measurement, protected fields, and clinical output remain disabled.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clinicId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patientId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visitId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_reviewer_governance"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "protectedReviewerGovernanceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_protected_reviewer_governance"
+            ]
+          },
+          "protectedReviewerValidationStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_protected_reviewer_validation"
+            ]
+          },
+          "longitudinalClinicalValidationStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_longitudinal_clinical_validation"
+            ]
+          },
+          "outcomeGovernanceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_outcome_governance"
+            ]
+          },
+          "exceptionGovernanceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_exception_governance"
+            ]
+          },
+          "observationGovernanceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_observation_governance"
+            ]
+          },
+          "postValidationMonitoringStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_post_validation_monitoring"
+            ]
+          },
+          "clinicalValidationStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_clinical_validation"
+            ]
+          },
+          "incidentProcedureStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_clinic_monitoring"
+            ]
+          },
+          "monitoringStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_rollout"
+            ]
+          },
+          "evidenceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_monitored_rollout"
+            ]
+          },
+          "sopStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_operational_rollout"
+            ]
+          },
+          "validationStatus": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "needs_review",
+              "ready_for_rollout"
+            ]
+          },
+          "rolloutStatus": {
+            "type": "string",
+            "enum": [
+              "not_approved",
+              "review_required",
+              "approved_for_clinical_operations"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "blockerCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lesionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "readyTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockedTimelineCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidatePairCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewerWorkflowReadyCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "patientDeliveryAllowed": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "medicalMeasurementAllowed": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "protectedFieldsExposed": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "clinicalOutputGenerated": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "reviewedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "productionDatasetEvidenceStatus": {
+            "type": "string"
+          },
+          "productionReviewerAssignmentStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionSecondReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionAdjudicationStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionFollowupStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionExceptionStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionRollbackStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionReviewWindowCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "assignedProductionReviewerCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "secondReviewedProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "adjudicatedProductionReviewCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "followupClosedProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exceptionClosedProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackReadyProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedProductionReviewerGovernanceCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "VisitLongitudinalTimelineRolloutProductionReviewerGovernancePayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productionReviewerGovernanceStatus",
+          "productionReviewerGovernanceReasons",
+          "productionReviewerAssignmentStatus",
+          "productionSecondReviewStatus",
+          "productionAdjudicationStatus",
+          "productionFollowupStatus",
+          "productionExceptionStatus",
+          "productionRollbackStatus",
+          "ownerSignoffStatus",
+          "productionReviewWindowCount",
+          "assignedProductionReviewerCount",
+          "secondReviewedProductionCount",
+          "adjudicatedProductionReviewCount",
+          "followupClosedProductionCount",
+          "exceptionClosedProductionCount",
+          "rollbackReadyProductionCount",
+          "unresolvedProductionReviewerGovernanceCount",
+          "blockerCount"
+        ],
+        "properties": {
+          "productionReviewerGovernanceStatus": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_review",
+              "ready_for_production_reviewer_governance"
+            ]
+          },
+          "productionReviewerGovernanceReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "productionReviewerAssignmentStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionSecondReviewStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionAdjudicationStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionFollowupStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionExceptionStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionRollbackStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "ownerSignoffStatus": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "needs_review",
+              "ready"
+            ]
+          },
+          "productionReviewWindowCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "assignedProductionReviewerCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "secondReviewedProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "adjudicatedProductionReviewCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "followupClosedProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exceptionClosedProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rollbackReadyProductionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unresolvedProductionReviewerGovernanceCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blockerCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       }
     }
   },
@@ -9644,6 +10083,59 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/visits/{visitId}/longitudinal-timeline-rollout/production-reviewer-governance": {
+      "patch": {
+        "tags": [
+          "Stage 5H"
+        ],
+        "summary": "Review production reviewer governance for a visit longitudinal timeline rollout",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProductionReviewerGovernancePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Production dataset evidence review saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "$ref": "#/components/schemas/VisitLongitudinalTimelineRolloutProductionReviewerGovernance"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Stores aggregate-only reviewer-ops governance metadata for production protected assets. Patient delivery, measurement values, protected fields, and clinical output remain disabled."
       }
     }
   }
