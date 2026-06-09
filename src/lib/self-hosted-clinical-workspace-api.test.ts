@@ -14,6 +14,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutExceptionGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidation,
@@ -3520,6 +3521,136 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(result.value)).not.toMatch(
       /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawProtectedReviewerEvidenceLog|protectedReviewerEvidencePayload|reviewerMonitoringEvidencePayload|reviewerName|reviewerEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
+    );
+  });
+
+  it("reviews production dataset evidence through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "production-dataset-evidence-1",
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            status: "in_review",
+            reasons: ["timeline_rollout_production_dataset_evidence_not_ready"],
+            protectedReviewerEvidenceStatus: "not_started",
+            protectedReviewerGovernanceStatus: "not_started",
+            protectedReviewerValidationStatus: "not_started",
+            longitudinalClinicalValidationStatus: "not_started",
+            outcomeGovernanceStatus: "not_started",
+            exceptionGovernanceStatus: "not_started",
+            observationGovernanceStatus: "not_started",
+            postValidationMonitoringStatus: "not_started",
+            clinicalValidationStatus: "not_started",
+            incidentProcedureStatus: "not_started",
+            monitoringStatus: "not_started",
+            evidenceStatus: "not_started",
+            sopStatus: "not_started",
+            validationStatus: "blocked",
+            rolloutStatus: "review_required",
+            realClinicWindowStatus: "needs_review",
+            datasetSamplingStatus: "needs_review",
+            longitudinalFollowupStatus: "needs_review",
+            protectedReviewerLinkageStatus: "needs_review",
+            outcomeObservationStatus: "needs_review",
+            incidentLinkageStatus: "needs_review",
+            ownerSignoffStatus: "needs_review",
+            realClinicWindowCount: 0,
+            monitoredClinicOperationCount: 0,
+            sampledClinicOperationCount: 0,
+            longitudinalFollowupCount: 0,
+            protectedReviewerLinkedCount: 0,
+            observedOutcomeCount: 0,
+            incidentLinkedCount: 0,
+            unresolvedProductionDatasetEvidenceCount: 0,
+            blockerCount: 1,
+            lesionCount: 2,
+            readyTimelineCount: 1,
+            blockedTimelineCount: 1,
+            candidatePairCount: 3,
+            reviewerWorkflowReadyCount: 1,
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            clinicalOutputGenerated: true,
+            rawProductionDatasetEvidenceLog: "unsafe",
+            productionDatasetEvidencePayload: { unsafe: true },
+            clinicOperationPayload: { unsafe: true },
+            reviewerName: "Unsafe Name",
+            reviewerEmail: "unsafe@example.com",
+            pairKey: "secret-pair",
+            imageIds: ["i-011", "i-012"],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidence({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        productionDatasetEvidenceStatus: "ready_for_production_dataset_evidence",
+        productionDatasetEvidenceReasons: ["production_dataset_evidence_ready_no_patient_delivery"],
+        realClinicWindowStatus: "ready",
+        datasetSamplingStatus: "ready",
+        longitudinalFollowupStatus: "ready",
+        protectedReviewerLinkageStatus: "ready",
+        outcomeObservationStatus: "ready",
+        incidentLinkageStatus: "ready",
+        ownerSignoffStatus: "ready",
+        realClinicWindowCount: 8,
+        monitoredClinicOperationCount: 6,
+        sampledClinicOperationCount: 4,
+        longitudinalFollowupCount: 4,
+        protectedReviewerLinkedCount: 4,
+        observedOutcomeCount: 4,
+        incidentLinkedCount: 2,
+        unresolvedProductionDatasetEvidenceCount: 0,
+        blockerCount: 0,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.status).toBe("in_review");
+    expect(result.value?.protectedReviewerEvidenceStatus).toBe("not_started");
+    expect(result.value?.realClinicWindowStatus).toBe("needs_review");
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(result.value?.clinicalOutputGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-timeline-rollout/production-dataset-evidence",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          productionDatasetEvidenceStatus: "ready_for_production_dataset_evidence",
+          productionDatasetEvidenceReasons: ["production_dataset_evidence_ready_no_patient_delivery"],
+          realClinicWindowStatus: "ready",
+          datasetSamplingStatus: "ready",
+          longitudinalFollowupStatus: "ready",
+          protectedReviewerLinkageStatus: "ready",
+          outcomeObservationStatus: "ready",
+          incidentLinkageStatus: "ready",
+          ownerSignoffStatus: "ready",
+          realClinicWindowCount: 8,
+          monitoredClinicOperationCount: 6,
+          sampledClinicOperationCount: 4,
+          longitudinalFollowupCount: 4,
+          protectedReviewerLinkedCount: 4,
+          observedOutcomeCount: 4,
+          incidentLinkedCount: 2,
+          unresolvedProductionDatasetEvidenceCount: 0,
+          blockerCount: 0,
+        }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawProductionDatasetEvidenceLog|productionDatasetEvidencePayload|clinicOperationPayload|reviewerName|reviewerEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
     );
   });
 });

@@ -25,6 +25,7 @@ import {
   buildReviewVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationSql,
   buildReviewVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceSql,
   buildReviewVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceSql,
+  buildReviewVisitLongitudinalTimelineRolloutProductionDatasetEvidenceSql,
   buildReviewVisitLongitudinalTimelineRolloutProtectedReviewerValidationSql,
   buildReviewVisitLongitudinalTimelineRolloutPostValidationMonitoringSql,
   buildReviewVisitLongitudinalTimelineRolloutSopSql,
@@ -903,6 +904,72 @@ test("Batch CE Stage 5H repository builds metadata-only protected reviewer evide
   assert.doesNotMatch(
     sql,
     /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawProtectedReviewerEvidenceLog|protectedReviewerEvidencePayload|protectedReviewerEvidenceDetails|reviewerMonitoringEvidencePayload|reviewerExceptionEvidencePayload|reviewerRollbackEvidencePayload|reviewerArchiveEvidencePayload|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
+  );
+});
+
+test("Batch CF Stage 5H repository builds metadata-only production dataset evidence SQL", () => {
+  const sql = buildReviewVisitLongitudinalTimelineRolloutProductionDatasetEvidenceSql({
+    visitId: VISIT_ID,
+    patientId: PATIENT_ID,
+    clinicId: CLINIC_ID,
+    doctorUserId: USER_ID,
+    productionDatasetEvidence: {
+      productionDatasetEvidenceStatus: "ready_for_production_dataset_evidence",
+      productionDatasetEvidenceReasons: ["production_dataset_evidence_ready_no_patient_delivery"],
+      protectedReviewerEvidenceStatus: "ready_for_protected_reviewer_evidence",
+      protectedReviewerGovernanceStatus: "ready_for_protected_reviewer_governance",
+      protectedReviewerValidationStatus: "ready_for_protected_reviewer_validation",
+      longitudinalClinicalValidationStatus: "ready_for_longitudinal_clinical_validation",
+      outcomeGovernanceStatus: "ready_for_outcome_governance",
+      exceptionGovernanceStatus: "ready_for_exception_governance",
+      observationGovernanceStatus: "ready_for_observation_governance",
+      postValidationMonitoringStatus: "ready_for_post_validation_monitoring",
+      clinicalValidationStatus: "ready_for_clinical_validation",
+      incidentProcedureStatus: "ready_for_clinic_monitoring",
+      monitoringStatus: "ready_for_production_rollout",
+      evidenceStatus: "ready_for_monitored_rollout",
+      sopStatus: "ready_for_operational_rollout",
+      validationStatus: "ready_for_rollout",
+      rolloutStatus: "approved_for_clinical_operations",
+      realClinicWindowStatus: "ready",
+      datasetSamplingStatus: "ready",
+      longitudinalFollowupStatus: "ready",
+      protectedReviewerLinkageStatus: "ready",
+      outcomeObservationStatus: "ready",
+      incidentLinkageStatus: "ready",
+      ownerSignoffStatus: "ready",
+      realClinicWindowCount: 8,
+      monitoredClinicOperationCount: 6,
+      sampledClinicOperationCount: 4,
+      longitudinalFollowupCount: 4,
+      protectedReviewerLinkedCount: 4,
+      observedOutcomeCount: 4,
+      incidentLinkedCount: 2,
+      unresolvedProductionDatasetEvidenceCount: 0,
+      blockerCount: 0,
+      lesionCount: 2,
+      readyTimelineCount: 2,
+      blockedTimelineCount: 0,
+      candidatePairCount: 3,
+      reviewerWorkflowReadyCount: 3,
+    },
+    clinicIds: [CLINIC_ID],
+  });
+
+  assert.match(sql, /insert into visit_longitudinal_timeline_rollout_production_dataset_evidence_reviews/);
+  assert.match(sql, /production_dataset_evidence_status/);
+  assert.match(sql, /ready_for_production_dataset_evidence/);
+  assert.match(sql, /timelineRolloutProductionDatasetEvidenceBoundary/);
+  assert.match(sql, /productionDatasetEvidenceBoundary/);
+  assert.match(sql, /clinicOperationEvidenceBoundary/);
+  assert.match(sql, /longitudinalEvidenceBoundary/);
+  assert.match(sql, /patientDeliveryAllowed/);
+  assert.match(sql, /medicalMeasurementAllowed/);
+  assert.match(sql, /protectedFieldsExposed/);
+  assert.match(sql, /clinicalOutputGenerated/);
+  assert.doesNotMatch(
+    sql,
+    /"pairKey"\s*:|"imageIds"\s*:|objectBucket|objectKey|storagePath|storageObjectPath|signedUrl|rawProductionDatasetEvidenceLog|productionDatasetEvidencePayload|productionDatasetEvidenceDetails|clinicOperationPayload|longitudinalFollowupPayload|outcomeObservationPayload|incidentLinkagePayload|accessToken|qrToken|sessionId|reviewerName|reviewerEmail|validatorName|validatorEmail|doctorVersionText|patientSafeText|dynamicConclusion|diagnosis|riskScore/i,
   );
 });
 

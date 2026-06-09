@@ -51,6 +51,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernance,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidation,
   reviewSelfHostedVisitLongitudinalTimelineRolloutObservationGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernance,
@@ -71,6 +72,7 @@ import {
   type SelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceStatus,
+  type SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidationStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutObservationGovernanceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernanceStatus,
@@ -516,6 +518,8 @@ function ProductionClinicalWorkspacePanel({
   const [timelineRolloutLongitudinalClinicalValidationSaving, setTimelineRolloutLongitudinalClinicalValidationSaving] = useState(false);
   const [timelineRolloutProtectedReviewerGovernanceSaving, setTimelineRolloutProtectedReviewerGovernanceSaving] = useState(false);
   const [timelineRolloutProtectedReviewerEvidenceSaving, setTimelineRolloutProtectedReviewerEvidenceSaving] = useState(false);
+  const [timelineRolloutProductionDatasetEvidenceSaving, setTimelineRolloutProductionDatasetEvidenceSaving] =
+    useState(false);
   const [timelineRolloutProtectedReviewerValidationSaving, setTimelineRolloutProtectedReviewerValidationSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
@@ -1429,6 +1433,78 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Protected reviewer evidence metadata сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutProductionDatasetEvidence = async (
+    productionDatasetEvidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const protectedReviewerEvidence = validation.timelineRolloutProtectedReviewerEvidence;
+    const readyPayload = productionDatasetEvidenceStatus === "ready_for_production_dataset_evidence";
+    const evidenceReady =
+      readyPayload
+      && readiness.status === "ready_for_rollout"
+      && protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence";
+    const realClinicWindowCount = evidenceReady
+      ? Math.max(1, readiness.readyTimelineCount || readiness.candidatePairCount)
+      : 0;
+    const monitoredClinicOperationCount = evidenceReady
+      ? Math.max(1, Math.min(realClinicWindowCount, readiness.reviewerWorkflowReadyCount || realClinicWindowCount))
+      : 0;
+    const sampledClinicOperationCount = evidenceReady
+      ? Math.max(1, Math.min(monitoredClinicOperationCount, readiness.readyTimelineCount || 1))
+      : 0;
+    const longitudinalFollowupCount = evidenceReady
+      ? Math.max(1, Math.min(monitoredClinicOperationCount, sampledClinicOperationCount))
+      : 0;
+    const protectedReviewerLinkedCount = evidenceReady
+      ? Math.max(1, Math.min(monitoredClinicOperationCount, readiness.reviewerWorkflowReadyCount || 1))
+      : 0;
+    const observedOutcomeCount = evidenceReady
+      ? Math.max(1, Math.min(monitoredClinicOperationCount, readiness.readyTimelineCount || 1))
+      : 0;
+    const incidentLinkedCount = evidenceReady
+      ? Math.max(1, Math.min(observedOutcomeCount, 1))
+      : 0;
+    setTimelineRolloutProductionDatasetEvidenceSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidence({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        productionDatasetEvidenceStatus,
+        productionDatasetEvidenceReasons: evidenceReady
+          ? ["production_dataset_evidence_ready_no_patient_delivery"]
+          : ["production_dataset_evidence_requires_long_running_real_clinic_operations"],
+        realClinicWindowStatus: evidenceReady ? "ready" : "needs_review",
+        datasetSamplingStatus: evidenceReady ? "ready" : "needs_review",
+        longitudinalFollowupStatus: evidenceReady ? "ready" : "needs_review",
+        protectedReviewerLinkageStatus: evidenceReady ? "ready" : "needs_review",
+        outcomeObservationStatus: evidenceReady ? "ready" : "needs_review",
+        incidentLinkageStatus: evidenceReady ? "ready" : "needs_review",
+        ownerSignoffStatus: evidenceReady ? "ready" : "needs_review",
+        realClinicWindowCount,
+        monitoredClinicOperationCount,
+        sampledClinicOperationCount,
+        longitudinalFollowupCount,
+        protectedReviewerLinkedCount,
+        observedOutcomeCount,
+        incidentLinkedCount,
+        unresolvedProductionDatasetEvidenceCount: 0,
+        blockerCount: 0,
+      },
+    });
+    setTimelineRolloutProductionDatasetEvidenceSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить production dataset evidence.");
+      return;
+    }
+    await load();
+    setStatus("Production dataset evidence metadata сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -1478,6 +1554,7 @@ function ProductionClinicalWorkspacePanel({
                 longitudinalClinicalValidationSaving={timelineRolloutLongitudinalClinicalValidationSaving}
                 protectedReviewerEvidenceSaving={timelineRolloutProtectedReviewerEvidenceSaving}
                 protectedReviewerGovernanceSaving={timelineRolloutProtectedReviewerGovernanceSaving}
+                productionDatasetEvidenceSaving={timelineRolloutProductionDatasetEvidenceSaving}
                 protectedReviewerValidationSaving={timelineRolloutProtectedReviewerValidationSaving}
                 onReviewRollout={saveTimelineRollout}
                 onReviewSop={saveTimelineRolloutSop}
@@ -1492,6 +1569,7 @@ function ProductionClinicalWorkspacePanel({
                 onReviewLongitudinalClinicalValidation={saveTimelineRolloutLongitudinalClinicalValidation}
                 onReviewProtectedReviewerEvidence={saveTimelineRolloutProtectedReviewerEvidence}
                 onReviewProtectedReviewerGovernance={saveTimelineRolloutProtectedReviewerGovernance}
+                onReviewProductionDatasetEvidence={saveTimelineRolloutProductionDatasetEvidence}
                 onReviewProtectedReviewerValidation={saveTimelineRolloutProtectedReviewerValidation}
               />
             )}
@@ -1854,6 +1932,14 @@ function timelineRolloutProtectedReviewerEvidenceStatusLabel(
   return "Protected reviewer evidence не начат";
 }
 
+function timelineRolloutProductionDatasetEvidenceStatusLabel(
+  status: SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus,
+): string {
+  if (status === "ready_for_production_dataset_evidence") return "Production dataset evidence ready";
+  if (status === "in_review") return "Production dataset evidence review";
+  return "Production dataset evidence не начат";
+}
+
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
@@ -1895,6 +1981,7 @@ function LongitudinalDatasetValidationPanel({
   longitudinalClinicalValidationSaving,
   protectedReviewerEvidenceSaving,
   protectedReviewerGovernanceSaving,
+  productionDatasetEvidenceSaving,
   protectedReviewerValidationSaving,
   onReviewRollout,
   onReviewSop,
@@ -1909,6 +1996,7 @@ function LongitudinalDatasetValidationPanel({
   onReviewLongitudinalClinicalValidation,
   onReviewProtectedReviewerEvidence,
   onReviewProtectedReviewerGovernance,
+  onReviewProductionDatasetEvidence,
   onReviewProtectedReviewerValidation,
 }: {
   validation: SelfHostedVisitLongitudinalDatasetValidationDTO;
@@ -1925,6 +2013,7 @@ function LongitudinalDatasetValidationPanel({
   longitudinalClinicalValidationSaving: boolean;
   protectedReviewerEvidenceSaving: boolean;
   protectedReviewerGovernanceSaving: boolean;
+  productionDatasetEvidenceSaving: boolean;
   protectedReviewerValidationSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
   onReviewSop: (status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => void;
@@ -1952,6 +2041,9 @@ function LongitudinalDatasetValidationPanel({
   ) => void;
   onReviewProtectedReviewerGovernance: (
     status: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceStatus,
+  ) => void;
+  onReviewProductionDatasetEvidence: (
+    status: SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus,
   ) => void;
   onReviewProtectedReviewerValidation: (
     status: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidationStatus,
@@ -2160,6 +2252,57 @@ function LongitudinalDatasetValidationPanel({
     createdAt: null,
     updatedAt: null,
   };
+  const productionDatasetEvidence = validation.timelineRolloutProductionDatasetEvidence ?? {
+    id: "",
+    clinicId: null,
+    patientId: null,
+    visitId: null,
+    status: "not_started" as const,
+    reasons: [],
+    protectedReviewerEvidenceStatus: "not_started" as const,
+    protectedReviewerGovernanceStatus: "not_started" as const,
+    protectedReviewerValidationStatus: "not_started" as const,
+    longitudinalClinicalValidationStatus: "not_started" as const,
+    outcomeGovernanceStatus: "not_started" as const,
+    exceptionGovernanceStatus: "not_started" as const,
+    observationGovernanceStatus: "not_started" as const,
+    postValidationMonitoringStatus: "not_started" as const,
+    clinicalValidationStatus: "not_started" as const,
+    incidentProcedureStatus: "not_started" as const,
+    monitoringStatus: "not_started" as const,
+    evidenceStatus: "not_started" as const,
+    sopStatus: "not_started" as const,
+    validationStatus: "blocked" as const,
+    rolloutStatus: "not_approved" as const,
+    realClinicWindowStatus: "missing" as const,
+    datasetSamplingStatus: "missing" as const,
+    longitudinalFollowupStatus: "missing" as const,
+    protectedReviewerLinkageStatus: "missing" as const,
+    outcomeObservationStatus: "missing" as const,
+    incidentLinkageStatus: "missing" as const,
+    ownerSignoffStatus: "missing" as const,
+    realClinicWindowCount: 0,
+    monitoredClinicOperationCount: 0,
+    sampledClinicOperationCount: 0,
+    longitudinalFollowupCount: 0,
+    protectedReviewerLinkedCount: 0,
+    observedOutcomeCount: 0,
+    incidentLinkedCount: 0,
+    unresolvedProductionDatasetEvidenceCount: 0,
+    blockerCount: 0,
+    lesionCount: 0,
+    readyTimelineCount: 0,
+    blockedTimelineCount: 0,
+    candidatePairCount: 0,
+    reviewerWorkflowReadyCount: 0,
+    patientDeliveryAllowed: false as const,
+    medicalMeasurementAllowed: false as const,
+    protectedFieldsExposed: false as const,
+    clinicalOutputGenerated: false as const,
+    reviewedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  };
   const rolloutReady = readiness.status === "ready_for_rollout";
   const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
   const evidencePrerequisitesReady = sopPrerequisitesReady && sop.status === "ready_for_operational_rollout";
@@ -2192,6 +2335,9 @@ function LongitudinalDatasetValidationPanel({
   const protectedReviewerEvidencePrerequisitesReady =
     protectedReviewerGovernancePrerequisitesReady
     && protectedReviewerGovernance.status === "ready_for_protected_reviewer_governance";
+  const productionDatasetEvidencePrerequisitesReady =
+    protectedReviewerEvidencePrerequisitesReady
+    && protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -3133,6 +3279,72 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewProtectedReviewerEvidence("ready_for_protected_reviewer_evidence")}
           >
             Утвердить protected reviewer evidence
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Production dataset evidence"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Production dataset evidence</h4>
+            <p className="text-muted-foreground">
+              Production dataset evidence фиксирует только aggregate longitudinal evidence metadata across real clinical operations ·
+              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutProductionDatasetEvidenceStatusLabel(productionDatasetEvidence.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Real ops" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.realClinicWindowStatus)} />
+          <Field term="Sampling" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.datasetSamplingStatus)} />
+          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.longitudinalFollowupStatus)} />
+          <Field term="Reviewer link" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.protectedReviewerLinkageStatus)} />
+          <Field term="Observation" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.outcomeObservationStatus)} />
+          <Field term="Incidents" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.incidentLinkageStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(productionDatasetEvidence.ownerSignoffStatus)} />
+          <Field term="Windows" value={productionDatasetEvidence.realClinicWindowCount} />
+          <Field term="Monitored" value={productionDatasetEvidence.monitoredClinicOperationCount} />
+          <Field term="Sampled" value={productionDatasetEvidence.sampledClinicOperationCount} />
+          <Field term="Follow-up" value={productionDatasetEvidence.longitudinalFollowupCount} />
+          <Field term="Reviewer linked" value={productionDatasetEvidence.protectedReviewerLinkedCount} />
+          <Field term="Observed" value={productionDatasetEvidence.observedOutcomeCount} />
+          <Field term="Incident linked" value={productionDatasetEvidence.incidentLinkedCount} />
+          <Field term="Open evidence" value={productionDatasetEvidence.unresolvedProductionDatasetEvidenceCount} />
+          <Field term="Blockers" value={productionDatasetEvidence.blockerCount} />
+        </dl>
+        {productionDatasetEvidence.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {productionDatasetEvidence.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={productionDatasetEvidenceSaving}
+            onClick={() => onReviewProductionDatasetEvidence("in_review")}
+          >
+            Зафиксировать production dataset evidence
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={productionDatasetEvidenceSaving || !productionDatasetEvidencePrerequisitesReady}
+            onClick={() => onReviewProductionDatasetEvidence("ready_for_production_dataset_evidence")}
+          >
+            Утвердить production dataset evidence
           </Button>
         </div>
       </div>

@@ -2767,6 +2767,121 @@ Frontend behavior:
 
 ## Validation
 
+## Batch CF Production Dataset Evidence
+
+Batch CF extends Batch CE with the remaining long-running production dataset
+evidence layer across real clinical operations. The new gate stays
+metadata-only: no patient delivery, no medical measurement values, no
+clinical dynamic conclusion, no diagnosis/risk/prognosis/treatment, no pair
+keys, no image IDs, no patient rows, no clinic-operation identifiers, no
+storage or signed-URL fields, no raw dataset logs, and no reviewer or
+validator identity are exposed.
+
+New migration:
+
+- `backend/self-hosted/db/migrations/0082_stage5h_production_dataset_evidence.sql`
+
+New metadata ledger:
+
+- `visit_longitudinal_timeline_rollout_production_dataset_evidence_reviews`
+
+The migration adds aggregate checklist and count fields for:
+
+- real clinic window readiness;
+- dataset sampling readiness;
+- longitudinal follow-up coverage;
+- protected reviewer linkage;
+- outcome observation linkage;
+- incident linkage;
+- owner signoff;
+- real clinic windows, monitored clinic operations, sampled clinic operations,
+  longitudinal follow-up windows, protected reviewer linked windows,
+  observed outcomes, incident-linked operations, unresolved production dataset
+  evidence, and blockers.
+
+Safety boundary:
+
+- `patient_delivery_allowed = false`
+- `medical_measurement_allowed = false`
+- `protected_fields_exposed = false`
+- `clinical_output_generated = false`
+
+Metadata guard:
+
+- `visit_longitudinal_timeline_rollout_production_dataset_evidence_metadata_no_protected_keys`
+  blocks pair keys, image IDs, asset/patient/case identifiers,
+  clinic-operation identifiers, longitudinal-window identifiers, raw
+  production dataset logs, clinic-operation payloads, longitudinal follow-up
+  payloads, protected-reviewer linkage payloads, outcome-observation payloads,
+  incident-linkage payloads, storage/object fields, signed URLs,
+  QR/session/credential material, reviewer/validator identity, doctor/patient
+  text, diagnosis/risk/prognosis/treatment, measurement values, and dynamic
+  conclusion fields.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/production-dataset-evidence`
+  persists the metadata-only production dataset evidence review;
+- repository builder:
+  `buildReviewVisitLongitudinalTimelineRolloutProductionDatasetEvidenceSql`;
+- read model `buildGetVisitLongitudinalDatasetValidationSql` now includes
+  `timelineRolloutProductionDatasetEvidence`;
+- service normalizer:
+  `normalizeVisitLongitudinalTimelineRolloutProductionDatasetEvidencePayload`;
+- requested `ready_for_production_dataset_evidence` is downgraded to
+  `in_review` with reason
+  `timeline_rollout_production_dataset_evidence_not_ready` unless dataset
+  validation, rollout, SOP, evidence, monitoring, incident procedure,
+  clinical validation, post-validation monitoring, observation governance,
+  exception governance, outcome governance, longitudinal clinical validation,
+  protected reviewer validation, protected reviewer governance, protected
+  reviewer evidence, all seven production-dataset checklist items, zero
+  unresolved production dataset evidence counts, and zero blockers are ready;
+- audit action:
+  `visit_longitudinal_timeline_rollout_production_dataset_evidence.review`;
+- audit metadata remains aggregate-only and explicitly records that patient
+  delivery, measurement, protected fields, clinical output, pair keys, image
+  IDs, patient rows, raw production dataset logs, and raw production dataset
+  payloads are not exposed.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` adds region `Production dataset evidence` inside
+  `Готовность timeline QA`;
+- visible copy states:
+  `Production dataset evidence фиксирует только aggregate longitudinal evidence metadata across real clinical operations · Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.`
+- actions are `Зафиксировать production dataset evidence` and
+  `Утвердить production dataset evidence`;
+- approval is disabled until
+  `timelineRolloutProtectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence"`;
+- the UI shows only checklist labels and aggregate counters for real clinic
+  windows, sampling, longitudinal follow-up, protected reviewer linkage,
+  observed outcomes, incident linkage, unresolved evidence, and blockers.
+  No raw dataset logs, clinic-operation details, patient rows, pair keys,
+  image IDs, storage paths, signed URLs, doctor text, or patient text are
+  rendered.
+
+### Batch CF Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch CF closes the
+  long-running production dataset evidence receipt across real clinical
+  operations after the protected-reviewer stack. Remaining gate: approved
+  reviewer-ops governance over time on production assets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch CF
+  adds real-clinic operational evidence and protected-reviewer linkage as
+  aggregate readiness over longitudinal timelines. Remaining gate: approved
+  reviewer-ops governance over time on production assets.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch CF keeps
+  clinical dynamic conclusion disabled and records only aggregate production
+  evidence metadata. Remaining gate: approved longitudinal clinical validation
+  plus reviewer-ops governance over time on production assets.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch CF is
+  doctor-side metadata-only production evidence; patient delivery remains off
+  until privacy/security/retention/session/approved-copy gates are explicitly
+  closed.
+
+## Validation
+
 ```bash
 npm run preflight:stage5h
 npm run preflight:stage5g
