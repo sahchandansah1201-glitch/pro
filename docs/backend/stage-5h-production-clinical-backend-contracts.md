@@ -3003,3 +3003,67 @@ Expected:
 - Stage 5G still proves production does not fall back to mock clinical
   assessment/report data.
 - `package-lock.json` remains unchanged.
+
+## Batch CH Production Reviewer Evidence
+
+Batch CH closes the next metadata-only production gate after Batch CG:
+reviewer operations evidence over time on production assets. It records aggregate
+proof that production reviewer operations are being sampled, adjudicated,
+followed up, exception-reviewed, rollback-ready, and owner-signed before any
+future longitudinal clinical output can be considered.
+
+Backend contracts:
+
+- `backend/self-hosted/db/migrations/0084_stage5h_production_reviewer_evidence.sql`
+- table `visit_longitudinal_timeline_rollout_production_reviewer_evidence_reviews`
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/production-reviewer-evidence`
+- repository builder `buildReviewVisitLongitudinalTimelineRolloutProductionReviewerEvidenceSql`
+- service payload normalizer `normalizeVisitLongitudinalTimelineRolloutProductionReviewerEvidencePayload`
+- audit action `visit_longitudinal_timeline_rollout_production_reviewer_evidence.review`
+- OpenAPI schemas `VisitLongitudinalTimelineRolloutProductionReviewerEvidence` and
+  `VisitLongitudinalTimelineRolloutProductionReviewerEvidencePayload`
+- frontend client `reviewSelfHostedVisitLongitudinalTimelineRolloutProductionReviewerEvidence`
+- Visit report region `Production reviewer evidence`
+
+Readiness gate:
+
+- requested `ready_for_production_reviewer_evidence` is downgraded to `in_review`
+  with reason `timeline_rollout_production_reviewer_evidence_not_ready` unless all
+  upstream gates are ready, including Batch CG `ready_for_production_reviewer_governance`;
+- checklist fields are aggregate-only: assignment, second review, adjudication,
+  follow-up, exceptions, rollback, and owner signoff;
+- counters are aggregate-only: production review windows, assigned reviewers,
+  second reviews, adjudication, follow-up closure, exception closure, rollback
+  readiness, unresolved evidence, blockers, lesion/timeline/pair counts.
+
+Safety boundary:
+
+- no patient delivery;
+- no medical measurement;
+- no clinical dynamic conclusion;
+- no diagnosis, risk, prognosis, or treatment text;
+- no pair keys, image IDs, patient rows, raw reviewer logs, protected asset paths,
+  object storage keys, signed URLs, QR/session/credential material, reviewer names,
+  reviewer emails, validator names, validator emails, doctor-only text, or patient-safe text;
+- `patientDeliveryAllowed`, `medicalMeasurementAllowed`, `protectedFieldsExposed`,
+  and `clinicalOutputGenerated` are forced false in migration constraints,
+  backend normalizers, OpenAPI, client DTOs, audit metadata, and UI copy.
+
+### Batch CH Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch CH adds the
+  production reviewer evidence receipt over longitudinal production timelines.
+  Remaining gate: long-running cross-clinic operational evidence accumulation and
+  trend validation on real datasets.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch CH adds
+  aggregate evidence that reviewer operations over production assets are sampled,
+  second-reviewed, adjudicated, followed up, exception-reviewed, rollback-ready,
+  and owner-signed. Remaining gate: multi-clinic comparative governance and
+  reviewer operations trend rollups.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch CH keeps clinical
+  dynamic conclusions disabled and stores only aggregate evidence metadata.
+  Remaining gate: approved longitudinal clinical validation and production policy
+  before any clinical output.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch CH remains
+  doctor-side metadata-only; patient delivery stays off until privacy, security,
+  retention, session, and approved-copy gates are closed.

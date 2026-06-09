@@ -20,6 +20,7 @@ import {
   normalizeVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationPayload,
   normalizeVisitLongitudinalTimelineRolloutProtectedReviewerEvidencePayload,
   normalizeVisitLongitudinalTimelineRolloutProductionDatasetEvidencePayload,
+  normalizeVisitLongitudinalTimelineRolloutProductionReviewerEvidencePayload,
   normalizeVisitLongitudinalTimelineRolloutProductionReviewerGovernancePayload,
   normalizeVisitLongitudinalTimelineRolloutProtectedReviewerGovernancePayload,
   normalizeVisitLongitudinalTimelineRolloutProtectedReviewerValidationPayload,
@@ -1463,6 +1464,74 @@ function createService({ auditEvents = [], repo = {} } = {}) {
         blockedTimelineCount: productionReviewerGovernance.blockedTimelineCount,
         candidatePairCount: productionReviewerGovernance.candidatePairCount,
         reviewerWorkflowReadyCount: productionReviewerGovernance.reviewerWorkflowReadyCount,
+        patientDeliveryAllowed: false,
+        medicalMeasurementAllowed: false,
+        protectedFieldsExposed: false,
+        clinicalOutputGenerated: false,
+        reviewedAt: "2026-06-09T00:00:00.000Z",
+      };
+    },
+    async reviewVisitLongitudinalTimelineRolloutProductionReviewerEvidence({
+      productionReviewerEvidence,
+    }) {
+      return {
+        id: "production-reviewer-evidence-review-1",
+        clinicId: CLINIC_ID,
+        patientId: PATIENT_ID,
+        visitId: VISIT_ID,
+        status: productionReviewerEvidence.productionReviewerEvidenceStatus,
+        reasons: productionReviewerEvidence.productionReviewerEvidenceReasons,
+        productionDatasetEvidenceStatus: productionReviewerEvidence.productionDatasetEvidenceStatus,
+        productionReviewerGovernanceStatus:
+          productionReviewerEvidence.productionReviewerGovernanceStatus,
+        protectedReviewerEvidenceStatus: productionReviewerEvidence.protectedReviewerEvidenceStatus,
+        protectedReviewerGovernanceStatus:
+          productionReviewerEvidence.protectedReviewerGovernanceStatus,
+        protectedReviewerValidationStatus:
+          productionReviewerEvidence.protectedReviewerValidationStatus,
+        longitudinalClinicalValidationStatus:
+          productionReviewerEvidence.longitudinalClinicalValidationStatus,
+        outcomeGovernanceStatus: productionReviewerEvidence.outcomeGovernanceStatus,
+        exceptionGovernanceStatus: productionReviewerEvidence.exceptionGovernanceStatus,
+        observationGovernanceStatus: productionReviewerEvidence.observationGovernanceStatus,
+        postValidationMonitoringStatus:
+          productionReviewerEvidence.postValidationMonitoringStatus,
+        clinicalValidationStatus: productionReviewerEvidence.clinicalValidationStatus,
+        incidentProcedureStatus: productionReviewerEvidence.incidentProcedureStatus,
+        monitoringStatus: productionReviewerEvidence.monitoringStatus,
+        evidenceStatus: productionReviewerEvidence.evidenceStatus,
+        sopStatus: productionReviewerEvidence.sopStatus,
+        validationStatus: productionReviewerEvidence.validationStatus,
+        rolloutStatus: productionReviewerEvidence.rolloutStatus,
+        productionReviewerAssignmentStatus:
+          productionReviewerEvidence.productionReviewerAssignmentStatus,
+        productionSecondReviewStatus: productionReviewerEvidence.productionSecondReviewStatus,
+        productionAdjudicationStatus: productionReviewerEvidence.productionAdjudicationStatus,
+        productionFollowupStatus: productionReviewerEvidence.productionFollowupStatus,
+        productionExceptionStatus: productionReviewerEvidence.productionExceptionStatus,
+        productionRollbackStatus: productionReviewerEvidence.productionRollbackStatus,
+        ownerSignoffStatus: productionReviewerEvidence.ownerSignoffStatus,
+        productionReviewWindowCount: productionReviewerEvidence.productionReviewWindowCount,
+        assignedProductionReviewerCount:
+          productionReviewerEvidence.assignedProductionReviewerCount,
+        secondReviewedProductionCount:
+          productionReviewerEvidence.secondReviewedProductionCount,
+        adjudicatedProductionReviewCount:
+          productionReviewerEvidence.adjudicatedProductionReviewCount,
+        followupClosedProductionCount:
+          productionReviewerEvidence.followupClosedProductionCount,
+        exceptionClosedProductionCount:
+          productionReviewerEvidence.exceptionClosedProductionCount,
+        rollbackReadyProductionCount:
+          productionReviewerEvidence.rollbackReadyProductionCount,
+        unresolvedProductionReviewerEvidenceCount:
+          productionReviewerEvidence.unresolvedProductionReviewerEvidenceCount,
+        blockerCount: productionReviewerEvidence.blockerCount,
+        lesionCount: productionReviewerEvidence.lesionCount,
+        readyTimelineCount: productionReviewerEvidence.readyTimelineCount,
+        blockedTimelineCount: productionReviewerEvidence.blockedTimelineCount,
+        candidatePairCount: productionReviewerEvidence.candidatePairCount,
+        reviewerWorkflowReadyCount: productionReviewerEvidence.reviewerWorkflowReadyCount,
         patientDeliveryAllowed: false,
         medicalMeasurementAllowed: false,
         protectedFieldsExposed: false,
@@ -4054,6 +4123,64 @@ test("Batch CG Stage 5H service reviews production reviewer governance with down
   );
 });
 
+test("Batch CH Stage 5H service reviews production reviewer evidence with downgrade and aggregate-only audit", async () => {
+  const auditEvents = [];
+  const service = createService({ auditEvents });
+
+  const result = await service.reviewVisitLongitudinalTimelineRolloutProductionReviewerEvidence(
+    VISIT_ID,
+    {
+      productionReviewerEvidenceStatus: "ready_for_production_reviewer_evidence",
+      productionReviewerEvidenceReasons: ["production_reviewer_evidence_ready_no_patient_delivery"],
+      productionReviewerAssignmentStatus: "ready",
+      productionSecondReviewStatus: "ready",
+      productionAdjudicationStatus: "ready",
+      productionFollowupStatus: "ready",
+      productionExceptionStatus: "ready",
+      productionRollbackStatus: "ready",
+      ownerSignoffStatus: "ready",
+      productionReviewWindowCount: 8,
+      assignedProductionReviewerCount: 6,
+      secondReviewedProductionCount: 5,
+      adjudicatedProductionReviewCount: 4,
+      followupClosedProductionCount: 4,
+      exceptionClosedProductionCount: 2,
+      rollbackReadyProductionCount: 1,
+      unresolvedProductionReviewerEvidenceCount: 0,
+      blockerCount: 0,
+    },
+    authContext,
+    { correlationId: "c32" },
+  );
+
+  assert.equal(result.productionReviewerEvidence.status, "in_review");
+  assert.deepEqual(result.productionReviewerEvidence.reasons, [
+    "production_reviewer_evidence_ready_no_patient_delivery",
+    "timeline_rollout_production_reviewer_evidence_not_ready",
+  ]);
+  assert.equal(result.productionReviewerEvidence.productionReviewerGovernanceStatus, "not_started");
+  assert.equal(result.productionReviewerEvidence.patientDeliveryAllowed, false);
+  assert.equal(result.productionReviewerEvidence.medicalMeasurementAllowed, false);
+  assert.equal(result.productionReviewerEvidence.protectedFieldsExposed, false);
+  assert.equal(result.productionReviewerEvidence.clinicalOutputGenerated, false);
+  assert.equal(
+    auditEvents.at(-1).action,
+    "visit_longitudinal_timeline_rollout_production_reviewer_evidence.review",
+  );
+  assert.equal(auditEvents.at(-1).metadata.productionReviewerEvidenceStatus, "in_review");
+  assert.equal(auditEvents.at(-1).metadata.productionReviewerGovernanceStatus, "not_started");
+  assert.equal(auditEvents.at(-1).metadata.productionReviewWindowCount, 8);
+  assert.equal(auditEvents.at(-1).metadata.assignedProductionReviewerCount, 6);
+  assert.equal(auditEvents.at(-1).metadata.evidenceChecklistReady, true);
+  assert.equal(auditEvents.at(-1).metadata.aggregateEvidenceReady, true);
+  assert.equal(auditEvents.at(-1).metadata.patientDeliveryAllowed, false);
+  assert.equal(auditEvents.at(-1).metadata.rawProductionReviewerEvidenceLogsExposed, false);
+  assert.doesNotMatch(
+    JSON.stringify(result.productionReviewerEvidence) + JSON.stringify(auditEvents.at(-1)),
+    /i-011|i-012|"pairKey"\s*:|"imageIds"\s*:|"storagePath"\s*:|"signedUrl"\s*:|"rawProductionReviewerEvidenceLog"\s*:|"productionReviewerEvidencePayload"\s*:|"productionReviewerOpsPayload"\s*:|photoRef|heatmapRef|modelVersion|token|session|qr|reviewerName|reviewerEmail|validatorName|validatorEmail|dynamicConclusion|diagnosis|riskScore|меланома|рак кожи/i,
+  );
+});
+
 test("Batch BZ Stage 5H exception governance payload rejects protected and clinical fields", () => {
   const base = {
     exceptionGovernanceStatus: "ready_for_exception_governance",
@@ -4399,6 +4526,50 @@ test("Batch CG Stage 5H production reviewer governance payload rejects protected
   );
   assert.throws(
     () => normalizeVisitLongitudinalTimelineRolloutProductionReviewerGovernancePayload({
+      ...base,
+      secondReviewedProductionCount: 7,
+    }),
+    VisitWorkspaceValidationError,
+  );
+});
+
+test("Batch CH Stage 5H production reviewer evidence payload rejects protected and clinical fields", () => {
+  const base = {
+    productionReviewerEvidenceStatus: "ready_for_production_reviewer_evidence",
+    productionReviewerEvidenceReasons: ["готово"],
+    productionReviewerAssignmentStatus: "ready",
+    productionSecondReviewStatus: "ready",
+    productionAdjudicationStatus: "ready",
+    productionFollowupStatus: "ready",
+    productionExceptionStatus: "ready",
+    productionRollbackStatus: "ready",
+    ownerSignoffStatus: "ready",
+    productionReviewWindowCount: 8,
+    assignedProductionReviewerCount: 6,
+    secondReviewedProductionCount: 5,
+    adjudicatedProductionReviewCount: 4,
+    followupClosedProductionCount: 4,
+    exceptionClosedProductionCount: 2,
+    rollbackReadyProductionCount: 1,
+    unresolvedProductionReviewerEvidenceCount: 0,
+    blockerCount: 0,
+  };
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutProductionReviewerEvidencePayload({
+      ...base,
+      rawProductionReviewerEvidenceLog: [{ unsafe: true }],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutProductionReviewerEvidencePayload({
+      ...base,
+      productionReviewerEvidenceReasons: ["клинический диагноз подтверждён"],
+    }),
+    VisitWorkspaceValidationError,
+  );
+  assert.throws(
+    () => normalizeVisitLongitudinalTimelineRolloutProductionReviewerEvidencePayload({
       ...base,
       secondReviewedProductionCount: 7,
     }),

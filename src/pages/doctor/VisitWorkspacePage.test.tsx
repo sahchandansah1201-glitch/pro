@@ -1421,6 +1421,68 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/production-reviewer-evidence")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-production-reviewer-evidence-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_production_reviewer_evidence_not_ready"],
+              productionDatasetEvidenceStatus: "not_started",
+              productionReviewerGovernanceStatus: "not_started",
+              protectedReviewerEvidenceStatus: "not_started",
+              protectedReviewerGovernanceStatus: "not_started",
+              protectedReviewerValidationStatus: "not_started",
+              longitudinalClinicalValidationStatus: "not_started",
+              outcomeGovernanceStatus: "not_started",
+              exceptionGovernanceStatus: "not_started",
+              observationGovernanceStatus: "not_started",
+              postValidationMonitoringStatus: "not_started",
+              clinicalValidationStatus: "not_started",
+              incidentProcedureStatus: "not_started",
+              monitoringStatus: "not_started",
+              evidenceStatus: "not_started",
+              sopStatus: "not_started",
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              productionReviewerAssignmentStatus: "needs_review",
+              productionSecondReviewStatus: "needs_review",
+              productionAdjudicationStatus: "needs_review",
+              productionFollowupStatus: "needs_review",
+              productionExceptionStatus: "needs_review",
+              productionRollbackStatus: "needs_review",
+              ownerSignoffStatus: "needs_review",
+              productionReviewWindowCount: 0,
+              assignedProductionReviewerCount: 0,
+              secondReviewedProductionCount: 0,
+              adjudicatedProductionReviewCount: 0,
+              followupClosedProductionCount: 0,
+              exceptionClosedProductionCount: 0,
+              rollbackReadyProductionCount: 0,
+              unresolvedProductionReviewerEvidenceCount: 0,
+              blockerCount: 1,
+              lesionCount: 1,
+              readyTimelineCount: 0,
+              blockedTimelineCount: 1,
+              candidatePairCount: 1,
+              reviewerWorkflowReadyCount: 0,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-09T00:00:00.000Z",
+              createdAt: "2026-06-09T00:00:00.000Z",
+              updatedAt: "2026-06-09T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
     if (href.endsWith("/api/v1/visits/live-visit/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20")) {
       return Promise.resolve(
         new Response(
@@ -2930,6 +2992,44 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("imageIds");
     expect(document.body.textContent).not.toContain("rawProductionReviewerGovernanceLog");
     expect(document.body.textContent).not.toContain("productionReviewerGovernancePayload");
+    expect(document.body.textContent).not.toContain("reviewerName");
+    expect(document.body.textContent).not.toContain("reviewerEmail");
+  });
+
+  it("posts production reviewer evidence review without patient delivery or reviewer identity leaks", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Production reviewer evidence" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать production reviewer evidence/ }));
+    await screen.findByText(/Production reviewer evidence metadata сохранён/);
+
+    const evidenceCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith(
+          "/api/v1/visits/live-visit/longitudinal-timeline-rollout/production-reviewer-evidence",
+        )
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(evidenceCall).toBeTruthy();
+    const body = String((evidenceCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("productionReviewerAssignmentStatus");
+    expect(body).toContain("productionSecondReviewStatus");
+    expect(body).toContain("productionAdjudicationStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("rawProductionReviewerEvidenceLog");
+    expect(body).not.toContain("productionReviewerEvidencePayload");
+    expect(body).not.toContain("reviewerName");
+    expect(body).not.toContain("reviewerEmail");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("rawProductionReviewerEvidenceLog");
+    expect(document.body.textContent).not.toContain("productionReviewerEvidencePayload");
     expect(document.body.textContent).not.toContain("reviewerName");
     expect(document.body.textContent).not.toContain("reviewerEmail");
   });
