@@ -2412,6 +2412,18 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Нужен переснимок/)).toBeInTheDocument();
     expect(screen.getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
     expect(await screen.findByRole("region", { name: "Готовность timeline QA" })).toBeInTheDocument();
+    const timelineFocus = await screen.findByRole("region", { name: "Рабочий шаг timeline QA" });
+    expect(within(timelineFocus).getByText(/Что делать сейчас/)).toBeInTheDocument();
+    expect(within(timelineFocus).getByText(/Следующий шаг: Закрыть блокеры данных/)).toBeInTheDocument();
+    expect(within(timelineFocus).getByText(/Ближайшее действие:/)).toBeInTheDocument();
+    expect(within(timelineFocus).getByText(/Дозаполнить metadata/)).toBeInTheDocument();
+    expect(within(timelineFocus).getByText(/Первый блокер: Не хватает metadata съёмки · 1/)).toBeInTheDocument();
+    expect(within(timelineFocus).getByText(/Прогресс проверки: 0\/8/)).toBeInTheDocument();
+    expect(within(timelineFocus).getByRole("link", { name: /Открыть очаги с блокерами/ })).toHaveAttribute(
+      "href",
+      "#timeline-qa-lesions",
+    );
+    expect(within(timelineFocus).getByRole("list", { name: "Этапы timeline QA" })).toBeInTheDocument();
     expect(screen.getByText(/Production dataset validation/)).toBeInTheDocument();
     expect(screen.getByText(/не создаёт вывод о динамике/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Контур timeline rollout" })).toBeInTheDocument();
@@ -2460,7 +2472,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(screen.getByText(/Protected reviewer validation фиксирует только aggregate reviewer operations metadata on protected assets/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Утвердить protected reviewer validation/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Зафиксировать protected reviewer validation/ })).toBeInTheDocument();
-    expect(screen.getByText(/Дозаполнить metadata/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Дозаполнить metadata/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
     expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
     expect(screen.getByText(/Проверить Device Bridge/)).toBeInTheDocument();

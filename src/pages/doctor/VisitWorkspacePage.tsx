@@ -2132,6 +2132,14 @@ function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatas
   return "Открыть очередь";
 }
 
+type TimelineQaStep = {
+  key: string;
+  label: string;
+  done: boolean;
+  statusLabel: string;
+  nextActionLabel: string;
+};
+
 function LongitudinalDatasetValidationPanel({
   validation,
   saving,
@@ -2627,6 +2635,82 @@ function LongitudinalDatasetValidationPanel({
   const productionReviewerEvidencePrerequisitesReady =
     productionReviewerGovernancePrerequisitesReady
     && productionReviewerGovernance.status === "ready_for_production_reviewer_governance";
+  const timelineQaSteps: TimelineQaStep[] = [
+    {
+      key: "dataset",
+      label: "Данные",
+      done: rolloutReady,
+      statusLabel: longitudinalDatasetStatusLabel(readiness.status),
+      nextActionLabel: "Закрыть блокеры данных",
+    },
+    {
+      key: "rollout",
+      label: "Запуск",
+      done: rollout.status === "approved_for_clinical_operations",
+      statusLabel: timelineRolloutStatusLabel(rollout.status),
+      nextActionLabel: "Разобрать запуск",
+    },
+    {
+      key: "sop",
+      label: "SOP",
+      done: sop.status === "ready_for_operational_rollout",
+      statusLabel: timelineRolloutSopStatusLabel(sop.status),
+      nextActionLabel: "Закрыть SOP",
+    },
+    {
+      key: "monitoring",
+      label: "Мониторинг",
+      done: monitoring.status === "ready_for_production_rollout",
+      statusLabel: timelineRolloutMonitoringStatusLabel(monitoring.status),
+      nextActionLabel: "Подтвердить мониторинг",
+    },
+    {
+      key: "clinical",
+      label: "Валидация",
+      done: longitudinalClinicalValidation.status === "ready_for_longitudinal_clinical_validation",
+      statusLabel: timelineRolloutLongitudinalClinicalValidationStatusLabel(longitudinalClinicalValidation.status),
+      nextActionLabel: "Проверить валидацию",
+    },
+    {
+      key: "protected-review",
+      label: "Защищённый review",
+      done: protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence",
+      statusLabel: timelineRolloutProtectedReviewerEvidenceStatusLabel(protectedReviewerEvidence.status),
+      nextActionLabel: "Закрыть защищённый review",
+    },
+    {
+      key: "production-dataset",
+      label: "Пром. данные",
+      done: productionDatasetEvidence.status === "ready_for_production_dataset_evidence",
+      statusLabel: timelineRolloutProductionDatasetEvidenceStatusLabel(productionDatasetEvidence.status),
+      nextActionLabel: "Проверить пром. данные",
+    },
+    {
+      key: "production-review",
+      label: "Пром. review",
+      done: productionReviewerEvidence.status === "ready_for_production_reviewer_evidence",
+      statusLabel: timelineRolloutProductionReviewerEvidenceStatusLabel(productionReviewerEvidence.status),
+      nextActionLabel: "Закрыть пром. review",
+    },
+  ];
+  const completedTimelineQaSteps = timelineQaSteps.filter((step) => step.done).length;
+  const currentTimelineQaStepIndex = timelineQaSteps.findIndex((step) => !step.done);
+  const currentTimelineQaStep =
+    currentTimelineQaStepIndex >= 0 ? timelineQaSteps[currentTimelineQaStepIndex] : timelineQaSteps[timelineQaSteps.length - 1];
+  const firstVisibleItemAction = validation.items[0]?.nextAction;
+  const firstGlobalAction = validation.nextActions[0];
+  const nextGateActionLabel =
+    !rolloutReady && firstVisibleItemAction
+      ? longitudinalDatasetActionLabel(firstVisibleItemAction)
+      : !rolloutReady && firstGlobalAction
+        ? longitudinalDatasetActionLabel(firstGlobalAction)
+        : currentTimelineQaStep?.nextActionLabel ?? "Проверить следующий gate";
+  const primaryActionHref = !rolloutReady && validation.items.length > 0
+    ? "#timeline-qa-lesions"
+    : "#timeline-rollout-details";
+  const primaryActionLabel = !rolloutReady && validation.items.length > 0
+    ? "Открыть очаги с блокерами"
+    : "Открыть детальный аудит";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -2688,6 +2772,61 @@ function LongitudinalDatasetValidationPanel({
         </div>
       )}
       <div
+        role="region"
+        aria-label="Рабочий шаг timeline QA"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2.5"
+      >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
+            <h4 className="mt-1 text-[13px] font-semibold">
+              Следующий шаг: {currentTimelineQaStep?.nextActionLabel ?? "Проверить timeline QA"}
+            </h4>
+            <p className="mt-1 text-muted-foreground">
+              Ближайшее действие: <span className="font-medium text-foreground">{nextGateActionLabel}</span>. Динамический вывод
+              выключен, выдача пациенту выключена.
+            </p>
+            {validation.blockers.length > 0 && (
+              <p className="mt-1 text-muted-foreground">
+                Первый блокер: {validation.blockers[0].label} · {validation.blockers[0].count}
+              </p>
+            )}
+          </div>
+          <div className="flex min-w-[180px] flex-col items-start gap-2 lg:items-end">
+            <span className="rounded-sm border border-border bg-surface px-2 py-1 text-[12px] font-medium">
+              Прогресс проверки: {completedTimelineQaSteps}/{timelineQaSteps.length}
+            </span>
+            <Button asChild size="sm" className="h-8 text-[12px]">
+              <a href={primaryActionHref}>{primaryActionLabel}</a>
+            </Button>
+          </div>
+        </div>
+        <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8" aria-label="Этапы timeline QA">
+          {timelineQaSteps.map((step, index) => {
+            const state = step.done ? "done" : index === currentTimelineQaStepIndex ? "current" : "locked";
+            const stateLabel = step.done ? "закрыто" : state === "current" ? "текущий шаг" : "ожидает";
+            const stateClass = step.done
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : state === "current"
+                ? "border-amber-300 bg-amber-50 text-amber-950"
+                : "border-border bg-surface text-muted-foreground";
+            return (
+              <li key={step.key} className={`min-w-0 rounded-sm border px-2 py-1.5 ${stateClass}`}>
+                <div className="flex items-center gap-1.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
+                    {index + 1}
+                  </span>
+                  <span className="truncate text-[12px] font-medium">{step.label}</span>
+                </div>
+                <p className="mt-1 truncate text-[11px]">{stateLabel}</p>
+                <p className="mt-0.5 truncate text-[11px] opacity-80">{step.statusLabel}</p>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+      <div
+        id="timeline-rollout-details"
         role="region"
         aria-label="Контур timeline rollout"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
@@ -3770,7 +3909,7 @@ function LongitudinalDatasetValidationPanel({
         </div>
       </div>
       {validation.items.length > 0 ? (
-        <ol className="mt-3 grid grid-cols-1 gap-2">
+        <ol id="timeline-qa-lesions" className="mt-3 grid grid-cols-1 gap-2">
           {validation.items.slice(0, 5).map((item) => (
             <li
               key={`${item.queueNumber}-${item.lesionId}`}
