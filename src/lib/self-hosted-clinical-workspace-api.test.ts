@@ -14,6 +14,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutExceptionGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidation,
   reviewSelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutSop,
@@ -3261,6 +3262,134 @@ describe("self-hosted-clinical-workspace-api", () => {
     );
     expect(JSON.stringify(result.value)).not.toMatch(
       /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawProtectedReviewLog|rawReviewerOpsLog|rawFollowupOpsLog|rawAdjudicationOpsLog|protectedReviewerValidationPayload|protectedReviewerValidationDetails|reviewerAssignmentPayload|secondReviewPayload|reviewerName|reviewerEmail|validatorName|validatorEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
+    );
+  });
+
+  it("reviews protected reviewer governance through metadata-only Stage 5H contract", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            id: "protected-reviewer-governance-1",
+            clinicId: "clinic-1",
+            patientId: "patient-1",
+            visitId: "visit-1",
+            status: "in_review",
+            reasons: ["timeline_rollout_protected_reviewer_governance_not_ready"],
+            protectedReviewerValidationStatus: "not_started",
+            longitudinalClinicalValidationStatus: "not_started",
+            outcomeGovernanceStatus: "not_started",
+            exceptionGovernanceStatus: "not_started",
+            observationGovernanceStatus: "not_started",
+            postValidationMonitoringStatus: "not_started",
+            clinicalValidationStatus: "not_started",
+            incidentProcedureStatus: "not_started",
+            monitoringStatus: "not_started",
+            evidenceStatus: "not_started",
+            sopStatus: "not_started",
+            validationStatus: "blocked",
+            rolloutStatus: "review_required",
+            reviewerMonitoringStatus: "needs_review",
+            reviewerExceptionStatus: "needs_review",
+            reviewerAdjudicationStatus: "needs_review",
+            reviewerFollowupStatus: "needs_review",
+            reviewerRollbackStatus: "needs_review",
+            reviewerArchiveStatus: "needs_review",
+            ownerSignoffStatus: "needs_review",
+            protectedReviewWindowCount: 0,
+            monitoredProtectedReviewCount: 0,
+            escalatedProtectedReviewCount: 0,
+            adjudicatedProtectedGovernanceCount: 0,
+            followupClosedProtectedCount: 0,
+            rollbackReadyProtectedCount: 0,
+            archivedProtectedReviewCount: 0,
+            unresolvedGovernanceReviewCount: 0,
+            blockerCount: 1,
+            lesionCount: 2,
+            readyTimelineCount: 1,
+            blockedTimelineCount: 1,
+            candidatePairCount: 3,
+            reviewerWorkflowReadyCount: 1,
+            patientDeliveryAllowed: true,
+            medicalMeasurementAllowed: true,
+            protectedFieldsExposed: true,
+            clinicalOutputGenerated: true,
+            rawProtectedReviewerLog: "unsafe",
+            protectedReviewerGovernancePayload: { unsafe: true },
+            reviewerMonitoringPayload: { unsafe: true },
+            reviewerName: "Unsafe Name",
+            reviewerEmail: "unsafe@example.com",
+            pairKey: "secret-pair",
+            imageIds: ["i-011", "i-012"],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernance({
+      apiBaseUrl: "http://localhost:3001",
+      apiToken: "jwt",
+      visitId: "visit-1",
+      payload: {
+        protectedReviewerGovernanceStatus: "ready_for_protected_reviewer_governance",
+        protectedReviewerGovernanceReasons: ["protected_reviewer_governance_ready_no_patient_delivery"],
+        reviewerMonitoringStatus: "ready",
+        reviewerExceptionStatus: "ready",
+        reviewerAdjudicationStatus: "ready",
+        reviewerFollowupStatus: "ready",
+        reviewerRollbackStatus: "ready",
+        reviewerArchiveStatus: "ready",
+        ownerSignoffStatus: "ready",
+        protectedReviewWindowCount: 6,
+        monitoredProtectedReviewCount: 4,
+        escalatedProtectedReviewCount: 1,
+        adjudicatedProtectedGovernanceCount: 1,
+        followupClosedProtectedCount: 1,
+        rollbackReadyProtectedCount: 1,
+        archivedProtectedReviewCount: 4,
+        unresolvedGovernanceReviewCount: 0,
+        blockerCount: 0,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.status).toBe("in_review");
+    expect(result.value?.protectedReviewerValidationStatus).toBe("not_started");
+    expect(result.value?.reviewerMonitoringStatus).toBe("needs_review");
+    expect(result.value?.patientDeliveryAllowed).toBe(false);
+    expect(result.value?.medicalMeasurementAllowed).toBe(false);
+    expect(result.value?.protectedFieldsExposed).toBe(false);
+    expect(result.value?.clinicalOutputGenerated).toBe(false);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/v1/visits/visit-1/longitudinal-timeline-rollout/protected-reviewer-governance",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          protectedReviewerGovernanceStatus: "ready_for_protected_reviewer_governance",
+          protectedReviewerGovernanceReasons: ["protected_reviewer_governance_ready_no_patient_delivery"],
+          reviewerMonitoringStatus: "ready",
+          reviewerExceptionStatus: "ready",
+          reviewerAdjudicationStatus: "ready",
+          reviewerFollowupStatus: "ready",
+          reviewerRollbackStatus: "ready",
+          reviewerArchiveStatus: "ready",
+          ownerSignoffStatus: "ready",
+          protectedReviewWindowCount: 6,
+          monitoredProtectedReviewCount: 4,
+          escalatedProtectedReviewCount: 1,
+          adjudicatedProtectedGovernanceCount: 1,
+          followupClosedProtectedCount: 1,
+          rollbackReadyProtectedCount: 1,
+          archivedProtectedReviewCount: 4,
+          unresolvedGovernanceReviewCount: 0,
+          blockerCount: 0,
+        }),
+      }),
+    );
+    expect(JSON.stringify(result.value)).not.toMatch(
+      /"pairKey"\s*:|"imageIds"\s*:|i-011|i-012|"storagePath"\s*:|"signedUrl"\s*:|rawProtectedReviewerLog|protectedReviewerGovernancePayload|reviewerMonitoringPayload|reviewerName|reviewerEmail|photoRef|heatmapRef|modelVersion|sharedLink|token|session|qr|dynamicConclusion|diagnosis|riskScore/i,
     );
   });
 });

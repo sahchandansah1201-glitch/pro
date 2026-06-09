@@ -129,6 +129,11 @@ const TIMELINE_ROLLOUT_PROTECTED_REVIEWER_VALIDATION_STATUS_VALUES = new Set([
   "in_review",
   "ready_for_protected_reviewer_validation",
 ]);
+const TIMELINE_ROLLOUT_PROTECTED_REVIEWER_GOVERNANCE_STATUS_VALUES = new Set([
+  "not_started",
+  "in_review",
+  "ready_for_protected_reviewer_governance",
+]);
 const TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES = new Set(["missing", "needs_review", "ready"]);
 const MAX_TEXT = 8000;
 const MAX_REASON_TEXT = 120;
@@ -192,6 +197,16 @@ const PROTECTED_INPUT_KEYS = new Set([
   "longitudinalOutcomePayload",
   "longitudinalClinicalValidationPayload",
   "protectedReviewerValidationPayload",
+  "protectedReviewerGovernancePayload",
+  "reviewerMonitoringPayload",
+  "reviewerExceptionPayload",
+  "reviewerRollbackPayload",
+  "reviewerArchivePayload",
+  "rawProtectedReviewerLog",
+  "rawReviewerMonitoringLog",
+  "rawReviewerExceptionLog",
+  "rawReviewerRollbackLog",
+  "rawReviewerArchiveLog",
   "adjudicationOpsPayload",
   "followupOpsPayload",
   "reviewerAssignmentPayload",
@@ -209,6 +224,11 @@ const PROTECTED_INPUT_KEYS = new Set([
   "longitudinalOutcomeDetails",
   "longitudinalClinicalValidationDetails",
   "protectedReviewerValidationDetails",
+  "protectedReviewerGovernanceDetails",
+  "reviewerMonitoringDetails",
+  "reviewerExceptionDetails",
+  "reviewerRollbackDetails",
+  "reviewerArchiveDetails",
   "adjudicationOpsDetails",
   "followupOpsDetails",
   "reviewerAssignmentDetails",
@@ -1766,6 +1786,124 @@ export function normalizeVisitLongitudinalTimelineRolloutProtectedReviewerValida
     adjudicatedProtectedCount,
     followupValidatedProtectedCount,
     unresolvedProtectedReviewCount,
+    blockerCount,
+    patientDeliveryAllowed: false,
+    medicalMeasurementAllowed: false,
+    protectedFieldsExposed: false,
+    clinicalOutputGenerated: false,
+  };
+}
+
+export function normalizeVisitLongitudinalTimelineRolloutProtectedReviewerGovernancePayload(input = {}) {
+  requireObject(input);
+  const details = [];
+  if (containsProtectedKey(input)) {
+    details.push({
+      field: "body",
+      message: "Protected fields are not accepted in protected reviewer governance payloads.",
+    });
+  }
+  const protectedReviewerGovernanceStatus = cleanString(input.protectedReviewerGovernanceStatus);
+  if (
+    !protectedReviewerGovernanceStatus
+    || !TIMELINE_ROLLOUT_PROTECTED_REVIEWER_GOVERNANCE_STATUS_VALUES.has(protectedReviewerGovernanceStatus)
+  ) {
+    details.push({
+      field: "protectedReviewerGovernanceStatus",
+      message: "protectedReviewerGovernanceStatus must be not_started, in_review, or ready_for_protected_reviewer_governance.",
+    });
+  }
+  const checklistStatus = (field) => {
+    const value = cleanString(input[field]) || "missing";
+    if (!TIMELINE_ROLLOUT_SOP_CHECKLIST_STATUS_VALUES.has(value)) {
+      details.push({ field, message: `${field} must be missing, needs_review, or ready.` });
+      return "missing";
+    }
+    return value;
+  };
+  const count = (field, max) => normalizeNumber(input[field], field, details, { integer: true, min: 0, max }) ?? 0;
+  const protectedReviewerGovernanceReasons = normalizeTechnicalStrings(
+    input.protectedReviewerGovernanceReasons,
+    "protectedReviewerGovernanceReasons",
+    details,
+  );
+  const reviewerMonitoringStatus = checklistStatus("reviewerMonitoringStatus");
+  const reviewerExceptionStatus = checklistStatus("reviewerExceptionStatus");
+  const reviewerAdjudicationStatus = checklistStatus("reviewerAdjudicationStatus");
+  const reviewerFollowupStatus = checklistStatus("reviewerFollowupStatus");
+  const reviewerRollbackStatus = checklistStatus("reviewerRollbackStatus");
+  const reviewerArchiveStatus = checklistStatus("reviewerArchiveStatus");
+  const ownerSignoffStatus = checklistStatus("ownerSignoffStatus");
+  const protectedReviewWindowCount = count("protectedReviewWindowCount", 20000);
+  const monitoredProtectedReviewCount = count("monitoredProtectedReviewCount", 20000);
+  const escalatedProtectedReviewCount = count("escalatedProtectedReviewCount", 20000);
+  const adjudicatedProtectedGovernanceCount = count("adjudicatedProtectedGovernanceCount", 20000);
+  const followupClosedProtectedCount = count("followupClosedProtectedCount", 20000);
+  const rollbackReadyProtectedCount = count("rollbackReadyProtectedCount", 20000);
+  const archivedProtectedReviewCount = count("archivedProtectedReviewCount", 20000);
+  const unresolvedGovernanceReviewCount = count("unresolvedGovernanceReviewCount", 20000);
+  const blockerCount = count("blockerCount", 20000);
+  if (monitoredProtectedReviewCount > protectedReviewWindowCount) {
+    details.push({
+      field: "monitoredProtectedReviewCount",
+      message: "monitoredProtectedReviewCount must be less than or equal to protectedReviewWindowCount.",
+    });
+  }
+  if (escalatedProtectedReviewCount > monitoredProtectedReviewCount) {
+    details.push({
+      field: "escalatedProtectedReviewCount",
+      message: "escalatedProtectedReviewCount must be less than or equal to monitoredProtectedReviewCount.",
+    });
+  }
+  if (adjudicatedProtectedGovernanceCount > escalatedProtectedReviewCount) {
+    details.push({
+      field: "adjudicatedProtectedGovernanceCount",
+      message: "adjudicatedProtectedGovernanceCount must be less than or equal to escalatedProtectedReviewCount.",
+    });
+  }
+  if (followupClosedProtectedCount > adjudicatedProtectedGovernanceCount) {
+    details.push({
+      field: "followupClosedProtectedCount",
+      message: "followupClosedProtectedCount must be less than or equal to adjudicatedProtectedGovernanceCount.",
+    });
+  }
+  if (rollbackReadyProtectedCount > monitoredProtectedReviewCount) {
+    details.push({
+      field: "rollbackReadyProtectedCount",
+      message: "rollbackReadyProtectedCount must be less than or equal to monitoredProtectedReviewCount.",
+    });
+  }
+  if (archivedProtectedReviewCount > monitoredProtectedReviewCount) {
+    details.push({
+      field: "archivedProtectedReviewCount",
+      message: "archivedProtectedReviewCount must be less than or equal to monitoredProtectedReviewCount.",
+    });
+  }
+  if (unresolvedGovernanceReviewCount > monitoredProtectedReviewCount) {
+    details.push({
+      field: "unresolvedGovernanceReviewCount",
+      message: "unresolvedGovernanceReviewCount must be less than or equal to monitoredProtectedReviewCount.",
+    });
+  }
+  if (details.length > 0) throw new VisitWorkspaceValidationError(details);
+  return {
+    protectedReviewerGovernanceStatus,
+    protectedReviewerGovernanceReasons: protectedReviewerGovernanceReasons ?? [],
+    reviewerMonitoringStatus,
+    reviewerExceptionStatus,
+    reviewerAdjudicationStatus,
+    reviewerFollowupStatus,
+    reviewerRollbackStatus,
+    reviewerArchiveStatus,
+    ownerSignoffStatus,
+    protectedReviewWindowCount,
+    monitoredProtectedReviewCount,
+    escalatedProtectedReviewCount,
+    adjudicatedProtectedGovernanceCount,
+    followupClosedProtectedCount,
+    rollbackReadyProtectedCount,
+    archivedProtectedReviewCount,
+    unresolvedGovernanceReviewCount,
     blockerCount,
     patientDeliveryAllowed: false,
     medicalMeasurementAllowed: false,
@@ -4337,6 +4475,204 @@ export function createClinicalWorkspaceService({
         },
       });
       return { protectedReviewerValidation, scope };
+    },
+
+    async reviewVisitLongitudinalTimelineRolloutProtectedReviewerGovernance(
+      visitId,
+      input,
+      authContext,
+      { correlationId } = {},
+    ) {
+      const safeVisitId = assertUuid(visitId, "visitId");
+      const payload = normalizeVisitLongitudinalTimelineRolloutProtectedReviewerGovernancePayload(input);
+      const scope = visitWriteScope(authContext);
+      const visit = await getVisitOrThrow(visitWorkspaceRepository, safeVisitId, scope);
+      const validationResult = await clinicalWorkspaceRepository.getVisitLongitudinalDatasetValidation({
+        visitId: safeVisitId,
+        patientId: visit.patient.id,
+        clinicIds: scope.clinicIds,
+        allClinics: scope.allClinics,
+      });
+      const validation = validationResult || {};
+      const readiness = validation.readiness || {};
+      const rollout = validation.timelineRollout || {};
+      const sop = validation.timelineRolloutSop || {};
+      const evidence = validation.timelineRolloutEvidence || {};
+      const monitoring = validation.timelineRolloutMonitoring || {};
+      const incidentProcedure = validation.timelineRolloutIncidentProcedure || {};
+      const clinicalValidation = validation.timelineRolloutClinicalValidation || {};
+      const postValidationMonitoring = validation.timelineRolloutPostValidationMonitoring || {};
+      const observationGovernance = validation.timelineRolloutObservationGovernance || {};
+      const exceptionGovernance = validation.timelineRolloutExceptionGovernance || {};
+      const outcomeGovernance = validation.timelineRolloutOutcomeGovernance || {};
+      const longitudinalClinicalValidation = validation.timelineRolloutLongitudinalClinicalValidation || {};
+      const protectedReviewerValidation = validation.timelineRolloutProtectedReviewerValidation || {};
+      const validationStatus = String(readiness.status ?? "blocked");
+      const rolloutStatus = String(rollout.status ?? "not_approved");
+      const sopStatus = String(sop.status ?? "not_started");
+      const evidenceStatus = String(evidence.status ?? "not_started");
+      const monitoringStatus = String(monitoring.status ?? "not_started");
+      const incidentProcedureStatus = String(incidentProcedure.status ?? "not_started");
+      const clinicalValidationStatus = String(clinicalValidation.status ?? "not_started");
+      const postValidationMonitoringStatus = String(postValidationMonitoring.status ?? "not_started");
+      const observationGovernanceStatus = String(observationGovernance.status ?? "not_started");
+      const exceptionGovernanceStatus = String(exceptionGovernance.status ?? "not_started");
+      const outcomeGovernanceStatus = String(outcomeGovernance.status ?? "not_started");
+      const longitudinalClinicalValidationStatus = String(
+        longitudinalClinicalValidation.status ?? "not_started",
+      );
+      const protectedReviewerValidationStatus = String(
+        protectedReviewerValidation.status ?? "not_started",
+      );
+      const validationChecklistReady = [
+        payload.reviewerMonitoringStatus,
+        payload.reviewerExceptionStatus,
+        payload.reviewerAdjudicationStatus,
+        payload.reviewerFollowupStatus,
+        payload.reviewerRollbackStatus,
+        payload.reviewerArchiveStatus,
+        payload.ownerSignoffStatus,
+      ].every((status) => status === "ready");
+      const aggregateValidationReady =
+        payload.protectedReviewWindowCount > 0
+        && payload.monitoredProtectedReviewCount > 0
+        && payload.escalatedProtectedReviewCount > 0
+        && payload.adjudicatedProtectedGovernanceCount > 0
+        && payload.followupClosedProtectedCount > 0
+        && payload.rollbackReadyProtectedCount > 0
+        && payload.archivedProtectedReviewCount > 0
+        && payload.unresolvedGovernanceReviewCount === 0
+        && payload.blockerCount === 0;
+      const protectedReviewerGovernanceReady =
+        validationStatus === "ready_for_rollout"
+        && rolloutStatus === "approved_for_clinical_operations"
+        && sopStatus === "ready_for_operational_rollout"
+        && evidenceStatus === "ready_for_monitored_rollout"
+        && monitoringStatus === "ready_for_production_rollout"
+        && incidentProcedureStatus === "ready_for_clinic_monitoring"
+        && clinicalValidationStatus === "ready_for_clinical_validation"
+        && postValidationMonitoringStatus === "ready_for_post_validation_monitoring"
+        && observationGovernanceStatus === "ready_for_observation_governance"
+        && exceptionGovernanceStatus === "ready_for_exception_governance"
+        && outcomeGovernanceStatus === "ready_for_outcome_governance"
+        && longitudinalClinicalValidationStatus === "ready_for_longitudinal_clinical_validation"
+        && protectedReviewerValidationStatus === "ready_for_protected_reviewer_validation"
+        && validationChecklistReady
+        && aggregateValidationReady;
+      const effectiveStatus =
+        payload.protectedReviewerGovernanceStatus === "ready_for_protected_reviewer_governance"
+          && !protectedReviewerGovernanceReady
+          ? "in_review"
+          : payload.protectedReviewerGovernanceStatus;
+      const effectiveReasons = [
+        ...payload.protectedReviewerGovernanceReasons,
+        ...(payload.protectedReviewerGovernanceStatus === "ready_for_protected_reviewer_governance"
+          && !protectedReviewerGovernanceReady
+          ? ["timeline_rollout_protected_reviewer_governance_not_ready"]
+          : []),
+      ];
+      const protectedReviewerGovernance =
+        await clinicalWorkspaceRepository.reviewVisitLongitudinalTimelineRolloutProtectedReviewerGovernance({
+          visitId: safeVisitId,
+          patientId: visit.patient.id,
+          clinicId: visit.clinic.id,
+          doctorUserId: authContext.userId,
+          protectedReviewerGovernance: {
+            protectedReviewerGovernanceStatus: effectiveStatus,
+            protectedReviewerGovernanceReasons: effectiveReasons,
+            protectedReviewerValidationStatus,
+            longitudinalClinicalValidationStatus,
+            outcomeGovernanceStatus,
+            exceptionGovernanceStatus,
+            observationGovernanceStatus,
+            postValidationMonitoringStatus,
+            clinicalValidationStatus,
+            incidentProcedureStatus,
+            monitoringStatus,
+            evidenceStatus,
+            sopStatus,
+            validationStatus,
+            rolloutStatus,
+            reviewerMonitoringStatus: payload.reviewerMonitoringStatus,
+            reviewerExceptionStatus: payload.reviewerExceptionStatus,
+            reviewerAdjudicationStatus: payload.reviewerAdjudicationStatus,
+            reviewerFollowupStatus: payload.reviewerFollowupStatus,
+            reviewerRollbackStatus: payload.reviewerRollbackStatus,
+            reviewerArchiveStatus: payload.reviewerArchiveStatus,
+            ownerSignoffStatus: payload.ownerSignoffStatus,
+            protectedReviewWindowCount: payload.protectedReviewWindowCount,
+            monitoredProtectedReviewCount: payload.monitoredProtectedReviewCount,
+            escalatedProtectedReviewCount: payload.escalatedProtectedReviewCount,
+            adjudicatedProtectedGovernanceCount: payload.adjudicatedProtectedGovernanceCount,
+            followupClosedProtectedCount: payload.followupClosedProtectedCount,
+            rollbackReadyProtectedCount: payload.rollbackReadyProtectedCount,
+            archivedProtectedReviewCount: payload.archivedProtectedReviewCount,
+            unresolvedGovernanceReviewCount: payload.unresolvedGovernanceReviewCount,
+            blockerCount: payload.blockerCount,
+            lesionCount: Number(readiness.lesionCount ?? 0),
+            readyTimelineCount: Number(readiness.readyTimelineCount ?? 0),
+            blockedTimelineCount: Number(readiness.blockedTimelineCount ?? 0),
+            candidatePairCount: Number(readiness.candidatePairCount ?? 0),
+            reviewerWorkflowReadyCount: Number(readiness.reviewerWorkflowReadyCount ?? 0),
+          },
+          clinicIds: scope.clinicIds,
+          allClinics: scope.allClinics,
+        });
+      if (!protectedReviewerGovernance) {
+        throw new VisitWorkspaceNotFoundError("Protected reviewer governance could not be saved.");
+      }
+      await recordAuditBestEffort(auditRepository, {
+        clinicId: protectedReviewerGovernance.clinicId ?? visit.clinic.id,
+        actorUserId: authContext.userId,
+        action: "visit_longitudinal_timeline_rollout_protected_reviewer_governance.review",
+        entityType: "visit_longitudinal_timeline_rollout_protected_reviewer_governance_review",
+        entityId: protectedReviewerGovernance.id ?? safeVisitId,
+        correlationId,
+        metadata: {
+          visitId: safeVisitId,
+          protectedReviewerGovernanceStatus: protectedReviewerGovernance.status,
+          protectedReviewerValidationStatus: protectedReviewerGovernance.protectedReviewerValidationStatus,
+          longitudinalClinicalValidationStatus: protectedReviewerGovernance.longitudinalClinicalValidationStatus,
+          outcomeGovernanceStatus: protectedReviewerGovernance.outcomeGovernanceStatus,
+          exceptionGovernanceStatus: protectedReviewerGovernance.exceptionGovernanceStatus,
+          observationGovernanceStatus: protectedReviewerGovernance.observationGovernanceStatus,
+          postValidationMonitoringStatus: protectedReviewerGovernance.postValidationMonitoringStatus,
+          clinicalValidationStatus: protectedReviewerGovernance.clinicalValidationStatus,
+          incidentProcedureStatus: protectedReviewerGovernance.incidentProcedureStatus,
+          monitoringStatus: protectedReviewerGovernance.monitoringStatus,
+          evidenceStatus: protectedReviewerGovernance.evidenceStatus,
+          sopStatus: protectedReviewerGovernance.sopStatus,
+          validationStatus: protectedReviewerGovernance.validationStatus,
+          rolloutStatus: protectedReviewerGovernance.rolloutStatus,
+          protectedReviewWindowCount: Number(protectedReviewerGovernance.protectedReviewWindowCount ?? 0),
+          monitoredProtectedReviewCount: Number(protectedReviewerGovernance.monitoredProtectedReviewCount ?? 0),
+          escalatedProtectedReviewCount: Number(protectedReviewerGovernance.escalatedProtectedReviewCount ?? 0),
+          adjudicatedProtectedGovernanceCount: Number(protectedReviewerGovernance.adjudicatedProtectedGovernanceCount ?? 0),
+          followupClosedProtectedCount: Number(protectedReviewerGovernance.followupClosedProtectedCount ?? 0),
+          rollbackReadyProtectedCount: Number(protectedReviewerGovernance.rollbackReadyProtectedCount ?? 0),
+          archivedProtectedReviewCount: Number(protectedReviewerGovernance.archivedProtectedReviewCount ?? 0),
+          unresolvedGovernanceReviewCount: Number(protectedReviewerGovernance.unresolvedGovernanceReviewCount ?? 0),
+          blockerCount: Number(protectedReviewerGovernance.blockerCount ?? 0),
+          lesionCount: Number(protectedReviewerGovernance.lesionCount ?? 0),
+          readyTimelineCount: Number(protectedReviewerGovernance.readyTimelineCount ?? 0),
+          blockedTimelineCount: Number(protectedReviewerGovernance.blockedTimelineCount ?? 0),
+          candidatePairCount: Number(protectedReviewerGovernance.candidatePairCount ?? 0),
+          reviewerWorkflowReadyCount: Number(protectedReviewerGovernance.reviewerWorkflowReadyCount ?? 0),
+          validationChecklistReady,
+          aggregateValidationReady,
+          reasonsCount: protectedReviewerGovernance.reasons?.length ?? 0,
+          medicalMeasurementAllowed: false,
+          patientDeliveryAllowed: false,
+          protectedFieldsExposed: false,
+          clinicalOutputGenerated: false,
+          pairKeysExposed: false,
+          imageIdsExposed: false,
+          patientRowsExposed: false,
+          rawProtectedReviewerLogsExposed: false,
+          rawProtectedReviewerPayloadsExposed: false,
+        },
+      });
+      return { protectedReviewerGovernance, scope };
     },
 
     async getLesionLongitudinalQa(patientId, lesionId, authContext, { correlationId } = {}) {

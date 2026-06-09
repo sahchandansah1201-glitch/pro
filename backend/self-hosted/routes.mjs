@@ -2004,6 +2004,9 @@ export async function handleSelfHostedRequest(
   const visitLongitudinalTimelineRolloutProtectedReviewerValidationMatch = url.pathname.match(
     /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/protected-reviewer-validation$/,
   );
+  const visitLongitudinalTimelineRolloutProtectedReviewerGovernanceMatch = url.pathname.match(
+    /^\/api\/v1\/visits\/([^/]+)\/longitudinal-timeline-rollout\/protected-reviewer-governance$/,
+  );
   if (visitLongitudinalTimelineRolloutOutcomeGovernanceMatch && method === "PATCH") {
     try {
       const authContext = await runtimeServices.authService.authenticate(request.headers);
@@ -2084,6 +2087,38 @@ export async function handleSelfHostedRequest(
           stage: "5H",
           source: "postgres",
           item: result.protectedReviewerValidation,
+          auth: {
+            userId: authContext.userId,
+            roles: authContext.roles,
+            allClinics: result.scope.allClinics,
+          },
+          generatedAt: now(),
+          correlationId,
+        },
+        config,
+        requestOrigin,
+      );
+    } catch (error) {
+      const publicError = publicErrorFor(error);
+      return errorResponse({ ...publicError, correlationId, config, requestOrigin });
+    }
+  }
+  if (visitLongitudinalTimelineRolloutProtectedReviewerGovernanceMatch && method === "PATCH") {
+    try {
+      const authContext = await runtimeServices.authService.authenticate(request.headers);
+      const result =
+        await runtimeServices.clinicalWorkspaceService.reviewVisitLongitudinalTimelineRolloutProtectedReviewerGovernance(
+          decodeURIComponent(visitLongitudinalTimelineRolloutProtectedReviewerGovernanceMatch[1]),
+          parseJsonBody(request.body),
+          authContext,
+          { correlationId },
+        );
+      return jsonResponse(
+        200,
+        {
+          stage: "5H",
+          source: "postgres",
+          item: result.protectedReviewerGovernance,
           auth: {
             userId: authContext.userId,
             roles: authContext.roles,

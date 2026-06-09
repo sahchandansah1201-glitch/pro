@@ -2612,6 +2612,77 @@ Frontend behavior:
   remains off until privacy/security/retention/session/approved-copy gates are
   closed.
 
+## Batch CD Protected Reviewer Governance
+
+Batch CD extends Batch CC with a second protected-assets layer: monitored
+reviewer-operations governance over time. The new receipt remains
+metadata-only and stores no patient delivery payload, reviewer identity, pair
+keys, image IDs, raw reviewer logs, storage paths, signed URLs, tokens, QR,
+session material, doctor text, patient text, diagnosis, risk, prognosis,
+treatment, measurement values, or clinical dynamic conclusion.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/protected-reviewer-governance`
+  persists the metadata-only protected reviewer governance review;
+- repository builder:
+  `buildReviewVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceSql`;
+- read model `buildGetVisitLongitudinalDatasetValidationSql` now includes
+  `timelineRolloutProtectedReviewerGovernance`;
+- service normalizer:
+  `normalizeVisitLongitudinalTimelineRolloutProtectedReviewerGovernancePayload`;
+- requested `ready_for_protected_reviewer_governance` is downgraded to
+  `in_review` with reason
+  `timeline_rollout_protected_reviewer_governance_not_ready` unless dataset
+  validation, rollout, SOP, evidence, monitoring, incident procedure,
+  clinical validation, post-validation monitoring, observation governance,
+  exception governance, outcome governance, longitudinal clinical validation,
+  protected reviewer validation, all seven governance checklist items, zero
+  unresolved governance reviews, and zero blockers are ready;
+- audit action:
+  `visit_longitudinal_timeline_rollout_protected_reviewer_governance.review`;
+- audit metadata remains aggregate-only and explicitly records that patient
+  delivery, measurement, protected fields, clinical output, pair keys, image
+  IDs, patient rows, raw protected reviewer logs, and raw protected reviewer
+  payloads are not exposed.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` adds region `Protected reviewer governance` inside
+  `Готовность timeline QA`;
+- visible copy states:
+  `Protected reviewer governance фиксирует только aggregate monitored reviewer operations metadata on protected assets · Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.`
+- actions are `Зафиксировать protected reviewer governance` and
+  `Утвердить protected reviewer governance`;
+- approval is disabled until
+  `timelineRolloutProtectedReviewerValidation.status === "ready_for_protected_reviewer_validation"`;
+- the UI shows only checklist labels and aggregate counters for monitored,
+  exceptions, adjudication, follow-up, rollback, archive, owner signoff,
+  protected review windows, monitored review windows, escalations,
+  adjudicated governance, follow-up closure, rollback readiness, archived
+  reviews, unresolved governance, and blockers.
+
+### Batch CD Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch CD adds
+  monitored reviewer-operations governance over protected timeline windows.
+  Remaining gate: long-running production dataset evidence across real clinic
+  operations.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch CD
+  closes the governance layer above reviewer assignment, second review,
+  adjudication, follow-up, rollback readiness, and archive receipt without
+  exposing protected assets. Remaining gate: approved reviewer operations
+  governance over time in live protected-asset operations.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch CD keeps
+  clinical dynamic conclusion disabled and records only aggregate monitored
+  reviewer workflow metadata on protected assets. Remaining gate: approved
+  clinical longitudinal validation procedure on real protected assets over
+  time.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch CD is
+  doctor-side metadata-only protected reviewer governance. Patient delivery
+  remains off until privacy/security/retention/session/approved-copy gates are
+  closed.
+
 ## Product Boundary
 
 - managed runtime: none
