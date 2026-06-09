@@ -48,11 +48,11 @@ export default function MeBookingPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Запись на приём" subtitle="Production · self-hosted backend write boundary" />
+      <PageHeader title="Запись на приём" subtitle="Заявка на запись в клинику" />
       <div className="space-y-3 p-3 sm:p-4">
         {status === "missing_session" && (
           <Card className="p-4">
-            <div className="text-[13px] text-muted-foreground">Войдите в production, чтобы увидеть записи.</div>
+            <div className="text-[13px] text-muted-foreground">Войдите в личный кабинет, чтобы увидеть записи.</div>
             <Button asChild className="mt-3 min-h-[44px] sm:min-h-[36px]">
               <Link to="/self-hosted/login">Войти</Link>
             </Button>
@@ -78,8 +78,7 @@ export default function MeBookingPageLive() {
             <Card className="p-4">
               <div className="text-[13px] font-semibold">Самозапись пациента</div>
               <p className="mt-1 text-[13px] text-muted-foreground">
-                Пациент отправляет запрос на запись в self-hosted backend. Сотрудник клиники подтверждает слот
-                и создаёт визит отдельным операторским workflow.
+                Отправьте удобное время и причину обращения. Сотрудник клиники подтвердит слот и свяжется с вами.
               </p>
               <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={submitBookingRequest}>
                 <label className="grid gap-1 text-[12px] font-medium">

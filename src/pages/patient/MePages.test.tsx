@@ -73,7 +73,7 @@ describe("Patient portal pages", () => {
     expect(screen.getByRole("heading", { name: /Заключение/ })).toBeInTheDocument();
     expect(screen.getByText(/доброкачественным изменениям/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Безопасность доступа/ })).toBeInTheDocument();
-    expect(screen.getByText(/Токен доступа скрыт/)).toBeInTheDocument();
+    expect(screen.getByText(/Код доступа не показывается/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
     expect(screen.queryByText(/Раздел будет реализован/)).not.toBeInTheDocument();
     // Печать/PDF — демо и disabled
@@ -87,7 +87,7 @@ describe("Patient portal pages", () => {
     expect(screen.getByRole("heading", { name: /Мои заключения/ })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Контур безопасной выдачи/ })).toBeInTheDocument();
     expect(screen.getByText(/Доступ: только личный кабинет/)).toBeInTheDocument();
-    expect(screen.getByText(/Сырые токены и врачебная версия скрыты/)).toBeInTheDocument();
+    expect(screen.getByText(/Служебные данные и врачебная версия скрыты/)).toBeInTheDocument();
     expect(screen.getByText(/Нужен повторный осмотр или вопрос врачу/)).toBeInTheDocument();
     expectClean(container.innerHTML);
   });

@@ -105,7 +105,7 @@ export default function MeRemindersPageLive() {
     }
     setReplyDrafts((current) => ({ ...current, [followUpId]: "" }));
     setFollowUpsStatus("ready");
-    setFollowUpsMessage("Ответ клинике сохранён в self-hosted backend.");
+    setFollowUpsMessage("Ответ клинике сохранён.");
     const next = await listSelfHostedPatientFollowUps({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
@@ -115,11 +115,11 @@ export default function MeRemindersPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Напоминания" subtitle="Production · self-hosted reminder preferences" />
+      <PageHeader title="Напоминания" subtitle="Настройки напоминаний и сообщения клиники" />
       <div className="space-y-3 p-3 sm:p-4">
         {status === "missing_session" && (
           <Card className="p-4">
-            <div className="text-[13px] text-muted-foreground">Войдите в production, чтобы увидеть напоминания.</div>
+            <div className="text-[13px] text-muted-foreground">Войдите в личный кабинет, чтобы увидеть напоминания.</div>
             <Button asChild className="mt-3 min-h-[44px] sm:min-h-[36px]">
               <Link to="/self-hosted/login">Войти</Link>
             </Button>
@@ -202,7 +202,7 @@ export default function MeRemindersPageLive() {
                 <div>
                   <div className="text-[13px] font-semibold">Контроль и сообщения клиники</div>
                   <div className="text-[12px] text-muted-foreground">
-                    Локальная self-hosted коммуникация по контрольным задачам.
+                    Здесь отображаются контрольные сообщения и ответы клинике.
                   </div>
                 </div>
                 <div

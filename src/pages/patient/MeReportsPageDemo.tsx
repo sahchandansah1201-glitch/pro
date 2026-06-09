@@ -151,7 +151,7 @@ export default function MeReportsPage() {
                   <div>Открывается внутри роли пациента, без показа ссылки или кода доступа.</div>
                 </div>
                 <div>
-                  <div className="font-medium text-foreground">Сырые токены и врачебная версия скрыты</div>
+                  <div className="font-medium text-foreground">Служебные данные и врачебная версия скрыты</div>
                   <div>В списке видны только дата, клиника, врач и безопасный текст.</div>
                 </div>
                 <div>

@@ -159,14 +159,14 @@ export default function MeReportPageLive() {
     const credential = photoAccessCredential.trim();
     const visitId = photoProtocol?.visitId || report?.visitId;
     if (!visitId) {
-      setPhotoAccess({ status: "denied", message: "Доступ сейчас недоступен: backend не вернул визит." });
+      setPhotoAccess({ status: "denied", message: "Доступ сейчас недоступен: система клиники не подтвердила визит." });
       return;
     }
     if (!credential) {
       setPhotoAccess({ status: "denied", message: "Введите одноразовый код доступа." });
       return;
     }
-    setPhotoAccess({ status: "submitting", message: "Проверяем доступ через self-hosted backend." });
+    setPhotoAccess({ status: "submitting", message: "Проверяем код доступа в системе клиники." });
     const result = await exchangeSelfHostedPatientPortalPhotoProtocolAccess({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
@@ -181,7 +181,7 @@ export default function MeReportPageLive() {
     if (result.value.status === "confirmed" && result.value.sessionBoundary.sessionEstablished) {
       setPhotoAccess({
         status: "confirmed",
-        message: "Доступ подтверждён. Фото открываются через защищённый backend.",
+        message: "Доступ подтверждён. Теперь можно открыть фотографии к визиту.",
         sessionExpiresAt: result.value.sessionExpiresAt,
       });
       return;
@@ -195,10 +195,10 @@ export default function MeReportPageLive() {
   async function endPhotoAccessSession() {
     const visitId = photoProtocol?.visitId || report?.visitId;
     if (!visitId) {
-      setPhotoAccess({ status: "denied", message: "Доступ сейчас недоступен: backend не вернул визит." });
+      setPhotoAccess({ status: "denied", message: "Доступ сейчас недоступен: система клиники не подтвердила визит." });
       return;
     }
-    setPhotoAccess({ status: "ending", message: "Завершаем доступ к фото через self-hosted backend." });
+    setPhotoAccess({ status: "ending", message: "Завершаем доступ к фотографиям." });
     const result = await endSelfHostedPatientPortalPhotoProtocolAccessSession({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
@@ -244,7 +244,7 @@ export default function MeReportPageLive() {
         ...current,
         [photo.sequence]: {
           status: "error",
-          message: "Фото сейчас недоступно: backend не вернул визит.",
+          message: "Фото сейчас недоступно: система клиники не подтвердила визит.",
         },
       }));
       return;
@@ -280,18 +280,18 @@ export default function MeReportPageLive() {
         status: "ready",
         objectUrl,
         fileName: result.value.fileName,
-        message: `Фото ${photo.sequence} подготовлено через защищённый backend.`,
+        message: `Фото ${photo.sequence} готово к открытию.`,
       },
     }));
   }
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Заключение" subtitle="Production · patient-safe report" />
+      <PageHeader title="Заключение" subtitle="Опубликовано клиникой для пациента" />
       <div className="space-y-3 p-3 sm:p-4">
         {status === "missing_session" && (
           <Card className="p-4">
-            <div className="text-[13px] text-muted-foreground">Войдите в production, чтобы открыть заключение.</div>
+            <div className="text-[13px] text-muted-foreground">Войдите в личный кабинет, чтобы открыть заключение.</div>
             <Button asChild className="mt-3 min-h-[44px] sm:min-h-[36px]">
               <Link to="/self-hosted/login">Войти</Link>
             </Button>
@@ -314,34 +314,34 @@ export default function MeReportPageLive() {
                   <h3 className="text-[13px] font-semibold">Безопасность доступа</h3>
                   <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
                     <dt className="text-muted-foreground">Доступ</dt>
-                    <dd>self-hosted кабинет пациента</dd>
+                    <dd>личный кабинет</dd>
                     <dt className="text-muted-foreground">Срок доступа</dt>
-                    <dd>{report.accessExpiresAt ? formatDateTime(report.accessExpiresAt) : "управляется backend"}</dd>
+                    <dd>{report.accessExpiresAt ? formatDateTime(report.accessExpiresAt) : "задаёт клиника"}</dd>
                     <dt className="text-muted-foreground">Состав</dt>
                     <dd>безопасный текст, дата визита, клиника</dd>
                     <dt className="text-muted-foreground">Исключено</dt>
-                    <dd>внутренняя версия врача, сырые токены, AI/XAI-детали</dd>
+                    <dd>внутренняя версия врача, служебные данные, AI/XAI-детали</dd>
                   </dl>
                   <p className="mt-2 text-[12px] text-muted-foreground">
-                    Токен доступа скрыт. Врачебная версия скрыта. Все действия выдачи и отзыва должны фиксироваться на backend.
+                    Код доступа не показывается. Врачебная версия скрыта. Действия открытия и завершения доступа сохраняются в журнале клиники.
                   </p>
                 </div>
               </div>
             </section>
             <section
-              aria-label="Фото-протокол пациента"
+              aria-label="Фотографии к визиту"
               className="mt-3 rounded-md border border-border bg-surface-muted p-3"
             >
               <div className="flex items-start gap-2">
                 <Images className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-[13px] font-semibold">Фото-протокол</h3>
+                  <h3 className="text-[13px] font-semibold">Фотографии к визиту</h3>
                   {photoStatus === "loading" && (
                     <p className="mt-2 text-[12px] text-muted-foreground">Проверяем доступность фото-протокола…</p>
                   )}
                   {photoStatus === "unavailable" && (
                     <p className="mt-2 text-[12px] text-muted-foreground">
-                      Фото-протокол пока недоступен в безопасном контуре пациента.
+                      Фотографии к визиту пока недоступны в личном кабинете пациента.
                     </p>
                   )}
                   {photoStatus === "ready" && photoProtocol && (
@@ -356,7 +356,7 @@ export default function MeReportPageLive() {
                           обзорные {photoProtocol.counts.overviewPhotos}, дерматоскопия {photoProtocol.counts.dermoscopyPhotos}
                         </dd>
                         <dt className="text-muted-foreground">Срок доступа</dt>
-                        <dd>{photoProtocol.expiresAt ? formatDateTime(photoProtocol.expiresAt) : "управляется backend"}</dd>
+                        <dd>{photoProtocol.expiresAt ? formatDateTime(photoProtocol.expiresAt) : "задаёт клиника"}</dd>
                       </dl>
                       <section
                         aria-label="Подтверждение доступа к фото"
@@ -364,7 +364,7 @@ export default function MeReportPageLive() {
                       >
                         <h4 className="font-medium">Подтверждение доступа к фото</h4>
                         <p className="mt-1 text-muted-foreground">
-                          Введите одноразовый код из клиники. Код не отображается в интерфейсе, а session cookie хранится только backend/browser.
+                          Введите одноразовый код из клиники. Код не отображается в интерфейсе; после проверки доступ действует только в этом браузере.
                         </p>
                         <form className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={(event) => void confirmPhotoAccess(event)}>
                           <label className="min-w-0 flex-1 text-[12px] font-medium">
@@ -415,15 +415,15 @@ export default function MeReportPageLive() {
                             Завершить доступ
                           </Button>
                           <span className="text-muted-foreground">
-                            Завершение очищает cookie-сессию в браузере и снова блокирует подготовку фото.
+                            Завершение закрывает текущий доступ в браузере. Для нового открытия потребуется подтвердить код ещё раз.
                           </span>
                         </div>
                       </section>
                       <section
-                        aria-label="Контур политики доступа к фото"
+                        aria-label="Доступ к фотографиям"
                         className="mt-3 rounded border border-border bg-background px-2 py-2 text-[12px]"
                       >
-                        <h4 className="font-medium">Контур политики доступа к фото</h4>
+                        <h4 className="font-medium">Доступ к фотографиям</h4>
                         <ul className="mt-1 space-y-1">
                           <li className="flex items-start justify-between gap-2">
                             <span className="text-muted-foreground">Идентификация пациента</span>
@@ -467,7 +467,7 @@ export default function MeReportPageLive() {
                           <dt className="text-muted-foreground">Отозван</dt>
                           <dd>{photoProtocol.revokedAt ? formatDateTime(photoProtocol.revokedAt) : "нет"}</dd>
                           <dt className="text-muted-foreground">Аудит</dt>
-                          <dd>события фиксируются на backend</dd>
+                          <dd>действия сохраняются в журнале клиники</dd>
                         </dl>
                         {photoProtocol.auditTrail.length > 0 && (
                           <ul className="mt-2 space-y-1">
@@ -475,14 +475,14 @@ export default function MeReportPageLive() {
                               <li key={`${entry.kind}-${entry.occurredAt || entry.label}`} className="flex flex-wrap gap-x-2 gap-y-0.5">
                                 <span className="font-medium">{entry.label}</span>
                                 <span className="text-muted-foreground">
-                                  {entry.occurredAt ? formatDateTime(entry.occurredAt) : "время управляется backend"}
+                                  {entry.occurredAt ? formatDateTime(entry.occurredAt) : "время задаёт система клиники"}
                                 </span>
                               </li>
                             ))}
                           </ul>
                         )}
                         <p className="mt-2 text-muted-foreground">
-                          Подробный неизменяемый журнал, причины отзыва и служебные данные скрыты в backend.
+                          Подробный журнал и служебные данные скрыты от пациента.
                         </p>
                       </section>
                       <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -511,7 +511,7 @@ export default function MeReportPageLive() {
                                 {photoDownloads[photo.sequence]?.status === "loading" && (
                                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                                 )}
-                                Подготовить фото {photo.sequence}
+                                Загрузить фото {photo.sequence}
                               </Button>
                               {photoDownloads[photo.sequence]?.status === "ready" && photoDownloads[photo.sequence]?.objectUrl && (
                                 <Button asChild variant="secondary" size="sm" className="min-h-[44px] sm:min-h-[32px]">
@@ -532,7 +532,7 @@ export default function MeReportPageLive() {
                                 ? "Открытие фото заблокировано после отзыва доступа клиникой."
                                 : photoDownloads[photo.sequence]?.status === "ready"
                                   ? photoDownloads[photo.sequence]?.message
-                                  : "Открытие идёт через защищённый backend после проверки доступа."}
+                                  : "Открытие доступно после проверки кода доступа."}
                             </div>
                             {photoDownloads[photo.sequence]?.status === "error" && (
                               <div className="mt-1 text-[12px] text-destructive" role="alert">

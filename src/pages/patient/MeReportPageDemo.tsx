@@ -68,10 +68,10 @@ export default function MeReportPage() {
                     <dt className="text-muted-foreground">Состав</dt>
                     <dd>безопасный текст, дата визита, клиника</dd>
                     <dt className="text-muted-foreground">Исключено</dt>
-                    <dd>внутренняя версия врача, сырые токены, AI/XAI-детали</dd>
+                    <dd>внутренняя версия врача, служебные данные, AI/XAI-детали</dd>
                   </dl>
                   <p className="mt-2 text-[12px] text-muted-foreground">
-                    Токен доступа скрыт. Врачебная версия скрыта. Если нужен повторный осмотр или вопрос врачу, запишитесь на контроль.
+                    Код доступа не показывается. Врачебная версия скрыта. Если нужен повторный осмотр или вопрос врачу, запишитесь на контроль.
                   </p>
                   <Button asChild variant="outline" size="sm" className="mt-3 min-h-[44px] sm:min-h-[32px]">
                     <Link to="/me/booking">Записаться на контроль</Link>

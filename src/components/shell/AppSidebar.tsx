@@ -157,7 +157,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       items: [
         { title: "Главная", url: "/me", icon: LayoutDashboard },
         { title: "История очагов", url: "/me/history", icon: ScanSearch },
-        { title: "Отчёты", url: "/me/reports/demo", icon: FileText },
+        { title: "Отчёты", url: "/me/reports", icon: FileText },
         { title: "Запись", url: "/me/booking", icon: CalendarPlus },
         { title: "Напоминания", url: "/me/reminders", icon: Bell },
       ],

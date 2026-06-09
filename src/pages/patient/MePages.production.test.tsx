@@ -345,7 +345,7 @@ describe("Patient portal · Stage 5N production", () => {
     const fetchMock = mockFetch();
     renderRoute("/me");
 
-    expect(await screen.findByText(/Production portal подключён/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Данные личного кабинета загружены из системы клиники/i)).toBeInTheDocument();
     expect(screen.getByText(/Пациент Production/)).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Демо-режим");
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
@@ -360,8 +360,8 @@ describe("Patient portal · Stage 5N production", () => {
     const list = renderRoute("/me/reports");
     expect(await screen.findByText("Пациентское заключение")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Контур безопасной выдачи/ })).toBeInTheDocument();
-    expect(screen.getByText(/Доступ: self-hosted кабинет/)).toBeInTheDocument();
-    expect(screen.getByText(/Сырые токены и врачебная версия скрыты/)).toBeInTheDocument();
+    expect(screen.getByText(/Доступ: личный кабинет/)).toBeInTheDocument();
+    expect(screen.getByText(/Служебные данные и врачебная версия скрыты/)).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
     list.unmount();
 
@@ -369,13 +369,13 @@ describe("Patient portal · Stage 5N production", () => {
     expect(await screen.findByText("Заключение для пациента")).toBeInTheDocument();
     expect(screen.getByText(/Текст для пациента/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Безопасность доступа/ })).toBeInTheDocument();
-    expect(screen.getByText(/Токен доступа скрыт/)).toBeInTheDocument();
+    expect(screen.getByText(/Код доступа не показывается/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: /Фотографии к визиту/ })).toBeInTheDocument();
     expect(screen.getByText(/метаданные готовы, политика доступа ограничивает выдачу/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Подтверждение доступа к фото/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Одноразовый код доступа")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /Контур политики доступа к фото/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Доступ к фотографиям/ })).toBeInTheDocument();
     expect(screen.getByText(/Сырые файлы, защищённые ссылки/)).toBeInTheDocument();
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
   });
@@ -394,19 +394,19 @@ describe("Patient portal · Stage 5N production", () => {
     const fetchMock = mockFetch();
     const view = renderRoute("/me/reports/report-live-1");
 
-    expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Подготовить фото 1" })).toBeDisabled();
+    expect(await screen.findByRole("region", { name: /Фотографии к визиту/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Загрузить фото 1" })).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Одноразовый код доступа"), {
       target: { value: "patient one-time credential" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Подтвердить доступ" }));
 
     expect(await screen.findByText(/Доступ подтверждён/)).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: "Подготовить фото 1" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Загрузить фото 1" }));
 
     const openLink = await screen.findByRole("link", { name: "Открыть фото 1" });
     expect(openLink).toHaveAttribute("href", "blob:patient-photo-protocol-1");
-    expect(screen.getByText(/Фото 1 подготовлено через защищённый backend/)).toBeInTheDocument();
+    expect(screen.getByText(/Фото 1 готово к открытию/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/me/photo-protocols/visit-live-1/photos/1/download",
       {
@@ -447,7 +447,7 @@ describe("Patient portal · Stage 5N production", () => {
     fireEvent.click(screen.getByRole("button", { name: "Подтвердить доступ" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Доступ не подтверждён.");
-    expect(screen.getByRole("button", { name: "Подготовить фото 1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Загрузить фото 1" })).toBeDisabled();
     expect(fetchMock).not.toHaveBeenCalledWith(
       "https://clinic.local/api/v1/me/photo-protocols/visit-live-1/photos/1/download",
       expect.any(Object),
@@ -477,13 +477,13 @@ describe("Patient portal · Stage 5N production", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Подтвердить доступ" }));
     expect(await screen.findByText(/Доступ подтверждён/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Подготовить фото 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Загрузить фото 1" }));
     expect(await screen.findByRole("link", { name: "Открыть фото 1" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Завершить доступ" }));
 
     expect(await screen.findByText(/Доступ к фото завершён/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Подготовить фото 1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Загрузить фото 1" })).toBeDisabled();
     expect(screen.queryByRole("link", { name: "Открыть фото 1" })).not.toBeInTheDocument();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:patient-photo-protocol-end-1");
     expect(fetchMock).toHaveBeenCalledWith(
@@ -509,11 +509,11 @@ describe("Patient portal · Stage 5N production", () => {
     const fetchMock = mockFetch({ revokedPhotoProtocol: true });
     renderRoute("/me/reports/report-live-1");
 
-    expect(await screen.findByRole("region", { name: /Фото-протокол пациента/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: /Фотографии к визиту/ })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Отзыв и журнал доступа/ })).toBeInTheDocument();
     expect(screen.getByText("Доступ отозван клиникой")).toBeInTheDocument();
     expect(screen.getByText(/Фото-протокол отозван/)).toBeInTheDocument();
-    const prepareButton = screen.getByRole("button", { name: "Подготовить фото 1" });
+    const prepareButton = screen.getByRole("button", { name: "Загрузить фото 1" });
     expect(prepareButton).toBeDisabled();
     fireEvent.click(prepareButton);
     expect(fetchMock).not.toHaveBeenCalledWith(
@@ -531,16 +531,16 @@ describe("Patient portal · Stage 5N production", () => {
     renderRoute("/me/history");
 
     expect(await screen.findByText(/История очагов/)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /Контур безопасного протокола/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Безопасная история наблюдения/ })).toBeInTheDocument();
     expect(screen.getByText("Очаг A")).toBeInTheDocument();
     expect(screen.getByText(/Есть серия снимков для врачебного сравнения/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Хронология визитов/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Контур политики доступа к фото/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Доступ к фотографиям/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Операции сравнения/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Жизненный цикл доступа/ })).toBeInTheDocument();
     expect(screen.getByText("Серия готова к проверке")).toBeInTheDocument();
     expect(screen.getByText("Контур доступа стабилен")).toBeInTheDocument();
-    expect(screen.getAllByText("Policy ready").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Доступ проверен").length).toBeGreaterThan(0);
     expect(document.body).not.toHaveTextContent("Скрытый врачебный текст");
     expect(document.body).not.toHaveTextContent("physicianText");
     expect(document.body).not.toHaveTextContent("patient-token");
@@ -608,7 +608,7 @@ describe("Patient portal · Stage 5N production", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Ответить клинике" }));
 
-    expect(await screen.findByText("Ответ клинике сохранён в self-hosted backend.")).toBeInTheDocument();
+    expect(await screen.findByText("Ответ клинике сохранён.")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/me/follow-ups/follow-up-live-1/messages",
       expect.objectContaining({ method: "POST" }),

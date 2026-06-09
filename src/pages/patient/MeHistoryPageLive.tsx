@@ -22,12 +22,12 @@ type LoadStatus = "missing_session" | "loading" | "ready" | "error";
 function LoginRequired() {
   return (
     <Card className="m-4 p-4">
-      <div className="text-[15px] font-semibold">Требуется production-вход пациента</div>
+      <div className="text-[15px] font-semibold">Требуется вход пациента</div>
       <p className="mt-1 text-[13px] text-muted-foreground">
-        Войдите через self-hosted backend, чтобы открыть историю.
+        Войдите в личный кабинет, чтобы открыть историю наблюдения.
       </p>
       <Button asChild className="mt-3 min-h-[44px] sm:min-h-[36px]">
-        <Link to="/self-hosted/login">Войти в production</Link>
+        <Link to="/self-hosted/login">Войти</Link>
       </Button>
     </Card>
   );
@@ -44,9 +44,9 @@ function StatePill({ children }: { children: ReactNode }) {
 function retentionStatusLabel(status: SelfHostedPatientPortalHistory["retentionGovernance"]["status"]): string {
   switch (status) {
     case "policy_ready":
-      return "Policy ready";
+      return "Доступ проверен";
     case "policy_in_progress":
-      return "Policy в работе";
+      return "Доступ проверяется";
     default:
       return "Нет подготовленных выпусков";
   }
@@ -111,13 +111,13 @@ export default function MeHistoryPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="История очагов" subtitle="Production · safe protocol boundary" />
+      <PageHeader title="История очагов" subtitle="Опубликованная клиникой история наблюдения" />
       {status === "missing_session" ? (
         <LoginRequired />
       ) : (
         <div className="space-y-3 p-3 sm:p-4">
           <section
-            aria-label="Контур безопасного протокола"
+            aria-label="Безопасная история наблюдения"
             className="rounded-md border px-3 py-3 text-[12px]"
             style={{
               background: "hsl(var(--success) / 0.08)",
@@ -128,7 +128,7 @@ export default function MeHistoryPageLive() {
             <div className="flex items-start gap-2">
               <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               <div className="min-w-0">
-                <div className="font-semibold">Контур безопасного протокола</div>
+                <div className="font-semibold">Безопасная история наблюдения</div>
                 <ul className="mt-1 grid gap-1 sm:grid-cols-3">
                   {PROTOCOL_BULLETS.map((item) => (
                     <li key={item}>{item}</li>
@@ -155,7 +155,7 @@ export default function MeHistoryPageLive() {
                   <div>
                     <h2 className="text-[15px] font-semibold">Очаги под наблюдением</h2>
                     <p className="text-[12px] text-muted-foreground">
-                      Patient-safe список без врачебных внутренних полей и без сырых файлов.
+                      Список показывает только опубликованные клиникой данные для пациента.
                     </p>
                   </div>
                   <Button asChild variant="outline" className="min-h-[44px] text-[12px] sm:min-h-[36px]">
@@ -253,9 +253,9 @@ export default function MeHistoryPageLive() {
                   )}
                 </Card>
 
-                <Card className="min-w-0 p-4" aria-label="Контур политики доступа к фото">
+                <Card className="min-w-0 p-4" aria-label="Доступ к фотографиям">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-[15px] font-semibold">Контур политики доступа к фото</h2>
+                    <h2 className="text-[15px] font-semibold">Доступ к фотографиям</h2>
                     <StatePill>{retentionStatusLabel(history.retentionGovernance.status)}</StatePill>
                   </div>
                   <dl className="grid grid-cols-2 gap-2 text-[12px]">
@@ -264,15 +264,15 @@ export default function MeHistoryPageLive() {
                       <dd className="font-medium">{history.retentionGovernance.releasesTotal}</dd>
                     </div>
                     <div className="rounded-md bg-muted/50 p-2">
-                      <dt className="text-muted-foreground">Policy ready</dt>
+                      <dt className="text-muted-foreground">Доступ проверен</dt>
                       <dd className="font-medium">{history.retentionGovernance.policyReady}</dd>
                     </div>
                     <div className="rounded-md bg-muted/50 p-2">
-                      <dt className="text-muted-foreground">Retention approved</dt>
+                      <dt className="text-muted-foreground">Срок хранения подтверждён</dt>
                       <dd className="font-medium">{history.retentionGovernance.retentionApproved}</dd>
                     </div>
                     <div className="rounded-md bg-muted/50 p-2">
-                      <dt className="text-muted-foreground">Safe copy approved</dt>
+                      <dt className="text-muted-foreground">Текст для пациента проверен</dt>
                       <dd className="font-medium">{history.retentionGovernance.patientCopyApproved}</dd>
                     </div>
                   </dl>
@@ -336,7 +336,7 @@ export default function MeHistoryPageLive() {
                     </div>
                   </dl>
                   <p className="mt-2 text-[12px] text-muted-foreground">
-                    Временные коды, QR-сессии и токены не показываются в пациентском интерфейсе.
+                    Временные коды и служебные данные не показываются в пациентском интерфейсе.
                   </p>
                 </Card>
               </div>

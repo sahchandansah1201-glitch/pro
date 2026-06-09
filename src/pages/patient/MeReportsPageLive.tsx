@@ -26,11 +26,11 @@ export default function MeReportsPageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Заключения" subtitle="Production · patient-safe reports from self-hosted backend" />
+      <PageHeader title="Заключения" subtitle="Опубликованные клиникой заключения" />
       <div className="space-y-3 p-3 sm:p-4">
         {status === "missing_session" && (
           <Card className="p-4">
-            <div className="text-[13px] text-muted-foreground">Войдите в production, чтобы увидеть заключения.</div>
+            <div className="text-[13px] text-muted-foreground">Войдите в личный кабинет, чтобы увидеть заключения.</div>
             <Button asChild className="mt-3 min-h-[44px] sm:min-h-[36px]">
               <Link to="/self-hosted/login">Войти</Link>
             </Button>
@@ -47,11 +47,11 @@ export default function MeReportsPageLive() {
                   <h2 className="text-[13px] font-semibold">Контур безопасной выдачи</h2>
                   <div className="mt-2 grid grid-cols-1 gap-2 text-[12px] text-muted-foreground md:grid-cols-3">
                     <div>
-                      <div className="font-medium text-foreground">Доступ: self-hosted кабинет</div>
-                      <div>Страница читает только patient-safe endpoint текущего пациента.</div>
+                      <div className="font-medium text-foreground">Доступ: личный кабинет</div>
+                      <div>Показываются только заключения текущего пациента.</div>
                     </div>
                     <div>
-                      <div className="font-medium text-foreground">Сырые токены и врачебная версия скрыты</div>
+                      <div className="font-medium text-foreground">Служебные данные и врачебная версия скрыты</div>
                       <div>Список не показывает ссылку доступа, внутренний текст и AI/XAI-детали.</div>
                     </div>
                     <div>

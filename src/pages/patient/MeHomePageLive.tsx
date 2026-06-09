@@ -9,12 +9,12 @@ import { usePatientPortalOverview } from "./usePatientPortalOverview";
 function LoginRequired() {
   return (
     <Card className="m-4 p-4">
-      <div className="text-[15px] font-semibold">Требуется production-вход пациента</div>
+      <div className="text-[15px] font-semibold">Требуется вход пациента</div>
       <p className="mt-1 text-[13px] text-muted-foreground">
-        Войдите через self-hosted backend, чтобы открыть личный кабинет.
+        Войдите в личный кабинет, чтобы открыть свои записи, заключения и напоминания.
       </p>
       <Button asChild className="mt-3 min-h-[44px] sm:min-h-[36px]">
-        <Link to="/self-hosted/login">Войти в production</Link>
+        <Link to="/self-hosted/login">Войти</Link>
       </Button>
     </Card>
   );
@@ -27,7 +27,7 @@ export default function MeHomePageLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Личный кабинет" subtitle={`Production portal · ${patientName}`} />
+      <PageHeader title="Личный кабинет" subtitle={patientName} />
       {status === "missing_session" ? (
         <LoginRequired />
       ) : (
@@ -42,7 +42,7 @@ export default function MeHomePageLive() {
             }}
           >
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span>Production portal подключён к self-hosted backend /api/v1/me/portal.</span>
+            <span>Данные личного кабинета загружены из системы клиники.</span>
           </div>
 
           {status === "loading" && <Card className="p-4 text-[13px] text-muted-foreground">Загружаем личный кабинет…</Card>}
@@ -126,7 +126,7 @@ export default function MeHomePageLive() {
                   <div className="mt-2">
                     <div className="text-[13px] font-medium">Проверенный протокол</div>
                     <p className="mt-1 line-clamp-3 text-[12px] text-muted-foreground">
-                      История доступна только в безопасном patient-facing контуре.
+                      История показывает только опубликованные клиникой сведения для пациента.
                     </p>
                     <Button asChild variant="outline" className="mt-3 w-full min-h-[44px] text-[12px] sm:min-h-[36px]">
                       <Link to="/me/history">Открыть историю очагов</Link>

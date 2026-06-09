@@ -59,7 +59,7 @@ export default function MeHistoryPageDemo() {
               <div>
                 <h2 className="text-[15px] font-semibold">Очаги под наблюдением</h2>
                 <p className="text-[12px] text-muted-foreground">
-                  Patient-safe список без врачебных внутренних полей и без сырых файлов.
+                  Список показывает только опубликованные клиникой данные для пациента.
                 </p>
               </div>
               <Button asChild variant="outline" className="min-h-[44px] text-[12px] sm:min-h-[36px]">
