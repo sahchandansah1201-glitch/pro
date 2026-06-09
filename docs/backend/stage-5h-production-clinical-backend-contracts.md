@@ -2693,6 +2693,78 @@ Frontend behavior:
 - no patient delivery for lesion comparison draft decisions until a separate
   patient-facing longitudinal protocol gate is approved
 
+## Batch CE Protected Reviewer Evidence
+
+Batch CE extends Batch CD with a long-running evidence receipt over protected
+reviewer operations on real protected assets. The new layer remains
+metadata-only and stores no patient delivery payload, reviewer identity, pair
+keys, image IDs, raw protected reviewer evidence logs, storage paths, signed
+URLs, tokens, QR, session material, doctor text, patient text, diagnosis,
+risk, prognosis, treatment, measurement values, or clinical dynamic
+conclusion.
+
+Contract additions:
+
+- `PATCH /api/v1/visits/{visitId}/longitudinal-timeline-rollout/protected-reviewer-evidence`
+  persists the metadata-only protected reviewer evidence review;
+- repository builder:
+  `buildReviewVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceSql`;
+- read model `buildGetVisitLongitudinalDatasetValidationSql` now includes
+  `timelineRolloutProtectedReviewerEvidence`;
+- service normalizer:
+  `normalizeVisitLongitudinalTimelineRolloutProtectedReviewerEvidencePayload`;
+- requested `ready_for_protected_reviewer_evidence` is downgraded to
+  `in_review` with reason
+  `timeline_rollout_protected_reviewer_evidence_not_ready` unless dataset
+  validation, rollout, SOP, evidence, monitoring, incident procedure,
+  clinical validation, post-validation monitoring, observation governance,
+  exception governance, outcome governance, longitudinal clinical validation,
+  protected reviewer validation, protected reviewer governance, all seven
+  evidence checklist items, zero unresolved protected evidence counts, and
+  zero blockers are ready;
+- audit action:
+  `visit_longitudinal_timeline_rollout_protected_reviewer_evidence.review`;
+- audit metadata remains aggregate-only and explicitly records that patient
+  delivery, measurement, protected fields, clinical output, pair keys, image
+  IDs, patient rows, raw protected reviewer logs, and raw protected reviewer
+  payloads are not exposed.
+
+Frontend behavior:
+
+- `VisitWorkspacePage` adds region `Protected reviewer evidence` inside
+  `Готовность timeline QA`;
+- visible copy states:
+  `Protected reviewer evidence фиксирует только aggregate monitored reviewer evidence metadata on protected assets · Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.`
+- actions are `Зафиксировать protected reviewer evidence` and
+  `Утвердить protected reviewer evidence`;
+- approval is disabled until
+  `timelineRolloutProtectedReviewerGovernance.status === "ready_for_protected_reviewer_governance"`;
+- the UI shows only checklist labels and aggregate counters for monitored,
+  exceptions, adjudication, follow-up, rollback, archive, owner signoff,
+  protected review windows, monitored review windows, sampled review windows,
+  adjudicated evidence, follow-up closure, rollback drills, archived reviews,
+  unresolved evidence, and blockers.
+
+### Batch CE Brainstorm Coverage
+
+- `SD-MF-025` / lesion image chronology: partially solved. Batch CE adds
+  long-running protected reviewer evidence receipt over real protected review
+  windows. Remaining gate: long-running production dataset evidence across
+  real clinic operations over time.
+- `SD-MF-026` / comparable image-pair workflow: partially solved. Batch CE
+  closes the monitored reviewer-evidence layer above reviewer governance
+  without exposing protected assets. Remaining gate: approved reviewer
+  operations governance over time in live protected-asset operations.
+- `SD-MF-028` / dynamics reliability: partially solved. Batch CE keeps
+  clinical dynamic conclusion disabled and records only aggregate monitored
+  reviewer evidence metadata on protected assets. Remaining gate: approved
+  clinical longitudinal validation procedure and reviewer-operations evidence
+  over time on real protected assets.
+- `SD-MF-046` / patient protocol and lesion history: in work. Batch CE is
+  doctor-side metadata-only protected reviewer evidence. Patient delivery
+  remains off until privacy/security/retention/session/approved-copy gates are
+  closed.
+
 ## Validation
 
 ```bash

@@ -49,6 +49,7 @@ import {
   reviewSelfHostedVisitLongitudinalTimelineRolloutIncidentProcedure,
   reviewSelfHostedVisitLongitudinalTimelineRolloutMonitoring,
   reviewSelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidation,
+  reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidence,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernance,
   reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidation,
   reviewSelfHostedVisitLongitudinalTimelineRolloutObservationGovernance,
@@ -68,6 +69,7 @@ import {
   type SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationStatus,
+  type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidationStatus,
   type SelfHostedVisitLongitudinalTimelineRolloutObservationGovernanceStatus,
@@ -513,6 +515,7 @@ function ProductionClinicalWorkspacePanel({
   const [timelineRolloutOutcomeGovernanceSaving, setTimelineRolloutOutcomeGovernanceSaving] = useState(false);
   const [timelineRolloutLongitudinalClinicalValidationSaving, setTimelineRolloutLongitudinalClinicalValidationSaving] = useState(false);
   const [timelineRolloutProtectedReviewerGovernanceSaving, setTimelineRolloutProtectedReviewerGovernanceSaving] = useState(false);
+  const [timelineRolloutProtectedReviewerEvidenceSaving, setTimelineRolloutProtectedReviewerEvidenceSaving] = useState(false);
   const [timelineRolloutProtectedReviewerValidationSaving, setTimelineRolloutProtectedReviewerValidationSaving] = useState(false);
   const [photoPolicyForm, setPhotoPolicyForm] = useState({
     expiresAt: "",
@@ -1358,6 +1361,74 @@ function ProductionClinicalWorkspacePanel({
     setStatus("Protected reviewer governance metadata сохранён. Clinical dynamic conclusion: выключен.");
   };
 
+  const saveTimelineRolloutProtectedReviewerEvidence = async (
+    protectedReviewerEvidenceStatus: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus,
+  ) => {
+    if (kind !== "report") return;
+    const validation = state.kind === "ready" ? state.longitudinalDatasetValidation : null;
+    if (!validation) return;
+    const readiness = validation.readiness;
+    const protectedReviewerGovernance = validation.timelineRolloutProtectedReviewerGovernance;
+    const readyPayload = protectedReviewerEvidenceStatus === "ready_for_protected_reviewer_evidence";
+    const evidenceReady =
+      readyPayload
+      && readiness.status === "ready_for_rollout"
+      && protectedReviewerGovernance.status === "ready_for_protected_reviewer_governance";
+    const protectedReviewWindowCount = evidenceReady
+      ? Math.max(1, readiness.readyTimelineCount || readiness.candidatePairCount)
+      : 0;
+    const monitoredProtectedReviewCount = evidenceReady
+      ? Math.max(1, Math.min(protectedReviewWindowCount, readiness.reviewerWorkflowReadyCount))
+      : 0;
+    const sampledProtectedReviewCount = evidenceReady
+      ? Math.max(1, Math.min(monitoredProtectedReviewCount, readiness.readyTimelineCount || 1))
+      : 0;
+    const adjudicatedProtectedEvidenceCount = evidenceReady
+      ? Math.max(1, Math.min(sampledProtectedReviewCount, monitoredProtectedReviewCount))
+      : 0;
+    const followupClosedProtectedCount = evidenceReady ? adjudicatedProtectedEvidenceCount : 0;
+    const rollbackDrillProtectedCount = evidenceReady
+      ? Math.max(1, Math.min(monitoredProtectedReviewCount, 1))
+      : 0;
+    const archivedProtectedReviewCount = evidenceReady ? monitoredProtectedReviewCount : 0;
+    setTimelineRolloutProtectedReviewerEvidenceSaving(true);
+    setStatus("");
+    const result = await reviewSelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidence({
+      apiBaseUrl,
+      apiToken,
+      visitId,
+      payload: {
+        protectedReviewerEvidenceStatus,
+        protectedReviewerEvidenceReasons: evidenceReady
+          ? ["protected_reviewer_evidence_ready_no_patient_delivery"]
+          : ["protected_reviewer_evidence_requires_long_running_protected_reviewer_evidence"],
+        reviewerMonitoringEvidenceStatus: evidenceReady ? "ready" : "needs_review",
+        reviewerExceptionEvidenceStatus: evidenceReady ? "ready" : "needs_review",
+        reviewerAdjudicationEvidenceStatus: evidenceReady ? "ready" : "needs_review",
+        reviewerFollowupEvidenceStatus: evidenceReady ? "ready" : "needs_review",
+        reviewerRollbackEvidenceStatus: evidenceReady ? "ready" : "needs_review",
+        reviewerArchiveEvidenceStatus: evidenceReady ? "ready" : "needs_review",
+        ownerSignoffStatus: evidenceReady ? "ready" : "needs_review",
+        protectedReviewWindowCount,
+        monitoredProtectedReviewCount,
+        sampledProtectedReviewCount,
+        adjudicatedProtectedEvidenceCount,
+        followupClosedProtectedCount,
+        rollbackDrillProtectedCount,
+        archivedProtectedReviewCount,
+        unresolvedProtectedEvidenceCount: 0,
+        blockerCount: 0,
+      },
+    });
+    setTimelineRolloutProtectedReviewerEvidenceSaving(false);
+    if (!result.ok) {
+      setStatus(result.error?.message ?? "Не удалось сохранить protected reviewer evidence.");
+      return;
+    }
+    await load();
+    setStatus("Protected reviewer evidence metadata сохранён. Clinical dynamic conclusion: выключен.");
+  };
+
   const title = {
     assessment: "Self-hosted assessment contract",
     conclusion: "Self-hosted conclusion contract",
@@ -1405,6 +1476,7 @@ function ProductionClinicalWorkspacePanel({
                 exceptionGovernanceSaving={timelineRolloutExceptionGovernanceSaving}
                 outcomeGovernanceSaving={timelineRolloutOutcomeGovernanceSaving}
                 longitudinalClinicalValidationSaving={timelineRolloutLongitudinalClinicalValidationSaving}
+                protectedReviewerEvidenceSaving={timelineRolloutProtectedReviewerEvidenceSaving}
                 protectedReviewerGovernanceSaving={timelineRolloutProtectedReviewerGovernanceSaving}
                 protectedReviewerValidationSaving={timelineRolloutProtectedReviewerValidationSaving}
                 onReviewRollout={saveTimelineRollout}
@@ -1418,6 +1490,7 @@ function ProductionClinicalWorkspacePanel({
                 onReviewExceptionGovernance={saveTimelineRolloutExceptionGovernance}
                 onReviewOutcomeGovernance={saveTimelineRolloutOutcomeGovernance}
                 onReviewLongitudinalClinicalValidation={saveTimelineRolloutLongitudinalClinicalValidation}
+                onReviewProtectedReviewerEvidence={saveTimelineRolloutProtectedReviewerEvidence}
                 onReviewProtectedReviewerGovernance={saveTimelineRolloutProtectedReviewerGovernance}
                 onReviewProtectedReviewerValidation={saveTimelineRolloutProtectedReviewerValidation}
               />
@@ -1773,6 +1846,14 @@ function timelineRolloutProtectedReviewerGovernanceStatusLabel(
   return "Protected reviewer governance не начат";
 }
 
+function timelineRolloutProtectedReviewerEvidenceStatusLabel(
+  status: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus,
+): string {
+  if (status === "ready_for_protected_reviewer_evidence") return "Protected reviewer evidence ready";
+  if (status === "in_review") return "Protected reviewer evidence review";
+  return "Protected reviewer evidence не начат";
+}
+
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
@@ -1812,6 +1893,7 @@ function LongitudinalDatasetValidationPanel({
   exceptionGovernanceSaving,
   outcomeGovernanceSaving,
   longitudinalClinicalValidationSaving,
+  protectedReviewerEvidenceSaving,
   protectedReviewerGovernanceSaving,
   protectedReviewerValidationSaving,
   onReviewRollout,
@@ -1825,6 +1907,7 @@ function LongitudinalDatasetValidationPanel({
   onReviewExceptionGovernance,
   onReviewOutcomeGovernance,
   onReviewLongitudinalClinicalValidation,
+  onReviewProtectedReviewerEvidence,
   onReviewProtectedReviewerGovernance,
   onReviewProtectedReviewerValidation,
 }: {
@@ -1840,6 +1923,7 @@ function LongitudinalDatasetValidationPanel({
   exceptionGovernanceSaving: boolean;
   outcomeGovernanceSaving: boolean;
   longitudinalClinicalValidationSaving: boolean;
+  protectedReviewerEvidenceSaving: boolean;
   protectedReviewerGovernanceSaving: boolean;
   protectedReviewerValidationSaving: boolean;
   onReviewRollout: (status: SelfHostedVisitLongitudinalTimelineRolloutStatus) => void;
@@ -1862,6 +1946,9 @@ function LongitudinalDatasetValidationPanel({
   ) => void;
   onReviewLongitudinalClinicalValidation: (
     status: SelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationStatus,
+  ) => void;
+  onReviewProtectedReviewerEvidence: (
+    status: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus,
   ) => void;
   onReviewProtectedReviewerGovernance: (
     status: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceStatus,
@@ -2023,6 +2110,56 @@ function LongitudinalDatasetValidationPanel({
     createdAt: null,
     updatedAt: null,
   };
+  const protectedReviewerEvidence = validation.timelineRolloutProtectedReviewerEvidence ?? {
+    id: "",
+    clinicId: null,
+    patientId: null,
+    visitId: null,
+    status: "not_started" as const,
+    reasons: [],
+    protectedReviewerGovernanceStatus: "not_started" as const,
+    protectedReviewerValidationStatus: "not_started" as const,
+    longitudinalClinicalValidationStatus: "not_started" as const,
+    outcomeGovernanceStatus: "not_started" as const,
+    exceptionGovernanceStatus: "not_started" as const,
+    observationGovernanceStatus: "not_started" as const,
+    postValidationMonitoringStatus: "not_started" as const,
+    clinicalValidationStatus: "not_started" as const,
+    incidentProcedureStatus: "not_started" as const,
+    monitoringStatus: "not_started" as const,
+    evidenceStatus: "not_started" as const,
+    sopStatus: "not_started" as const,
+    validationStatus: "blocked" as const,
+    rolloutStatus: "not_approved" as const,
+    reviewerMonitoringEvidenceStatus: "missing" as const,
+    reviewerExceptionEvidenceStatus: "missing" as const,
+    reviewerAdjudicationEvidenceStatus: "missing" as const,
+    reviewerFollowupEvidenceStatus: "missing" as const,
+    reviewerRollbackEvidenceStatus: "missing" as const,
+    reviewerArchiveEvidenceStatus: "missing" as const,
+    ownerSignoffStatus: "missing" as const,
+    protectedReviewWindowCount: 0,
+    monitoredProtectedReviewCount: 0,
+    sampledProtectedReviewCount: 0,
+    adjudicatedProtectedEvidenceCount: 0,
+    followupClosedProtectedCount: 0,
+    rollbackDrillProtectedCount: 0,
+    archivedProtectedReviewCount: 0,
+    unresolvedProtectedEvidenceCount: 0,
+    blockerCount: 0,
+    lesionCount: 0,
+    readyTimelineCount: 0,
+    blockedTimelineCount: 0,
+    candidatePairCount: 0,
+    reviewerWorkflowReadyCount: 0,
+    patientDeliveryAllowed: false as const,
+    medicalMeasurementAllowed: false as const,
+    protectedFieldsExposed: false as const,
+    clinicalOutputGenerated: false as const,
+    reviewedAt: null,
+    createdAt: null,
+    updatedAt: null,
+  };
   const rolloutReady = readiness.status === "ready_for_rollout";
   const sopPrerequisitesReady = rolloutReady && rollout.status === "approved_for_clinical_operations";
   const evidencePrerequisitesReady = sopPrerequisitesReady && sop.status === "ready_for_operational_rollout";
@@ -2052,6 +2189,9 @@ function LongitudinalDatasetValidationPanel({
   const protectedReviewerGovernancePrerequisitesReady =
     protectedReviewerValidationPrerequisitesReady
     && protectedReviewerValidation.status === "ready_for_protected_reviewer_validation";
+  const protectedReviewerEvidencePrerequisitesReady =
+    protectedReviewerGovernancePrerequisitesReady
+    && protectedReviewerGovernance.status === "ready_for_protected_reviewer_governance";
   const visibleItemActions = new Set(validation.items.map((item) => item.nextAction));
   const additionalActions = validation.nextActions.filter((action) => !visibleItemActions.has(action));
   return (
@@ -2927,6 +3067,72 @@ function LongitudinalDatasetValidationPanel({
             onClick={() => onReviewProtectedReviewerGovernance("ready_for_protected_reviewer_governance")}
           >
             Утвердить protected reviewer governance
+          </Button>
+        </div>
+      </div>
+      <div
+        role="region"
+        aria-label="Protected reviewer evidence"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-semibold">Protected reviewer evidence</h4>
+            <p className="text-muted-foreground">
+              Protected reviewer evidence фиксирует только aggregate monitored reviewer evidence metadata on protected assets ·
+              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+            </p>
+          </div>
+          <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
+            {timelineRolloutProtectedReviewerEvidenceStatusLabel(protectedReviewerEvidence.status)}
+          </span>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Field term="Monitor" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerMonitoringEvidenceStatus)} />
+          <Field term="Exceptions" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerExceptionEvidenceStatus)} />
+          <Field term="Adjudication" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerAdjudicationEvidenceStatus)} />
+          <Field term="Follow-up" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerFollowupEvidenceStatus)} />
+          <Field term="Rollback" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerRollbackEvidenceStatus)} />
+          <Field term="Archive" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.reviewerArchiveEvidenceStatus)} />
+          <Field term="Owner" value={timelineRolloutSopChecklistLabel(protectedReviewerEvidence.ownerSignoffStatus)} />
+          <Field term="Windows" value={protectedReviewerEvidence.protectedReviewWindowCount} />
+          <Field term="Monitored" value={protectedReviewerEvidence.monitoredProtectedReviewCount} />
+          <Field term="Sampled" value={protectedReviewerEvidence.sampledProtectedReviewCount} />
+          <Field term="Adjudicated" value={protectedReviewerEvidence.adjudicatedProtectedEvidenceCount} />
+          <Field term="Follow closed" value={protectedReviewerEvidence.followupClosedProtectedCount} />
+          <Field term="Rollback drills" value={protectedReviewerEvidence.rollbackDrillProtectedCount} />
+          <Field term="Archived" value={protectedReviewerEvidence.archivedProtectedReviewCount} />
+          <Field term="Open evidence" value={protectedReviewerEvidence.unresolvedProtectedEvidenceCount} />
+          <Field term="Blockers" value={protectedReviewerEvidence.blockerCount} />
+        </dl>
+        {protectedReviewerEvidence.reasons.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {protectedReviewerEvidence.reasons.slice(0, 3).map((reason) => (
+              <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 text-[12px]"
+            disabled={protectedReviewerEvidenceSaving}
+            onClick={() => onReviewProtectedReviewerEvidence("in_review")}
+          >
+            Зафиксировать protected reviewer evidence
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={protectedReviewerEvidenceSaving || !protectedReviewerEvidencePrerequisitesReady}
+            onClick={() => onReviewProtectedReviewerEvidence("ready_for_protected_reviewer_evidence")}
+          >
+            Утвердить protected reviewer evidence
           </Button>
         </div>
       </div>

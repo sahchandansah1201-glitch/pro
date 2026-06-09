@@ -1302,6 +1302,65 @@ function createLiveWorkspaceFetchMock() {
         ),
       );
     }
+    if (href.endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/protected-reviewer-evidence")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              id: "timeline-rollout-protected-reviewer-evidence-1",
+              clinicId: "clinic-1",
+              patientId: "live-patient",
+              visitId: "live-visit",
+              status: "in_review",
+              reasons: ["timeline_rollout_protected_reviewer_evidence_not_ready"],
+              protectedReviewerGovernanceStatus: "not_started",
+              protectedReviewerValidationStatus: "not_started",
+              longitudinalClinicalValidationStatus: "not_started",
+              outcomeGovernanceStatus: "not_started",
+              exceptionGovernanceStatus: "not_started",
+              observationGovernanceStatus: "not_started",
+              postValidationMonitoringStatus: "not_started",
+              clinicalValidationStatus: "not_started",
+              incidentProcedureStatus: "not_started",
+              monitoringStatus: "not_started",
+              evidenceStatus: "not_started",
+              sopStatus: "not_started",
+              validationStatus: "blocked",
+              rolloutStatus: "review_required",
+              reviewerMonitoringEvidenceStatus: "needs_review",
+              reviewerExceptionEvidenceStatus: "needs_review",
+              reviewerAdjudicationEvidenceStatus: "needs_review",
+              reviewerFollowupEvidenceStatus: "needs_review",
+              reviewerRollbackEvidenceStatus: "needs_review",
+              reviewerArchiveEvidenceStatus: "needs_review",
+              ownerSignoffStatus: "needs_review",
+              protectedReviewWindowCount: 0,
+              monitoredProtectedReviewCount: 0,
+              sampledProtectedReviewCount: 0,
+              adjudicatedProtectedEvidenceCount: 0,
+              followupClosedProtectedCount: 0,
+              rollbackDrillProtectedCount: 0,
+              archivedProtectedReviewCount: 0,
+              unresolvedProtectedEvidenceCount: 0,
+              blockerCount: 1,
+              lesionCount: 1,
+              readyTimelineCount: 0,
+              blockedTimelineCount: 1,
+              candidatePairCount: 1,
+              reviewerWorkflowReadyCount: 0,
+              patientDeliveryAllowed: false,
+              medicalMeasurementAllowed: false,
+              protectedFieldsExposed: false,
+              clinicalOutputGenerated: false,
+              reviewedAt: "2026-06-09T00:00:00.000Z",
+              createdAt: "2026-06-09T00:00:00.000Z",
+              updatedAt: "2026-06-09T00:00:00.000Z",
+            },
+          }),
+          { headers: { "Content-Type": "application/json" }, status: init?.method === "PATCH" ? 200 : 405 },
+        ),
+      );
+    }
     if (href.endsWith("/api/v1/visits/live-visit/lesion-comparison-viewer-qa/review-queue?status=actionable&limit=20")) {
       return Promise.resolve(
         new Response(
@@ -2074,6 +2133,60 @@ function createLiveWorkspaceFetchMock() {
                 pairKey: "live-lesion:i-011+i-012",
                 imageIds: ["i-011", "i-012"],
               },
+              timelineRolloutProtectedReviewerEvidence: {
+                id: "timeline-rollout-protected-reviewer-evidence-1",
+                clinicId: "clinic-1",
+                patientId: "live-patient",
+                visitId: "live-visit",
+                status: "not_started",
+                reasons: [],
+                protectedReviewerGovernanceStatus: "not_started",
+                protectedReviewerValidationStatus: "not_started",
+                longitudinalClinicalValidationStatus: "not_started",
+                outcomeGovernanceStatus: "not_started",
+                exceptionGovernanceStatus: "not_started",
+                observationGovernanceStatus: "not_started",
+                postValidationMonitoringStatus: "not_started",
+                clinicalValidationStatus: "not_started",
+                incidentProcedureStatus: "not_started",
+                monitoringStatus: "not_started",
+                evidenceStatus: "not_started",
+                sopStatus: "not_started",
+                validationStatus: "blocked",
+                rolloutStatus: "review_required",
+                reviewerMonitoringEvidenceStatus: "missing",
+                reviewerExceptionEvidenceStatus: "missing",
+                reviewerAdjudicationEvidenceStatus: "missing",
+                reviewerFollowupEvidenceStatus: "missing",
+                reviewerRollbackEvidenceStatus: "missing",
+                reviewerArchiveEvidenceStatus: "missing",
+                ownerSignoffStatus: "missing",
+                protectedReviewWindowCount: 0,
+                monitoredProtectedReviewCount: 0,
+                sampledProtectedReviewCount: 0,
+                adjudicatedProtectedEvidenceCount: 0,
+                followupClosedProtectedCount: 0,
+                rollbackDrillProtectedCount: 0,
+                archivedProtectedReviewCount: 0,
+                unresolvedProtectedEvidenceCount: 0,
+                blockerCount: 0,
+                lesionCount: 0,
+                readyTimelineCount: 0,
+                blockedTimelineCount: 0,
+                candidatePairCount: 0,
+                reviewerWorkflowReadyCount: 0,
+                patientDeliveryAllowed: true,
+                medicalMeasurementAllowed: true,
+                protectedFieldsExposed: true,
+                clinicalOutputGenerated: true,
+                rawProtectedReviewerEvidenceLog: "unsafe",
+                protectedReviewerEvidencePayload: { unsafe: true },
+                reviewerMonitoringEvidencePayload: { unsafe: true },
+                reviewerName: "Unsafe Name",
+                reviewerEmail: "unsafe@example.com",
+                pairKey: "live-lesion:i-011+i-012",
+                imageIds: ["i-011", "i-012"],
+              },
               nextActions: [
                 "verify_production_asset",
                 "complete_capture_metadata",
@@ -2653,6 +2766,40 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("rawProtectedReviewerLog");
     expect(document.body.textContent).not.toContain("protectedReviewerGovernancePayload");
     expect(document.body.textContent).not.toContain("reviewerMonitoringPayload");
+  });
+
+  it("posts protected reviewer evidence review without patient delivery or reviewer evidence leaks", async () => {
+    const fetchMock = createLiveWorkspaceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt("/patients/live-patient/visits/live-visit?tab=report");
+
+    expect(await screen.findByRole("region", { name: "Protected reviewer evidence" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать protected reviewer evidence/ }));
+    await screen.findByText(/Protected reviewer evidence metadata сохранён/);
+
+    const evidenceCall = fetchMock.mock.calls.find(
+      ([url, requestInit]) =>
+        String(url).endsWith("/api/v1/visits/live-visit/longitudinal-timeline-rollout/protected-reviewer-evidence")
+        && (requestInit as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(evidenceCall).toBeTruthy();
+    const body = String((evidenceCall?.[1] as RequestInit | undefined)?.body);
+    expect(body).toContain("in_review");
+    expect(body).toContain("reviewerMonitoringEvidenceStatus");
+    expect(body).toContain("reviewerExceptionEvidenceStatus");
+    expect(body).toContain("reviewerRollbackEvidenceStatus");
+    expect(body).not.toContain("dynamicConclusion");
+    expect(body).not.toContain("pairKey");
+    expect(body).not.toContain("imageIds");
+    expect(body).not.toContain("rawProtectedReviewerEvidenceLog");
+    expect(body).not.toContain("protectedReviewerEvidencePayload");
+    expect(body).not.toContain("reviewerMonitoringEvidencePayload");
+    expect(document.body.textContent).not.toContain("dynamicConclusion");
+    expect(document.body.textContent).not.toContain("pairKey");
+    expect(document.body.textContent).not.toContain("imageIds");
+    expect(document.body.textContent).not.toContain("rawProtectedReviewerEvidenceLog");
+    expect(document.body.textContent).not.toContain("protectedReviewerEvidencePayload");
+    expect(document.body.textContent).not.toContain("reviewerMonitoringEvidencePayload");
   });
 
   it("posts policy governance updates for photo release in production report tab", async () => {
