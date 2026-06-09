@@ -207,6 +207,9 @@ export function AppSidebar() {
     (group, index, all) => all.findIndex((candidate) => candidate.label === group.label) === index,
   );
   const groups = [...uniqueGroups, SHARED];
+  // Keep the user's current location unambiguous: on deep links like
+  // /admin/governance or Body Map, highlight only the most specific sidebar item,
+  // not both the parent section and the child screen.
   const activeUrl = groups
     .flatMap((group) => group.items)
     .filter((item) => matchesPath(pathname, item.url))
