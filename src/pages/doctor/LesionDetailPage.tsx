@@ -181,6 +181,15 @@ type ComparisonViewport = {
   panY: number;
   overlay: ComparisonOverlay;
 };
+type ComparisonWorkflowStep = {
+  key: string;
+  label: string;
+  done: boolean;
+  statusLabel: string;
+  nextActionLabel: string;
+  actionLabel: string;
+  actionHref: string;
+};
 type LongitudinalVisitGroup = {
   visitId: string;
   visit: Visit | null;
@@ -1310,6 +1319,119 @@ function ComparisonFullScreenDialog({
     && reviewerAssigned
     && secondReviewReady
     && productionAnalysisPolicyApproved;
+  const protectedPreviewReady = !canLoadProtectedImages || protectedRenderStatus === "ready";
+  const comparisonWorkflowSteps: ComparisonWorkflowStep[] = [
+    {
+      key: "protected-preview",
+      label: "Превью",
+      done: protectedPreviewReady,
+      statusLabel: canLoadProtectedImages
+        ? protectedRenderStatus === "ready" ? "готово" : "подготовить"
+        : "не требуется",
+      nextActionLabel: "Подготовить защищённые превью",
+      actionLabel: "Открыть защищённые превью",
+      actionHref: "#comparison-protected-preview",
+    },
+    {
+      key: "capture",
+      label: "Условия",
+      done: captureReady,
+      statusLabel: captureReady ? "повторяемы" : "нужен контроль",
+      nextActionLabel: "Закрыть условия съёмки",
+      actionLabel: "Открыть контроль условий",
+      actionHref: "#comparison-capture-qa",
+    },
+    {
+      key: "geometry",
+      label: "Геометрия",
+      done: geometryMarkers.length === 2,
+      statusLabel: `маркеры ${geometryMarkers.length}/2`,
+      nextActionLabel: "Поставить технические маркеры",
+      actionLabel: "Открыть геометрию",
+      actionHref: "#comparison-geometry",
+    },
+    {
+      key: "calibration",
+      label: "Калибровка",
+      done: calibrationReady,
+      statusLabel: calibrationReady ? "готова" : "не готова",
+      nextActionLabel: "Закрыть калибровку viewer",
+      actionLabel: "Открыть калибровку",
+      actionHref: "#comparison-calibration",
+    },
+    {
+      key: "technical-review",
+      label: "Тех. review",
+      done: technicalReviewReady,
+      statusLabel: technicalReviewReady ? "готово" : "нужен review",
+      nextActionLabel: "Зафиксировать технический review",
+      actionLabel: "Открыть technical review",
+      actionHref: "#comparison-technical-review",
+    },
+    {
+      key: "measurement-policy",
+      label: "Измерения",
+      done: measurementPolicyApproved,
+      statusLabel: measurementPolicyApproved ? "утверждена" : "ожидает",
+      nextActionLabel: "Утвердить policy измерений",
+      actionLabel: "Открыть policy измерений",
+      actionHref: "#comparison-measurement-policy",
+    },
+    {
+      key: "reviewer",
+      label: "Reviewer",
+      done: reviewerAssigned && secondReviewReady,
+      statusLabel: reviewerAssigned ? "назначен" : "ожидает",
+      nextActionLabel: "Назначить reviewer",
+      actionLabel: "Открыть назначение reviewer",
+      actionHref: "#comparison-reviewer-assignment",
+    },
+    {
+      key: "analysis-policy",
+      label: "Анализ",
+      done: productionAnalysisPolicyApproved,
+      statusLabel: productionAnalysisPolicyApproved ? "утверждена" : "выключена",
+      nextActionLabel: "Закрыть analysis policy",
+      actionLabel: "Открыть analysis policy",
+      actionHref: "#comparison-analysis-policy",
+    },
+  ];
+  const completedComparisonSteps = comparisonWorkflowSteps.filter((step) => step.done).length;
+  const currentComparisonStepIndex = comparisonWorkflowSteps.findIndex((step) => !step.done);
+  const currentComparisonStep =
+    currentComparisonStepIndex >= 0
+      ? comparisonWorkflowSteps[currentComparisonStepIndex]
+      : {
+          key: "workflow-ready",
+          label: "Итог",
+          done: reviewerWorkflowReady,
+          statusLabel: reviewerWorkflowReady ? "готов" : "проверьте workflow",
+          nextActionLabel: "Проверить итог reviewer workflow",
+          actionLabel: "Открыть итог workflow",
+          actionHref: "#comparison-workflow-gate",
+        };
+  const firstCaptureBlocker = captureChecks.find((item) => !item.ready);
+  const firstCalibrationBlocker = calibrationChecks.find((item) => !item.ready);
+  const firstComparisonBlocker =
+    !protectedPreviewReady
+      ? "Защищённые превью · подготовьте превью врача"
+      : firstCaptureBlocker
+        ? `${firstCaptureBlocker.label} · ${firstCaptureBlocker.detail}`
+        : geometryMarkers.length < 2
+          ? `Технические маркеры · осталось ${2 - geometryMarkers.length}`
+          : firstCalibrationBlocker
+            ? `${firstCalibrationBlocker.label} · ${firstCalibrationBlocker.detail}`
+            : !technicalReviewReady
+              ? "Технический review · нажмите «Технически готово»"
+              : !measurementPolicyApproved
+                ? "Policy измерений · нужна technical policy"
+                : !reviewerAssigned
+                  ? "Reviewer · назначьте reviewer"
+                  : !secondReviewReady
+                    ? "Second review · закройте второй просмотр"
+                    : !productionAnalysisPolicyApproved
+                      ? "Analysis policy · вывод о динамике остаётся выключен"
+                      : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1320,6 +1442,61 @@ function ComparisonFullScreenDialog({
             Крупное A/B-сравнение выбранной пары очага. Это технический режим проверки условий съёмки.
           </DialogDescription>
         </DialogHeader>
+
+        <section
+          role="region"
+          aria-label="Рабочий шаг сравнения"
+          className="mb-3 rounded-md border border-border bg-muted/20 p-2.5"
+        >
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
+              <h3 className="mt-1 text-[13px] font-semibold">
+                Следующий шаг: {currentComparisonStep.nextActionLabel}
+              </h3>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Ближайшее действие: <span className="font-medium text-foreground">{currentComparisonStep.actionLabel}</span>.
+                Динамический вывод выключен, измерения выключены, выдача пациенту выключена.
+              </p>
+              {firstComparisonBlocker && (
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  Первое ограничение: {firstComparisonBlocker}
+                </p>
+              )}
+            </div>
+            <div className="flex min-w-[180px] flex-col items-start gap-2 lg:items-end">
+              <span className="rounded-sm border border-border bg-background px-2 py-1 text-[12px] font-medium">
+                Прогресс проверки: {completedComparisonSteps}/{comparisonWorkflowSteps.length}
+              </span>
+              <Button asChild size="sm" className="h-8 text-[12px]">
+                <a href={currentComparisonStep.actionHref}>{currentComparisonStep.actionLabel}</a>
+              </Button>
+            </div>
+          </div>
+          <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8" aria-label="Этапы сравнения снимков">
+            {comparisonWorkflowSteps.map((step, index) => {
+              const state = step.done ? "done" : index === currentComparisonStepIndex ? "current" : "locked";
+              const stateLabel = step.done ? "закрыто" : state === "current" ? "текущий шаг" : "ожидает";
+              const stateClass = step.done
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : state === "current"
+                  ? "border-amber-300 bg-amber-50 text-amber-950"
+                  : "border-border bg-background text-muted-foreground";
+              return (
+                <li key={step.key} className={`min-w-0 rounded-sm border px-2 py-1.5 ${stateClass}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
+                      {index + 1}
+                    </span>
+                    <span className="truncate text-[12px] font-medium">{step.label}</span>
+                  </div>
+                  <p className="mt-1 truncate text-[11px]">{stateLabel}</p>
+                  <p className="mt-0.5 truncate text-[11px] opacity-80">{step.statusLabel}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
@@ -1447,6 +1624,7 @@ function ComparisonFullScreenDialog({
               </div>
               <section
                 role="region"
+                id="comparison-geometry"
                 aria-label="Техническая геометрия"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1504,6 +1682,7 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                id="comparison-calibration"
                 aria-label="Калибровка viewer"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1571,6 +1750,7 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                id="comparison-technical-review"
                 aria-label="Технический review viewer QA"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1635,6 +1815,7 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                id="comparison-measurement-policy"
                 aria-label="Политика измерений"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1694,6 +1875,7 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                id="comparison-reviewer-assignment"
                 aria-label="Назначение reviewer"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1760,6 +1942,7 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                id="comparison-analysis-policy"
                 aria-label="Production analysis policy"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1819,6 +2002,7 @@ function ComparisonFullScreenDialog({
               </section>
               <section
                 role="region"
+                id="comparison-workflow-gate"
                 aria-label="Clinical-grade reviewer workflow"
                 className="mt-2 rounded-md border border-border bg-muted/20 p-2"
               >
@@ -1935,7 +2119,7 @@ function ComparisonFullScreenDialog({
                 )}
               </section>
               <div className="mt-2">
-                <div className="mb-2 rounded-md border border-border bg-muted/20 p-2">
+                <div id="comparison-protected-preview" className="mb-2 rounded-md border border-border bg-muted/20 p-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -2055,6 +2239,7 @@ function ComparisonFullScreenDialog({
             </div>
 
             <section
+              id="comparison-capture-qa"
               aria-label="Контроль условий съёмки"
               className="mt-3 rounded-md border border-border bg-background p-2"
             >

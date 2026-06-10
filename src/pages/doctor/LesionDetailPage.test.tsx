@@ -263,6 +263,18 @@ describe("LesionDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Открыть полноэкранное сравнение/ }));
 
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
+    const focus = within(dialog).getByRole("region", { name: /Рабочий шаг сравнения/ });
+    expect(within(focus).getByText(/Что делать сейчас/)).toBeInTheDocument();
+    expect(within(focus).getByText(/Следующий шаг: Закрыть условия съёмки/)).toBeInTheDocument();
+    expect(within(focus).getByText(/Ближайшее действие:/)).toBeInTheDocument();
+    expect(within(focus).getAllByText(/Открыть контроль условий/).length).toBeGreaterThan(0);
+    expect(within(focus).getByText(/Первое ограничение: Тип снимка · разный тип снимка/)).toBeInTheDocument();
+    expect(within(focus).getByText(/Прогресс проверки: 1\/8/)).toBeInTheDocument();
+    expect(within(focus).getByRole("link", { name: /Открыть контроль условий/ })).toHaveAttribute(
+      "href",
+      "#comparison-capture-qa",
+    );
+    expect(within(focus).getByRole("list", { name: /Этапы сравнения снимков/ })).toBeInTheDocument();
     expect(within(dialog).getByText(/Снимок A/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Снимок B/)).toBeInTheDocument();
     expect(dialog.textContent ?? "").not.toContain("i-011");
