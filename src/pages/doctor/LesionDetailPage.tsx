@@ -68,6 +68,10 @@ import {
   type SelfHostedLesionLongitudinalQaDTO,
 } from "@/lib/self-hosted-clinical-workspace-api";
 import type { ClinicalImage, Lesion, Visit } from "@/lib/domain";
+import {
+  ComparisonWorkflowPanel,
+  type ComparisonWorkflowStep,
+} from "./lesion-detail/ComparisonWorkflowPanel";
 
 const LESION_STATUS: Record<Lesion["status"], string> = {
   active: "Активное",
@@ -180,15 +184,6 @@ type ComparisonViewport = {
   panX: number;
   panY: number;
   overlay: ComparisonOverlay;
-};
-type ComparisonWorkflowStep = {
-  key: string;
-  label: string;
-  done: boolean;
-  statusLabel: string;
-  nextActionLabel: string;
-  actionLabel: string;
-  actionHref: string;
 };
 type LongitudinalVisitGroup = {
   visitId: string;
@@ -1396,20 +1391,6 @@ function ComparisonFullScreenDialog({
       actionHref: "#comparison-analysis-policy",
     },
   ];
-  const completedComparisonSteps = comparisonWorkflowSteps.filter((step) => step.done).length;
-  const currentComparisonStepIndex = comparisonWorkflowSteps.findIndex((step) => !step.done);
-  const currentComparisonStep =
-    currentComparisonStepIndex >= 0
-      ? comparisonWorkflowSteps[currentComparisonStepIndex]
-      : {
-          key: "workflow-ready",
-          label: "Итог",
-          done: reviewerWorkflowReady,
-          statusLabel: reviewerWorkflowReady ? "готов" : "проверьте workflow",
-          nextActionLabel: "Проверить итог reviewer workflow",
-          actionLabel: "Открыть итог workflow",
-          actionHref: "#comparison-workflow-gate",
-        };
   const firstCaptureBlocker = captureChecks.find((item) => !item.ready);
   const firstCalibrationBlocker = calibrationChecks.find((item) => !item.ready);
   const firstComparisonBlocker =
@@ -1443,60 +1424,11 @@ function ComparisonFullScreenDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <section
-          role="region"
-          aria-label="Рабочий шаг сравнения"
-          className="mb-3 rounded-md border border-border bg-muted/20 p-2.5"
-        >
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
-              <h3 className="mt-1 text-[13px] font-semibold">
-                Следующий шаг: {currentComparisonStep.nextActionLabel}
-              </h3>
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Ближайшее действие: <span className="font-medium text-foreground">{currentComparisonStep.actionLabel}</span>.
-                Динамический вывод выключен, измерения выключены, выдача пациенту выключена.
-              </p>
-              {firstComparisonBlocker && (
-                <p className="mt-1 text-[12px] text-muted-foreground">
-                  Первое ограничение: {firstComparisonBlocker}
-                </p>
-              )}
-            </div>
-            <div className="flex min-w-[180px] flex-col items-start gap-2 lg:items-end">
-              <span className="rounded-sm border border-border bg-background px-2 py-1 text-[12px] font-medium">
-                Прогресс проверки: {completedComparisonSteps}/{comparisonWorkflowSteps.length}
-              </span>
-              <Button asChild size="sm" className="h-8 text-[12px]">
-                <a href={currentComparisonStep.actionHref}>{currentComparisonStep.actionLabel}</a>
-              </Button>
-            </div>
-          </div>
-          <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8" aria-label="Этапы сравнения снимков">
-            {comparisonWorkflowSteps.map((step, index) => {
-              const state = step.done ? "done" : index === currentComparisonStepIndex ? "current" : "locked";
-              const stateLabel = step.done ? "закрыто" : state === "current" ? "текущий шаг" : "ожидает";
-              const stateClass = step.done
-                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                : state === "current"
-                  ? "border-amber-300 bg-amber-50 text-amber-950"
-                  : "border-border bg-background text-muted-foreground";
-              return (
-                <li key={step.key} className={`min-w-0 rounded-sm border px-2 py-1.5 ${stateClass}`}>
-                  <div className="flex items-center gap-1.5">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
-                      {index + 1}
-                    </span>
-                    <span className="truncate text-[12px] font-medium">{step.label}</span>
-                  </div>
-                  <p className="mt-1 truncate text-[11px]">{stateLabel}</p>
-                  <p className="mt-0.5 truncate text-[11px] opacity-80">{step.statusLabel}</p>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
+        <ComparisonWorkflowPanel
+          steps={comparisonWorkflowSteps}
+          workflowReady={reviewerWorkflowReady}
+          firstBlocker={firstComparisonBlocker}
+        />
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="grid min-w-0 gap-3 lg:grid-cols-2">
