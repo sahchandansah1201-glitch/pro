@@ -10,7 +10,9 @@ Purpose: make the SkinDoctor Orchestrator 5x upgrade executable instead of advis
   - Runs static/local no-API gates that do not require a browser server:
     - `qa:architecture`;
     - `qa:security-patterns`;
+    - `qa:simplicity`;
     - `qa:agent-evals`;
+    - `qa:human-ui`;
     - `qa:osv`.
 
 - `npm run qa:architecture`
@@ -21,6 +23,13 @@ Purpose: make the SkinDoctor Orchestrator 5x upgrade executable instead of advis
 - `npm run qa:security-patterns`
   - Uses local Semgrep rules in `semgrep/skindoctor-quality.yml`.
   - Blocks protected-field leakage and unsupported medical claims in patient/public UI surfaces.
+
+- `npm run qa:simplicity`
+  - Uses a local no-dependency Node checker.
+  - Enforces a baseline-ratchet policy for frontend/backend implementation size.
+  - Existing oversized files are tracked as debt, not treated as a reason to fail today's pipeline.
+  - The gate fails if a known oversized file grows beyond its baseline allowance or if a new oversized file appears.
+  - Writes `reports/agent-qa/simplicity-ledger.json`.
 
 - `npm run qa:agent-evals`
   - Uses Promptfoo standalone assertions with no provider configured and no API key.
@@ -49,6 +58,7 @@ Purpose: make the SkinDoctor Orchestrator 5x upgrade executable instead of advis
 ## Boundaries
 
 - No secrets or provider API keys are required.
+- No new npm package is required by `qa:simplicity`.
 - No patient delivery is enabled by these gates.
 - No clinical dynamic conclusion or diagnosis/risk/prognosis/treatment output is introduced.
 - `qa:a11y` is intentionally separate from `qa:agent` because it requires a running browser target.
