@@ -72,6 +72,15 @@ import {
   ComparisonWorkflowPanel,
   type ComparisonWorkflowStep,
 } from "./lesion-detail/ComparisonWorkflowPanel";
+import {
+  ComparisonCalibrationPanel,
+  ComparisonCaptureQaPanel,
+  ComparisonGeometryPanel,
+  ComparisonTechnicalReviewPanel,
+  type CalibrationReadinessCheck,
+  type CaptureConditionCheck,
+  type TechnicalGeometryMarker,
+} from "./lesion-detail/ComparisonQaPanels";
 
 const LESION_STATUS: Record<Lesion["status"], string> = {
   active: "Активное",
@@ -132,21 +141,6 @@ type ProtectedRenderReadinessItem = {
   label: string;
   ready: boolean;
   detail: string;
-};
-type CaptureConditionCheck = {
-  label: string;
-  ready: boolean;
-  detail: string;
-};
-type CalibrationReadinessCheck = {
-  label: string;
-  ready: boolean;
-  detail: string;
-};
-type TechnicalGeometryMarker = {
-  target: "A" | "B";
-  x: number;
-  y: number;
 };
 type ViewerQaSavePayload = {
   technicalMarkers: TechnicalGeometryMarker[];
@@ -238,11 +232,6 @@ const LONGITUDINAL_PAIR_LABEL: Record<LongitudinalPairStatus, string> = {
   warning: "Сопоставимо с предупреждением",
   blocked: "Не сопоставимо",
 };
-const VIEWER_QA_REVIEW_LABEL: Record<ViewerQaReviewStatus, string> = {
-  technical_ready: "Технически готово",
-  needs_recapture: "Нужен переснимок",
-  not_suitable_for_comparison: "Не использовать для динамики",
-};
 const VIEWER_QA_REVIEWER_WORKFLOW_LABEL: Record<ViewerQaReviewerWorkflowStatus, string> = {
   ready_for_reviewer: "Готово к reviewer workflow",
   reviewer_accepted: "Reviewer workflow принят",
@@ -301,7 +290,6 @@ const LONGITUDINAL_QA_ACTION_LABEL: Record<SelfHostedLesionLongitudinalQaAction,
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 const compactList = (values: string[]) => (values.length > 0 ? values.join(", ") : "—");
-const formatGeometryMarker = (marker: TechnicalGeometryMarker) => `${marker.target} x${marker.x} y${marker.y}`;
 const imageDisplayLabel = (image: ClinicalImage, marker?: "A" | "B") =>
   marker ? `Снимок ${marker}` : `Снимок ${formatDate(image.capturedAt)}`;
 const imageDisplayMeta = (image: ClinicalImage) =>
@@ -1554,197 +1542,25 @@ function ComparisonFullScreenDialog({
                 <span>Разметка: {COMPARISON_OVERLAY_LABEL[viewport.overlay]}</span>
                 <span>Измерения отключены: разметка не является медицинским измерением.</span>
               </div>
-              <section
-                role="region"
-                id="comparison-geometry"
-                aria-label="Техническая геометрия"
-                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      Техническая геометрия
-                    </div>
-                    <div className="text-[12px] font-medium">Маркеры: {geometryMarkers.length}/2</div>
-                  </div>
-                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                    normalized
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                    onClick={() => setGeometryMarker("A")}
-                  >
-                    <Crosshair className="h-3.5 w-3.5" aria-hidden /> Поставить маркер A
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                    onClick={() => setGeometryMarker("B")}
-                  >
-                    <Crosshair className="h-3.5 w-3.5" aria-hidden /> Поставить маркер B
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                    disabled={geometryMarkers.length === 0}
-                    onClick={() => setGeometryMarkers([])}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Очистить маркеры
-                  </Button>
-                </div>
-                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-                  <span>Координаты нормализованы: проценты кадра</span>
-                  <span>
-                    {geometryMarkers.length > 0
-                      ? geometryMarkers.map((item) => formatGeometryMarker(item)).join(" · ")
-                      : "Нет активных маркеров"}
-                  </span>
-                  <span>Не является медицинским измерением</span>
-                  <span>Выдача пациенту: выключена</span>
-                </div>
-              </section>
-              <section
-                role="region"
-                id="comparison-calibration"
-                aria-label="Калибровка viewer"
-                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      Калибровка viewer
-                    </div>
-                    <div className="text-[12px] font-medium">
-                      Калибровка: {calibrationReady ? "готова" : "не готова"}
-                    </div>
-                  </div>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] ${
-                      calibrationReady
-                        ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
-                        : "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate"
-                    }`}
-                  >
-                    {calibrationReady ? (
-                      <CheckCircle2 className="h-3 w-3" aria-hidden />
-                    ) : (
-                      <ShieldAlert className="h-3 w-3" aria-hidden />
-                    )}
-                    {calibrationReady ? "Готово" : "Ограничено"}
-                  </span>
-                </div>
-                <div className="mt-2 grid gap-1.5">
-                  {calibrationChecks.map((item) => (
-                    <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
-                      {item.ready ? (
-                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-low" aria-hidden />
-                      ) : (
-                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-moderate" aria-hidden />
-                      )}
-                      <div className="min-w-0">
-                        <span className="font-medium">{item.label}</span>
-                        <span className="text-muted-foreground"> · {item.detail}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-                  <span>Измерения в мм недоступны</span>
-                  <span>Не используйте маркеры как размер очага</span>
-                  <span>Выдача пациенту: выключена</span>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                    disabled={viewerQaStatus === "saving"}
-                    onClick={saveViewerQa}
-                  >
-                    <ClipboardList className="h-3.5 w-3.5" aria-hidden /> Зафиксировать ограничение калибровки
-                  </Button>
-                  {(viewerQaMessage || calibrationLimitSaved) && (
-                    <span className="text-[12px] font-medium text-primary" role="status">
-                      {viewerQaMessage || "Ограничение калибровки зафиксировано локально"}
-                    </span>
-                  )}
-                </div>
-              </section>
-              <section
-                role="region"
-                id="comparison-technical-review"
-                aria-label="Технический review viewer QA"
-                className="mt-2 rounded-md border border-border bg-muted/20 p-2"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      Технический review viewer QA
-                    </div>
-                    <div className="text-[12px] font-medium">Решение по паре снимков</div>
-                  </div>
-                  <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                    metadata-only
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                    disabled={viewerQaReviewStatus === "saving" || !(captureReady && calibrationReady && geometryMarkers.length === 2)}
-                    onClick={() => reviewViewerQa("technical_ready")}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> {VIEWER_QA_REVIEW_LABEL.technical_ready}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                    disabled={viewerQaReviewStatus === "saving"}
-                    onClick={() => reviewViewerQa("needs_recapture")}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" aria-hidden /> {VIEWER_QA_REVIEW_LABEL.needs_recapture}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                    disabled={viewerQaReviewStatus === "saving"}
-                    onClick={() => reviewViewerQa("not_suitable_for_comparison")}
-                  >
-                    <XCircle className="h-3.5 w-3.5" aria-hidden /> {VIEWER_QA_REVIEW_LABEL.not_suitable_for_comparison}
-                  </Button>
-                </div>
-                <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-                  <span>Решение техническое: не диагноз, не динамика, не измерение.</span>
-                  <span>Сначала сохраняется viewer QA draft, затем review audit.</span>
-                  <span>Выдача пациенту: выключена</span>
-                </div>
-                {viewerQaReviewMessage && (
-                  <p
-                    className={`mt-2 text-[12px] font-medium ${
-                      viewerQaReviewStatus === "error" ? "text-destructive" : "text-primary"
-                    }`}
-                    role="status"
-                  >
-                    {viewerQaReviewMessage}
-                  </p>
-                )}
-              </section>
+              <ComparisonGeometryPanel
+                markers={geometryMarkers}
+                onSetMarker={setGeometryMarker}
+                onClearMarkers={() => setGeometryMarkers([])}
+              />
+              <ComparisonCalibrationPanel
+                checks={calibrationChecks}
+                ready={calibrationReady}
+                backendStatus={viewerQaStatus}
+                message={viewerQaMessage}
+                calibrationLimitSaved={calibrationLimitSaved}
+                onSave={saveViewerQa}
+              />
+              <ComparisonTechnicalReviewPanel
+                backendStatus={viewerQaReviewStatus}
+                message={viewerQaReviewMessage}
+                readyDisabled={!(captureReady && calibrationReady && geometryMarkers.length === 2)}
+                onReview={reviewViewerQa}
+              />
               <section
                 role="region"
                 id="comparison-measurement-policy"
@@ -2170,54 +1986,7 @@ function ComparisonFullScreenDialog({
               </div>
             </div>
 
-            <section
-              id="comparison-capture-qa"
-              aria-label="Контроль условий съёмки"
-              className="mt-3 rounded-md border border-border bg-background p-2"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Контроль условий съёмки
-                  </div>
-                  <p className="mt-1 text-[12px] font-medium">
-                    Итог: {captureReady ? "условия технически повторяемы" : "нужна повторяемая съёмка"}
-                  </p>
-                </div>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] ${
-                    captureReady
-                      ? "border-risk-low/30 bg-risk-low-soft text-risk-low"
-                      : "border-risk-moderate/30 bg-risk-moderate-soft text-risk-moderate"
-                  }`}
-                >
-                  {captureReady ? (
-                    <CheckCircle2 className="h-3 w-3" aria-hidden />
-                  ) : (
-                    <ShieldAlert className="h-3 w-3" aria-hidden />
-                  )}
-                  {captureReady ? "Готово к техсравнению" : "Нужен контроль"}
-                </span>
-              </div>
-              <div className="mt-2 grid gap-1.5">
-                {captureChecks.map((item) => (
-                  <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
-                    {item.ready ? (
-                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-low" aria-hidden />
-                    ) : (
-                      <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-risk-moderate" aria-hidden />
-                    )}
-                    <div className="min-w-0">
-                      <span className="font-medium">{item.label}</span>
-                      <span className="text-muted-foreground"> · {item.detail}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Не является клинической оценкой динамики; показывает только повторяемость условий съёмки.
-              </p>
-            </section>
+            <ComparisonCaptureQaPanel checks={captureChecks} ready={captureReady} />
 
             <dl className="mt-3 space-y-2 text-[12px]">
               <div>
