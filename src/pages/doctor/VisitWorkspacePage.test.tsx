@@ -2424,6 +2424,32 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
       "#timeline-qa-lesions",
     );
     expect(within(timelineFocus).getByRole("list", { name: "Этапы timeline QA" })).toBeInTheDocument();
+    const timelineGroups = screen.getByRole("navigation", { name: "Группы timeline QA" });
+    expect(within(timelineGroups).getByRole("link", { name: /Данные и запуск/ })).toHaveAttribute(
+      "href",
+      "#timeline-rollout-details",
+    );
+    expect(within(timelineGroups).getByRole("link", { name: /SOP и evidence/ })).toHaveAttribute(
+      "href",
+      "#timeline-sop-evidence",
+    );
+    expect(within(timelineGroups).getByRole("link", { name: /Monitoring и validation/ })).toHaveAttribute(
+      "href",
+      "#timeline-monitoring-validation",
+    );
+    expect(within(timelineGroups).getByRole("link", { name: /Protected review/ })).toHaveAttribute(
+      "href",
+      "#timeline-protected-review",
+    );
+    expect(within(timelineGroups).getByRole("link", { name: /Production rollout/ })).toHaveAttribute(
+      "href",
+      "#timeline-production-review",
+    );
+    expect(screen.getAllByText("Данные и запуск").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("SOP и evidence").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Monitoring и validation").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Protected review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Production rollout").length).toBeGreaterThan(0);
     expect(screen.getByText(/Production dataset validation/)).toBeInTheDocument();
     expect(screen.getByText(/не создаёт вывод о динамике/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Контур timeline rollout" })).toBeInTheDocument();

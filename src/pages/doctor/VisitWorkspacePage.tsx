@@ -25,6 +25,10 @@ import { VisitWorkspaceLiveBanner } from "@/pages/doctor/VisitWorkspaceLiveBanne
 import { VisitAssessmentTab } from "@/pages/doctor/VisitAssessmentTab";
 import { VisitConclusionTab } from "@/pages/doctor/VisitConclusionTab";
 import { VisitReportTab } from "@/pages/doctor/VisitReportTab";
+import {
+  TimelineQaGroupHeader,
+  TimelineQaGroupNav,
+} from "@/pages/doctor/visit-workspace/TimelineQaNavigation";
 import { isProductionAppMode } from "@/lib/app-mode";
 import {
   isSelfHostedApiConfigured,
@@ -2825,6 +2829,11 @@ function LongitudinalDatasetValidationPanel({
           })}
         </ol>
       </div>
+      <TimelineQaGroupNav />
+      <TimelineQaGroupHeader
+        title="Данные и запуск"
+        hint="Сначала закрываются blockers по очагам, затем фиксируется rollout governance."
+      />
       <div
         id="timeline-rollout-details"
         role="region"
@@ -2880,6 +2889,11 @@ function LongitudinalDatasetValidationPanel({
           </Button>
         </div>
       </div>
+      <TimelineQaGroupHeader
+        id="timeline-sop-evidence"
+        title="SOP и evidence"
+        hint="Операционный чек-лист и evidence receipt без клинического вывода."
+      />
       <div
         role="region"
         aria-label="SOP timeline rollout"
@@ -2936,6 +2950,11 @@ function LongitudinalDatasetValidationPanel({
           </Button>
         </div>
       </div>
+      <TimelineQaGroupHeader
+        id="timeline-monitoring-validation"
+        title="Monitoring и validation"
+        hint="Контроль outcomes, incident procedure и клиническая валидация только как aggregate metadata."
+      />
       <div
         role="region"
         aria-label="Evidence timeline rollout"
@@ -2995,6 +3014,11 @@ function LongitudinalDatasetValidationPanel({
           </Button>
         </div>
       </div>
+      <TimelineQaGroupHeader
+        id="timeline-protected-review"
+        title="Protected review"
+        hint="Проверка reviewer operations на защищённых assets без раскрытия файлов и identity."
+      />
       <div
         role="region"
         aria-label="Monitoring outcomes rollout"
@@ -3056,6 +3080,11 @@ function LongitudinalDatasetValidationPanel({
           </Button>
         </div>
       </div>
+      <TimelineQaGroupHeader
+        id="timeline-production-review"
+        title="Production rollout"
+        hint="Production dataset и reviewer governance/evidence для долгого rollout-контроля."
+      />
       <div
         role="region"
         aria-label="Incident procedure rollout"
@@ -5119,9 +5148,9 @@ function Section({ title, children, className }: { title: string; children: Reac
 
 function Field({ term, value }: { term: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-border pb-1.5 last:border-b-0 last:pb-0">
-      <dt className="shrink-0 text-[12px] text-muted-foreground">{term}</dt>
-      <dd className="min-w-0 text-right">{value}</dd>
+    <div className="flex min-w-0 items-baseline justify-between gap-2 border-b border-dashed border-border pb-1.5 last:border-b-0 last:pb-0">
+      <dt className="min-w-0 truncate text-[12px] text-muted-foreground">{term}</dt>
+      <dd className="min-w-0 truncate text-right">{value}</dd>
     </div>
   );
 }
