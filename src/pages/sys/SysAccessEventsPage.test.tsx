@@ -52,9 +52,9 @@ describe("SysAccessEventsPage", () => {
     const { container } = renderPage();
 
     expect(screen.getByRole("heading", { name: "События доступа" })).toBeInTheDocument();
-    expect(screen.getByText(/RPC list_access_events_admin/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" })).toBeEnabled();
-    expect(screen.getAllByText("report.share").length).toBeGreaterThan(0);
+    expect(screen.getByText(/серверной проверкой роли/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Скачать события доступа таблицей" })).toBeEnabled();
+    expect(screen.getAllByText("Отчёт открыт по ссылке").length).toBeGreaterThan(0);
 
     const html = container.innerHTML;
     expect(html).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
@@ -67,25 +67,25 @@ describe("SysAccessEventsPage", () => {
     renderPage("clinic_admin");
 
     expect(screen.getByRole("alert")).toHaveTextContent(/только роли system_admin/i);
-    expect(screen.queryByRole("button", { name: "Экспортировать события доступа в CSV" })).not.toBeInTheDocument();
-    expect(screen.queryByText("report.share")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Скачать события доступа таблицей" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Отчёт открыт по ссылке")).not.toBeInTheDocument();
   });
 
   it("filters rows by query and event bucket", () => {
     renderPage();
 
     fireEvent.change(screen.getByLabelText("Поиск событий доступа"), {
-      target: { value: "report.share" },
+      target: { value: "Отчёт открыт по ссылке" },
     });
-    expect(nonOptionTextCount("report.share")).toBeGreaterThan(0);
-    expect(nonOptionTextCount("visit.open")).toBe(0);
+    expect(nonOptionTextCount("Отчёт открыт по ссылке")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("Открыт визит")).toBe(0);
 
     fireEvent.change(screen.getByLabelText("Поиск событий доступа"), {
       target: { value: "" },
     });
     fireEvent.click(screen.getByRole("tab", { name: "Устройства" }));
-    expect(nonOptionTextCount("device.register")).toBeGreaterThan(0);
-    expect(nonOptionTextCount("report.share")).toBe(0);
+    expect(nonOptionTextCount("Устройство зарегистрировано")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("Отчёт открыт по ссылке")).toBe(0);
   });
 
   it("filters rows by source, entity, and event date", () => {
@@ -94,14 +94,14 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Тип сущности"), {
       target: { value: "device" },
     });
-    expect(nonOptionTextCount("device.register")).toBeGreaterThan(0);
-    expect(nonOptionTextCount("report.share")).toBe(0);
+    expect(nonOptionTextCount("Устройство зарегистрировано")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("Отчёт открыт по ссылке")).toBe(0);
 
     fireEvent.change(screen.getByLabelText("Дата события с"), {
       target: { value: "2026-03-01" },
     });
     expect(screen.getByText("Найдено: 0")).toBeInTheDocument();
-    expect(nonOptionTextCount("device.register")).toBe(0);
+    expect(nonOptionTextCount("Устройство зарегистрировано")).toBe(0);
 
     fireEvent.change(screen.getByLabelText("Дата события с"), {
       target: { value: "" },
@@ -110,7 +110,7 @@ describe("SysAccessEventsPage", () => {
       target: { value: "api" },
     });
     expect(screen.getByText("Найдено: 0")).toBeInTheDocument();
-    expect(nonOptionTextCount("device.register")).toBe(0);
+    expect(nonOptionTextCount("Устройство зарегистрировано")).toBe(0);
   });
 
   it("filters rows by clinic, actor, action, and patient code", () => {
@@ -120,7 +120,7 @@ describe("SysAccessEventsPage", () => {
       target: { value: "Дерма-Про · Центр" },
     });
     fireEvent.change(screen.getByLabelText("Актор события"), {
-      target: { value: "Врач · u-doc-001" },
+      target: { value: "Врач" },
     });
     fireEvent.change(screen.getByLabelText("Действие события"), {
       target: { value: "report.generate" },
@@ -129,9 +129,9 @@ describe("SysAccessEventsPage", () => {
       target: { value: "DP-2026-0001" },
     });
 
-    expect(nonOptionTextCount("report.generate")).toBeGreaterThan(0);
-    expect(nonOptionTextCount("report.share")).toBe(0);
-    expect(nonOptionTextCount("visit.open")).toBe(0);
+    expect(nonOptionTextCount("Отчёт сформирован")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("Отчёт открыт по ссылке")).toBe(0);
+    expect(nonOptionTextCount("Открыт визит")).toBe(0);
     expect(screen.getAllByText(/клиника: Дерма-Про · Центр/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/код пациента: DP-2026-0001/).length).toBeGreaterThan(0);
   });
@@ -150,7 +150,7 @@ describe("SysAccessEventsPage", () => {
     renderPage();
 
     fireEvent.change(screen.getByLabelText("Поиск событий доступа"), {
-      target: { value: "report.share" },
+      target: { value: "Отчёт открыт по ссылке" },
     });
     fireEvent.change(screen.getByLabelText("Клиника события"), {
       target: { value: "Дерма-Про · Центр" },
@@ -269,8 +269,8 @@ describe("SysAccessEventsPage", () => {
     expect(screen.getByLabelText("Действие события")).toHaveValue("report.generate");
     expect(screen.getByLabelText("Код пациента события")).toHaveValue("DP-2026-0001");
     expect(screen.getByLabelText("Размер страницы событий")).toHaveValue("5");
-    expect(nonOptionTextCount("report.generate")).toBeGreaterThan(0);
-    expect(nonOptionTextCount("visit.open")).toBe(0);
+    expect(nonOptionTextCount("Отчёт сформирован")).toBeGreaterThan(0);
+    expect(nonOptionTextCount("Открыт визит")).toBe(0);
   });
 
   it("persists export settings across remounts", () => {
@@ -303,7 +303,7 @@ describe("SysAccessEventsPage", () => {
 
     const preview = screen.getByRole("region", { name: "Предпросмотр экспорта событий доступа" });
     expect(preview).toHaveTextContent(/Будет экспортировано 12 событий/i);
-    expect(preview).toHaveTextContent(/Форматы: CSV и XLSX/i);
+    expect(preview).toHaveTextContent(/Форматы: таблица и книга/i);
     expect(preview).not.toHaveTextContent(/email|access_token|storage_object_path/i);
 
     fireEvent.change(screen.getByLabelText("Тип сущности"), {
@@ -315,7 +315,7 @@ describe("SysAccessEventsPage", () => {
       target: { value: "api" },
     });
     expect(preview).toHaveTextContent(/Нет событий для экспорта/i);
-    expect(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Скачать события доступа таблицей" })).toBeDisabled();
   });
 
   it("exports all pages by default and supports current-page plus custom row ranges", () => {
@@ -362,7 +362,7 @@ describe("SysAccessEventsPage", () => {
     }
 
     expect(preview).toHaveTextContent(/Выберите хотя бы одну колонку для экспорта/i);
-    expect(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Скачать события доступа таблицей" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Выбрать все колонки экспорта" }));
     expect(preview).toHaveTextContent(`Колонки: ${ACCESS_EVENT_EXPORT_COLUMNS.length}`);
@@ -374,9 +374,10 @@ describe("SysAccessEventsPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /Подробнее о событии al-005/i })[0]);
 
     expect(screen.getByRole("heading", { name: "Детали события" })).toBeInTheDocument();
-    expect(screen.getByText("al-005")).toBeInTheDocument();
-    expect(screen.getAllByText("report.share").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Email, ФИО пациента, токены и storage-пути не выводятся/i)).toBeInTheDocument();
+    expect(screen.queryByText("al-005")).not.toBeInTheDocument();
+    expect(screen.getAllByText("код скрыт").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Отчёт открыт по ссылке").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Почта, ФИО пациента, токены и пути хранения не выводятся/i)).toBeInTheDocument();
 
     const html = container.innerHTML;
     expect(html).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
@@ -399,19 +400,19 @@ describe("SysAccessEventsPage", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events");
     expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
-      /CSV экспорт готов: .*Файл: access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols\.csv/i,
+      /Табличный файл готов: .*Файл: access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols\.csv/i,
     );
-    expect(screen.getByRole("progressbar", { name: "Прогресс экспорта CSV" })).toHaveAttribute(
+    expect(screen.getByRole("progressbar", { name: "Прогресс выгрузки: табличный файл" })).toHaveAttribute(
       "aria-valuenow",
       "100",
     );
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /CSV: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
+      /Табличный файл: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
     );
 
     expect(firstMockArg<Blob>(createObjectURL)).toBeInstanceOf(Blob);
@@ -431,19 +432,19 @@ describe("SysAccessEventsPage", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в XLSX" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа книгой" }));
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:access-events-xlsx");
     expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
-      /XLSX экспорт готов:/i,
+      /Книга готова:/i,
     );
-    expect(screen.getByRole("progressbar", { name: "Прогресс экспорта XLSX" })).toHaveAttribute(
+    expect(screen.getByRole("progressbar", { name: "Прогресс выгрузки: книга" })).toHaveAttribute(
       "aria-valuenow",
       "100",
     );
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /XLSX: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
+      /Книга: 12 строк\. Результат: Готов\. Диапазон: все страницы\. Колонки: 11/i,
     );
     const blob = firstMockArg<Blob>(createObjectURL);
     expect(blob.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -465,14 +466,14 @@ describe("SysAccessEventsPage", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByRole("button", { name: /^Повторить экспорт CSV/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Повторить выгрузку: табличный файл/i }));
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
     expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
-      /Повторный CSV экспорт готов: 12 строк/i,
+      /Повторная выгрузка готова: 12 строк/i,
     );
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
       /access-events-\d{4}-\d{2}-\d{2}-all-all-pages-12-rows-11-cols-repeat\.csv/i,
@@ -491,25 +492,25 @@ describe("SysAccessEventsPage", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в XLSX" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа книгой" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByRole("button", { name: /^Повторить экспорт XLSX/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Повторить выгрузку: книга/i }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
 
     const exportLog = screen.getByRole("region", { name: "Журнал экспортов событий доступа" });
     fireEvent.change(screen.getByLabelText("Фильтр журнала экспортов"), {
       target: { value: "csv" },
     });
-    expect(exportLog).toHaveTextContent(/CSV: 12 строк/i);
-    expect(exportLog).not.toHaveTextContent(/XLSX: 12 строк/i);
+    expect(exportLog).toHaveTextContent(/Табличный файл: 12 строк/i);
+    expect(exportLog).not.toHaveTextContent(/Книга: 12 строк/i);
 
     fireEvent.change(screen.getByLabelText("Фильтр журнала экспортов"), {
       target: { value: "repeated" },
     });
-    expect(exportLog).toHaveTextContent(/Повторный XLSX экспорт готов/i);
-    expect(exportLog).not.toHaveTextContent(/CSV: 12 строк/i);
+    expect(exportLog).toHaveTextContent(/Повторная выгрузка готова/i);
+    expect(exportLog).not.toHaveTextContent(/Табличный файл: 12 строк/i);
   });
 
   it("cancels an in-progress CSV export without creating a file", async () => {
@@ -525,12 +526,12 @@ describe("SysAccessEventsPage", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
-    fireEvent.click(screen.getByRole("button", { name: "Отменить CSV экспорт событий доступа" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отменить выгрузку событий доступа: табличный файл" }));
 
     await waitFor(() =>
       expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
-        /CSV экспорт отменён\. Файл не сформирован\./i,
+        /Выгрузка отменена\. Файл не сформирован\./i,
       ),
     );
     expect(createObjectURL).not.toHaveBeenCalled();
@@ -554,11 +555,11 @@ describe("SysAccessEventsPage", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
 
     await waitFor(() =>
       expect(screen.getByRole("alert", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
-        /Не удалось выполнить CSV экспорт\. Файл не сформирован\./i,
+        /Не удалось выполнить выгрузку\. Файл не сформирован\./i,
       ),
     );
     expect(click).not.toHaveBeenCalled();
@@ -570,7 +571,7 @@ describe("SysAccessEventsPage", () => {
       target: { value: "error" },
     });
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /Не удалось выполнить CSV экспорт/i,
+      /Не удалось выполнить выгрузку/i,
     );
   });
 
@@ -587,15 +588,15 @@ describe("SysAccessEventsPage", () => {
 
     renderPage();
     fireEvent.change(screen.getByLabelText("Поиск событий доступа"), {
-      target: { value: "report.share" },
+      target: { value: "Отчёт открыт по ссылке" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
 
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     const exportLog = screen.getByRole("region", { name: "Журнал экспортов событий доступа" });
-    expect(exportLog).toHaveTextContent(/CSV: /i);
+    expect(exportLog).toHaveTextContent(/Табличный файл: /i);
     expect(exportLog).toHaveTextContent(/Поиск: есть/i);
-    expect(exportLog).not.toHaveTextContent("report.share");
+    expect(exportLog).not.toHaveTextContent("Отчёт открыт по ссылке");
   });
 
   it("persists, exports, confirms clear, and restores the export log", async () => {
@@ -610,7 +611,7 @@ describe("SysAccessEventsPage", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     const view = renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     fireEvent.change(screen.getByLabelText("Фильтр журнала экспортов"), {
       target: { value: "csv" },
@@ -624,20 +625,20 @@ describe("SysAccessEventsPage", () => {
     renderPage();
     expect(screen.getByLabelText("Фильтр журнала экспортов")).toHaveValue("csv");
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /CSV: 12 строк/i,
+      /Табличный файл: 12 строк/i,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать журнал экспортов в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать журнал экспортов таблицей" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
     expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
-      /Журнал экспортов выгружен в CSV/i,
+      /Журнал экспортов выгружен таблицей/i,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать журнал экспортов в XLSX" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать журнал экспортов книгой" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(4));
     expect(screen.getByRole("status", { name: "Статус экспорта событий доступа" })).toHaveTextContent(
-      /Журнал экспортов выгружен в XLSX/i,
+      /Журнал экспортов выгружен книгой/i,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Очистить журнал экспортов" }));
@@ -646,7 +647,7 @@ describe("SysAccessEventsPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Отменить очистку журнала экспортов" }));
     expect(screen.getByRole("region", { name: "Журнал экспортов событий доступа" })).toHaveTextContent(
-      /CSV: 12 строк/i,
+      /Табличный файл: 12 строк/i,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Очистить журнал экспортов" }));
@@ -655,8 +656,8 @@ describe("SysAccessEventsPage", () => {
     expect(exportLog).toHaveTextContent(/Экспортов пока нет\.|По выбранному фильтру экспортов нет\./);
     expect(exportLog.querySelector('[role="status"]')).not.toBeNull();
     expect(screen.getByRole("button", { name: "Очистить журнал экспортов" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Экспортировать журнал экспортов в CSV" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Экспортировать журнал экспортов в XLSX" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Скачать журнал экспортов таблицей" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Скачать журнал экспортов книгой" })).toBeDisabled();
   });
 
   it("searches and paginates the export log without leaking raw row data", async () => {
@@ -671,13 +672,13 @@ describe("SysAccessEventsPage", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в XLSX" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа книгой" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа таблицей" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(3));
-    fireEvent.click(screen.getByRole("button", { name: "Экспортировать события доступа в XLSX" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скачать события доступа книгой" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(4));
 
     const exportLog = screen.getByRole("region", { name: "Журнал экспортов событий доступа" });
@@ -689,18 +690,18 @@ describe("SysAccessEventsPage", () => {
     fireEvent.change(screen.getByLabelText("Поиск по журналу экспортов"), {
       target: { value: "xlsx" },
     });
-    expect(exportLog).toHaveTextContent(/XLSX: 12 строк/i);
-    expect(exportLog).not.toHaveTextContent(/CSV: 12 строк/i);
+    expect(exportLog).toHaveTextContent(/Книга: 12 строк/i);
+    expect(exportLog).not.toHaveTextContent(/Табличный файл: 12 строк/i);
     expect(exportLog).not.toHaveTextContent(/Иванова Наталья|access_token|storage_object_path/i);
   });
 
   it("builds informative export filenames without raw query text", () => {
-    const csvName = accessEventsCsvFilename("clinical", "report.share", {
+    const csvName = accessEventsCsvFilename("clinical", "Отчёт открыт по ссылке", {
       scope: "current-page",
       rowCount: 5,
       columnCount: 6,
     });
-    const repeatedName = accessEventsCsvFilename("clinical", "report.share", {
+    const repeatedName = accessEventsCsvFilename("clinical", "Отчёт открыт по ссылке", {
       scope: "range-2-4",
       rowCount: 3,
       columnCount: 6,

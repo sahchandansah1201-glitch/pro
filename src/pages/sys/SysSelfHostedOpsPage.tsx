@@ -26,17 +26,17 @@ import {
   fetchSelfHostedProductReadiness,
   fetchSelfHostedOpsRuntimeChecks,
   fetchSelfHostedOpsStatus,
-  STAGE4O_AUDIT_EXPORT_COMMAND,
   type SelfHostedProductReadiness,
   type SelfHostedOpsRuntimeChecks,
   type SelfHostedOpsStatus,
 } from "@/lib/self-hosted-ops-api";
 
 const DEMO_SYS_BANNER =
-  "Демо-режим. Реальные роли, RLS, аудит, ключи и Device Bridge появятся после подключения backend.";
+  "Учебный режим. Рабочие роли, аудит, ключи и мост устройств появятся после подключения системы клиники.";
 
 function statusLabel(status: string): string {
   if (status === "ready") return "Готов";
+  if (status === "ready_for_server_deploy") return "Готов к установке";
   if (status === "degraded") return "Снижена готовность";
   if (status === "warning") return "Требует внимания";
   if (status === "failed") return "Ошибка";
@@ -44,7 +44,49 @@ function statusLabel(status: string): string {
   if (status === "configured") return "Настроено";
   if (status === "missing") return "Не настроено";
   if (status === "unavailable") return "Недоступно";
+  if (status === "pending") return "Ожидает";
+  if (status === "unknown") return "Нет данных";
   return status || "Неизвестно";
+}
+
+function systemTermLabel(value: string): string {
+  const labels: Record<string, string> = {
+    postgres: "PostgreSQL",
+    "jwt-signing-key": "Ключ подписи",
+    "object-storage": "Хранилище объектов",
+    "PostgreSQL connectivity": "Связь с PostgreSQL",
+    "PostgreSQL connection verified": "Связь с PostgreSQL проверена",
+    "Migration bundle": "Пакет миграций",
+    "Self-hosted PostgreSQL migration bundle is present": "Пакет миграций PostgreSQL найден",
+    "Backup dry-run": "План резервной копии",
+    "Deploy smoke dry-run": "Проверка развёртывания",
+    "Plan backup": "Проверить план резервной копии",
+    "Plan smoke": "Проверить план развёртывания",
+    "Full deterministic preflight": "Полная предварительная проверка",
+    "Self-hosted compose smoke": "Проверка локального состава",
+    "React frontend": "Интерфейс продукта",
+    "Device Bridge worker operations": "Операции моста устройств",
+    "dist build": "сборка готова",
+    "audit export": "экспорт аудита",
+  };
+  return labels[value] ?? value;
+}
+
+function systemValueLabel(value: string | undefined): string {
+  if (!value) return "нет";
+  const labels: Record<string, string> = {
+    none: "нет",
+    enabled: "включено",
+    "path-only": "только путь",
+    "append-only": "только добавление",
+    "single self-hosted product": "единый продукт клиники",
+    "static React build served by nginx": "статическая сборка интерфейса",
+    "Node self-hosted API": "сервер продукта",
+    "operator-owned PostgreSQL": "PostgreSQL клиники",
+    "operator-owned object storage": "хранилище клиники",
+    "metadata-only operational readiness": "только служебная готовность",
+  };
+  return labels[value] ?? value;
 }
 
 function formatDateTime(value: string): string {
@@ -76,7 +118,7 @@ export default function SysSelfHostedOpsPage() {
   const [productReadiness, setProductReadiness] = useState<SelfHostedProductReadiness | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState("Self-hosted ops console готова.");
+  const [statusMessage, setStatusMessage] = useState("Панель рабочего контура готова.");
 
   const isConfigured = Boolean(session.apiBaseUrl && session.apiToken);
   const hasSystemAdminRole = session.user?.roles?.includes("system_admin") ?? false;
@@ -91,7 +133,7 @@ export default function SysSelfHostedOpsPage() {
       setOpsStatus(null);
       setRuntimeChecks(null);
       setProductReadiness(null);
-      setStatusMessage("Self-hosted backend-сессия не подключена.");
+      setStatusMessage("Рабочая сессия не подключена.");
       return;
     }
     setLoading(true);
@@ -114,27 +156,27 @@ export default function SysSelfHostedOpsPage() {
       setOpsStatus(null);
       setRuntimeChecks(null);
       setProductReadiness(null);
-      setError(statusResult.error?.message ?? "Не удалось загрузить ops status.");
-      setStatusMessage("Ops status не загружен.");
+      setError(statusResult.error?.message ?? "Не удалось загрузить состояние рабочего контура.");
+      setStatusMessage("Состояние рабочего контура не загружено.");
       return;
     }
     setOpsStatus(statusResult.value);
     if (!runtimeResult.ok || !runtimeResult.value) {
       setRuntimeChecks(null);
-      setError(runtimeResult.error?.message ?? "Не удалось загрузить runtime checks.");
-      setStatusMessage("Ops status загружен, runtime checks недоступны.");
+      setError(runtimeResult.error?.message ?? "Не удалось загрузить проверки среды.");
+      setStatusMessage("Состояние рабочего контура загружено, проверки среды недоступны.");
       return;
     }
     setRuntimeChecks(runtimeResult.value);
     if (!productResult.ok || !productResult.value) {
       setProductReadiness(null);
-      setError(productResult.error?.message ?? "Не удалось загрузить product readiness.");
-      setStatusMessage("Ops status и runtime checks загружены, product readiness недоступен.");
+      setError(productResult.error?.message ?? "Не удалось загрузить готовность продукта.");
+      setStatusMessage("Состояние и проверки среды загружены, готовность продукта недоступна.");
       return;
     }
     setProductReadiness(productResult.value);
     setStatusMessage(
-      `Ops status, runtime checks и product readiness обновлены. Correlation: ${
+      `Состояние, проверки среды и готовность продукта обновлены. Код сверки: ${
         productResult.value.correlationId || runtimeResult.value.correlationId || statusResult.value.correlationId || "нет"
       }.`,
     );
@@ -148,26 +190,26 @@ export default function SysSelfHostedOpsPage() {
   function downloadAuditPlan() {
     const content = buildStage4OAuditExportPreview(opsStatus);
     downloadText("stage4o-audit-export-preview.md", content);
-    setStatusMessage("Audit export dry-run preview скачан.");
+    setStatusMessage("Предпросмотр экспорта аудита скачан.");
   }
 
   function downloadOperationsPlan() {
     const content = buildStage4POperationsPreview(runtimeChecks);
     downloadText("stage4p-operations-preview.md", content);
-    setStatusMessage("Operations dry-run preview скачан.");
+    setStatusMessage("Предпросмотр операционного плана скачан.");
   }
 
   function downloadProductReadinessPlan() {
     const content = buildStage4ZProductReadinessPreview(productReadiness);
     downloadText("stage4z-product-readiness-preview.md", content);
-    setStatusMessage("Product readiness preview скачан.");
+    setStatusMessage("Предпросмотр готовности продукта скачан.");
   }
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title="Self-hosted ops"
-        subtitle="Операционный статус цельного self-hosted продукта: backend, PostgreSQL, object storage, audit и correlation."
+        title="Рабочий контур"
+        subtitle="Состояние продукта: сервер, база данных, хранилище, аудит и сверка событий."
         actions={
           <div className="flex flex-wrap justify-end gap-2">
             <Button
@@ -184,7 +226,7 @@ export default function SysSelfHostedOpsPage() {
             <Button asChild size="sm" className="h-8 gap-1.5 text-[12px]">
               <Link to="/self-hosted/login">
                 <ServerCog className="h-3.5 w-3.5" aria-hidden />
-                Self-hosted login
+                Рабочий вход
               </Link>
             </Button>
           </div>
@@ -194,16 +236,15 @@ export default function SysSelfHostedOpsPage() {
       <main className="space-y-4 p-4">
         <div
           role="note"
-          aria-label="Self-hosted ops runtime boundary"
+          aria-label="Граница рабочего контура"
           className="surface-toolbar flex items-start gap-2 p-3 text-[12px] text-muted-foreground"
         >
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
           <div>
-            <div className="font-medium text-foreground">Self-hosted boundary</div>
+            <div className="font-medium text-foreground">Граница рабочего контура</div>
             <p>
-              Страница читает только наш backend `/api/v1/ops/status`,
-              `/api/v1/ops/runtime-checks` и `/api/v1/product/readiness`.
-              Managed runtime, внешние облачные базы данных и hosted function runtimes не используются.
+              Страница читает только серверные проверки продукта. Внешние управляемые среды,
+              облачные базы и сторонние функции здесь не используются.
             </p>
           </div>
         </div>
@@ -212,37 +253,36 @@ export default function SysSelfHostedOpsPage() {
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          aria-label="Статус self-hosted ops"
+          aria-label="Статус рабочего контура"
           className="sr-only"
         >
           {statusMessage}
         </div>
 
         {!isConfigured ? (
-          <section className="surface-card p-4" aria-label="Self-hosted ops session gate">
+          <section className="surface-card p-4" aria-label="Подключение рабочего контура">
             <div className="mb-2 flex items-center gap-2 text-warning">
               <Lock className="h-4 w-4" aria-hidden />
-              <h2 className="h-section">Self-hosted сессия не подключена</h2>
+              <h2 className="h-section">Рабочая сессия не подключена</h2>
             </div>
             <p className="text-meta">
-              {DEMO_SYS_BANNER} Для live-статуса войдите через `/self-hosted/login` пользователем
-              с ролью `system_admin`.
+              {DEMO_SYS_BANNER} Для рабочего статуса войдите пользователем с ролью системного администратора.
             </p>
             <Button asChild size="sm" className="mt-3 h-8 text-[12px]">
-              <Link to="/self-hosted/login">Открыть self-hosted login</Link>
+              <Link to="/self-hosted/login">Открыть рабочий вход</Link>
             </Button>
           </section>
         ) : null}
 
         {isConfigured && !hasSystemAdminRole ? (
-          <section className="surface-card p-4" aria-label="Self-hosted ops role warning">
+          <section className="surface-card p-4" aria-label="Недостаточно прав рабочего контура">
             <div className="mb-2 flex items-center gap-2 text-warning">
               <Lock className="h-4 w-4" aria-hidden />
-              <h2 className="h-section">Нужна роль system_admin</h2>
+              <h2 className="h-section">Нужна роль системного администратора</h2>
             </div>
             <p className="text-meta">
-              Текущая self-hosted сессия не содержит `system_admin`. Backend дополнительно
-              проверит RBAC и вернёт 403 для `/api/v1/ops/status`.
+              Текущая рабочая сессия не содержит роль системного администратора. Сервер
+              дополнительно проверит доступ и отклонит запрос без нужной роли.
             </p>
           </section>
         ) : null}
@@ -251,7 +291,7 @@ export default function SysSelfHostedOpsPage() {
           <section
             role="alert"
             aria-live="assertive"
-            aria-label="Ошибка self-hosted ops"
+          aria-label="Ошибка рабочего контура"
             className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive"
           >
             {error}
@@ -260,52 +300,52 @@ export default function SysSelfHostedOpsPage() {
 
         <section
           className="grid gap-3 md:grid-cols-3 xl:grid-cols-6"
-          aria-label="Сводка self-hosted ops"
+          aria-label="Сводка рабочего контура"
         >
           <MetricTile
-            label="Backend"
+            label="Сервер"
             value={opsStatus ? statusLabel(opsStatus.status) : "Нет сессии"}
-            hint={opsStatus?.source ?? "self-hosted"}
+            hint={opsStatus?.source ? "рабочая система" : "нет подключения"}
           />
           <MetricTile
-            label="Dependencies"
+            label="Зависимости"
             value={opsStatus ? `${readyDependencies}/${opsStatus.dependencies.length}` : "0/0"}
-            hint="configured + connected"
+            hint="настроено и подключено"
           />
           <MetricTile
-            label="Correlation"
-            value={opsStatus?.observability.correlationHeader ?? "x-correlation-id"}
+            label="Код сверки"
+            value={opsStatus?.observability.correlationHeader ?? "ожидает"}
             hint={opsStatus?.correlationId || "ожидает запроса"}
           />
           <MetricTile
-            label="Audit"
-            value={opsStatus?.audit.mode ?? "append-only"}
-            hint="metadata-only export"
+            label="Аудит"
+            value={systemValueLabel(opsStatus?.audit.mode ?? "только добавление")}
+            hint="экспорт без лишних данных"
           />
           <MetricTile
-            label="Runtime checks"
+            label="Проверки среды"
             value={runtimeChecks ? statusLabel(runtimeChecks.status) : "Ожидает"}
-            hint={`${runtimeChecks?.checks.length ?? 0} checks`}
+            hint={`проверок: ${runtimeChecks?.checks.length ?? 0}`}
           />
           <MetricTile
-            label="Product readiness"
+            label="Готовность продукта"
             value={productReadiness ? "Готов" : "Ожидает"}
-            hint={productReadiness?.status ?? "stage 4Z"}
+            hint={productReadiness?.status ?? "ожидает"}
           />
         </section>
 
-        <section className="surface-card overflow-hidden" aria-label="Self-hosted product readiness">
+        <section className="surface-card overflow-hidden" aria-label="Готовность продукта">
           <div className="section-bar">
             <div>
-              <h2 className="h-section">Product readiness</h2>
+              <h2 className="h-section">Готовность продукта</h2>
               <p className="h-section-hint">
-                Единая проверка, что frontend, backend, PostgreSQL, object storage и Device Bridge
-                разворачиваются как цельный self-hosted продукт.
+                Единая проверка: интерфейс, сервер, база данных, хранилище и мост устройств
+                разворачиваются как цельный продукт клиники.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={productReadiness ? "default" : "secondary"}>
-                {productReadiness?.status ?? "pending"}
+                {statusLabel(productReadiness?.status ?? "pending")}
               </Badge>
               <Button
                 type="button"
@@ -315,7 +355,7 @@ export default function SysSelfHostedOpsPage() {
                 onClick={downloadProductReadinessPlan}
               >
                 <Download className="h-3.5 w-3.5" aria-hidden />
-                Скачать readiness
+                Скачать готовность
               </Button>
             </div>
           </div>
@@ -323,22 +363,22 @@ export default function SysSelfHostedOpsPage() {
             <div className="space-y-3">
               <StatusLine
                 icon={<ServerCog className="h-4 w-4" aria-hidden />}
-                label="Managed runtime"
-                value={productReadiness?.productBoundary.managedRuntime ?? "none"}
+                label="Управляемая среда"
+                value={systemValueLabel(productReadiness?.productBoundary.managedRuntime)}
               />
               <StatusLine
                 icon={<Database className="h-4 w-4" aria-hidden />}
-                label="Managed database"
-                value={productReadiness?.productBoundary.managedDatabase ?? "none"}
+                label="Управляемая база"
+                value={systemValueLabel(productReadiness?.productBoundary.managedDatabase)}
               />
               <StatusLine
                 icon={<ShieldCheck className="h-4 w-4" aria-hidden />}
-                label="Managed app runtime coupling"
+                label="Связь с внешней средой"
                 value={productReadiness?.productBoundary.supabaseRuntimeCoupling ? "есть" : "нет"}
               />
               <StatusLine
                 icon={<Lock className="h-4 w-4" aria-hidden />}
-                label="Browser hardware APIs"
+                label="Аппаратный доступ браузера"
                 value={productReadiness?.productBoundary.browserHardwareApis ? "есть" : "нет"}
               />
             </div>
@@ -346,19 +386,19 @@ export default function SysSelfHostedOpsPage() {
               {(productReadiness?.gates ?? []).slice(0, 5).map((gate) => (
                 <div key={gate.key} className="rounded-md border border-border bg-surface-muted p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium text-foreground">{gate.label}</div>
+                    <div className="font-medium text-foreground">{systemTermLabel(gate.label)}</div>
                     <Badge variant={gate.required ? "default" : "secondary"}>
-                      {gate.required ? "required" : "optional"}
+                      {gate.required ? "обязательно" : "дополнительно"}
                     </Badge>
                   </div>
-                  <code className="mt-2 block break-words rounded border border-border bg-background px-2 py-1 font-mono text-[11px]">
-                    {gate.command}
-                  </code>
+                  <div className="mt-2 rounded border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground">
+                    Служебная команда скрыта с экрана.
+                  </div>
                 </div>
               ))}
               {!productReadiness ? (
                 <div className="rounded-md border border-border bg-surface-muted p-3 text-meta">
-                  Product readiness появится после system_admin self-hosted session.
+                  Готовность продукта появится после подключения рабочей сессии системного администратора.
                 </div>
               ) : null}
             </div>
@@ -366,17 +406,17 @@ export default function SysSelfHostedOpsPage() {
           {productReadiness ? (
             <div className="border-t border-border p-4">
               <div className="mb-2 text-[12px] font-medium text-muted-foreground">
-                Capabilities
+                Возможности
               </div>
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {productReadiness.capabilities.map((capability) => (
                   <div key={capability.key} className="rounded-md border border-border px-3 py-2">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium text-foreground">{capability.label}</div>
-                      <Badge variant="secondary">{capability.status}</Badge>
+                      <div className="font-medium text-foreground">{systemTermLabel(capability.label)}</div>
+                      <Badge variant="secondary">{statusLabel(capability.status)}</Badge>
                     </div>
                     <div className="mt-1 text-[11px] text-muted-foreground">
-                      {capability.evidence.join(" / ")}
+                      {capability.evidence.map(systemTermLabel).join(" / ")}
                     </div>
                   </div>
                 ))}
@@ -386,16 +426,16 @@ export default function SysSelfHostedOpsPage() {
         </section>
 
         <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <section className="surface-card overflow-hidden" aria-label="Self-hosted dependencies">
+          <section className="surface-card overflow-hidden" aria-label="Зависимости рабочего контура">
             <div className="section-bar">
               <div>
-                <h2 className="h-section">Readiness dependencies</h2>
+                <h2 className="h-section">Зависимости готовности</h2>
                 <p className="h-section-hint">
-                  Проверка backend, PostgreSQL, JWT signing key и object storage.
+                  Проверка сервера, базы данных, ключа подписи и хранилища.
                 </p>
               </div>
               <Badge variant={opsStatus?.ready ? "default" : "secondary"}>
-                {opsStatus?.ready ? "ready" : "not ready"}
+                {opsStatus?.ready ? "готово" : "не готово"}
               </Badge>
             </div>
             <div className="overflow-x-auto">
@@ -411,7 +451,7 @@ export default function SysSelfHostedOpsPage() {
                 <tbody>
                   {(opsStatus?.dependencies ?? []).map((dependency) => (
                     <tr key={dependency.name}>
-                      <td className="font-medium text-foreground">{dependency.name}</td>
+                      <td className="font-medium text-foreground">{systemTermLabel(dependency.name)}</td>
                       <td>{dependency.configured ? "Да" : "Нет"}</td>
                       <td>{dependency.connected ? "Есть" : "Нет"}</td>
                       <td>
@@ -424,7 +464,7 @@ export default function SysSelfHostedOpsPage() {
                   {!opsStatus ? (
                     <tr>
                       <td colSpan={4} className="text-meta">
-                        Подключите self-hosted session и обновите статус.
+                        Подключите рабочую сессию и обновите статус.
                       </td>
                     </tr>
                   ) : null}
@@ -433,58 +473,58 @@ export default function SysSelfHostedOpsPage() {
             </div>
           </section>
 
-          <section className="surface-card" aria-label="Self-hosted observability contract">
+          <section className="surface-card" aria-label="Договор наблюдаемости">
             <div className="section-bar">
               <div>
-                <h2 className="h-section">Observability contract</h2>
-                <p className="h-section-hint">Что backend обещает не раскрывать в UI и логах.</p>
+                <h2 className="h-section">Договор наблюдаемости</h2>
+                <p className="h-section-hint">Что сервер не раскрывает в интерфейсе и журналах.</p>
               </div>
             </div>
             <div className="space-y-3 p-4 text-[13px]">
               <StatusLine
                 icon={<ListChecks className="h-4 w-4" aria-hidden />}
-                label="Structured JSON logs"
+                label="Структурированные журналы"
                 value={opsStatus?.observability.structuredJsonLogs ? "включены" : "ожидает статуса"}
               />
               <StatusLine
                 icon={<ClipboardCheck className="h-4 w-4" aria-hidden />}
-                label="Redaction"
-                value={opsStatus?.observability.redaction ?? "enabled"}
+                label="Сокрытие лишнего"
+                value={systemValueLabel(opsStatus?.observability.redaction)}
               />
               <StatusLine
                 icon={<TerminalSquare className="h-4 w-4" aria-hidden />}
-                label="Path logging"
-                value={opsStatus?.observability.requestPathLogging ?? "path-only"}
+                label="Журналирование путей"
+                value={systemValueLabel(opsStatus?.observability.requestPathLogging)}
               />
               <StatusLine
                 icon={<Database className="h-4 w-4" aria-hidden />}
-                label="Runtime checks"
+                label="Проверки среды"
                 value={runtimeChecks ? statusLabel(runtimeChecks.status) : "ожидает статуса"}
               />
               <StatusLine
                 icon={<FileText className="h-4 w-4" aria-hidden />}
-                label="OpenAPI"
-                value="/openapi.stage4p.json"
+                label="Схема сервера"
+                value="служебная схема"
               />
               <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px] text-muted-foreground">
-                Не выводим тела запросов, bearer-токены, пароли, ФИО пациентов,
-                object keys, storage paths и raw env values.
+                Не выводим тела запросов, служебные токены, пароли, ФИО пациентов,
+                ключи объектов, пути хранения и сырые значения окружения.
               </div>
             </div>
           </section>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="surface-card overflow-hidden" aria-label="Self-hosted runtime checks">
+          <section className="surface-card overflow-hidden" aria-label="Проверки рабочей среды">
             <div className="section-bar">
               <div>
-                <h2 className="h-section">Runtime operations checks</h2>
+                <h2 className="h-section">Проверки рабочей среды</h2>
                 <p className="h-section-hint">
-                  Server-owned проверки БД, object storage, миграций и deploy-пакета.
+                  Серверные проверки базы данных, хранилища, миграций и пакета развёртывания.
                 </p>
               </div>
               <Badge variant={runtimeChecks?.ready ? "default" : "secondary"}>
-                {runtimeChecks?.ready ? "ready" : statusLabel(runtimeChecks?.status ?? "unknown")}
+                {runtimeChecks?.ready ? "готово" : statusLabel(runtimeChecks?.status ?? "unknown")}
               </Badge>
             </div>
             <div className="overflow-x-auto">
@@ -499,22 +539,22 @@ export default function SysSelfHostedOpsPage() {
                 <tbody>
                   {(runtimeChecks?.checks ?? []).map((item) => (
                     <tr key={item.key}>
-                      <td className="font-medium text-foreground">{item.label}</td>
+                      <td className="font-medium text-foreground">{systemTermLabel(item.label)}</td>
                       <td>
                         <Badge variant={item.status === "ready" ? "default" : "secondary"}>
                           {statusLabel(item.status)}
                         </Badge>
                       </td>
                       <td className="text-meta">
-                        <span>{item.detail}</span>
+                        <span>{systemTermLabel(item.detail)}</span>
                         {item.key === "migration_bundle" && item.latest ? (
-                          <span className="ml-2 font-mono text-[11px]">
-                            latest: {item.latest}
+                          <span className="ml-2 text-[11px]">
+                            последняя миграция подтверждена
                           </span>
                         ) : null}
                         {typeof item.usedPercent === "number" ? (
                           <span className="ml-2 font-mono text-[11px]">
-                            used: {item.usedPercent}%
+                            занято: {item.usedPercent}%
                           </span>
                         ) : null}
                       </td>
@@ -523,7 +563,7 @@ export default function SysSelfHostedOpsPage() {
                   {!runtimeChecks ? (
                     <tr>
                       <td colSpan={3} className="text-meta">
-                        Runtime checks появятся после подключения self-hosted session.
+                        Проверки рабочей среды появятся после подключения рабочей сессии.
                       </td>
                     </tr>
                   ) : null}
@@ -532,10 +572,10 @@ export default function SysSelfHostedOpsPage() {
             </div>
           </section>
 
-          <section className="surface-card" aria-label="Self-hosted operations dry-runs">
+          <section className="surface-card" aria-label="Планы операций">
             <div className="section-bar">
               <div>
-                <h2 className="h-section">Operations dry-runs</h2>
+                <h2 className="h-section">Планы операций</h2>
                 <p className="h-section-hint">
                   Команды запускаются оператором сервера, UI показывает безопасный план.
                 </p>
@@ -560,30 +600,31 @@ export default function SysSelfHostedOpsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <PlayCircle className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                      <div className="font-medium text-foreground">{command.label}</div>
+                      <div className="font-medium text-foreground">{systemTermLabel(command.label)}</div>
                     </div>
-                    <Badge variant="secondary">dry-run</Badge>
+                    <Badge variant="secondary">план</Badge>
                   </div>
-                  <code className="mt-2 block break-words rounded border border-border bg-background px-2 py-1 font-mono text-[11px]">
-                    {command.command}
-                  </code>
-                  <p className="mt-2 text-meta">{command.description}</p>
+                  <div className="mt-2 rounded border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground">
+                    Служебная команда скрыта с экрана.
+                  </div>
+                  <p className="mt-2 text-meta">{systemTermLabel(command.description)}</p>
                 </div>
               ))}
               {!runtimeChecks ? (
                 <div className="rounded-md border border-border bg-surface-muted p-3 text-meta">
-                  Подключите self-hosted session, чтобы увидеть backup, restore, deploy smoke и audit dry-run.
+                  Подключите рабочую сессию, чтобы увидеть планы резервного копирования,
+                  восстановления, проверки развёртывания и аудита.
                 </div>
               ) : null}
             </div>
           </section>
         </div>
 
-        <section className="surface-card" aria-label="Self-hosted audit export dry-run">
+        <section className="surface-card" aria-label="План экспорта аудита">
           <div className="section-bar">
             <div>
-              <h2 className="h-section">Audit export dry-run</h2>
-              <p className="h-section-hint">Безопасный metadata-only план, без PHI и секретов.</p>
+              <h2 className="h-section">План экспорта аудита</h2>
+              <p className="h-section-hint">Безопасный план без персональных медицинских данных и секретов.</p>
             </div>
             <Button
               type="button"
@@ -593,21 +634,21 @@ export default function SysSelfHostedOpsPage() {
               onClick={downloadAuditPlan}
             >
               <Download className="h-3.5 w-3.5" aria-hidden />
-              Скачать preview
+              Скачать предпросмотр
             </Button>
           </div>
           <div className="grid gap-3 p-4 lg:grid-cols-[0.75fr_1.25fr]">
             <div className="space-y-2 text-[13px]">
-              <div className="font-medium text-foreground">Команда</div>
-              <code className="block rounded-md border border-border bg-surface-muted px-3 py-2 font-mono text-[12px]">
-                {STAGE4O_AUDIT_EXPORT_COMMAND}
-              </code>
+              <div className="font-medium text-foreground">Локальный запуск</div>
+              <div className="rounded-md border border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
+                Служебная команда скрыта с экрана.
+              </div>
               <p className="text-meta">
                 Последнее обновление: {formatDateTime(opsStatus?.generatedAt ?? "")}
               </p>
             </div>
             <pre
-              aria-label="Предпросмотр audit export dry-run"
+              aria-label="Предпросмотр экспорта аудита"
               className="max-h-48 overflow-auto rounded-md border border-border bg-surface-muted p-3 font-mono text-[12px] leading-relaxed text-foreground"
             >
               {buildStage4OAuditExportPreview(opsStatus)}

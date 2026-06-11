@@ -41,7 +41,7 @@ describe("SysDevicesPage", () => {
 
     renderPage();
 
-    expect(screen.getByText(/Демо-режим\. Реальные роли, RLS, аудит, ключи и Device Bridge/)).toBeInTheDocument();
+    expect(screen.getByText(/Учебный режим\. Рабочие роли, аудит, ключи и мост устройств/)).toBeInTheDocument();
     expect(screen.getAllByText("DermLite DL5").length).toBeGreaterThan(0);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
@@ -147,7 +147,7 @@ describe("SysDevicesPage", () => {
       }
       if (url.includes("/api/v1/device-bridge-worker/recovery") || url.includes("/api/v1/device-bridge-worker/commands/cmd-retry/recovery")) {
         if (init?.method === "POST") {
-          expect(init.body).toBe(JSON.stringify({ action: "reschedule", reason: "Повторная постановка из production recovery панели." }));
+          expect(init.body).toBe(JSON.stringify({ action: "reschedule", reason: "Повторная постановка из панели восстановления." }));
           return new Response(
             JSON.stringify({
               command: {
@@ -195,7 +195,7 @@ describe("SysDevicesPage", () => {
       }
       if (url.includes("/api/v1/device-bridge-worker/commands/cmd-audit/replay")) {
         expect(init?.method).toBe("POST");
-        expect(init.body).toBe(JSON.stringify({ reason: "Manual replay из Stage 4X command audit панели." }));
+        expect(init.body).toBe(JSON.stringify({ reason: "Ручной повтор из панели журнала команд." }));
         return new Response(
           JSON.stringify({
             command: {
@@ -632,93 +632,93 @@ describe("SysDevicesPage", () => {
 
     renderPage();
 
-    expect(await screen.findByText(/Self-hosted backend подключён/)).toBeInTheDocument();
+    expect(await screen.findByText(/Рабочая система подключена/)).toBeInTheDocument();
     expect((await screen.findAllByText("LiveScope 20")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("br-live-01").length).toBeGreaterThan(0);
-    expect(screen.getByText("Реестр устройств загружен из backend.")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Device Bridge worker observability" })).toHaveTextContent(
-      "stage4t-local-worker",
+    expect(screen.getByText("Реестр устройств загружен из рабочей системы.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Наблюдение службы моста устройств" })).toHaveTextContent(
+      "версия stage4t-local-worker",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge worker command lifecycle" })).toHaveTextContent(
-      "bridge_health_check",
+    expect(screen.getByRole("region", { name: "Жизненный цикл команд моста устройств" })).toHaveTextContent(
+      "Служебная команда",
     );
-    expect(screen.getByRole("note", { name: "Device Bridge worker privacy boundary" })).toHaveTextContent(
-      "lifecycle-метаданные",
+    expect(screen.getByRole("note", { name: "Граница данных службы моста устройств" })).toHaveTextContent(
+      "служебные метаданные",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge worker production hardening" })).toHaveTextContent(
-      "Cleanup candidates",
+    expect(screen.getByRole("region", { name: "Устойчивость службы моста устройств" })).toHaveTextContent(
+      "На очистку",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge worker hardening policy" })).toHaveTextContent(
+    expect(screen.getByRole("region", { name: "Правила устойчивости моста устройств" })).toHaveTextContent(
       "linear-capped",
     );
-    expect(screen.getByRole("note", { name: "Device Bridge worker hardening privacy boundary" })).toHaveTextContent(
-      "retention cleanup candidates",
+    expect(screen.getByRole("note", { name: "Граница данных устойчивости моста устройств" })).toHaveTextContent(
+      "кандидаты на очистку",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge command recovery" })).toHaveTextContent(
-      "Retryable failed",
+    expect(screen.getByRole("region", { name: "Восстановление команд моста устройств" })).toHaveTextContent(
+      "Можно повторить",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge command recovery queue" })).toHaveTextContent(
+    expect(screen.getByRole("region", { name: "Очередь восстановления команд" })).toHaveTextContent(
       "retryable_failed",
     );
-    expect(screen.getByRole("note", { name: "Device Bridge command recovery privacy boundary" })).toHaveTextContent(
-      "recovery audit",
+    expect(screen.getByRole("note", { name: "Граница данных восстановления команд" })).toHaveTextContent(
+      "аудит восстановления",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge command audit and replay" })).toHaveTextContent(
-      "Audit events",
+    expect(screen.getByRole("region", { name: "Аудит и повтор команд моста устройств" })).toHaveTextContent(
+      "События аудита",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge replay policy" })).toHaveTextContent(
-      "backend_only",
+    expect(screen.getByRole("region", { name: "Правила повтора команд" })).toHaveTextContent(
+      "видимость данных",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge command audit log" })).toHaveTextContent(
-      "manual_system_admin",
+    expect(screen.getByRole("region", { name: "Журнал аудита команд" })).toHaveTextContent(
+      "вручную системным администратором",
     );
-    expect(screen.getByRole("note", { name: "Device Bridge command audit privacy boundary" })).toHaveTextContent(
-      "append-only audit projection",
+    expect(screen.getByRole("note", { name: "Граница данных аудита команд" })).toHaveTextContent(
+      "аудит без изменений",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge production readiness" })).toHaveTextContent(
-      "Stage 8J-8L",
+    expect(screen.getByRole("region", { name: "Готовность моста устройств" })).toHaveTextContent(
+      "Готовность моста устройств",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge production readiness gates" })).toHaveTextContent(
-      "Worker health pressure",
+    expect(screen.getByRole("region", { name: "Проверки готовности моста устройств" })).toHaveTextContent(
+      "Давление состояния службы",
     );
-    expect(screen.getByRole("note", { name: "Device Bridge production readiness boundary" })).toHaveTextContent(
-      "managed runtime none",
+    expect(screen.getByRole("note", { name: "Граница данных готовности моста устройств" })).toHaveTextContent(
+      "только безопасные агрегаты",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge operations continuity" })).toHaveTextContent(
-      "Stage 8P-9A",
+    expect(screen.getByRole("region", { name: "Непрерывность операций моста устройств" })).toHaveTextContent(
+      "Непрерывность операций",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge operations continuity stages" })).toHaveTextContent(
-      "Incident drill register",
+    expect(screen.getByRole("region", { name: "Шаги непрерывности операций" })).toHaveTextContent(
+      "Реестр учений по инцидентам",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge operations continuity gates" })).toHaveTextContent(
-      "Self-hosted product boundary",
+    expect(screen.getByRole("region", { name: "Проверки непрерывности операций" })).toHaveTextContent(
+      "Граница продукта клиники",
     );
-    expect(screen.getByRole("note", { name: "Device Bridge operations continuity boundary" })).toHaveTextContent(
-      "next batch hypothesis Stage 9B-9D",
+    expect(screen.getByRole("note", { name: "Граница данных непрерывности операций" })).toHaveTextContent(
+      "следующий шаг скрыт",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge fleet reliability" })).toHaveTextContent(
-      "Stage 9B-9M",
+    expect(screen.getByRole("region", { name: "Надёжность парка мостов устройств" })).toHaveTextContent(
+      "Надёжность парка",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge fleet reliability stages" })).toHaveTextContent(
-      "Fleet reliability register",
+    expect(screen.getByRole("region", { name: "Шаги надёжности парка" })).toHaveTextContent(
+      "Реестр надёжности парка",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge fleet reliability gates" })).toHaveTextContent(
-      "Command SLO reviewed",
+    expect(screen.getByRole("region", { name: "Проверки надёжности парка" })).toHaveTextContent(
+      "Норма обработки команд проверена",
     );
-    expect(screen.getByRole("note", { name: "Device Bridge fleet reliability boundary" })).toHaveTextContent(
-      "next batch hypothesis Stage 9N-9Z",
+    expect(screen.getByRole("note", { name: "Граница данных надёжности парка" })).toHaveTextContent(
+      "следующий шаг скрыт",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge lifecycle assurance" })).toHaveTextContent(
-      "Stage 9N-9Z",
+    expect(screen.getByRole("region", { name: "Контроль жизненного цикла моста устройств" })).toHaveTextContent(
+      "Контроль жизненного цикла",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge lifecycle assurance stages" })).toHaveTextContent(
-      "Lifecycle assurance register",
+    expect(screen.getByRole("region", { name: "Шаги жизненного цикла" })).toHaveTextContent(
+      "Реестр жизненного цикла",
     );
-    expect(screen.getByRole("region", { name: "Device Bridge lifecycle assurance gates" })).toHaveTextContent(
-      "Maintenance window reviewed",
+    expect(screen.getByRole("region", { name: "Проверки жизненного цикла" })).toHaveTextContent(
+      "Окно обслуживания проверено",
     );
-    expect(screen.getByRole("note", { name: "Device Bridge lifecycle assurance boundary" })).toHaveTextContent(
-      "next batch hypothesis Stage 10A-10L",
+    expect(screen.getByRole("note", { name: "Граница данных жизненного цикла" })).toHaveTextContent(
+      "следующий шаг скрыт",
     );
     expect(fetchMock).toHaveBeenCalledTimes(10);
 
@@ -726,18 +726,18 @@ describe("SysDevicesPage", () => {
     expect(screen.getAllByText("LiveScope 20").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getAllByRole("button", { name: "Проверить мост" })[0]);
-    expect(await screen.findByText(/Команда проверки моста br-live-01 поставлена в очередь Device Bridge: cmd-bridge/)).toBeInTheDocument();
+    expect(await screen.findByText(/Команда проверки «Мост 1» поставлена в очередь моста устройств/)).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Запросить калибровку" })[0]);
-    expect(await screen.findByText(/Команда калибровки LS-200 поставлена в очередь Device Bridge: cmd-device/)).toBeInTheDocument();
+    expect(await screen.findByText(/Команда калибровки поставлена в очередь моста устройств/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(12);
 
-    fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
-    expect(await screen.findByText(/Команда cmd-retry возвращена в очередь Device Bridge/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Повторить" })[0]);
+    expect(await screen.findByText(/Команда возвращена в очередь моста устройств/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(13);
 
-    fireEvent.click(screen.getByRole("button", { name: "Replay" }));
-    expect(await screen.findByText(/Replay команды cmd-audit поставлен в очередь Device Bridge: cmd-replay/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Повторить" })[1]);
+    expect(await screen.findByText(/Повтор команды поставлен в очередь моста устройств/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(14);
 
     Object.defineProperty(URL, "createObjectURL", {
@@ -749,8 +749,8 @@ describe("SysDevicesPage", () => {
       value: vi.fn(),
     });
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
-    fireEvent.click(screen.getByRole("button", { name: "Экспорт audit CSV" }));
-    expect(await screen.findByText(/Экспорт Device Bridge command audit скачан: device-bridge-command-audit-all-all-1-rows.csv/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Скачать журнал" }));
+    expect(await screen.findByText(/Экспорт журнала команд моста устройств скачан/)).toBeInTheDocument();
     expect(click).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(15);
   });

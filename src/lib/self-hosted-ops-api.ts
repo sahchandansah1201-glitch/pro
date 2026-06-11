@@ -132,7 +132,7 @@ export interface SelfHostedProductReadiness {
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
-  message: "Self-hosted backend-сессия не подключена.",
+  message: "Рабочая сессия не подключена.",
 };
 
 function ok<T>(value: T): SelfHostedApiResult<T> {
@@ -149,7 +149,7 @@ function ensureConfigured(args: BaseArgs): SelfHostedApiError | null {
     return {
       kind: "validation",
       code: "base_url_required",
-      message: "Укажите адрес self-hosted backend.",
+      message: "Укажите адрес сервера клиники.",
     };
   }
   return null;
@@ -390,7 +390,7 @@ async function getJson<T>(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к self-hosted backend.",
+      message: "Сбой сети при обращении к серверу клиники.",
     });
   }
 
@@ -402,7 +402,7 @@ async function getJson<T>(
     : fail({
         kind: "http",
         code: "empty_response",
-        message: "Backend вернул пустой или неизвестный ответ.",
+        message: "Сервер вернул пустой или неизвестный ответ.",
       });
 }
 
@@ -432,12 +432,12 @@ export function buildStage4OAuditExportPreview(status: SelfHostedOpsStatus | nul
     ? status.audit.exportedFields
     : ["created_at", "action", "entity_type", "entity_id", "correlation_id"];
   return [
-    "# Stage 4O audit export preview",
+    "# Предпросмотр экспорта аудита",
     "",
-    `- Command: ${STAGE4O_AUDIT_EXPORT_COMMAND}`,
-    `- Backend contract: ${status?.audit.safeExport ?? "scripts/stage4n-audit-export.mjs --dry-run"}`,
-    `- Safe columns: ${fields.join(", ")}`,
-    "- Excluded: request bodies, tokens, passwords, patient names, object keys, storage paths, raw env values",
+    "- Локальный запуск: команда скрыта с экрана администратора.",
+    `- Контракт сервера: ${status?.audit.safeExport ? "безопасная выгрузка включена" : "проверяется без вывода служебной команды"}`,
+    `- Безопасные колонки: ${fields.join(", ")}`,
+    "- Не выгружаем: тела запросов, токены, пароли, имена пациентов, ключи объектов, пути хранения, сырые значения окружения",
     "",
   ].join("\n");
 }
@@ -447,33 +447,33 @@ export function buildStage4POperationsPreview(runtime: SelfHostedOpsRuntimeCheck
     ? runtime.commands
     : [
         {
-          label: "Backup dry-run",
+          label: "План резервной копии",
           command: "npm run ops:stage4l:backup:dry-run",
-          description: "Plan backup",
+          description: "Проверить план резервной копии",
           dryRunOnly: true,
         },
         {
-          label: "Deploy smoke dry-run",
+          label: "План проверки развёртывания",
           command: "npm run smoke:stage4k:dry-run",
-          description: "Plan deploy smoke",
+          description: "Проверить план развёртывания",
           dryRunOnly: true,
         },
       ];
   return [
-    "# Stage 4P operations preview",
+    "# Предпросмотр операционного плана",
     "",
-    `- Runtime status: ${runtime?.status ?? "unknown"}`,
-    "- Scope: self-hosted frontend + backend + PostgreSQL + backend-owned object storage",
-    "- External managed database dependency: none",
+    `- Статус среды: ${runtime?.status ?? "unknown"}`,
+    "- Область: интерфейс, сервер, база данных и хранилище клиники",
+    "- Внешняя управляемая база данных: нет",
     "",
     ...commands.flatMap((item) => [
       `## ${item.label}`,
-      `- Command: ${item.command}`,
-      `- Dry-run only: ${item.dryRunOnly ? "yes" : "no"}`,
-      `- Purpose: ${item.description}`,
+      "- Локальный запуск: команда скрыта с экрана администратора.",
+      `- Только пробный запуск: ${item.dryRunOnly ? "да" : "нет"}`,
+      `- Цель: ${item.description}`,
       "",
     ]),
-    "- Excluded: request bodies, tokens, passwords, patient names, object keys, storage paths, raw env values",
+    "- Не выводим: тела запросов, токены, пароли, имена пациентов, ключи объектов, пути хранения, сырые значения окружения",
     "",
   ].join("\n");
 }
@@ -482,25 +482,25 @@ export function buildStage4ZProductReadinessPreview(readiness: SelfHostedProduct
   const gates = readiness?.gates?.length
     ? readiness.gates
     : [
-        { label: "Full deterministic preflight", command: "npm run preflight:all", required: true },
-        { label: "Self-hosted compose smoke", command: "npm run smoke:stage4k", required: true },
+        { label: "Полная предварительная проверка", command: "npm run preflight:all", required: true },
+        { label: "Проверка локального состава", command: "npm run smoke:stage4k", required: true },
       ];
   return [
-    "# Stage 4Z product readiness preview",
+    "# Предпросмотр готовности продукта",
     "",
-    `- Status: ${readiness?.status ?? "unknown"}`,
-    "- Boundary: self-hosted frontend + backend + operator-owned PostgreSQL + operator-owned object storage",
-    "- Managed runtime: none",
-    "- Managed database: none",
-    "- Managed app runtime coupling: false",
+    `- Статус: ${readiness?.status ?? "unknown"}`,
+    "- Граница: интерфейс, сервер, база данных и хранилище клиники",
+    "- Управляемая внешняя среда: нет",
+    "- Управляемая внешняя база: нет",
+    "- Связь с внешней средой приложения: нет",
     "",
     ...gates.flatMap((item) => [
       `## ${item.label}`,
-      `- Command: ${item.command}`,
-      `- Required: ${item.required ? "yes" : "no"}`,
+      "- Локальный запуск: команда скрыта с экрана администратора.",
+      `- Обязательно: ${item.required ? "да" : "нет"}`,
       "",
     ]),
-    "- Excluded: tokens, passwords, patient names, object keys, storage paths, signed URLs, raw env values",
+    "- Не выводим: токены, пароли, имена пациентов, ключи объектов, пути хранения, подписанные ссылки, сырые значения окружения",
     "",
   ].join("\n");
 }

@@ -241,8 +241,9 @@ describe("self-hosted-ops-api", () => {
 
   it("builds safe audit export preview", () => {
     const preview = buildStage4OAuditExportPreview(toSelfHostedOpsStatus(OPS_STATUS_BODY));
-    expect(preview).toContain(STAGE4O_AUDIT_EXPORT_COMMAND);
+    expect(preview).toContain("Локальный запуск: команда скрыта с экрана администратора");
     expect(preview).toContain("created_at");
+    expect(preview).not.toContain(STAGE4O_AUDIT_EXPORT_COMMAND);
     expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
   });
 
@@ -250,9 +251,10 @@ describe("self-hosted-ops-api", () => {
     const preview = buildStage4POperationsPreview(
       toSelfHostedOpsRuntimeChecks(RUNTIME_CHECKS_BODY),
     );
-    expect(preview).toContain("Stage 4P operations preview");
-    expect(preview).toContain("npm run ops:stage4l:backup:dry-run");
-    expect(preview).toContain("npm run smoke:stage4k:dry-run");
+    expect(preview).toContain("Предпросмотр операционного плана");
+    expect(preview).toContain("Локальный запуск: команда скрыта с экрана администратора");
+    expect(preview).not.toContain("npm run ops:stage4l:backup:dry-run");
+    expect(preview).not.toContain("npm run smoke:stage4k:dry-run");
     expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=|patient_full_name/i);
   });
 
@@ -260,10 +262,11 @@ describe("self-hosted-ops-api", () => {
     const preview = buildStage4ZProductReadinessPreview(
       toSelfHostedProductReadiness(PRODUCT_READINESS_BODY),
     );
-    expect(preview).toContain("Stage 4Z product readiness preview");
-    expect(preview).toContain("npm run preflight:all");
-    expect(preview).toContain("npm run smoke:stage4k");
-    expect(preview).toContain("Managed runtime: none");
+    expect(preview).toContain("Предпросмотр готовности продукта");
+    expect(preview).toContain("Локальный запуск: команда скрыта с экрана администратора");
+    expect(preview).not.toContain("npm run preflight:all");
+    expect(preview).not.toContain("npm run smoke:stage4k");
+    expect(preview).toContain("Управляемая внешняя среда: нет");
     expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=|patient_full_name/i);
   });
 });

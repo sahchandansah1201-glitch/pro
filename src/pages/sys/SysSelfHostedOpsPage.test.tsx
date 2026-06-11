@@ -169,13 +169,13 @@ describe("SysSelfHostedOpsPage", () => {
 
     renderPage();
 
-    expect(screen.getByRole("heading", { name: "Self-hosted ops" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Рабочий контур" })).toBeInTheDocument();
     expect(
-      screen.getByRole("note", { name: "Self-hosted ops runtime boundary" }),
-    ).toHaveTextContent(/только наш backend/);
+      screen.getByRole("note", { name: "Граница рабочего контура" }),
+    ).toHaveTextContent(/только серверные проверки продукта/);
     expect(
-      screen.getByRole("region", { name: "Self-hosted ops session gate" }),
-    ).toHaveTextContent(/Self-hosted сессия не подключена/);
+      screen.getByRole("region", { name: "Подключение рабочего контура" }),
+    ).toHaveTextContent(/Рабочая сессия не подключена/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -204,7 +204,7 @@ describe("SysSelfHostedOpsPage", () => {
     const { container } = renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Backend" })).toHaveTextContent("Готов");
+      expect(screen.getByRole("region", { name: "Сервер" })).toHaveTextContent("Готов");
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:8080/api/v1/ops/status",
@@ -227,25 +227,27 @@ describe("SysSelfHostedOpsPage", () => {
         headers: expect.objectContaining({ Authorization: "Bearer jwt-ops" }),
       }),
     );
-    expect(screen.getByRole("region", { name: "Self-hosted dependencies" })).toHaveTextContent("postgres");
-    expect(screen.getByRole("region", { name: "Self-hosted runtime checks" })).toHaveTextContent(
-      "PostgreSQL connectivity",
+    expect(screen.getByRole("region", { name: "Зависимости рабочего контура" })).toHaveTextContent("PostgreSQL");
+    expect(screen.getByRole("region", { name: "Проверки рабочей среды" })).toHaveTextContent(
+      "Связь с PostgreSQL",
     );
-    expect(screen.getByRole("region", { name: "Self-hosted operations dry-runs" })).toHaveTextContent(
-      "npm run ops:stage4l:backup:dry-run",
+    expect(screen.getByRole("region", { name: "Планы операций" })).toHaveTextContent(
+      "Служебная команда скрыта с экрана",
     );
-    expect(screen.getByRole("region", { name: "Self-hosted observability contract" })).toHaveTextContent(
-      "Structured JSON logs",
+    expect(screen.getByRole("region", { name: "Договор наблюдаемости" })).toHaveTextContent(
+      "Структурированные журналы",
     );
-    expect(screen.getByRole("region", { name: "Self-hosted product readiness" })).toHaveTextContent(
-      "npm run preflight:all",
+    expect(screen.getAllByRole("region", { name: "Готовность продукта" })[1]).toHaveTextContent(
+      "Служебная команда скрыта",
     );
-    expect(screen.getByRole("region", { name: "Self-hosted product readiness" })).toHaveTextContent(
-      "Managed runtime",
+    expect(screen.getAllByRole("region", { name: "Готовность продукта" })[1]).toHaveTextContent(
+      "Управляемая среда",
     );
-    expect(screen.getByLabelText("Предпросмотр audit export dry-run")).toHaveTextContent(
-      "npm run ops:stage4n:audit-export:dry-run",
+    expect(screen.getByLabelText("Предпросмотр экспорта аудита")).toHaveTextContent(
+      "команда скрыта",
     );
+    expect(container.innerHTML).not.toContain("dry-run");
+    expect(container.innerHTML).not.toContain("npm run");
     expect(container.innerHTML).not.toContain("secret");
     expect(container.innerHTML).not.toContain("Ivanova Natalia");
     expect(container.innerHTML).not.toContain("bucket/key");
@@ -294,10 +296,10 @@ describe("SysSelfHostedOpsPage", () => {
     renderPage();
 
     expect(
-      screen.getByRole("region", { name: "Self-hosted ops role warning" }),
-    ).toHaveTextContent(/Нужна роль system_admin/);
+      screen.getByRole("region", { name: "Недостаточно прав рабочего контура" }),
+    ).toHaveTextContent(/Нужна роль системного администратора/);
     await waitFor(() => {
-      expect(screen.getByRole("alert", { name: "Ошибка self-hosted ops" })).toHaveTextContent(
+      expect(screen.getByRole("alert", { name: "Ошибка рабочего контура" })).toHaveTextContent(
         /does not have access/,
       );
     });
@@ -316,13 +318,13 @@ describe("SysSelfHostedOpsPage", () => {
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Backend" })).toHaveTextContent("Готов");
+      expect(screen.getByRole("region", { name: "Сервер" })).toHaveTextContent("Готов");
     });
-    await userEvent.click(screen.getByRole("button", { name: "Скачать preview" }));
+    await userEvent.click(screen.getByRole("button", { name: "Скачать предпросмотр" }));
 
     expect(click).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("status", { name: "Статус self-hosted ops" })).toHaveTextContent(
-      /Audit export dry-run preview скачан/,
+    expect(screen.getByRole("status", { name: "Статус рабочего контура" })).toHaveTextContent(
+      /Предпросмотр экспорта аудита скачан/,
     );
   });
 
@@ -339,15 +341,15 @@ describe("SysSelfHostedOpsPage", () => {
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Self-hosted runtime checks" })).toHaveTextContent(
-        "Migration bundle",
+      expect(screen.getByRole("region", { name: "Проверки рабочей среды" })).toHaveTextContent(
+        "Пакет миграций",
       );
     });
     await userEvent.click(screen.getByRole("button", { name: "Скачать план" }));
 
     expect(click).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("status", { name: "Статус self-hosted ops" })).toHaveTextContent(
-      /Operations dry-run preview скачан/,
+    expect(screen.getByRole("status", { name: "Статус рабочего контура" })).toHaveTextContent(
+      /Предпросмотр операционного плана скачан/,
     );
   });
 
@@ -364,15 +366,15 @@ describe("SysSelfHostedOpsPage", () => {
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Self-hosted product readiness" })).toHaveTextContent(
-        "Self-hosted compose smoke",
+      expect(screen.getAllByRole("region", { name: "Готовность продукта" })[1]).toHaveTextContent(
+        "Проверка локального состава",
       );
     });
-    await userEvent.click(screen.getByRole("button", { name: "Скачать readiness" }));
+    await userEvent.click(screen.getByRole("button", { name: "Скачать готовность" }));
 
     expect(click).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("status", { name: "Статус self-hosted ops" })).toHaveTextContent(
-      /Product readiness preview скачан/,
+    expect(screen.getByRole("status", { name: "Статус рабочего контура" })).toHaveTextContent(
+      /Предпросмотр готовности продукта скачан/,
     );
   });
 });

@@ -355,7 +355,7 @@ export const DEFAULT_RELEASE_HISTORY_FILTER_PRESETS: ReleaseHistoryFilterPreset[
     },
     {
       id: "builtin-e2e-failures",
-      name: "E2E failures",
+      name: "Ошибки сквозных проверок",
       source: "built_in",
       filters: {
         status: "all",
@@ -482,6 +482,33 @@ export function releaseStatusLevelLabel(level: ReleaseStatusLevel): string {
   return "Нужно проверить";
 }
 
+function releaseWorkflowDisplayName(name: string): string {
+  const labels: Record<string, string> = {
+    "preflight-all": "Предварительная проверка",
+    "no-deno-locks": "Лишние служебные файлы",
+    "e2e-smoke": "Быстрая проверка интерфейса",
+    "unit-tests": "Модульные тесты",
+    "typecheck": "Проверка типов",
+    "lint": "Проверка кода",
+    "build": "Сборка",
+    "auth-assets-smoke-skip": "Проверка авторизации и ассетов",
+    "backend-guardrails": "Защитные проверки сервера",
+    "frontend-auth-assets": "Проверка авторизации интерфейса",
+    "release-status": "Готовность релиза",
+  };
+  return labels[name] ?? "Проверка";
+}
+
+function releaseWorkflowConclusionLabel(
+  conclusion: ReleaseWorkflowStatus["conclusion"] | ReleaseWorkflowComparisonState,
+): string {
+  if (conclusion === "success") return "пройдено";
+  if (conclusion === "failure") return "ошибка";
+  if (conclusion === "in_progress") return "выполняется";
+  if (conclusion === "missing") return "нет запуска";
+  return "нет данных";
+}
+
 export function buildReleaseStatusWriteGateSummary(
   snapshot: ReleaseStatusSnapshot,
   options: {
@@ -498,35 +525,35 @@ export function buildReleaseStatusWriteGateSummary(
   const steps: ReleaseStatusWriteGateStep[] = [
     {
       id: "workflow-success-condition",
-      label: "Workflow success condition",
+      label: "Условие успешной проверки",
       ok: workflowSuccessCondition,
       detail: workflowSuccessCondition
-        ? "Write reports step uses if: ${{ success() }}."
-        : "Write reports step can run without the success condition.",
+        ? "Запись отчётов разрешена только после успешной проверки."
+        : "Запись отчётов может запуститься без успешной проверки.",
     },
     {
       id: "release-status-workflow",
-      label: "Release-status workflow",
+      label: "Проверка релиза",
       ok: releaseWorkflowOk,
       detail: releaseWorkflowOk
-        ? "release-status workflow is green."
-        : `release-status workflow is ${releaseStatusWorkflow?.conclusion ?? "missing"}.`,
+        ? "Проверка релиза прошла."
+        : `Проверка релиза не готова: ${releaseStatusWorkflow?.conclusion ?? "нет данных"}.`,
     },
     {
       id: "ci-sync-gate",
-      label: "CI sync gate",
+      label: "Сверка синхронизации",
       ok: ciSyncGateOk,
       detail: ciSyncGateOk
-        ? "ci:release-status-sync passed sync/docs/deno/diff checks."
-        : "ci:release-status-sync failed before report generation.",
+        ? "Синхронизация, документы и изменения сверены."
+        : "Сверка синхронизации не прошла до генерации отчёта.",
     },
     {
       id: "deno-lock-guard",
-      label: "Deno lock guard",
+      label: "Проверка лишних служебных файлов",
       ok: snapshot.denoLockOk,
       detail: snapshot.denoLockOk
-        ? "No deno.lock files detected."
-        : "deno.lock guard failed.",
+        ? "Лишние служебные файлы не найдены."
+        : "Найден лишний служебный файл.",
     },
   ];
   const blockedReasons = steps
@@ -539,8 +566,8 @@ export function buildReleaseStatusWriteGateSummary(
     blockedReasons,
     steps,
     message: canWriteReports
-      ? "Write gate ready: CI may write release-status reports."
-      : `Write gate blocked: reports stay unwritten until ${blockedReasons.join(", ")} pass.`,
+      ? "Запись отчётов разрешена."
+      : `Запись отчётов заблокирована до прохождения проверок: ${blockedReasons.join(", ")}.`,
   };
 }
 
@@ -569,42 +596,42 @@ export function buildReleaseReadinessSummary(
   const checks: ReleaseReadinessCheck[] = [
     {
       id: "working-tree",
-      label: "Working tree",
+      label: "Рабочие изменения",
       ok: snapshot.workingTree === "clean",
       detail:
         snapshot.workingTree === "clean"
-          ? "Local working tree is clean."
-          : `${snapshot.changedCount} changed file(s) remain local.`,
+          ? "Локальных незавершённых изменений нет."
+          : `Осталось локальных изменений: ${snapshot.changedCount}.`,
     },
     {
       id: "deno-lock-guard",
-      label: "Deno lock guard",
+      label: "Проверка лишних служебных файлов",
       ok: snapshot.denoLockOk,
       detail: snapshot.denoLockOk
-        ? "No deno.lock files detected."
-        : "deno.lock guard failed.",
+        ? "Лишние служебные файлы не найдены."
+        : "Найден лишний служебный файл.",
     },
     {
       id: "release-artifact",
-      label: "Release artifact",
+      label: "Отчёт релиза",
       ok: snapshot.artifactPresent,
       detail: snapshot.artifactPresent
-        ? `${snapshot.artifactPath} is present.`
-        : `${snapshot.artifactPath} is missing.`,
+        ? "Отчёт найден."
+        : "Отчёт не найден.",
     },
     {
       id: "workflow-suite",
-      label: "CI workflow suite",
+      label: "Набор проверок",
       ok: failedWorkflows.length === 0 && pendingWorkflows.length === 0,
       detail:
         failedWorkflows.length === 0 && pendingWorkflows.length === 0
-          ? `${snapshot.workflows.length} tracked workflows are green.`
+          ? `Проверок пройдено: ${snapshot.workflows.length}.`
           : [
               failedWorkflows.length > 0
-                ? `${failedWorkflows.length} failed`
+                ? `с ошибкой: ${failedWorkflows.length}`
                 : "",
               pendingWorkflows.length > 0
-                ? `${pendingWorkflows.length} pending/unknown`
+                ? `ожидают: ${pendingWorkflows.length}`
                 : "",
             ]
               .filter(Boolean)
@@ -612,7 +639,7 @@ export function buildReleaseReadinessSummary(
     },
     {
       id: "write-gate",
-      label: "Report write gate",
+      label: "Разрешение записи отчёта",
       ok: writeGateSummary.canWriteReports,
       detail: writeGateSummary.message,
     },
@@ -637,22 +664,22 @@ export function buildReleaseReadinessSummary(
     status,
     label:
       status === "ready"
-        ? "Ready"
+        ? "Готово"
         : status === "blocked"
-          ? "Blocked"
-          : "Needs review",
+          ? "Заблокировано"
+          : "Нужно проверить",
     score: Math.round((passedCount / totalCount) * 100),
     passedCount,
     totalCount,
     reportUrl,
-    reportLabel: `Release report artifacts for ${snapshot.shortSha}`,
+    reportLabel: `отчёт релиза ${snapshot.shortSha}`,
     checks,
     notification:
       status === "ready"
-        ? "Release readiness ready: report link may be published after human review."
+        ? "Готовность релиза подтверждена. Ссылку на отчёт можно публиковать после ручной проверки."
         : status === "blocked"
-          ? `Gate failed: reports stay unwritten. Blockers: ${blockerLabels.join(", ")}.`
-          : `Release readiness needs review: ${blockerLabels.join(", ")}.`,
+          ? `Проверка не пройдена. Отчёты не записываются. Блокеры: ${blockerLabels.join(", ")}.`
+          : `Готовность требует проверки: ${blockerLabels.join(", ")}.`,
   };
 }
 
@@ -664,10 +691,10 @@ export function releaseStatusMime(format: ReleaseStatusFormat): string {
 }
 
 export function releaseStatusFormatLabel(format: ReleaseStatusFormat): string {
-  if (format === "markdown") return "Markdown";
-  if (format === "json") return "JSON";
-  if (format === "html") return "HTML";
-  return "History JSONL";
+  if (format === "markdown") return "Текстовый отчёт";
+  if (format === "json") return "Структурный отчёт";
+  if (format === "html") return "Веб-страница";
+  return "Журнал истории";
 }
 
 function htmlEscape(value: string): string {
@@ -696,36 +723,36 @@ export function buildReleaseStatusMarkdown(
 ): string {
   const level = releaseStatusLevel(snapshot);
   const lines = [
-    "## Release operations dashboard",
+    "## Готовность релиза",
     "",
-    `- Repo: \`${snapshot.repo}\``,
-    `- Branch: \`${snapshot.branch}\``,
-    `- Current SHA: \`${snapshot.shortSha}\` — ${snapshot.shaUrl}`,
-    `- Working tree: ${snapshot.workingTree === "clean" ? "clean" : `${snapshot.changedCount} changed file(s)`}`,
+    `- Репозиторий: \`${snapshot.repo}\``,
+    `- Ветка: \`${snapshot.branch}\``,
+    `- Текущий SHA: \`${snapshot.shortSha}\` — ${snapshot.shaUrl}`,
+    `- Рабочие изменения: ${snapshot.workingTree === "clean" ? "нет" : `файлов: ${snapshot.changedCount}`}`,
     "",
-    "### Latest main workflow runs",
+    "### Проверки основной ветки",
     "",
     ...snapshot.workflows.map(
       (workflow) =>
-        `- ${workflow.conclusion === "success" ? "✓" : "?"} \`${workflow.name}\`: ${workflow.conclusion} — ${workflow.runUrl}`,
+        `- ${workflow.conclusion === "success" ? "✓" : "?"} ${releaseWorkflowDisplayName(workflow.name)}: ${releaseWorkflowConclusionLabel(workflow.conclusion)} — ${workflow.runUrl}`,
     ),
     "",
-    "### Deno lock guard",
+    "### Проверка служебных файлов",
     "",
-    `- ${snapshot.denoLockOk ? "✓ no deno.lock files" : "✗ deno.lock guard failed"}`,
+    `- ${snapshot.denoLockOk ? "✓ лишние служебные файлы не найдены" : "✗ найдены лишние служебные файлы"}`,
     "",
-    "### E2E artifact summary",
+    "### Отчёт релиза",
     "",
-    `- Path: \`${snapshot.artifactPath}\``,
-    `- Present: ${snapshot.artifactPresent ? "yes" : "no"}`,
+    `- Путь: \`${snapshot.artifactPath}\``,
+    `- Наличие: ${snapshot.artifactPresent ? "есть" : "нет"}`,
     "",
-    "### Overall",
+    "### Итог",
     "",
-    `- Status: \`${level}\``,
+    `- Статус: ${releaseStatusLevelLabel(level)}`,
     "",
-    "### Privacy",
+    "### Безопасность данных",
     "",
-    "- Output is sanitized; tokens, cookies, signed URLs, emails, patient names, storage paths, and raw env values are not printed.",
+    "- Вывод очищен: токены, cookies, подписанные ссылки, почта, имена пациентов, пути хранения и сырые значения окружения не печатаются.",
     "",
   ];
   return lines.join("\n");
@@ -736,7 +763,7 @@ export function buildReleaseStatusJson(
 ): string {
   return `${JSON.stringify(
     {
-      title: "Release operations dashboard",
+      title: "Готовность релиза",
       repo: snapshot.repo,
       branch: snapshot.branch,
       currentSha: {
@@ -747,19 +774,23 @@ export function buildReleaseStatusJson(
         state: snapshot.workingTree,
         dirtyCount: snapshot.changedCount,
       },
-      workflows: snapshot.workflows,
+      workflows: snapshot.workflows.map((workflow) => ({
+        name: releaseWorkflowDisplayName(workflow.name),
+        conclusion: releaseWorkflowConclusionLabel(workflow.conclusion),
+        runUrl: workflow.runUrl,
+      })),
       denoLockGuard: {
         ok: snapshot.denoLockOk,
-        note: snapshot.denoLockOk ? "no deno.lock files" : "guard failed",
+        note: snapshot.denoLockOk ? "лишние служебные файлы не найдены" : "найдены лишние служебные файлы",
       },
       artifact: {
         present: snapshot.artifactPresent,
         path: snapshot.artifactPath,
       },
-      overallStatus: releaseStatusLevel(snapshot),
+      overallStatus: releaseStatusLevelLabel(releaseStatusLevel(snapshot)),
       generatedAt: snapshot.generatedAt,
       privacy:
-        "sanitized; no tokens, cookies, signed URLs, emails, patient names, storage paths, or raw env values",
+        "вывод очищен; токены, cookies, подписанные ссылки, почта, имена пациентов, пути хранения и сырые значения окружения не печатаются",
     },
     null,
     2,
@@ -773,14 +804,14 @@ export function buildReleaseStatusHtml(
   const rows = snapshot.workflows
     .map(
       (workflow) =>
-        `<tr><td>${htmlEscape(workflow.name)}</td><td>${htmlEscape(workflow.conclusion)}</td><td><a href="${htmlEscape(workflow.runUrl)}">${htmlEscape(workflow.runUrl)}</a></td></tr>`,
+        `<tr><td>${htmlEscape(releaseWorkflowDisplayName(workflow.name))}</td><td>${htmlEscape(releaseWorkflowConclusionLabel(workflow.conclusion))}</td><td><a href="${htmlEscape(workflow.runUrl)}">открыть запуск</a></td></tr>`,
     )
     .join("");
   return `<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Release operations dashboard</title>
+  <title>Готовность релиза</title>
   <style>
     body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f6f8fb; color: #17202c; }
     main { max-width: 920px; margin: 0 auto; padding: 32px 20px; }
@@ -792,23 +823,23 @@ export function buildReleaseStatusHtml(
 </head>
 <body>
   <main>
-    <h1>Release operations dashboard</h1>
-    <p>Sanitized release snapshot. No tokens, cookies, signed URLs, emails, patient names, storage paths, or raw env values are printed.</p>
+    <h1>Готовность релиза</h1>
+    <p>Очищенный снимок релиза. Токены, cookies, подписанные ссылки, почта, имена пациентов, пути хранения и сырые значения окружения не печатаются.</p>
     <section>
-      <h2>Overall</h2>
-      <p><span class="status">${htmlEscape(level)}</span></p>
-      <p>Repo: <code>${htmlEscape(snapshot.repo)}</code></p>
-      <p>Branch: <code>${htmlEscape(snapshot.branch)}</code></p>
-      <p>Current SHA: <a href="${htmlEscape(snapshot.shaUrl)}">${htmlEscape(snapshot.shortSha)}</a></p>
+      <h2>Итог</h2>
+      <p><span class="status">${htmlEscape(releaseStatusLevelLabel(level))}</span></p>
+      <p>Репозиторий: <code>${htmlEscape(snapshot.repo)}</code></p>
+      <p>Ветка: <code>${htmlEscape(snapshot.branch)}</code></p>
+      <p>Текущий SHA: <a href="${htmlEscape(snapshot.shaUrl)}">${htmlEscape(snapshot.shortSha)}</a></p>
     </section>
     <section>
-      <h2>Guards</h2>
-      <p>Deno lock guard: ${snapshot.denoLockOk ? "ok" : "failed"}</p>
-      <p>Artifact: ${snapshot.artifactPresent ? "present" : "missing"} (${htmlEscape(snapshot.artifactPath)})</p>
+      <h2>Защитные проверки</h2>
+      <p>Служебные файлы: ${snapshot.denoLockOk ? "чисто" : "блокер"}</p>
+      <p>Отчёт: ${snapshot.artifactPresent ? "есть" : "нет"} (${htmlEscape(snapshot.artifactPath)})</p>
     </section>
     <section>
-      <h2>Latest workflow runs</h2>
-      <table><thead><tr><th>Workflow</th><th>Conclusion</th><th>Run</th></tr></thead><tbody>${rows}</tbody></table>
+      <h2>Последние проверки</h2>
+      <table><thead><tr><th>Проверка</th><th>Итог</th><th>Запуск</th></tr></thead><tbody>${rows}</tbody></table>
     </section>
   </main>
 </body>
@@ -1031,7 +1062,7 @@ export function parseReleaseHistoryPresetExportJson(
       skippedCount: 0,
       privacy,
       status: "blocked",
-      message: `Импорт пресетов заблокирован: privacy detector нашёл ${privacy.findingCount} совпадений.`,
+      message: `Импорт пресетов заблокирован: проверка данных нашла ${privacy.findingCount} совпадений.`,
     };
   }
 
@@ -1045,7 +1076,7 @@ export function parseReleaseHistoryPresetExportJson(
       skippedCount: 1,
       privacy,
       status: "empty",
-      message: "Импорт пресетов не выполнен: JSON некорректен.",
+      message: "Импорт пресетов не выполнен: данные некорректны.",
     };
   }
 
@@ -1215,7 +1246,7 @@ export function parseReleaseHistoryJsonl(
     const issues = privacy.findings.slice(0, 8).map((finding) => ({
       line: finding.line,
       reason: "privacy_blocked" as const,
-      message: `privacy: ${finding.label}`,
+      message: `проверка данных: ${finding.label}`,
     }));
     return {
       records: [],
@@ -1224,7 +1255,7 @@ export function parseReleaseHistoryJsonl(
       status: "blocked",
       lineCount,
       acceptedCount: 0,
-      message: `Импорт заблокирован: privacy detector нашёл ${privacy.findingCount} совпадений (${privacy.labels.join(", ")}).`,
+      message: `Импорт заблокирован: проверка данных нашла ${privacy.findingCount} совпадений (${privacy.labels.join(", ")}).`,
       previewRecords: [],
       issues,
     };
@@ -1254,7 +1285,7 @@ export function parseReleaseHistoryJsonl(
       issues.push({
         line: lineNumber,
         reason: "invalid_json",
-        message: "invalid JSON",
+        message: "данные некорректны",
       });
     }
   }
@@ -1272,10 +1303,10 @@ export function parseReleaseHistoryJsonl(
     acceptedCount: accepted.length,
     message:
       accepted.length === 0
-        ? "Импорт не содержит валидных baseline-записей."
+        ? "Импорт не содержит валидных эталонных записей."
         : skippedCount > 0
-          ? `Импортировано ${accepted.length} baseline-записей; пропущено строк: ${skippedCount}.`
-          : `Импортировано ${accepted.length} baseline-записей; privacy-проверка пройдена.`,
+          ? `Импортировано ${accepted.length} эталонных записей; пропущено строк: ${skippedCount}.`
+          : `Импортировано ${accepted.length} эталонных записей; проверка данных пройдена.`,
     previewRecords: accepted.slice(0, 4),
     issues,
   };
@@ -1330,7 +1361,7 @@ export function summarizeReleaseHistoryIssues(
     message:
       totalIssues === 0
         ? "Ошибок импорта не найдено."
-        : `Ошибок импорта: ${totalIssues}. JSON: ${invalidJsonCount}, schema: ${invalidSchemaCount}, privacy: ${privacyBlockedCount}. Строки: ${affectedLines.join(", ") || "нет"}.`,
+        : `Ошибок импорта: ${totalIssues}. Формат: ${invalidJsonCount}, схема: ${invalidSchemaCount}, проверка данных: ${privacyBlockedCount}. Строки: ${affectedLines.join(", ") || "нет"}.`,
   };
 }
 
@@ -1842,14 +1873,15 @@ export function buildReleaseBaselineOptions(
   demoPrevious: ReleaseStatusSnapshot,
   importedRecords: ReleaseHistoryRecord[],
 ): ReleaseBaselineOption[] {
+  const branchLabel = (branch: string) => (branch === "main" ? "основная ветка" : branch);
   const imported = importedRecords
     .filter((record) => record.currentSha !== current.shortSha)
     .map((record, index) => {
       const snapshot = releaseSnapshotFromHistoryRecord(record);
       return {
         id: `imported-${record.currentSha}-${index}`,
-        label: `Импорт: ${record.currentSha}`,
-        detail: `${record.branch}, ${record.recordedAt.slice(0, 10)}, ${releaseStatusLevelLabel(releaseStatusLevel(snapshot))}`,
+        label: `Импортированный эталон ${index + 1}`,
+        detail: `${branchLabel(record.branch)}, ${record.recordedAt.slice(0, 10)}, ${releaseStatusLevelLabel(releaseStatusLevel(snapshot))}`,
         source: "imported" as const,
         snapshot,
       };
@@ -1858,8 +1890,8 @@ export function buildReleaseBaselineOptions(
   return [
     {
       id: "demo-previous",
-      label: `Сохранённый baseline: ${demoPrevious.shortSha}`,
-      detail: `${demoPrevious.branch}, ${demoPrevious.generatedAt.slice(0, 10)}, ${releaseStatusLevelLabel(releaseStatusLevel(demoPrevious))}`,
+      label: "Сохранённый эталон",
+      detail: `${branchLabel(demoPrevious.branch)}, ${demoPrevious.generatedAt.slice(0, 10)}, ${releaseStatusLevelLabel(releaseStatusLevel(demoPrevious))}`,
       source: "demo" as const,
       snapshot: demoPrevious,
     },

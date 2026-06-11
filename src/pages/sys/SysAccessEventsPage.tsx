@@ -91,14 +91,14 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 
 const SOURCE_FILTERS: { key: SourceFilter; label: string }[] = [
   { key: "all", label: "Все источники" },
-  { key: "api", label: "API" },
-  { key: "demo", label: "Demo" },
+  { key: "api", label: "Рабочая система" },
+  { key: "demo", label: "Учебные данные" },
 ];
 
 const EXPORT_LOG_FILTERS: { key: ExportLogFilter; label: string }[] = [
   { key: "all", label: "Все экспорты" },
-  { key: "csv", label: "CSV" },
-  { key: "xlsx", label: "XLSX" },
+  { key: "csv", label: "Таблица" },
+  { key: "xlsx", label: "Книга" },
   { key: "success", label: "Готовые" },
   { key: "cancelled", label: "Отменённые" },
   { key: "error", label: "С ошибкой" },
@@ -276,7 +276,50 @@ function actorLabel(actorId: string | null): string {
   if (!actorId) return "Системное событие";
   const user = Object.values(DEMO_USERS).find((u) => u.id === actorId);
   if (!user) return actorId;
-  return `${ROLE_BY_ID[user.role].short} · ${user.id}`;
+  return `${ROLE_BY_ID[user.role].short}`;
+}
+
+const ENTITY_LABEL: Record<string, string> = {
+  visit: "визит",
+  image: "снимок",
+  assessment: "оценка",
+  lesion: "очаг",
+  report: "отчёт",
+  appointment: "запись",
+  lead: "заявка",
+  bot_dialog: "обращение",
+  integration: "интеграция",
+  device: "устройство",
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  "visit.open": "Открыт визит",
+  "visit.close": "Закрыт визит",
+  "image.capture": "Добавлен снимок",
+  "image.delete": "Удалён снимок",
+  "assessment.update": "Оценка обновлена",
+  "report.publish": "Отчёт опубликован",
+  "report.share": "Отчёт открыт по ссылке",
+  "report.generate": "Отчёт сформирован",
+  "lead.create": "Заявка создана",
+  "lead.update": "Заявка обновлена",
+  "bot_dialog.handoff": "Обращение передано",
+  "appointment.create": "Запись создана",
+  "device.connect": "Устройство подключено",
+  "device.register": "Устройство зарегистрировано",
+  "integration.sync": "Интеграция обновлена",
+};
+
+function entityLabel(entity: string): string {
+  return ENTITY_LABEL[entity] ?? "объект";
+}
+
+function actionLabel(action: string): string {
+  return ACTION_LABEL[action] ?? "Системное действие";
+}
+
+function sourceLabel(source: AccessEventSource): string {
+  return source === "api" ? "Рабочая система" : "Учебные данные";
 }
 
 function clinicFromLog(log: AuditLog): string {
@@ -389,7 +432,7 @@ function buildDemoRows(): AccessEventRow[] {
 
 function contextLabel(row: AccessEventRow): string {
   const parts = [];
-  if (row.visitId) parts.push(`визит ${row.visitId}`);
+  if (row.visitId) parts.push("визит: код скрыт");
   if (row.lesionLabel) parts.push(`очаг ${row.lesionLabel}`);
   return parts.length > 0 ? parts.join(" · ") : "—";
 }
@@ -415,10 +458,10 @@ function filterLabel(
     FILTERS.find((f) => f.key === filter)?.label ?? "Все",
     SOURCE_FILTERS.find((f) => f.key === sourceFilter)?.label ?? "Все источники",
   ];
-  if (entityFilter !== "all") parts.push(`сущность: ${entityFilter}`);
+  if (entityFilter !== "all") parts.push(`сущность: ${entityLabel(entityFilter)}`);
   if (clinicFilter !== "all") parts.push(`клиника: ${clinicFilter}`);
   if (actorFilter !== "all") parts.push(`актор: ${actorFilter}`);
-  if (actionFilter !== "all") parts.push(`действие: ${actionFilter}`);
+  if (actionFilter !== "all") parts.push(`действие: ${actionLabel(actionFilter)}`);
   if (patientCodeFilter.trim()) parts.push(`код пациента: ${patientCodeFilter.trim()}`);
   if (dateFrom) parts.push(`с ${dateFrom}`);
   if (dateTo) parts.push(`по ${dateTo}`);
@@ -448,6 +491,13 @@ interface QueryLogEntry {
 }
 
 type ExportFormat = "CSV" | "XLSX";
+
+function exportFormatLabel(format: ExportFormat): string {
+  return format === "CSV" ? "Табличный файл" : "Книга";
+}
+function exportReadyLabel(format: ExportFormat): string {
+  return format === "CSV" ? "Табличный файл готов" : "Книга готова";
+}
 type ExportLogStatus = "success" | "cancelled" | "error";
 
 interface ExportProgressState {
@@ -885,7 +935,7 @@ export default function SysAccessEventsPage() {
       if (dateFrom && date && date < dateFrom) return false;
       if (dateTo && date && date > dateTo) return false;
       if (q) {
-        const hay = `${row.action} ${row.entity} ${row.entityId ?? ""} ${row.patientCode ?? ""} ${row.clinicName}`.toLowerCase();
+        const hay = `${actionLabel(row.action)} ${entityLabel(row.entity)} ${row.action} ${row.entity} ${row.entityId ?? ""} ${row.patientCode ?? ""} ${row.clinicName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -1125,7 +1175,7 @@ export default function SysAccessEventsPage() {
         rows: rowsToExport,
         columns,
         repeated,
-        message: repeated ? `Повторный ${format} экспорт готов.` : `${format} экспорт готов.`,
+        message: repeated ? `Повторная выгрузка готова.` : `${exportReadyLabel(format)}.`,
       };
       exportRunRef.current = runContext;
       const isCancelled = () => exportRunRef.current?.runId === runId && exportRunRef.current.cancelled;
@@ -1133,7 +1183,7 @@ export default function SysAccessEventsPage() {
       setExportProgress({
         format,
         percent: 20,
-        label: repeated ? `Готовим повторный ${format} экспорт.` : `Готовим ${format} экспорт.`,
+        label: repeated ? "Готовим повторную выгрузку." : `Готовим ${exportFormatLabel(format).toLowerCase()}.`,
         active: true,
       });
 
@@ -1151,7 +1201,7 @@ export default function SysAccessEventsPage() {
           setExportProgress({
             format,
             percent: 70,
-            label: "Формируем CSV файл.",
+            label: "Формируем таблицу.",
             active: true,
           });
           await waitForUi();
@@ -1167,7 +1217,7 @@ export default function SysAccessEventsPage() {
           setExportProgress({
             format,
             percent: 70,
-            label: "Формируем XLSX файл.",
+            label: "Формируем книгу.",
             active: true,
           });
           await waitForUi();
@@ -1177,10 +1227,10 @@ export default function SysAccessEventsPage() {
         setExportProgress({
           format,
           percent: 100,
-          label: repeated ? `Повторный ${format} экспорт готов.` : `${format} экспорт готов.`,
+          label: repeated ? "Повторная выгрузка готова." : `${exportReadyLabel(format)}.`,
           active: false,
         });
-        const successMessage = `${repeated ? "Повторный " : ""}${format} экспорт готов: ${rowCount} строк. Диапазон: ${scopeLabelValue}. Колонки: ${columnCount}. Файл: ${filename}.`;
+        const successMessage = `${repeated ? "Повторная выгрузка готова" : exportReadyLabel(format)}: ${rowCount} строк. Диапазон: ${scopeLabelValue}. Колонки: ${columnCount}. Файл: ${filename}.`;
         announceExportStatus(successMessage);
         appendExportLog({
           ...runContext,
@@ -1188,17 +1238,17 @@ export default function SysAccessEventsPage() {
           message: successMessage,
         });
         appendQueryLog(
-          repeated ? `Повторный экспорт ${format}` : `Экспорт ${format}`,
+          repeated ? "Повторная выгрузка" : `Выгрузка: ${exportFormatLabel(format).toLowerCase()}`,
           `экспортировано ${rowCount} строк; диапазон: ${scopeLabelValue}`,
         );
       } catch {
         setExportProgress({
           format,
           percent: 100,
-          label: `${format} экспорт завершился ошибкой.`,
+          label: "Выгрузка завершилась ошибкой.",
           active: false,
         });
-        const errorMessage = `Не удалось выполнить ${format} экспорт. Файл не сформирован.`;
+        const errorMessage = `Не удалось выполнить выгрузку. Файл не сформирован.`;
         announceExportStatus(errorMessage, "error");
         appendExportLog({
           ...runContext,
@@ -1206,7 +1256,7 @@ export default function SysAccessEventsPage() {
           message: errorMessage,
         });
         appendQueryLog(
-          repeated ? `Повторный экспорт ${format}` : `Экспорт ${format}`,
+          repeated ? "Повторная выгрузка" : `Выгрузка: ${exportFormatLabel(format).toLowerCase()}`,
           `ошибка формирования файла; диапазон: ${scopeLabelValue}`,
         );
       } finally {
@@ -1225,10 +1275,10 @@ export default function SysAccessEventsPage() {
     setExportProgress({
       format: current.format,
       percent: 100,
-      label: `${current.format} экспорт отменён.`,
+      label: "Выгрузка отменена.",
       active: false,
     });
-    const message = `${current.format} экспорт отменён. Файл не сформирован.`;
+    const message = `Выгрузка отменена. Файл не сформирован.`;
     announceExportStatus(message);
     appendExportLog({
       ...current,
@@ -1236,7 +1286,7 @@ export default function SysAccessEventsPage() {
       message,
     });
     appendQueryLog(
-      current.repeated ? `Повторный экспорт ${current.format}` : `Экспорт ${current.format}`,
+      current.repeated ? "Повторная выгрузка" : `Выгрузка: ${exportFormatLabel(current.format).toLowerCase()}`,
       `отменён пользователем; диапазон: ${current.scopeLabel}`,
     );
   }, [announceExportStatus, appendExportLog, appendQueryLog]);
@@ -1374,9 +1424,9 @@ export default function SysAccessEventsPage() {
     const filename = exportLogFilename("csv", exportLogFilter, filteredExportLog.length);
     downloadText(filename, exportLogCsv(filteredExportLog));
     announceExportStatus(
-      `Журнал экспортов выгружен в CSV: ${filteredExportLog.length} записей. Файл: ${filename}`,
+      `Журнал экспортов выгружен таблицей: ${filteredExportLog.length} записей. Файл: ${filename}`,
     );
-    appendQueryLog("Журнал экспортов", `выгружен CSV ${filteredExportLog.length}`);
+    appendQueryLog("Журнал экспортов", `выгружен таблицей ${filteredExportLog.length}`);
   }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
 
   const handleExportExportLogXlsx = useCallback(() => {
@@ -1384,9 +1434,9 @@ export default function SysAccessEventsPage() {
     const filename = exportLogFilename("xlsx", exportLogFilter, filteredExportLog.length);
     downloadBlob(filename, buildTableXlsxBlob(exportLogMatrix(filteredExportLog), "Export log"));
     announceExportStatus(
-      `Журнал экспортов выгружен в XLSX: ${filteredExportLog.length} записей. Файл: ${filename}`,
+      `Журнал экспортов выгружен книгой: ${filteredExportLog.length} записей. Файл: ${filename}`,
     );
-    appendQueryLog("Журнал экспортов", `выгружен XLSX ${filteredExportLog.length}`);
+    appendQueryLog("Журнал экспортов", `выгружен книгой ${filteredExportLog.length}`);
   }, [announceExportStatus, appendQueryLog, exportLogFilter, filteredExportLog]);
 
   if (role !== "system_admin") {
@@ -1415,7 +1465,7 @@ export default function SysAccessEventsPage() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="События доступа"
-        subtitle="Admin view `access_events_admin`: действия, акторы и безопасный контекст."
+        subtitle="Действия пользователей и безопасный контекст доступа."
         actions={
           <Button
             type="button"
@@ -1451,8 +1501,8 @@ export default function SysAccessEventsPage() {
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
             {source === "api"
-              ? `Данные читаются через RPC list_access_events_admin. Лимит: ${ACCESS_EVENTS_LIMIT} событий, обновление не чаще одного раза в 10 секунд.`
-              : `Демо-режим. В production этот экран читает RPC list_access_events_admin через RLS. Лимит: ${ACCESS_EVENTS_LIMIT} событий.`}
+              ? `Данные читаются из рабочей системы клиники. Лимит: ${ACCESS_EVENTS_LIMIT} событий, обновление не чаще одного раза в 10 секунд.`
+              : `Учебный режим. В рабочем контуре этот экран показывает события доступа с серверной проверкой роли. Лимит: ${ACCESS_EVENTS_LIMIT} событий.`}
           </span>
         </div>
 
@@ -1509,10 +1559,10 @@ export default function SysAccessEventsPage() {
                   onClick={handleExportCsv}
                   disabled={exportDisabled || exportBusy}
                   aria-busy={exportProgress?.format === "CSV" && exportBusy ? true : undefined}
-                  aria-label="Экспортировать события доступа в CSV"
+                  aria-label="Скачать события доступа таблицей"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
-                  CSV
+                  Таблица
                 </Button>
                 <Button
                   type="button"
@@ -1522,10 +1572,10 @@ export default function SysAccessEventsPage() {
                   onClick={handleExportXlsx}
                   disabled={exportDisabled || exportBusy}
                   aria-busy={exportProgress?.format === "XLSX" && exportBusy ? true : undefined}
-                  aria-label="Экспортировать события доступа в XLSX"
+                  aria-label="Скачать события доступа книгой"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
-                  XLSX
+                  Книга
                 </Button>
               </div>
             </div>
@@ -1557,7 +1607,7 @@ export default function SysAccessEventsPage() {
                 <option value="all">Все сущности</option>
                 {entityOptions.map((entity) => (
                   <option key={entity} value={entity}>
-                    {entity}
+                    {entityLabel(entity)}
                   </option>
                 ))}
               </select>
@@ -1605,7 +1655,7 @@ export default function SysAccessEventsPage() {
                 <option value="all">Все действия</option>
                 {actionOptions.map((action) => (
                   <option key={action} value={action}>
-                    {action}
+                    {actionLabel(action)}
                   </option>
                 ))}
               </select>
@@ -1873,7 +1923,7 @@ export default function SysAccessEventsPage() {
         >
           <div className="font-medium text-foreground">Предпросмотр экспорта</div>
           <div>
-            {exportPreviewText} Форматы: CSV и XLSX. Диапазон: {exportScopeLabel}. Колонки:{" "}
+            {exportPreviewText} Форматы: таблица и книга. Диапазон: {exportScopeLabel}. Колонки:{" "}
             {selectedExportColumnCount}. Срез: {currentFilterLabel}.
           </div>
         </div>
@@ -1897,7 +1947,7 @@ export default function SysAccessEventsPage() {
                     variant="outline"
                     className="h-7 px-2 text-[11px]"
                     onClick={handleCancelExport}
-                    aria-label={`Отменить ${exportProgress.format} экспорт событий доступа`}
+                    aria-label={`Отменить выгрузку событий доступа: ${exportFormatLabel(exportProgress.format).toLowerCase()}`}
                   >
                     Отменить
                   </Button>
@@ -1906,7 +1956,7 @@ export default function SysAccessEventsPage() {
             </div>
             <div
               role="progressbar"
-              aria-label={`Прогресс экспорта ${exportProgress.format}`}
+              aria-label={`Прогресс выгрузки: ${exportFormatLabel(exportProgress.format).toLowerCase()}`}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={exportProgress.percent}
@@ -2013,9 +2063,9 @@ export default function SysAccessEventsPage() {
                   className="h-9 text-[12px]"
                   onClick={handleExportExportLogCsv}
                   disabled={filteredExportLog.length === 0}
-                  aria-label="Экспортировать журнал экспортов в CSV"
+                  aria-label="Скачать журнал экспортов таблицей"
                 >
-                  CSV журнала
+                  Журнал таблицей
                 </Button>
                 <Button
                   type="button"
@@ -2024,9 +2074,9 @@ export default function SysAccessEventsPage() {
                   className="h-9 text-[12px]"
                   onClick={handleExportExportLogXlsx}
                   disabled={filteredExportLog.length === 0}
-                  aria-label="Экспортировать журнал экспортов в XLSX"
+                  aria-label="Скачать журнал экспортов книгой"
                 >
-                  XLSX журнала
+                  Журнал книгой
                 </Button>
                 <Button
                   type="button"
@@ -2062,11 +2112,11 @@ export default function SysAccessEventsPage() {
                 <li key={entry.id} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-0.5">
                     <div>
-                      {entry.format}: {entry.rowCount} строк. Результат: {exportStatusLabel(entry.status)}.
+                      {exportFormatLabel(entry.format)}: {entry.rowCount} строк. Результат: {exportStatusLabel(entry.status)}.
                       Диапазон: {entry.scopeLabel}. Колонки: {entry.columnCount}. Срез:{" "}
                       {entry.filterLabel}. Поиск: {entry.query}.
                     </div>
-                    <div className="truncate font-mono text-[11px]">Файл: {entry.filename}</div>
+                    <div className="truncate font-mono text-[11px]">Файл сформирован</div>
                     <div className="text-[11px]">{entry.message}</div>
                     <time className="block font-mono text-[11px]" dateTime={entry.at}>
                       {formatDateTime(entry.at)}
@@ -2079,7 +2129,7 @@ export default function SysAccessEventsPage() {
                     className="h-8 shrink-0 text-[12px]"
                     onClick={() => handleRepeatExport(entry)}
                     disabled={exportBusy}
-                    aria-label={`Повторить экспорт ${entry.format} ${entry.filename}`}
+                    aria-label={`Повторить выгрузку: ${exportFormatLabel(entry.format).toLowerCase()}`}
                   >
                     Повторить
                   </Button>
@@ -2123,11 +2173,11 @@ export default function SysAccessEventsPage() {
                   <td className="px-3 py-2 text-muted-foreground">{formatDateTime(row.createdAt)}</td>
                   <td className="px-3 py-2">{row.clinicName}</td>
                   <td className="px-3 py-2 text-muted-foreground">{row.actorLabel}</td>
-                  <td className="px-3 py-2 font-mono text-[11px]">{row.action}</td>
+                  <td className="px-3 py-2">{actionLabel(row.action)}</td>
                   <td className="px-3 py-2">
-                    <span>{row.entity}</span>
+                    <span>{entityLabel(row.entity)}</span>
                     <span className="ml-1 font-mono text-[11px] text-muted-foreground">
-                      {row.entityId ?? "—"}
+                      код скрыт
                     </span>
                   </td>
                   <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
@@ -2160,20 +2210,20 @@ export default function SysAccessEventsPage() {
             <Card key={row.id} className="p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate font-mono text-[12px] font-semibold">{row.action}</div>
+                  <div className="truncate text-[12px] font-semibold">{actionLabel(row.action)}</div>
                   <div className="truncate text-[11px] text-muted-foreground">
                     {formatDateTime(row.createdAt)} · {row.actorLabel}
                   </div>
                 </div>
                 <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {row.source === "api" ? "API" : "demo"}
+                  {sourceLabel(row.source)}
                 </span>
               </div>
               <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
                 <dt className="text-muted-foreground">Клиника</dt>
                 <dd className="text-right">{row.clinicName}</dd>
                 <dt className="text-muted-foreground">Сущность</dt>
-                <dd className="text-right">{row.entity}</dd>
+                <dd className="text-right">{entityLabel(row.entity)}</dd>
                 <dt className="text-muted-foreground">Пациент</dt>
                 <dd className="text-right font-mono text-[11px]">{row.patientCode ?? "—"}</dd>
                 <dt className="text-muted-foreground">Контекст</dt>
@@ -2210,27 +2260,27 @@ export default function SysAccessEventsPage() {
           <DrawerHeader>
             <DrawerTitle>Детали события</DrawerTitle>
             <DrawerDescription id="access-event-details-description">
-              Безопасный контекст из admin access-events view. Email, ФИО пациента, токены и storage-пути не выводятся.
+              Безопасный контекст системного журнала. Почта, ФИО пациента, токены и пути хранения не выводятся.
             </DrawerDescription>
           </DrawerHeader>
           {selectedRow ? (
             <div className="max-h-[65vh] overflow-auto px-4 pb-2">
               <dl className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-[13px]">
-                <dt className="text-muted-foreground">Event ID</dt>
-                <dd className="font-mono text-[12px]">{selectedRow.id}</dd>
+                <dt className="text-muted-foreground">Код события</dt>
+                <dd>скрыт</dd>
                 <dt className="text-muted-foreground">Когда</dt>
                 <dd>{formatDateTime(selectedRow.createdAt)}</dd>
                 <dt className="text-muted-foreground">Клиника</dt>
                 <dd>{selectedRow.clinicName}</dd>
-                <dt className="text-muted-foreground">Актор</dt>
+                <dt className="text-muted-foreground">Участник</dt>
                 <dd>{selectedRow.actorLabel}</dd>
                 <dt className="text-muted-foreground">Действие</dt>
-                <dd className="font-mono text-[12px]">{selectedRow.action}</dd>
-                <dt className="text-muted-foreground">Сущность</dt>
+                <dd>{actionLabel(selectedRow.action)}</dd>
+                <dt className="text-muted-foreground">Раздел</dt>
                 <dd>
-                  {selectedRow.entity}
+                  {entityLabel(selectedRow.entity)}
                   <span className="ml-1 font-mono text-[12px] text-muted-foreground">
-                    {selectedRow.entityId ?? "—"}
+                    код скрыт
                   </span>
                 </dd>
                 <dt className="text-muted-foreground">Пациент</dt>
@@ -2238,7 +2288,7 @@ export default function SysAccessEventsPage() {
                 <dt className="text-muted-foreground">Контекст</dt>
                 <dd>{contextLabel(selectedRow)}</dd>
                 <dt className="text-muted-foreground">Источник</dt>
-                <dd>{selectedRow.source === "api" ? "API" : "Demo"}</dd>
+                <dd>{sourceLabel(selectedRow.source)}</dd>
               </dl>
             </div>
           ) : null}

@@ -40,18 +40,18 @@ import {
 import type { Device } from "@/lib/domain";
 
 /**
- * Sys Devices — Device Bridge и электронные дерматоскопы (MVP).
+ * Sys Devices — мост устройств и электронные дерматоскопы.
  * SAFETY: только метаданные устройств. Никаких WebUSB/WebBluetooth/WebSerial.
  */
 
 const DEMO_BANNER =
-  "Демо-режим. Реальные роли, RLS, аудит, ключи и Device Bridge включаются на этапе бэкенда.";
+  "Учебный режим. Рабочие роли, аудит, ключи и мост устройств включаются после подключения системы клиники.";
 
 const LIVE_BANNER =
-  "Self-hosted backend подключён. Устройства и Device Bridge читаются из серверного реестра PostgreSQL.";
+  "Рабочая система подключена. Устройства и мосты читаются из серверного реестра клиники.";
 
 const BRIDGE_NOTE =
-  "Браузер не подключается к драйверу напрямую. Реальная интеграция идёт через локальный Device Bridge.";
+  "Браузер не подключается к драйверу напрямую. Обмен с дерматоскопами идёт через локальный мост устройств.";
 
 interface BridgeRow {
   id: string;
@@ -77,10 +77,19 @@ const LAN_TONE = {
 };
 
 const WORKER_STATUS_LABEL: Record<string, string> = {
-  online: "Worker online",
-  degraded: "Worker degraded",
-  offline: "Worker offline",
-  unknown: "Worker unknown",
+  online: "Служба на связи",
+  degraded: "Связь нестабильна",
+  offline: "Служба не в сети",
+  unknown: "Связь не проверена",
+  ready: "Готово",
+  ok: "Готово",
+  blocked: "Блокер",
+  warning: "Требует внимания",
+  needs_review: "Нужен разбор",
+  ready_for_production: "Готово к работе",
+  ready_for_rollout: "Готово к включению",
+  ready_for_handoff: "Готово к передаче",
+  in_review: "На разборе",
 };
 
 const COMMAND_STATUS_LABEL: Record<string, string> = {
@@ -102,6 +111,74 @@ const STATUS_TONE: Record<DevStatus, string> = {
   standby: "hsl(var(--info))",
   offline: "hsl(var(--destructive))",
 };
+
+const POLARIZATION_LABEL: Record<string, string> = {
+  polarized: "поляризация",
+  non_polarized: "без поляризации",
+  both: "оба режима",
+};
+
+function polarizationLabel(value: string): string {
+  return POLARIZATION_LABEL[value] ?? "не указано";
+}
+
+function sysDeviceStatusLabel(value: string | undefined): string {
+  if (!value) return "нет данных";
+  return (
+    WORKER_STATUS_LABEL[value] ??
+    COMMAND_STATUS_LABEL[value] ??
+    {
+      passed: "Пройдено",
+      attention: "Требует внимания",
+      ready: "Готово",
+      failed: "Ошибка",
+      active: "Активно",
+    }[value] ??
+    value
+  );
+}
+
+function sysDeviceText(value: string | undefined): string {
+  if (!value) return "нет данных";
+  const labels: Record<string, string> = {
+    "Worker heartbeat telemetry": "Связь службы моста",
+    "Worker health pressure": "Давление состояния службы",
+    "1 bridge worker visible.": "Мост на связи: 1.",
+    "1 stale worker.": "Устаревших служб: 1.",
+    "Incident drill register": "Реестр учений по инцидентам",
+    "Incident drills are repository-defined.": "Учения по инцидентам описаны в проекте.",
+    "Next batch handoff": "Передача следующего шага",
+    "Stage 9B-9D remains a hypothesis.": "Следующий шаг пока не включён в интерфейс.",
+    "Stage 9N-9Z remains a hypothesis.": "Следующий шаг пока не включён в интерфейс.",
+    "Stage 10A-10L remains a hypothesis.": "Следующий шаг пока не включён в интерфейс.",
+    "Incident pressure reviewed": "Давление инцидентов проверено",
+    "Self-hosted product boundary": "Граница продукта клиники",
+    "none/none.": "внешние зависимости отсутствуют.",
+    "Fleet reliability register": "Реестр надёжности парка",
+    "Fleet reliability is repository-defined.": "Надёжность парка описана в проекте.",
+    "Command SLO reviewed": "Норма обработки команд проверена",
+    "Lifecycle assurance register": "Реестр жизненного цикла",
+    "Lifecycle assurance is repository-defined.": "Жизненный цикл описан в проекте.",
+    "Maintenance window reviewed": "Окно обслуживания проверено",
+    "Review required.": "Нужен разбор.",
+    "backend_only": "только рабочая система",
+    "backend-only": "только рабочая система",
+    audit: "аудит",
+    manual: "вручную",
+    manual_system_admin: "вручную системным администратором",
+    none: "нет",
+  };
+  if (labels[value]) return labels[value];
+  const commandCount = value.match(/^(\d+) command\(s\)\.$/);
+  if (commandCount) return `команд: ${commandCount[1]}.`;
+  return value;
+}
+
+function bridgeLabel(bridges: BridgeRow[], bridgeId: string | null | undefined): string {
+  if (!bridgeId) return "—";
+  const index = bridges.findIndex((bridge) => bridge.id === bridgeId || bridge.code === bridgeId);
+  return index >= 0 ? `Мост ${index + 1}` : "мост скрыт";
+}
 
 interface DeviceRow extends Device {
   derivedStatus: DevStatus;
@@ -316,14 +393,14 @@ export default function SysDevicesPage() {
         setWorkerStatus(workerResult.value ?? null);
       } else {
         setWorkerStatus(null);
-        setWorkerStatusError(workerResult?.error?.message || "Не удалось загрузить Device Bridge worker status.");
+        setWorkerStatusError(workerResult?.error?.message || "Не удалось загрузить состояние службы моста устройств.");
       }
       if (hardeningResult?.ok) {
         setWorkerHardening(hardeningResult.value ?? null);
       } else {
         setWorkerHardening(null);
         setWorkerHardeningError(
-          hardeningResult?.error?.message || "Не удалось загрузить Device Bridge worker hardening.",
+          hardeningResult?.error?.message || "Не удалось загрузить проверку устойчивости моста устройств.",
         );
       }
       if (recoveryResult?.ok) {
@@ -331,7 +408,7 @@ export default function SysDevicesPage() {
       } else {
         setWorkerRecovery(null);
         setWorkerRecoveryError(
-          recoveryResult?.error?.message || "Не удалось загрузить Device Bridge worker recovery.",
+          recoveryResult?.error?.message || "Не удалось загрузить восстановление команд моста устройств.",
         );
       }
       if (auditResult?.ok) {
@@ -339,7 +416,7 @@ export default function SysDevicesPage() {
       } else {
         setWorkerAudit(null);
         setWorkerAuditError(
-          auditResult?.error?.message || "Не удалось загрузить Device Bridge command audit.",
+          auditResult?.error?.message || "Не удалось загрузить журнал команд моста устройств.",
         );
       }
       if (readinessResult?.ok) {
@@ -347,7 +424,7 @@ export default function SysDevicesPage() {
       } else {
         setProductionReadiness(null);
         setProductionReadinessError(
-          readinessResult?.error?.message || "Не удалось загрузить Device Bridge production readiness.",
+          readinessResult?.error?.message || "Не удалось загрузить готовность моста устройств.",
         );
       }
       if (continuityResult?.ok) {
@@ -355,7 +432,7 @@ export default function SysDevicesPage() {
       } else {
         setOperationsContinuity(null);
         setOperationsContinuityError(
-          continuityResult?.error?.message || "Не удалось загрузить Device Bridge operations continuity.",
+          continuityResult?.error?.message || "Не удалось загрузить непрерывность работы моста устройств.",
         );
       }
       if (reliabilityResult?.ok) {
@@ -363,7 +440,7 @@ export default function SysDevicesPage() {
       } else {
         setFleetReliability(null);
         setFleetReliabilityError(
-          reliabilityResult?.error?.message || "Не удалось загрузить Device Bridge fleet reliability.",
+          reliabilityResult?.error?.message || "Не удалось загрузить надёжность парка мостов устройств.",
         );
       }
       if (assuranceResult?.ok) {
@@ -371,7 +448,7 @@ export default function SysDevicesPage() {
       } else {
         setLifecycleAssurance(null);
         setLifecycleAssuranceError(
-          assuranceResult?.error?.message || "Не удалось загрузить Device Bridge lifecycle assurance.",
+          assuranceResult?.error?.message || "Не удалось загрузить жизненный цикл моста устройств.",
         );
       }
       setLoadStatus("ready");
@@ -413,25 +490,25 @@ export default function SysDevicesPage() {
   const visible = pagination.visible;
 
   async function runBridgeHealthCheck(bridge: BridgeRow) {
-    const label = bridge.code ?? bridge.id;
+    const label = bridgeLabel(bridges, bridge.id);
     if (!isLive || !session.apiToken) {
-      setNote(`Проверка моста ${label} — демо-действие.`);
+      setNote(`Проверка «${label}» — учебное действие.`);
       return;
     }
     const key = `bridge:${bridge.id}`;
     setCommandBusyKey(key);
-    setNote(`Команда проверки моста ${label} отправляется в self-hosted backend.`);
+    setNote(`Команда проверки «${label}» отправляется в рабочую систему.`);
     const result = await requestSelfHostedBridgeCommand({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
       bridgeId: bridge.id,
       commandType: "bridge_health_check",
-      reason: "Проверка LAN и heartbeat из системной страницы устройств.",
+      reason: "Проверка сети и связи из системной страницы устройств.",
     });
     setCommandBusyKey(null);
     setNote(
       result.ok
-        ? `Команда проверки моста ${label} поставлена в очередь Device Bridge: ${result.value.id}.`
+        ? `Команда проверки «${label}» поставлена в очередь моста устройств.`
         : result.error?.message || `Не удалось поставить команду проверки моста ${label} в очередь.`,
     );
   }
@@ -444,8 +521,8 @@ export default function SysDevicesPage() {
     if (!isLive || !session.apiToken) {
       setNote(
         isCalibration
-          ? `Калибровка ${device.serial} — демо.`
-          : `Открытие потока ${device.serial} появится с Device Bridge.`,
+          ? "Калибровка устройства — учебное действие."
+          : "Просмотр потока появится после подключения моста устройств.",
       );
       return;
     }
@@ -453,8 +530,8 @@ export default function SysDevicesPage() {
     setCommandBusyKey(key);
     setNote(
       isCalibration
-        ? `Команда калибровки ${device.serial} отправляется в self-hosted backend.`
-        : `Команда открытия потока ${device.serial} отправляется в self-hosted backend.`,
+        ? "Команда калибровки отправляется в рабочую систему."
+        : "Команда просмотра потока отправляется в рабочую систему.",
     );
     const result = await requestSelfHostedDeviceCommand({
       apiBaseUrl: session.apiBaseUrl,
@@ -463,15 +540,15 @@ export default function SysDevicesPage() {
       commandType,
       reason: isCalibration
         ? "Запрос калибровки из системной страницы устройств."
-        : "Запрос открытия потока через локальный Device Bridge.",
+        : "Запрос просмотра потока через локальный мост устройств.",
     });
     setCommandBusyKey(null);
     setNote(
       result.ok
         ? (
             isCalibration
-              ? `Команда калибровки ${device.serial} поставлена в очередь Device Bridge: ${result.value.id}.`
-              : `Команда открытия потока ${device.serial} поставлена в очередь Device Bridge: ${result.value.id}.`
+              ? "Команда калибровки поставлена в очередь моста устройств."
+              : "Команда просмотра потока поставлена в очередь моста устройств."
           )
         : result.error?.message || `Не удалось поставить команду ${device.serial} в очередь.`,
     );
@@ -483,8 +560,8 @@ export default function SysDevicesPage() {
     setCommandBusyKey(key);
     setNote(
       action === "reschedule"
-        ? "Команда Device Bridge отправляется на повторную постановку в очередь."
-        : "Команда Device Bridge отменяется через backend recovery.",
+        ? "Команда моста устройств отправляется на повторную постановку в очередь."
+        : "Команда моста устройств отменяется через восстановление.",
     );
     const result = await recoverSelfHostedDeviceBridgeWorkerCommand({
       apiBaseUrl: session.apiBaseUrl,
@@ -492,8 +569,8 @@ export default function SysDevicesPage() {
       commandId,
       action,
       reason: action === "reschedule"
-        ? "Повторная постановка из production recovery панели."
-        : "Отмена из production recovery панели.",
+        ? "Повторная постановка из панели восстановления."
+        : "Отмена из панели восстановления.",
     });
     setCommandBusyKey(null);
     if (result.ok && result.value) {
@@ -505,24 +582,24 @@ export default function SysDevicesPage() {
         : current);
       setNote(
         action === "reschedule"
-          ? `Команда ${commandId} возвращена в очередь Device Bridge.`
-          : `Команда ${commandId} отменена через Device Bridge recovery.`,
+          ? "Команда возвращена в очередь моста устройств."
+          : "Команда отменена через восстановление моста устройств.",
       );
       return;
     }
-    setNote(result.error?.message || "Не удалось выполнить recovery action для Device Bridge command.");
+    setNote(result.error?.message || "Не удалось восстановить команду моста устройств.");
   }
 
   async function replayWorkerCommand(commandId: string) {
     if (!isLive || !session.apiToken) return;
     const key = `replay:${commandId}`;
     setCommandBusyKey(key);
-    setNote("Replay команды Device Bridge создаётся backend-side без раскрытия payload в UI.");
+    setNote("Повтор команды моста устройств создаётся без раскрытия содержимого в интерфейсе.");
     const result = await replaySelfHostedDeviceBridgeCommand({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
       commandId,
-      reason: "Manual replay из Stage 4X command audit панели.",
+      reason: "Ручной повтор из панели журнала команд.",
     });
     setCommandBusyKey(null);
     if (result.ok && result.value) {
@@ -535,16 +612,16 @@ export default function SysDevicesPage() {
             },
           }
         : current);
-      setNote(`Replay команды ${commandId} поставлен в очередь Device Bridge: ${result.value.id}.`);
+      setNote("Повтор команды поставлен в очередь моста устройств.");
       return;
     }
-    setNote(result.error?.message || "Не удалось выполнить replay команды Device Bridge.");
+    setNote(result.error?.message || "Не удалось повторить команду моста устройств.");
   }
 
   async function exportWorkerAudit() {
     if (!isLive || !session.apiToken || auditExportBusy) return;
     setAuditExportBusy(true);
-    setNote("Готовим safe CSV экспорт Device Bridge command audit.");
+    setNote("Готовим безопасный табличный экспорт журнала команд моста устройств.");
     const result = await exportSelfHostedDeviceBridgeCommandAudit({
       apiBaseUrl: session.apiBaseUrl,
       apiToken: session.apiToken,
@@ -555,15 +632,15 @@ export default function SysDevicesPage() {
     setAuditExportBusy(false);
     if (result.ok && result.value) {
       downloadText(result.value.export.filename, result.value.export.content, result.value.export.mime);
-      setNote(`Экспорт Device Bridge command audit скачан: ${result.value.export.filename}.`);
+      setNote("Экспорт журнала команд моста устройств скачан.");
       return;
     }
-    setNote(result.error?.message || "Не удалось экспортировать Device Bridge command audit.");
+    setNote(result.error?.message || "Не удалось экспортировать журнал команд моста устройств.");
   }
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Устройства" subtitle="Device Bridge и электронные дерматоскопы." />
+      <PageHeader title="Устройства" subtitle="Мост устройств и электронные дерматоскопы." />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div
@@ -589,8 +666,8 @@ export default function SysDevicesPage() {
             aria-live="polite"
             className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
           >
-            {loadStatus === "loading" && "Загружаем реестр устройств из self-hosted backend."}
-            {loadStatus === "ready" && "Реестр устройств загружен из backend."}
+            {loadStatus === "loading" && "Загружаем реестр устройств из рабочей системы."}
+            {loadStatus === "ready" && "Реестр устройств загружен из рабочей системы."}
             {loadStatus === "error" && (loadError || "Не удалось загрузить реестр устройств.")}
           </div>
         )}
@@ -598,36 +675,36 @@ export default function SysDevicesPage() {
         {isLive && (
           <section
             className="space-y-2"
-            aria-label="Device Bridge worker observability"
+            aria-label="Наблюдение службы моста устройств"
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <RadioTower className="h-3.5 w-3.5" aria-hidden />
-                Worker runtime
+                Служба моста устройств
               </h2>
               <span className="text-[11px] text-muted-foreground">
-                Stage 4U /api/v1/device-bridge-worker/status
+                Состояние службы
               </span>
             </div>
             <Card className="p-3">
               {workerStatus ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-                    <WorkerMetric label="Bridge workers" value={workerStatus.summary.bridgeCount} />
-                    <WorkerMetric label="Online" value={workerStatus.summary.onlineWorkers} />
-                    <WorkerMetric label="Degraded" value={workerStatus.summary.degradedWorkers} />
-                    <WorkerMetric label="Offline" value={workerStatus.summary.offlineWorkers} />
-                    <WorkerMetric label="Queued commands" value={workerStatus.summary.queuedCommands} />
-                    <WorkerMetric label="Failed commands" value={workerStatus.summary.failedCommands} />
+                    <WorkerMetric label="Мосты" value={workerStatus.summary.bridgeCount} />
+                    <WorkerMetric label="На связи" value={workerStatus.summary.onlineWorkers} />
+                    <WorkerMetric label="Снижено" value={workerStatus.summary.degradedWorkers} />
+                    <WorkerMetric label="Нет связи" value={workerStatus.summary.offlineWorkers} />
+                    <WorkerMetric label="В очереди" value={workerStatus.summary.queuedCommands} />
+                    <WorkerMetric label="Ошибки" value={workerStatus.summary.failedCommands} />
                   </div>
                   <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
                     <div
                       role="region"
-                      aria-label="Device Bridge worker heartbeat list"
+                      aria-label="Список связи моста устройств"
                       className="rounded-md border border-border"
                     >
                       <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Heartbeat
+                        Связь
                       </div>
                       <div className="divide-y divide-border/70">
                         {workerStatus.items.length > 0 ? workerStatus.items.map((bridge) => (
@@ -635,7 +712,7 @@ export default function SysDevicesPage() {
                             <div className="min-w-0">
                               <div className="truncate font-mono text-[11px] font-semibold">{bridge.bridgeCode}</div>
                               <div className="truncate text-[11px] text-muted-foreground">
-                                {bridge.hostName || "host не указан"} · {bridge.workerVersion || "version unknown"}
+                                адрес скрыт · версия {bridge.workerVersion || "не указана"}
                               </div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -647,7 +724,7 @@ export default function SysDevicesPage() {
                           </div>
                         )) : (
                           <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
-                            Worker telemetry пока не поступала.
+                            Данные службы пока не поступали.
                           </div>
                         )}
                       </div>
@@ -655,17 +732,17 @@ export default function SysDevicesPage() {
 
                     <div
                       role="region"
-                      aria-label="Device Bridge worker command lifecycle"
+                      aria-label="Жизненный цикл команд моста устройств"
                       className="rounded-md border border-border"
                     >
                       <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Command lifecycle
+                        Жизненный цикл команд
                       </div>
                       <div className="divide-y divide-border/70">
                         {workerStatus.commands.slice(0, 5).map((command) => (
                           <div key={command.id} className="px-3 py-2 text-[12px]">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="truncate font-mono text-[11px]">{command.commandType}</span>
+                              <span className="truncate text-[11px]">Служебная команда</span>
                               <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                                 {COMMAND_STATUS_LABEL[command.status] ?? command.status}
                               </span>
@@ -677,7 +754,7 @@ export default function SysDevicesPage() {
                         ))}
                         {workerStatus.commands.length === 0 ? (
                           <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
-                            Команд worker runtime пока нет.
+                            Команд службы пока нет.
                           </div>
                         ) : null}
                       </div>
@@ -685,19 +762,19 @@ export default function SysDevicesPage() {
                   </div>
                   <div
                     role="note"
-                    aria-label="Device Bridge worker privacy boundary"
+                    aria-label="Граница данных службы моста устройств"
                     className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
                     <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                     <span>
-                      Показываются только lifecycle-метаданные. Служебные секреты, сырые payloads,
-                      storage paths, patient names и browser hardware APIs не выводятся в UI.
+                      Показываются только служебные метаданные. Секреты, сырые команды,
+                      пути хранения, имена пациентов и аппаратный доступ браузера не выводятся.
                     </span>
                   </div>
                 </div>
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
-                  {workerStatusError || "Device Bridge worker observability ожидает ответ backend."}
+                  {workerStatusError || "Служба моста устройств ожидает ответ рабочей системы."}
                 </div>
               )}
             </Card>
@@ -707,44 +784,44 @@ export default function SysDevicesPage() {
         {isLive && (
           <section
             className="space-y-2"
-            aria-label="Device Bridge worker production hardening"
+            aria-label="Устойчивость службы моста устройств"
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" aria-hidden />
-                Production hardening
+                Устойчивость службы
               </h2>
               <span className="text-[11px] text-muted-foreground">
-                Stage 4V /api/v1/device-bridge-worker/hardening
+                Проверки устойчивости
               </span>
             </div>
             <Card className="p-3">
               {workerHardening ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                    <WorkerMetric label="Stale workers" value={workerHardening.summary.staleWorkers} />
-                    <WorkerMetric label="Retrying commands" value={workerHardening.summary.retryingCommands} />
-                    <WorkerMetric label="Backoff delayed" value={workerHardening.summary.rateLimitedCommands} />
-                    <WorkerMetric label="Max queue age sec" value={workerHardening.summary.maxQueueAgeSeconds} />
-                    <WorkerMetric label="Cleanup candidates" value={workerHardening.summary.cleanupCandidates} />
+                    <WorkerMetric label="Устарели" value={workerHardening.summary.staleWorkers} />
+                    <WorkerMetric label="Повторяются" value={workerHardening.summary.retryingCommands} />
+                    <WorkerMetric label="Отложены" value={workerHardening.summary.rateLimitedCommands} />
+                    <WorkerMetric label="Возраст очереди" value={workerHardening.summary.maxQueueAgeSeconds} />
+                    <WorkerMetric label="На очистку" value={workerHardening.summary.cleanupCandidates} />
                   </div>
                   <div
                     role="region"
-                    aria-label="Device Bridge worker hardening policy"
+                    aria-label="Правила устойчивости моста устройств"
                     className="rounded-md border border-border px-3 py-2 text-[12px] text-muted-foreground"
                   >
-                    <div className="font-semibold text-foreground">Hardening policy</div>
+                    <div className="font-semibold text-foreground">Правила устойчивости</div>
                     <div className="mt-1">
-                      stale after {workerHardening.policy.staleAfterMinutes} min · retention {workerHardening.policy.retentionDays} days · backoff {workerHardening.policy.pollBackoff} · max poll {workerHardening.policy.maxPollLimit}
+                      устаревает через {workerHardening.policy.staleAfterMinutes} мин · хранение {workerHardening.policy.retentionDays} дн. · задержка {workerHardening.policy.pollBackoff} · лимит опроса {workerHardening.policy.maxPollLimit}
                     </div>
                   </div>
                   <div
                     role="region"
-                    aria-label="Device Bridge worker hardening bridge list"
+                    aria-label="Список устойчивости моста устройств"
                     className="rounded-md border border-border"
                   >
                     <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Bridge hardening status
+                      Состояние устойчивости
                     </div>
                     <div className="divide-y divide-border/70">
                       {workerHardening.items.length > 0 ? workerHardening.items.slice(0, 5).map((bridge) => (
@@ -752,39 +829,39 @@ export default function SysDevicesPage() {
                           <div className="min-w-0">
                             <div className="truncate font-mono text-[11px] font-semibold">{bridge.bridgeCode}</div>
                             <div className="truncate text-[11px] text-muted-foreground">
-                              {bridge.hostName || "host не указан"} · {bridge.workerVersion || "version unknown"}
+                              адрес скрыт · версия {bridge.workerVersion || "не указана"}
                             </div>
                           </div>
                           <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {bridge.stale ? "stale" : "fresh"}
+                            {bridge.stale ? "устарел" : "актуален"}
                           </span>
                           <span className="text-[11px] text-muted-foreground">
-                            retry {bridge.retryingCommandCount} / delayed {bridge.rateLimitedCommandCount}
+                            повтор {bridge.retryingCommandCount} / отложено {bridge.rateLimitedCommandCount}
                           </span>
                           <span className="text-[11px] text-muted-foreground">
-                            queue age {bridge.maxQueueAgeSeconds}s
+                            очередь {bridge.maxQueueAgeSeconds} с
                           </span>
                         </div>
                       )) : (
                         <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
-                          Hardening telemetry пока не поступала.
+                          Данные устойчивости пока не поступали.
                         </div>
                       )}
                     </div>
                   </div>
                   <div
                     role="note"
-                    aria-label="Device Bridge worker hardening privacy boundary"
+                    aria-label="Граница данных устойчивости моста устройств"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Stage 4V показывает только агрегированные production-сигналы: stale workers, queue age,
-                    retry/backoff pressure и retention cleanup candidates. Секреты worker runtime,
-                    драйверные payloads, storage paths, patient names и browser hardware APIs не выводятся.
+                    Показываются только агрегированные сигналы: устаревшие службы, возраст очереди,
+                    давление повторов и кандидаты на очистку. Секреты службы, сырые команды,
+                    пути хранения, имена пациентов и аппаратный доступ браузера не выводятся.
                   </div>
                 </div>
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
-                  {workerHardeningError || "Device Bridge worker hardening ожидает ответ backend."}
+                  {workerHardeningError || "Устойчивость моста устройств ожидает ответ рабочей системы."}
                 </div>
               )}
             </Card>
@@ -794,52 +871,52 @@ export default function SysDevicesPage() {
         {isLive && (
           <section
             className="space-y-2"
-            aria-label="Device Bridge command recovery"
+            aria-label="Восстановление команд моста устройств"
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" aria-hidden />
-                Command recovery
+                Восстановление команд
               </h2>
               <span className="text-[11px] text-muted-foreground">
-                Stage 4W /api/v1/device-bridge-worker/recovery
+                Очередь восстановления
               </span>
             </div>
             <Card className="p-3">
               {workerRecovery ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                    <WorkerMetric label="Stuck commands" value={workerRecovery.summary.stuckCommands} />
-                    <WorkerMetric label="Expired commands" value={workerRecovery.summary.expiredCommands} />
-                    <WorkerMetric label="Lease expired" value={workerRecovery.summary.leaseExpiredCommands} />
-                    <WorkerMetric label="Retryable failed" value={workerRecovery.summary.retryableCommands} />
-                    <WorkerMetric label="Cancellable" value={workerRecovery.summary.cancellableCommands} />
+                    <WorkerMetric label="Зависли" value={workerRecovery.summary.stuckCommands} />
+                    <WorkerMetric label="Истекли" value={workerRecovery.summary.expiredCommands} />
+                    <WorkerMetric label="Аренда истекла" value={workerRecovery.summary.leaseExpiredCommands} />
+                    <WorkerMetric label="Можно повторить" value={workerRecovery.summary.retryableCommands} />
+                    <WorkerMetric label="Можно отменить" value={workerRecovery.summary.cancellableCommands} />
                   </div>
                   <div
                     role="region"
-                    aria-label="Device Bridge command recovery policy"
+                    aria-label="Правила восстановления команд"
                     className="rounded-md border border-border px-3 py-2 text-[12px] text-muted-foreground"
                   >
-                    <div className="font-semibold text-foreground">Recovery policy</div>
+                    <div className="font-semibold text-foreground">Правила восстановления</div>
                     <div className="mt-1">
-                      stale after {workerRecovery.policy.staleAfterMinutes} min · lease TTL {workerRecovery.policy.leaseTtlSeconds}s · max batch {workerRecovery.policy.maxRecoveryBatch}
+                      устаревает через {workerRecovery.policy.staleAfterMinutes} мин · срок аренды {workerRecovery.policy.leaseTtlSeconds} с · максимум за раз {workerRecovery.policy.maxRecoveryBatch}
                     </div>
                   </div>
                   <div
                     role="region"
-                    aria-label="Device Bridge command recovery queue"
+                    aria-label="Очередь восстановления команд"
                     className="rounded-md border border-border"
                   >
                     <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Recoverable commands
+                      Команды для восстановления
                     </div>
                     <div className="divide-y divide-border/70">
                       {workerRecovery.items.length > 0 ? workerRecovery.items.slice(0, 5).map((command) => (
                         <div key={command.id} className="grid gap-2 px-3 py-2 text-[12px] lg:grid-cols-[1fr_auto_auto] lg:items-center">
                           <div className="min-w-0">
-                            <div className="truncate font-mono text-[11px] font-semibold">{command.commandType}</div>
+                            <div className="truncate text-[11px] font-semibold">Служебная команда</div>
                             <div className="truncate text-[11px] text-muted-foreground">
-                              {command.bridgeCode ?? "bridge"} · {command.recoveryState ?? "active"} · attempts {command.attemptCount}
+                              {command.bridgeCode ?? "мост"} · состояние {command.recoveryState ?? "активно"} · попытки {command.attemptCount}
                             </div>
                           </div>
                           <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -868,24 +945,24 @@ export default function SysDevicesPage() {
                         </div>
                       )) : (
                         <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
-                          Команд для recovery пока нет.
+                          Команд для восстановления пока нет.
                         </div>
                       )}
                     </div>
                   </div>
                   <div
                     role="note"
-                    aria-label="Device Bridge command recovery privacy boundary"
+                    aria-label="Граница данных восстановления команд"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Stage 4W управляет только backend-owned lifecycle metadata: leases, retry state,
-                    cancellation и recovery audit. Worker secrets, raw command payloads, storage paths,
-                    patient names и browser hardware APIs не выводятся в UI.
+                    Управляются только служебные метаданные: аренда, повторы, отмена и аудит
+                    восстановления. Секреты службы, сырые команды, пути хранения, имена пациентов
+                    и аппаратный доступ браузера не выводятся.
                   </div>
                 </div>
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
-                  {workerRecoveryError || "Device Bridge command recovery ожидает ответ backend."}
+                  {workerRecoveryError || "Восстановление команд ожидает ответ рабочей системы."}
                 </div>
               )}
             </Card>
@@ -895,12 +972,12 @@ export default function SysDevicesPage() {
         {isLive && (
           <section
             className="space-y-2"
-            aria-label="Device Bridge command audit and replay"
+            aria-label="Аудит и повтор команд моста устройств"
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" aria-hidden />
-                Command audit & replay
+                Аудит и повтор команд
               </h2>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <Button
@@ -911,10 +988,10 @@ export default function SysDevicesPage() {
                   onClick={() => void exportWorkerAudit()}
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
-                  {auditExportBusy ? "Экспорт..." : "Экспорт audit CSV"}
+                  {auditExportBusy ? "Скачиваем..." : "Скачать журнал"}
                 </Button>
                 <span className="text-[11px] text-muted-foreground">
-                  Stage 4Y /api/v1/device-bridge-worker/audit/export
+                  Безопасная выгрузка аудита
                 </span>
               </div>
             </div>
@@ -922,43 +999,42 @@ export default function SysDevicesPage() {
               {workerAudit ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    <WorkerMetric label="Audit events" value={workerAudit.summary.totalEvents} />
-                    <WorkerMetric label="Replay events" value={workerAudit.summary.replayEvents} />
-                    <WorkerMetric label="Recovery events" value={workerAudit.summary.recoveryEvents} />
-                    <WorkerMetric label="Affected commands" value={workerAudit.summary.affectedCommands} />
+                    <WorkerMetric label="События аудита" value={workerAudit.summary.totalEvents} />
+                    <WorkerMetric label="Повторы" value={workerAudit.summary.replayEvents} />
+                    <WorkerMetric label="Восстановления" value={workerAudit.summary.recoveryEvents} />
+                    <WorkerMetric label="Команды" value={workerAudit.summary.affectedCommands} />
                   </div>
                   <div
                     role="region"
-                    aria-label="Device Bridge replay policy"
+                    aria-label="Правила повтора команд"
                     className="rounded-md border border-border px-3 py-2 text-[12px] text-muted-foreground"
                   >
-                    <div className="font-semibold text-foreground">Replay policy</div>
+                    <div className="font-semibold text-foreground">Правила повтора</div>
                     <div className="mt-1">
-                      {workerAudit.policy.replayPolicy} · payload {workerAudit.policy.payloadVisibility} · command types{" "}
-                      {workerAudit.policy.allowedReplayCommandTypes.join(", ")}
+                      политика {sysDeviceText(workerAudit.policy.replayPolicy)} · видимость данных {sysDeviceText(workerAudit.policy.payloadVisibility)} · типы команд скрыты
                     </div>
                   </div>
                   <div
                     role="region"
-                    aria-label="Device Bridge command audit log"
+                    aria-label="Журнал аудита команд"
                     className="rounded-md border border-border"
                   >
                     <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Safe command audit
+                      Безопасный аудит команд
                     </div>
                     <div className="divide-y divide-border/70">
                       {workerAudit.items.length > 0 ? workerAudit.items.slice(0, 5).map((event) => (
                         <div key={event.id} className="grid gap-2 px-3 py-2 text-[12px] lg:grid-cols-[1fr_auto_auto] lg:items-center">
                           <div className="min-w-0">
                             <div className="truncate font-mono text-[11px] font-semibold">
-                              {event.action} · {event.commandType ?? "command"}
+                              Событие аудита · служебная команда
                             </div>
                             <div className="truncate text-[11px] text-muted-foreground">
-                              {event.bridgeCode ?? "bridge"} · {event.status} · rev {event.lifecycleRevision}
+                              {event.bridgeCode ?? "мост"} · {event.status} · ревизия {event.lifecycleRevision}
                             </div>
                           </div>
                           <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {event.replayPolicy ?? "audit"}
+                            {sysDeviceText(event.replayPolicy ?? "audit")}
                           </span>
                           <Button
                             size="sm"
@@ -967,29 +1043,29 @@ export default function SysDevicesPage() {
                             disabled={!event.commandId || commandBusyKey === `replay:${event.commandId}`}
                             onClick={() => event.commandId ? void replayWorkerCommand(event.commandId) : undefined}
                           >
-                            {event.commandId && commandBusyKey === `replay:${event.commandId}` ? "Создаём..." : "Replay"}
+                            {event.commandId && commandBusyKey === `replay:${event.commandId}` ? "Создаём..." : "Повторить"}
                           </Button>
                         </div>
                       )) : (
                         <div role="status" className="px-3 py-4 text-[12px] text-muted-foreground">
-                          Command audit пока пуст.
+                          Аудит команд пока пуст.
                         </div>
                       )}
                     </div>
                   </div>
                   <div
                     role="note"
-                    aria-label="Device Bridge command audit privacy boundary"
+                    aria-label="Граница данных аудита команд"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Stage 4X показывает только append-only audit projection и backend-owned replay policy.
-                    Raw audit metadata, command payloads, worker secrets, storage paths, patient names и
-                    browser hardware APIs не выводятся в UI.
+                    Показывается только аудит без изменений задним числом и правила повтора.
+                    Сырые данные аудита, команды, секреты службы, пути хранения, имена пациентов
+                    и аппаратный доступ браузера не выводятся.
                   </div>
                 </div>
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
-                  {workerAuditError || "Device Bridge command audit ожидает ответ backend."}
+                  {workerAuditError || "Аудит команд ожидает ответ рабочей системы."}
                 </div>
               )}
             </Card>
@@ -999,45 +1075,45 @@ export default function SysDevicesPage() {
         {isLive && (
           <section
             className="space-y-2"
-            aria-label="Device Bridge production readiness"
+            aria-label="Готовность моста устройств"
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
-                Stage 8J-8L · Production readiness
+                Готовность моста устройств
               </h2>
               <span className="text-[11px] text-muted-foreground">
-                /api/v1/device-bridge-worker/production-readiness
+                Проверка перед рабочим использованием
               </span>
             </div>
             <Card className="p-3">
               {productionReadiness ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                    <WorkerMetric label="Readiness %" value={productionReadiness.readiness.completionPercent} />
-                    <WorkerMetric label="Bridge workers" value={productionReadiness.readiness.summary.bridgeCount} />
-                    <WorkerMetric label="Stale workers" value={productionReadiness.readiness.summary.staleWorkers} />
-                    <WorkerMetric label="Failed commands" value={productionReadiness.readiness.summary.failedCommands} />
-                    <WorkerMetric label="Stuck commands" value={productionReadiness.readiness.summary.stuckCommands} />
-                    <WorkerMetric label="Audit events" value={productionReadiness.readiness.summary.auditEvents} />
+                    <WorkerMetric label="Готовность, %" value={productionReadiness.readiness.completionPercent} />
+                    <WorkerMetric label="Мосты" value={productionReadiness.readiness.summary.bridgeCount} />
+                    <WorkerMetric label="Устарели" value={productionReadiness.readiness.summary.staleWorkers} />
+                    <WorkerMetric label="Ошибки" value={productionReadiness.readiness.summary.failedCommands} />
+                    <WorkerMetric label="Зависли" value={productionReadiness.readiness.summary.stuckCommands} />
+                    <WorkerMetric label="Аудит" value={productionReadiness.readiness.summary.auditEvents} />
                   </div>
                   <div
                     role="region"
-                    aria-label="Device Bridge production readiness gates"
+                    aria-label="Проверки готовности моста устройств"
                     className="rounded-md border border-border"
                   >
                     <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Readiness gates · {productionReadiness.readiness.status}
+                      Проверки готовности · {sysDeviceStatusLabel(productionReadiness.readiness.status)}
                     </div>
                     <div className="divide-y divide-border/70">
                       {productionReadiness.readiness.gates.map((gate) => (
                         <div key={gate.key} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
                           <div>
-                            <div className="font-medium text-foreground">{gate.label}</div>
-                            <div className="text-[11px] text-muted-foreground">{gate.detail}</div>
+                            <div className="font-medium text-foreground">{sysDeviceText(gate.label)}</div>
+                            <div className="text-[11px] text-muted-foreground">{sysDeviceText(gate.detail)}</div>
                           </div>
                           <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {gate.status}
+                            {sysDeviceStatusLabel(gate.status)}
                           </span>
                         </div>
                       ))}
@@ -1045,18 +1121,18 @@ export default function SysDevicesPage() {
                   </div>
                   <div
                     role="note"
-                    aria-label="Device Bridge production readiness boundary"
+                    aria-label="Граница данных готовности моста устройств"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Stage 8J-8L aggregates only safe PostgreSQL lifecycle signals from Stage 4U-4Y.
-                    Policy: payload {productionReadiness.readiness.policy.payloadVisibility}; managed runtime{" "}
-                    {productionReadiness.readiness.policy.managedRuntimeDependency}; browser hardware APIs{" "}
-                    {productionReadiness.readiness.policy.browserHardwareApis ? "enabled" : "disabled"}.
+                    Показываются только безопасные агрегаты жизненного цикла из PostgreSQL.
+                    Видимость данных: только служебные метаданные; внешняя среда{" "}
+                    {sysDeviceText(productionReadiness.readiness.policy.managedRuntimeDependency)}; аппаратный доступ браузера{" "}
+                    {productionReadiness.readiness.policy.browserHardwareApis ? "включён" : "выключен"}.
                   </div>
                 </div>
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
-                  {productionReadinessError || "Device Bridge production readiness ожидает ответ backend."}
+                  {productionReadinessError || "Готовность моста устройств ожидает ответ рабочей системы."}
                 </div>
               )}
             </Card>
@@ -1066,47 +1142,47 @@ export default function SysDevicesPage() {
         {isLive && (
           <section
             className="space-y-2"
-            aria-label="Device Bridge operations continuity"
+            aria-label="Непрерывность операций моста устройств"
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" aria-hidden />
-                Stage 8P-9A · Operations continuity
+                Непрерывность операций
               </h2>
               <span className="text-[11px] text-muted-foreground">
-                /api/v1/device-bridge-worker/operations-continuity
+                Контроль рабочих процессов
               </span>
             </div>
             <Card className="p-3">
               {operationsContinuity ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                    <WorkerMetric label="Continuity %" value={operationsContinuity.continuity.completionPercent} />
-                    <WorkerMetric label="Queue pressure" value={operationsContinuity.continuity.summary.queuePressure} />
-                    <WorkerMetric label="Attention gates" value={operationsContinuity.continuity.summary.attentionGateCount} />
-                    <WorkerMetric label="Stale workers" value={operationsContinuity.continuity.summary.staleWorkers} />
-                    <WorkerMetric label="Audit events" value={operationsContinuity.continuity.summary.auditEvents} />
-                    <WorkerMetric label="Stages" value={operationsContinuity.continuity.stages.length} />
+                    <WorkerMetric label="Готовность, %" value={operationsContinuity.continuity.completionPercent} />
+                    <WorkerMetric label="Давление очереди" value={operationsContinuity.continuity.summary.queuePressure} />
+                    <WorkerMetric label="Требуют внимания" value={operationsContinuity.continuity.summary.attentionGateCount} />
+                    <WorkerMetric label="Устарели" value={operationsContinuity.continuity.summary.staleWorkers} />
+                    <WorkerMetric label="Аудит" value={operationsContinuity.continuity.summary.auditEvents} />
+                    <WorkerMetric label="Шаги" value={operationsContinuity.continuity.stages.length} />
                   </div>
                   <div className="grid gap-3 lg:grid-cols-2">
                     <div
                       role="region"
-                      aria-label="Device Bridge operations continuity stages"
+                      aria-label="Шаги непрерывности операций"
                       className="rounded-md border border-border"
                     >
                       <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Continuity stages · {operationsContinuity.continuity.status}
+                        Шаги непрерывности · {sysDeviceStatusLabel(operationsContinuity.continuity.status)}
                       </div>
                       <div className="divide-y divide-border/70">
-                        {operationsContinuity.continuity.stages.map((stage) => (
+                        {operationsContinuity.continuity.stages.map((stage, index) => (
                           <div key={stage.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[auto_1fr_auto] sm:items-center">
-                            <span className="font-mono text-[11px] text-muted-foreground">{stage.id}</span>
+                            <span className="text-[11px] text-muted-foreground">Шаг {index + 1}</span>
                             <div>
-                              <div className="font-medium text-foreground">{stage.title}</div>
-                              <div className="text-[11px] text-muted-foreground">{stage.summary}</div>
+                              <div className="font-medium text-foreground">{sysDeviceText(stage.title)}</div>
+                              <div className="text-[11px] text-muted-foreground">{sysDeviceText(stage.summary)}</div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                              {stage.status}
+                              {sysDeviceStatusLabel(stage.status)}
                             </span>
                           </div>
                         ))}
@@ -1114,21 +1190,21 @@ export default function SysDevicesPage() {
                     </div>
                     <div
                       role="region"
-                      aria-label="Device Bridge operations continuity gates"
+                      aria-label="Проверки непрерывности операций"
                       className="rounded-md border border-border"
                     >
                       <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Continuity gates
+                        Проверки непрерывности
                       </div>
                       <div className="divide-y divide-border/70">
                         {operationsContinuity.continuity.gates.map((gate) => (
                           <div key={gate.key} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
                             <div>
-                              <div className="font-medium text-foreground">{gate.label}</div>
-                              <div className="text-[11px] text-muted-foreground">{gate.detail}</div>
+                              <div className="font-medium text-foreground">{sysDeviceText(gate.label)}</div>
+                              <div className="text-[11px] text-muted-foreground">{sysDeviceText(gate.detail)}</div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                              {gate.status}
+                              {sysDeviceStatusLabel(gate.status)}
                             </span>
                           </div>
                         ))}
@@ -1137,19 +1213,18 @@ export default function SysDevicesPage() {
                   </div>
                   <div
                     role="note"
-                    aria-label="Device Bridge operations continuity boundary"
+                    aria-label="Граница данных непрерывности операций"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Stage 8P-9A publishes operator continuity metadata only. Managed runtime{" "}
-                    {operationsContinuity.continuity.productBoundary.managedRuntimeDependency}; managed database{" "}
-                    {operationsContinuity.continuity.productBoundary.managedDatabaseDependency}; payload{" "}
-                    {operationsContinuity.continuity.productBoundary.payloadVisibility}; next batch hypothesis{" "}
-                    {operationsContinuity.continuity.handoff.nextBatchHypothesis}.
+                    Публикуются только служебные метаданные непрерывности. Внешняя среда{" "}
+                    {sysDeviceText(operationsContinuity.continuity.productBoundary.managedRuntimeDependency)}; внешняя база{" "}
+                    {sysDeviceText(operationsContinuity.continuity.productBoundary.managedDatabaseDependency)}; видимость данных:
+                    только служебные метаданные; следующий шаг скрыт из интерфейса.
                   </div>
                 </div>
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
-                  {operationsContinuityError || "Device Bridge operations continuity ожидает ответ backend."}
+                  {operationsContinuityError || "Непрерывность операций ожидает ответ рабочей системы."}
                 </div>
               )}
             </Card>
@@ -1159,47 +1234,47 @@ export default function SysDevicesPage() {
         {isLive && (
           <section
             className="space-y-2"
-            aria-label="Device Bridge fleet reliability"
+            aria-label="Надёжность парка мостов устройств"
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <RadioTower className="h-3.5 w-3.5" aria-hidden />
-                Stage 9B-9M · Fleet reliability
+                Надёжность парка
               </h2>
               <span className="text-[11px] text-muted-foreground">
-                /api/v1/device-bridge-worker/fleet-reliability
+                Контроль устойчивости парка
               </span>
             </div>
             <Card className="p-3">
               {fleetReliability ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                    <WorkerMetric label="Reliability %" value={fleetReliability.reliability.completionPercent} />
-                    <WorkerMetric label="Fleet attention" value={fleetReliability.reliability.summary.fleetAttention} />
-                    <WorkerMetric label="Queue pressure" value={fleetReliability.reliability.summary.queuePressure} />
-                    <WorkerMetric label="Stale workers" value={fleetReliability.reliability.summary.staleWorkers} />
-                    <WorkerMetric label="SLO minutes" value={fleetReliability.reliability.sloPolicy.commandQueueReviewMinutes} />
-                    <WorkerMetric label="Stages" value={fleetReliability.reliability.stages.length} />
+                    <WorkerMetric label="Надёжность, %" value={fleetReliability.reliability.completionPercent} />
+                    <WorkerMetric label="Внимание" value={fleetReliability.reliability.summary.fleetAttention} />
+                    <WorkerMetric label="Давление очереди" value={fleetReliability.reliability.summary.queuePressure} />
+                    <WorkerMetric label="Устарели" value={fleetReliability.reliability.summary.staleWorkers} />
+                    <WorkerMetric label="Норма, мин" value={fleetReliability.reliability.sloPolicy.commandQueueReviewMinutes} />
+                    <WorkerMetric label="Шаги" value={fleetReliability.reliability.stages.length} />
                   </div>
                   <div className="grid gap-3 lg:grid-cols-2">
                     <div
                       role="region"
-                      aria-label="Device Bridge fleet reliability stages"
+                      aria-label="Шаги надёжности парка"
                       className="rounded-md border border-border"
                     >
                       <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Reliability stages · {fleetReliability.reliability.status}
+                        Шаги надёжности · {sysDeviceStatusLabel(fleetReliability.reliability.status)}
                       </div>
                       <div className="divide-y divide-border/70">
-                        {fleetReliability.reliability.stages.map((stage) => (
+                        {fleetReliability.reliability.stages.map((stage, index) => (
                           <div key={stage.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[auto_1fr_auto] sm:items-center">
-                            <span className="font-mono text-[11px] text-muted-foreground">{stage.id}</span>
+                            <span className="text-[11px] text-muted-foreground">Шаг {index + 1}</span>
                             <div>
-                              <div className="font-medium text-foreground">{stage.title}</div>
-                              <div className="text-[11px] text-muted-foreground">{stage.summary}</div>
+                              <div className="font-medium text-foreground">{sysDeviceText(stage.title)}</div>
+                              <div className="text-[11px] text-muted-foreground">{sysDeviceText(stage.summary)}</div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                              {stage.status}
+                              {sysDeviceStatusLabel(stage.status)}
                             </span>
                           </div>
                         ))}
@@ -1207,21 +1282,21 @@ export default function SysDevicesPage() {
                     </div>
                     <div
                       role="region"
-                      aria-label="Device Bridge fleet reliability gates"
+                      aria-label="Проверки надёжности парка"
                       className="rounded-md border border-border"
                     >
                       <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Reliability gates
+                        Проверки надёжности
                       </div>
                       <div className="divide-y divide-border/70">
                         {fleetReliability.reliability.gates.map((gate) => (
                           <div key={gate.key} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
                             <div>
-                              <div className="font-medium text-foreground">{gate.label}</div>
-                              <div className="text-[11px] text-muted-foreground">{gate.detail}</div>
+                              <div className="font-medium text-foreground">{sysDeviceText(gate.label)}</div>
+                              <div className="text-[11px] text-muted-foreground">{sysDeviceText(gate.detail)}</div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                              {gate.status}
+                              {sysDeviceStatusLabel(gate.status)}
                             </span>
                           </div>
                         ))}
@@ -1230,19 +1305,18 @@ export default function SysDevicesPage() {
                   </div>
                   <div
                     role="note"
-                    aria-label="Device Bridge fleet reliability boundary"
+                    aria-label="Граница данных надёжности парка"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Stage 9B-9M closes the earlier Stage 9B-9D hypothesis as a larger x2 batch.
-                    Managed runtime {fleetReliability.reliability.productBoundary.managedRuntimeDependency};
-                    managed database {fleetReliability.reliability.productBoundary.managedDatabaseDependency};
-                    payload {fleetReliability.reliability.productBoundary.payloadVisibility}; next batch hypothesis{" "}
-                    {fleetReliability.reliability.handoff.nextBatchHypothesis}.
+                    Показываются только агрегаты надёжности парка. Внешняя среда{" "}
+                    {sysDeviceText(fleetReliability.reliability.productBoundary.managedRuntimeDependency)}; внешняя база{" "}
+                    {sysDeviceText(fleetReliability.reliability.productBoundary.managedDatabaseDependency)}; видимость данных:
+                    только служебные метаданные; следующий шаг скрыт из интерфейса.
                   </div>
                 </div>
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
-                  {fleetReliabilityError || "Device Bridge fleet reliability ожидает ответ backend."}
+                  {fleetReliabilityError || "Надёжность парка ожидает ответ рабочей системы."}
                 </div>
               )}
             </Card>
@@ -1252,47 +1326,47 @@ export default function SysDevicesPage() {
         {isLive && (
           <section
             className="space-y-2"
-            aria-label="Device Bridge lifecycle assurance"
+            aria-label="Контроль жизненного цикла моста устройств"
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
-                Stage 9N-9Z · Lifecycle assurance
+                Контроль жизненного цикла
               </h2>
               <span className="text-[11px] text-muted-foreground">
-                /api/v1/device-bridge-worker/lifecycle-assurance
+                Обслуживание и передача смены
               </span>
             </div>
             <Card className="p-3">
               {lifecycleAssurance ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                    <WorkerMetric label="Assurance %" value={lifecycleAssurance.assurance.completionPercent} />
-                    <WorkerMetric label="Assurance debt" value={lifecycleAssurance.assurance.summary.assuranceDebt} />
-                    <WorkerMetric label="Upgrade pressure" value={lifecycleAssurance.assurance.summary.upgradePressure} />
-                    <WorkerMetric label="Maintenance due" value={lifecycleAssurance.assurance.summary.maintenanceDue ? "Да" : "Нет"} />
-                    <WorkerMetric label="Retention review" value={lifecycleAssurance.assurance.summary.retentionReviewDue ? "Да" : "Нет"} />
-                    <WorkerMetric label="Stages" value={lifecycleAssurance.assurance.stages.length} />
+                    <WorkerMetric label="Готовность, %" value={lifecycleAssurance.assurance.completionPercent} />
+                    <WorkerMetric label="Долг контроля" value={lifecycleAssurance.assurance.summary.assuranceDebt} />
+                    <WorkerMetric label="Обновление" value={lifecycleAssurance.assurance.summary.upgradePressure} />
+                    <WorkerMetric label="Обслуживание" value={lifecycleAssurance.assurance.summary.maintenanceDue ? "Да" : "Нет"} />
+                    <WorkerMetric label="Хранение" value={lifecycleAssurance.assurance.summary.retentionReviewDue ? "Да" : "Нет"} />
+                    <WorkerMetric label="Шаги" value={lifecycleAssurance.assurance.stages.length} />
                   </div>
                   <div className="grid gap-3 lg:grid-cols-2">
                     <div
                       role="region"
-                      aria-label="Device Bridge lifecycle assurance stages"
+                      aria-label="Шаги жизненного цикла"
                       className="rounded-md border border-border"
                     >
                       <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Assurance stages · {lifecycleAssurance.assurance.status}
+                        Шаги жизненного цикла · {sysDeviceStatusLabel(lifecycleAssurance.assurance.status)}
                       </div>
                       <div className="divide-y divide-border/70">
-                        {lifecycleAssurance.assurance.stages.map((stage) => (
+                        {lifecycleAssurance.assurance.stages.map((stage, index) => (
                           <div key={stage.id} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[auto_1fr_auto] sm:items-center">
-                            <span className="font-mono text-[11px] text-muted-foreground">{stage.id}</span>
+                            <span className="text-[11px] text-muted-foreground">Шаг {index + 1}</span>
                             <div>
-                              <div className="font-medium text-foreground">{stage.title}</div>
-                              <div className="text-[11px] text-muted-foreground">{stage.summary}</div>
+                              <div className="font-medium text-foreground">{sysDeviceText(stage.title)}</div>
+                              <div className="text-[11px] text-muted-foreground">{sysDeviceText(stage.summary)}</div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                              {stage.status}
+                              {sysDeviceStatusLabel(stage.status)}
                             </span>
                           </div>
                         ))}
@@ -1300,21 +1374,21 @@ export default function SysDevicesPage() {
                     </div>
                     <div
                       role="region"
-                      aria-label="Device Bridge lifecycle assurance gates"
+                      aria-label="Проверки жизненного цикла"
                       className="rounded-md border border-border"
                     >
                       <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Assurance gates
+                        Проверки жизненного цикла
                       </div>
                       <div className="divide-y divide-border/70">
                         {lifecycleAssurance.assurance.gates.map((gate) => (
                           <div key={gate.key} className="grid gap-2 px-3 py-2 text-[12px] sm:grid-cols-[1fr_auto] sm:items-center">
                             <div>
-                              <div className="font-medium text-foreground">{gate.label}</div>
-                              <div className="text-[11px] text-muted-foreground">{gate.detail}</div>
+                              <div className="font-medium text-foreground">{sysDeviceText(gate.label)}</div>
+                              <div className="text-[11px] text-muted-foreground">{sysDeviceText(gate.detail)}</div>
                             </div>
                             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                              {gate.status}
+                              {sysDeviceStatusLabel(gate.status)}
                             </span>
                           </div>
                         ))}
@@ -1323,20 +1397,20 @@ export default function SysDevicesPage() {
                   </div>
                   <div
                     role="note"
-                    aria-label="Device Bridge lifecycle assurance boundary"
+                    aria-label="Граница данных жизненного цикла"
                     className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground"
                   >
-                    Stage 9N-9Z closes lifecycle assurance for maintenance, worker upgrade posture,
-                    audit retention and next-cycle handoff. Managed runtime{" "}
-                    {lifecycleAssurance.assurance.productBoundary.managedRuntimeDependency};
-                    managed database {lifecycleAssurance.assurance.productBoundary.managedDatabaseDependency};
-                    payload {lifecycleAssurance.assurance.productBoundary.payloadVisibility}; next batch hypothesis{" "}
-                    {lifecycleAssurance.assurance.handoff.nextBatchHypothesis}.
+                    Закрываются только служебные признаки обслуживания, обновления службы,
+                    хранения аудита и передачи смены. Внешняя среда{" "}
+                    {sysDeviceText(lifecycleAssurance.assurance.productBoundary.managedRuntimeDependency)};
+                    внешняя база {sysDeviceText(lifecycleAssurance.assurance.productBoundary.managedDatabaseDependency)};
+                    видимость данных: только служебные метаданные;
+                    следующий шаг скрыт из интерфейса.
                   </div>
                 </div>
               ) : (
                 <div role="status" className="text-[12px] text-muted-foreground">
-                  {lifecycleAssuranceError || "Device Bridge lifecycle assurance ожидает ответ backend."}
+                  {lifecycleAssuranceError || "Жизненный цикл моста устройств ожидает ответ рабочей системы."}
                 </div>
               )}
             </Card>
@@ -1346,26 +1420,26 @@ export default function SysDevicesPage() {
         {/* Bridges */}
         <section className="space-y-2">
           <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Device Bridge
+            Мост устройств
           </h2>
           <Card className="hidden p-0 md:block">
             <table className="w-full text-[12px]">
               <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2">Bridge ID</th>
-                  <th className="px-3 py-2">Хост</th>
-                  <th className="px-3 py-2">LAN</th>
+                  <th className="px-3 py-2">Мост</th>
+                  <th className="px-3 py-2">Адрес</th>
+                  <th className="px-3 py-2">Сеть</th>
                   <th className="px-3 py-2">Версия</th>
                   <th className="px-3 py-2 text-right">Устройств</th>
-                  <th className="px-3 py-2">Heartbeat</th>
+                  <th className="px-3 py-2">Проверка связи</th>
                   <th className="px-3 py-2 text-right">Действия</th>
                 </tr>
               </thead>
               <tbody>
-                {bridges.map((b) => (
+                {bridges.map((b, index) => (
                   <tr key={b.id} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2 font-mono text-[11px]">{b.code ?? b.id}</td>
-                    <td className="px-3 py-2">{b.host}</td>
+                    <td className="px-3 py-2 font-medium">Мост {index + 1}</td>
+                    <td className="px-3 py-2 text-muted-foreground">скрыт</td>
                     <td className="px-3 py-2">
                       <span
                         className="rounded-full px-2 py-0.5 text-[10px]"
@@ -1398,12 +1472,12 @@ export default function SysDevicesPage() {
 
           {/* Bridges — Mobile */}
           <div className="grid grid-cols-1 gap-2 md:hidden">
-            {bridges.map((b) => (
+            {bridges.map((b, index) => (
               <Card key={b.id} className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="truncate font-mono text-[12px] font-semibold">{b.code ?? b.id}</div>
-                    <div className="truncate text-[11px] text-muted-foreground">{b.host}</div>
+                    <div className="truncate text-[12px] font-semibold">Мост {index + 1}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">адрес скрыт</div>
                   </div>
                   <span
                     className="shrink-0 rounded-full px-2 py-0.5 text-[10px]"
@@ -1417,7 +1491,7 @@ export default function SysDevicesPage() {
                   <dd className="text-right">{b.version}</dd>
                   <dt className="text-muted-foreground">Устройств</dt>
                   <dd className="text-right tabular-nums">{b.pairedCount}</dd>
-                  <dt className="text-muted-foreground">Heartbeat</dt>
+                  <dt className="text-muted-foreground">Проверка связи</dt>
                   <dd className="text-right">{formatDateTime(b.lastHeartbeatAt)}</dd>
                 </dl>
                 <div className="mt-3">
@@ -1495,8 +1569,8 @@ export default function SysDevicesPage() {
                   <th className="px-3 py-2">Увеличение</th>
                   <th className="px-3 py-2">Поляризация</th>
                   <th className="px-3 py-2">Калибровка</th>
-                  <th className="px-3 py-2">Bridge</th>
-                  <th className="px-3 py-2">Last seen</th>
+                  <th className="px-3 py-2">Мост</th>
+                  <th className="px-3 py-2">Последняя связь</th>
                   <th className="px-3 py-2">Статус</th>
                   <th className="px-3 py-2 text-right">Действия</th>
                 </tr>
@@ -1505,12 +1579,12 @@ export default function SysDevicesPage() {
                 {visible.map((d) => (
                   <tr key={d.id} className="border-b border-border/60 last:border-0">
                     <td className="px-3 py-2 font-medium">{d.model}</td>
-                    <td className="px-3 py-2 font-mono text-[11px]">{d.serial}</td>
+                    <td className="px-3 py-2 text-muted-foreground">скрыта</td>
                     <td className="px-3 py-2 text-muted-foreground">{d.firmware}</td>
                     <td className="px-3 py-2 text-muted-foreground">{d.magnification}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{d.polarization}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{polarizationLabel(d.polarization)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{d.calibrationProfile}</td>
-                    <td className="px-3 py-2 font-mono text-[11px]">{d.bridgeId ?? "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{bridgeLabel(bridges, d.bridgeId)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{formatDateTime(d.lastSeenAt)}</td>
                     <td className="px-3 py-2">
                       <span
@@ -1541,7 +1615,7 @@ export default function SysDevicesPage() {
                           disabled={commandBusyKey === `device_stream_open_request:${d.id}`}
                           onClick={() => void runDeviceCommand(d, "device_stream_open_request")}
                         >
-                          {commandBusyKey === `device_stream_open_request:${d.id}` ? "Ставим..." : "Открыть поток"}
+                          {commandBusyKey === `device_stream_open_request:${d.id}` ? "Ставим..." : "Открыть просмотр"}
                         </Button>
                       </div>
                     </td>
@@ -1558,7 +1632,7 @@ export default function SysDevicesPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="truncate text-[13px] font-semibold">{d.model}</div>
-                    <div className="truncate font-mono text-[11px] text-muted-foreground">{d.serial}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">серия скрыта</div>
                   </div>
                   <span
                     className="shrink-0 rounded-full px-2 py-0.5 text-[10px]"
@@ -1576,12 +1650,12 @@ export default function SysDevicesPage() {
                   <dt className="text-muted-foreground">Увеличение</dt>
                   <dd className="text-right">{d.magnification}</dd>
                   <dt className="text-muted-foreground">Поляризация</dt>
-                  <dd className="text-right">{d.polarization}</dd>
+                  <dd className="text-right">{polarizationLabel(d.polarization)}</dd>
                   <dt className="text-muted-foreground">Калибровка</dt>
                   <dd className="text-right">{d.calibrationProfile}</dd>
-                  <dt className="text-muted-foreground">Bridge</dt>
-                  <dd className="text-right font-mono text-[11px]">{d.bridgeId ?? "—"}</dd>
-                  <dt className="text-muted-foreground">Last seen</dt>
+                  <dt className="text-muted-foreground">Мост</dt>
+                  <dd className="text-right">{bridgeLabel(bridges, d.bridgeId)}</dd>
+                  <dt className="text-muted-foreground">Последняя связь</dt>
                   <dd className="text-right">{formatDateTime(d.lastSeenAt)}</dd>
                 </dl>
                 <div className="mt-3 flex flex-col gap-1.5">
@@ -1599,7 +1673,7 @@ export default function SysDevicesPage() {
                     disabled={commandBusyKey === `device_stream_open_request:${d.id}`}
                     onClick={() => void runDeviceCommand(d, "device_stream_open_request")}
                   >
-                    {commandBusyKey === `device_stream_open_request:${d.id}` ? "Ставим..." : "Открыть поток"}
+                    {commandBusyKey === `device_stream_open_request:${d.id}` ? "Ставим..." : "Открыть просмотр"}
                   </Button>
                 </div>
               </Card>

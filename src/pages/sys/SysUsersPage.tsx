@@ -12,19 +12,19 @@ import { DEMO_USERS } from "@/lib/users";
 import { ROLE_BY_ID, type Role } from "@/lib/roles";
 
 /**
- * Sys Users — управление пользователями и ролями (MVP, демо).
+ * Пользователи системы — управление пользователями и ролями (учебный режим).
  * SAFETY: не показывает email пациента и raw email вообще; пациент скрыт под
- * меткой «Демо-пациент». Никаких сетевых вызовов и storage.
+ * меткой «Учебный пациент». Никаких сетевых вызовов и storage.
  */
 
 const DEMO_BANNER =
-  "Демо-режим. Реальные роли, RLS, аудит, ключи и Device Bridge включаются на этапе бэкенда.";
+  "Учебный режим. Рабочие роли, аудит, ключи и мост устройств включаются после подключения системы клиники.";
 
 type Status = "active" | "demo" | "needs_backend";
 const STATUS_LABEL: Record<Status, string> = {
   active: "Активен",
-  demo: "Демо",
-  needs_backend: "Нужен бэкенд",
+  demo: "Учебный",
+  needs_backend: "Нужна система",
 };
 const STATUS_TONE: Record<Status, string> = {
   active: "hsl(var(--success))",
@@ -51,13 +51,13 @@ const ROWS: UserRow[] = (Object.values(DEMO_USERS) as Array<typeof DEMO_USERS[Ro
       : u.role === "patient"
         ? "Только свой портал"
         : u.role === "operator"
-          ? "Диалоги бота, лиды клиники"
+          ? "Обращения и заявки клиники"
           : u.role === "clinic_admin"
             ? "Своя клиника, без клинических данных"
             : "Своя клиника, клинический контент";
   return {
     accountId: u.id,
-    display: isPatient ? "Демо-пациент" : u.fullName,
+    display: isPatient ? "Учебный пациент" : u.fullName,
     role: u.role,
     clinicId: u.clinicId,
     status: u.role === "system_admin" ? "needs_backend" : "demo",
@@ -96,7 +96,7 @@ export default function SysUsersPage() {
         r.role !== filter
       ) return false;
       if (q) {
-        const hay = `${r.accountId} ${r.display} ${ROLE_BY_ID[r.role].label}`.toLowerCase();
+        const hay = `${r.display} ${ROLE_BY_ID[r.role].label} ${r.scope}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -133,7 +133,7 @@ export default function SysUsersPage() {
         </div>
 
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground">
-          RoleGuard в MVP — UX-симуляция, не security boundary.
+          Проверка роли в учебном режиме показывает логику интерфейса. Рабочую защиту включает система клиники.
         </div>
 
         <Card className="p-3">
@@ -164,7 +164,7 @@ export default function SysUsersPage() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск по id, имени или роли"
+                placeholder="Поиск по имени, роли или доступу"
                 aria-label="Поиск пользователей"
                 className="h-11 pl-7 text-[12px] sm:h-9"
               />
@@ -185,7 +185,7 @@ export default function SysUsersPage() {
             activeFilters={activeFilterLabels}
             totalUnfiltered={ROWS.length}
             onReset={resetAll}
-            hint="В демо-каталоге фиксированный список ролей. С бэкендом сюда придут реальные учётные записи."
+            hint="В учебном каталоге фиксированный список ролей. После подключения системы сюда придут реальные учётные записи."
           />
         )}
 
@@ -195,7 +195,7 @@ export default function SysUsersPage() {
             <table className="w-full text-[12px]">
               <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2">Account ID</th>
+                  <th className="px-3 py-2">Код учётной записи</th>
                   <th className="px-3 py-2">Имя / метка</th>
                   <th className="px-3 py-2">Роль</th>
                   <th className="px-3 py-2">Клиника</th>
@@ -207,7 +207,7 @@ export default function SysUsersPage() {
               <tbody>
                 {visible.map((r) => (
                   <tr key={r.accountId} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2 font-mono text-[11px]">{r.accountId}</td>
+                    <td className="px-3 py-2 text-muted-foreground">скрыт</td>
                     <td className="px-3 py-2 font-medium">{r.display}</td>
                     <td className="px-3 py-2 text-muted-foreground">{ROLE_BY_ID[r.role].label}</td>
                     <td className="px-3 py-2 text-muted-foreground">
@@ -228,17 +228,17 @@ export default function SysUsersPage() {
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(`Изменение роли для ${r.accountId} — демо-действие.`)}
+                          onClick={() => setNote(`Изменение роли для выбранной учётной записи — учебное действие.`)}
                         >
-                          Изменить роль (демо)
+                          Изменить роль
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(`Отключение доступа ${r.accountId} — демо-действие.`)}
+                          onClick={() => setNote(`Отключение доступа для выбранной учётной записи — учебное действие.`)}
                         >
-                          Отключить доступ (демо)
+                          Отключить доступ
                         </Button>
                       </div>
                     </td>
@@ -257,7 +257,7 @@ export default function SysUsersPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="truncate text-[13px] font-semibold">{r.display}</div>
-                    <div className="truncate font-mono text-[11px] text-muted-foreground">{r.accountId}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">код учётной записи скрыт</div>
                   </div>
                   <span
                     className="shrink-0 rounded-full px-2 py-0.5 text-[10px]"
@@ -275,11 +275,11 @@ export default function SysUsersPage() {
                   <dd className="text-right">{r.scope}</dd>
                 </dl>
                 <div className="mt-3 flex flex-col gap-1.5">
-                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Изменение роли для ${r.accountId} — демо-действие.`)}>
-                    Изменить роль (демо)
+                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Изменение роли для выбранной учётной записи — учебное действие.`)}>
+                    Изменить роль
                   </Button>
-                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Отключение доступа ${r.accountId} — демо-действие.`)}>
-                    Отключить доступ (демо)
+                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Отключение доступа для выбранной учётной записи — учебное действие.`)}>
+                    Отключить доступ
                   </Button>
                 </div>
               </Card>

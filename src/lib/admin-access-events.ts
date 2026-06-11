@@ -20,13 +20,13 @@ export interface AccessEventExportRow {
 }
 
 export const ACCESS_EVENT_EXPORT_COLUMNS = [
-  { key: "event_id", label: "ID события", header: "event_id" },
+  { key: "event_id", label: "Код события", header: "event_id" },
   { key: "created_at", label: "Когда", header: "created_at" },
   { key: "clinic", label: "Клиника", header: "clinic" },
   { key: "actor", label: "Актор", header: "actor" },
   { key: "action", label: "Действие", header: "action" },
   { key: "entity", label: "Сущность", header: "entity" },
-  { key: "entity_id", label: "ID сущности", header: "entity_id" },
+  { key: "entity_id", label: "Код объекта", header: "entity_id" },
   { key: "patient_code", label: "Код пациента", header: "patient_code" },
   { key: "visit_id", label: "Визит", header: "visit_id" },
   { key: "lesion", label: "Очаг", header: "lesion" },

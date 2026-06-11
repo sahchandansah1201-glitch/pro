@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 
 /**
- * Sys API Keys — сервисные ключи интеграций (MVP, демо).
+ * Sys Service Keys — сервисные ключи интеграций (учебный режим).
  * SAFETY: только маскированные значения. Никогда не генерируем настоящие
  * секреты, не используем clipboard и не делаем сетевых вызовов.
  */
 
 const DEMO_BANNER =
-  "Демо-режим. Реальные роли, RLS, аудит, ключи и Device Bridge включаются на этапе бэкенда.";
+  "Учебный режим. Рабочие роли, аудит, ключи и мост устройств включаются после подключения системы клиники.";
 
 type Status = "active" | "rotating" | "disabled";
 const STATUS_LABEL: Record<Status, string> = {
@@ -41,8 +41,8 @@ interface KeyRow {
 const ROWS: KeyRow[] = [
   {
     id: "key-001",
-    label: "Дерматолог Про · API",
-    masked: "dp_demo_••••_01",
+    label: "Дерматолог Про · сервис",
+    masked: "ключ •••• 01",
     owner: "Платформа · клинические сервисы",
     env: "demo",
     status: "active",
@@ -52,9 +52,9 @@ const ROWS: KeyRow[] = [
   },
   {
     id: "key-002",
-    label: "Device Bridge · Local",
-    masked: "bridge_demo_••••_02",
-    owner: "Device Bridge · клиника msk-01",
+    label: "Мост устройств · локальный",
+    masked: "ключ •••• 02",
+    owner: "Мост устройств · клиника",
     env: "demo",
     status: "rotating",
     lastUsedAt: "2026-03-13T09:01:00Z",
@@ -64,8 +64,8 @@ const ROWS: KeyRow[] = [
   {
     id: "key-003",
     label: "CRM коннектор",
-    masked: "crm_demo_••••_03",
-    owner: "Bitrix24 · лиды",
+    masked: "ключ •••• 03",
+    owner: "Система заявок",
     env: "staging",
     status: "disabled",
     lastUsedAt: "2026-02-28T15:00:00Z",
@@ -74,12 +74,31 @@ const ROWS: KeyRow[] = [
   },
 ];
 
+const ENV_LABEL: Record<KeyRow["env"], string> = {
+  demo: "учебная",
+  staging: "проверочная",
+};
+
+const SCOPE_LABEL: Record<string, string> = {
+  "read:visits": "читать визиты",
+  "read:reports": "читать отчёты",
+  "write:appointments": "создавать записи",
+  "device:heartbeat": "проверять связь устройств",
+  "device:upload": "передавать снимки",
+  "lead:create": "создавать заявки",
+  "lead:update": "обновлять заявки",
+};
+
+function scopeLabel(scopes: string[]): string {
+  return scopes.map((scope) => SCOPE_LABEL[scope] ?? "служебное право").join(", ");
+}
+
 export default function SysApiKeysPage() {
   const [note, setNote] = useState<string | null>(null);
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="API-ключи" subtitle="Сервисные аккаунты и интеграции." />
+      <PageHeader title="Сервисные ключи" subtitle="Доступы для интеграций и внутренних сервисов." />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div
@@ -99,9 +118,9 @@ export default function SysApiKeysPage() {
           <Button
             variant="outline"
             className="h-9 min-h-[44px] sm:min-h-[32px]"
-            onClick={() => setNote("Создание ключа появится с бэкендом. В демо ключи не генерируются.")}
+            onClick={() => setNote("Создание ключа появится после подключения системы клиники. В учебном режиме ключи не генерируются.")}
           >
-            Создать ключ (демо)
+            Создать ключ
           </Button>
         </div>
 
@@ -124,12 +143,12 @@ export default function SysApiKeysPage() {
                 <tr>
                   <th className="px-3 py-2">Ключ</th>
                   <th className="px-3 py-2">Маска</th>
-                  <th className="px-3 py-2">Owner / scope</th>
+                  <th className="px-3 py-2">Владелец и права</th>
                   <th className="px-3 py-2">Среда</th>
                   <th className="px-3 py-2">Статус</th>
-                  <th className="px-3 py-2">Last used</th>
-                  <th className="px-3 py-2">Expires</th>
-                  <th className="px-3 py-2">Allowed scopes</th>
+                  <th className="px-3 py-2">Последнее использование</th>
+                  <th className="px-3 py-2">Действует до</th>
+                  <th className="px-3 py-2">Права доступа</th>
                   <th className="px-3 py-2 text-right">Действия</th>
                 </tr>
               </thead>
@@ -139,7 +158,7 @@ export default function SysApiKeysPage() {
                     <td className="px-3 py-2 font-medium">{r.label}</td>
                     <td className="px-3 py-2 font-mono text-[11px]">{r.masked}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.owner}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{r.env}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{ENV_LABEL[r.env]}</td>
                     <td className="px-3 py-2">
                       <span
                         className="rounded-full px-2 py-0.5 text-[10px]"
@@ -150,24 +169,24 @@ export default function SysApiKeysPage() {
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{r.lastUsedAt ? formatDateTime(r.lastUsedAt) : "—"}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.expiresAt ? formatDateTime(r.expiresAt) : "—"}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{r.scopes.join(", ")}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{scopeLabel(r.scopes)}</td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1.5">
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(`Ротация ${r.label} — демо.`)}
+                          onClick={() => setNote(`Обновление ключа «${r.label}» — учебное действие.`)}
                         >
-                          Ротировать (демо)
+                          Обновить
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
-                          onClick={() => setNote(`Отзыв ${r.label} — демо.`)}
+                          onClick={() => setNote(`Отзыв ключа «${r.label}» — учебное действие.`)}
                         >
-                          Отозвать (демо)
+                          Отозвать
                         </Button>
                       </div>
                     </td>
@@ -194,23 +213,23 @@ export default function SysApiKeysPage() {
                   </span>
                 </div>
                 <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-                  <dt className="text-muted-foreground">Owner</dt>
+                  <dt className="text-muted-foreground">Владелец</dt>
                   <dd className="text-right">{r.owner}</dd>
                   <dt className="text-muted-foreground">Среда</dt>
-                  <dd className="text-right">{r.env}</dd>
-                  <dt className="text-muted-foreground">Last used</dt>
+                  <dd className="text-right">{ENV_LABEL[r.env]}</dd>
+                  <dt className="text-muted-foreground">Последнее использование</dt>
                   <dd className="text-right">{r.lastUsedAt ? formatDateTime(r.lastUsedAt) : "—"}</dd>
-                  <dt className="text-muted-foreground">Expires</dt>
+                  <dt className="text-muted-foreground">Действует до</dt>
                   <dd className="text-right">{r.expiresAt ? formatDateTime(r.expiresAt) : "—"}</dd>
-                  <dt className="text-muted-foreground">Scopes</dt>
-                  <dd className="text-right">{r.scopes.join(", ")}</dd>
+                  <dt className="text-muted-foreground">Права</dt>
+                  <dd className="text-right">{scopeLabel(r.scopes)}</dd>
                 </dl>
                 <div className="mt-3 flex flex-col gap-1.5">
-                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Ротация ${r.label} — демо.`)}>
-                    Ротировать (демо)
+                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Обновление ключа «${r.label}» — учебное действие.`)}>
+                    Обновить
                   </Button>
-                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Отзыв ${r.label} — демо.`)}>
-                    Отозвать (демо)
+                  <Button variant="outline" className="min-h-[44px] text-[12px]" onClick={() => setNote(`Отзыв ключа «${r.label}» — учебное действие.`)}>
+                    Отозвать
                   </Button>
                 </div>
               </Card>
@@ -225,9 +244,9 @@ export default function SysApiKeysPage() {
           </h2>
           <Card className="p-3 text-[12px] text-muted-foreground">
             <ul className="list-disc space-y-1 pl-4">
-              <li>Плановая ротация: каждые 90 дней для прод-ключей, 30 дней для CRM-коннекторов.</li>
+              <li>Плановое обновление: каждые 90 дней для рабочих ключей, 30 дней для внешних подключений.</li>
               <li>Внеплановая ротация: при смене владельца сервиса или признаках компрометации.</li>
-              <li>Ключи выдаются с минимальными scopes и ограничены по среде (demo / staging / prod).</li>
+              <li>Ключи выдаются с минимальными правами и ограничены средой использования.</li>
             </ul>
           </Card>
         </section>
@@ -238,9 +257,9 @@ export default function SysApiKeysPage() {
             Политика данных
           </h2>
           <Card className="p-3 text-[12px] text-muted-foreground">
-            По умолчанию во внешние интеграции не передаются: PHI, фотографии,
-            тексты заключений и AI-детали. Используются защищённые ссылки и
-            минимальный пациент-безопасный summary.
+            По умолчанию во внешние интеграции не передаются: персональные медицинские данные,
+            фотографии, тексты заключений и детали машинной обработки. Используются только
+            защищённые действия и краткое безопасное описание для пациента.
           </Card>
         </section>
       </div>

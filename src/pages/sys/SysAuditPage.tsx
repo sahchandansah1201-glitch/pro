@@ -18,12 +18,12 @@ import { formatDateTime } from "@/lib/format";
  */
 
 const DEMO_BANNER =
-  "Демо-режим. Реальные роли, RLS, аудит, ключи и Device Bridge включаются на этапе бэкенда.";
+  "Учебный режим. Рабочие роли, аудит, ключи и мост устройств включаются после подключения системы клиники.";
 
 const ACTOR_LABEL = new Map<string, string>(
   Object.values(DEMO_USERS).map((u) => [
     u.id,
-    u.role === "patient" ? "Демо-пациент" : `${u.fullName.split(" ")[0]} · ${ROLE_BY_ID[u.role].short}`,
+    u.role === "patient" ? "Учебный пациент" : `${u.fullName.split(" ")[0]} · ${ROLE_BY_ID[u.role].short}`,
   ]),
 );
 
@@ -38,9 +38,92 @@ function safeSummary(payload: Record<string, string | number | boolean | null>):
   for (const [k, v] of Object.entries(payload)) {
     if (!SAFE_PAYLOAD_KEYS.has(k)) continue;
     if (v === null) continue;
-    parts.push(`${k}=${String(v)}`);
+    if (k === "clinicId") parts.push("клиника скрыта");
+    if (k === "deviceId") parts.push("устройство скрыто");
+    if (k === "kind") parts.push(`тип снимка: ${imageKindLabel(String(v))}`);
+    if (k === "channel") parts.push(`канал: ${channelLabel(String(v))}`);
+    if (k === "source") parts.push(`источник: ${sourceLabel(String(v))}`);
+    if (k === "status") parts.push(`статус: ${statusValueLabel(String(v))}`);
+    if (k === "to") parts.push(`новый статус: ${statusValueLabel(String(v))}`);
+    if (k === "reason") parts.push(`причина: ${reasonLabel(String(v))}`);
+    if (k === "model") parts.push("модель устройства указана");
+    if (k === "durationMin") parts.push(`длительность: ${String(v)} мин`);
+    if (k === "expiresInDays") parts.push(`срок: ${String(v)} дн.`);
   }
   return parts.length === 0 ? "—" : parts.join(" · ");
+}
+
+const ACTION_LABEL: Record<string, string> = {
+  "visit.open": "Открыт визит",
+  "visit.close": "Закрыт визит",
+  "image.capture": "Снимок добавлен",
+  "image.delete": "Снимок удалён",
+  "report.create": "Отчёт создан",
+  "report.publish": "Отчёт опубликован",
+  "assessment.update": "Оценка обновлена",
+  "lesion.update": "Очаг обновлён",
+  "device.connect": "Устройство подключено",
+  "device.disconnect": "Устройство отключено",
+  "integration.sync": "Интеграция синхронизирована",
+  "lead.create": "Заявка создана",
+  "lead.update": "Заявка обновлена",
+  "bot_dialog.handoff": "Обращение передано оператору",
+  "appointment.create": "Запись создана",
+};
+
+const ENTITY_LABEL: Record<string, string> = {
+  visit: "визит",
+  assessment: "оценка",
+  lesion: "очаг",
+  image: "снимок",
+  report: "отчёт",
+  device: "устройство",
+  integration: "интеграция",
+  lead: "заявка",
+  bot_dialog: "обращение",
+  appointment: "запись",
+};
+
+function actionLabel(action: string): string {
+  return ACTION_LABEL[action] ?? "Системное действие";
+}
+
+function entityLabel(entity: string): string {
+  return ENTITY_LABEL[entity] ?? "объект";
+}
+
+function imageKindLabel(value: string): string {
+  if (value === "dermoscopy") return "дерматоскопия";
+  if (value === "macro") return "обзорный снимок";
+  return "снимок";
+}
+
+function channelLabel(value: string): string {
+  if (value === "web") return "сайт";
+  if (value === "telegram") return "Telegram";
+  if (value === "whatsapp") return "WhatsApp";
+  return "канал обращения";
+}
+
+function sourceLabel(value: string): string {
+  if (value === "api") return "рабочая система";
+  if (value === "demo") return "учебные данные";
+  return "система";
+}
+
+function statusValueLabel(value: string): string {
+  if (value === "draft") return "черновик";
+  if (value === "published") return "опубликовано";
+  if (value === "done") return "готово";
+  if (value === "pending") return "ожидает";
+  if (value === "cancelled") return "отменено";
+  return "обновлён";
+}
+
+function reasonLabel(value: string): string {
+  if (value === "manual") return "ручное действие";
+  if (value === "system") return "системное действие";
+  return "указана";
 }
 
 type FilterKey = "all" | "visits" | "reports" | "devices" | "integrations" | "leads_dialogs";
@@ -145,7 +228,7 @@ export default function SysAuditPage() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск по действию или сущности"
+                placeholder="Поиск по действию или разделу"
                 aria-label="Поиск аудита"
                 className="h-11 pl-7 text-[12px] sm:h-9"
               />
@@ -165,10 +248,10 @@ export default function SysAuditPage() {
               variant="outline"
               disabled
               aria-disabled="true"
-              title="Экспорт появится с бэкендом"
+              title="Экспорт появится после подключения системы клиники"
               className="h-9 min-h-[44px] sm:min-h-[32px]"
             >
-              Экспорт (демо, отключено)
+              Экспорт отключён
             </Button>
           </div>
         </Card>
@@ -179,7 +262,7 @@ export default function SysAuditPage() {
             aria-live="polite"
             className="rounded-md border border-border bg-surface px-3 py-2 text-[12px] text-muted-foreground"
           >
-            Целостность (локально): записей {integrity.total} · акторов {integrity.actors} · типов сущностей {integrity.entities}.
+            Целостность: записей {integrity.total} · участников {integrity.actors} · разделов {integrity.entities}.
             Без сетевых вызовов и экспорта.
           </div>
         )}
@@ -190,11 +273,11 @@ export default function SysAuditPage() {
             <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">Когда</th>
-                <th className="px-3 py-2">Актор</th>
+                <th className="px-3 py-2">Участник</th>
                 <th className="px-3 py-2">Действие</th>
-                <th className="px-3 py-2">Сущность</th>
-                <th className="px-3 py-2">ID</th>
-                <th className="px-3 py-2">Payload</th>
+                <th className="px-3 py-2">Раздел</th>
+                <th className="px-3 py-2">Код объекта</th>
+                <th className="px-3 py-2">Контекст</th>
               </tr>
             </thead>
             <tbody>
@@ -202,9 +285,9 @@ export default function SysAuditPage() {
                 <tr key={l.id} className="border-b border-border/60 last:border-0">
                   <td className="px-3 py-2 text-muted-foreground">{formatDateTime(l.createdAt)}</td>
                   <td className="px-3 py-2">{ACTOR_LABEL.get(l.actorId) ?? l.actorId}</td>
-                  <td className="px-3 py-2 font-mono text-[11px]">{l.action}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{l.entity}</td>
-                  <td className="px-3 py-2 font-mono text-[11px]">{l.entityId}</td>
+                  <td className="px-3 py-2">{actionLabel(l.action)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{entityLabel(l.entity)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">скрыт</td>
                   <td className="px-3 py-2 text-muted-foreground">{safeSummary(l.payload)}</td>
                 </tr>
               ))}
@@ -218,18 +301,18 @@ export default function SysAuditPage() {
             <Card key={l.id} className="p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate font-mono text-[12px]">{l.action}</div>
+                  <div className="truncate text-[12px] font-medium">{actionLabel(l.action)}</div>
                   <div className="truncate text-[11px] text-muted-foreground">
                     {ACTOR_LABEL.get(l.actorId) ?? l.actorId} · {formatDateTime(l.createdAt)}
                   </div>
                 </div>
               </div>
               <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-                <dt className="text-muted-foreground">Сущность</dt>
-                <dd className="text-right">{l.entity}</dd>
-                <dt className="text-muted-foreground">ID</dt>
-                <dd className="text-right font-mono text-[11px]">{l.entityId}</dd>
-                <dt className="text-muted-foreground">Payload</dt>
+                <dt className="text-muted-foreground">Раздел</dt>
+                <dd className="text-right">{entityLabel(l.entity)}</dd>
+                <dt className="text-muted-foreground">Код объекта</dt>
+                <dd className="text-right">скрыт</dd>
+                <dt className="text-muted-foreground">Контекст</dt>
                 <dd className="text-right">{safeSummary(l.payload)}</dd>
               </dl>
             </Card>
