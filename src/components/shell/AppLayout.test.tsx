@@ -52,8 +52,8 @@ beforeEach(() => {
 describe("AppLayout production mode", () => {
   it("renders demo shell controls by default", () => {
     renderLayout();
-    expect(screen.getByText(/Демо-режим\. Переключение ролей/)).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /демо-режим/i })).toBeInTheDocument();
+    expect(screen.getByText(/Учебный режим\. Переключение ролей/)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /учебный режим/i })).toBeInTheDocument();
   });
 
   it("shows full Body Map entry in the doctor sidebar", () => {
@@ -146,8 +146,8 @@ describe("AppLayout production mode", () => {
 
     renderLayout();
 
-    expect(screen.queryByText(/Демо-режим\. Переключение ролей/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: /демо-режим/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Учебный режим\. Переключение ролей/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /учебный режим/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("production-session-chip")).toHaveTextContent("Production Doctor");
     expect(screen.getByRole("button", { name: "Выйти из self-hosted backend" })).toBeInTheDocument();
   });

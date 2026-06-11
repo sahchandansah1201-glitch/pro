@@ -37,7 +37,7 @@ export function AppLayout() {
           {!productionMode ? <DemoNotice /> : null}
 
           <header className="workstation-toolbar">
-            <SidebarTrigger className="h-8 w-8" />
+            <SidebarTrigger />
             <div className="mx-2 hidden h-5 w-px bg-border md:block" />
             <div className="hidden text-[13px] text-muted-foreground md:block">
               Рабочее место ·{" "}
@@ -49,7 +49,7 @@ export function AppLayout() {
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Поиск пациента, визита, лида…"
-                  className="h-8 pl-7 text-[13px]"
+                  className="h-11 pl-7 text-[13px]"
                   aria-label="Глобальный поиск"
                 />
               </div>
@@ -107,7 +107,7 @@ function ProductionSessionChip({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 px-2 text-[12px]"
+          className="min-h-11 px-3 text-[12px]"
           onClick={handleLogout}
           aria-label="Выйти из self-hosted backend"
         >

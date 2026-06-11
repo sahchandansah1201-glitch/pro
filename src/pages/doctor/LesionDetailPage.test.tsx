@@ -105,7 +105,7 @@ describe("LesionDetailPage", () => {
           item: {
             patientId: PROTECTED_RENDER_QA_IDS.patientId,
             lesionId: PROTECTED_RENDER_QA_IDS.lesionId,
-            label: "QA protected proxy",
+            label: "Очаг защищённого доступа",
             readiness: {
               status: "technical_ready",
               visitCount: 2,

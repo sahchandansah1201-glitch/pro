@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button";
 import { UserCog, LogOut } from "lucide-react";
 
 /**
- * Демо-переключатель роли. UX-симуляция, не настоящая авторизация.
- * Используется только для демонстрации интерфейса разных ролей.
+ * Учебный переключатель роли. Учебная симуляция, не настоящая авторизация.
+ * Используется только для показа интерфейса разных ролей.
  *
  * Stage 1G-C: при наличии аутентифицированной сессии Lovable Cloud рядом
  * показывается кнопка «Выйти», которая завершает реальную сессию.
@@ -55,9 +55,9 @@ export function RoleSwitcher() {
       <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       <Select value={role} onValueChange={(v) => setRole(v as Role)}>
         <SelectTrigger
-          className="h-8 w-[160px] text-[12px] sm:w-[220px]"
-          aria-label="Демо-режим. Доступ не является реальной защитой. Сменить роль/пользователя."
-          title={`Демо-режим. ${currentUser.fullName} · ${label}`}
+          className="h-11 w-[160px] text-[12px] sm:w-[220px]"
+          aria-label="Учебный режим. Доступ не является реальной защитой. Сменить роль/пользователя."
+          title={`Учебный режим. ${currentUser.fullName} · ${label}`}
         >
           <SelectValue>
             <span className="block truncate">{label}</span>
@@ -65,7 +65,7 @@ export function RoleSwitcher() {
         </SelectTrigger>
         <SelectContent>
           <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
-            Демо-режим. Доступ не является реальной защитой.
+            Учебный режим. Доступ не является реальной защитой.
           </div>
           {ROLES.map((r) => (
             <SelectItem key={r.id} value={r.id} className="text-[12px]">
@@ -93,7 +93,7 @@ export function RoleSwitcher() {
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 px-2 text-[12px]"
+          className="min-h-11 px-3 text-[12px]"
           onClick={handleLogout}
           aria-label="Выйти из аккаунта"
           disabled={pending}

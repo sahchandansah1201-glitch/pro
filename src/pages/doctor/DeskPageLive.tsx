@@ -5,7 +5,7 @@ import { Camera, ChevronRight, ServerCog } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { formatDateTime, sexShort } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import {
   bookSelfHostedLeadAppointment,
   buildDefaultSelfHostedLeadAppointmentStartedAt,
@@ -31,18 +31,53 @@ import {
 } from "@/lib/self-hosted-api-session";
 
 const STATUS_LABEL: Record<string, string> = {
+  planned: "Запланирован",
   draft: "Запланирован",
   in_progress: "В работе",
   signed: "Подписан",
   cancelled: "Отменён",
+  completed: "Завершён",
 };
 
 const ISSUE_LABEL: Record<string, string> = {
-  metadata_incomplete: "метаданные не полные",
+  metadata_incomplete: "данные снимка не полные",
   size_missing: "не указан размер",
   checksum_missing: "нет контрольной суммы",
   review: "нужен пересмотр",
 };
+
+const SEX_LABEL_SHORT: Record<string, string> = {
+  male: "муж.",
+  female: "жен.",
+};
+
+const IMAGE_KIND_LABEL: Record<string, string> = {
+  overview: "Обзор",
+  overview_photo: "Обзор",
+  dermoscopy: "Дерматоскопия",
+  macro: "Крупный план",
+  body_map: "Карта тела",
+  report_attachment: "Вложение отчёта",
+};
+
+const DEVICE_STATUS_LABEL: Record<string, string> = {
+  active: "активно",
+  inactive: "неактивно",
+  error: "ошибка",
+  disabled: "отключено",
+};
+
+function imageKindLabel(kind: string): string {
+  return IMAGE_KIND_LABEL[kind] ?? "Снимок";
+}
+
+function statusLabel(status: string): string {
+  return STATUS_LABEL[status] ?? "Статус не указан";
+}
+
+function deviceStatusLabel(status: string | null | undefined): string {
+  return status ? DEVICE_STATUS_LABEL[status] ?? "статус не указан" : "статус не указан";
+}
 
 const LEAD_SOURCE_LABEL: Record<string, string> = {
   telegram: "Telegram",
@@ -114,7 +149,7 @@ export default function DeskPageLive() {
     useState<SelfHostedApiError | null>(null);
   const [leadBusy, setLeadBusy] = useState<string | null>(null);
   const [leadStatus, setLeadStatus] = useState(
-    "Live-лиды сохраняются в self-hosted backend.",
+    "Лиды сохраняются в системе клиники.",
   );
   const [newLeadSummary, setNewLeadSummary] = useState("");
   const [newLeadSource, setNewLeadSource] = useState("operator");
@@ -131,7 +166,7 @@ export default function DeskPageLive() {
         setError({
           kind: "not_configured",
           code: "not_configured",
-          message: "Production-режим требует вход через self-hosted backend.",
+          message: "Рабочий режим требует вход в систему клиники.",
         });
         return;
       }
@@ -202,7 +237,7 @@ export default function DeskPageLive() {
     if (result.ok) {
       setNewLeadSummary("");
       setLeadStatus(
-        `Лид ${result.value?.safeSummary ?? ""} создан в self-hosted backend.`,
+        `Лид ${result.value?.safeSummary ?? ""} создан в системе клиники.`,
       );
       await refreshLeadsAppointments();
     } else {
@@ -249,8 +284,8 @@ export default function DeskPageLive() {
   }
 
   const subtitle = session.user?.displayName
-    ? `${session.user.displayName} · production dashboard из self-hosted backend`
-    : "Production dashboard из self-hosted backend";
+    ? `${session.user.displayName} · рабочий стол клиники`
+    : "Рабочий стол клиники";
 
   const currentAction: CurrentAction =
     dashboard.awaitingConclusions.length > 0
@@ -283,7 +318,7 @@ export default function DeskPageLive() {
         title="Рабочий стол"
         subtitle={subtitle}
         actions={
-          <Button asChild size="sm" className="h-8 text-[12px]">
+          <Button asChild size="sm" className="min-h-11 text-[12px]">
             <Link to="/capture">
               <Camera className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Съёмка
             </Link>
@@ -303,10 +338,10 @@ export default function DeskPageLive() {
             <ServerCog className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span className="truncate">
               {status === "loading"
-                ? "Загружаем рабочий стол из self-hosted backend…"
+                ? "Загружаем рабочий стол из системы клиники…"
                 : status === "error"
-                  ? "Production dashboard недоступен."
-                  : "Источник данных: self-hosted backend /api/v1/doctor/dashboard."}
+                  ? "Рабочий стол клиники недоступен."
+                  : "Источник данных: система клиники."}
             </span>
           </div>
           {error && (
@@ -342,7 +377,7 @@ export default function DeskPageLive() {
             <Kpi
               label="Визиты сегодня"
               value={dashboard.kpis.visitsToday}
-              hint="из PostgreSQL"
+              hint="из системы клиники"
             />
             <Kpi
               label="Ждут заключения"
@@ -352,12 +387,12 @@ export default function DeskPageLive() {
             <Kpi
               label="Активные визиты"
               value={dashboard.kpis.activeVisits}
-              hint="draft + in_progress"
+              hint="черновики и визиты в работе"
             />
             <Kpi
               label="Снимки к проверке"
               value={dashboard.kpis.assetsNeedReview}
-              hint="metadata QA"
+              hint="данные снимков"
             />
           </div>
         </section>
@@ -373,7 +408,7 @@ export default function DeskPageLive() {
               id="desk-visits"
               className="lg:col-span-7"
               title="Ближайшие визиты"
-              hint="self-hosted backend"
+              hint="система клиники"
             >
               {dashboard.upcoming.length === 0 ? (
                 <Empty text="Нет активных визитов." />
@@ -449,7 +484,7 @@ export default function DeskPageLive() {
               id="desk-photo-quality"
               className="lg:col-span-7"
               title="Замечания к снимкам"
-              hint="metadata completeness"
+              hint="данные снимков"
             >
               {dashboard.assetIssues.length === 0 ? (
                 <Empty text="Замечаний по снимкам нет." />
@@ -475,10 +510,10 @@ export default function DeskPageLive() {
               id="desk-leads"
               className="lg:col-span-6"
               title="Лиды и записи"
-              hint="self-hosted backend"
+              hint="система клиники"
             >
               <div className="border-b border-border px-4 py-2 text-meta">
-                Источник данных: self-hosted backend /api/v1/leads/appointments.
+                Источник данных: система клиники.
               </div>
               <form
                 onSubmit={submitCreateLead}
@@ -550,7 +585,7 @@ export default function DeskPageLive() {
                   role="alert"
                   className="px-4 py-3 text-row text-destructive"
                 >
-                  Не удалось загрузить лиды и записи из self-hosted backend.
+                  Не удалось загрузить лиды и записи из системы клиники.
                 </div>
               )}
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 py-3 text-row">
@@ -613,7 +648,7 @@ export default function DeskPageLive() {
               id="desk-devices"
               className="lg:col-span-6"
               title="Устройства"
-              hint="self-hosted registry"
+              hint="реестр клиники"
             >
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 py-3 text-row">
                 <Stat term="Всего" value={dashboard.kpis.devicesTotal} />
@@ -655,7 +690,7 @@ function VisitRow({ visit }: { visit: SelfHostedDashboardVisit }) {
         </div>
         <div className="truncate text-meta">{visit.chiefComplaint || "—"}</div>
       </div>
-      <StatusChip>{STATUS_LABEL[visit.status] || visit.status}</StatusChip>
+      <StatusChip>{statusLabel(visit.status)}</StatusChip>
       <VisitLink visit={visit} />
     </li>
   );
@@ -686,7 +721,7 @@ function RecentPatientRow({
         <div className="truncate text-meta">
           <span className="font-mono">{patient.code || "—"}</span>
           {patient.sex && (
-            <> · {sexShort(patient.sex === "male" ? "male" : "female")}</>
+            <> · {SEX_LABEL_SHORT[patient.sex] ?? "пол не указан"}</>
           )}
         </div>
       </div>
@@ -708,13 +743,13 @@ function AssetIssueRow({ issue }: { issue: SelfHostedDashboardAssetIssue }) {
         <div className="truncate text-row font-medium">
           {issue.patientFullName || "Пациент"}
         </div>
-        <div className="truncate text-meta">{issue.kind}</div>
+        <div className="truncate text-meta">{imageKindLabel(issue.kind)}</div>
       </div>
       <div className="truncate text-meta">
         {ISSUE_LABEL[issue.issue] || issue.issue}
       </div>
       <span className="inline-flex shrink-0 items-center rounded-sm bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium">
-        QA
+        Проверка
       </span>
       {issue.patientId && issue.visitId ? (
         <RowLink
@@ -735,8 +770,12 @@ function publicLeadMessage(
   if (error.code === "forbidden")
     return "Недостаточно прав для изменения лидов.";
   if (error.code === "validation_error")
-    return "Проверьте поля лида: backend вернул ошибку валидации.";
+    return "Проверьте поля лида: система клиники вернула ошибку проверки.";
   return error.message || "Не удалось сохранить лид.";
+}
+
+function leadActionLabel(action: string, lead: SelfHostedLeadOverviewDTO): string {
+  return `${action}: ${lead.safeSummary || lead.patient.fullName || "лид без описания"}`;
 }
 
 function CurrentActionBand({ action }: { action: CurrentAction }) {
@@ -763,7 +802,7 @@ function CurrentActionBand({ action }: { action: CurrentAction }) {
           Ближайшее действие: {action.actionLabel}
         </p>
       </div>
-      <Button asChild size="sm" className="min-h-10 justify-center text-[12px]">
+      <Button asChild size="sm" className="min-h-11 justify-center text-[12px]">
         {actionLink}
       </Button>
     </section>
@@ -824,7 +863,7 @@ function LeadRow({
             variant="outline"
             size="sm"
             className="h-7 px-2 text-[11px]"
-            aria-label={`Квалифицировать лид ${lead.id}`}
+            aria-label={leadActionLabel("Квалифицировать лид", lead)}
             disabled={busy === `qualify:${lead.id}`}
             onClick={() => {
               void onQualify(lead);
@@ -839,7 +878,7 @@ function LeadRow({
             variant="outline"
             size="sm"
             className="h-7 px-2 text-[11px]"
-            aria-label={`Создать запись из лида ${lead.id}`}
+            aria-label={leadActionLabel("Создать запись из лида", lead)}
             disabled={busy === `book:${lead.id}`}
             onClick={() => {
               void onBook(lead);
@@ -869,7 +908,7 @@ function AppointmentRow({
           {appointment.patient.fullName || "Пациент"}
         </div>
         <div className="truncate text-meta">
-          {formatMaybeDate(appointment.slotAt)} · {appointment.status}
+          {formatMaybeDate(appointment.slotAt)} · {statusLabel(appointment.status)}
         </div>
       </div>
       {patientId ? (
@@ -893,7 +932,7 @@ function DeviceRow({ device }: { device: SelfHostedDashboardDevice }) {
         </div>
         <div className="truncate text-meta">
           <span className="font-mono">{device.serial || "—"}</span> ·{" "}
-          {device.status}
+          {deviceStatusLabel(device.status)}
         </div>
       </div>
       <span className="text-meta tabular-nums">
@@ -976,7 +1015,7 @@ function RowLink({ to, label }: { to: string; label: string }) {
     <Link
       to={to}
       aria-label={label}
-      className="row-action inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:h-7 sm:w-7"
+      className="row-action inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
     >
       <ChevronRight className="h-4 w-4" aria-hidden />
     </Link>

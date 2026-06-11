@@ -40,7 +40,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                 id: "lead-created-1",
                 source: "operator",
                 status: "new",
-                safeSummary: "Новый лид self-hosted",
+                safeSummary: "Новый лид из системы клиники",
               },
             }),
             { status: 201, headers: { "content-type": "application/json" } },
@@ -60,7 +60,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                 id: "lead-live-1",
                 source: "site",
                 status: "qualified",
-                safeSummary: "Live lead from site",
+                safeSummary: "Запрос с сайта",
               },
             }),
             { status: 200, headers: { "content-type": "application/json" } },
@@ -80,7 +80,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                 id: "lead-live-1",
                 source: "site",
                 status: "booked",
-                safeSummary: "Live lead from site",
+                safeSummary: "Запрос с сайта",
               },
               appointment: {
                 id: "visit-booked-1",
@@ -112,12 +112,12 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                   id: "lead-live-1",
                   source: "site",
                   status: "new",
-                  safeSummary: "Live lead from site",
+                  safeSummary: "Запрос с сайта",
                   createdAt: "2026-05-15T08:00:00.000Z",
-                  clinic: { name: "Live Clinic" },
+                  clinic: { name: "Клиника связи" },
                   patient: {
                     id: "10000000-0000-4000-8000-000000000201",
-                    fullName: "Live Patient",
+                    fullName: "Пациент клиники",
                     code: "DP-LIVE-1",
                   },
                 },
@@ -132,10 +132,10 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                   slotAt: "2026-05-15T09:00:00.000Z",
                   patient: {
                     id: "10000000-0000-4000-8000-000000000201",
-                    fullName: "Live Patient",
+                    fullName: "Пациент клиники",
                     code: "DP-LIVE-1",
                   },
-                  clinic: { name: "Live Clinic" },
+                  clinic: { name: "Клиника связи" },
                 },
               ],
               filters: {
@@ -170,9 +170,9 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                 {
                   id: "10000000-0000-4000-8000-000000000301",
                   patientId: "10000000-0000-4000-8000-000000000201",
-                  patientFullName: "Live Patient",
+                  patientFullName: "Пациент клиники",
                   patientCode: "DP-LIVE-1",
-                  clinicName: "Live Clinic",
+                  clinicName: "Клиника связи",
                   status: "in_progress",
                   startedAt: "2026-05-15T09:00:00.000Z",
                   chiefComplaint: "Контроль",
@@ -182,7 +182,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
               recentPatients: [
                 {
                   id: "10000000-0000-4000-8000-000000000201",
-                  fullName: "Live Patient",
+                  fullName: "Пациент клиники",
                   code: "DP-LIVE-1",
                   sex: "female",
                   lastVisitAt: "2026-05-15T09:00:00.000Z",
@@ -193,7 +193,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
                   id: "asset-live-1",
                   visitId: "10000000-0000-4000-8000-000000000301",
                   patientId: "10000000-0000-4000-8000-000000000201",
-                  patientFullName: "Live Patient",
+                  patientFullName: "Пациент клиники",
                   kind: "dermoscopy",
                   issue: "checksum_missing",
                 },
@@ -201,7 +201,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
               devices: [
                 {
                   id: "d-1",
-                  model: "DermLite Live",
+                  model: "Дерматоскоп рабочий",
                   serial: "DL-LIVE",
                   status: "active",
                 },
@@ -220,7 +220,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findAllByText("Live Patient")).toHaveLength(5);
+    expect(await screen.findAllByText("Пациент клиники")).toHaveLength(5);
     const currentAction = screen.getByRole("region", {
       name: "Что делать сейчас",
     });
@@ -249,21 +249,17 @@ describe("DeskPage · Stage 5I production dashboard", () => {
     expect(document.querySelector("#desk-recent-patients")).toBeTruthy();
     expect(document.querySelector("#desk-leads")).toBeTruthy();
     expect(document.querySelector("#desk-devices")).toBeTruthy();
-    expect(
-      screen.getByText(
-        /Источник данных: self-hosted backend \/api\/v1\/doctor\/dashboard/,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("Источник данных: система клиники.").length)
+      .toBeGreaterThanOrEqual(1);
     expect(
       await screen.findByRole("button", {
-        name: "Квалифицировать лид lead-live-1",
+        name: "Квалифицировать лид: Запрос с сайта",
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/self-hosted backend \/api\/v1\/leads\/appointments/),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("Источник данных: система клиники.").length)
+      .toBeGreaterThanOrEqual(2);
     expect(screen.getByText("1/1")).toBeInTheDocument();
-    expect(screen.getByText("DermLite Live")).toBeInTheDocument();
+    expect(screen.getByText("Дерматоскоп рабочий")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Иванова Наталья Олеговна");
     expect(document.body.textContent).not.toContain("Демо-режим");
     expect(fetchMock).toHaveBeenCalledWith(
@@ -288,7 +284,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
     );
 
     fireEvent.change(screen.getByLabelText("Краткое описание лида"), {
-      target: { value: "Новый лид self-hosted" },
+      target: { value: "Новый лид из системы клиники" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Добавить лид" }));
     await waitFor(() =>
@@ -304,11 +300,13 @@ describe("DeskPage · Stage 5I production dashboard", () => {
       ),
     );
     expect(
-      await screen.findByText(/создан в self-hosted backend/i),
+      await screen.findByText(/создан в системе клиники/i),
     ).toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Квалифицировать лид lead-live-1" }),
+      screen.getByRole("button", {
+        name: "Квалифицировать лид: Запрос с сайта",
+      }),
     );
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -321,7 +319,7 @@ describe("DeskPage · Stage 5I production dashboard", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Создать запись из лида lead-live-1",
+        name: "Создать запись из лида: Запрос с сайта",
       }),
     );
     await waitFor(() =>

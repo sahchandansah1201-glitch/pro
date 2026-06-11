@@ -36,7 +36,7 @@ describe("VisitReportTab · URL params", () => {
   it("?lesion=local-lesion-1 shows local notice and no /lesions/local-lesion-* link", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=local-lesion-1");
     expect(
-      screen.getByText(/Локальный демо-очаг нужно сохранить на бэкенде перед отчётом/),
+      screen.getByText(/Локальный учебный очаг нужно сохранить в системе клиники перед отчётом/),
     ).toBeInTheDocument();
     expect(document.querySelectorAll("a[href*='/lesions/local-lesion']").length).toBe(0);
   });
@@ -52,10 +52,12 @@ describe("VisitReportTab · readiness checklist", () => {
 });
 
 describe("VisitReportTab · with assessment", () => {
-  it("shows ABCD/7-point and CTAs to assessment/conclusion/imaging", () => {
+  it("shows Russian assessment labels and CTAs to assessment/conclusion/imaging", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    expect(screen.getAllByText(/ABCD total/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/7-point total/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Оценка ABCD/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Оценка 7 признаков/).length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain("ABCD total");
+    expect(document.body.textContent).not.toContain("7-point total");
     expect(screen.getByRole("button", { name: /К оценке очага/ })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /К заключению по визиту/ }),
@@ -97,10 +99,10 @@ describe("VisitReportTab · demo report form", () => {
     });
     const internalInput = screen.getByLabelText(/Внутренняя заметка врача/);
     fireEvent.change(internalInput, { target: { value: "ДД: невус vs. атипия." } });
-    fireEvent.click(screen.getByRole("button", { name: /Сформировать демо-отчёт/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сформировать учебный отчёт/ }));
 
     const preview = screen.getByTestId("demo-report-preview");
-    expect(within(preview).getByText(/Демо-отчёт сформирован локально/)).toBeInTheDocument();
+    expect(within(preview).getByText(/Учебный отчёт сформирован локально/)).toBeInTheDocument();
 
     const patientPreview = screen.getByTestId("patient-facing-preview");
     expect(
@@ -113,14 +115,14 @@ describe("VisitReportTab · demo report form", () => {
     expect(within(internalPreview).getByText(/невус vs\. атипия/)).toBeInTheDocument();
   });
 
-  it("Печать отчёта (демо) и Отправить пациенту (демо) всегда disabled", () => {
+  it("Печать недоступна и Отправка недоступна всегда disabled", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
     expect(
-      screen.getByRole("button", { name: /Печать отчёта \(демо\)/ }),
+      screen.getByRole("button", { name: /Печать недоступна/ }),
     ).toBeDisabled();
 
     const sendBtn = screen.getByRole("button", {
-      name: /Отправить пациенту \(демо\)/,
+      name: /Отправка недоступна/,
     }) as HTMLButtonElement;
     expect(sendBtn.disabled).toBe(true);
 
@@ -129,7 +131,7 @@ describe("VisitReportTab · demo report form", () => {
     ).toBeInTheDocument();
   });
 
-  it("Отправить пациенту (демо) остаётся disabled даже после Сформировать демо-отчёт", () => {
+  it("Отправка недоступна остаётся disabled даже после Сформировать учебный отчёт", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
 
     fireEvent.change(screen.getByLabelText(/Текст для пациента/), {
@@ -138,10 +140,10 @@ describe("VisitReportTab · demo report form", () => {
     fireEvent.change(screen.getByLabelText(/Внутренняя заметка врача/), {
       target: { value: "ABCD граничный, контроль через 3 мес." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Сформировать демо-отчёт/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сформировать учебный отчёт/ }));
 
     const sendBtn = screen.getByRole("button", {
-      name: /Отправить пациенту \(демо\)/,
+      name: /Отправка недоступна/,
     }) as HTMLButtonElement;
     expect(sendBtn.disabled).toBe(true);
 
@@ -185,7 +187,7 @@ describe("VisitReportTab · Patient Visit Packet", () => {
     fireEvent.click(within(packet).getByRole("button", { name: /Выпустить пакет пациенту/ }));
 
     expect(within(packet).getByText(/Пакет выпущен пациенту/)).toBeInTheDocument();
-    expect(within(packet).getByText(/QR для пациента/)).toBeInTheDocument();
+    expect(within(packet).getByText(/Код доступа пациента/)).toBeInTheDocument();
     expect(within(packet).getByText(/Доступ пациенту выдан/)).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("tok-r001-demo");
   });
@@ -206,6 +208,7 @@ describe("VisitReportTab · patient photo release readiness", () => {
   it("blocks patient photo access when selected photos still need quality review", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
 
+    const packet = screen.getByRole("region", { name: /Пакет визита пациенту/ });
     const photoAccess = screen.getByRole("region", {
       name: /Контур фото для пациента/,
     });
@@ -218,6 +221,10 @@ describe("VisitReportTab · patient photo release readiness", () => {
     expect(
       within(photoAccess).getByRole("button", { name: /Подготовить метаданные фото/ }),
     ).toBeDisabled();
+    expect(packet.textContent).not.toContain("i-011");
+    expect(packet.textContent).not.toContain("i-012");
+    expect(packet.textContent).not.toContain("dermoscopy");
+    expect(packet.textContent).not.toContain("macro");
   });
 
   it("prepares only local photo metadata for a ready report and keeps clinic system blocked", () => {

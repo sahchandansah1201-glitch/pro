@@ -106,22 +106,22 @@ describe("VisitWorkspacePage · Карта тела", () => {
     expect(svg.getAttribute("aria-label")).toMatch(/Левая боковая поверхность/);
   });
 
-  it("clicking SVG opens 'Новый очаг (демо)' panel with defaults; cancel hides it", () => {
+  it("clicking SVG opens 'Новый учебный очаг' panel with defaults; cancel hides it", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
-    expect(screen.getByText(/Новый очаг \(демо\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Новый учебный очаг/)).toBeInTheDocument();
     const labelInput = screen.getByDisplayValue("Новый очаг") as HTMLInputElement;
     expect(labelInput).toBeInTheDocument();
-    const statusSelect = screen.getByLabelText(/Статус демо-очага/) as HTMLSelectElement;
+    const statusSelect = screen.getByLabelText(/Статус учебного очага/) as HTMLSelectElement;
     expect(statusSelect.value).toBe("active");
     expect(screen.getByRole("button", { name: /Добавить локально/ })).toBeInTheDocument();
     const cancel = screen.getByRole("button", { name: /Отменить/ });
     fireEvent.click(cancel);
-    expect(screen.queryByText(/Новый очаг \(демо\)/)).toBeNull();
+    expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
   });
 
   it("does not contain forbidden tokens or placeholder text in DOM", () => {
@@ -201,11 +201,11 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
   }
 
-  it("opens 'Новый очаг (демо)' panel with prefilled, editable zone and default label", () => {
+  it("opens 'Новый учебный очаг' panel with prefilled, editable zone and default label", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     placePoint();
-    expect(screen.getByText(/Новый очаг \(демо\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Новый учебный очаг/)).toBeInTheDocument();
     const labelInput = screen.getByDisplayValue("Новый очаг") as HTMLInputElement;
     expect(labelInput).toBeInTheDocument();
     // zone input is prefilled (non-empty) and editable
@@ -221,7 +221,7 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
     placePoint();
-    const sel = screen.getByLabelText(/Статус демо-очага/) as HTMLSelectElement;
+    const sel = screen.getByLabelText(/Статус учебного очага/) as HTMLSelectElement;
     const selectedOpt = Array.from(sel.options).find((o) => o.selected);
     expect(selectedOpt?.text).toBe("Активное");
   });
@@ -231,11 +231,11 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
     openBodyMap();
     placePoint();
     fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
-    expect(screen.queryByText(/Новый очаг \(демо\)/)).toBeNull();
-    expect(screen.getByText(/Локальные демо-очаги/)).toBeInTheDocument();
+    expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
+    expect(screen.getByText(/Локальные учебные очаги/)).toBeInTheDocument();
     expect(screen.getAllByText(/локально, не сохранено/).length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/Это демо-очаг\. Он существует только в UI текущего визита\./),
+      screen.getByText(/Это учебный очаг\. Он существует только в интерфейсе текущего визита\./),
     ).toBeInTheDocument();
   });
 
@@ -299,7 +299,7 @@ describe("VisitWorkspacePage · acceptance — URL params and isolation", () => 
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
     fireEvent.click(screen.getByRole("button", { name: /Добавить локально/ }));
-    expect(screen.getByText(/Локальные демо-очаги/)).toBeInTheDocument();
+    expect(screen.getByText(/Локальные учебные очаги/)).toBeInTheDocument();
 
     // switch to other tabs — draft must not appear
     for (const tabName of [/Оценка/, /Заключение/, /Отчёт/]) {
@@ -2387,13 +2387,13 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
 
     expect(await screen.findByRole("heading", { name: /Петрова Анна/ })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /Рабочая оценка/ })).toBeInTheDocument();
-    expect(screen.getByText(/демо-оценки и демо-отчёт скрыты/)).toBeInTheDocument();
+    expect(screen.getByText(/учебные оценки и учебный отчёт скрыты/)).toBeInTheDocument();
     expect(screen.getByDisplayValue(/Рабочая оценка/)).toBeInTheDocument();
 
     selectTab(/Заключение/);
     expect(await screen.findByRole("heading", { name: /Рабочее заключение/ })).toBeInTheDocument();
     expect(screen.getByDisplayValue(/Рабочее заключение/)).toBeInTheDocument();
-    expect(screen.getAllByText(/демо-оценки и демо-отчёт скрыты/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/учебные оценки и учебный отчёт скрыты/).length).toBeGreaterThan(0);
 
     selectTab(/Отчёт/);
     expect(await screen.findByRole("heading", { name: /Рабочий отчёт/ })).toBeInTheDocument();
@@ -2543,7 +2543,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("validatorEmail");
     expect(document.body.textContent).not.toContain("i-011");
     expect(document.body.textContent).not.toContain("i-012");
-    expect(screen.getAllByText(/демо-оценки и демо-отчёт скрыты/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/учебные оценки и учебный отчёт скрыты/).length).toBeGreaterThan(0);
   });
 
   it("posts timeline rollout governance review without patient delivery or dynamic conclusion", async () => {
@@ -3150,8 +3150,8 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
 
-    expect(screen.getByText(/локальное демо-добавление очага отключено/)).toBeInTheDocument();
-    expect(screen.queryByText(/Новый очаг \(демо\)/)).toBeNull();
+    expect(screen.getByText(/локальное учебное добавление очага отключено/)).toBeInTheDocument();
+    expect(screen.queryByText(/Новый учебный очаг/)).toBeNull();
     expect(screen.queryByRole("button", { name: /Добавить локально/ })).toBeNull();
   });
 });

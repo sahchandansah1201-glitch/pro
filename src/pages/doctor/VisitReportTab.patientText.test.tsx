@@ -99,12 +99,12 @@ describe("VisitReportTab · patient text editor", () => {
     expect(within(errors).getByText(/Символы.*запрещены/)).toBeInTheDocument();
 
     const saveBtn = screen.getByRole("button", {
-      name: /Сформировать демо-отчёт/,
+      name: /Сформировать учебный отчёт/,
     }) as HTMLButtonElement;
     expect(saveBtn.disabled).toBe(true);
 
     const sendBtn = screen.getByRole("button", {
-      name: /Отправить пациенту \(демо\)/,
+      name: /Отправка недоступна/,
     }) as HTMLButtonElement;
     expect(sendBtn.disabled).toBe(true);
   });
@@ -119,13 +119,13 @@ describe("VisitReportTab · patient text editor", () => {
     expect(textarea.value).toBe("a\n\nb");
   });
 
-  it("Отправить пациенту (демо) остаётся disabled даже после save и применения шаблона", () => {
+  it("Отправка недоступна остаётся disabled даже после save и применения шаблона", () => {
     renderAt(path);
     fireEvent.click(screen.getByTestId("tpl-self-care-replace"));
-    fireEvent.click(screen.getByRole("button", { name: /Сформировать демо-отчёт/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Сформировать учебный отчёт/ }));
 
     const sendBtn = screen.getByRole("button", {
-      name: /Отправить пациенту \(демо\)/,
+      name: /Отправка недоступна/,
     }) as HTMLButtonElement;
     expect(sendBtn.disabled).toBe(true);
   });

@@ -95,7 +95,7 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
         data-mode="demo"
         className="border-b border-border bg-muted/40 px-4 py-2 text-[12px] text-muted-foreground"
       >
-        Демо-режим: визит читается из демонстрационных данных. Войдите в систему клиники, чтобы видеть рабочие данные.
+        Учебный режим: визит читается из учебных данных. Войдите в систему клиники, чтобы видеть рабочие данные.
       </div>
     );
   }

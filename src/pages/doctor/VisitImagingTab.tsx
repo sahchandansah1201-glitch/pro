@@ -153,7 +153,7 @@ export function VisitImagingTab({
 
   const [captureNotice, setCaptureNotice] = useState<string | null>(null);
   const showCaptureNotice = (label: string) =>
-    setCaptureNotice(`Демо: источник «${label}» выбран, реальный захват будет подключён позже.`);
+    setCaptureNotice(`Учебный режим: источник «${label}» выбран, реальный захват будет подключён позже.`);
 
   const filtered = useMemo(() => {
     return allImages.filter((img) => {
@@ -374,14 +374,14 @@ export function VisitImagingTab({
               {/* Zoom toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-2 py-1.5">
                 <div className="flex items-center gap-1">
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => clampZoom(z - 0.2))} aria-label="Уменьшить">
+                  <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => clampZoom(z - 0.2))} aria-label="Уменьшить">
                     <ZoomOut className="h-3.5 w-3.5" />
                   </Button>
                   <span className="w-12 text-center text-[12px] tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => clampZoom(z + 0.2))} aria-label="Увеличить">
+                  <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => clampZoom(z + 0.2))} aria-label="Увеличить">
                     <ZoomIn className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom(1)} aria-label="Сбросить масштаб">
+                  <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom(1)} aria-label="Сбросить масштаб">
                     <RotateCcw className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -411,7 +411,7 @@ export function VisitImagingTab({
               {/* Actions */}
               <div className="flex flex-wrap gap-2">
                 {selected.lesionId ? (
-                  <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
+                  <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
                     <Link to={`/patients/${patientId}/lesions/${selected.lesionId}`}>
                       Открыть образование <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
                     </Link>
@@ -423,7 +423,7 @@ export function VisitImagingTab({
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                    className="min-h-11 text-[12px]"
                     onClick={() => onOpenBodyMap(selected.lesionId!)}
                   >
                     <MapPin className="mr-1 h-3.5 w-3.5" aria-hidden /> Открыть на карте тела
@@ -432,7 +432,7 @@ export function VisitImagingTab({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  className="min-h-11 text-[12px]"
                   onClick={() => showCaptureNotice("Повтор снимка")}
                 >
                   <RefreshCw className="mr-1 h-3.5 w-3.5" /> Повторить снимок
@@ -492,7 +492,7 @@ export function VisitImagingTab({
         )}
       </section>
 
-      {/* Stage 1E-E · API assets panel. Network calls live in
+      {/* Stage 1E-E · панель снимков. Network calls live in
           src/lib/clinical-assets-api.ts; this component only consumes them. */}
       <ApiAssetsPanel
         visitId={visit.id}
@@ -505,7 +505,7 @@ export function VisitImagingTab({
   );
 }
 
-// ───────── API assets panel ─────────
+// ───────── панель снимков ─────────
 
 interface ApiAssetsPanelProps {
   visitId: string;
@@ -709,7 +709,7 @@ function ApiAssetsPanel({
 
   const handleUploadClick = useCallback(() => {
     if (!configured) {
-      setStatus("Загрузка снимков требует авторизованной сессии API.");
+      setStatus("Загрузка снимков доступна после входа в систему клиники.");
       return;
     }
     fileInputRef.current?.click();
@@ -928,7 +928,7 @@ function ApiAssetsPanel({
       e.stopPropagation();
       setDragActive(false);
       if (!configured) {
-        setStatus("Загрузка снимков требует авторизованной сессии API.");
+        setStatus("Загрузка снимков доступна после входа в систему клиники.");
         return;
       }
       if (busyRef.current) return;
@@ -1070,7 +1070,7 @@ function ApiAssetsPanel({
               : busy
                 ? "загрузка…"
                 : "—"
-            : "демо-режим"}
+            : "учебный режим"}
         </span>
       </div>
 
@@ -1084,7 +1084,7 @@ function ApiAssetsPanel({
         <Button
           size="sm"
           variant="secondary"
-          className="h-10 gap-1.5 text-[13px] sm:h-8 sm:text-[12px]"
+          className="min-h-11 gap-1.5 text-[13px] sm:text-[12px]"
           onClick={handleUploadClick}
           disabled={busy}
           aria-label="Загрузить снимок"
@@ -1094,10 +1094,10 @@ function ApiAssetsPanel({
         <Button
           size="sm"
           variant="ghost"
-          className="h-10 gap-1.5 text-[13px] sm:h-8 sm:text-[12px]"
+          className="min-h-11 gap-1.5 text-[13px] sm:text-[12px]"
           onClick={handleRefresh}
           disabled={!configured || busy}
-          aria-label="Обновить список ассетов"
+          aria-label="Обновить список снимков"
         >
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -1133,7 +1133,7 @@ function ApiAssetsPanel({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           data-active={dragActive ? "true" : "false"}
-          className={`flex flex-1 min-w-[180px] flex-wrap items-center gap-x-2 gap-y-0 rounded-md border border-dashed px-2 py-1.5 text-[12px] transition-colors ${
+          className={`flex min-h-11 flex-1 min-w-[180px] flex-wrap items-center gap-x-2 gap-y-0 rounded-md border border-dashed px-2 py-1.5 text-[12px] transition-colors ${
             dragActive
               ? "border-primary bg-primary/5 text-foreground"
               : "border-border text-muted-foreground hover:border-muted-foreground/50"
@@ -1179,7 +1179,7 @@ function ApiAssetsPanel({
 
       {!configured && (
         <p className="px-3 pb-3 text-[12px] text-muted-foreground">
-          Демо-режим: система снимков не подключена для текущей сессии.
+          Учебный режим: система снимков не подключена для текущей сессии.
           Загрузка и ссылки доступны только после входа в систему клиники.
         </p>
       )}
@@ -1221,7 +1221,7 @@ function ApiAssetsPanel({
               className="h-8 gap-1.5 text-[12px]"
               onClick={handleRetry}
               disabled={busy}
-              aria-label="Повторить загрузку ассетов"
+              aria-label="Повторить загрузку снимков"
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Повторить
             </Button>
@@ -1314,7 +1314,7 @@ function ApiAssetsPanel({
 
       {configured && assets && assets.length === 0 && !busy && (
         <p className="px-3 pb-3 text-[12px] text-muted-foreground">
-          В API ещё нет ассетов для этого визита.
+          В системе клиники ещё нет снимков для этого визита.
         </p>
       )}
 
@@ -1628,13 +1628,13 @@ function assetsErrorMessage(err: AssetsApiError, ctx: ErrorContext): string {
     if (msg) return msg;
   }
   if (ctx === "list") {
-    if (err.kind === "network") return "Сбой сети при загрузке ассетов.";
+    if (err.kind === "network") return "Сбой сети при загрузке снимков.";
     if (err.kind === "http") {
-      if (err.status === 401 || err.status === 403) return "Недостаточно прав для просмотра ассетов.";
-      if (err.status === 404) return "Визит или ассеты не найдены.";
-      return "Не удалось загрузить ассеты.";
+      if (err.status === 401 || err.status === 403) return "Недостаточно прав для просмотра снимков.";
+      if (err.status === 404) return "Визит или снимки не найдены.";
+      return "Не удалось загрузить снимки.";
     }
-    return "Не удалось загрузить ассеты.";
+    return "Не удалось загрузить снимки.";
   }
   if (ctx === "download") {
     if (err.kind === "network") return "Сбой сети при подготовке ссылки.";
@@ -1659,7 +1659,7 @@ function assetsErrorMessage(err: AssetsApiError, ctx: ErrorContext): string {
 
 function CaptureBtn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
-    <Button size="sm" variant="secondary" className="h-10 gap-1.5 text-[13px] sm:h-8 sm:text-[12px]" onClick={onClick}>
+    <Button size="sm" variant="secondary" className="min-h-11 gap-1.5 text-[13px] sm:text-[12px]" onClick={onClick}>
       {icon}
       {label}
     </Button>
@@ -1708,7 +1708,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 rounded-md border border-border bg-surface px-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-ring sm:h-8 sm:text-[12px]"
+        className="min-h-11 rounded-md border border-border bg-surface px-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-ring sm:text-[12px]"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -1740,7 +1740,7 @@ function CompareSelect({
       <select
         value={compareId ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
-        className="h-7 rounded-md border border-border bg-surface px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
+        className="min-h-[44px] rounded-md border border-border bg-surface px-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
       >
         <option value="">— нет —</option>
         {candidates.map((img) => {

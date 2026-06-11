@@ -160,14 +160,14 @@ export default function SelfHostedLoginPage() {
               {session.user?.roles?.length ? ` · роли: ${session.user.roles.map(roleLabel).join(", ")}` : null}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <Button asChild type="button" size="sm" className="h-8 text-[12px]">
+              <Button asChild type="button" size="sm" className="min-h-11 text-[12px]">
                 <Link to="/patients">Открыть пациентов</Link>
               </Button>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 text-[12px]"
+                className="min-h-11 text-[12px]"
                 onClick={handleSignOut}
               >
                 Выйти из системы клиники
@@ -188,7 +188,7 @@ export default function SelfHostedLoginPage() {
               placeholder="http://localhost:8080"
               value={apiBaseUrl}
               onChange={(event) => setApiBaseUrl(event.target.value)}
-              className="h-9 text-[13px]"
+              className="h-11 text-[13px]"
               required
             />
             <p className="text-[11px] text-muted-foreground">
@@ -207,7 +207,7 @@ export default function SelfHostedLoginPage() {
               autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-9 text-[13px]"
+              className="h-11 text-[13px]"
               required
             />
           </div>
@@ -222,7 +222,7 @@ export default function SelfHostedLoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="h-9 text-[13px]"
+              className="h-11 text-[13px]"
               required
             />
           </div>
@@ -238,7 +238,7 @@ export default function SelfHostedLoginPage() {
           ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <Button type="submit" size="sm" disabled={submitting} className="h-9 gap-1.5 text-[13px]">
+            <Button type="submit" size="sm" disabled={submitting} className="min-h-11 gap-1.5 text-[13px]">
               <LogIn className="h-4 w-4" aria-hidden />
               {submitting ? "Входим…" : "Войти в продукт"}
             </Button>
@@ -288,7 +288,7 @@ function ProductionBootstrapPanel({
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 gap-1.5 text-[12px]"
+            className="min-h-11 gap-1.5 text-[12px]"
             onClick={onCheck}
             disabled={checking}
             aria-label="Проверить готовность входа"

@@ -42,7 +42,7 @@ describe("VisitWorkspaceLiveBanner", () => {
     render(<VisitWorkspaceLiveBanner visitId={VISIT_ID} />);
     const banner = screen.getByTestId("visit-workspace-live-banner");
     expect(banner.dataset.mode).toBe("demo");
-    expect(banner).toHaveTextContent(/Demo-режим/);
+    expect(banner).toHaveTextContent(/Учебный режим/);
   });
 
   it("loads visit, lesions and assets in live mode and renders counts", async () => {
@@ -80,9 +80,9 @@ describe("VisitWorkspaceLiveBanner", () => {
       expect(banner.dataset.mode).toBe("live");
     });
     const banner = screen.getByTestId("visit-workspace-live-banner");
-    expect(banner).toHaveTextContent(/Self-hosted backend \(read-only\)/);
+    expect(banner).toHaveTextContent(/Система клиники/);
     expect(banner).toHaveTextContent(/Очаги: 1/);
-    expect(banner).toHaveTextContent(/Снимки \(метаданные\): 2/);
+    expect(banner).toHaveTextContent(/Снимки: 2/);
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 

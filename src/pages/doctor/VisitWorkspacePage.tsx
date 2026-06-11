@@ -16,7 +16,7 @@ import {
   getPatientById,
   getVisitById,
 } from "@/lib/mock-data";
-import { calcAge, formatDate, formatDateTime, sexShort } from "@/lib/format";
+import { calcAge, formatDate, formatDateTime } from "@/lib/format";
 import type { BodyMapPoint, Lesion, Patient, Visit } from "@/lib/domain";
 import { VisitImagingTab } from "@/pages/doctor/VisitImagingTab";
 import { useApiSession } from "@/lib/api-session";
@@ -133,6 +133,11 @@ const LESION_STATUS: Record<Lesion["status"], string> = {
   monitoring: "Наблюдение",
   removed: "Удалено",
   archived: "Архив",
+};
+
+const SEX_LABEL_SHORT: Record<Patient["sex"], string> = {
+  male: "муж.",
+  female: "жен.",
 };
 
 function userName(id: string | null | undefined): string {
@@ -283,9 +288,9 @@ export default function VisitWorkspacePage() {
   if (!patient || !visit || visit.patientId !== patient.id) {
     return (
       <div className="flex h-full flex-col">
-        <PageHeader title="Визит не найден" subtitle="Карточка визита отсутствует в демо-данных." />
+        <PageHeader title="Визит не найден" subtitle="Карточка визита отсутствует в учебных данных." />
         <div className="p-4">
-          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+          <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
             <Link to={id ? `/patients/${id}` : "/patients"}>К карточке пациента</Link>
           </Button>
         </div>
@@ -308,7 +313,7 @@ export default function VisitWorkspacePage() {
 
   const headerMeta: Array<{ label: string; value: string }> = [
     { label: "Код", value: patient.code },
-    { label: "Пол / возраст", value: `${sexShort(patient.sex)} · ${calcAge(patient.birthDate)} лет` },
+    { label: "Пол / возраст", value: `${SEX_LABEL_SHORT[patient.sex]} · ${calcAge(patient.birthDate)} лет` },
     { label: "Фототип", value: String(patient.phototype) },
     { label: "Статус", value: VISIT_STATUS[visit.status] },
     { label: "Клиника", value: clinic?.name ?? "—" },
@@ -337,7 +342,7 @@ export default function VisitWorkspacePage() {
           </>
         }
         actions={
-          <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
+          <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
             <Link to={`/patients/${patient.id}`}>К пациенту</Link>
           </Button>
         }
@@ -350,7 +355,7 @@ export default function VisitWorkspacePage() {
           className="border-b border-border bg-surface px-4 py-2 text-[12px] text-muted-foreground"
         >
           <span className="font-medium text-foreground">Источник данных: система клиники</span>
-          {" · "}рабочее место визита не использует демо-данные пациента и визита.
+          {" · "}рабочее место визита не использует учебные данные пациента и визита.
         </div>
       ) : null}
 
@@ -363,13 +368,13 @@ export default function VisitWorkspacePage() {
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="border-b border-border bg-surface px-3">
-          <TabsList className="h-auto overflow-x-auto bg-transparent p-0 sm:h-9">
-            <TabsTrigger value="intake" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Первичный приём</TabsTrigger>
-            <TabsTrigger value="bodymap" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Карта тела</TabsTrigger>
-            <TabsTrigger value="imaging" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Снимки</TabsTrigger>
-            <TabsTrigger value="assessment" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Оценка</TabsTrigger>
-            <TabsTrigger value="conclusion" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Заключение</TabsTrigger>
-            <TabsTrigger value="report" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Отчёт</TabsTrigger>
+          <TabsList className="h-auto overflow-x-auto bg-transparent p-0">
+            <TabsTrigger value="intake" className="min-h-11 text-[13px] sm:text-[12px]">Первичный приём</TabsTrigger>
+            <TabsTrigger value="bodymap" className="min-h-11 text-[13px] sm:text-[12px]">Карта тела</TabsTrigger>
+            <TabsTrigger value="imaging" className="min-h-11 text-[13px] sm:text-[12px]">Снимки</TabsTrigger>
+            <TabsTrigger value="assessment" className="min-h-11 text-[13px] sm:text-[12px]">Оценка</TabsTrigger>
+            <TabsTrigger value="conclusion" className="min-h-11 text-[13px] sm:text-[12px]">Заключение</TabsTrigger>
+            <TabsTrigger value="report" className="min-h-11 text-[13px] sm:text-[12px]">Отчёт</TabsTrigger>
           </TabsList>
         </div>
 
@@ -1684,7 +1689,7 @@ function ProductionClinicalWorkspacePanel({
     <Section title={title}>
       <div className="space-y-4">
         <div className="rounded-sm border border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
-          Рабочая запись клиники: демо-оценки и демо-отчёт скрыты. Статус записи:{" "}
+          Рабочая запись клиники: учебные оценки и учебный отчёт скрыты. Статус записи:{" "}
           <span className="font-medium text-foreground">{humanDisplayValue(itemStatus)}</span>.
         </div>
 
@@ -4222,7 +4227,7 @@ function PhotoProtocolPolicyGovernancePanel({
           type="button"
           size="sm"
           variant="secondary"
-          className="min-h-[44px] sm:min-h-[32px]"
+          className="min-h-11"
           disabled={saving}
           onClick={onSave}
         >
@@ -4246,15 +4251,15 @@ function ProductionClinicalWorkspaceEmptyState({
   const copy = {
     assessment: {
       title: "Оценка ждёт систему клиники",
-      text: "Рабочее место клиники: демо-данные скрыты. Клиническая оценка будет доступна после подключения системы клиники.",
+      text: "Рабочее место клиники: учебные данные скрыты. Клиническая оценка будет доступна после подключения системы клиники.",
     },
     conclusion: {
       title: "Заключение ждёт систему клиники",
-      text: "Рабочее место клиники: демо-данные скрыты. Заключение не собирается из демо-данных.",
+      text: "Рабочее место клиники: учебные данные скрыты. Заключение не собирается из учебных данных.",
     },
     report: {
       title: "Отчёт ждёт систему клиники",
-      text: "Рабочее место клиники: демо-данные скрыты. Рабочий отчёт будет собираться только из данных системы клиники.",
+      text: "Рабочее место клиники: учебные данные скрыты. Рабочий отчёт будет собираться только из данных системы клиники.",
     },
   }[kind];
 
@@ -4264,7 +4269,7 @@ function ProductionClinicalWorkspaceEmptyState({
         <p>{detail || copy.text}</p>
         <p>
           Граница рабочей системы: экран показывает только данные пациента, визита и очагов из системы клиники.
-          Демо-оценки не подставляются.
+          Учебные оценки не подставляются.
         </p>
       </div>
     </Section>
@@ -4333,6 +4338,10 @@ interface PendingPoint {
   x: number;
   y: number;
   zone: string;
+}
+
+function formatBodyMapPosition(point: Pick<BodyMapPoint, "x" | "y">) {
+  return `горизонталь ${Math.round(point.x * 100)}% · вертикаль ${Math.round(point.y * 100)}%`;
 }
 
 interface LocalLesionDraft {
@@ -4427,7 +4436,7 @@ function BodyMapTab({
   const handlePlace = (np: { view: View; x: number; y: number }) => {
     if (productionMode) {
       setProductionPlacementNotice(
-        "Рабочий режим: локальное демо-добавление очага отключено. Используйте запись визита из системы клиники.",
+        "Рабочий режим: локальное учебное добавление очага отключено. Используйте запись визита из системы клиники.",
       );
       return;
     }
@@ -4481,7 +4490,7 @@ function BodyMapTab({
                 key={v}
                 type="button"
                 onClick={() => setView(v)}
-                className={`min-h-[44px] rounded-sm border px-2.5 text-[12px] sm:min-h-[32px] ${
+                className={`min-h-11 rounded-sm border px-2.5 text-[12px] ${
                   view === v
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-surface text-foreground hover:bg-surface-muted"
@@ -4493,14 +4502,14 @@ function BodyMapTab({
           </div>
           <div className="text-[11px] text-muted-foreground">Тип карты: {variantLabel}</div>
           <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(2)))} aria-label="Уменьшить">
+            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => Math.max(0.6, +(z - 0.2).toFixed(2)))} aria-label="Уменьшить">
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
             <span className="w-10 text-center text-[12px] tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom((z) => Math.min(2, +(z + 0.2).toFixed(2)))} aria-label="Увеличить">
+            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom((z) => Math.min(2, +(z + 0.2).toFixed(2)))} aria-label="Увеличить">
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setZoom(1)} aria-label="Сбросить масштаб">
+            <Button size="sm" variant="ghost" className="h-11 w-11 p-0" onClick={() => setZoom(1)} aria-label="Сбросить масштаб">
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -4631,7 +4640,7 @@ function BodyMapTab({
         {localDrafts.length > 0 && (
           <div className="border-t border-border bg-surface">
             <div className="bg-surface-muted px-3 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-              Локальные демо-очаги ({localDrafts.length})
+              Локальные учебные очаги ({localDrafts.length})
             </div>
             <ul className="divide-y divide-border">
               {localDrafts.map((d, i) => {
@@ -4674,10 +4683,10 @@ function BodyMapTab({
 
         {pending && (
           <div className="border-t border-border bg-surface p-3">
-            <div className="text-[13px] font-semibold">Новый очаг (демо)</div>
+            <div className="text-[13px] font-semibold">Новый учебный очаг</div>
             <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
               <Stat term="Проекция" value={bodyMapViewLabel(pending.view)} />
-              <Stat term="X / Y" value={`${Math.round(pending.x * 100)}% / ${Math.round(pending.y * 100)}%`} />
+              <Stat term="Позиция" value={formatBodyMapPosition(pending)} />
             </dl>
             <label className="mt-2 block text-[11px] text-muted-foreground">
               Подсказанная зона
@@ -4701,7 +4710,7 @@ function BodyMapTab({
                 value={draftStatus}
                 onChange={(e) => setDraftStatus(e.target.value as Lesion["status"])}
                 className="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-[12px]"
-                aria-label="Статус демо-очага"
+                aria-label="Статус учебного очага"
               >
                 {(Object.keys(LESION_STATUS) as Array<Lesion["status"]>).map((s) => (
                   <option key={s} value={s}>{LESION_STATUS[s]}</option>
@@ -4709,7 +4718,7 @@ function BodyMapTab({
               </select>
             </label>
             <label className="mt-2 block text-[11px] text-muted-foreground">
-              Комментарий врача (демо)
+              Комментарий врача
               <Textarea
                 value={draftNote}
                 onChange={(e) => setDraftNote(e.target.value)}
@@ -4719,7 +4728,7 @@ function BodyMapTab({
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 size="sm"
-                className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                className="min-h-11 text-[12px]"
                 onClick={addLocalDraft}
               >
                 Добавить локально
@@ -4727,14 +4736,14 @@ function BodyMapTab({
               <Button
                 size="sm"
                 variant="secondary"
-                className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                className="min-h-11 text-[12px]"
                 onClick={cancelPending}
               >
                 Отменить
               </Button>
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Демо-очаг не сохранён в мок-данные.
+              Учебный очаг не сохранён в данные визита.
             </p>
           </div>
         )}
@@ -4753,14 +4762,14 @@ function BodyMapTab({
               </span>
             </div>
             <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
-              <Stat term="X / Y" value={`${Math.round(selectedDraft.mapPoint.x * 100)}% / ${Math.round(selectedDraft.mapPoint.y * 100)}%`} />
+              <Stat term="Позиция" value={formatBodyMapPosition(selectedDraft.mapPoint)} />
               <Stat term="Снимков" value="—" />
               <Stat term="4 признака" value="—" />
               <Stat term="7 баллов" value="—" />
             </dl>
             <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
               <Stat term="Статус" value={LESION_STATUS[selectedDraft.status]} />
-              <Stat term="ID" value={<span className="font-mono">{selectedDraft.id}</span>} />
+              <Stat term="Запись" value="локальная" />
             </dl>
             {selectedDraft.note && (
               <div className="mt-2 rounded-sm border border-dashed border-border bg-surface-muted px-2 py-1.5 text-[12px]">
@@ -4768,7 +4777,7 @@ function BodyMapTab({
               </div>
             )}
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Это демо-очаг. Он существует только в UI текущего визита.
+              Это учебный очаг. Он существует только в интерфейсе текущего визита.
             </p>
           </div>
         )}
@@ -4782,14 +4791,14 @@ function BodyMapTab({
                   {selectedLesion.bodyZone} · проекция {bodyMapViewLabel(resolvePoint(selectedLesion).view)}
                 </div>
               </div>
-              <Button asChild size="sm" variant="secondary" className="min-h-[44px] text-[12px] sm:min-h-[32px]">
+              <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
                 <Link to={`/patients/${patient.id}/lesions/${selectedLesion.id}`}>
                   Открыть <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
                 </Link>
               </Button>
             </div>
             <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
-              <Stat term="X / Y" value={`${Math.round(resolvePoint(selectedLesion).x * 100)}% / ${Math.round(resolvePoint(selectedLesion).y * 100)}%`} />
+              <Stat term="Позиция" value={formatBodyMapPosition(resolvePoint(selectedLesion))} />
               <Stat term="Снимков" value={selImageCount} />
               <Stat term="4 признака" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
               <Stat term="7 баллов" value={selAssessment ? selAssessment.sevenPoint.total : "—"} />
@@ -4808,7 +4817,7 @@ function BodyMapTab({
                         : "bg-success text-success-foreground"
                   }`}
                 >
-                  {selImageCount === 0 ? "нет снимков" : selNeedsReview ? "нужен пересмотр" : "качество ок"}
+                  {selImageCount === 0 ? "нет снимков" : selNeedsReview ? "нужен пересмотр" : "качество хорошее"}
                 </span>
               </div>
               <dl className="mt-1.5 grid grid-cols-2 gap-x-2 text-[11px]">
@@ -4828,7 +4837,7 @@ function BodyMapTab({
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="min-h-[44px] text-[12px] sm:min-h-[32px]"
+                  className="min-h-11 text-[12px]"
                   onClick={() => onOpenImaging(selectedLesion.id)}
                 >
                   К снимкам этого очага <ChevronRight className="ml-0.5 h-3.5 w-3.5" aria-hidden />
@@ -4840,12 +4849,12 @@ function BodyMapTab({
             </div>
             {productionMode ? (
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Рабочее место клиники: демо-данные скрыты. Карта тела показывает только
+                Рабочее место клиники: учебные данные скрыты. Карта тела показывает только
                 размещение очага из системы клиники; оценки и отчёты ждут рабочие контракты.
               </p>
             ) : (
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Клинические значения по четырём признакам и 7-балльной шкале — данные из демонстрационных оценок этого визита, без автоматического диагноза.
+                Клинические значения по четырём признакам и 7-балльной шкале — данные из учебных оценок этого визита, без автоматического диагноза.
               </p>
             )}
           </div>
@@ -4927,7 +4936,7 @@ function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySv
       </g>
       {demoPoints.map((p) => (
         <g key={`demo-${p.id}`} onClick={(e) => { e.stopPropagation(); p.onSelect(); }} style={{ cursor: "pointer" }}>
-          <title>{`Локальный демо-очаг: ${p.label}`}</title>
+          <title>{`Локальный учебный очаг: ${p.label}`}</title>
           <circle
             cx={p.x * 200}
             cy={p.y * 400}

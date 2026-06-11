@@ -15,7 +15,7 @@ import {
   getDevices,
   getPatientById,
 } from "@/lib/mock-data";
-import { calcAge, formatDateTime, sexShort } from "@/lib/format";
+import { calcAge, formatDateTime } from "@/lib/format";
 import type { Visit } from "@/lib/domain";
 import { BODY_MAP_DEMO_NOW } from "@/pages/doctor/body-map-model";
 
@@ -41,6 +41,32 @@ const STATUS_LABEL: Record<Visit["status"], string> = {
   closed: "Закрыт",
   cancelled: "Отменён",
 };
+
+const SEX_LABEL_SHORT: Record<string, string> = {
+  male: "муж.",
+  female: "жен.",
+};
+
+const IMAGE_KIND_LABEL: Record<string, string> = {
+  overview: "Обзор",
+  dermoscopy: "Дерматоскопия",
+  macro: "Крупный план",
+  body_map: "Карта тела",
+};
+
+const POLARIZATION_LABEL: Record<string, string> = {
+  polarized: "поляризация",
+  non_polarized: "без поляризации",
+  both: "оба режима",
+};
+
+function imageKindLabel(kind: string): string {
+  return IMAGE_KIND_LABEL[kind] ?? "Снимок";
+}
+
+function polarizationLabel(value: string): string {
+  return POLARIZATION_LABEL[value] ?? "режим не указан";
+}
 
 type CurrentAction = {
   nextStep: string;
@@ -136,7 +162,7 @@ export default function DeskPageDemo() {
         title="Рабочий стол"
         subtitle={`${currentUser.fullName} · очередь визитов и приоритеты`}
         actions={
-          <Button asChild size="sm" className="h-8 text-[12px]">
+          <Button asChild size="sm" className="min-h-11 text-[12px]">
             <Link to="/capture">
               <Camera className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Съёмка
             </Link>
@@ -174,7 +200,7 @@ export default function DeskPageDemo() {
             <Kpi
               label="Записи в работе"
               value={apptPlanned}
-              hint="plan + confirmed"
+              hint="запланированы и подтверждены"
             />
           </div>
         </section>
@@ -289,8 +315,8 @@ export default function DeskPageDemo() {
                       </div>
                       <div className="truncate text-meta">
                         <span className="font-mono">{patient.code}</span> ·{" "}
-                        {sexShort(patient.sex)} · {calcAge(patient.birthDate)}{" "}
-                        лет
+                        {SEX_LABEL_SHORT[patient.sex] ?? "пол не указан"} ·{" "}
+                        {calcAge(patient.birthDate)} лет
                       </div>
                     </div>
                     <span className="text-meta tabular-nums">
@@ -324,7 +350,9 @@ export default function DeskPageDemo() {
                           <div className="truncate text-row font-medium">
                             {v ? patientName(v.patientId) : "—"}
                           </div>
-                          <div className="truncate text-meta">{img.kind}</div>
+                          <div className="truncate text-meta">
+                            {imageKindLabel(img.kind)}
+                          </div>
                         </div>
                         <div className="truncate text-meta">
                           {img.quality.issues.length > 0
@@ -405,7 +433,7 @@ export default function DeskPageDemo() {
                       </div>
                       <div className="truncate text-meta">
                         <span className="font-mono">{d.serial}</span> ·{" "}
-                        {d.magnification} · {d.polarization}
+                        увеличение {d.magnification} · {polarizationLabel(d.polarization)}
                       </div>
                     </div>
                     <span className="text-meta tabular-nums">
@@ -446,7 +474,7 @@ function CurrentActionBand({ action }: { action: CurrentAction }) {
           Ближайшее действие: {action.actionLabel}
         </p>
       </div>
-      <Button asChild size="sm" className="min-h-10 justify-center text-[12px]">
+      <Button asChild size="sm" className="min-h-11 justify-center text-[12px]">
         {actionLink}
       </Button>
     </section>
@@ -545,7 +573,7 @@ function RowLink({ to, label }: { to: string; label: string }) {
     <Link
       to={to}
       aria-label={label}
-      className="row-action inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:h-7 sm:w-7"
+      className="row-action inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
     >
       <ChevronRight className="h-4 w-4" aria-hidden />
     </Link>

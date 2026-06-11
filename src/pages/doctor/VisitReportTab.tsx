@@ -87,6 +87,10 @@ function imageKindSummary(images: ClinicalImage[]): string {
     .join(" · ");
 }
 
+function imagePackageLabel(image: ClinicalImage, index: number): string {
+  return `Снимок ${index + 1} · ${IMAGE_KIND_LABEL[image.kind]}`;
+}
+
 interface Props {
   patient: Patient;
   visit: Visit;
@@ -150,7 +154,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
           role="status"
           className="rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground"
         >
-          Локальный демо-очаг нужно сохранить на бэкенде перед отчётом.
+          Локальный учебный очаг нужно сохранить в системе клиники перед отчётом.
         </div>
       )}
 
@@ -235,7 +239,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
           {selAssessment ? (
             <div className="grid grid-cols-1 gap-x-3 gap-y-1 text-[12px]">
               <Field
-                term="ABCD total"
+                term="Оценка ABCD"
                 value={
                   <span className="tabular-nums">
                     {selAssessment.abcd.total.toFixed(1)}
@@ -243,7 +247,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
                 }
               />
               <Field
-                term="7-point total"
+                term="Оценка 7 признаков"
                 value={
                   <span className="tabular-nums">{selAssessment.sevenPoint.total}</span>
                 }
@@ -274,7 +278,7 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
       </div>
 
       <p className="text-[12px] text-muted-foreground">
-        Демо-отчёт отображает учебные данные. Реальная сборка отчёта и отправка
+        Учебный отчёт отображает учебные данные. Реальная сборка отчёта и отправка
         пациенту будут подключены через систему клиники.
       </p>
     </div>
@@ -342,11 +346,11 @@ function SelectedLesionPanel({
       {assessment ? (
         <div className="mt-3 grid grid-cols-1 gap-2 rounded-sm border border-border bg-surface-muted p-3 sm:grid-cols-2">
           <Field
-            term="ABCD total"
+            term="Оценка ABCD"
             value={<span className="tabular-nums">{assessment.abcd.total.toFixed(1)}</span>}
           />
           <Field
-            term="7-point total"
+            term="Оценка 7 признаков"
             value={<span className="tabular-nums">{assessment.sevenPoint.total}</span>}
           />
           <Field term="План наблюдения" value={assessment.followUpPlan || "—"} wide />
@@ -368,7 +372,7 @@ function SelectedLesionPanel({
               type="button"
               size="sm"
               variant="secondary"
-              className="min-h-[44px] sm:min-h-[32px]"
+              className="min-h-11"
               onClick={() => onOpenAssessment(lesion.id)}
             >
               К оценке очага
@@ -377,7 +381,7 @@ function SelectedLesionPanel({
               type="button"
               size="sm"
               variant="secondary"
-              className="min-h-[44px] sm:min-h-[32px]"
+              className="min-h-11"
               onClick={() => onOpenConclusion(lesion.id)}
             >
               К заключению по визиту
@@ -386,7 +390,7 @@ function SelectedLesionPanel({
               type="button"
               size="sm"
               variant="secondary"
-              className="min-h-[44px] sm:min-h-[32px]"
+              className="min-h-11"
               onClick={() => onOpenImaging(lesion.id)}
             >
               К снимкам очага
@@ -396,7 +400,7 @@ function SelectedLesionPanel({
           <Button
             type="button"
             size="sm"
-            className="min-h-[44px] sm:min-h-[32px]"
+            className="min-h-11"
             onClick={() => onOpenAssessment(lesion.id)}
           >
             Перейти к оценке
@@ -548,10 +552,10 @@ function DemoReportForm({
 
   return (
     <section
-      aria-label="Локальный демо-отчёт"
+      aria-label="Локальный учебный отчёт"
       className="rounded-md border border-border bg-surface p-3"
     >
-      <h2 className="mb-2 text-[13px] font-semibold">Локальный демо-отчёт</h2>
+      <h2 className="mb-2 text-[13px] font-semibold">Локальный учебный отчёт</h2>
       <p className="mb-3 text-[12px] text-muted-foreground">
         Форма существует только в UI. Данные не сохраняются на сервере.
       </p>
@@ -564,7 +568,7 @@ function DemoReportForm({
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Например: Отчёт по визиту от 04.05.2026"
             maxLength={200}
-            className="min-h-[44px] sm:min-h-[32px]"
+            className="min-h-11"
           />
         </FormField>
 
@@ -582,7 +586,7 @@ function DemoReportForm({
                   type="button"
                   data-testid={`tpl-${tpl.id}-replace`}
                   onClick={() => applyTemplate(tpl, "replace")}
-                  className="min-h-[32px] bg-surface px-2 py-1 text-[12px] hover:bg-surface-muted"
+                  className="min-h-11 bg-surface px-2 py-1 text-[12px] hover:bg-surface-muted"
                   title="Заменить текст шаблоном"
                 >
                   {tpl.label}
@@ -591,7 +595,7 @@ function DemoReportForm({
                   type="button"
                   data-testid={`tpl-${tpl.id}-append`}
                   onClick={() => applyTemplate(tpl, "append")}
-                  className="min-h-[32px] border-l border-border bg-surface-muted px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+                  className="min-h-[44px] min-w-[44px] border-l border-border bg-surface-muted px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
                   title="Добавить шаблон в конец"
                   aria-label={`Добавить шаблон: ${tpl.label}`}
                 >
@@ -603,7 +607,7 @@ function DemoReportForm({
               type="button"
               data-testid="patient-text-normalize"
               onClick={onNormalize}
-              className="min-h-[32px] rounded-sm border border-dashed border-border bg-surface px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+              className="min-h-11 rounded-sm border border-dashed border-border bg-surface px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
             >
               Нормализовать переносы
             </button>
@@ -666,20 +670,20 @@ function DemoReportForm({
         <Button
           type="button"
           size="sm"
-          className="min-h-[44px] sm:min-h-[32px]"
+          className="min-h-11"
           disabled={!validation.ok}
           onClick={onSave}
         >
-          Сформировать демо-отчёт
+          Сформировать учебный отчёт
         </Button>
         <Button
           type="button"
           size="sm"
           variant="secondary"
           disabled
-          className="min-h-[44px] sm:min-h-[32px]"
+          className="min-h-11"
         >
-          Печать отчёта (демо)
+          Печать недоступна
         </Button>
         <Button
           type="button"
@@ -688,9 +692,9 @@ function DemoReportForm({
           disabled
           aria-disabled
           data-testid="send-to-patient-demo"
-          className="min-h-[44px] sm:min-h-[32px]"
+          className="min-h-11"
         >
-          Отправить пациенту (демо)
+          Отправка недоступна
         </Button>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
@@ -700,11 +704,11 @@ function DemoReportForm({
       {saved && (
         <div role="status" data-testid="demo-report-preview" className="mt-3 space-y-3">
           <div className="rounded-md border border-border bg-surface-muted p-3 text-[12px]">
-            <div className="mb-1 text-[12px] font-medium">Демо-отчёт сформирован локально</div>
+            <div className="mb-1 text-[12px] font-medium">Учебный отчёт сформирован локально</div>
             <dl className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-3">
               <dt className="text-muted-foreground">Заголовок</dt>
               <dd className="sm:col-span-2">{saved.title || "—"}</dd>
-              <dt className="text-muted-foreground">Время (демо)</dt>
+              <dt className="text-muted-foreground">Время создания</dt>
               <dd className="tabular-nums sm:col-span-2">{formatDateTime(saved.createdAt)}</dd>
             </dl>
           </div>
@@ -722,7 +726,7 @@ function DemoReportForm({
                 "Текст для пациента не заполнен. Пациент увидит общий шаблон рекомендации."}
             </p>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Превью не содержит ABCD, 7-point, AI-заметок, защищённых ссылок,
+              Превью не содержит оценочных баллов, заметок алгоритма, защищённых ссылок,
               путей к файлам и внутренних заметок врача.
             </p>
           </div>
@@ -738,13 +742,13 @@ function DemoReportForm({
             {assessment ? (
               <div className="grid grid-cols-1 gap-x-3 gap-y-1 text-[12px] sm:grid-cols-2">
                 <Field
-                  term="ABCD total"
+                  term="Оценка ABCD"
                   value={
                     <span className="tabular-nums">{assessment.abcd.total.toFixed(1)}</span>
                   }
                 />
                 <Field
-                  term="7-point total"
+                  term="Оценка 7 признаков"
                   value={<span className="tabular-nums">{assessment.sevenPoint.total}</span>}
                 />
               </div>
@@ -939,7 +943,7 @@ function VisitPacketPanel({
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
-        <Field term="Очаг" value={lesion ? `${lesion.label} · ${lesion.id}` : "—"} />
+        <Field term="Очаг" value={lesion ? lesion.label : "—"} />
         <Field term="Выбранные снимки" value={selectedLabel} />
         <Field term="Качество снимков" value={qualityCopy} />
         <Field term="Текст для пациента" value={patientText ? "есть" : "нет"} />
@@ -972,7 +976,7 @@ function VisitPacketPanel({
             {images.length === 0 ? (
               <p className="text-[12px] text-muted-foreground">Для выбранного очага нет снимков.</p>
             ) : (
-              images.map((image) => (
+              images.map((image, index) => (
                 <label
                   key={image.id}
                   className="flex min-h-[44px] items-start gap-2 rounded-sm border border-border bg-surface px-2 py-2 text-[12px]"
@@ -984,7 +988,7 @@ function VisitPacketPanel({
                     className="mt-0.5 h-4 w-4 shrink-0"
                   />
                   <span className="min-w-0">
-                    <span className="block font-medium">{image.id} · {image.kind}</span>
+                    <span className="block font-medium">{imagePackageLabel(image, index)}</span>
                     <span className="block text-muted-foreground">
                       {formatDateTime(image.capturedAt)} · качество {Math.round(image.quality.score * 100)}%
                     </span>
@@ -1001,10 +1005,10 @@ function VisitPacketPanel({
         </div>
 
         <div className="rounded-sm border border-border bg-surface p-3">
-          <div className="text-[12px] font-medium">QR для пациента</div>
+          <div className="text-[12px] font-medium">Код доступа пациента</div>
           <DemoQr />
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Токен доступа скрыт. В demo-пакете отображается только факт выпуска и срок.
+            Токен доступа скрыт. В учебном пакете отображается только факт выпуска и срок.
           </p>
         </div>
       </div>
@@ -1079,14 +1083,14 @@ function VisitPacketPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="min-h-[44px] sm:min-h-[32px]"
+            className="min-h-11"
             disabled={!photoMetadataReady}
             onClick={preparePhotoHandoff}
           >
             Подготовить метаданные фото
           </Button>
           <span className="text-[11px] text-muted-foreground">
-            Демо-действие не открывает фото пациенту и не создаёт ссылку.
+            Учебное действие не открывает фото пациенту и не создаёт ссылку.
           </span>
         </div>
       </section>
@@ -1113,7 +1117,7 @@ function VisitPacketPanel({
           type="button"
           size="sm"
           variant="secondary"
-          className="min-h-[44px] sm:min-h-[32px]"
+          className="min-h-11"
           disabled={!canRelease}
           onClick={releasePacket}
         >
@@ -1124,7 +1128,7 @@ function VisitPacketPanel({
             type="button"
             size="sm"
             variant="outline"
-            className="min-h-[44px] sm:min-h-[32px]"
+            className="min-h-11"
             onClick={revokePacket}
           >
             Отозвать доступ
@@ -1196,14 +1200,14 @@ function VisitPacketPanel({
             type="button"
             size="sm"
             variant="secondary"
-            className="min-h-[44px] sm:min-h-[32px]"
+            className="min-h-11"
             disabled={!reportPackageReady}
             onClick={prepareBackendJob}
           >
             Подготовить задачу отчёта
           </Button>
           <span className="text-[11px] text-muted-foreground">
-            Демо-действие не делает сетевых вызовов и не выпускает документ пациенту.
+            Учебное действие не делает сетевых вызовов и не выпускает документ пациенту.
           </span>
         </div>
       </section>
@@ -1253,7 +1257,7 @@ function ChecklistItem({ ok, children }: { ok: boolean; children: React.ReactNod
       />
       <span className="text-[12px]">
         {children}
-        <span className="ml-1 text-muted-foreground">{ok ? "· ок" : "· требуется"}</span>
+        <span className="ml-1 text-muted-foreground">{ok ? "· готово" : "· требуется"}</span>
       </span>
     </li>
   );

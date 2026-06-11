@@ -1,4 +1,4 @@
-// Stage 1E-E · UI tests for the API assets panel inside VisitImagingTab.
+// Stage 1E-E · UI tests for the панель снимков inside VisitImagingTab.
 // The component preserves demo behaviour and only activates the API
 // surface when an explicit token + baseUrl are passed via props.
 
@@ -42,7 +42,7 @@ describe("VisitImagingTab · existing imaging surface preserved", () => {
   it("renders capture toolbar and the API assets section", () => {
     renderTab();
     expect(screen.getByText(/Захват/)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /API ассеты визита/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Снимки визита/i })).toBeInTheDocument();
   });
 
   it("never renders a delete control on doctor imaging surface", () => {
@@ -66,16 +66,16 @@ describe("VisitImagingTab · existing imaging surface preserved", () => {
 describe("VisitImagingTab · API panel · demo (no token) mode", () => {
   it("shows demo-mode notice and upload click surfaces a non-blocking status", async () => {
     renderTab();
-    const region = screen.getByRole("region", { name: /API ассеты визита/i });
-    expect(within(region).getAllByText(/демо-режим/i).length).toBeGreaterThan(0);
-    expect(within(region).getByText(/API клинических ассетов не сконфигурирован/i))
+    const region = screen.getByRole("region", { name: /Снимки визита/i });
+    expect(within(region).getAllByText(/учебный режим/i).length).toBeGreaterThan(0);
+    expect(within(region).getByText(/система снимков не подключена/i))
       .toBeInTheDocument();
 
     const uploadBtn = within(region).getByRole("button", { name: /Загрузить снимок/i });
     await userEvent.click(uploadBtn);
 
     expect(within(region).getByRole("status")).toHaveTextContent(
-      /требует авторизованной сессии API/i,
+      /доступна после входа в систему клиники/i,
     );
   });
 });
@@ -105,9 +105,9 @@ describe("VisitImagingTab · API panel · with token", () => {
     );
     expect((init as RequestInit).method).toBe("GET");
 
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => {
-      expect(within(region).getByText(/В API ещё нет ассетов/i)).toBeInTheDocument();
+      expect(within(region).getByText(/В системе клиники ещё нет снимков/i)).toBeInTheDocument();
     });
   });
 
@@ -122,7 +122,7 @@ describe("VisitImagingTab · API panel · with token", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(`http://localhost:3001/api/v1/visits/${visit.id}/assets`);
     expect((init as RequestInit).method).toBe("GET");
-    expect(screen.getByText(/Подключено: self-hosted backend/i)).toBeInTheDocument();
+    expect(screen.getByText(/Подключено: система клиники/i)).toBeInTheDocument();
   });
 });
 
@@ -185,7 +185,7 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
       apiBaseUrl: "https://abc.supabase.co",
     });
 
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => {
       expect(
         within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
@@ -204,7 +204,7 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
       apiBaseUrl: "https://abc.supabase.co",
     });
 
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -252,7 +252,7 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
       apiBaseUrl: "https://abc.supabase.co",
     });
 
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -304,7 +304,7 @@ describe("VisitImagingTab · API panel · asset row + signed download", () => {
       apiBaseUrl: "https://abc.supabase.co",
     });
 
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -357,7 +357,7 @@ describe("VisitImagingTab · API panel · error UX", () => {
     vi.unstubAllGlobals();
   });
 
-  it("list 403 shows 'Недостаточно прав для просмотра ассетов.'", async () => {
+  it("list 403 shows 'Недостаточно прав для просмотра снимков.'", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -365,21 +365,21 @@ describe("VisitImagingTab · API panel · error UX", () => {
       ),
     );
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => {
       expect(within(region).getByRole("alert")).toHaveTextContent(
-        /Недостаточно прав для просмотра ассетов\./,
+        /Недостаточно прав для просмотра снимков\./,
       );
     });
   });
 
-  it("list network failure shows 'Сбой сети при загрузке ассетов.'", async () => {
+  it("list network failure shows 'Сбой сети при загрузке снимков.'", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("boom")));
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => {
       expect(within(region).getByRole("alert")).toHaveTextContent(
-        /Сбой сети при загрузке ассетов\./,
+        /Сбой сети при загрузке снимков\./,
       );
     });
   });
@@ -400,7 +400,7 @@ describe("VisitImagingTab · API panel · error UX", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -430,7 +430,7 @@ describe("VisitImagingTab · API panel · error UX", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -461,7 +461,7 @@ describe("VisitImagingTab · API panel · error UX", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => {
       expect(within(region).getByRole("alert")).toBeInTheDocument();
     });
@@ -507,11 +507,11 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const alert = await within(region).findByRole("alert");
-    expect(alert).toHaveTextContent(/Недостаточно прав для просмотра ассетов\./);
+    expect(alert).toHaveTextContent(/Недостаточно прав для просмотра снимков\./);
 
-    const retry = within(region).getByRole("button", { name: /Повторить загрузку ассетов/ });
+    const retry = within(region).getByRole("button", { name: /Повторить загрузку снимков/ });
     await userEvent.click(retry);
 
     await waitFor(() => {
@@ -532,16 +532,16 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("alert");
 
-    const retry = within(region).getByRole("button", { name: /Повторить загрузку ассетов/ });
+    const retry = within(region).getByRole("button", { name: /Повторить загрузку снимков/ });
     await userEvent.click(retry);
 
     await waitFor(() => {
       expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
     });
-    expect(within(region).getByText(/В API ещё нет ассетов/i)).toBeInTheDocument();
+    expect(within(region).getByText(/В системе клиники ещё нет снимков/i)).toBeInTheDocument();
   });
 
   it("download 404 error does NOT render Повторить", async () => {
@@ -558,14 +558,14 @@ describe("VisitImagingTab · API panel · retry UX", () => {
     vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
     await userEvent.click(openBtn);
 
     await within(region).findByRole("alert");
-    expect(within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Повторить загрузку снимков/ })).not.toBeInTheDocument();
   });
 
   it("upload 422 error does NOT render Повторить", async () => {
@@ -583,14 +583,14 @@ describe("VisitImagingTab · API panel · retry UX", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     await userEvent.upload(fileInput, new File(["x"], "x.jpg", { type: "image/jpeg" }));
 
     await within(region).findByRole("alert");
-    expect(within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: /Повторить загрузку снимков/ })).not.toBeInTheDocument();
   });
 });
 
@@ -642,7 +642,7 @@ describe("VisitImagingTab · API panel · preview dialog", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -660,7 +660,7 @@ describe("VisitImagingTab · API panel · preview dialog", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await userEvent.click(
       await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
     );
@@ -678,7 +678,7 @@ describe("VisitImagingTab · API panel · preview dialog", () => {
     vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await userEvent.click(
       await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
     );
@@ -711,7 +711,7 @@ describe("VisitImagingTab · API panel · preview dialog", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await userEvent.click(
       await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
     );
@@ -729,7 +729,7 @@ describe("VisitImagingTab · API panel · preview dialog", () => {
     vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await userEvent.click(
       await within(region).findByRole("button", { name: /Открыть снимок a-1/i }),
     );
@@ -781,7 +781,7 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
   }
 
   async function openDialog() {
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -832,7 +832,7 @@ describe("VisitImagingTab · API panel · preview dialog a11y + fallback", () =>
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     expect(
       within(region).getByRole("button", { name: /Открыть снимок a-1/i }),
     ).toBeInTheDocument();
@@ -1065,7 +1065,7 @@ describe("VisitImagingTab · API panel · preview dialog loading state", () => {
   }
 
   async function openDialog() {
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -1197,7 +1197,7 @@ describe("VisitImagingTab · API panel · upload UX polish", () => {
 
   it("shows the accepted file format hint near the upload control", async () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     expect(within(region).getByText(/JPEG, PNG, WebP или HEIC/)).toBeInTheDocument();
   });
 
@@ -1211,7 +1211,7 @@ describe("VisitImagingTab · API panel · upload UX polish", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     fetchMock.mockClear();
 
@@ -1244,7 +1244,7 @@ describe("VisitImagingTab · API panel · upload UX polish", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1318,7 +1318,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     fetchMock.mockClear();
 
@@ -1348,7 +1348,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     fetchMock.mockClear();
 
@@ -1400,7 +1400,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1434,7 +1434,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1474,7 +1474,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1526,7 +1526,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1588,7 +1588,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1639,7 +1639,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1707,7 +1707,7 @@ describe("VisitImagingTab · API panel · upload edge hardening", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -1824,7 +1824,7 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
 
   it("shows the drop target text and helper text", async () => {
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     expect(within(region).getByText(/Перетащите снимок сюда/)).toBeInTheDocument();
     expect(within(region).getByText(/JPEG, PNG, WebP или HEIC/)).toBeInTheDocument();
   });
@@ -1835,8 +1835,8 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
-    await within(region).findByText(/В API ещё нет ассетов/i);
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await within(region).findByText(/В системе клиники ещё нет снимков/i);
     const zone = getDropZone(region);
     expect(zone.getAttribute("data-active")).toBe("false");
     fireEvent.dragOver(zone, { dataTransfer: makeDataTransfer([]) });
@@ -1850,7 +1850,7 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     fetchMock.mockClear();
 
@@ -1881,7 +1881,7 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const zone = getDropZone(region);
@@ -1926,7 +1926,7 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const zone = getDropZone(region);
@@ -1962,7 +1962,7 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const zone = getDropZone(region);
@@ -2009,7 +2009,7 @@ describe("VisitImagingTab · API panel · drag-and-drop upload", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
 
     const zone = getDropZone(region);
@@ -2072,8 +2072,8 @@ describe("VisitImagingTab · API panel · dropzone a11y + busy state", () => {
       vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
     );
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
-    await within(region).findByText(/В API ещё нет ассетов/i);
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await within(region).findByText(/В системе клиники ещё нет снимков/i);
     const zone = getDropZone(region);
     expect(zone).toBeInTheDocument();
     expect(zone.getAttribute("aria-label")).toMatch(/Перетащите снимок сюда/);
@@ -2088,8 +2088,8 @@ describe("VisitImagingTab · API panel · dropzone a11y + busy state", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
-    await within(region).findByText(/В API ещё нет ассетов/i);
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await within(region).findByText(/В системе клиники ещё нет снимков/i);
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     const clickSpy = vi.spyOn(fileInput, "click").mockImplementation(() => {});
     const zone = getDropZone(region);
@@ -2107,8 +2107,8 @@ describe("VisitImagingTab · API panel · dropzone a11y + busy state", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
-    await within(region).findByText(/В API ещё нет ассетов/i);
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await within(region).findByText(/В системе клиники ещё нет снимков/i);
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     const clickSpy = vi.spyOn(fileInput, "click").mockImplementation(() => {});
     const zone = getDropZone(region);
@@ -2123,8 +2123,8 @@ describe("VisitImagingTab · API panel · dropzone a11y + busy state", () => {
       vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
     );
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
-    await within(region).findByText(/В API ещё нет ассетов/i);
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await within(region).findByText(/В системе клиники ещё нет снимков/i);
     const zone = getDropZone(region);
     expect(zone.getAttribute("aria-disabled")).not.toBe("true");
   });
@@ -2148,7 +2148,7 @@ describe("VisitImagingTab · API panel · dropzone a11y + busy state", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -2212,8 +2212,8 @@ describe("VisitImagingTab · API panel · live status + focus return", () => {
       vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })),
     );
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
-    await within(region).findByText(/В API ещё нет ассетов/i);
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await within(region).findByText(/В системе клиники ещё нет снимков/i);
     const zone = within(region).getByRole("button", {
       name: "Перетащите снимок сюда для загрузки",
     });
@@ -2229,8 +2229,8 @@ describe("VisitImagingTab · API panel · live status + focus return", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
-    await within(region).findByText(/В API ещё нет ассетов/i);
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await within(region).findByText(/В системе клиники ещё нет снимков/i);
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     await userEvent.upload(
@@ -2259,8 +2259,8 @@ describe("VisitImagingTab · API panel · live status + focus return", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
-    await within(region).findByText(/В API ещё нет ассетов/i);
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
+    await within(region).findByText(/В системе клиники ещё нет снимков/i);
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     await userEvent.upload(
@@ -2308,7 +2308,7 @@ describe("VisitImagingTab · API panel · live status + focus return", () => {
     vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -2359,14 +2359,14 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
       ),
     );
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const alert = await within(region).findByRole("alert");
     expect(alert.getAttribute("aria-live")).toBe("assertive");
 
     const retry = within(region).getByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
-    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку ассетов");
+    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку снимков");
     expect(retry).toHaveTextContent(/Повторить/);
   });
 
@@ -2385,7 +2385,7 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("button", { name: /Открыть снимок a-1/i });
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     await userEvent.upload(
@@ -2395,7 +2395,7 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     const alert = await within(region).findByRole("alert");
     expect(alert.getAttribute("aria-live")).toBe("assertive");
     expect(
-      within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ }),
+      within(region).queryByRole("button", { name: /Повторить загрузку снимков/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -2413,7 +2413,7 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     vi.spyOn(window, "open").mockImplementation(() => null);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const openBtn = await within(region).findByRole("button", {
       name: /Открыть снимок a-1/i,
     });
@@ -2421,7 +2421,7 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     const alert = await within(region).findByRole("alert");
     expect(alert.getAttribute("aria-live")).toBe("assertive");
     expect(
-      within(region).queryByRole("button", { name: /Повторить загрузку ассетов/ }),
+      within(region).queryByRole("button", { name: /Повторить загрузку снимков/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -2442,11 +2442,11 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await within(region).findByRole("alert");
 
     const retry = within(region).getByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     retry.focus();
     await userEvent.keyboard("{Enter}");
@@ -2471,18 +2471,18 @@ describe("VisitImagingTab · API panel · accessible retry + assertive errors", 
     vi.stubGlobal("fetch", fetchMock);
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const firstAlert = await within(region).findByRole("alert");
     expect(firstAlert.getAttribute("aria-live")).toBe("assertive");
 
     await userEvent.click(
-      within(region).getByRole("button", { name: "Повторить загрузку ассетов" }),
+      within(region).getByRole("button", { name: "Повторить загрузку снимков" }),
     );
 
     await waitFor(() => expect(calls).toBe(2));
     const nextAlert = await within(region).findByRole("alert");
     expect(nextAlert.getAttribute("aria-live")).toBe("assertive");
-    expect(nextAlert).toHaveTextContent(/Недостаточно прав для просмотра ассетов\./);
+    expect(nextAlert).toHaveTextContent(/Недостаточно прав для просмотра снимков\./);
   });
 });
 
@@ -2522,9 +2522,9 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     );
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     await userEvent.click(retry);
 
@@ -2534,7 +2534,7 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     await waitFor(() => expect(openBtn).toHaveFocus());
   });
 
-  it("retry success with empty list moves focus to the API assets region", async () => {
+  it("retry success with empty list moves focus to the регион снимков", async () => {
     let calls = 0;
     vi.stubGlobal(
       "fetch",
@@ -2546,19 +2546,19 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     );
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     await userEvent.click(retry);
 
     await waitFor(() => {
-      expect(within(region).getByText(/В API ещё нет ассетов/i)).toBeInTheDocument();
+      expect(within(region).getByText(/В системе клиники ещё нет снимков/i)).toBeInTheDocument();
     });
     await waitFor(() => expect(region).toHaveFocus());
   });
 
-  it("retry failure keeps focus on 'Повторить загрузку ассетов'", async () => {
+  it("retry failure keeps focus on 'Повторить загрузку снимков'", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -2569,15 +2569,15 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
     );
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     await userEvent.click(retry);
 
     await waitFor(() => {
       const next = within(region).getByRole("button", {
-        name: "Повторить загрузку ассетов",
+        name: "Повторить загрузку снимков",
       });
       expect(next).toHaveFocus();
     });
@@ -2593,21 +2593,21 @@ describe("VisitImagingTab · API panel · retry focus return", () => {
       ),
     );
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
-    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку ассетов");
+    expect(retry.getAttribute("aria-label")).toBe("Повторить загрузку снимков");
     expect(retry).toHaveTextContent(/Повторить/);
   });
 
-  it("API assets region is programmatically focusable but not in normal tab order", async () => {
+  it("регион снимков is programmatically focusable but not in normal tab order", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))),
     );
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     expect(region.getAttribute("tabindex")).toBe("-1");
   });
 });
@@ -2648,9 +2648,9 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     );
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     retry.focus();
     expect(retry).toHaveFocus();
@@ -2663,7 +2663,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     await waitFor(() => expect(openBtn).toHaveFocus());
   });
 
-  it("Enter-key retry returning empty list focuses the API assets region", async () => {
+  it("Enter-key retry returning empty list focuses the регион снимков", async () => {
     let calls = 0;
     vi.stubGlobal(
       "fetch",
@@ -2675,9 +2675,9 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     );
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     retry.focus();
     await userEvent.keyboard("{Enter}");
@@ -2699,9 +2699,9 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     );
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     retry.focus();
     await userEvent.keyboard("{Enter}");
@@ -2709,7 +2709,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     await waitFor(() => expect(calls).toBe(2));
     await waitFor(() => {
       expect(
-        within(region).getByRole("button", { name: "Повторить загрузку ассетов" }),
+        within(region).getByRole("button", { name: "Повторить загрузку снимков" }),
       ).toHaveFocus();
     });
   });
@@ -2736,9 +2736,9 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
       apiToken: "t",
       apiBaseUrl: "https://x.supabase.co",
     });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     await userEvent.click(retry);
 
@@ -2771,9 +2771,9 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     );
 
     renderTab({ apiToken: "t", apiBaseUrl: "https://x.supabase.co" });
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     const retry = await within(region).findByRole("button", {
-      name: "Повторить загрузку ассетов",
+      name: "Повторить загрузку снимков",
     });
     await userEvent.click(retry);
 
@@ -2787,7 +2787,7 @@ describe("VisitImagingTab · API panel · retry focus safety", () => {
     });
 
     await waitFor(() => {
-      expect(within(region).getByText(/В API ещё нет ассетов/i)).toBeInTheDocument();
+      expect(within(region).getByText(/В системе клиники ещё нет снимков/i)).toBeInTheDocument();
     });
     await waitFor(() => expect(region).toHaveFocus());
   });
