@@ -45,11 +45,25 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const SOURCE_SYSTEM_LABEL: Record<string, string> = {
-  clinic_crm: "CRM клиники",
+  clinic_crm: "Система клиники",
   ads: "Рекламный источник",
   site: "Сайт",
   manual: "Ручной импорт",
   other: "Другой источник",
+};
+
+const IMPORT_BATCH_STATUS_LABEL: Record<string, string> = {
+  completed: "готово",
+  failed: "ошибка",
+  processing: "в работе",
+  pending: "ожидает",
+};
+
+const ISSUE_SEVERITY_LABEL: Record<string, string> = {
+  critical: "критично",
+  high: "важно",
+  medium: "проверить",
+  low: "заметка",
 };
 
 const EMPTY_PAGE: SelfHostedClinicBookingRequestsPage = {
@@ -106,7 +120,7 @@ export default function OperatorBookingRequestsPageLive() {
   const [importBatches, setImportBatches] = useState<SelfHostedExternalIntakeImportBatchesPage>(EMPTY_IMPORTS);
   const [importStatus, setImportStatus] = useState<SelfHostedExternalIntakeStatusDTO>(EMPTY_IMPORT_STATUS);
   const [availableSlots, setAvailableSlots] = useState<SelfHostedClinicAvailableSlotsPage>(EMPTY_SLOTS);
-  const [actionMessage, setActionMessage] = useState("Очередь заявок работает только через self-hosted backend.");
+  const [actionMessage, setActionMessage] = useState("Очередь заявок готова.");
 
   const baseArgs = useMemo(
     () => ({
@@ -123,7 +137,7 @@ export default function OperatorBookingRequestsPageLive() {
       setError({
         kind: "not_configured",
         code: "not_configured",
-        message: "Production очередь заявок требует вход через self-hosted backend.",
+        message: "Для очереди заявок нужен вход в систему клиники.",
       });
       return;
     }
@@ -187,7 +201,7 @@ export default function OperatorBookingRequestsPageLive() {
     });
     setBusyKey(null);
     if (result.ok && result.value) {
-      setActionMessage(`Запрос ${result.value.id}: статус ${STATUS_LABEL[result.value.status] || result.value.status}.`);
+      setActionMessage(`Заявка: статус ${STATUS_LABEL[result.value.status] || result.value.status}.`);
       setSelected(result.value);
       setClinicNote(result.value.clinicNote || "");
       await loadRequests();
@@ -217,7 +231,7 @@ export default function OperatorBookingRequestsPageLive() {
     });
     setBusyKey(null);
     if (result.ok && result.value) {
-      setActionMessage(`Запрос ${result.value.id}: создан визит ${result.value.assignedVisitId}.`);
+      setActionMessage("Заявка записана на визит.");
       setSelected(result.value);
       setClinicNote(result.value.clinicNote || "");
       setSelectedSlotId("");
@@ -228,8 +242,8 @@ export default function OperatorBookingRequestsPageLive() {
   }
 
   const subtitle = session.user?.displayName
-    ? `${session.user.displayName} · production booking intake`
-    : "Production booking intake из self-hosted backend";
+    ? `${session.user.displayName} · заявки на запись`
+    : "Заявки на запись из системы клиники";
   const availabilitySync = useMemo(
     () =>
       buildSelfHostedAvailabilitySyncSummary({
@@ -246,8 +260,8 @@ export default function OperatorBookingRequestsPageLive() {
         title="Запросы на запись"
         subtitle={subtitle}
         actions={
-          <Button asChild size="sm" variant="outline" className="h-8 text-[12px]">
-            <Link to="/self-hosted/login">Self-hosted вход</Link>
+          <Button asChild size="sm" variant="outline" className="min-h-[44px] text-[12px]">
+            <Link to="/self-hosted/login">Вход в систему</Link>
           </Button>
         }
       />
@@ -262,13 +276,19 @@ export default function OperatorBookingRequestsPageLive() {
             <ServerCog className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span className="truncate">
               {loadStatus === "loading"
-                ? "Загружаем заявки из self-hosted backend…"
+                ? "Загружаем заявки…"
                 : loadStatus === "error"
-                  ? "Production очередь заявок недоступна."
-                  : "Источник данных: self-hosted backend /api/v1/clinic/booking-requests."}
+                  ? "Очередь заявок недоступна."
+                  : "Данные загружены из системы клиники."}
             </span>
           </div>
-          <Button type="button" size="sm" variant="outline" className="h-8 text-[12px]" onClick={() => void loadRequests()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] text-[12px]"
+            onClick={() => void loadRequests()}
+          >
             Обновить
           </Button>
         </section>
@@ -281,11 +301,11 @@ export default function OperatorBookingRequestsPageLive() {
 
         <section
           className="surface-card overflow-hidden"
-          aria-label="Stage 8D-8F availability sync readiness"
+          aria-label="Готовность свободных окон"
         >
           <header className="section-bar">
-            <h2 className="h-section">Availability sync readiness</h2>
-            <span className="h-section-hint">Stage 8D-8F · local cache only</span>
+            <h2 className="h-section">Готовность свободных окон</h2>
+            <span className="h-section-hint">локальная проверка</span>
           </header>
           <div className="grid grid-cols-2 divide-x divide-y divide-border lg:grid-cols-4 lg:divide-y-0">
             <Kpi label="Конфликты" value={availabilitySync.issues.reduce((sum, issue) => sum + issue.count, 0)} />
@@ -299,7 +319,7 @@ export default function OperatorBookingRequestsPageLive() {
                 {availabilitySyncStatusLabel(availabilitySync.status)} — {availabilitySync.nextActionLabel}
               </span>
               <span>
-                no CRM runtime calls; confirmation uses Stage 5S local booking-from-slot
+                Свободные окна проверяются по локальному расписанию; внешние системы с экрана не вызываются
               </span>
             </div>
           </div>
@@ -312,7 +332,7 @@ export default function OperatorBookingRequestsPageLive() {
                   <li key={issue.type} className="flex flex-wrap items-center justify-between gap-2">
                     <span>{issue.label}</span>
                     <span className="tabular-nums">
-                      {issue.severity} · {issue.count}
+                      {ISSUE_SEVERITY_LABEL[issue.severity] || issue.severity} · {issue.count}
                     </span>
                   </li>
                 ))}
@@ -321,10 +341,10 @@ export default function OperatorBookingRequestsPageLive() {
           </div>
         </section>
 
-        <section className="surface-card overflow-hidden" aria-label="Статус импорта CRM и рекламных источников">
+        <section className="surface-card overflow-hidden" aria-label="Статус входящих источников записи">
           <header className="section-bar">
-            <h2 className="h-section">Импорт CRM и рекламных источников</h2>
-            <span className="h-section-hint">локальный backend contract</span>
+            <h2 className="h-section">Входящие источники записи</h2>
+            <span className="h-section-hint">защищённый импорт</span>
           </header>
           <div className="grid grid-cols-2 divide-x divide-border lg:grid-cols-4">
             <Kpi label="Батчей" value={importBatches.count} />
@@ -350,8 +370,8 @@ export default function OperatorBookingRequestsPageLive() {
           <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                Hardening: {importStatus.hardeningVersion}; raw payload: {importStatus.storedRawPayload ? "stored" : "not stored"};
-                runtime calls: {importStatus.runtimeCallsExternalSystems ? "enabled" : "disabled"}
+                Защита импорта включена; исходные данные {importStatus.storedRawPayload ? "сохраняются" : "не сохраняются"};
+                внешние вызовы {importStatus.runtimeCallsExternalSystems ? "включены" : "выключены"}
               </span>
               <span className="tabular-nums">
                 Последний импорт: {importStatus.latestImportAt ? formatDateTime(importStatus.latestImportAt) : "нет данных"}
@@ -360,13 +380,13 @@ export default function OperatorBookingRequestsPageLive() {
           </div>
           <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
             {importBatches.items.length === 0 ? (
-              "Импортов пока нет. CRM и рекламные источники подключаются через входящий self-hosted API, без прямых вызовов из UI."
+              "Импортов пока нет. Источники записи подключаются через защищённый входящий импорт, без прямых вызовов с экрана."
             ) : (
               <ul className="space-y-2">
                 {importBatches.items.map((batch) => (
                   <li key={batch.id} className="flex flex-wrap items-center justify-between gap-2">
                     <span>
-                      {SOURCE_SYSTEM_LABEL[batch.sourceSystem] || batch.sourceSystem} · {batch.status}
+                      {sourceSystemLabel(batch.sourceSystem)} · {IMPORT_BATCH_STATUS_LABEL[batch.status] || batch.status}
                     </span>
                     <span className="tabular-nums">
                       {batch.acceptedBookingCount} заявок / {batch.acceptedSlotCount} окон / {batch.rejectedCount} отклонено
@@ -382,13 +402,13 @@ export default function OperatorBookingRequestsPageLive() {
         <section className="surface-card overflow-hidden" aria-label="Свободные окна клиники из локального кэша">
           <header className="section-bar">
             <h2 className="h-section">Свободные окна клиники</h2>
-            <span className="h-section-hint">локальный PostgreSQL cache</span>
+            <span className="h-section-hint">локальный кэш</span>
           </header>
           <div className="grid grid-cols-2 divide-x divide-border lg:grid-cols-4">
             <Kpi label="Окон всего" value={availableSlots.count} />
             <Kpi label="Показано" value={availableSlots.items.length} />
             <Kpi
-              label="CRM"
+              label="Клиника"
               value={availableSlots.items.filter((slot) => slot.sourceSystem === "clinic_crm").length}
             />
             <Kpi
@@ -398,7 +418,7 @@ export default function OperatorBookingRequestsPageLive() {
           </div>
           <div className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
             {availableSlots.items.length === 0 ? (
-              "Свободных окон в локальном кэше пока нет. CRM передаёт доступность только через входящий self-hosted import API."
+              "Свободных окон в локальном кэше пока нет. Доступность передаётся только через защищённый входящий импорт."
             ) : (
               <ul className="space-y-2">
                 {availableSlots.items.map((slot) => (
@@ -433,8 +453,8 @@ export default function OperatorBookingRequestsPageLive() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
           <Card className="overflow-hidden">
             <header className="section-bar">
-              <h2 className="h-section">Production booking requests</h2>
-              <span className="h-section-hint">self-hosted PostgreSQL</span>
+              <h2 className="h-section">Очередь заявок на запись</h2>
+              <span className="h-section-hint">система клиники</span>
             </header>
 
             <div className="flex flex-wrap items-end gap-2 border-b border-border px-4 py-3">
@@ -473,7 +493,7 @@ export default function OperatorBookingRequestsPageLive() {
                       type="button"
                       className="min-w-0 text-left"
                       onClick={() => chooseRequest(request)}
-                      aria-label={`Открыть заявку на запись ${request.id}`}
+                      aria-label={`Открыть заявку на запись: ${request.patient.fullName || request.patient.code || "без имени"}`}
                     >
                       <div className="truncate text-[14px] font-semibold">
                         {request.patient.fullName || "Пациент"} · {request.patient.code || "без кода"}
@@ -493,7 +513,7 @@ export default function OperatorBookingRequestsPageLive() {
                         className="h-8 text-[12px]"
                         disabled={busyKey === `reviewing:${request.id}`}
                         onClick={() => void updateRequest(request, "reviewing", { clinicNote: request.clinicNote })}
-                        aria-label={`Взять в работу заявку ${request.id}`}
+                        aria-label={`Взять в работу заявку: ${request.patient.fullName || request.patient.code || "без имени"}`}
                       >
                         В работу
                       </Button>
@@ -504,7 +524,7 @@ export default function OperatorBookingRequestsPageLive() {
                         className="h-8 text-[12px]"
                         disabled={busyKey === `cancelled:${request.id}`}
                         onClick={() => void updateRequest(request, "cancelled", { clinicNote: request.clinicNote })}
-                        aria-label={`Отменить заявку ${request.id}`}
+                        aria-label={`Отменить заявку: ${request.patient.fullName || request.patient.code || "без имени"}`}
                       >
                         Отменить
                       </Button>
@@ -518,7 +538,7 @@ export default function OperatorBookingRequestsPageLive() {
           <Card className="overflow-hidden">
             <header className="section-bar">
               <h2 className="h-section">Карточка заявки</h2>
-              <span className="h-section-hint">review + assignment</span>
+              <span className="h-section-hint">разбор и запись</span>
             </header>
             {!selected ? (
               <div className="p-4 text-[13px] text-muted-foreground">Выберите заявку из очереди.</div>
@@ -535,7 +555,7 @@ export default function OperatorBookingRequestsPageLive() {
                 </div>
                 {selected.assignedVisitId ? (
                   <div className="rounded-md border border-border bg-muted/30 p-3 text-[13px] text-muted-foreground">
-                    Назначенный визит: {selected.assignedVisitId}
+                    Визит назначен
                   </div>
                 ) : (
                   <label className="grid gap-1 text-[12px] font-medium">
@@ -601,12 +621,16 @@ function Kpi({ label, value }: { label: string; value: number }) {
 }
 
 function slotLabel(slot: SelfHostedClinicAvailableSlotDTO): string {
-  return `${formatDateTime(slot.startedAt)} · ${slot.durationMinutes} мин · ${slot.doctor.displayName || "врач не указан"} · ${SOURCE_SYSTEM_LABEL[slot.sourceSystem] || slot.sourceSystem}`;
+  return `${formatDateTime(slot.startedAt)} · ${slot.durationMinutes} мин · ${slot.doctor.displayName || "врач не указан"} · ${sourceSystemLabel(slot.sourceSystem)}`;
 }
 
 function publicBookingMessage(error: SelfHostedApiError | null): string {
-  if (!error) return "Неизвестная ошибка self-hosted backend.";
+  if (!error) return "Неизвестная ошибка системы.";
   if (error.code === "validation_error") return "Проверьте статус, выбранное окно и заметку клиники.";
   if (error.code === "forbidden") return "У роли нет доступа к очереди заявок.";
   return error.message;
+}
+
+function sourceSystemLabel(value: string): string {
+  return SOURCE_SYSTEM_LABEL[value] || "Другой источник";
 }

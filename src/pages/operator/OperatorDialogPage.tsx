@@ -21,10 +21,26 @@ const DEMO_NOW = new Date("2026-05-04T00:00:00Z");
 
 const LEAD_LABEL: Record<LeadStatus, string> = {
   new: "Новый",
-  qualified: "Квалифицирован",
+  qualified: "Уточнён",
   booked: "Записан",
-  lost: "Потерян",
+  lost: "Закрыт",
   duplicate: "Дубль",
+};
+
+const STATE_LABEL: Record<string, string> = {
+  new: "Новый",
+  awaiting_photo: "Ждёт фото",
+  awaiting_quality: "Проверка качества",
+  recommendation_sent: "Рекомендация отправлена",
+  with_operator: "У оператора",
+  booked: "Запись",
+  closed: "Закрыт",
+};
+
+const NEXT_ACTION_LABEL: Record<string, string> = {
+  book: "Записать на приём",
+  repeat_photo: "Запросить фото лучше",
+  urgent: "Передать врачу срочно",
 };
 
 const SAFETY_NOTE =
@@ -33,11 +49,39 @@ const SAFETY_NOTE =
 const CHANNEL_LABEL: Record<BotChannel, string> = {
   telegram: "Telegram",
   whatsapp: "WhatsApp",
-  web: "Web",
+  web: "Сайт",
 };
 
+const LEAD_SOURCE_LABEL: Record<string, string> = {
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+  site: "Сайт",
+  operator: "Оператор",
+  phone: "Телефон",
+  portal: "Портал",
+  other: "Другое",
+};
+
+const UTM_VALUE_LABEL: Record<string, string> = {
+  tg: "Telegram",
+  wa: "WhatsApp",
+  bot: "бот",
+  miniapp: "форма записи",
+  form: "форма",
+  site: "сайт",
+  skincheck_q1: "проверка кожи",
+};
+
+function getDialogLabel(id: string) {
+  return `Обращение ${id.replace(/^bd-/, "") || id}`;
+}
+
 function getSafeChannelText(channel: BotChannel) {
-  return `${CHANNEL_LABEL[channel]} · ID скрыт`;
+  return `${CHANNEL_LABEL[channel]} · номер скрыт`;
+}
+
+function marketingValueLabel(value: string) {
+  return UTM_VALUE_LABEL[value] ?? value.replaceAll("_", " ");
 }
 
 function MessageBubble({ m }: { m: BotMessage }) {
@@ -67,7 +111,7 @@ function MessageBubble({ m }: { m: BotMessage }) {
         }`}
       >
         {isPhoto ? (
-          <div className="italic text-muted-foreground">Фото получено · скрыто в MVP</div>
+          <div className="italic text-muted-foreground">Фото получено · скрыто в прототипе</div>
         ) : (
           <div>{m.payload}</div>
         )}
@@ -106,7 +150,7 @@ export default function OperatorDialogPage() {
       <div className="flex h-full flex-col">
         <PageHeader title="Диалог не найден" />
         <div className="p-4">
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="min-h-[44px]">
             <Link to="/operator">
               <ArrowLeft className="h-4 w-4" /> К очереди
             </Link>
@@ -119,12 +163,12 @@ export default function OperatorDialogPage() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title={`Диалог ${dialog.id}`}
-        subtitle={`${getSafeChannelText(dialog.channel)} · ${dialog.state} · ${formatDateTime(
+        title={getDialogLabel(dialog.id)}
+        subtitle={`${getSafeChannelText(dialog.channel)} · ${STATE_LABEL[dialog.state] ?? dialog.state} · ${formatDateTime(
           dialog.lastMessageAt,
-        )} · оператор: ${dialog.assignedOperatorId ?? "не назначен"}`}
+        )} · оператор: ${dialog.assignedOperatorId ? "назначен" : "не назначен"}`}
         actions={
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="min-h-[44px]">
             <Link to="/operator">
               <ArrowLeft className="h-4 w-4" /> К очереди
             </Link>
@@ -158,7 +202,7 @@ export default function OperatorDialogPage() {
               <Button
                 size="sm"
                 className="min-h-[44px]"
-                onClick={() => logAction("Взял в работу", "in_work")}
+                onClick={() => logAction("Взял в работу", "в работе")}
               >
                 Взять в работу
               </Button>
@@ -166,25 +210,25 @@ export default function OperatorDialogPage() {
                 size="sm"
                 variant="outline"
                 className="min-h-[44px]"
-                onClick={() => logAction("Эскалировано врачу", "escalated")}
+                onClick={() => logAction("Передано врачу", "передано врачу")}
               >
-                Эскалировать врачу
+                Передать врачу
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 className="min-h-[44px]"
-                onClick={() => logAction("Лид помечен квалифицированным", "qualified")}
+                onClick={() => logAction("Заявка уточнена", "уточнена")}
               >
-                Отметить лид квалифицированным
+                Отметить заявку уточнённой
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 className="min-h-[44px]"
-                onClick={() => logAction("Лид помечен потерянным", "lost")}
+                onClick={() => logAction("Заявка закрыта без записи", "закрыта без записи")}
               >
-                Отметить потерянным
+                Закрыть без записи
               </Button>
             </div>
             {localState && (
@@ -207,8 +251,8 @@ export default function OperatorDialogPage() {
                 Запись на приём
               </div>
               <p className="text-muted-foreground">
-                Запись через Mini App уже прототипирована. Реальная передача записи в клинику будет
-                на этапе бэкенда.
+                Запись через форму уже прототипирована. Реальная передача записи в клинику будет
+                после подключения клиники.
               </p>
               <Button size="sm" disabled className="mt-2 min-h-[44px]">
                 Передать запись (демо, отключено)
@@ -228,11 +272,10 @@ export default function OperatorDialogPage() {
           {lead ? (
             <Card className="p-3 text-[13px]">
               <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                Лид
+                Заявка
               </div>
-              <div className="font-mono">{lead.id}</div>
               <div>Статус: {LEAD_LABEL[lead.status]}</div>
-              <div className="text-muted-foreground">Источник: {lead.source}</div>
+              <div className="text-muted-foreground">Источник: {LEAD_SOURCE_LABEL[lead.source] ?? "Другое"}</div>
               <div className="text-muted-foreground">
                 Клиника: {CLINICS.find((c) => c.id === lead.clinicId)?.name ?? "—"}
               </div>
@@ -243,24 +286,24 @@ export default function OperatorDialogPage() {
                 <div className="mt-2 flex flex-wrap gap-1">
                   {lead.utm.source && (
                     <span className="rounded-sm border px-1.5 py-0.5 text-[11px]">
-                      source · {lead.utm.source}
+                      Источник · {marketingValueLabel(lead.utm.source)}
                     </span>
                   )}
                   {lead.utm.medium && (
                     <span className="rounded-sm border px-1.5 py-0.5 text-[11px]">
-                      medium · {lead.utm.medium}
+                      Канал · {marketingValueLabel(lead.utm.medium)}
                     </span>
                   )}
                   {lead.utm.campaign && (
                     <span className="rounded-sm border px-1.5 py-0.5 text-[11px]">
-                      campaign · {lead.utm.campaign}
+                      Кампания · {marketingValueLabel(lead.utm.campaign)}
                     </span>
                   )}
                 </div>
               )}
             </Card>
           ) : (
-            <Card className="p-3 text-[13px] text-muted-foreground">Лид по диалогу не создан.</Card>
+            <Card className="p-3 text-[13px] text-muted-foreground">Заявка по обращению не создана.</Card>
           )}
 
           {card ? (
@@ -277,12 +320,12 @@ export default function OperatorDialogPage() {
                 )}
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">
-                CTA: {card.ctaType}
+                Следующее действие: {NEXT_ACTION_LABEL[card.ctaType] ?? "Передать оператору"}
               </div>
             </Card>
           ) : (
             <Card className="p-3 text-[13px] text-muted-foreground">
-              AnalysisCard для диалога отсутствует.
+              Безопасное резюме для обращения отсутствует.
             </Card>
           )}
 

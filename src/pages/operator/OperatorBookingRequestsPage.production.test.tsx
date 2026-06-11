@@ -38,7 +38,7 @@ const request = {
   clinicNote: null,
   createdAt: "2026-05-15T09:00:00.000Z",
   updatedAt: "2026-05-15T09:00:00.000Z",
-  patient: { id: "patient-1", fullName: "Live Booking Patient", code: "DP-LIVE-BOOK" },
+  patient: { id: "patient-1", fullName: "Иван Пациент", code: "DP-LIVE-BOOK" },
   clinic: { id: "clinic-1", slug: "derma-pro", name: "Дерма-Про" },
   assignedVisit: null,
 };
@@ -114,7 +114,7 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
             startedAt: "2026-06-16T10:00:00.000Z",
             durationMinutes: 30,
             status: "available",
-            doctor: { displayName: "Доктор Live" },
+            doctor: { displayName: "Доктор Иванова" },
           }],
           count: 1,
           limit: 5,
@@ -146,20 +146,20 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
 
     renderPage();
 
-    expect(await screen.findByText("Production booking requests")).toBeInTheDocument();
-    expect(await screen.findByText("Availability sync readiness")).toBeInTheDocument();
+    expect(await screen.findByText("Очередь заявок на запись")).toBeInTheDocument();
+    expect(await screen.findByText("Готовность свободных окон")).toBeInTheDocument();
     expect(screen.getByText(/Готово — Можно подтверждать записи через локальное свободное окно/i)).toBeInTheDocument();
-    expect(screen.getByText(/no CRM runtime calls/i)).toBeInTheDocument();
+    expect(screen.getByText(/Свободные окна проверяются по локальному расписанию/i)).toBeInTheDocument();
     expect(screen.getByText("Конфликтов синхронизации не найдено.")).toBeInTheDocument();
-    expect(await screen.findByText("Импорт CRM и рекламных источников")).toBeInTheDocument();
-    expect(screen.getByText(/CRM клиники · completed/i)).toBeInTheDocument();
-    expect(screen.getByText(/Hardening: stage5t/i)).toBeInTheDocument();
-    expect(screen.getByText(/runtime calls: disabled/i)).toBeInTheDocument();
+    expect(await screen.findByText("Входящие источники записи")).toBeInTheDocument();
+    expect(screen.getByText(/Система клиники · готово/i)).toBeInTheDocument();
+    expect(screen.getByText(/Защита импорта включена/i)).toBeInTheDocument();
+    expect(screen.getByText(/внешние вызовы выключены/i)).toBeInTheDocument();
     expect(screen.getByText("Дубликаты 24ч")).toBeInTheDocument();
     expect(await screen.findByText("Свободные окна клиники")).toBeInTheDocument();
-    expect(screen.getByText(/Доктор Live · CRM клиники/i)).toBeInTheDocument();
-    expect(screen.getByText("Live Booking Patient · DP-LIVE-BOOK")).toBeInTheDocument();
-    expect(screen.getByText(/self-hosted backend \/api\/v1\/clinic\/booking-requests/i)).toBeInTheDocument();
+    expect(screen.getByText(/Доктор Иванова · Система клиники/i)).toBeInTheDocument();
+    expect(screen.getByText("Иван Пациент · DP-LIVE-BOOK")).toBeInTheDocument();
+    expect(screen.getByText("Данные загружены из системы клиники.")).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Демо-режим");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://clinic.local/api/v1/clinic/booking-requests?limit=25",
@@ -172,7 +172,7 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
       },
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Открыть заявку на запись request-live-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Открыть заявку на запись: Иван Пациент" }));
     fireEvent.change(screen.getByLabelText("Заметка клиники по заявке"), {
       target: { value: "Позвонить пациенту" },
     });
@@ -194,7 +194,7 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
         }),
       );
     });
-    expect(await screen.findByText(/Запрос request-live-1: статус В работе/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Заявка: статус В работе/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Свободное окно для записи"), {
       target: { value: "slot-live-1" },
@@ -217,6 +217,6 @@ describe("OperatorBookingRequestsPage · Stage 5P production booking intake", ()
         }),
       );
     });
-    expect(await screen.findByText(/создан визит visit-live-1/i)).toBeInTheDocument();
+    expect(await screen.findByText("Заявка записана на визит.")).toBeInTheDocument();
   });
 });

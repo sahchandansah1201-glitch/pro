@@ -26,7 +26,7 @@ export function AppLayout() {
   const selfHostedSession = useSelfHostedApiSession();
   const productionLabel = isSelfHostedApiConfigured(selfHostedSession)
     ? selfHostedRoleLabel(selfHostedSession)
-    : "Self-hosted login required";
+    : "Нужен рабочий вход";
 
   return (
     <SidebarProvider>
@@ -48,7 +48,7 @@ export function AppLayout() {
               <div className="relative w-full">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Поиск пациента, визита, лида…"
+                  placeholder="Поиск пациента, визита, заявки…"
                   className="h-11 pl-7 text-[13px]"
                   aria-label="Глобальный поиск"
                 />
@@ -96,11 +96,11 @@ function ProductionSessionChip({
       <span
         data-testid="production-session-chip"
         className="hidden max-w-[260px] items-center gap-1 rounded-md border border-border bg-surface-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline-flex"
-        title={connected ? `${displayName ?? "Self-hosted user"} · ${roleLabel}` : "Self-hosted session required"}
-        aria-label={connected ? `Self-hosted сессия активна: ${displayName ?? roleLabel}` : "Self-hosted сессия не подключена"}
+        title={connected ? `${displayName ?? "Пользователь"} · ${roleLabel}` : "Нужен рабочий вход"}
+        aria-label={connected ? `Рабочая сессия активна: ${displayName ?? roleLabel}` : "Рабочая сессия не подключена"}
       >
         <ShieldCheck className={connected ? "h-3 w-3 text-success" : "h-3 w-3 text-muted-foreground"} aria-hidden />
-        <span className="truncate">{connected ? (displayName ?? roleLabel) : "Нет live-сессии"}</span>
+        <span className="truncate">{connected ? (displayName ?? roleLabel) : "Нет рабочей сессии"}</span>
       </span>
       {connected ? (
         <Button
@@ -109,7 +109,7 @@ function ProductionSessionChip({
           size="sm"
           className="min-h-11 px-3 text-[12px]"
           onClick={handleLogout}
-          aria-label="Выйти из self-hosted backend"
+          aria-label="Выйти из рабочей системы"
         >
           <LogOut className="h-3.5 w-3.5" aria-hidden />
           <span className="hidden sm:inline">Выйти</span>

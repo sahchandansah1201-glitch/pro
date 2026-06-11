@@ -133,7 +133,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       label: "Поддержка",
       items: [
         { title: "Очередь диалогов", url: "/operator", icon: Headphones },
-        { title: "Диалог", url: "/operator/dialogs/demo", icon: MessagesSquare },
+        { title: "Карточка обращения", url: "/operator/dialogs/bd-001", icon: MessagesSquare },
       ],
     },
   ],
@@ -191,6 +191,23 @@ const matchesPath = (pathname: string, itemUrl: string) => {
     : pathname === targetPath || pathname.startsWith(targetPath + "/");
 };
 
+const mergeGroupsByLabel = (groups: NavGroup[]): NavGroup[] => {
+  const merged: NavGroup[] = [];
+  for (const group of groups) {
+    const existing = merged.find((candidate) => candidate.label === group.label);
+    if (!existing) {
+      merged.push({ ...group, items: [...group.items] });
+      continue;
+    }
+    for (const item of group.items) {
+      if (!existing.items.some((candidate) => candidate.url === item.url)) {
+        existing.items.push(item);
+      }
+    }
+  }
+  return merged;
+};
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -203,10 +220,7 @@ export function AppSidebar() {
   const roleGroups = productionMode
     ? productionRoles.flatMap((r) => PRODUCTION_NAV_BY_ROLE[r] ?? NAV_BY_ROLE[r])
     : NAV_BY_ROLE[role];
-  const uniqueGroups = roleGroups.filter(
-    (group, index, all) => all.findIndex((candidate) => candidate.label === group.label) === index,
-  );
-  const groups = [...uniqueGroups, SHARED];
+  const groups = mergeGroupsByLabel([...roleGroups, SHARED]);
   // Keep the user's current location unambiguous: on deep links like
   // /admin/governance or Body Map, highlight only the most specific sidebar item,
   // not both the parent section and the child screen.

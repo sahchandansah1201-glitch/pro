@@ -10,10 +10,10 @@ export default function OperatorBookingRequestsPageDemo() {
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title="Запросы на запись"
-        subtitle="Демо-режим · production очередь доступна после self-hosted входа"
+        subtitle="Демо-режим · рабочая очередь доступна после входа в систему"
         actions={
-          <Button asChild size="sm" variant="outline" className="h-8 text-[12px]">
-            <Link to="/self-hosted/login">Self-hosted вход</Link>
+          <Button asChild size="sm" variant="outline" className="min-h-[44px] text-[12px]">
+            <Link to="/self-hosted/login">Вход в систему</Link>
           </Button>
         }
       />
@@ -21,11 +21,11 @@ export default function OperatorBookingRequestsPageDemo() {
         <Card className="max-w-3xl p-5">
           <div className="flex items-center gap-2 text-[14px] font-semibold">
             <CalendarPlus className="h-4 w-4" aria-hidden />
-            Очередь заявок включается в production
+            Очередь заявок включается в рабочем режиме
           </div>
           <p className="mt-2 text-[13px] text-muted-foreground">
-            В demo/dev данные не пишутся в клиническую очередь. В production эта страница читает и обновляет
-            только self-hosted endpoint `/api/v1/clinic/booking-requests`.
+            В демо-режиме данные не пишутся в клиническую очередь. В рабочем режиме эта
+            страница читает и обновляет только защищённую очередь клиники.
           </p>
         </Card>
       </div>

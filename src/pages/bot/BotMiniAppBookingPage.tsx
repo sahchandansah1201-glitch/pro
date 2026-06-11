@@ -76,20 +76,20 @@ export default function BotMiniAppBookingPage() {
   return (
     <div className="min-h-screen bg-muted/40 px-3 py-4 sm:px-6 sm:py-8">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 lg:flex-row lg:items-start">
-        {/* Phone-like Mini App frame */}
+        {/* Мобильная форма записи */}
         <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-3xl border bg-background shadow-sm">
           {/* Header */}
           <div className="flex items-center gap-2 border-b bg-card px-4 py-3">
             <Link
               to="/bot-sim"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-accent"
               aria-label="Вернуться в бот"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="flex-1">
               <div className="text-sm font-semibold leading-tight">Запись в клинику</div>
-              <div className="text-xs text-muted-foreground">Telegram Mini App · демо</div>
+              <div className="text-xs text-muted-foreground">Форма записи · демо</div>
             </div>
           </div>
 
@@ -225,7 +225,7 @@ export default function BotMiniAppBookingPage() {
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/60 p-2 text-[11px] text-muted-foreground">
-                  MVP: запись не отправляется в клинику.
+                  В демо-режиме запись не отправляется в клинику.
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -248,11 +248,11 @@ export default function BotMiniAppBookingPage() {
                   <CheckCircle2 className="h-8 w-8 text-primary" />
                   <div className="text-sm font-semibold">Демо-запись создана локально</div>
                   <div className="text-xs text-muted-foreground">
-                    В реальной версии оператор клиники получит лид.
+                    В реальной версии оператор клиники получит заявку.
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/60 p-2 text-[11px] text-muted-foreground">
-                  MVP: запись не отправляется в клинику. Лид и запись созданы только локально в памяти страницы.
+                  В демо-режиме запись не отправляется в клинику. Заявка и запись созданы только в памяти страницы.
                 </div>
                 <div className="space-y-1 rounded-lg border bg-card p-3 text-xs">
                   <div className="flex justify-between gap-2">
@@ -265,12 +265,12 @@ export default function BotMiniAppBookingPage() {
                   </div>
                   <Separator className="my-1" />
                   <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Lead ID</span>
-                    <span className="font-mono">{demoLeadId}</span>
+                    <span className="text-muted-foreground">Заявка</span>
+                    <span>создана локально</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Appointment ID</span>
-                    <span className="font-mono">{demoApptId}</span>
+                    <span className="text-muted-foreground">Запись</span>
+                    <span>создана локально</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 pt-1">
@@ -321,16 +321,15 @@ export default function BotMiniAppBookingPage() {
               </div>
               <Separator />
               <div>
-                <div className="text-xs text-muted-foreground">Локальный лид</div>
-                <div className="font-mono text-xs">{demoLeadId ?? "—"}</div>
+                <div className="text-xs text-muted-foreground">Локальная заявка</div>
+                <div>{demoLeadId ? "создана" : "—"}</div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Локальная запись</div>
-                <div className="font-mono text-xs">{demoApptId ?? "—"}</div>
+                <div>{demoApptId ? "создана" : "—"}</div>
               </div>
               <div className="rounded-md bg-muted/60 p-2 text-[11px] text-muted-foreground">
-                Все идентификаторы создаются только в памяти страницы. Сети, CRM и
-                Telegram API не используются.
+                Все данные создаются только в памяти страницы. Внешние системы и мессенджер не используются.
               </div>
             </CardContent>
           </Card>

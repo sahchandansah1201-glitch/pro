@@ -14,11 +14,11 @@ const renderAt = (path: string) =>
   );
 
 describe("OperatorDialogPage a11y", () => {
-  it("имеет единственный h1 с названием диалога", () => {
+  it("имеет единственный h1 с названием обращения", () => {
     renderAt("/operator/dialogs/bd-001");
     const h1s = screen.getAllByRole("heading", { level: 1 });
     expect(h1s).toHaveLength(1);
-    expect(h1s[0]).toHaveTextContent(/Диалог bd-001/);
+    expect(h1s[0]).toHaveTextContent(/Обращение 001/);
   });
 
   it("кнопка 'Передать запись' имеет disabled-состояние, доступное скринридерам", () => {
@@ -51,7 +51,7 @@ describe("OperatorDialogPage a11y", () => {
     take.focus();
     expect(document.activeElement).toBe(take);
     await user.tab();
-    const escalate = screen.getByRole("button", { name: /Эскалировать врачу/ });
+    const escalate = screen.getByRole("button", { name: /Передать врачу/ });
     expect(document.activeElement).toBe(escalate);
   });
 

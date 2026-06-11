@@ -16,8 +16,8 @@ describe("OperatorConsolePage · Batch G operator handoff", () => {
   it("renders an operator handoff center without raw channel refs or protected tokens", () => {
     renderConsole();
 
-    expect(screen.getByText("Центр передачи оператору")).toBeInTheDocument();
-    expect(screen.getByText("Очередь handoff")).toBeInTheDocument();
+    expect(screen.getByText("Центр обращений оператора")).toBeInTheDocument();
+    expect(screen.getByText("Очередь передачи")).toBeInTheDocument();
     expect(screen.getAllByText("Нужно фото лучше").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Передать врачу").length).toBeGreaterThan(0);
     expect(screen.getByText(/Оператор закрывает организационные задачи/i)).toBeInTheDocument();
@@ -42,10 +42,10 @@ describe("OperatorConsolePage · Batch G operator handoff", () => {
   it("lets the operator accept a handoff item into local work state", () => {
     renderConsole();
 
-    fireEvent.click(screen.getByRole("button", { name: "Принять в работу Диалог 002" }));
+    fireEvent.click(screen.getByRole("button", { name: "Принять в работу Обращение 002" }));
 
-    expect(screen.getByRole("status", { name: "Статус handoff" })).toHaveTextContent(
-      "В работе: Диалог 002",
+    expect(screen.getByRole("status", { name: "Статус передачи" })).toHaveTextContent(
+      "В работе: Обращение 002",
     );
   });
 });

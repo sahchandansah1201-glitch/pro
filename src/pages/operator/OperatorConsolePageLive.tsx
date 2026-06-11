@@ -37,9 +37,16 @@ const SOURCE_LABEL: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = {
   all: "Все",
   new: "Новые",
-  qualified: "Квалифицированные",
+  qualified: "Уточнённые",
   booked: "Записанные",
-  lost: "Потерянные",
+  lost: "Закрытые",
+};
+
+const APPOINTMENT_STATUS_LABEL: Record<string, string> = {
+  planned: "Запланирован",
+  completed: "Завершён",
+  cancelled: "Отменён",
+  draft: "Черновик",
 };
 
 const EMPTY_OVERVIEW: SelfHostedLeadsAppointmentsOverview = {
@@ -67,7 +74,7 @@ export default function OperatorConsolePageLive() {
   const [draftSource, setDraftSource] = useState("operator");
   const [loadStatus, setLoadStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState<SelfHostedApiError | null>(null);
-  const [actionStatus, setActionStatus] = useState("Production intake пишет только в self-hosted backend.");
+  const [actionStatus, setActionStatus] = useState("Очередь заявок готова.");
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const baseArgs = useMemo(
@@ -85,7 +92,7 @@ export default function OperatorConsolePageLive() {
       setError({
         kind: "not_configured",
         code: "not_configured",
-        message: "Production intake требует вход через self-hosted backend.",
+        message: "Для очереди заявок нужен вход в систему клиники.",
       });
       return;
     }
@@ -124,7 +131,7 @@ export default function OperatorConsolePageLive() {
     setBusyKey(null);
     if (result.ok) {
       setDraftSummary("");
-      setActionStatus(`Лид ${result.value?.id ?? ""} создан в self-hosted backend.`);
+      setActionStatus("Заявка создана.");
       await loadOverview();
     } else {
       setActionStatus(publicLeadMessage(result.error));
@@ -141,7 +148,7 @@ export default function OperatorConsolePageLive() {
     setBusyKey(null);
     setActionStatus(
       result.ok
-        ? `Лид ${result.value?.id ?? lead.id}: статус ${STATUS_LABEL[status].toLowerCase()}.`
+        ? `Заявка: статус ${STATUS_LABEL[status].toLowerCase()}.`
         : publicLeadMessage(result.error),
     );
     if (result.ok) await loadOverview();
@@ -165,15 +172,15 @@ export default function OperatorConsolePageLive() {
     setBusyKey(null);
     setActionStatus(
       result.ok
-        ? `Лид ${result.value?.lead.id ?? lead.id} записан на визит ${result.value?.appointment.visitId ?? ""}.`
+        ? "Заявка записана на визит."
         : publicLeadMessage(result.error),
     );
     if (result.ok) await loadOverview();
   }
 
   const subtitle = session.user?.displayName
-    ? `${session.user.displayName} · production intake`
-    : "Production intake из self-hosted backend";
+    ? `${session.user.displayName} · рабочая очередь заявок`
+    : "Рабочая очередь заявок клиники";
 
   return (
     <div className="flex h-full flex-col bg-surface-muted">
@@ -181,8 +188,8 @@ export default function OperatorConsolePageLive() {
         title="Консоль оператора"
         subtitle={subtitle}
         actions={
-          <Button asChild size="sm" variant="outline" className="h-8 text-[12px]">
-            <Link to="/self-hosted/login">Self-hosted вход</Link>
+          <Button asChild size="sm" variant="outline" className="min-h-[44px] text-[12px]">
+            <Link to="/self-hosted/login">Вход в систему</Link>
           </Button>
         }
       />
@@ -197,13 +204,19 @@ export default function OperatorConsolePageLive() {
             <ServerCog className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span className="truncate">
               {loadStatus === "loading"
-                ? "Загружаем intake из self-hosted backend…"
+                ? "Загружаем очередь заявок…"
                 : loadStatus === "error"
-                  ? "Production intake недоступен."
-                  : "Источник данных: self-hosted backend /api/v1/leads/appointments."}
+                  ? "Очередь заявок недоступна."
+                  : "Данные загружены из системы клиники."}
             </span>
           </div>
-          <Button type="button" size="sm" variant="outline" className="h-8 text-[12px]" onClick={() => void loadOverview()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] text-[12px]"
+            onClick={() => void loadOverview()}
+          >
             Обновить
           </Button>
         </section>
@@ -215,9 +228,9 @@ export default function OperatorConsolePageLive() {
         )}
 
         <section className="surface-card grid grid-cols-2 divide-x divide-border lg:grid-cols-6">
-          <Kpi label="Лиды всего" value={overview.kpis.leadsTotal} />
+          <Kpi label="Заявок всего" value={overview.kpis.leadsTotal} />
           <Kpi label="Новые" value={overview.kpis.newLeads} />
-          <Kpi label="Квалифицированы" value={overview.kpis.qualifiedLeads} />
+          <Kpi label="Уточнены" value={overview.kpis.qualifiedLeads} />
           <Kpi label="Записаны" value={overview.kpis.bookedLeads} />
           <Kpi label="Плановые записи" value={overview.kpis.plannedAppointments} />
           <Kpi label="Выполнены" value={overview.kpis.completedAppointments} />
@@ -226,14 +239,14 @@ export default function OperatorConsolePageLive() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
           <Card className="overflow-hidden">
             <header className="section-bar">
-              <h2 className="h-section">Production intake queue</h2>
-              <span className="h-section-hint">self-hosted PostgreSQL</span>
+              <h2 className="h-section">Очередь заявок</h2>
+              <span className="h-section-hint">система клиники</span>
             </header>
 
             <div className="flex flex-wrap items-end gap-2 border-b border-border px-4 py-3">
               <div className="w-48">
                 <label className="mb-1 block text-[12px] font-medium" htmlFor="stage5m-status-filter">
-                  Статус лида
+                  Статус заявки
                 </label>
                 <select
                   id="stage5m-status-filter"
@@ -254,14 +267,14 @@ export default function OperatorConsolePageLive() {
                   id="stage5m-search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Пациент, код, безопасное резюме"
+                  placeholder="Пациент, код, описание заявки"
                   className="h-9"
                 />
               </div>
             </div>
 
             {overview.leads.length === 0 ? (
-              <Empty text="Лидов по текущим фильтрам нет." />
+              <Empty text="Заявок по текущим фильтрам нет." />
             ) : (
               <ul className="divide-y divide-border">
                 {overview.leads.map((lead) => (
@@ -281,13 +294,13 @@ export default function OperatorConsolePageLive() {
           <aside className="space-y-6">
             <Card className="overflow-hidden">
               <header className="section-bar">
-                <h2 className="h-section">Новый лид</h2>
-                <span className="h-section-hint">local write</span>
+                <h2 className="h-section">Новая заявка</h2>
+                <span className="h-section-hint">сохранение в системе</span>
               </header>
               <form onSubmit={submitCreateLead} className="space-y-3 p-4">
                 <div>
                   <label className="mb-1 block text-[12px] font-medium" htmlFor="stage5m-new-lead-summary">
-                    Безопасное резюме лида
+                    Краткое описание заявки
                   </label>
                   <Textarea
                     id="stage5m-new-lead-summary"
@@ -318,7 +331,7 @@ export default function OperatorConsolePageLive() {
                   disabled={busyKey === "create" || draftSummary.trim().length === 0}
                   className="h-9 text-[12px]"
                 >
-                  {busyKey === "create" ? "Создаём…" : "Создать лид"}
+                  {busyKey === "create" ? "Создаём…" : "Создать заявку"}
                 </Button>
                 <div role="status" aria-live="polite" aria-atomic="true" className="text-meta">
                   {actionStatus}
@@ -329,7 +342,7 @@ export default function OperatorConsolePageLive() {
             <Card className="overflow-hidden">
               <header className="section-bar">
                 <h2 className="h-section">Ближайшие записи</h2>
-                <span className="h-section-hint">derived from visits</span>
+                <span className="h-section-hint">по визитам</span>
               </header>
               {overview.appointments.length === 0 ? (
                 <Empty text="Записей пока нет." />
@@ -346,8 +359,8 @@ export default function OperatorConsolePageLive() {
 
         <section className="surface-card px-4 py-3 text-meta">
           <Headphones className="mr-2 inline h-3.5 w-3.5" aria-hidden />
-          В production этот раздел не читает demo-dialogs. Все действия идут через self-hosted backend,
-          operator-owned PostgreSQL и локальную RBAC/audit модель.
+          Экран показывает только рабочие заявки оператора. Действия сохраняются в системе клиники
+          и проходят проверку прав.
         </section>
       </div>
     </div>
@@ -374,7 +387,7 @@ function LeadQueueRow({
     <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3">
       <div className="min-w-0">
         <div className="truncate text-row font-medium">
-          {lead.patient.fullName || lead.safeSummary || "Лид"}
+          {lead.patient.fullName || lead.safeSummary || "Заявка"}
         </div>
         <div className="truncate text-meta">
           {SOURCE_LABEL[lead.source] ?? lead.source} · {STATUS_LABEL[lead.status] ?? lead.status} · {lead.clinic.name || "Клиника"}
@@ -390,13 +403,13 @@ function LeadQueueRow({
             size="sm"
             variant="outline"
             disabled={busyKey === `qualified:${lead.id}`}
-            aria-label={`Квалифицировать лид ${lead.id}`}
+            aria-label={`Уточнить заявку: ${lead.patient.fullName || lead.safeSummary || "без имени"}`}
             className="h-7 px-2 text-[11px]"
             onClick={() => {
               void onQualify(lead);
             }}
           >
-            Квалифицировать
+            Уточнить
           </Button>
         )}
         {canBook && (
@@ -405,7 +418,7 @@ function LeadQueueRow({
             size="sm"
             variant="outline"
             disabled={busyKey === `book:${lead.id}`}
-            aria-label={`Записать лид ${lead.id}`}
+            aria-label={`Записать заявку: ${lead.patient.fullName || lead.safeSummary || "без имени"}`}
             className="h-7 px-2 text-[11px]"
             onClick={() => {
               void onBook(lead);
@@ -420,13 +433,13 @@ function LeadQueueRow({
             size="sm"
             variant="ghost"
             disabled={busyKey === `lost:${lead.id}`}
-            aria-label={`Пометить лид потерянным ${lead.id}`}
+            aria-label={`Закрыть заявку без записи: ${lead.patient.fullName || lead.safeSummary || "без имени"}`}
             className="h-7 px-2 text-[11px]"
             onClick={() => {
               void onLost(lead);
             }}
           >
-            Потерян
+            Закрыть
           </Button>
         )}
       </div>
@@ -440,7 +453,7 @@ function AppointmentRow({ appointment }: { appointment: SelfHostedAppointmentOve
       <div className="min-w-0">
         <div className="truncate text-row font-medium">{appointment.patient.fullName || "Пациент"}</div>
         <div className="truncate text-meta">
-          {formatMaybeDate(appointment.slotAt)} · {appointment.status}
+          {formatMaybeDate(appointment.slotAt)} · {APPOINTMENT_STATUS_LABEL[appointment.status] ?? appointment.status}
         </div>
       </div>
       {appointment.patient.id ? (
@@ -468,10 +481,10 @@ function Empty({ text }: { text: string }) {
 }
 
 function publicLeadMessage(error: { code?: string; message?: string } | null | undefined): string {
-  if (!error) return "Не удалось сохранить лид.";
-  if (error.code === "forbidden") return "Недостаточно прав для изменения intake.";
-  if (error.code === "validation_error") return "Проверьте поля лида: backend вернул ошибку валидации.";
-  return error.message || "Не удалось сохранить лид.";
+  if (!error) return "Не удалось сохранить заявку.";
+  if (error.code === "forbidden") return "Недостаточно прав для изменения заявки.";
+  if (error.code === "validation_error") return "Проверьте поля заявки: система вернула ошибку проверки.";
+  return error.message || "Не удалось сохранить заявку.";
 }
 
 function formatMaybeDate(value: string | null | undefined): string {

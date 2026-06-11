@@ -94,6 +94,15 @@ describe("AppLayout production mode", () => {
     expect(screen.queryByRole("link", { name: /^Обзор$/ })).not.toBeInTheDocument();
   });
 
+  it("merges the operator support group with shared help instead of duplicating it", () => {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, "operator");
+    renderLayout("/operator");
+
+    expect(screen.getAllByText("Поддержка")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: /Очередь диалогов/ })).toHaveAttribute("href", "/operator");
+    expect(screen.getByRole("link", { name: /Справка/ })).toHaveAttribute("href", "/help");
+  });
+
   it("marks only the most specific admin sidebar entry as active", () => {
     window.localStorage.setItem(ROLE_STORAGE_KEY, "clinic_admin");
     renderLayout("/admin/governance");
@@ -149,6 +158,6 @@ describe("AppLayout production mode", () => {
     expect(screen.queryByText(/Учебный режим\. Переключение ролей/)).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: /учебный режим/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("production-session-chip")).toHaveTextContent("Production Doctor");
-    expect(screen.getByRole("button", { name: "Выйти из self-hosted backend" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Выйти из рабочей системы" })).toBeInTheDocument();
   });
 });

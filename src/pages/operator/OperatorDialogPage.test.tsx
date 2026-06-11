@@ -32,7 +32,7 @@ const expectClean = (html: string) => {
 describe("OperatorDialogPage", () => {
   it("рендерит валидный диалог с переписки и панелями", () => {
     const { container } = renderAt("/operator/dialogs/bd-001");
-    expect(screen.getByRole("heading", { name: /Диалог bd-001/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Обращение 001/ })).toBeInTheDocument();
     expect(screen.getByText(/Переписка/)).toBeInTheDocument();
     expect(screen.getByText(/Безопасность данных/)).toBeInTheDocument();
     expect(
@@ -51,7 +51,7 @@ describe("OperatorDialogPage", () => {
     const { container } = renderAt("/operator/dialogs/bd-001");
     fireEvent.click(screen.getByRole("button", { name: /^Взять в работу$/ }));
     expect(screen.getByText(/Локальный статус:/)).toBeInTheDocument();
-    expect(screen.getByText(/in_work/)).toBeInTheDocument();
+    expect(screen.getByText(/в работе/)).toBeInTheDocument();
     expectClean(container.innerHTML);
   });
 

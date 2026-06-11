@@ -31,7 +31,7 @@ const CHANNEL_FILTERS: { value: "all" | BotChannel; label: string }[] = [
   { value: "all", label: "Все каналы" },
   { value: "telegram", label: "Telegram" },
   { value: "whatsapp", label: "WhatsApp" },
-  { value: "web", label: "Web" },
+  { value: "web", label: "Сайт" },
 ];
 
 const STATE_LABEL: Record<BotDialogState, string> = {
@@ -46,24 +46,31 @@ const STATE_LABEL: Record<BotDialogState, string> = {
 
 const LEAD_LABEL: Record<string, string> = {
   new: "Новый",
-  qualified: "Квалифицирован",
+  qualified: "Уточнён",
   booked: "Записан",
-  lost: "Потерян",
+  lost: "Закрыт",
   duplicate: "Дубль",
 };
 
 const CHANNEL_LABEL: Record<BotChannel, string> = {
   telegram: "Telegram",
   whatsapp: "WhatsApp",
-  web: "Web",
+  web: "Сайт",
+};
+
+const MESSAGE_KIND_LABEL: Record<string, string> = {
+  text: "текст",
+  photo: "фото",
+  system: "система",
+  cta: "действие",
 };
 
 function getDialogLabel(id: string) {
-  return `Диалог ${id.replace(/^bd-/, "") || id}`;
+  return `Обращение ${id.replace(/^bd-/, "") || id}`;
 }
 
 function getSafeChannelText(channel: BotChannel) {
-  return `${CHANNEL_LABEL[channel]} · ID скрыт`;
+  return `${CHANNEL_LABEL[channel]} · номер скрыт`;
 }
 
 export default function OperatorConsolePageDemo() {
@@ -144,7 +151,7 @@ export default function OperatorConsolePageDemo() {
           channel: getSafeChannelText(d.channel),
           actionLabel,
           detail,
-          leadStatus: lead ? LEAD_LABEL[lead.status] ?? lead.status : "Лид не создан",
+          leadStatus: lead ? LEAD_LABEL[lead.status] ?? lead.status : "Заявка не создана",
           quality: card ? `${Math.round(card.qualityGate.score * 100)}%` : "нет снимка",
           state: STATE_LABEL[d.state],
         },
@@ -162,32 +169,32 @@ export default function OperatorConsolePageDemo() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Консоль оператора"
-        subtitle={`Диалогов: ${totals.dialogs} · Новых лидов: ${totals.newLeads} · Запись: ${totals.booked} · Срочных/высоких: ${totals.urgent}`}
+        subtitle={`Диалогов: ${totals.dialogs} · Новых заявок: ${totals.newLeads} · Запись: ${totals.booked} · Срочных/высоких: ${totals.urgent}`}
       />
 
       <section
-        aria-labelledby="operator-handoff-title"
+        aria-labelledby="operator-transfer-title"
         className="mx-4 mt-4 shrink-0 rounded-lg border bg-card p-3 shadow-sm"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 id="operator-handoff-title" className="text-[15px] font-semibold">
-              Центр передачи оператору
+            <h2 id="operator-transfer-title" className="text-[15px] font-semibold">
+              Центр обращений оператора
             </h2>
             <p className="mt-1 max-w-[760px] text-[12px] leading-5 text-muted-foreground">
-              Оператор закрывает организационные задачи: качество фото, запись, контактный
-              контекст и ручную передачу врачу. Сообщения не отправляются из демо-интерфейса.
+              Оператор закрывает организационные задачи: качество фото, запись, контактные
+              данные и передачу врачу. Сообщения не отправляются из этого экрана.
             </p>
           </div>
           <div
             role="status"
             aria-live="polite"
             aria-atomic="true"
-            aria-label="Статус handoff"
+            aria-label="Статус передачи"
             className="min-h-[36px] rounded-md border bg-background px-3 py-2 text-[12px] font-medium"
           >
             <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
-              Статус handoff
+              Статус передачи
             </span>
             <span>{handoffStatus}</span>
           </div>
@@ -195,9 +202,9 @@ export default function OperatorConsolePageDemo() {
 
         <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-[180px_minmax(0,1fr)]">
           <div className="rounded-md bg-muted p-3 text-[12px]">
-            <div className="font-medium">Очередь handoff</div>
+            <div className="font-medium">Очередь передачи</div>
             <div className="mt-1 text-muted-foreground">
-              {handoffQueue.length} задач · локальный demo-state
+              {handoffQueue.length} задач · локальное состояние
             </div>
           </div>
           <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
@@ -222,7 +229,7 @@ export default function OperatorConsolePageDemo() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="ml-auto min-h-[36px]"
+                    className="ml-auto min-h-[44px]"
                     onClick={() => setHandoffStatus(`В работе: ${item.label}`)}
                   >
                     Принять в работу {item.label}
@@ -244,7 +251,7 @@ export default function OperatorConsolePageDemo() {
                   size="sm"
                   variant={stateFilter === f.value ? "default" : "outline"}
                   onClick={() => setStateFilter(f.value)}
-                  className="min-h-[36px]"
+                  className="min-h-[44px]"
                 >
                   {f.label}
                 </Button>
@@ -257,17 +264,17 @@ export default function OperatorConsolePageDemo() {
                   size="sm"
                   variant={channelFilter === f.value ? "default" : "outline"}
                   onClick={() => setChannelFilter(f.value)}
-                  className="min-h-[36px]"
+                  className="min-h-[44px]"
                 >
                   {f.label}
                 </Button>
               ))}
             </div>
             <Input
-              placeholder="Поиск по диалогу, пользователю, лиду"
+              placeholder="Поиск по обращению, пользователю, заявке"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-9 max-w-xs"
+              className="min-h-[44px] max-w-xs"
             />
           </div>
 
@@ -291,15 +298,15 @@ export default function OperatorConsolePageDemo() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2 text-[12px]">
-                      <span className="font-mono text-foreground">{d.id}</span>
-                      <span className="rounded-sm border px-1.5 py-0.5 uppercase text-muted-foreground">
-                        {d.channel}
+                      <span className="text-foreground">{getDialogLabel(d.id)}</span>
+                      <span className="rounded-sm border px-1.5 py-0.5 text-muted-foreground">
+                        {CHANNEL_LABEL[d.channel]}
                       </span>
                       <span className="text-muted-foreground">{getSafeChannelText(d.channel)}</span>
                       <span className="rounded-sm bg-muted px-1.5 py-0.5">{STATE_LABEL[d.state]}</span>
                       {lead && (
                         <span className="rounded-sm border px-1.5 py-0.5">
-                          лид · {LEAD_LABEL[lead.status] ?? lead.status}
+                          заявка · {LEAD_LABEL[lead.status] ?? lead.status}
                         </span>
                       )}
                       {card && <RiskBadge level={card.routingRisk} />}
@@ -308,7 +315,7 @@ export default function OperatorConsolePageDemo() {
                       <span className="text-[11px] text-muted-foreground">
                         {formatDateTime(d.lastMessageAt)}
                       </span>
-                      <Button asChild size="sm" variant="outline" className="min-h-[36px]">
+                      <Button asChild size="sm" variant="outline" className="min-h-[44px]">
                         <Link to={`/operator/dialogs/${d.id}`}>Открыть</Link>
                       </Button>
                     </div>
@@ -326,7 +333,7 @@ export default function OperatorConsolePageDemo() {
                 <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
                   Превью диалога
                 </div>
-                <div className="font-mono">{selected.id}</div>
+                <div>{getDialogLabel(selected.id)}</div>
                 <div className="text-muted-foreground">{getSafeChannelText(selected.channel)}</div>
                 <div className="mt-1">{STATE_LABEL[selected.state]}</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
@@ -336,10 +343,10 @@ export default function OperatorConsolePageDemo() {
                   <div className="mt-2 rounded-md bg-muted p-2 text-[12px]">
                     <div className="mb-0.5 text-[10px] uppercase text-muted-foreground">
                       {lastMessage.direction === "in" ? "От пользователя" : "От бота"} ·{" "}
-                      {lastMessage.kind}
+                      {MESSAGE_KIND_LABEL[lastMessage.kind] ?? "сообщение"}
                     </div>
                     {lastMessage.kind === "photo"
-                      ? "Фото получено · скрыто в MVP"
+                      ? "Фото получено · скрыто в прототипе"
                       : lastMessage.payload}
                   </div>
                 )}
@@ -348,9 +355,8 @@ export default function OperatorConsolePageDemo() {
               {selectedLead && (
                 <Card className="p-3 text-[13px]">
                   <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    Лид
+                    Заявка
                   </div>
-                  <div className="font-mono">{selectedLead.id}</div>
                   <div>
                     Статус: {LEAD_LABEL[selectedLead.status] ?? selectedLead.status}
                   </div>
@@ -427,9 +433,9 @@ export default function OperatorConsolePageDemo() {
                         asChild
                         size="sm"
                         variant="outline"
-                        className="min-h-[36px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        className="min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       >
-                        <Link to={`/operator/dialogs/${selected.id}`}>Открыть карточку диалога</Link>
+                    <Link to={`/operator/dialogs/${selected.id}`}>Открыть карточку обращения</Link>
                       </Button>
                     </div>
                   </Card>

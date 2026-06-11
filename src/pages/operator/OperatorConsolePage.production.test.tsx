@@ -41,12 +41,12 @@ const overview = {
       patientId: "patient-1",
       source: "operator",
       status: "new",
-      safeSummary: "Новая production заявка",
+      safeSummary: "Новая заявка",
       createdAt: "2026-05-15T09:00:00.000Z",
       updatedAt: "2026-05-15T09:00:00.000Z",
       patient: {
         id: "patient-1",
-        fullName: "Live Intake Patient",
+        fullName: "Ирина Пациент",
         code: "DP-LIVE-0001",
       },
       clinic: {
@@ -67,10 +67,10 @@ const overview = {
       channel: "self_hosted",
       slotAt: "2026-05-16T09:30:00.000Z",
       signedAt: null,
-      chiefComplaint: "Новая production заявка",
+      chiefComplaint: "Новая заявка",
       patient: {
         id: "patient-1",
-        fullName: "Live Intake Patient",
+        fullName: "Ирина Пациент",
         code: "DP-LIVE-0001",
       },
       clinic: {
@@ -118,9 +118,9 @@ describe("OperatorConsolePage · Stage 5M production intake", () => {
 
     renderProductionConsole();
 
-    expect(await screen.findByText("Production intake queue")).toBeInTheDocument();
-    expect(screen.getAllByText("Live Intake Patient").length).toBeGreaterThan(0);
-    expect(screen.getByText(/self-hosted backend \/api\/v1\/leads\/appointments/i)).toBeInTheDocument();
+    expect(await screen.findByText("Очередь заявок")).toBeInTheDocument();
+    expect(screen.getAllByText("Ирина Пациент").length).toBeGreaterThan(0);
+    expect(screen.getByText("Данные загружены из системы клиники.")).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("bd-001");
     expect(document.body).not.toHaveTextContent("Защищённая ссылка");
     expect(document.body).not.toHaveTextContent("Демо-режим");
@@ -136,7 +136,7 @@ describe("OperatorConsolePage · Stage 5M production intake", () => {
     );
   });
 
-  it("creates, qualifies, books and marks leads lost through self-hosted backend only", async () => {
+  it("creates, qualifies, books and marks leads lost through clinic system only", async () => {
     const fetchMock = vi.fn((url: string | URL | Request, init?: RequestInit) => {
       const href = String(url);
       if (href.endsWith("/api/v1/leads") && init?.method === "POST") {
@@ -178,13 +178,13 @@ describe("OperatorConsolePage · Stage 5M production intake", () => {
 
     renderProductionConsole();
     await waitFor(() => {
-      expect(screen.getAllByText("Live Intake Patient").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Ирина Пациент").length).toBeGreaterThan(0);
     });
 
-    fireEvent.change(screen.getByLabelText("Безопасное резюме лида"), {
+    fireEvent.change(screen.getByLabelText("Краткое описание заявки"), {
       target: { value: "Создано оператором" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Создать лид" }));
+    fireEvent.click(screen.getByRole("button", { name: "Создать заявку" }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "https://clinic.local/api/v1/leads",
@@ -197,9 +197,9 @@ describe("OperatorConsolePage · Stage 5M production intake", () => {
         }),
       );
     });
-    expect(await screen.findByText(/Лид lead-created-1 создан/i)).toBeInTheDocument();
+    expect(await screen.findByText("Заявка создана.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Квалифицировать лид lead-live-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Уточнить заявку: Ирина Пациент" }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "https://clinic.local/api/v1/leads/lead-live-1",
@@ -210,7 +210,7 @@ describe("OperatorConsolePage · Stage 5M production intake", () => {
       );
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Записать лид lead-live-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Записать заявку: Ирина Пациент" }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "https://clinic.local/api/v1/leads/lead-live-1/book-appointment",
@@ -218,7 +218,7 @@ describe("OperatorConsolePage · Stage 5M production intake", () => {
       );
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Пометить лид потерянным lead-live-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть заявку без записи: Ирина Пациент" }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "https://clinic.local/api/v1/leads/lead-live-1",
