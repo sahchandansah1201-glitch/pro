@@ -20,15 +20,15 @@ import VisitWorkspacePage from "./VisitWorkspacePage";
 
 const j = (...p: string[]) => p.join("");
 const FORBIDDEN = [
-  j("doctor", "Version", "Text"),
+  j("doctor", "Версия", "Text"),
   j("patient", "Safe", "Text"),
   j("shared", "Link"),
   j("storage", "Path"),
   j("photo", "Ref"),
-  j("model", "Version"),
+  j("model", "Версия"),
   j("heatmap", "Ref"),
   j("external", "User", "Ref"),
-  j("protected", "Analysis", "Link"),
+  j("protected", "Анализ", "Link"),
 ];
 
 const renderAt = (path: string) =>
@@ -55,7 +55,7 @@ function selectTab(name: RegExp) {
   fireEvent.click(tab);
 }
 
-describe("VisitWorkspacePage · Body map", () => {
+describe("VisitWorkspacePage · Карта тела", () => {
   it("p-001/v-001 (female) shows 'Тип карты: Женщина', front surface label, badge and aria-label", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
@@ -64,7 +64,7 @@ describe("VisitWorkspacePage · Body map", () => {
     expect(screen.getByText(/Полная карта тела/)).toBeInTheDocument();
     expect(screen.getByText(/Тип карты:\s*Женщина/)).toBeInTheDocument();
     expect(screen.getByText(/Передняя поверхность/)).toBeInTheDocument();
-    const svg = screen.getByRole("img", { name: /Body map/ });
+    const svg = screen.getByRole("img", { name: /Карта тела/ });
     expect(svg.getAttribute("aria-label")).toMatch(/Женщина/);
     expect(svg.getAttribute("aria-label")).toMatch(/Передняя поверхность/);
     expect(svg.textContent).toMatch(/ПЕРЕД/);
@@ -78,7 +78,7 @@ describe("VisitWorkspacePage · Body map", () => {
     const hint = screen.getByText(/Ориентиры:/);
     expect(hint.textContent).toMatch(/лопатки/);
     expect(hint.textContent).toMatch(/позвоночник/);
-    const svg = screen.getByRole("img", { name: /Body map/ });
+    const svg = screen.getByRole("img", { name: /Карта тела/ });
     expect(svg.getAttribute("aria-label")).toMatch(/Задняя поверхность/);
     expect(svg.textContent).toMatch(/СПИНА/);
   });
@@ -102,14 +102,14 @@ describe("VisitWorkspacePage · Body map", () => {
     renderAt("/patients/p-004/visits/v-005");
     openBodyMap();
     fireEvent.click(screen.getByText(/Очаг B/));
-    const svg = screen.getByRole("img", { name: /Body map/ });
+    const svg = screen.getByRole("img", { name: /Карта тела/ });
     expect(svg.getAttribute("aria-label")).toMatch(/Левая боковая поверхность/);
   });
 
   it("clicking SVG opens 'Новый очаг (демо)' panel with defaults; cancel hides it", () => {
     renderAt("/patients/p-001/visits/v-001");
     openBodyMap();
-    const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
@@ -133,8 +133,8 @@ describe("VisitWorkspacePage · Body map", () => {
   });
 });
 
-describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
-  it("Body Map selected lesion shows 'Связанные снимки' panel for l-008", () => {
+describe("VisitWorkspacePage · Карта тела ↔ Imaging integration", () => {
+  it("Карта тела selected lesion shows 'Связанные снимки' panel for l-008", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /К снимкам этого очага/ })).toBeInTheDocument();
@@ -149,9 +149,9 @@ describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
     expect(lesionSelect).toBeTruthy();
   });
 
-  it("Imaging tab shows 'Открыть на Body Map' for selected linked image and returns to Body Map", () => {
+  it("Imaging tab shows 'Открыть на карте тела' for selected linked image and returns to Карта тела", () => {
     renderAt("/patients/p-004/visits/v-005?tab=imaging&lesion=l-008");
-    const btn = screen.getByRole("button", { name: /Открыть на Body Map/ });
+    const btn = screen.getByRole("button", { name: /Открыть на карте тела/ });
     fireEvent.click(btn);
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
   });
@@ -162,7 +162,7 @@ describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
     expect(screen.getAllByText(/нужен пересмотр/).length).toBeGreaterThan(0);
   });
 
-  it("регрессия: round-trip Body Map → Imaging → Body Map сохраняет lesion и переключает таб", async () => {
+  it("регрессия: round-trip Карта тела → Imaging → Карта тела сохраняет lesion и переключает таб", async () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
 
     const bodymapTab = screen.getByRole("tab", { name: /карта тела/i });
@@ -171,7 +171,7 @@ describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
     expect(imagingTab.getAttribute("aria-selected")).toBe("false");
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
 
-    // Body Map → Imaging: таб переключился, lesion предвыбран.
+    // Карта тела → Imaging: таб переключился, lesion предвыбран.
     fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
     expect(imagingTab.getAttribute("aria-selected")).toBe("true");
     expect(bodymapTab.getAttribute("aria-selected")).toBe("false");
@@ -180,8 +180,8 @@ describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
     );
     expect(lesionSelect).toBeTruthy();
 
-    // Imaging → Body Map: возврат с тем же lesion.
-    fireEvent.click(screen.getByRole("button", { name: /Открыть на Body Map/ }));
+    // Imaging → Карта тела: возврат с тем же lesion.
+    fireEvent.click(screen.getByRole("button", { name: /Открыть на карте тела/ }));
     expect(bodymapTab.getAttribute("aria-selected")).toBe("true");
     expect(imagingTab.getAttribute("aria-selected")).toBe("false");
     expect(screen.getByText(/Связанные снимки/)).toBeInTheDocument();
@@ -195,7 +195,7 @@ describe("VisitWorkspacePage · Body Map ↔ Imaging integration", () => {
 
 describe("VisitWorkspacePage · Local lesion draft workflow", () => {
   function placePoint() {
-    const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
@@ -269,16 +269,16 @@ describe("VisitWorkspacePage · Local lesion draft workflow", () => {
 describe("VisitWorkspacePage · acceptance — URL params and isolation", () => {
   it("invalid ?tab fallbacks to Intake", () => {
     renderAt("/patients/p-001/visits/v-001?tab=not-a-tab");
-    const intakeTab = screen.getByRole("tab", { name: /Интейк/ });
+    const intakeTab = screen.getByRole("tab", { name: /Первичный приём/ });
     expect(intakeTab.getAttribute("aria-selected")).toBe("true");
   });
 
-  it("invalid ?lesion is safely ignored on Body Map (no crash, tab opens)", () => {
+  it("invalid ?lesion is safely ignored on Карта тела (no crash, tab opens)", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=does-not-exist");
     const tab = screen.getByRole("tab", { name: /карта тела/i });
     expect(tab.getAttribute("aria-selected")).toBe("true");
     // map renders
-    expect(screen.getByRole("img", { name: /Body map/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Карта тела/ })).toBeInTheDocument();
   });
 
   it("invalid ?lesion is safely ignored on Imaging (filter falls back to 'all')", () => {
@@ -293,8 +293,8 @@ describe("VisitWorkspacePage · acceptance — URL params and isolation", () => 
 
   it("local draft does not leak into Assessment, Conclusion, or Report", () => {
     renderAt("/patients/p-001/visits/v-001?tab=bodymap");
-    // create a draft on Body Map
-    const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
+    // create a draft on Карта тела
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });
@@ -343,7 +343,7 @@ describe("VisitWorkspacePage · production hygiene", () => {
 //
 // Confirms that when useApiSession exposes a real JWT + base URL, the
 // VisitImagingTab API panel leaves demo mode and hits the Stage 1E
-// api-read endpoint with a Bearer header — without touching backend code.
+// api-read endpoint with a Bearer header — without touching система клиники code.
 describe("VisitWorkspacePage · Stage 1I-A · authenticated API session smoke", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -385,12 +385,12 @@ describe("VisitWorkspacePage · Stage 1I-A · authenticated API session smoke", 
   it("API panel does not show the demo not-configured notice when authenticated", async () => {
     renderAt("/patients/p-001/visits/v-001?tab=imaging");
 
-    const region = await screen.findByRole("region", { name: /API ассеты визита/i });
+    const region = await screen.findByRole("region", { name: /Снимки визита/i });
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
     });
     expect(
-      within(region).queryByText(/API клинических ассетов не сконфигурирован/i),
+      within(region).queryByText(/система снимков не сконфигурирован/i),
     ).toBeNull();
   });
 });
@@ -413,8 +413,8 @@ function createLiveWorkspaceFetchMock() {
               chiefComplaint: "контроль live",
               createdAt: "2026-05-12T08:00:00.000Z",
               updatedAt: "2026-05-12T09:00:00.000Z",
-              patient: { id: "live-patient", fullName: "Петрова Анна Live", code: "DP-live-001" },
-              clinic: { id: "clinic-1", slug: "live", name: "Live Clinic" },
+              patient: { id: "live-patient", fullName: "Петрова Анна", code: "DP-live-001" },
+              clinic: { id: "clinic-1", slug: "live", name: "Клиника" },
             },
           }),
           { headers: { "Content-Type": "application/json" } },
@@ -430,7 +430,7 @@ function createLiveWorkspaceFetchMock() {
                 id: "live-lesion",
                 patientId: "live-patient",
                 visitId: "live-visit",
-                label: "Live lesion A",
+                label: "Очаг из клиники A",
                 bodyZone: "спина",
                 status: "active",
               },
@@ -461,8 +461,8 @@ function createLiveWorkspaceFetchMock() {
               riskLevel: "moderate",
               abcdTotal: 3.4,
               sevenPointTotal: 2,
-              summary: method === "PATCH" ? "Live assessment saved" : "Live assessment summary",
-              recommendation: "Live recommendation",
+              summary: method === "PATCH" ? "Рабочая оценка сохранена" : "Рабочая оценка",
+              recommendation: "Рабочая рекомендация",
             },
           }),
           { headers: { "Content-Type": "application/json" } },
@@ -480,7 +480,7 @@ function createLiveWorkspaceFetchMock() {
               patientId: "live-patient",
               visitId: "live-visit",
               status: method === "PATCH" ? "ready" : "draft",
-              summary: method === "PATCH" ? "Live conclusion saved" : "Live conclusion summary",
+              summary: method === "PATCH" ? "Рабочее заключение сохранено" : "Рабочее заключение",
               nextStep: "Контроль",
             },
           }),
@@ -499,8 +499,8 @@ function createLiveWorkspaceFetchMock() {
               patientId: "live-patient",
               visitId: "live-visit",
               status: method === "PATCH" ? "signed" : "draft",
-              physicianText: method === "PATCH" ? "Live report saved" : "Live report physician text",
-              patientSafeText: "Live report patient text",
+              physicianText: method === "PATCH" ? "Рабочий отчёт сохранён" : "Рабочий текст отчёта",
+              patientSafeText: "Текст отчёта для пациента",
             },
           }),
           { headers: { "Content-Type": "application/json" } },
@@ -605,7 +605,7 @@ function createLiveWorkspaceFetchMock() {
                 proxyDownloadEvents: 1,
                 proxyDeniedEvents: 0,
               },
-              events: [
+              события: [
                 {
                   kind: "release_prepared",
                   label: "Подготовка выдачи",
@@ -1506,7 +1506,7 @@ function createLiveWorkspaceFetchMock() {
                 {
                   queueNumber: 1,
                   lesionId: "live-lesion",
-                  lesionLabel: "Live lesion A",
+                  lesionLabel: "Очаг из клиники A",
                   bodyZone: "спина",
                   bodySurface: "back",
                   review: {
@@ -1602,7 +1602,7 @@ function createLiveWorkspaceFetchMock() {
                 {
                   queueNumber: 1,
                   lesionId: "live-lesion",
-                  lesionLabel: "Live lesion A",
+                  lesionLabel: "Очаг из клиники A",
                   bodyZone: "спина",
                   bodySurface: "back",
                   status: "blocked",
@@ -1626,7 +1626,7 @@ function createLiveWorkspaceFetchMock() {
                 {
                   queueNumber: 2,
                   lesionId: "live-lesion-device",
-                  lesionLabel: "Live lesion device",
+                  lesionLabel: "Очаг устройства",
                   bodyZone: "плечо",
                   bodySurface: "front",
                   status: "blocked",
@@ -1651,7 +1651,7 @@ function createLiveWorkspaceFetchMock() {
               blockers: [
                 {
                   code: "missing_capture_metadata",
-                  label: "Не хватает metadata съёмки",
+                  label: "Не хватает данных съёмки",
                   count: 1,
                   nextAction: "complete_capture_metadata",
                   pairKey: "live-lesion:i-011+i-012",
@@ -1659,7 +1659,7 @@ function createLiveWorkspaceFetchMock() {
                 },
                 {
                   code: "device_metadata_not_ready",
-                  label: "Device metadata требует проверки",
+                  label: "Данные устройства требуют проверки",
                   count: 1,
                   nextAction: "complete_device_metadata",
                   pairKey: "live-lesion:i-011+i-012",
@@ -1667,7 +1667,7 @@ function createLiveWorkspaceFetchMock() {
                 },
                 {
                   code: "production_asset_not_ready",
-                  label: "Production asset требует проверки",
+                  label: "Рабочие снимки требуют проверки",
                   count: 1,
                   nextAction: "verify_production_asset",
                   pairKey: "live-lesion:i-011+i-012",
@@ -1675,7 +1675,7 @@ function createLiveWorkspaceFetchMock() {
                 },
                 {
                   code: "production_analysis_policy_required",
-                  label: "Нужна production analysis policy",
+                  label: "Нужны правила анализа",
                   count: 1,
                   nextAction: "approve_production_analysis_policy",
                   pairKey: "live-lesion:i-011+i-012",
@@ -1683,7 +1683,7 @@ function createLiveWorkspaceFetchMock() {
                 },
                 {
                   code: "device_bridge_quality_not_ready",
-                  label: "Device Bridge требует проверки",
+                  label: "Связь с устройством требует проверки",
                   count: 1,
                   nextAction: "check_device_bridge",
                   pairKey: "live-lesion:i-011+i-012",
@@ -2357,9 +2357,9 @@ describe("VisitWorkspacePage · Stage 5F · production self-hosted cutover", () 
 
     renderAt("/patients/live-patient/visits/live-visit?tab=bodymap");
 
-    expect(await screen.findByRole("heading", { name: /Петрова Анна Live/ })).toBeInTheDocument();
-    expect(screen.getByText(/Источник данных: self-hosted backend/)).toBeInTheDocument();
-    expect((await screen.findAllByText(/Live lesion A/)).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { name: /Петрова Анна/ })).toBeInTheDocument();
+    expect(screen.getByText(/Источник данных: система клиники/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Очаг из клиники A/)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Визит не найден/)).not.toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     for (const [, init] of fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/v1/"))) {
@@ -2385,133 +2385,135 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
   it("hides mock-derived assessment, conclusion and report tabs in production", async () => {
     renderAt("/patients/live-patient/visits/live-visit?tab=assessment");
 
-    expect(await screen.findByRole("heading", { name: /Петрова Анна Live/ })).toBeInTheDocument();
-    expect(await screen.findByText(/Self-hosted assessment contract/)).toBeInTheDocument();
-    expect(screen.getByText(/mock assessment\/report data hidden/)).toBeInTheDocument();
-    expect(screen.getByDisplayValue(/Live assessment summary/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Петрова Анна/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Рабочая оценка/ })).toBeInTheDocument();
+    expect(screen.getByText(/демо-оценки и демо-отчёт скрыты/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Рабочая оценка/)).toBeInTheDocument();
 
     selectTab(/Заключение/);
-    expect(await screen.findByText(/Self-hosted conclusion contract/)).toBeInTheDocument();
-    expect(screen.getByDisplayValue(/Live conclusion summary/)).toBeInTheDocument();
-    expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { name: /Рабочее заключение/ })).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Рабочее заключение/)).toBeInTheDocument();
+    expect(screen.getAllByText(/демо-оценки и демо-отчёт скрыты/).length).toBeGreaterThan(0);
 
     selectTab(/Отчёт/);
-    expect(await screen.findByText(/Self-hosted report contract/)).toBeInTheDocument();
-    expect(screen.getByDisplayValue(/Live report physician text/)).toBeInTheDocument();
-    expect(await screen.findByText(/Clinical report completion/)).toBeInTheDocument();
-    expect(screen.getByText(/Stage 8G-8I/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Рабочий отчёт/ })).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Рабочий текст отчёта/)).toBeInTheDocument();
+    const reportReadinessRegion = await screen.findByRole("region", { name: "Готовность клинического отчёта" });
+    expect(within(reportReadinessRegion).getByText(/Готовность отчёта/)).toBeInTheDocument();
+    expect(within(reportReadinessRegion).getByText(/Отчёт/)).toBeInTheDocument();
     expect(screen.getByText(/Готов · 100%/)).toBeInTheDocument();
     expect(screen.getAllByText(/Фото-протокол/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/metadata ready, backend blocked/)).toBeInTheDocument();
-    expect(screen.getByText(/нет backend-контракта выдачи фото/)).toBeInTheDocument();
+    expect(screen.getByText(/данные готовы, выдача заблокирована/)).toBeInTheDocument();
+    expect(screen.getByText(/нет договора выдачи фото в системе клиники/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Проверка политики выдачи фото" })).toBeInTheDocument();
     expect(screen.getByText(/Требует проверки/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Журнал выдачи фото" })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Очередь viewer QA" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Очередь проверки снимков" })).toBeInTheDocument();
     expect(screen.getByText(/Технический контур сравнения/)).toBeInTheDocument();
     expect(screen.getByText(/Нужен переснимок/)).toBeInTheDocument();
     expect(screen.getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
-    expect(await screen.findByRole("region", { name: "Готовность timeline QA" })).toBeInTheDocument();
-    const timelineFocus = await screen.findByRole("region", { name: "Рабочий шаг timeline QA" });
+    expect(await screen.findByRole("region", { name: "Готовность проверки истории" })).toBeInTheDocument();
+    const timelineFocus = await screen.findByRole("region", { name: "Рабочий шаг проверки истории" });
     expect(within(timelineFocus).getByText(/Что делать сейчас/)).toBeInTheDocument();
     expect(within(timelineFocus).getByText(/Следующий шаг: Закрыть блокеры данных/)).toBeInTheDocument();
     expect(within(timelineFocus).getByText(/Ближайшее действие:/)).toBeInTheDocument();
-    expect(within(timelineFocus).getByText(/Дозаполнить metadata/)).toBeInTheDocument();
-    expect(within(timelineFocus).getByText(/Первый блокер: Не хватает metadata съёмки · 1/)).toBeInTheDocument();
+    expect(within(timelineFocus).getByText(/Дозаполнить данные съёмки/)).toBeInTheDocument();
+    expect(within(timelineFocus).getByText(/Первый блокер: Не хватает данных съёмки · 1/)).toBeInTheDocument();
     expect(within(timelineFocus).getByText(/Прогресс проверки: 0\/8/)).toBeInTheDocument();
     expect(within(timelineFocus).getByRole("link", { name: /Открыть очаги с блокерами/ })).toHaveAttribute(
       "href",
       "#timeline-qa-lesions",
     );
-    expect(within(timelineFocus).getByRole("list", { name: "Этапы timeline QA" })).toBeInTheDocument();
-    const timelineGroups = screen.getByRole("navigation", { name: "Группы timeline QA" });
+    expect(within(timelineFocus).getByRole("list", { name: "Этапы проверки истории" })).toBeInTheDocument();
+    const timelineGroups = screen.getByRole("navigation", { name: "Разделы проверки истории" });
     expect(within(timelineGroups).getByRole("link", { name: /Данные и запуск/ })).toHaveAttribute(
       "href",
       "#timeline-rollout-details",
     );
-    expect(within(timelineGroups).getByRole("link", { name: /SOP и evidence/ })).toHaveAttribute(
+    expect(within(timelineGroups).getByRole("link", { name: /Правила и подтверждения/ })).toHaveAttribute(
       "href",
       "#timeline-sop-evidence",
     );
-    expect(within(timelineGroups).getByRole("link", { name: /Monitoring и validation/ })).toHaveAttribute(
+    expect(within(timelineGroups).getByRole("link", { name: /Наблюдение и проверка/ })).toHaveAttribute(
       "href",
       "#timeline-monitoring-validation",
     );
-    expect(within(timelineGroups).getByRole("link", { name: /Protected review/ })).toHaveAttribute(
+    expect(within(timelineGroups).getByRole("link", { name: /Закрытая проверка/ })).toHaveAttribute(
       "href",
       "#timeline-protected-review",
     );
-    expect(within(timelineGroups).getByRole("link", { name: /Production rollout/ })).toHaveAttribute(
+    expect(within(timelineGroups).getByRole("link", { name: /Рабочий запуск/ })).toHaveAttribute(
       "href",
       "#timeline-production-review",
     );
     expect(screen.getAllByText("Данные и запуск").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("SOP и evidence").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Monitoring и validation").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Protected review").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Production rollout").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Production dataset validation/)).toBeInTheDocument();
-    expect(screen.getByText(/не создаёт вывод о динамике/)).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Контур timeline rollout" })).toBeInTheDocument();
-    expect(screen.getByText(/Rollout сохраняет только aggregate metadata/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Clinical dynamic conclusion: выключен/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /Утвердить timeline rollout/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Нужен разбор rollout/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "SOP timeline rollout" })).toBeInTheDocument();
-    expect(screen.getByText(/SOP фиксирует только operational checklist/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить SOP rollout/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать SOP review/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Evidence timeline rollout" })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Monitoring outcomes rollout" })).toBeInTheDocument();
-    expect(screen.getByText(/Monitoring фиксирует только aggregate outcomes/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить production rollout/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать monitoring review/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Incident procedure rollout" })).toBeInTheDocument();
-    expect(screen.getByText(/Incident procedure фиксирует только aggregate production outcomes/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить clinic monitoring/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать incident procedure/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Clinical validation rollout" })).toBeInTheDocument();
-    expect(screen.getByText(/Clinical validation фиксирует только aggregate validation metadata/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить clinical validation/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать clinical validation/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Post-validation monitoring rollout" })).toBeInTheDocument();
-    expect(screen.getByText(/Post-validation monitoring фиксирует только aggregate follow-up\/drift metadata/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить post-validation monitoring/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать post-validation monitoring/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Outcome observation governance" })).toBeInTheDocument();
-    expect(screen.getByText(/Observation governance фиксирует только aggregate outcome metadata/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить observation governance/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать observation governance/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Exception governance closure" })).toBeInTheDocument();
-    expect(screen.getByText(/Exception governance фиксирует только aggregate exception closure/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить exception governance/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать exception governance/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Longitudinal outcome governance" })).toBeInTheDocument();
-    expect(screen.getByText(/Outcome governance фиксирует только aggregate longitudinal metadata over time/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить outcome governance/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать outcome governance/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Longitudinal clinical validation" })).toBeInTheDocument();
-    expect(screen.getByText(/Clinical longitudinal validation фиксирует только aggregate clinical longitudinal metadata over time/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить longitudinal clinical validation/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать longitudinal clinical validation/ })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Protected reviewer validation" })).toBeInTheDocument();
-    expect(screen.getByText(/Protected reviewer validation фиксирует только aggregate reviewer operations metadata on protected assets/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Утвердить protected reviewer validation/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Зафиксировать protected reviewer validation/ })).toBeInTheDocument();
-    expect(screen.getAllByText(/Дозаполнить metadata/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Проверить production assets/)).toBeInTheDocument();
-    expect(screen.getByText(/Дозаполнить device metadata/)).toBeInTheDocument();
-    expect(screen.getByText(/Проверить Device Bridge/)).toBeInTheDocument();
-    expect(screen.getByText(/Утвердить analysis policy/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Analysis/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/assets: 1/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/analysis: 1/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/bridge: 1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Правила и подтверждения").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Наблюдение и проверка").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Закрытая проверка").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Рабочий запуск").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Готовность проверки истории/)).toBeInTheDocument();
+    expect(screen.getAllByText(/вывод о динамике выключен/i).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("region", { name: "Запуск проверки истории" })).toBeInTheDocument();
+    expect(screen.getByText(/Запуск сохраняет только сводные данные/)).toBeInTheDocument();
+    expect(screen.getAllByText(/вывод о динамике выключен/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Утвердить запуск истории/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Нужен разбор запуска/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Правила запуска истории" })).toBeInTheDocument();
+    expect(screen.getByText(/Правила фиксируют только рабочий чек-лист/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить правила запуска/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать разбор правил/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Подтверждения запуска" })).toBeInTheDocument();
+    const monitoringRegion = await screen.findByRole("region", { name: "Наблюдение результатов" });
+    expect(monitoringRegion).toBeInTheDocument();
+    expect(within(monitoringRegion).getByText(/Наблюдение фиксирует только сводные результаты/)).toBeInTheDocument();
+    expect(within(monitoringRegion).getByRole("button", { name: /Утвердить рабочий запуск/ })).toBeDisabled();
+    expect(within(monitoringRegion).getByRole("button", { name: /^Зафиксировать наблюдение$/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Порядок инцидентов" })).toBeInTheDocument();
+    expect(screen.getByText(/Порядок инцидентов фиксирует только сводные рабочие результаты/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить наблюдение клиники/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать порядок инцидентов/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Клиническая проверка" })).toBeInTheDocument();
+    expect(screen.getByText(/Клиническая проверка фиксирует только сводные данные/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить клиническую проверку/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать клиническую проверку/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Наблюдение после проверки" })).toBeInTheDocument();
+    expect(screen.getByText(/Наблюдение после проверки фиксирует только сводные данные наблюдения и сдвига/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить наблюдение после проверки/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать наблюдение после проверки/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Контроль наблюдения" })).toBeInTheDocument();
+    expect(screen.getByText(/Контроль наблюдения фиксирует только сводные результаты/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить контроль наблюдения/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать контроль наблюдения/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Закрытие исключений" })).toBeInTheDocument();
+    expect(screen.getByText(/Закрытие исключений фиксирует только сводные данные/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить закрытие исключений/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать закрытие исключений/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Контроль результатов истории" })).toBeInTheDocument();
+    expect(screen.getByText(/Контроль результатов фиксирует только сводные данные истории/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить контроль результатов/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать контроль результатов/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Клиническая проверка истории" })).toBeInTheDocument();
+    expect(screen.getByText(/Клиническая проверка истории фиксирует только сводные данные во времени/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить проверку истории/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать проверку истории/ })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Проверка закрытых снимков" })).toBeInTheDocument();
+    expect(screen.getByText(/Проверка закрытых снимков фиксирует только сводные данные работы проверяющих/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Утвердить проверку закрытых снимков/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Зафиксировать проверку закрытых снимков/ })).toBeInTheDocument();
+    expect(screen.getAllByText(/Дозаполнить данные съёмки/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Проверить рабочие снимки/)).toBeInTheDocument();
+    expect(screen.getByText(/Дозаполнить данные устройства/)).toBeInTheDocument();
+    expect(screen.getByText(/Проверить связь с устройством/)).toBeInTheDocument();
+    expect(screen.getByText(/Утвердить правила анализа/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Анализ/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/снимки: 1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/анализ: 1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/связь: 1/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Динамический вывод: выключен/)).toBeInTheDocument();
-    expect(screen.getByText(/Неизменяемый backend-аудит/)).toBeInTheDocument();
-    expect(screen.getByText(/Подготовка выдачи/)).toBeInTheDocument();
-    expect(screen.getByText(/Отзыв выдачи/)).toBeInTheDocument();
-    expect(screen.getByText(/Открытие фото пациентом/)).toBeInTheDocument();
+    expect(screen.getByText(/Неизменяемый аудит/)).toBeInTheDocument();
+    expect(screen.getByText("Подготовка")).toBeInTheDocument();
+    expect(screen.getByText("Отзыв")).toBeInTheDocument();
+    expect(screen.getByText("Открытия фото")).toBeInTheDocument();
     expect(screen.getByText(/причины отзыва и служебные идентификаторы скрыты/)).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("SENSITIVE_INTERNAL_REASON");
     expect(document.body.textContent).not.toContain("SENSITIVE_ACTOR_ID");
@@ -2541,7 +2543,7 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("validatorEmail");
     expect(document.body.textContent).not.toContain("i-011");
     expect(document.body.textContent).not.toContain("i-012");
-    expect(screen.getAllByText(/mock assessment\/report data hidden/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/демо-оценки и демо-отчёт скрыты/).length).toBeGreaterThan(0);
   });
 
   it("posts timeline rollout governance review without patient delivery or dynamic conclusion", async () => {
@@ -2549,9 +2551,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Контур timeline rollout" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Нужен разбор rollout/ }));
-    await screen.findByText(/Timeline rollout governance сохранён/);
+    expect(await screen.findByRole("region", { name: "Запуск проверки истории" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Нужен разбор запуска/ }));
+    await screen.findByText(/Запуск проверки истории сохранён/);
 
     const rolloutCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2570,9 +2572,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "SOP timeline rollout" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать SOP review/ }));
-    await screen.findByText(/Timeline rollout SOP сохранён/);
+    expect(await screen.findByRole("region", { name: "Правила запуска истории" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать разбор правил/ }));
+    await screen.findByText(/Правила запуска истории сохранены/);
 
     const sopCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2592,9 +2594,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Evidence timeline rollout" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать evidence review/ }));
-    await screen.findByText(/Timeline rollout evidence сохранён/);
+    const rolloutEvidenceRegion = await screen.findByRole("region", { name: "Подтверждения запуска" });
+    expect(rolloutEvidenceRegion).toBeInTheDocument();
+    fireEvent.click(within(rolloutEvidenceRegion).getByRole("button", { name: /Зафиксировать подтверждения/ }));
+    await screen.findByText(/Подтверждения запуска сохранены/);
 
     const evidenceCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2618,9 +2621,10 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Monitoring outcomes rollout" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать monitoring review/ }));
-    await screen.findByText(/Timeline rollout monitoring сохранён/);
+    const rolloutMonitoringRegion = await screen.findByRole("region", { name: "Наблюдение результатов" });
+    expect(rolloutMonitoringRegion).toBeInTheDocument();
+    fireEvent.click(within(rolloutMonitoringRegion).getByRole("button", { name: /Зафиксировать наблюдение/ }));
+    await screen.findByText(/Наблюдение результатов сохранено/);
 
     const monitoringCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2646,9 +2650,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Incident procedure rollout" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать incident procedure/ }));
-    await screen.findByText(/Incident procedure сохранён/);
+    expect(await screen.findByRole("region", { name: "Порядок инцидентов" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать порядок инцидентов/ }));
+    await screen.findByText(/Порядок инцидентов сохранён/);
 
     const incidentProcedureCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2683,9 +2687,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Clinical validation rollout" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать clinical validation/ }));
-    await screen.findByText(/Clinical validation metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Клиническая проверка" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать клиническую проверку/ }));
+    await screen.findByText(/Клиническая проверка сохранена/);
 
     const clinicalValidationCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2716,9 +2720,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Post-validation monitoring rollout" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать post-validation monitoring/ }));
-    await screen.findByText(/Post-validation monitoring metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Наблюдение после проверки" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать наблюдение после проверки/ }));
+    await screen.findByText(/Наблюдение после проверки сохранено/);
 
     const postValidationMonitoringCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2751,9 +2755,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Exception governance closure" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать exception governance/ }));
-    await screen.findByText(/Exception governance metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Закрытие исключений" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать закрытие исключений/ }));
+    await screen.findByText(/Закрытие исключений сохранено/);
 
     const exceptionGovernanceCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2787,9 +2791,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Longitudinal outcome governance" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать outcome governance/ }));
-    await screen.findByText(/Outcome governance metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Контроль результатов истории" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать контроль результатов/ }));
+    await screen.findByText(/Контроль результатов сохранён/);
 
     const outcomeGovernanceCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2823,9 +2827,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Longitudinal clinical validation" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать longitudinal clinical validation/ }));
-    await screen.findByText(/Longitudinal clinical validation metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Клиническая проверка истории" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать проверку истории/ }));
+    await screen.findByText(/Проверка истории сохранена/);
 
     const longitudinalClinicalValidationCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2862,9 +2866,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Protected reviewer validation" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать protected reviewer validation/ }));
-    await screen.findByText(/Protected reviewer validation metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Проверка закрытых снимков" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать проверку закрытых снимков/ }));
+    await screen.findByText(/Проверка закрытых снимков сохранена/);
 
     const protectedReviewerValidationCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2899,9 +2903,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Protected reviewer governance" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать protected reviewer governance/ }));
-    await screen.findByText(/Protected reviewer governance metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Контроль закрытой проверки" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать контроль закрытой проверки/ }));
+    await screen.findByText(/Контроль закрытой проверки сохранён/);
 
     const governanceCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2933,9 +2937,9 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Protected reviewer evidence" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать protected reviewer evidence/ }));
-    await screen.findByText(/Protected reviewer evidence metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Подтверждения закрытой проверки" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать подтверждения закрытой проверки/ }));
+    await screen.findByText(/Подтверждения закрытой проверки сохранены/);
 
     const evidenceCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2962,14 +2966,14 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("reviewerMonitoringEvidencePayload");
   });
 
-  it("posts production dataset evidence review without patient delivery or production-operation leaks", async () => {
+  it("posts подтверждение рабочих данных review without patient delivery or production-operation leaks", async () => {
     const fetchMock = createLiveWorkspaceFetchMock();
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Production dataset evidence" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать production dataset evidence/ }));
-    await screen.findByText(/Production dataset evidence metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Подтверждение рабочих данных" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать рабочие данные/ }));
+    await screen.findByText(/Подтверждение рабочих данных сохранено/);
 
     const evidenceCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -2996,14 +3000,14 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("clinicOperationPayload");
   });
 
-  it("posts production reviewer governance review without patient delivery or reviewer identity leaks", async () => {
+  it("posts контроль рабочей проверки review without patient delivery or reviewer identity leaks", async () => {
     const fetchMock = createLiveWorkspaceFetchMock();
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Production reviewer governance" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать production reviewer governance/ }));
-    await screen.findByText(/Production reviewer governance metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Контроль рабочей проверки" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать контроль рабочей проверки/ }));
+    await screen.findByText(/Контроль рабочей проверки сохранён/);
 
     const governanceCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -3034,14 +3038,14 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(document.body.textContent).not.toContain("reviewerEmail");
   });
 
-  it("posts production reviewer evidence review without patient delivery or reviewer identity leaks", async () => {
+  it("posts подтверждение рабочей проверки review without patient delivery or reviewer identity leaks", async () => {
     const fetchMock = createLiveWorkspaceFetchMock();
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
-    expect(await screen.findByRole("region", { name: "Production reviewer evidence" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать production reviewer evidence/ }));
-    await screen.findByText(/Production reviewer evidence metadata сохранён/);
+    expect(await screen.findByRole("region", { name: "Подтверждение рабочей проверки" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Зафиксировать подтверждение рабочей проверки/ }));
+    await screen.findByText(/Подтверждение рабочей проверки сохранено/);
 
     const evidenceCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -3078,17 +3082,17 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     renderAt("/patients/live-patient/visits/live-visit?tab=report");
 
     expect(await screen.findByRole("region", { name: "Проверка политики выдачи фото" })).toBeInTheDocument();
-    const retention = screen.getByLabelText(/Утверждён срок доступа \(retention\)/);
+    const retention = screen.getByLabelText(/Утверждён срок доступа/);
     fireEvent.click(retention);
-    const patientCopy = screen.getByLabelText(/Проверен patient-safe текст для фото-протокола/);
+    const patientCopy = screen.getByLabelText(/Проверен текст для пациента/);
     fireEvent.click(patientCopy);
-    const fileProxy = screen.getByLabelText(/Включён защищённый file-proxy/);
+    const fileProxy = screen.getByLabelText(/Включён защищённый доступ к файлам/);
     fireEvent.click(fileProxy);
-    fireEvent.change(screen.getByLabelText("Photo policy expires at"), {
+    fireEvent.change(screen.getByLabelText("Срок доступа к фото"), {
       target: { value: "2026-06-25T12:00:00.000Z" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Сохранить политику выдачи/ }));
-    await screen.findByText(/Политика выдачи фото сохранена в self-hosted backend/);
+    await screen.findByText(/Правила выдачи фото сохранены в системе клиники/);
 
     const policyCall = fetchMock.mock.calls.find(
       ([url, requestInit]) =>
@@ -3098,33 +3102,33 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     expect(policyCall).toBeTruthy();
   });
 
-  it("saves production assessment, conclusion and report through self-hosted backend contracts", async () => {
+  it("saves production assessment, conclusion and report through система клиники contracts", async () => {
     const fetchMock = createLiveWorkspaceFetchMock();
     vi.stubGlobal("fetch", fetchMock);
     renderAt("/patients/live-patient/visits/live-visit?tab=assessment");
 
-    expect(await screen.findByText(/Self-hosted assessment contract/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Assessment summary"), {
+    expect(await screen.findByRole("heading", { name: /Рабочая оценка/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Краткая оценка"), {
       target: { value: "Updated assessment" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Сохранить в self-hosted backend/ }));
-    await screen.findByText(/Production clinical workspace сохранён/);
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить в системе клиники/ }));
+    await screen.findByText(/Рабочая запись сохранена/);
 
     selectTab(/Заключение/);
-    expect(await screen.findByText(/Self-hosted conclusion contract/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Conclusion summary"), {
+    expect(await screen.findByRole("heading", { name: /Рабочее заключение/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Текст заключения"), {
       target: { value: "Updated conclusion" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Сохранить в self-hosted backend/ }));
-    await screen.findByText(/Production clinical workspace сохранён/);
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить в системе клиники/ }));
+    await screen.findByText(/Рабочая запись сохранена/);
 
     selectTab(/Отчёт/);
-    expect(await screen.findByText(/Self-hosted report contract/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Report physician text"), {
+    expect(await screen.findByRole("heading", { name: /Рабочий отчёт/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Текст отчёта для врача"), {
       target: { value: "Updated report" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Сохранить в self-hosted backend/ }));
-    await screen.findByText(/Production clinical workspace сохранён/);
+    fireEvent.click(screen.getByRole("button", { name: /Сохранить в системе клиники/ }));
+    await screen.findByText(/Рабочая запись сохранена/);
 
     const patchUrls = fetchMock.mock.calls
       .filter(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")
@@ -3137,11 +3141,11 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
     );
   });
 
-  it("disables local demo lesion placement in production Body Map", async () => {
+  it("disables local demo lesion placement in production Карта тела", async () => {
     renderAt("/patients/live-patient/visits/live-visit?tab=bodymap");
 
-    expect((await screen.findAllByText(/Live lesion A/)).length).toBeGreaterThan(0);
-    const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
+    expect((await screen.findAllByText(/Очаг из клиники A/)).length).toBeGreaterThan(0);
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({ left: 0, top: 0, right: 200, bottom: 400, width: 200, height: 400, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
     fireEvent.click(svg, { clientX: 100, clientY: 200 });

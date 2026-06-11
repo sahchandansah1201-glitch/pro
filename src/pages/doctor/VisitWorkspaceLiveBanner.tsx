@@ -95,7 +95,7 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
         data-mode="demo"
         className="border-b border-border bg-muted/40 px-4 py-2 text-[12px] text-muted-foreground"
       >
-        Demo-режим: визит читается из mock-данных. Войдите в self-hosted backend, чтобы видеть live-данные.
+        Демо-режим: визит читается из демонстрационных данных. Войдите в систему клиники, чтобы видеть рабочие данные.
       </div>
     );
   }
@@ -108,7 +108,7 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
         data-mode="loading"
         className="border-b border-border bg-surface px-4 py-2 text-[12px] text-muted-foreground"
       >
-        Self-hosted backend подключён. Загружаем визит…
+        Система клиники подключена. Загружаем визит…
       </div>
     );
   }
@@ -121,7 +121,7 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
         data-mode="error"
         className="border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-[12px] text-destructive"
       >
-        Self-hosted backend ответил ошибкой: {state.code}. {state.message}
+        Система клиники вернула ошибку: {state.code}. {state.message}
       </div>
     );
   }
@@ -133,16 +133,24 @@ export function VisitWorkspaceLiveBanner({ visitId }: VisitWorkspaceLiveBannerPr
       data-mode="live"
       className="border-b border-border bg-surface px-4 py-2 text-[12px] text-foreground"
     >
-      <span className="mr-3 font-medium">Self-hosted backend (read-only)</span>
+      <span className="mr-3 font-medium">Система клиники</span>
       <span className="mr-3 text-muted-foreground">
-        Визит {state.visit.id.slice(0, 8)} · статус {state.visit.status}
+        Визит открыт · статус {visitStatusLabel(state.visit.status)}
       </span>
       <span className="mr-3 text-muted-foreground">
         Очаги: {state.lesions.length}
       </span>
       <span className="text-muted-foreground">
-        Снимки (метаданные): {state.assets.length}
+        Снимки: {state.assets.length}
       </span>
     </div>
   );
+}
+
+function visitStatusLabel(status: string): string {
+  if (status === "draft") return "черновик";
+  if (status === "in_progress") return "в работе";
+  if (status === "signed") return "подписан";
+  if (status === "cancelled") return "отменён";
+  return "статус уточняется";
 }

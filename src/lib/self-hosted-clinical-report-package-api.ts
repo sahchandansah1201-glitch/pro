@@ -307,7 +307,7 @@ export interface SelfHostedPatientPhotoProtocolGovernanceIssueAccessCredentialHa
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
-  message: "Self-hosted backend-сессия не подключена.",
+    message: "Сессия системы клиники не подключена.",
 };
 
 function fail<T>(error: SelfHostedApiError): SelfHostedApiResult<T> {
@@ -474,13 +474,34 @@ export function clinicalReportMissingLabel(key: string): string {
     conclusion_summary_missing: "нет summary заключения",
     report_missing: "нет отчёта",
     report_not_signed: "отчёт не подписан",
-    patient_safe_text_missing: "нет patient-safe текста",
+    patient_safe_text_missing: "нет проверенного текста для пациента",
     physician_text_missing: "нет врачебного текста",
     imaging_consent_missing: "нет согласия на медицинскую съёмку",
-    patient_photo_assets_missing: "нет фото для patient-пакета",
-    self_hosted_photo_delivery_contract_missing: "нет backend-контракта выдачи фото",
+    patient_photo_assets_missing: "нет фото для пакета пациента",
+    self_hosted_photo_delivery_contract_missing: "нет договора выдачи фото в системе клиники",
   };
-  return labels[key] ?? key;
+  return labels[key] ?? "требуется проверка";
+}
+
+function patientPhotoProtocolAuditLabel(kind: string, fallback: unknown): string {
+  const labels: Record<string, string> = {
+    release_prepared: "Подготовка",
+    "patient_photo_protocol.release.prepare": "Подготовка",
+    release_revoked: "Отзыв",
+    "patient_photo_protocol.release.revoke": "Отзыв",
+    policy_review: "Проверка правил",
+    "patient_photo_protocol.release.policy_review": "Проверка правил",
+    patient_read: "Просмотр",
+    "patient_portal.photo_protocol.read": "Просмотр",
+    proxy_download: "Открытие фото",
+    "patient_portal.photo_protocol.proxy.download": "Открытие фото",
+    proxy_denied: "Отказ доступа",
+    "patient_portal.photo_protocol.proxy.denied": "Отказ доступа",
+  };
+  if (labels[kind]) return labels[kind];
+  const text = String(fallback ?? "").trim();
+  if (text && !/[A-Za-z]/.test(text)) return text;
+  return "Событие журнала";
 }
 
 export function toSelfHostedPatientPhotoProtocolReleaseAudit(
@@ -505,7 +526,7 @@ export function toSelfHostedPatientPhotoProtocolReleaseAudit(
     },
     events: arrayOfRecords(input.events).map((event) => ({
       kind: String(event.kind ?? "audit_event"),
-      label: String(event.label ?? "Событие аудита"),
+      label: patientPhotoProtocolAuditLabel(String(event.kind ?? "audit_event"), event.label),
       occurredAt: textOrNull(event.occurredAt),
       actorType: String(event.actorType ?? "staff"),
       status: textOrNull(event.status),
@@ -670,7 +691,7 @@ export async function getSelfHostedClinicalReportPackage(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к self-hosted backend.",
+      message: "Сбой сети при обращении к системе клиники.",
     });
   }
   const body = await parseJsonSafe(response);
@@ -699,7 +720,7 @@ export async function getSelfHostedPatientPhotoProtocolReleaseAudit(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к self-hosted backend.",
+      message: "Сбой сети при обращении к системе клиники.",
     });
   }
   const body = await parseJsonSafe(response);
@@ -725,7 +746,7 @@ export async function getSelfHostedPatientPhotoProtocolReleaseGovernance(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к self-hosted backend.",
+      message: "Сбой сети при обращении к системе клиники.",
     });
   }
   const body = await parseJsonSafe(response);

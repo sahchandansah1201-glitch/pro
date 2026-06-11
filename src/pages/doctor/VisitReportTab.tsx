@@ -52,14 +52,14 @@ function qualityStatus(images: ClinicalImage[]): QualityStatus {
 }
 
 function qualityLabel(s: QualityStatus): string {
-  if (s === "ok") return "ok";
-  if (s === "review") return "needs review";
-  return "no images";
+  if (s === "ok") return "хорошее качество";
+  if (s === "review") return "требует проверки";
+  return "нет снимков";
 }
 
 function backendMissingLabel(item: string): string {
   if (item === "Нужно переснять или проверить качество") {
-    return "качество снимков требует проверки перед backend/PDF";
+    return "качество снимков требует проверки перед сборкой отчёта";
   }
   return item;
 }
@@ -274,8 +274,8 @@ export function VisitReportTab({ patient, visit, lesions }: Props) {
       </div>
 
       <p className="text-[12px] text-muted-foreground">
-        Отчёт в MVP отображает мок-данные. Реальная генерация PDF и отправка
-        пациенту будут подключены на бэкенде.
+        Демо-отчёт отображает учебные данные. Реальная сборка отчёта и отправка
+        пациенту будут подключены через систему клиники.
       </p>
     </div>
   );
@@ -679,7 +679,7 @@ function DemoReportForm({
           disabled
           className="min-h-[44px] sm:min-h-[32px]"
         >
-          Печать / PDF (демо)
+          Печать отчёта (демо)
         </Button>
         <Button
           type="button"
@@ -694,7 +694,7 @@ function DemoReportForm({
         </Button>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Отправка и PDF будут подключены на бэкенде
+        Отправка и печать будут подключены через систему клиники.
       </p>
 
       {saved && (
@@ -857,9 +857,9 @@ function VisitPacketPanel({
     !expiresAt ? "не задан срок доступа" : null,
   ].filter(Boolean) as string[];
   const photoMetadataReady = photoReleaseMissing.length === 0;
-  const photoBackendBlocker = "нужен self-hosted backend для файлов и аудита";
+  const photoBackendBlocker = "нужна система клиники для файлов и журнала доступа";
   const photoAccessStatus = photoMetadataReady
-    ? "Метаданные готовы к backend-контракту"
+    ? "Данные фото готовы для системы клиники"
     : "Доступ к фото заблокирован";
 
   const selectedLabel = selectedImages.length === 0
@@ -901,7 +901,7 @@ function VisitPacketPanel({
     if (!reportPackageReady) return;
     setBackendJobState("prepared");
     setAuditRows((prev) => [
-      `Backend-задача PDF подготовлена · ${formatDateTime(BODY_MAP_DEMO_NOW)}`,
+      `Задача отчёта подготовлена · ${formatDateTime(BODY_MAP_DEMO_NOW)}`,
       ...prev,
     ]);
   };
@@ -1017,8 +1017,8 @@ function VisitPacketPanel({
           <div>
             <h3 className="text-[12px] font-medium">Контур фото для пациента</h3>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              UI готовит только метаданные выбранных врачом снимков. Реальная выдача
-              файлов должна идти через self-hosted backend с аудитом и отзывом доступа.
+              Интерфейс готовит только данные выбранных врачом снимков. Реальная выдача
+              файлов должна идти через систему клиники с журналом и отзывом доступа.
             </p>
           </div>
           <span
@@ -1038,11 +1038,11 @@ function VisitPacketPanel({
           <Field term="Сырые файлы и защищённые ссылки" value="скрыты" />
           <Field term="Срок доступа" value={expiresAt ? formatDateTime(expiresAt) : "—"} />
           <Field term="Контур" value="только метаданные" />
-          <Field term="Brainstorm" value="SD-MF-046 · фото и протокол" />
+          <Field term="План" value="фото и протокол" />
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
           Сырые файлы и защищённые ссылки скрыты. Пациентский доступ появится только
-          после backend-gates.
+          после всех проверок клиники.
         </p>
 
         <div className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted p-2">
@@ -1069,7 +1069,7 @@ function VisitPacketPanel({
             <div className="font-medium">Контур фото подготовлен локально</div>
             <div className="mt-1 text-muted-foreground">
               Файлы, токены и защищённые ссылки не выводятся. Следующий шаг —
-              backend-контракт выдачи, аудит открытия и отзыв доступа.
+              договор выдачи, журнал открытия и отзыв доступа.
             </div>
           </div>
         )}
@@ -1133,14 +1133,15 @@ function VisitPacketPanel({
       </div>
 
       <section
-        aria-label="Backend-подготовка отчёта"
+        aria-label="Подготовка отчёта"
         className="mt-3 rounded-sm border border-border bg-surface p-3"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-[12px] font-medium">Backend-подготовка отчёта</h3>
+            <h3 className="text-[12px] font-medium">Подготовка отчёта</h3>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              PDF не собирается в браузере. UI готовит только безопасный handoff для self-hosted backend.
+              Документ не собирается в браузере. Интерфейс готовит только безопасную задачу
+              для системы клиники.
             </p>
           </div>
           <span
@@ -1150,22 +1151,22 @@ function VisitPacketPanel({
                 : "border-[hsl(var(--risk-medium))] bg-surface-muted text-foreground"
             }`}
           >
-            {reportPackageReady ? "PDF готов к backend-сборке" : "PDF заблокирован"}
+            {reportPackageReady ? "Отчёт готов к сборке" : "Сборка отчёта заблокирована"}
           </span>
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-2">
-          <Field term="Сборка" value={reportPackageReady ? "разрешена после gates" : "закрыта до gates"} />
+          <Field term="Сборка" value={reportPackageReady ? "разрешена после проверок" : "закрыта до проверок"} />
           <Field term="Снимки" value={selectedLabel} />
-          <Field term="Текст" value={patientText ? "patient-safe версия готова" : "нет безопасной версии"} />
-          <Field term="Backend" value="self-hosted only" />
-          <Field term="Ссылки" value="токены и URL скрыты" />
+          <Field term="Текст" value={patientText ? "версия для пациента готова" : "нет безопасной версии"} />
+          <Field term="Система клиники" value="обязательна" />
+          <Field term="Ссылки" value="токены и ссылки скрыты" />
           <Field term="Аудит" value={backendJobState === "prepared" ? "подготовлен" : "ожидает"} />
         </div>
 
         {missing.length > 0 && (
           <div className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted p-2">
-            <div className="text-[12px] font-medium">Блокеры backend/PDF</div>
+            <div className="text-[12px] font-medium">Что блокирует сборку отчёта</div>
             <ul className="mt-1 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
               {missing.map((item) => (
                 <li key={`backend-${item}`} className="flex items-start gap-1.5">
@@ -1182,9 +1183,10 @@ function VisitPacketPanel({
             role="status"
             className="mt-3 rounded-sm border border-border bg-surface-muted p-2 text-[12px]"
           >
-            <div className="font-medium">Backend-задача подготовлена локально</div>
+            <div className="font-medium">Задача отчёта подготовлена локально</div>
             <div className="mt-1 text-muted-foreground">
-              PDF-задача ожидает self-hosted backend. Raw token, защищённая ссылка и файловые пути в UI не выводятся.
+              Задача ожидает систему клиники. Токены, защищённые ссылки и файловые пути
+              не выводятся.
             </div>
           </div>
         )}
@@ -1198,7 +1200,7 @@ function VisitPacketPanel({
             disabled={!reportPackageReady}
             onClick={prepareBackendJob}
           >
-            Подготовить backend-задачу
+            Подготовить задачу отчёта
           </Button>
           <span className="text-[11px] text-muted-foreground">
             Демо-действие не делает сетевых вызовов и не выпускает документ пациенту.

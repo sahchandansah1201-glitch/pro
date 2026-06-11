@@ -113,10 +113,10 @@ describe("VisitReportTab · demo report form", () => {
     expect(within(internalPreview).getByText(/невус vs\. атипия/)).toBeInTheDocument();
   });
 
-  it("Печать / PDF (демо) и Отправить пациенту (демо) всегда disabled", () => {
+  it("Печать отчёта (демо) и Отправить пациенту (демо) всегда disabled", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
     expect(
-      screen.getByRole("button", { name: /Печать \/ PDF \(демо\)/ }),
+      screen.getByRole("button", { name: /Печать отчёта \(демо\)/ }),
     ).toBeDisabled();
 
     const sendBtn = screen.getByRole("button", {
@@ -125,7 +125,7 @@ describe("VisitReportTab · demo report form", () => {
     expect(sendBtn.disabled).toBe(true);
 
     expect(
-      screen.getByText(/Отправка и PDF будут подключены на бэкенде/),
+      screen.getByText(/Отправка и печать будут подключены через систему клиники/),
     ).toBeInTheDocument();
   });
 
@@ -220,17 +220,17 @@ describe("VisitReportTab · patient photo release readiness", () => {
     ).toBeDisabled();
   });
 
-  it("prepares only local photo metadata for a ready report and keeps backend blocked", () => {
+  it("prepares only local photo metadata for a ready report and keeps clinic system blocked", () => {
     renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
 
     const photoAccess = screen.getByRole("region", {
       name: /Контур фото для пациента/,
     });
     expect(
-      within(photoAccess).getByText(/Метаданные готовы к backend-контракту/),
+      within(photoAccess).getByText(/Данные фото готовы для системы клиники/),
     ).toBeInTheDocument();
     expect(
-      within(photoAccess).getByText(/нужен self-hosted backend для файлов и аудита/),
+      within(photoAccess).getByText(/нужна система клиники для файлов и журнала доступа/),
     ).toBeInTheDocument();
 
     fireEvent.click(
@@ -261,33 +261,33 @@ describe("VisitReportTab · patient photo release readiness", () => {
   });
 });
 
-describe("VisitReportTab · PDF/backend preparation", () => {
-  it("blocks PDF backend preparation when report gates are incomplete", () => {
+describe("VisitReportTab · report preparation", () => {
+  it("blocks report preparation when report checks are incomplete", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
 
-    const backend = screen.getByRole("region", { name: /Backend-подготовка отчёта/ });
-    expect(within(backend).getByText(/PDF заблокирован/)).toBeInTheDocument();
+    const backend = screen.getByRole("region", { name: /Подготовка отчёта/ });
+    expect(within(backend).getByText(/Сборка отчёта заблокирована/)).toBeInTheDocument();
     expect(
       within(backend).getByText(/качество снимков требует проверки/),
     ).toBeInTheDocument();
     expect(
-      within(backend).getByRole("button", { name: /Подготовить backend-задачу/ }),
+      within(backend).getByRole("button", { name: /Подготовить задачу отчёта/ }),
     ).toBeDisabled();
   });
 
-  it("prepares a local backend job for a ready report without exposing protected fields", () => {
+  it("prepares a local report job for a ready report without exposing protected fields", () => {
     renderAt("/patients/p-001/visits/v-001?tab=report&lesion=l-001");
 
-    const backend = screen.getByRole("region", { name: /Backend-подготовка отчёта/ });
-    expect(within(backend).getByText(/PDF готов к backend-сборке/)).toBeInTheDocument();
+    const backend = screen.getByRole("region", { name: /Подготовка отчёта/ });
+    expect(within(backend).getByText(/Отчёт готов к сборке/)).toBeInTheDocument();
 
-    fireEvent.click(within(backend).getByRole("button", { name: /Подготовить backend-задачу/ }));
+    fireEvent.click(within(backend).getByRole("button", { name: /Подготовить задачу отчёта/ }));
 
     expect(
-      within(backend).getByText(/Backend-задача подготовлена локально/),
+      within(backend).getByText(/Задача отчёта подготовлена локально/),
     ).toBeInTheDocument();
     expect(
-      within(backend).getByText(/PDF-задача ожидает self-hosted backend/),
+      within(backend).getByText(/Задача ожидает систему клиники/),
     ).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("tok-r001-demo");
 

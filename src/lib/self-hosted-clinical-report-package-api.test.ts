@@ -131,9 +131,9 @@ describe("self-hosted-clinical-report-package-api", () => {
       },
     });
     expect(dto.readiness.missing).toEqual(["patient_safe_text_missing"]);
-    expect(clinicalReportMissingLabel("patient_safe_text_missing")).toBe("нет patient-safe текста");
+    expect(clinicalReportMissingLabel("patient_safe_text_missing")).toBe("нет проверенного текста для пациента");
     expect(clinicalReportMissingLabel("self_hosted_photo_delivery_contract_missing")).toBe(
-      "нет backend-контракта выдачи фото",
+      "нет договора выдачи фото в системе клиники",
     );
   });
 
@@ -170,6 +170,11 @@ describe("self-hosted-clinical-report-package-api", () => {
           reasonPresent: true,
           revokeReason: "hidden",
         },
+        {
+          kind: "unknown_backend_event",
+          label: "backend policy review",
+          actorType: "staff",
+        },
       ],
       boundaries: {
         immutableLedger: true,
@@ -183,7 +188,9 @@ describe("self-hosted-clinical-report-package-api", () => {
     expect(audit.status).toBe("revoked");
     expect(audit.summary.eventCount).toBe(2);
     expect(audit.summary.policyReviewEvents).toBe(1);
-    expect(audit.events[0].label).toBe("Подготовка выдачи");
+    expect(audit.events[0].label).toBe("Подготовка");
+    expect(audit.events[1].label).toBe("Отзыв");
+    expect(audit.events[2].label).toBe("Событие журнала");
     expect(audit.events[1].reasonPresent).toBe(true);
     expect(audit.boundaries.immutableLedger).toBe(true);
     expect(audit.events[0]).not.toHaveProperty("correlationId");

@@ -29,6 +29,11 @@ import {
   TimelineQaGroupHeader,
   TimelineQaGroupNav,
 } from "@/pages/doctor/visit-workspace/TimelineQaNavigation";
+import {
+  humanDisplayValue,
+  humanFieldTerm,
+  timelineReasonLabel,
+} from "@/pages/doctor/visit-workspace/visitWorkspaceLabels";
 import { isProductionAppMode } from "@/lib/app-mode";
 import {
   isSelfHostedApiConfigured,
@@ -98,7 +103,6 @@ import {
 } from "@/lib/self-hosted-clinical-report-package-api";
 import type { SelfHostedVisitReportDTO, VisitReportPayload } from "@/lib/self-hosted-visit-write-api";
 import {
-  SELF_HOSTED_LIVE_SOURCE_LABEL,
   selfHostedLesionToDomain,
   selfHostedVisitDetailToPatient,
   selfHostedVisitToDomain,
@@ -222,14 +226,14 @@ export default function VisitWorkspacePage() {
       if (!visitResult.ok || !visitResult.value) {
         setLiveState({
           kind: "error",
-          message: visitResult.error?.message ?? "Не удалось загрузить визит из self-hosted backend.",
+          message: visitResult.error?.message ?? "Не удалось загрузить визит с сервера клиники.",
         });
         return;
       }
       if (!lesionsResult.ok) {
         setLiveState({
           kind: "error",
-          message: lesionsResult.error?.message ?? "Не удалось загрузить очаги визита из self-hosted backend.",
+          message: lesionsResult.error?.message ?? "Не удалось загрузить очаги визита с сервера клиники.",
         });
         return;
       }
@@ -253,18 +257,18 @@ export default function VisitWorkspacePage() {
   if (productionMode && !liveBackend) {
     return (
       <ProductionWorkspaceState
-        title="Требуется self-hosted вход"
-        text="Production-режим не открывает workspace визита из mock-данных. Войдите через self-hosted backend."
+        title="Требуется вход в систему клиники"
+        text="Рабочий режим открывает визит только из системы клиники. Войдите в систему клиники."
       />
     );
   }
 
   if (productionMode && liveState.kind === "loading") {
-    return <ProductionWorkspaceState title="Загружаем workspace визита" text="Читаем визит из self-hosted backend…" />;
+    return <ProductionWorkspaceState title="Загружаем рабочее место визита" text="Читаем визит из системы клиники…" />;
   }
 
   if (productionMode && liveState.kind === "error") {
-    return <ProductionWorkspaceState title="Workspace визита недоступен" text={liveState.message} />;
+    return <ProductionWorkspaceState title="Рабочее место визита недоступно" text={liveState.message} />;
   }
 
   const livePatient = productionMode && liveState.kind === "ready"
@@ -345,8 +349,8 @@ export default function VisitWorkspacePage() {
           aria-live="polite"
           className="border-b border-border bg-surface px-4 py-2 text-[12px] text-muted-foreground"
         >
-          <span className="font-medium text-foreground">{SELF_HOSTED_LIVE_SOURCE_LABEL}</span>
-          {" · "}workspace визита не использует mock patient/visit lookup.
+          <span className="font-medium text-foreground">Источник данных: система клиники</span>
+          {" · "}рабочее место визита не использует демо-данные пациента и визита.
         </div>
       ) : null}
 
@@ -360,7 +364,7 @@ export default function VisitWorkspacePage() {
       >
         <div className="border-b border-border bg-surface px-3">
           <TabsList className="h-auto overflow-x-auto bg-transparent p-0 sm:h-9">
-            <TabsTrigger value="intake" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Интейк</TabsTrigger>
+            <TabsTrigger value="intake" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Первичный приём</TabsTrigger>
             <TabsTrigger value="bodymap" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Карта тела</TabsTrigger>
             <TabsTrigger value="imaging" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Снимки</TabsTrigger>
             <TabsTrigger value="assessment" className="min-h-[44px] text-[13px] sm:min-h-0 sm:text-[12px]">Оценка</TabsTrigger>
@@ -452,7 +456,7 @@ function ProductionWorkspaceState({ title, text }: { title: string; text: string
       <PageHeader title={title} subtitle={text} />
       <div className="p-4">
         <Button asChild size="sm" variant="secondary" className="h-8 text-[12px]">
-          <Link to="/self-hosted/login">К production входу</Link>
+          <Link to="/self-hosted/login">К входу в систему клиники</Link>
         </Button>
       </div>
     </div>
@@ -550,7 +554,7 @@ function ProductionClinicalWorkspacePanel({
         ? await getSelfHostedVisitConclusion(args)
         : await getSelfHostedVisitReport(args);
     if (!result.ok) {
-      setState({ kind: "error", message: result.error?.message ?? "Не удалось загрузить production-контракт." });
+      setState({ kind: "error", message: result.error?.message ?? "Не удалось загрузить рабочую запись." });
       return;
     }
     if (kind === "assessment") {
@@ -679,11 +683,11 @@ function ProductionClinicalWorkspacePanel({
           });
     setSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить production-контракт.");
+      setStatus(result.error?.message ?? "Не удалось сохранить рабочую запись.");
       return;
     }
     await load();
-    setStatus("Production clinical workspace сохранён в self-hosted backend.");
+    setStatus("Рабочая запись сохранена в системе клиники.");
   };
 
   const savePhotoPolicy = async () => {
@@ -707,7 +711,7 @@ function ProductionClinicalWorkspacePanel({
       return;
     }
     await load();
-    setStatus("Политика выдачи фото сохранена в self-hosted backend.");
+    setStatus("Правила выдачи фото сохранены в системе клиники.");
   };
 
   const saveTimelineRollout = async (rolloutStatus: SelfHostedVisitLongitudinalTimelineRolloutStatus) => {
@@ -728,11 +732,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить timeline rollout governance.");
+      setStatus(result.error?.message ?? "Не удалось сохранить запуск проверки истории.");
       return;
     }
     await load();
-    setStatus("Timeline rollout governance сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Запуск проверки истории сохранён. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutSop = async (sopStatus: SelfHostedVisitLongitudinalTimelineRolloutSopStatus) => {
@@ -766,11 +770,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutSopSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить timeline rollout SOP.");
+      setStatus(result.error?.message ?? "Не удалось сохранить правила запуска истории.");
       return;
     }
     await load();
-    setStatus("Timeline rollout SOP сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Правила запуска истории сохранены. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutEvidence = async (
@@ -812,11 +816,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить timeline rollout evidence.");
+      setStatus(result.error?.message ?? "Не удалось сохранить подтверждения запуска.");
       return;
     }
     await load();
-    setStatus("Timeline rollout evidence сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Подтверждения запуска сохранены. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutMonitoring = async (
@@ -863,11 +867,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutMonitoringSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить timeline rollout monitoring.");
+      setStatus(result.error?.message ?? "Не удалось сохранить наблюдение результатов.");
       return;
     }
     await load();
-    setStatus("Timeline rollout monitoring сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Наблюдение результатов сохранено. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutIncidentProcedure = async (
@@ -917,11 +921,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutIncidentProcedureSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить incident procedure.");
+      setStatus(result.error?.message ?? "Не удалось сохранить порядок инцидентов.");
       return;
     }
     await load();
-    setStatus("Incident procedure сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Порядок инцидентов сохранён. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutClinicalValidation = async (
@@ -966,11 +970,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutClinicalValidationSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить clinical validation.");
+      setStatus(result.error?.message ?? "Не удалось сохранить клиническую проверку.");
       return;
     }
     await load();
-    setStatus("Clinical validation metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Клиническая проверка сохранена. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutPostValidationMonitoring = async (
@@ -1023,11 +1027,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutPostValidationMonitoringSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить post-validation monitoring.");
+      setStatus(result.error?.message ?? "Не удалось сохранить наблюдение после проверки.");
       return;
     }
     await load();
-    setStatus("Post-validation monitoring metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Наблюдение после проверки сохранено. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutObservationGovernance = async (
@@ -1085,11 +1089,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutObservationGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить observation governance.");
+      setStatus(result.error?.message ?? "Не удалось сохранить контроль наблюдения.");
       return;
     }
     await load();
-    setStatus("Observation governance metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Контроль наблюдения сохранён. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutExceptionGovernance = async (
@@ -1139,11 +1143,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutExceptionGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить exception governance.");
+      setStatus(result.error?.message ?? "Не удалось сохранить закрытие исключений.");
       return;
     }
     await load();
-    setStatus("Exception governance metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Закрытие исключений сохранено. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutOutcomeGovernance = async (
@@ -1194,11 +1198,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutOutcomeGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить outcome governance.");
+      setStatus(result.error?.message ?? "Не удалось сохранить контроль результатов.");
       return;
     }
     await load();
-    setStatus("Outcome governance metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Контроль результатов сохранён. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutLongitudinalClinicalValidation = async (
@@ -1251,11 +1255,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutLongitudinalClinicalValidationSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить longitudinal clinical validation.");
+      setStatus(result.error?.message ?? "Не удалось сохранить проверку истории.");
       return;
     }
     await load();
-    setStatus("Longitudinal clinical validation metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Проверка истории сохранена. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutProtectedReviewerValidation = async (
@@ -1308,11 +1312,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProtectedReviewerValidationSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить protected reviewer validation.");
+      setStatus(result.error?.message ?? "Не удалось сохранить проверку закрытых снимков.");
       return;
     }
     await load();
-    setStatus("Protected reviewer validation metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Проверка закрытых снимков сохранена. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutProtectedReviewerGovernance = async (
@@ -1370,11 +1374,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProtectedReviewerGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить protected reviewer governance.");
+      setStatus(result.error?.message ?? "Не удалось сохранить контроль закрытой проверки.");
       return;
     }
     await load();
-    setStatus("Protected reviewer governance metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Контроль закрытой проверки сохранён. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutProtectedReviewerEvidence = async (
@@ -1438,11 +1442,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProtectedReviewerEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить protected reviewer evidence.");
+      setStatus(result.error?.message ?? "Не удалось сохранить подтверждения закрытой проверки.");
       return;
     }
     await load();
-    setStatus("Protected reviewer evidence metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Подтверждения закрытой проверки сохранены. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutProductionDatasetEvidence = async (
@@ -1510,11 +1514,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProductionDatasetEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить production dataset evidence.");
+      setStatus(result.error?.message ?? "Не удалось сохранить подтверждение рабочих данных.");
       return;
     }
     await load();
-    setStatus("Production dataset evidence metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Подтверждение рабочих данных сохранено. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutProductionReviewerGovernance = async (
@@ -1578,11 +1582,11 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProductionReviewerGovernanceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить production reviewer governance.");
+      setStatus(result.error?.message ?? "Не удалось сохранить контроль рабочей проверки.");
       return;
     }
     await load();
-    setStatus("Production reviewer governance metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Контроль рабочей проверки сохранён. Вывод о динамике выключен.");
   };
 
   const saveTimelineRolloutProductionReviewerEvidence = async (
@@ -1648,17 +1652,17 @@ function ProductionClinicalWorkspacePanel({
     });
     setTimelineRolloutProductionReviewerEvidenceSaving(false);
     if (!result.ok) {
-      setStatus(result.error?.message ?? "Не удалось сохранить production reviewer evidence.");
+      setStatus(result.error?.message ?? "Не удалось сохранить подтверждение рабочей проверки.");
       return;
     }
     await load();
-    setStatus("Production reviewer evidence metadata сохранён. Clinical dynamic conclusion: выключен.");
+    setStatus("Подтверждение рабочей проверки сохранено. Вывод о динамике выключен.");
   };
 
   const title = {
-    assessment: "Self-hosted assessment contract",
-    conclusion: "Self-hosted conclusion contract",
-    report: "Self-hosted report contract",
+    assessment: "Рабочая оценка",
+    conclusion: "Рабочее заключение",
+    report: "Рабочий отчёт",
   }[kind];
   const itemStatus =
     state.kind === "ready"
@@ -1670,7 +1674,7 @@ function ProductionClinicalWorkspacePanel({
       : "—";
 
   if (state.kind === "loading") {
-    return <ProductionClinicalWorkspaceEmptyState kind={kind} detail="Загружаем production-контракт из self-hosted backend…" />;
+    return <ProductionClinicalWorkspaceEmptyState kind={kind} detail="Загружаем рабочую запись из системы клиники…" />;
   }
   if (state.kind === "error") {
     return <ProductionClinicalWorkspaceEmptyState kind={kind} detail={state.message} />;
@@ -1680,8 +1684,8 @@ function ProductionClinicalWorkspacePanel({
     <Section title={title}>
       <div className="space-y-4">
         <div className="rounded-sm border border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
-          Production clinical workspace: mock assessment/report data hidden. Статус записи:{" "}
-          <span className="font-medium text-foreground">{itemStatus}</span>.
+          Рабочая запись клиники: демо-оценки и демо-отчёт скрыты. Статус записи:{" "}
+          <span className="font-medium text-foreground">{humanDisplayValue(itemStatus)}</span>.
         </div>
 
         {kind === "report" && state.reportPackage && (
@@ -1766,26 +1770,26 @@ function ProductionClinicalWorkspacePanel({
               </select>
             </label>
             <Input
-              aria-label="ABCD total"
+              aria-label="Итог по четырём признакам"
               value={assessmentForm.abcdTotal}
               onChange={(e) => setAssessmentForm((prev) => ({ ...prev, abcdTotal: e.target.value }))}
-              placeholder="ABCD total"
+              placeholder="Итог по четырём признакам"
             />
             <Input
-              aria-label="7-point total"
+              aria-label="Итог 7-балльной шкалы"
               value={assessmentForm.sevenPointTotal}
               onChange={(e) => setAssessmentForm((prev) => ({ ...prev, sevenPointTotal: e.target.value }))}
-              placeholder="7-point total"
+              placeholder="Итог 7-балльной шкалы"
             />
             <Textarea
-              aria-label="Assessment summary"
+              aria-label="Краткая оценка"
               className="lg:col-span-2"
               value={assessmentForm.summary}
               onChange={(e) => setAssessmentForm((prev) => ({ ...prev, summary: e.target.value }))}
               placeholder="Клиническая оценка"
             />
             <Textarea
-              aria-label="Assessment recommendation"
+              aria-label="Рекомендация по оценке"
               className="lg:col-span-2"
               value={assessmentForm.recommendation}
               onChange={(e) => setAssessmentForm((prev) => ({ ...prev, recommendation: e.target.value }))}
@@ -1809,19 +1813,19 @@ function ProductionClinicalWorkspacePanel({
               </select>
             </label>
             <Textarea
-              aria-label="Conclusion summary"
+              aria-label="Текст заключения"
               value={conclusionForm.summary}
               onChange={(e) => setConclusionForm((prev) => ({ ...prev, summary: e.target.value }))}
               placeholder="Заключение"
             />
             <Textarea
-              aria-label="Conclusion next step"
+              aria-label="Следующий шаг заключения"
               value={conclusionForm.nextStep}
               onChange={(e) => setConclusionForm((prev) => ({ ...prev, nextStep: e.target.value }))}
               placeholder="Следующий шаг"
             />
             <Input
-              aria-label="Conclusion follow-up date"
+              aria-label="Дата контроля заключения"
               value={conclusionForm.followUpAt}
               onChange={(e) => setConclusionForm((prev) => ({ ...prev, followUpAt: e.target.value }))}
               placeholder="Дата контроля"
@@ -1843,13 +1847,13 @@ function ProductionClinicalWorkspacePanel({
               </select>
             </label>
             <Textarea
-              aria-label="Report physician text"
+              aria-label="Текст отчёта для врача"
               value={reportForm.physicianText}
               onChange={(e) => setReportForm((prev) => ({ ...prev, physicianText: e.target.value }))}
               placeholder="Текст для врача"
             />
             <Textarea
-              aria-label="Report patient text"
+              aria-label="Текст отчёта для пациента"
               value={reportForm.patientText}
               onChange={(e) => setReportForm((prev) => ({ ...prev, patientText: e.target.value }))}
               placeholder="Текст для пациента"
@@ -1859,7 +1863,7 @@ function ProductionClinicalWorkspacePanel({
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" className="h-8 text-[12px]" onClick={save} disabled={saving}>
-            {saving ? "Сохраняем…" : "Сохранить в self-hosted backend"}
+            {saving ? "Сохраняем…" : "Сохранить в системе клиники"}
           </Button>
           <Button type="button" size="sm" variant="secondary" className="h-8 text-[12px]" onClick={load} disabled={saving}>
             Обновить
@@ -1883,18 +1887,18 @@ function ClinicalReportCompletionSummary({
   const readiness = reportPackage.readiness;
   const photoProtocol = reportPackage.patientPhotoProtocol;
   const photoProtocolStatus = photoProtocol.status === "metadata_ready_backend_blocked"
-    ? "metadata ready, backend blocked"
-    : "blocked";
+    ? "метаданные готовы, выдача заблокирована"
+    : "заблокировано";
   return (
     <section
-      aria-label="Stage 8G-8I clinical report completion"
+      aria-label="Готовность клинического отчёта"
       className="rounded-sm border border-border bg-surface px-3 py-3"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-[13px] font-semibold">Clinical report completion</h3>
+          <h3 className="text-[13px] font-semibold">Готовность отчёта</h3>
           <p className="text-[12px] text-muted-foreground">
-            Stage 8G-8I · self-hosted report package, local PostgreSQL only.
+            Пакет отчёта хранится в системе клиники. Внешняя выдача отключена.
           </p>
         </div>
         <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 text-[12px] font-medium">
@@ -1912,12 +1916,12 @@ function ClinicalReportCompletionSummary({
         <Field term="Delivery" value={readiness.patientDeliveryAllowed ? "разрешена" : "закрыта"} />
         <Field term="Фото-протокол" value={`${photoProtocol.selectedPhotoCount} фото`} />
         <Field
-          term="Фото delivery"
+          term="Выдача фото"
           value={photoProtocol.deliveryBoundary.patientDeliveryAllowed ? "разрешена" : "закрыта"}
         />
       </dl>
       <div
-        aria-label="Patient photo protocol backend contract"
+        aria-label="Контур фото-протокола пациента"
         className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted px-2.5 py-2 text-[12px]"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1925,7 +1929,7 @@ function ClinicalReportCompletionSummary({
           <span>{photoProtocolStatus}</span>
         </div>
         <p className="mt-1 text-muted-foreground">
-          SD-MF-046 · фото выбирает врач; сырые файлы, служебные пути, временные ссылки, токены и врачебная
+          Фото выбирает врач; сырые файлы, служебные пути, временные ссылки, токены и врачебная
           версия не выдаются пациенту.
         </p>
         {photoProtocol.missing.length > 0 && (
@@ -1951,7 +1955,7 @@ function ClinicalReportCompletionSummary({
         </ul>
       ) : (
         <p className="mt-3 text-[12px] text-muted-foreground">
-          Все report gates закрыты. Внешние сервисы, storage paths и signed URLs не используются.
+          Все проверки отчёта закрыты. Внешние сервисы, служебные пути и временные ссылки не используются.
         </p>
       )}
     </section>
@@ -1968,171 +1972,171 @@ function viewerQaReviewStatusLabel(status: SelfHostedLesionComparisonViewerQaRev
 function viewerQaNextActionLabel(action: SelfHostedLesionComparisonViewerQaReviewQueueDTO["items"][number]["nextAction"]): string {
   if (action === "request_recapture") return "Запросить переснимок";
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
-  if (action === "approve_measurement_policy") return "Утвердить policy измерений";
-  if (action === "approve_production_analysis_policy") return "Утвердить analysis policy";
-  if (action === "assign_reviewer") return "Назначить reviewer";
-  if (action === "complete_second_review") return "Закрыть second review";
+  if (action === "approve_measurement_policy") return "Утвердить правила измерений";
+  if (action === "approve_production_analysis_policy") return "Утвердить правила анализа";
+  if (action === "assign_reviewer") return "Назначить проверяющего";
+  if (action === "complete_second_review") return "Закрыть повторную проверку";
   if (action === "continue_review") return "Продолжить врачебный разбор";
   return "Проверить пару";
 }
 
 function longitudinalDatasetStatusLabel(status: SelfHostedVisitLongitudinalDatasetValidationDTO["readiness"]["status"]): string {
-  if (status === "ready_for_rollout") return "Готово к technical rollout";
-  if (status === "needs_review") return "Нужен review";
+  if (status === "ready_for_rollout") return "Готово";
+  if (status === "needs_review") return "Требует разбора";
   return "Заблокировано";
 }
 
 function timelineRolloutStatusLabel(status: SelfHostedVisitLongitudinalTimelineRolloutStatus): string {
-  if (status === "approved_for_clinical_operations") return "Approved for clinical ops";
-  if (status === "review_required") return "Нужен governance review";
+  if (status === "approved_for_clinical_operations") return "Запуск утверждён";
+  if (status === "review_required") return "Нужен разбор";
   return "Не утверждён";
 }
 
 function timelineRolloutSopStatusLabel(status: SelfHostedVisitLongitudinalTimelineRolloutSopStatus): string {
-  if (status === "ready_for_operational_rollout") return "SOP ready";
-  if (status === "in_review") return "SOP review";
-  return "SOP не начат";
+  if (status === "ready_for_operational_rollout") return "Правила готовы";
+  if (status === "in_review") return "Правила на разборе";
+  return "Правила не начаты";
 }
 
 function timelineRolloutEvidenceStatusLabel(status: SelfHostedVisitLongitudinalTimelineRolloutEvidenceStatus): string {
-  if (status === "ready_for_monitored_rollout") return "Evidence ready";
-  if (status === "in_review") return "Evidence review";
-  return "Evidence не начат";
+  if (status === "ready_for_monitored_rollout") return "Подтверждения готовы";
+  if (status === "in_review") return "Подтверждения на разборе";
+  return "Подтверждения не начаты";
 }
 
 function timelineRolloutMonitoringStatusLabel(status: SelfHostedVisitLongitudinalTimelineRolloutMonitoringStatus): string {
-  if (status === "ready_for_production_rollout") return "Monitoring ready";
-  if (status === "in_review") return "Monitoring review";
-  return "Monitoring не начат";
+  if (status === "ready_for_production_rollout") return "Наблюдение готово";
+  if (status === "in_review") return "Наблюдение на разборе";
+  return "Наблюдение не начато";
 }
 
 function timelineRolloutIncidentProcedureStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutIncidentProcedureStatus,
 ): string {
-  if (status === "ready_for_clinic_monitoring") return "Incident procedure ready";
-  if (status === "in_review") return "Incident procedure review";
-  return "Incident procedure не начат";
+  if (status === "ready_for_clinic_monitoring") return "Порядок готов";
+  if (status === "in_review") return "Порядок на разборе";
+  return "Порядок не начат";
 }
 
 function timelineRolloutClinicalValidationStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutClinicalValidationStatus,
 ): string {
-  if (status === "ready_for_clinical_validation") return "Clinical validation ready";
-  if (status === "in_review") return "Clinical validation review";
-  return "Clinical validation не начат";
+  if (status === "ready_for_clinical_validation") return "Проверка готова";
+  if (status === "in_review") return "Проверка на разборе";
+  return "Проверка не начата";
 }
 
 function timelineRolloutPostValidationMonitoringStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutPostValidationMonitoringStatus,
 ): string {
-  if (status === "ready_for_post_validation_monitoring") return "Post-validation ready";
-  if (status === "in_review") return "Post-validation review";
-  return "Post-validation не начат";
+  if (status === "ready_for_post_validation_monitoring") return "Наблюдение готово";
+  if (status === "in_review") return "Наблюдение на разборе";
+  return "Наблюдение не начато";
 }
 
 function timelineRolloutObservationGovernanceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutObservationGovernanceStatus,
 ): string {
-  if (status === "ready_for_observation_governance") return "Observation governance ready";
-  if (status === "in_review") return "Observation governance review";
-  return "Observation governance не начат";
+  if (status === "ready_for_observation_governance") return "Контроль готов";
+  if (status === "in_review") return "Контроль на разборе";
+  return "Контроль не начат";
 }
 
 function timelineRolloutExceptionGovernanceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutExceptionGovernanceStatus,
 ): string {
-  if (status === "ready_for_exception_governance") return "Exception governance ready";
-  if (status === "in_review") return "Exception governance review";
-  return "Exception governance не начат";
+  if (status === "ready_for_exception_governance") return "Исключения закрыты";
+  if (status === "in_review") return "Исключения на разборе";
+  return "Исключения не начаты";
 }
 
 function timelineRolloutOutcomeGovernanceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutOutcomeGovernanceStatus,
 ): string {
-  if (status === "ready_for_outcome_governance") return "Outcome governance ready";
-  if (status === "in_review") return "Outcome governance review";
-  return "Outcome governance не начат";
+  if (status === "ready_for_outcome_governance") return "Результаты готовы";
+  if (status === "in_review") return "Результаты на разборе";
+  return "Результаты не начаты";
 }
 
 function timelineRolloutLongitudinalClinicalValidationStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutLongitudinalClinicalValidationStatus,
 ): string {
-  if (status === "ready_for_longitudinal_clinical_validation") return "Longitudinal clinical validation ready";
-  if (status === "in_review") return "Longitudinal clinical validation review";
-  return "Longitudinal clinical validation не начат";
+  if (status === "ready_for_longitudinal_clinical_validation") return "История проверена";
+  if (status === "in_review") return "История на разборе";
+  return "История не начата";
 }
 
 function timelineRolloutProtectedReviewerValidationStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerValidationStatus,
 ): string {
-  if (status === "ready_for_protected_reviewer_validation") return "Protected reviewer validation ready";
-  if (status === "in_review") return "Protected reviewer validation review";
-  return "Protected reviewer validation не начат";
+  if (status === "ready_for_protected_reviewer_validation") return "Закрытая проверка готова";
+  if (status === "in_review") return "Закрытая проверка на разборе";
+  return "Закрытая проверка не начата";
 }
 
 function timelineRolloutProtectedReviewerGovernanceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerGovernanceStatus,
 ): string {
-  if (status === "ready_for_protected_reviewer_governance") return "Protected reviewer governance ready";
-  if (status === "in_review") return "Protected reviewer governance review";
-  return "Protected reviewer governance не начат";
+  if (status === "ready_for_protected_reviewer_governance") return "Контроль проверки готов";
+  if (status === "in_review") return "Контроль проверки на разборе";
+  return "Контроль проверки не начат";
 }
 
 function timelineRolloutProtectedReviewerEvidenceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutProtectedReviewerEvidenceStatus,
 ): string {
-  if (status === "ready_for_protected_reviewer_evidence") return "Protected reviewer evidence ready";
-  if (status === "in_review") return "Protected reviewer evidence review";
-  return "Protected reviewer evidence не начат";
+  if (status === "ready_for_protected_reviewer_evidence") return "Подтверждения проверки готовы";
+  if (status === "in_review") return "Подтверждения проверки на разборе";
+  return "Подтверждения проверки не начаты";
 }
 
 function timelineRolloutProductionDatasetEvidenceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutProductionDatasetEvidenceStatus,
 ): string {
-  if (status === "ready_for_production_dataset_evidence") return "Production dataset evidence ready";
-  if (status === "in_review") return "Production dataset evidence review";
-  return "Production dataset evidence не начат";
+  if (status === "ready_for_production_dataset_evidence") return "Рабочие данные готовы";
+  if (status === "in_review") return "Рабочие данные на разборе";
+  return "Рабочие данные не начаты";
 }
 
 function timelineRolloutProductionReviewerGovernanceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerGovernanceStatus,
 ): string {
-  if (status === "ready_for_production_reviewer_governance") return "Production reviewer governance ready";
-  if (status === "in_review") return "Production reviewer governance review";
-  return "Production reviewer governance не начат";
+  if (status === "ready_for_production_reviewer_governance") return "Рабочая проверка готова";
+  if (status === "in_review") return "Рабочая проверка на разборе";
+  return "Рабочая проверка не начата";
 }
 
 function timelineRolloutProductionReviewerEvidenceStatusLabel(
   status: SelfHostedVisitLongitudinalTimelineRolloutProductionReviewerEvidenceStatus,
 ): string {
-  if (status === "ready_for_production_reviewer_evidence") return "Production reviewer evidence ready";
-  if (status === "in_review") return "Production reviewer evidence review";
-  return "Production reviewer evidence не начат";
+  if (status === "ready_for_production_reviewer_evidence") return "Подтверждения проверки готовы";
+  if (status === "in_review") return "Подтверждения проверки на разборе";
+  return "Подтверждения проверки не начаты";
 }
 
 function timelineRolloutSopChecklistLabel(
   status: SelfHostedVisitLongitudinalDatasetValidationDTO["timelineRolloutSop"]["datasetValidationStatus"],
 ): string {
-  if (status === "ready") return "ready";
-  if (status === "needs_review") return "review";
-  return "missing";
+  if (status === "ready") return "готово";
+  if (status === "needs_review") return "проверить";
+  return "нет";
 }
 
 function longitudinalDatasetActionLabel(action: SelfHostedVisitLongitudinalDatasetValidationDTO["nextActions"][number]): string {
   if (action === "request_recapture") return "Запросить переснимок";
   if (action === "exclude_from_dynamic_review") return "Исключить из динамики";
-  if (action === "verify_production_asset") return "Проверить production assets";
-  if (action === "complete_capture_metadata") return "Дозаполнить metadata";
-  if (action === "complete_device_metadata") return "Дозаполнить device metadata";
-  if (action === "check_device_bridge") return "Проверить Device Bridge";
+  if (action === "verify_production_asset") return "Проверить рабочие снимки";
+  if (action === "complete_capture_metadata") return "Дозаполнить данные съёмки";
+  if (action === "complete_device_metadata") return "Дозаполнить данные устройства";
+  if (action === "check_device_bridge") return "Проверить связь с устройством";
   if (action === "complete_capture_protocol") return "Дозаполнить протокол съёмки";
   if (action === "complete_calibration") return "Закрыть калибровку";
   if (action === "place_markers") return "Поставить маркеры";
-  if (action === "approve_measurement_policy") return "Утвердить policy измерений";
-  if (action === "approve_production_analysis_policy") return "Утвердить analysis policy";
-  if (action === "assign_reviewer") return "Назначить reviewer";
-  if (action === "complete_second_review") return "Закрыть second review";
-  if (action === "continue_review") return "Продолжить review";
+  if (action === "approve_measurement_policy") return "Утвердить правила измерений";
+  if (action === "approve_production_analysis_policy") return "Утвердить правила анализа";
+  if (action === "assign_reviewer") return "Назначить проверяющего";
+  if (action === "complete_second_review") return "Закрыть повторную проверку";
+  if (action === "continue_review") return "Продолжить разбор";
   return "Открыть очередь";
 }
 
@@ -2266,7 +2270,7 @@ function LongitudinalDatasetValidationPanel({
     monitoringStatus: "not_started" as const,
     evidenceStatus: "not_started" as const,
     sopStatus: "not_started" as const,
-    validationStatus: "blocked" as const,
+    validationStatus: "заблокировано" as const,
     rolloutStatus: "not_approved" as const,
     outcomeWindowStatus: "missing" as const,
     clinicianCoverageStatus: "missing" as const,
@@ -2313,7 +2317,7 @@ function LongitudinalDatasetValidationPanel({
     monitoringStatus: "not_started" as const,
     evidenceStatus: "not_started" as const,
     sopStatus: "not_started" as const,
-    validationStatus: "blocked" as const,
+    validationStatus: "заблокировано" as const,
     rolloutStatus: "not_approved" as const,
     protectedAssetWindowStatus: "missing" as const,
     protectedRenderStatus: "missing" as const,
@@ -2361,7 +2365,7 @@ function LongitudinalDatasetValidationPanel({
     monitoringStatus: "not_started" as const,
     evidenceStatus: "not_started" as const,
     sopStatus: "not_started" as const,
-    validationStatus: "blocked" as const,
+    validationStatus: "заблокировано" as const,
     rolloutStatus: "not_approved" as const,
     reviewerMonitoringStatus: "missing" as const,
     reviewerExceptionStatus: "missing" as const,
@@ -2411,7 +2415,7 @@ function LongitudinalDatasetValidationPanel({
     monitoringStatus: "not_started" as const,
     evidenceStatus: "not_started" as const,
     sopStatus: "not_started" as const,
-    validationStatus: "blocked" as const,
+    validationStatus: "заблокировано" as const,
     rolloutStatus: "not_approved" as const,
     reviewerMonitoringEvidenceStatus: "missing" as const,
     reviewerExceptionEvidenceStatus: "missing" as const,
@@ -2462,7 +2466,7 @@ function LongitudinalDatasetValidationPanel({
     monitoringStatus: "not_started" as const,
     evidenceStatus: "not_started" as const,
     sopStatus: "not_started" as const,
-    validationStatus: "blocked" as const,
+    validationStatus: "заблокировано" as const,
     rolloutStatus: "not_approved" as const,
     realClinicWindowStatus: "missing" as const,
     datasetSamplingStatus: "missing" as const,
@@ -2514,7 +2518,7 @@ function LongitudinalDatasetValidationPanel({
     monitoringStatus: "not_started" as const,
     evidenceStatus: "not_started" as const,
     sopStatus: "not_started" as const,
-    validationStatus: "blocked" as const,
+    validationStatus: "заблокировано" as const,
     rolloutStatus: "not_approved" as const,
     productionReviewerAssignmentStatus: "missing" as const,
     productionSecondReviewStatus: "missing" as const,
@@ -2567,7 +2571,7 @@ function LongitudinalDatasetValidationPanel({
     monitoringStatus: "not_started" as const,
     evidenceStatus: "not_started" as const,
     sopStatus: "not_started" as const,
-    validationStatus: "blocked" as const,
+    validationStatus: "заблокировано" as const,
     rolloutStatus: "not_approved" as const,
     productionReviewerAssignmentStatus: "missing" as const,
     productionSecondReviewStatus: "missing" as const,
@@ -2656,10 +2660,10 @@ function LongitudinalDatasetValidationPanel({
     },
     {
       key: "sop",
-      label: "SOP",
+      label: "Правила",
       done: sop.status === "ready_for_operational_rollout",
       statusLabel: timelineRolloutSopStatusLabel(sop.status),
-      nextActionLabel: "Закрыть SOP",
+      nextActionLabel: "Закрыть Правила",
     },
     {
       key: "monitoring",
@@ -2677,24 +2681,24 @@ function LongitudinalDatasetValidationPanel({
     },
     {
       key: "protected-review",
-      label: "Защищённый review",
+      label: "Закрытая проверка",
       done: protectedReviewerEvidence.status === "ready_for_protected_reviewer_evidence",
       statusLabel: timelineRolloutProtectedReviewerEvidenceStatusLabel(protectedReviewerEvidence.status),
-      nextActionLabel: "Закрыть защищённый review",
+      nextActionLabel: "Закрыть закрытую проверку",
     },
     {
       key: "production-dataset",
-      label: "Пром. данные",
+      label: "Раб. данные",
       done: productionDatasetEvidence.status === "ready_for_production_dataset_evidence",
       statusLabel: timelineRolloutProductionDatasetEvidenceStatusLabel(productionDatasetEvidence.status),
-      nextActionLabel: "Проверить пром. данные",
+      nextActionLabel: "Проверить рабочие данные",
     },
     {
       key: "production-review",
-      label: "Пром. review",
+      label: "Раб. проверка",
       done: productionReviewerEvidence.status === "ready_for_production_reviewer_evidence",
       statusLabel: timelineRolloutProductionReviewerEvidenceStatusLabel(productionReviewerEvidence.status),
-      nextActionLabel: "Закрыть пром. review",
+      nextActionLabel: "Закрыть рабочую проверку",
     },
   ];
   const completedTimelineQaSteps = timelineQaSteps.filter((step) => step.done).length;
@@ -2708,7 +2712,7 @@ function LongitudinalDatasetValidationPanel({
       ? longitudinalDatasetActionLabel(firstVisibleItemAction)
       : !rolloutReady && firstGlobalAction
         ? longitudinalDatasetActionLabel(firstGlobalAction)
-        : currentTimelineQaStep?.nextActionLabel ?? "Проверить следующий gate";
+        : currentTimelineQaStep?.nextActionLabel ?? "Проверить следующий шаг";
   const primaryActionHref = !rolloutReady && validation.items.length > 0
     ? "#timeline-qa-lesions"
     : "#timeline-rollout-details";
@@ -2720,14 +2724,14 @@ function LongitudinalDatasetValidationPanel({
   return (
     <section
       role="region"
-      aria-label="Готовность timeline QA"
+      aria-label="Готовность проверки истории"
       className="rounded-sm border border-border bg-surface px-3 py-3 text-[12px]"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-[13px] font-semibold">Готовность timeline QA</h3>
+          <h3 className="text-[13px] font-semibold">Готовность проверки истории</h3>
           <p className="text-muted-foreground">
-            Production dataset validation · не создаёт вывод о динамике · выдача пациенту выключена.
+            Проверка истории по рабочим данным · вывод о динамике выключен · выдача пациенту выключена.
           </p>
         </div>
         <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 font-medium">
@@ -2777,14 +2781,14 @@ function LongitudinalDatasetValidationPanel({
       )}
       <div
         role="region"
-        aria-label="Рабочий шаг timeline QA"
+        aria-label="Рабочий шаг проверки истории"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2.5"
       >
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
             <h4 className="mt-1 text-[13px] font-semibold">
-              Следующий шаг: {currentTimelineQaStep?.nextActionLabel ?? "Проверить timeline QA"}
+              Следующий шаг: {currentTimelineQaStep?.nextActionLabel ?? "Проверить историю"}
             </h4>
             <p className="mt-1 text-muted-foreground">
               Ближайшее действие: <span className="font-medium text-foreground">{nextGateActionLabel}</span>. Динамический вывод
@@ -2805,7 +2809,7 @@ function LongitudinalDatasetValidationPanel({
             </Button>
           </div>
         </div>
-        <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8" aria-label="Этапы timeline QA">
+        <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8" aria-label="Этапы проверки истории">
           {timelineQaSteps.map((step, index) => {
             const state = step.done ? "done" : index === currentTimelineQaStepIndex ? "current" : "locked";
             const stateLabel = step.done ? "закрыто" : state === "current" ? "текущий шаг" : "ожидает";
@@ -2832,19 +2836,19 @@ function LongitudinalDatasetValidationPanel({
       <TimelineQaGroupNav />
       <TimelineQaGroupHeader
         title="Данные и запуск"
-        hint="Сначала закрываются blockers по очагам, затем фиксируется rollout governance."
+        hint="Сначала закрываются blockers по очагам, затем фиксируется контроль запуска."
       />
       <div
         id="timeline-rollout-details"
         role="region"
-        aria-label="Контур timeline rollout"
+        aria-label="Запуск проверки истории"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Контур timeline rollout</h4>
+            <h4 className="text-[12px] font-semibold">Запуск проверки истории</h4>
             <p className="text-muted-foreground">
-              Rollout сохраняет только aggregate metadata · Clinical dynamic conclusion: выключен · Выдача пациенту:
+              Запуск сохраняет только сводные данные · вывод о динамике выключен · Выдача пациенту:
               выключена.
             </p>
           </div>
@@ -2862,7 +2866,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {rollout.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -2875,7 +2879,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={saving || !rolloutReady}
             onClick={() => onReviewRollout("approved_for_clinical_operations")}
           >
-            Утвердить timeline rollout
+            Утвердить запуск истории
           </Button>
           <Button
             type="button"
@@ -2885,26 +2889,25 @@ function LongitudinalDatasetValidationPanel({
             disabled={saving}
             onClick={() => onReviewRollout("review_required")}
           >
-            Нужен разбор rollout
+            Нужен разбор запуска
           </Button>
         </div>
       </div>
       <TimelineQaGroupHeader
         id="timeline-sop-evidence"
-        title="SOP и evidence"
-        hint="Операционный чек-лист и evidence receipt без клинического вывода."
+        title="Правила и подтверждения"
+        hint="Рабочий чек-лист и подтверждения без клинического вывода."
       />
       <div
         role="region"
-        aria-label="SOP timeline rollout"
+        aria-label="Правила запуска истории"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">SOP timeline rollout</h4>
+            <h4 className="text-[12px] font-semibold">Правила запуска истории</h4>
             <p className="text-muted-foreground">
-              SOP фиксирует только operational checklist · Clinical dynamic conclusion: выключен · Выдача пациенту:
-              выключена.
+              Правила фиксируют только рабочий чек-лист · вывод о динамике выключен · Выдача пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -2923,7 +2926,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {sop.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -2937,7 +2940,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={sopSaving}
             onClick={() => onReviewSop("in_review")}
           >
-            Зафиксировать SOP review
+            Зафиксировать разбор правил
           </Button>
           <Button
             type="button"
@@ -2946,25 +2949,25 @@ function LongitudinalDatasetValidationPanel({
             disabled={sopSaving || !sopPrerequisitesReady}
             onClick={() => onReviewSop("ready_for_operational_rollout")}
           >
-            Утвердить SOP rollout
+            Утвердить правила запуска
           </Button>
         </div>
       </div>
       <TimelineQaGroupHeader
         id="timeline-monitoring-validation"
-        title="Monitoring и validation"
-        hint="Контроль outcomes, incident procedure и клиническая валидация только как aggregate metadata."
+        title="Наблюдение и проверка"
+        hint="Контроль результатов, порядок инцидентов и клиническая проверка только как сводные данные."
       />
       <div
         role="region"
-        aria-label="Evidence timeline rollout"
+        aria-label="Подтверждения запуска"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Evidence timeline rollout</h4>
+            <h4 className="text-[12px] font-semibold">Подтверждения запуска</h4>
             <p className="text-muted-foreground">
-              Evidence фиксирует только aggregate monitoring · Clinical dynamic conclusion: выключен · Выдача
+              Подтверждения фиксируют только сводное наблюдение · вывод о динамике выключен · Выдача
               пациенту: выключена.
             </p>
           </div>
@@ -2987,7 +2990,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {evidence.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3001,7 +3004,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={evidenceSaving}
             onClick={() => onReviewEvidence("in_review")}
           >
-            Зафиксировать evidence review
+            Зафиксировать подтверждения
           </Button>
           <Button
             type="button"
@@ -3010,25 +3013,25 @@ function LongitudinalDatasetValidationPanel({
             disabled={evidenceSaving || !evidencePrerequisitesReady}
             onClick={() => onReviewEvidence("ready_for_monitored_rollout")}
           >
-            Утвердить monitored rollout
+            Утвердить наблюдение
           </Button>
         </div>
       </div>
       <TimelineQaGroupHeader
         id="timeline-protected-review"
-        title="Protected review"
-        hint="Проверка reviewer operations на защищённых assets без раскрытия файлов и identity."
+        title="Закрытая проверка"
+        hint="Проверка защищённых снимков без раскрытия файлов и личных данных проверяющих."
       />
       <div
         role="region"
-        aria-label="Monitoring outcomes rollout"
+        aria-label="Наблюдение результатов"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Monitoring outcomes rollout</h4>
+            <h4 className="text-[12px] font-semibold">Наблюдение результатов</h4>
             <p className="text-muted-foreground">
-              Monitoring фиксирует только aggregate outcomes · Clinical dynamic conclusion: выключен · Выдача
+              Наблюдение фиксирует только сводные результаты · вывод о динамике выключен · Выдача
               пациенту: выключена.
             </p>
           </div>
@@ -3053,7 +3056,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {monitoring.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3067,7 +3070,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={monitoringSaving}
             onClick={() => onReviewMonitoring("in_review")}
           >
-            Зафиксировать monitoring review
+            Зафиксировать наблюдение
           </Button>
           <Button
             type="button"
@@ -3076,25 +3079,25 @@ function LongitudinalDatasetValidationPanel({
             disabled={monitoringSaving || !monitoringPrerequisitesReady}
             onClick={() => onReviewMonitoring("ready_for_production_rollout")}
           >
-            Утвердить production rollout
+            Утвердить рабочий запуск
           </Button>
         </div>
       </div>
       <TimelineQaGroupHeader
         id="timeline-production-review"
-        title="Production rollout"
-        hint="Production dataset и reviewer governance/evidence для долгого rollout-контроля."
+        title="Рабочий запуск"
+        hint="Рабочие данные и проверка для долгого контроля запуска."
       />
       <div
         role="region"
-        aria-label="Incident procedure rollout"
+        aria-label="Порядок инцидентов"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Incident procedure rollout</h4>
+            <h4 className="text-[12px] font-semibold">Порядок инцидентов</h4>
             <p className="text-muted-foreground">
-              Incident procedure фиксирует только aggregate production outcomes · Clinical dynamic conclusion:
+              Порядок инцидентов фиксирует только сводные рабочие результаты · вывод о динамике:
               выключен · Выдача пациенту: выключена.
             </p>
           </div>
@@ -3105,7 +3108,7 @@ function LongitudinalDatasetValidationPanel({
         <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <Field term="Dataset" value={timelineRolloutSopChecklistLabel(incidentProcedure.realDatasetStatus)} />
           <Field
-            term="Outcome SOP"
+            term="Outcome Правила"
             value={timelineRolloutSopChecklistLabel(incidentProcedure.outcomeSamplingProcedureStatus)}
           />
           <Field term="Triage" value={timelineRolloutSopChecklistLabel(incidentProcedure.incidentTriageStatus)} />
@@ -3123,7 +3126,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {incidentProcedure.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3137,7 +3140,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={incidentProcedureSaving}
             onClick={() => onReviewIncidentProcedure("in_review")}
           >
-            Зафиксировать incident procedure
+            Зафиксировать порядок инцидентов
           </Button>
           <Button
             type="button"
@@ -3146,20 +3149,20 @@ function LongitudinalDatasetValidationPanel({
             disabled={incidentProcedureSaving || !incidentProcedurePrerequisitesReady}
             onClick={() => onReviewIncidentProcedure("ready_for_clinic_monitoring")}
           >
-            Утвердить clinic monitoring
+            Утвердить наблюдение клиники
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Clinical validation rollout"
+        aria-label="Клиническая проверка"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Clinical validation rollout</h4>
+            <h4 className="text-[12px] font-semibold">Клиническая проверка</h4>
             <p className="text-muted-foreground">
-              Clinical validation фиксирует только aggregate validation metadata · Clinical dynamic conclusion:
+              Клиническая проверка фиксирует только сводные данные · вывод о динамике:
               выключен · Выдача пациенту: выключена.
             </p>
           </div>
@@ -3185,7 +3188,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {clinicalValidation.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3199,7 +3202,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={clinicalValidationSaving}
             onClick={() => onReviewClinicalValidation("in_review")}
           >
-            Зафиксировать clinical validation
+            Зафиксировать клиническую проверку
           </Button>
           <Button
             type="button"
@@ -3208,21 +3211,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={clinicalValidationSaving || !clinicalValidationPrerequisitesReady}
             onClick={() => onReviewClinicalValidation("ready_for_clinical_validation")}
           >
-            Утвердить clinical validation
+            Утвердить клиническую проверку
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Post-validation monitoring rollout"
+        aria-label="Наблюдение после проверки"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Post-validation monitoring rollout</h4>
+            <h4 className="text-[12px] font-semibold">Наблюдение после проверки</h4>
             <p className="text-muted-foreground">
-              Post-validation monitoring фиксирует только aggregate follow-up/drift metadata · Clinical dynamic
-              conclusion: выключен · Выдача пациенту: выключена.
+              Наблюдение после проверки фиксирует только сводные данные наблюдения и сдвига · вывод о динамике выключен ·
+              Выдача пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3247,7 +3250,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {postValidationMonitoring.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3261,7 +3264,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={postValidationMonitoringSaving}
             onClick={() => onReviewPostValidationMonitoring("in_review")}
           >
-            Зафиксировать post-validation monitoring
+            Зафиксировать наблюдение после проверки
           </Button>
           <Button
             type="button"
@@ -3270,20 +3273,20 @@ function LongitudinalDatasetValidationPanel({
             disabled={postValidationMonitoringSaving || !postValidationMonitoringPrerequisitesReady}
             onClick={() => onReviewPostValidationMonitoring("ready_for_post_validation_monitoring")}
           >
-            Утвердить post-validation monitoring
+            Утвердить наблюдение после проверки
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Outcome observation governance"
+        aria-label="Контроль наблюдения"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Outcome observation governance</h4>
+            <h4 className="text-[12px] font-semibold">Контроль наблюдения</h4>
             <p className="text-muted-foreground">
-              Observation governance фиксирует только aggregate outcome metadata · Clinical dynamic conclusion:
+              Контроль наблюдения фиксирует только сводные результаты · вывод о динамике:
               выключен · Выдача пациенту: выключена.
             </p>
           </div>
@@ -3315,7 +3318,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {observationGovernance.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3329,7 +3332,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={observationGovernanceSaving}
             onClick={() => onReviewObservationGovernance("in_review")}
           >
-            Зафиксировать observation governance
+            Зафиксировать контроль наблюдения
           </Button>
           <Button
             type="button"
@@ -3338,20 +3341,20 @@ function LongitudinalDatasetValidationPanel({
             disabled={observationGovernanceSaving || !observationGovernancePrerequisitesReady}
             onClick={() => onReviewObservationGovernance("ready_for_observation_governance")}
           >
-            Утвердить observation governance
+            Утвердить контроль наблюдения
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Exception governance closure"
+        aria-label="Закрытие исключений"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Exception governance closure</h4>
+            <h4 className="text-[12px] font-semibold">Закрытие исключений</h4>
             <p className="text-muted-foreground">
-              Exception governance фиксирует только aggregate exception closure · Clinical dynamic conclusion:
+              Закрытие исключений фиксирует только сводные данные · вывод о динамике:
               выключен · Выдача пациенту: выключена.
             </p>
           </div>
@@ -3380,7 +3383,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {exceptionGovernance.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3394,7 +3397,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={exceptionGovernanceSaving}
             onClick={() => onReviewExceptionGovernance("in_review")}
           >
-            Зафиксировать exception governance
+            Зафиксировать закрытие исключений
           </Button>
           <Button
             type="button"
@@ -3403,21 +3406,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={exceptionGovernanceSaving || !exceptionGovernancePrerequisitesReady}
             onClick={() => onReviewExceptionGovernance("ready_for_exception_governance")}
           >
-            Утвердить exception governance
+            Утвердить закрытие исключений
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Longitudinal outcome governance"
+        aria-label="Контроль результатов истории"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Longitudinal outcome governance</h4>
+            <h4 className="text-[12px] font-semibold">Контроль результатов истории</h4>
             <p className="text-muted-foreground">
-              Outcome governance фиксирует только aggregate longitudinal metadata over time · Clinical dynamic
-              conclusion: выключен · Выдача пациенту: выключена.
+              Контроль результатов фиксирует только сводные данные истории · вывод о динамике выключен · Выдача пациенту
+              выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3450,7 +3453,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {outcomeGovernance.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3464,7 +3467,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={outcomeGovernanceSaving}
             onClick={() => onReviewOutcomeGovernance("in_review")}
           >
-            Зафиксировать outcome governance
+            Зафиксировать контроль результатов
           </Button>
           <Button
             type="button"
@@ -3473,21 +3476,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={outcomeGovernanceSaving || !outcomeGovernancePrerequisitesReady}
             onClick={() => onReviewOutcomeGovernance("ready_for_outcome_governance")}
           >
-            Утвердить outcome governance
+            Утвердить контроль результатов
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Longitudinal clinical validation"
+        aria-label="Клиническая проверка истории"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Longitudinal clinical validation</h4>
+            <h4 className="text-[12px] font-semibold">Клиническая проверка истории</h4>
             <p className="text-muted-foreground">
-              Clinical longitudinal validation фиксирует только aggregate clinical longitudinal metadata over time ·
-              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+              Клиническая проверка истории фиксирует только сводные данные во времени · вывод о динамике выключен · Выдача
+              пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3515,7 +3518,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {longitudinalClinicalValidation.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3529,7 +3532,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={longitudinalClinicalValidationSaving}
             onClick={() => onReviewLongitudinalClinicalValidation("in_review")}
           >
-            Зафиксировать longitudinal clinical validation
+            Зафиксировать проверку истории
           </Button>
           <Button
             type="button"
@@ -3538,21 +3541,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={longitudinalClinicalValidationSaving || !longitudinalClinicalValidationPrerequisitesReady}
             onClick={() => onReviewLongitudinalClinicalValidation("ready_for_longitudinal_clinical_validation")}
           >
-            Утвердить longitudinal clinical validation
+            Утвердить проверку истории
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Protected reviewer validation"
+        aria-label="Проверка закрытых снимков"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Protected reviewer validation</h4>
+            <h4 className="text-[12px] font-semibold">Проверка закрытых снимков</h4>
             <p className="text-muted-foreground">
-              Protected reviewer validation фиксирует только aggregate reviewer operations metadata on protected assets ·
-              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+              Проверка закрытых снимков фиксирует только сводные данные работы проверяющих · вывод о динамике выключен ·
+              Выдача пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3580,7 +3583,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {protectedReviewerValidation.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3594,7 +3597,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={protectedReviewerValidationSaving}
             onClick={() => onReviewProtectedReviewerValidation("in_review")}
           >
-            Зафиксировать protected reviewer validation
+            Зафиксировать проверку закрытых снимков
           </Button>
           <Button
             type="button"
@@ -3603,21 +3606,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={protectedReviewerValidationSaving || !protectedReviewerValidationPrerequisitesReady}
             onClick={() => onReviewProtectedReviewerValidation("ready_for_protected_reviewer_validation")}
           >
-            Утвердить protected reviewer validation
+            Утвердить проверку закрытых снимков
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Protected reviewer governance"
+        aria-label="Контроль закрытой проверки"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Protected reviewer governance</h4>
+            <h4 className="text-[12px] font-semibold">Контроль закрытой проверки</h4>
             <p className="text-muted-foreground">
-              Protected reviewer governance фиксирует только aggregate monitored reviewer operations metadata on protected assets ·
-              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+              Контроль закрытой проверки фиксирует только сводные данные работы проверяющих · вывод о динамике выключен ·
+              Выдача пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3646,7 +3649,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {protectedReviewerGovernance.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3660,7 +3663,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={protectedReviewerGovernanceSaving}
             onClick={() => onReviewProtectedReviewerGovernance("in_review")}
           >
-            Зафиксировать protected reviewer governance
+            Зафиксировать контроль закрытой проверки
           </Button>
           <Button
             type="button"
@@ -3669,21 +3672,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={protectedReviewerGovernanceSaving || !protectedReviewerGovernancePrerequisitesReady}
             onClick={() => onReviewProtectedReviewerGovernance("ready_for_protected_reviewer_governance")}
           >
-            Утвердить protected reviewer governance
+            Утвердить контроль закрытой проверки
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Protected reviewer evidence"
+        aria-label="Подтверждения закрытой проверки"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Protected reviewer evidence</h4>
+            <h4 className="text-[12px] font-semibold">Подтверждения закрытой проверки</h4>
             <p className="text-muted-foreground">
-              Protected reviewer evidence фиксирует только aggregate monitored reviewer evidence metadata on protected assets ·
-              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+              Подтверждения закрытой проверки фиксируют только сводные данные работы проверяющих · вывод о динамике
+              выключен · Выдача пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3712,7 +3715,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {protectedReviewerEvidence.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3726,7 +3729,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={protectedReviewerEvidenceSaving}
             onClick={() => onReviewProtectedReviewerEvidence("in_review")}
           >
-            Зафиксировать protected reviewer evidence
+            Зафиксировать подтверждения закрытой проверки
           </Button>
           <Button
             type="button"
@@ -3735,21 +3738,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={protectedReviewerEvidenceSaving || !protectedReviewerEvidencePrerequisitesReady}
             onClick={() => onReviewProtectedReviewerEvidence("ready_for_protected_reviewer_evidence")}
           >
-            Утвердить protected reviewer evidence
+            Утвердить подтверждения закрытой проверки
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Production dataset evidence"
+        aria-label="Подтверждение рабочих данных"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Production dataset evidence</h4>
+            <h4 className="text-[12px] font-semibold">Подтверждение рабочих данных</h4>
             <p className="text-muted-foreground">
-              Production dataset evidence фиксирует только aggregate longitudinal evidence metadata across real clinical operations ·
-              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+              Подтверждение рабочих данных фиксирует только сводные данные по рабочим визитам · вывод о динамике
+              выключен · Выдача пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3778,7 +3781,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {productionDatasetEvidence.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3792,7 +3795,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={productionDatasetEvidenceSaving}
             onClick={() => onReviewProductionDatasetEvidence("in_review")}
           >
-            Зафиксировать production dataset evidence
+            Зафиксировать рабочие данные
           </Button>
           <Button
             type="button"
@@ -3801,21 +3804,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={productionDatasetEvidenceSaving || !productionDatasetEvidencePrerequisitesReady}
             onClick={() => onReviewProductionDatasetEvidence("ready_for_production_dataset_evidence")}
           >
-            Утвердить production dataset evidence
+            Утвердить рабочие данные
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Production reviewer governance"
+        aria-label="Контроль рабочей проверки"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Production reviewer governance</h4>
+            <h4 className="text-[12px] font-semibold">Контроль рабочей проверки</h4>
             <p className="text-muted-foreground">
-              Production reviewer governance фиксирует только aggregate reviewer-ops metadata on production assets ·
-              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+              Контроль рабочей проверки фиксирует только сводные данные работы проверяющих · вывод о динамике выключен ·
+              Выдача пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3844,7 +3847,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {productionReviewerGovernance.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3858,7 +3861,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={productionReviewerGovernanceSaving}
             onClick={() => onReviewProductionReviewerGovernance("in_review")}
           >
-            Зафиксировать production reviewer governance
+            Зафиксировать контроль рабочей проверки
           </Button>
           <Button
             type="button"
@@ -3867,21 +3870,21 @@ function LongitudinalDatasetValidationPanel({
             disabled={productionReviewerGovernanceSaving || !productionReviewerGovernancePrerequisitesReady}
             onClick={() => onReviewProductionReviewerGovernance("ready_for_production_reviewer_governance")}
           >
-            Утвердить production reviewer governance
+            Утвердить контроль рабочей проверки
           </Button>
         </div>
       </div>
       <div
         role="region"
-        aria-label="Production reviewer evidence"
+        aria-label="Подтверждение рабочей проверки"
         className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="text-[12px] font-semibold">Production reviewer evidence</h4>
+            <h4 className="text-[12px] font-semibold">Подтверждение рабочей проверки</h4>
             <p className="text-muted-foreground">
-              Production reviewer evidence фиксирует только aggregate reviewer-ops evidence metadata over production assets ·
-              Clinical dynamic conclusion: выключен · Выдача пациенту: выключена.
+              Подтверждение рабочей проверки фиксирует только сводные данные работы проверяющих · вывод о динамике
+              выключен · Выдача пациенту выключена.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-surface px-2 py-1 font-medium">
@@ -3910,7 +3913,7 @@ function LongitudinalDatasetValidationPanel({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {productionReviewerEvidence.reasons.slice(0, 3).map((reason) => (
               <span key={reason} className="rounded-sm border border-border bg-surface px-2 py-1 text-muted-foreground">
-                {reason}
+                {timelineReasonLabel(reason)}
               </span>
             ))}
           </div>
@@ -3924,7 +3927,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={productionReviewerEvidenceSaving}
             onClick={() => onReviewProductionReviewerEvidence("in_review")}
           >
-            Зафиксировать production reviewer evidence
+            Зафиксировать подтверждение рабочей проверки
           </Button>
           <Button
             type="button"
@@ -3933,7 +3936,7 @@ function LongitudinalDatasetValidationPanel({
             disabled={productionReviewerEvidenceSaving || !productionReviewerEvidencePrerequisitesReady}
             onClick={() => onReviewProductionReviewerEvidence("ready_for_production_reviewer_evidence")}
           >
-            Утвердить production reviewer evidence
+            Утвердить подтверждение рабочей проверки
           </Button>
         </div>
       </div>
@@ -3954,13 +3957,13 @@ function LongitudinalDatasetValidationPanel({
                   {item.candidatePairCount}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  assets: {item.productionAssetNotReadyCount} · metadata: {item.missingCaptureMetadataCount} · device:{" "}
-                  {item.deviceEvidenceNotReadyCount} · bridge:{" "}
-                  {item.deviceBridgeQualityNotReadyCount} · protocol:{" "}
-                  {item.captureProtocolNotReadyCount} · policy:{" "}
-                  {item.measurementPolicyNotReadyCount} · analysis:{" "}
-                  {item.productionAnalysisPolicyNotReadyCount} · assignment:{" "}
-                  {item.reviewerAssignmentNotReadyCount} · second:{" "}
+                  снимки: {item.productionAssetNotReadyCount} · данные: {item.missingCaptureMetadataCount} · устройство:{" "}
+                  {item.deviceEvidenceNotReadyCount} · связь:{" "}
+                  {item.deviceBridgeQualityNotReadyCount} · протокол:{" "}
+                  {item.captureProtocolNotReadyCount} · правила:{" "}
+                  {item.measurementPolicyNotReadyCount} · анализ:{" "}
+                  {item.productionAnalysisPolicyNotReadyCount} · назнач.:{" "}
+                  {item.reviewerAssignmentNotReadyCount} · повтор:{" "}
                   {item.secondReviewNotReadyCount} ·
                   калибровка: {item.calibrationBlockedCount} · маркеры: {item.markerMissingCount}
                 </p>
@@ -3973,11 +3976,11 @@ function LongitudinalDatasetValidationPanel({
         </ol>
       ) : (
         <p className="mt-3 rounded-sm border border-dashed border-border bg-surface-muted px-2.5 py-2 text-muted-foreground">
-          Нет очагов для production dataset validation в этом визите.
+          Нет очагов для проверки истории в этом визите.
         </p>
       )}
       <p className="mt-3 text-muted-foreground">
-        Динамический вывод: выключен · medical measurement: выключен · ключи пары и идентификаторы снимков скрыты.
+        Динамический вывод: выключен · измерения выключены · ключи пары и идентификаторы снимков скрыты.
       </p>
     </section>
   );
@@ -3991,12 +3994,12 @@ function ViewerQaReviewQueuePanel({
   return (
     <section
       role="region"
-      aria-label="Очередь viewer QA"
+      aria-label="Очередь проверки снимков"
       className="rounded-sm border border-border bg-surface px-3 py-3 text-[12px]"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-[13px] font-semibold">Очередь viewer QA</h3>
+          <h3 className="text-[13px] font-semibold">Очередь проверки снимков</h3>
           <p className="text-muted-foreground">
             Технический контур сравнения · без медицинских измерений и выводов о динамике.
           </p>
@@ -4007,7 +4010,7 @@ function ViewerQaReviewQueuePanel({
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
         <Field term="Всего" value={queue.summary.total} />
-        <Field term="Без review" value={queue.summary.unreviewed} />
+        <Field term="Без разбора" value={queue.summary.unreviewed} />
         <Field term="Готово" value={queue.summary.technicalReady} />
         <Field term="Переснять" value={queue.summary.needsRecapture} />
         <Field term="Не динамика" value={queue.summary.notSuitableForComparison} />
@@ -4030,9 +4033,9 @@ function ViewerQaReviewQueuePanel({
                 </div>
                 <p className="mt-1 text-muted-foreground">
                   {item.bodyZone ?? "зона не указана"} · калибровка: {item.calibrationStatus} · маркеров:{" "}
-                  {item.technicalMarkerCount} · policy: {item.measurementPolicy.status} · analysis:{" "}
-                  {item.productionAnalysisPolicy.status} · assignment:{" "}
-                  {item.reviewerAssignment.status} · second: {item.secondReview.status}
+                  {item.technicalMarkerCount} · правила: {humanDisplayValue(item.measurementPolicy.status)} · анализ:{" "}
+                  {humanDisplayValue(item.productionAnalysisPolicy.status)} · назнач.:{" "}
+                  {humanDisplayValue(item.reviewerAssignment.status)} · повтор: {humanDisplayValue(item.secondReview.status)}
                 </p>
                 {item.review.reasons.length > 0 && (
                   <p className="mt-1 text-muted-foreground">{item.review.reasons.slice(0, 2).join(", ")}</p>
@@ -4050,7 +4053,7 @@ function ViewerQaReviewQueuePanel({
         </p>
       )}
       <p className="mt-3 text-muted-foreground">
-        Выдача пациенту: выключена · ключи пары и идентификаторы снимков скрыты · backend audit: только агрегаты.
+        Выдача пациенту: выключена · ключи пары и идентификаторы снимков скрыты · аудит: только сводные данные.
       </p>
     </section>
   );
@@ -4076,7 +4079,7 @@ function PhotoProtocolReleaseAuditSummary({
         <div className="min-w-0">
           <h4 className="text-[13px] font-semibold">Журнал выдачи фото</h4>
           <p className="text-muted-foreground">
-            Неизменяемый backend-аудит · raw payload, причины отзыва и служебные идентификаторы скрыты.
+            Неизменяемый аудит · исходные данные, причины отзыва и служебные идентификаторы скрыты.
           </p>
         </div>
         <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 font-medium">
@@ -4089,7 +4092,7 @@ function PhotoProtocolReleaseAuditSummary({
         <Field term="Отзыв" value={audit.summary.revokedEvents} />
         <Field term="Просмотры" value={audit.summary.patientReadEvents} />
         <Field term="Открытия фото" value={audit.summary.proxyDownloadEvents} />
-        <Field term="Отказы proxy" value={audit.summary.proxyDeniedEvents} />
+        <Field term="Отказы доступа" value={audit.summary.proxyDeniedEvents} />
       </dl>
       {audit.events.length > 0 ? (
         <ol className="mt-2 grid grid-cols-1 gap-1.5">
@@ -4160,7 +4163,7 @@ function PhotoProtocolPolicyGovernancePanel({
         <div className="min-w-0">
           <h4 className="text-[13px] font-semibold">Проверка политики выдачи фото</h4>
           <p className="text-[12px] text-muted-foreground">
-            До patient-выдачи нужны: защищённый file-proxy, утверждённый срок доступа и проверенный patient-safe текст.
+            До выдачи пациенту нужны: защищённый доступ к файлам, утверждённый срок доступа и проверенный текст для пациента.
           </p>
         </div>
         <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 text-[12px] font-medium">
@@ -4184,7 +4187,7 @@ function PhotoProtocolPolicyGovernancePanel({
             checked={form.patientFileProxyEnabled}
             onChange={(event) => onChange((prev) => ({ ...prev, patientFileProxyEnabled: event.target.checked }))}
           />
-          <span>Включён защищённый file-proxy</span>
+          <span>Включён защищённый доступ к файлам</span>
         </label>
         <label className="flex min-h-[44px] items-center gap-2 rounded-sm border border-border bg-surface-muted px-2 py-2 text-[12px]">
           <input
@@ -4192,7 +4195,7 @@ function PhotoProtocolPolicyGovernancePanel({
             checked={form.retentionPolicyApproved}
             onChange={(event) => onChange((prev) => ({ ...prev, retentionPolicyApproved: event.target.checked }))}
           />
-          <span>Утверждён срок доступа (retention)</span>
+          <span>Утверждён срок доступа</span>
         </label>
         <label className="flex min-h-[44px] items-center gap-2 rounded-sm border border-border bg-surface-muted px-2 py-2 text-[12px] sm:col-span-2">
           <input
@@ -4200,17 +4203,17 @@ function PhotoProtocolPolicyGovernancePanel({
             checked={form.patientCopyApproved}
             onChange={(event) => onChange((prev) => ({ ...prev, patientCopyApproved: event.target.checked }))}
           />
-          <span>Проверен patient-safe текст для фото-протокола</span>
+          <span>Проверен текст для пациента</span>
         </label>
       </div>
       <div className="mt-2">
         <label className="space-y-1 text-[12px] font-medium">
-          Срок доступа (ISO)
+          Срок доступа
           <Input
-            aria-label="Photo policy expires at"
+            aria-label="Срок доступа к фото"
             value={form.expiresAt}
             onChange={(event) => onChange((prev) => ({ ...prev, expiresAt: event.target.value }))}
-            placeholder="2026-06-10T10:00:00.000Z"
+            placeholder="2026-06-10 10:00"
           />
         </label>
       </div>
@@ -4226,7 +4229,7 @@ function PhotoProtocolPolicyGovernancePanel({
           {saving ? "Сохраняем политику…" : "Сохранить политику выдачи"}
         </Button>
         <span className="text-[11px] text-muted-foreground">
-          Политика меняет только metadata/gates. Ссылки, токены и raw file-path остаются скрыты.
+          Правила меняют только сводные данные и проверки. Ссылки, токены и служебные пути остаются скрыты.
         </span>
       </div>
     </section>
@@ -4242,16 +4245,16 @@ function ProductionClinicalWorkspaceEmptyState({
 }) {
   const copy = {
     assessment: {
-      title: "Оценка ждёт self-hosted assessment API",
-      text: "Production clinical workspace: mock assessment/report data hidden. Клиническая оценка будет доступна после подключения production-контракта self-hosted backend.",
+      title: "Оценка ждёт систему клиники",
+      text: "Рабочее место клиники: демо-данные скрыты. Клиническая оценка будет доступна после подключения системы клиники.",
     },
     conclusion: {
-      title: "Заключение ждёт self-hosted conclusion API",
-      text: "Production clinical workspace: mock assessment/report data hidden. Заключение не собирается из demo/mock данных в production-режиме.",
+      title: "Заключение ждёт систему клиники",
+      text: "Рабочее место клиники: демо-данные скрыты. Заключение не собирается из демо-данных.",
     },
     report: {
-      title: "Отчёт ждёт self-hosted report API",
-      text: "Production clinical workspace: mock assessment/report data hidden. Production-отчёт будет собираться только из operator-owned backend данных.",
+      title: "Отчёт ждёт систему клиники",
+      text: "Рабочее место клиники: демо-данные скрыты. Рабочий отчёт будет собираться только из данных системы клиники.",
     },
   }[kind];
 
@@ -4260,8 +4263,8 @@ function ProductionClinicalWorkspaceEmptyState({
       <div role="note" className="space-y-2 text-[13px] text-muted-foreground">
         <p>{detail || copy.text}</p>
         <p>
-          Self-hosted product boundary: frontend показывает только live patient/visit/lesion данные и не делает
-          fallback на демо-клинические оценки.
+          Граница рабочей системы: экран показывает только данные пациента, визита и очагов из системы клиники.
+          Демо-оценки не подставляются.
         </p>
       </div>
     </Section>
@@ -4289,7 +4292,7 @@ function IntakeTab({ patient, visit }: { patient: Patient; visit: Visit }) {
         <Field term="Код" value={<span className="font-mono">{patient.code}</span>} />
         <Field term="Дата рождения" value={`${formatDate(patient.birthDate)} (${calcAge(patient.birthDate)} лет)`} />
         <Field term="Пол" value={patient.sex === "male" ? "Мужской" : "Женский"} />
-        <Field term="Фототип (Fitzpatrick)" value={patient.phototype} />
+        <Field term="Фототип" value={patient.phototype} />
       </Section>
 
       <Section title="Факторы риска" className="lg:col-span-7">
@@ -4424,7 +4427,7 @@ function BodyMapTab({
   const handlePlace = (np: { view: View; x: number; y: number }) => {
     if (productionMode) {
       setProductionPlacementNotice(
-        "Production-режим: локальное демо-добавление очага отключено. Используйте self-hosted запись визита.",
+        "Рабочий режим: локальное демо-добавление очага отключено. Используйте запись визита из системы клиники.",
       );
       return;
     }
@@ -4596,8 +4599,8 @@ function BodyMapTab({
                     <dl className="mt-1.5 grid grid-cols-4 gap-x-2 text-[11px]">
                       <Stat term="Впервые" value={formatDate(lesion.firstSeenAt)} />
                       <Stat term="Снимков" value={imageCount} />
-                      <Stat term="ABCD" value={a ? a.abcd.total.toFixed(1) : "—"} />
-                      <Stat term="7-point" value={a ? a.sevenPoint.total : "—"} />
+                      <Stat term="4 признака" value={a ? a.abcd.total.toFixed(1) : "—"} />
+                      <Stat term="7 баллов" value={a ? a.sevenPoint.total : "—"} />
                     </dl>
                     {!productionMode && (imageCount === 0 || !a || lNeedsReview) && (
                       <div className="mt-1.5 flex flex-wrap gap-1">
@@ -4752,8 +4755,8 @@ function BodyMapTab({
             <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
               <Stat term="X / Y" value={`${Math.round(selectedDraft.mapPoint.x * 100)}% / ${Math.round(selectedDraft.mapPoint.y * 100)}%`} />
               <Stat term="Снимков" value="—" />
-              <Stat term="ABCD" value="—" />
-              <Stat term="7-point" value="—" />
+              <Stat term="4 признака" value="—" />
+              <Stat term="7 баллов" value="—" />
             </dl>
             <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
               <Stat term="Статус" value={LESION_STATUS[selectedDraft.status]} />
@@ -4788,8 +4791,8 @@ function BodyMapTab({
             <dl className="mt-2 grid grid-cols-4 gap-x-2 text-[11px]">
               <Stat term="X / Y" value={`${Math.round(resolvePoint(selectedLesion).x * 100)}% / ${Math.round(resolvePoint(selectedLesion).y * 100)}%`} />
               <Stat term="Снимков" value={selImageCount} />
-              <Stat term="ABCD" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
-              <Stat term="7-point" value={selAssessment ? selAssessment.sevenPoint.total : "—"} />
+              <Stat term="4 признака" value={selAssessment ? selAssessment.abcd.total.toFixed(1) : "—"} />
+              <Stat term="7 баллов" value={selAssessment ? selAssessment.sevenPoint.total : "—"} />
             </dl>
             <div className="mt-2 rounded-md border border-border bg-surface-muted px-2.5 py-2">
               <div className="flex items-baseline justify-between gap-2">
@@ -4816,7 +4819,7 @@ function BodyMapTab({
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {selKinds.map((k) => (
                     <span key={k} className="rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                      {k === "overview" ? "Обзор" : k === "dermoscopy" ? "Дерматоскопия" : k === "macro" ? "Макро" : "Body map"}
+                      {k === "overview" ? "Обзор" : k === "dermoscopy" ? "Дерматоскопия" : k === "macro" ? "Макро" : "Карта тела"}
                     </span>
                   ))}
                 </div>
@@ -4837,12 +4840,12 @@ function BodyMapTab({
             </div>
             {productionMode ? (
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Production clinical workspace: mock assessment/report data hidden. Body Map показывает только
-                self-hosted lesion placement; клинические оценки и отчёты ждут production backend contracts.
+                Рабочее место клиники: демо-данные скрыты. Карта тела показывает только
+                размещение очага из системы клиники; оценки и отчёты ждут рабочие контракты.
               </p>
             ) : (
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Клинические значения ABCD и 7-point — данные из существующих мок-оценок этого визита, без AI-диагноза.
+                Клинические значения по четырём признакам и 7-балльной шкале — данные из демонстрационных оценок этого визита, без автоматического диагноза.
               </p>
             )}
           </div>
@@ -4875,7 +4878,7 @@ interface BodySvgProps {
 
 function BodySvg({ variant, view, points, pending, demoPoints, onPlace }: BodySvgProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const ariaLabel = `Body map · ${bodyMapVariantLabel(variant)} · ${bodyMapSurfaceLabel(view)}`;
+  const ariaLabel = `Карта тела · ${bodyMapVariantLabel(variant)} · ${bodyMapSurfaceLabel(view)}`;
   const badge = bodyMapSurfaceBadge(view);
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -5149,8 +5152,8 @@ function Section({ title, children, className }: { title: string; children: Reac
 function Field({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-2 border-b border-dashed border-border pb-1.5 last:border-b-0 last:pb-0">
-      <dt className="min-w-0 truncate text-[12px] text-muted-foreground">{term}</dt>
-      <dd className="min-w-0 truncate text-right">{value}</dd>
+      <dt className="min-w-0 truncate text-[12px] text-muted-foreground">{humanFieldTerm(term)}</dt>
+      <dd className="min-w-0 truncate text-right">{typeof value === "string" ? humanDisplayValue(value) : value}</dd>
     </div>
   );
 }

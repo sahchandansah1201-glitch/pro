@@ -554,16 +554,65 @@ const EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIV
 
 function publicMessage(error: { code?: string; message?: string } | null | undefined): string {
   if (!error) return "Не удалось сохранить изменения.";
-  if (error.code === "forbidden") return "Недостаточно прав для записи в self-hosted backend.";
-  if (error.code === "validation_error") return "Проверьте поля: backend вернул ошибку валидации.";
+  if (error.code === "forbidden") return "Недостаточно прав для записи в систему клиники.";
+  if (error.code === "validation_error") return "Проверьте поля: система клиники вернула ошибку.";
   return error.message || "Не удалось сохранить изменения.";
+}
+
+const STATE_LABELS: Record<string, string> = {
+  active: "активно",
+  applied: "применено",
+  archived: "в архиве",
+  blocked: "заблокировано",
+  clinic_admin: "администратор",
+  closed: "закрыто",
+  completed: "завершено",
+  confirmed: "подтверждено",
+  delivered: "доставлено",
+  drifted: "есть расхождение",
+  escalated: "передано",
+  failed: "ошибка",
+  handed_off: "передано",
+  in_sync: "согласовано",
+  missing_template: "нет шаблона",
+  needs_attention: "нужен разбор",
+  needs_policy_review: "нужен разбор правил",
+  needs_review: "нужен разбор",
+  needs_rework: "нужна доработка",
+  no_exception: "без исключений",
+  not_applied: "не применено",
+  not_set: "не задано",
+  open: "открыто",
+  patient_reached: "пациент на связи",
+  pending: "ожидает",
+  ready: "готово",
+  ready_for_archive: "готово к архиву",
+  received: "получено",
+  reconciled: "сверено",
+  review_required: "нужен разбор",
+  reviewed: "проверено",
+  resolved: "закрыто",
+  waiting_patient: "ждёт пациента",
+};
+
+function stateLabel(value: string | null | undefined): string {
+  if (!value) return "не задано";
+  return STATE_LABELS[value] ?? "уточнить";
+}
+
+function noteLabel(value: string | null | undefined): string {
+  return value ? "отметка есть" : "нет отметки";
+}
+
+function versionLabel(value: string | null | undefined): string {
+  return value ? "версия задана" : "не задано";
 }
 
 export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLiveActionsProps) {
   const session = useSelfHostedApiSession();
   const configured = isSelfHostedApiConfigured(session);
   const [busy, setBusy] = useState<BusyAction>(null);
-  const [status, setStatus] = useState("Live-запись доступна после входа в self-hosted backend.");
+  const [status, setStatus] = useState("Рабочая запись доступна после входа в систему клиники.");
   const [complaint, setComplaint] = useState(visit.complaint || "");
   const [visitStatus, setVisitStatus] = useState<"draft" | "in_progress" | "signed" | "cancelled">("in_progress");
   const [newLesionLabel, setNewLesionLabel] = useState("Новый очаг");
@@ -608,9 +657,9 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
   const [sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary, setSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary] = useState<FollowUpSopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary>(EMPTY_SOP_POLICY_GOVERNANCE_EVIDENCE_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_ARCHIVE_READINESS_CLOSURE_RECEIPT_HANDOFF_RECEIPT_RECONCILIATION_CLOSURE_RECEIPT_SUMMARY);
   const [operationsQueue, setOperationsQueue] = useState<SelfHostedClinicalFollowUp[]>([]);
   const [sopPolicyTemplates, setSopPolicyTemplates] = useState<SelfHostedFollowUpSopPolicyTemplate[]>([]);
-  const [sopTemplateCode, setSopTemplateCode] = useState("followup-standard");
-  const [sopTemplateTitle, setSopTemplateTitle] = useState("Follow-up standard SOP");
-  const [sopTemplateVersion, setSopTemplateVersion] = useState("clinic-local-v1");
+  const [sopTemplateCode, setSopTemplateCode] = useState("правила-контроля");
+  const [sopTemplateTitle, setSopTemplateTitle] = useState("Правила контрольного контакта");
+  const [sopTemplateVersion, setSopTemplateVersion] = useState("версия-1");
   const [sopTemplateDescription, setSopTemplateDescription] = useState("");
 
   const selectedLesion = useMemo(
@@ -730,7 +779,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     setBusy(null);
     setStatus(
       result.ok
-        ? "Визит сохранён в self-hosted backend."
+        ? "Визит сохранён в системе клиники."
         : publicMessage(result.error),
     );
   }
@@ -750,7 +799,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     setBusy(null);
     setStatus(
       result.ok
-        ? `Очаг ${result.value?.label ?? ""} создан в self-hosted backend.`
+        ? `Очаг ${result.value?.label ?? ""} создан в системе клиники.`
         : publicMessage(result.error),
     );
   }
@@ -767,7 +816,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     setBusy(null);
     setStatus(
       result.ok
-        ? `Очаг ${result.value?.label ?? ""} обновлён в self-hosted backend.`
+        ? `Очаг ${result.value?.label ?? ""} обновлён в системе клиники.`
         : publicMessage(result.error),
     );
   }
@@ -778,12 +827,12 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     const result = await archiveSelfHostedVisitLesion({
       ...baseArgs,
       lesionId: selectedLesionId,
-      reason: "Archived from live visit workspace",
+      reason: "Архивировано из рабочего места визита",
     });
     setBusy(null);
     setStatus(
       result.ok
-        ? `Очаг ${result.value?.label ?? selectedLesionId} архивирован в self-hosted backend.`
+        ? `Очаг ${result.value?.label ?? selectedLesionId} архивирован в системе клиники.`
         : publicMessage(result.error),
     );
   }
@@ -799,7 +848,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     setBusy(null);
     setStatus(
       result.ok
-        ? "Отчёт визита сохранён в self-hosted backend."
+        ? "Отчёт визита сохранён в системе клиники."
         : publicMessage(result.error),
     );
   }
@@ -821,7 +870,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
     setBusy(null);
     setStatus(
       result.ok
-        ? "Контрольный контакт создан в self-hosted backend."
+        ? "Контрольный контакт создан в системе клиники."
         : publicMessage(result.error),
     );
     if (result.ok) await loadOperationsQueue();
@@ -1311,20 +1360,20 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
       },
     });
     setBusy(null);
-    setStatus(result.ok ? "SOP policy template создан локально." : publicMessage(result.error));
+    setStatus(result.ok ? "Шаблон правил создан локально." : publicMessage(result.error));
     if (result.ok) await loadOperationsQueue();
   }
 
   return (
     <section
-      aria-label="Self-hosted запись визита"
+      aria-label="Рабочая запись визита"
       className="border-b border-border bg-surface px-4 py-3"
     >
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="h-section">Self-hosted запись визита</h2>
+          <h2 className="h-section">Рабочая запись визита</h2>
           <p className="text-meta">
-            JSON-изменения сохраняются в backend. Снимки и object storage остаются вне Stage 4H.
+            Изменения сохраняются в системе клиники. Снимки остаются в защищённом хранилище.
           </p>
         </div>
         <div
@@ -1454,7 +1503,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             className="min-h-16 text-[13px]"
           />
           <label className="block text-[12px] font-medium" htmlFor="stage4h-patient-text">
-            Patient-safe текст
+            Текст для пациента
           </label>
           <Textarea
             id="stage4h-patient-text"
@@ -1513,14 +1562,14 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
       </div>
 
       <section
-        aria-label="Операционный контроль follow-up"
+        aria-label="Операционный контроль"
         className="mt-3 rounded-md border border-border bg-background p-3"
       >
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="h-section text-[14px]">Операционный контроль</h3>
             <p className="text-meta">
-              SLA, triage и delivery evidence ведутся локально в self-hosted backend.
+              Сроки, разбор и подтверждения доставки ведутся в системе клиники.
             </p>
           </div>
           <Button
@@ -1540,7 +1589,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             <dd className="text-lg font-semibold">{operationsSummary.totalOpen}</dd>
           </div>
           <div className="surface-toolbar p-2">
-            <dt className="text-muted-foreground">Просрочено SLA</dt>
+            <dt className="text-muted-foreground">Просрочено</dt>
             <dd className="text-lg font-semibold">{operationsSummary.overdue}</dd>
           </div>
           <div className="surface-toolbar p-2">
@@ -1562,18 +1611,18 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
         </dl>
 
         <section
-          aria-label="Качество закрытия follow-up"
+          aria-label="Качество закрытия"
           className="mt-3 rounded-md border border-border bg-muted/20 p-3"
         >
           <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
             <div>
-              <h4 className="h-section text-[13px]">Качество закрытия follow-up</h4>
+              <h4 className="h-section text-[13px]">Качество закрытия</h4>
               <p className="text-meta">
-                Итоги основаны только на локальных outcome/QA полях и delivery evidence.
+                Итоги основаны только на локальных данных качества и доставки.
               </p>
             </div>
             <span className="text-[12px] text-muted-foreground">
-              QA pending: {outcomeSummary.qualityPending}
+              Ждёт проверки: {outcomeSummary.qualityPending}
             </span>
           </div>
           <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2 lg:grid-cols-4">
@@ -1582,11 +1631,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
               <dd className="text-lg font-semibold">{outcomeSummary.closedFollowUps}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">С evidence</dt>
+              <dt className="text-muted-foreground">С подтвержд.</dt>
               <dd className="text-lg font-semibold">{outcomeSummary.closedWithEvidence}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Без evidence</dt>
+              <dt className="text-muted-foreground">Без подтвержд.</dt>
               <dd className="text-lg font-semibold">{outcomeSummary.closedMissingEvidence}</dd>
             </div>
             <div className="surface-toolbar p-2">
@@ -1597,39 +1646,39 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
         </section>
 
         <section
-          aria-label="Retention и clinic review follow-up"
+          aria-label="Срок хранения и проверка клиники"
           className="mt-3 rounded-md border border-border bg-muted/20 p-3"
         >
           <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
             <div>
-              <h4 className="h-section text-[13px]">Retention и clinic review</h4>
+              <h4 className="h-section text-[13px]">Срок хранения и проверка</h4>
               <p className="text-meta">
-                Обзор хранит локальные retention/clinic-review отметки без внешнего SOP-подтверждения.
+                Обзор хранит локальные отметки срока хранения и проверки клиники.
               </p>
             </div>
             <span className="text-[12px] text-muted-foreground">
-              events: {clinicReviewSummary.localReviewEvents}
+              события: {clinicReviewSummary.localReviewEvents}
             </span>
           </div>
           <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2 lg:grid-cols-5">
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Retention due</dt>
+              <dt className="text-muted-foreground">Срок нужен</dt>
               <dd className="text-lg font-semibold">{clinicReviewSummary.retentionDue}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Retention reviewed</dt>
+              <dt className="text-muted-foreground">Срок проверен</dt>
               <dd className="text-lg font-semibold">{clinicReviewSummary.retentionReviewed}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Clinic scheduled</dt>
+              <dt className="text-muted-foreground">Клиника ждёт</dt>
               <dd className="text-lg font-semibold">{clinicReviewSummary.clinicReviewScheduled}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Clinic completed</dt>
+              <dt className="text-muted-foreground">Клиника закрыла</dt>
               <dd className="text-lg font-semibold">{clinicReviewSummary.clinicReviewCompleted}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Policy review</dt>
+              <dt className="text-muted-foreground">Проверка правил</dt>
               <dd className="text-lg font-semibold">{clinicReviewSummary.clinicNeedsPolicyReview}</dd>
             </div>
           </dl>
@@ -1637,385 +1686,386 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
             <div className="space-y-2">
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Policy templates</dt>
+                  <dt className="text-muted-foreground">Шаблоны правил</dt>
                   <dd className="text-lg font-semibold">{sopPolicyTemplateSummary.totalTemplates}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Active</dt>
+                  <dt className="text-muted-foreground">Активные</dt>
                   <dd className="text-lg font-semibold">{sopPolicyTemplateSummary.activeTemplates}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Policy events</dt>
+                  <dt className="text-muted-foreground">События правил</dt>
                   <dd className="text-lg font-semibold">{sopPolicyTemplateSummary.localPolicyEvents}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Applied</dt>
+                  <dt className="text-muted-foreground">Применено</dt>
                   <dd className="text-lg font-semibold">{sopPolicyApplicationSummary.appliedTemplates}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs apply</dt>
+                  <dt className="text-muted-foreground">Нужно применить</dt>
                   <dd className="text-lg font-semibold">{sopPolicyApplicationSummary.needsPolicyApplication}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Drift review</dt>
+                  <dt className="text-muted-foreground">Разбор отклонений</dt>
                   <dd className="text-lg font-semibold">{sopPolicyApplicationSummary.reviewRequired}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Open exceptions</dt>
+                  <dt className="text-muted-foreground">Открытые исключения</dt>
                   <dd className="text-lg font-semibold">{sopPolicyExceptionClosureSummary.openExceptions}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Unresolved drift</dt>
+                  <dt className="text-muted-foreground">Отклонения</dt>
                   <dd className="text-lg font-semibold">{sopPolicyExceptionClosureSummary.unresolvedDrift}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closed local</dt>
+                  <dt className="text-muted-foreground">Закрыто локально</dt>
                   <dd className="text-lg font-semibold">{sopPolicyExceptionClosureSummary.closedExceptions}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Audit ready</dt>
+                  <dt className="text-muted-foreground">Аудит готов</dt>
                   <dd className="text-lg font-semibold">{sopPolicyAuditRollupSummary.auditReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs audit</dt>
+                  <dt className="text-muted-foreground">Нужен аудит</dt>
                   <dd className="text-lg font-semibold">{sopPolicyAuditRollupSummary.needsAuditReview}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Reviewed audits</dt>
+                  <dt className="text-muted-foreground">Аудит проверен</dt>
                   <dd className="text-lg font-semibold">{sopPolicyAuditRollupSummary.reviewedAudits}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Governance ready</dt>
+                  <dt className="text-muted-foreground">Контроль готов</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceReadinessSummary.governanceReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs governance</dt>
+                  <dt className="text-muted-foreground">Нужен контроль</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceReadinessSummary.needsGovernanceReview}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Reviewed gov.</dt>
+                  <dt className="text-muted-foreground">Контроль проверен</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceReadinessSummary.reviewedGovernance}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closure ready</dt>
+                  <dt className="text-muted-foreground">Закрытие готово</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceClosureSummary.closureReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs closure</dt>
+                  <dt className="text-muted-foreground">Нужно закрытие</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceClosureSummary.needsClosureReview}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closed local</dt>
+                  <dt className="text-muted-foreground">Закрыто локально</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceClosureSummary.closedGovernanceReviews}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Evidence ready</dt>
+                  <dt className="text-muted-foreground">Подтв. готовы</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceSummary.evidenceReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs evidence</dt>
+                  <dt className="text-muted-foreground">Нужны подтв.</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceSummary.needsEvidenceReview}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Exported local</dt>
+                  <dt className="text-muted-foreground">Выгружено локально</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceSummary.exportedGovernanceEvidence}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon ready</dt>
+                  <dt className="text-muted-foreground">Сверка готова</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationSummary.reconciliationReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon</dt>
+                  <dt className="text-muted-foreground">Нужна сверка</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationSummary.needsReconciliation}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Reconciled</dt>
+                  <dt className="text-muted-foreground">Сверено</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationSummary.reconciledGovernanceEvidence}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon close ready</dt>
+                  <dt className="text-muted-foreground">Закрытие сверки</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureSummary.reconciliationClosureReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon close</dt>
+                  <dt className="text-muted-foreground">Нужно закрыть сверку</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureSummary.needsReconciliationClosure}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closed recon</dt>
+                  <dt className="text-muted-foreground">Сверка закрыта</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureSummary.closedReconciliationEvidence}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Receipt ready</dt>
+                  <dt className="text-muted-foreground">Квитанция готова</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary.closureReceiptReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs receipt</dt>
+                  <dt className="text-muted-foreground">Нужна квитанция</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary.needsClosureReceipt}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Received receipt</dt>
+                  <dt className="text-muted-foreground">Квитанция получена</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptSummary.receivedClosureReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Archive ready</dt>
+                  <dt className="text-muted-foreground">Архив готов</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary.archiveReadinessReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs archive</dt>
+                  <dt className="text-muted-foreground">Нужен архив</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary.needsArchiveReadiness}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Archived local</dt>
+                  <dt className="text-muted-foreground">Архивировано</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessSummary.archivedLocal}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closure ready</dt>
+                  <dt className="text-muted-foreground">Закрытие готово</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary.archiveClosureReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs closure</dt>
+                  <dt className="text-muted-foreground">Нужно закрытие</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary.needsArchiveClosure}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closed archives</dt>
+                  <dt className="text-muted-foreground">Архивы закрыты</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureSummary.closedLocalArchives}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Receipt ready</dt>
+                  <dt className="text-muted-foreground">Квитанция готова</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary.archiveClosureReceiptReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs receipt</dt>
+                  <dt className="text-muted-foreground">Нужна квитанция</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary.needsArchiveClosureReceipt}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Received archive receipts</dt>
+                  <dt className="text-muted-foreground">Квитанции архива</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptSummary.receivedArchiveClosureReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Handoff ready</dt>
+                  <dt className="text-muted-foreground">Передача готова</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary.archiveClosureReceiptHandoffReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs handoff</dt>
+                  <dt className="text-muted-foreground">Нужна передача</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary.needsArchiveClosureReceiptHandoff}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Handed off receipts</dt>
+                  <dt className="text-muted-foreground">Квитанции переданы</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffSummary.handedOffArchiveClosureReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Receipt handoff ready</dt>
+                  <dt className="text-muted-foreground">Передача квитанций</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary.archiveClosureReceiptHandoffReceiptReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs receipt handoff</dt>
+                  <dt className="text-muted-foreground">Нужна передача квитанций</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary.needsArchiveClosureReceiptHandoffReceipt}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Received handoff receipts</dt>
+                  <dt className="text-muted-foreground">Квитанции передачи</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptSummary.receivedArchiveClosureReceiptHandoffReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Handoff receipt recon ready</dt>
+                  <dt className="text-muted-foreground">Сверка передачи готова</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary.archiveClosureReceiptHandoffReceiptReconciliationReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs receipt recon</dt>
+                  <dt className="text-muted-foreground">Нужна сверка квитанций</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary.needsArchiveClosureReceiptHandoffReceiptReconciliation}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Reconciled handoff receipts</dt>
+                  <dt className="text-muted-foreground">Квитанции сверены</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationSummary.reconciledArchiveClosureReceiptHandoffReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Receipt recon closure ready</dt>
+                  <dt className="text-muted-foreground">Закрытие сверки готово</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs receipt recon closure</dt>
+                  <dt className="text-muted-foreground">Нужно закрыть сверку</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosure}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closed receipt recons</dt>
+                  <dt className="text-muted-foreground">Сверка квитанций закрыта</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureSummary.closedArchiveClosureReceiptHandoffReceiptReconciliations}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon closure receipt ready</dt>
+                  <dt className="text-muted-foreground">Квитанция закрытия сверки</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs closure receipt</dt>
+                  <dt className="text-muted-foreground">Нужна квитанция закрытия</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipt}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Received recon closures</dt>
+                  <dt className="text-muted-foreground">Закрытия сверки получены</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary.receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon receipt archive ready</dt>
+                  <dt className="text-muted-foreground">Архив сверки готов</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon receipt archive</dt>
+                  <dt className="text-muted-foreground">Нужен архив сверки</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadiness}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Archived recon receipts</dt>
+                  <dt className="text-muted-foreground">Сверка архивирована</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessSummary.archivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon receipt archive closure ready</dt>
+                  <dt className="text-muted-foreground">Закрытие архива сверки</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon receipt archive closure</dt>
+                  <dt className="text-muted-foreground">Нужно закрыть архив сверки</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosure}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closed recon receipt archives</dt>
+                  <dt className="text-muted-foreground">Архив сверки закрыт</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureSummary.closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosures}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon archive closure receipt ready</dt>
+                  <dt className="text-muted-foreground">Квитанция архива сверки</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon archive closure receipt</dt>
+                  <dt className="text-muted-foreground">Нужна квитанция архива</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipt}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Received recon archive closure receipts</dt>
+                  <dt className="text-muted-foreground">Квитанции архива получены</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptSummary.receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon archive closure receipt handoff ready</dt>
+                  <dt className="text-muted-foreground">Передача архива готова</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon archive closure receipt handoff</dt>
+                  <dt className="text-muted-foreground">Нужна передача архива</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoff}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Handed off recon archive closure receipt handoffs</dt>
+                  <dt className="text-muted-foreground">Архив передан</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffSummary.handedOffArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffs}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon archive handoff receipt ready</dt>
+                  <dt className="text-muted-foreground">Квитанция передачи архива</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon archive handoff receipt</dt>
+                  <dt className="text-muted-foreground">Нужна квитанция передачи</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipt}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Received recon archive handoff receipts</dt>
+                  <dt className="text-muted-foreground">Квитанции передачи получены</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptSummary.receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon archive handoff receipt reconciliation ready</dt>
+                  <dt className="text-muted-foreground">Сверка передачи архива</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon archive handoff receipt reconciliation</dt>
+                  <dt className="text-muted-foreground">Нужна сверка передачи</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliation}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Reconciled recon archive handoff receipts</dt>
+                  <dt className="text-muted-foreground">Передача архива сверена</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationSummary.reconciledArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceipts}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon archive handoff receipt reconciliation closure ready</dt>
+                  <dt className="text-muted-foreground">Закрытие сверки передачи</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon archive handoff receipt reconciliation closure</dt>
+                  <dt className="text-muted-foreground">Нужно закрыть сверку передачи</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosure}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Closed recon archive handoff receipt reconciliation closures</dt>
+                  <dt className="text-muted-foreground">Сверка передачи закрыта</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureSummary.closedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosures}</dd>
                 </div>
               </dl>
               <dl className="grid gap-2 text-[12px] sm:grid-cols-3">
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Recon archive handoff receipt reconciliation closure receipt ready</dt>
+                  <dt className="text-muted-foreground">Квитанция закрытия передачи</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary.archiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptReady}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Needs recon archive handoff receipt reconciliation closure receipt</dt>
+                  <dt className="text-muted-foreground">Нужна квитанция закрытия передачи</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary.needsArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipt}</dd>
                 </div>
                 <div className="surface-toolbar p-2">
-                  <dt className="text-muted-foreground">Received recon archive handoff receipt reconciliation closure receipts</dt>
+                  <dt className="text-muted-foreground">Квитанции закрытия передачи получены</dt>
                   <dd className="text-lg font-semibold">{sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptSummary.receivedArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceipts}</dd>
                 </div>
               </dl>
               <div className="space-y-2 text-[12px]">
                 {sopPolicyTemplates.length === 0 ? (
-                  <p className="text-muted-foreground">Активный SOP policy template ещё не задан.</p>
+                  <p className="text-muted-foreground">Активный шаблон правил ещё не задан.</p>
                 ) : sopPolicyTemplates.map((template) => (
                   <div key={template.id} className="surface-toolbar p-2">
                     <p className="font-medium">{template.title}</p>
                     <p className="text-muted-foreground">
-                      {template.code} · {template.version} · default: {template.defaultValidationState}
+                      {versionLabel(template.code)} · {versionLabel(template.version)} · по умолчанию:{" "}
+                      {stateLabel(template.defaultValidationState)}
                     </p>
                   </div>
                 ))}
               </div>
             </div>
             <form onSubmit={submitSopPolicyTemplate} className="surface-toolbar space-y-2 p-3">
-              <h5 className="h-section text-[12px]">SOP policy template</h5>
+              <h5 className="h-section text-[12px]">Шаблон правил</h5>
               <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-code">
-                Code
+                Код
               </label>
               <Input
                 id="stage22-sop-policy-code"
@@ -2024,7 +2074,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 className="h-8 text-[12px]"
               />
               <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-title">
-                Title
+                Название
               </label>
               <Input
                 id="stage22-sop-policy-title"
@@ -2033,7 +2083,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 className="h-8 text-[12px]"
               />
               <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-version">
-                Version
+                Версия
               </label>
               <Input
                 id="stage22-sop-policy-version"
@@ -2042,7 +2092,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 className="h-8 text-[12px]"
               />
               <label className="block text-[12px] font-medium" htmlFor="stage22-sop-policy-description">
-                Description
+                Описание
               </label>
               <Textarea
                 id="stage22-sop-policy-description"
@@ -2051,135 +2101,135 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                 className="min-h-14 text-[12px]"
               />
               <Button type="submit" size="sm" disabled={busy === "sop-policy-template-create"} className="h-8 text-[12px]">
-                {busy === "sop-policy-template-create" ? "Создаём…" : "Создать policy template"}
+                {busy === "sop-policy-template-create" ? "Создаём…" : "Создать шаблон правил"}
               </Button>
             </form>
           </div>
         </section>
 
         <section
-          aria-label="SOP validation follow-up"
+          aria-label="Проверка правил контроля"
           className="mt-3 rounded-md border border-border bg-muted/20 p-3"
         >
           <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
             <div>
-              <h4 className="h-section text-[13px]">SOP validation</h4>
+              <h4 className="h-section text-[13px]">Проверка правил</h4>
               <p className="text-meta">
-                Clinic-specific SOP validation хранится локально и не подтверждает внешний SOP outcome.
+                Проверка правил хранится локально и не является клиническим выводом.
               </p>
             </div>
             <span className="text-[12px] text-muted-foreground">
-              SOP events: {sopValidationSummary.localSopEvents}
+              События правил: {sopValidationSummary.localSopEvents}
             </span>
           </div>
           <dl className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2 lg:grid-cols-5">
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">SOP required</dt>
+              <dt className="text-muted-foreground">Правила нужны</dt>
               <dd className="text-lg font-semibold">{sopValidationSummary.sopRequired}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">SOP validated</dt>
+              <dt className="text-muted-foreground">Правила проверены</dt>
               <dd className="text-lg font-semibold">{sopValidationSummary.sopValidated}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Exceptions</dt>
+              <dt className="text-muted-foreground">Исключения</dt>
               <dd className="text-lg font-semibold">{sopValidationSummary.sopExceptions}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Blocked</dt>
+              <dt className="text-muted-foreground">Заблокировано</dt>
               <dd className="text-lg font-semibold">{sopValidationSummary.sopBlocked}</dd>
             </div>
             <div className="surface-toolbar p-2">
-              <dt className="text-muted-foreground">Escalated open</dt>
+              <dt className="text-muted-foreground">Открытые передачи</dt>
               <dd className="text-lg font-semibold">{sopValidationSummary.openEscalated}</dd>
             </div>
           </dl>
         </section>
 
-        <div className="mt-3 space-y-2" aria-label="Очередь follow-up по визиту">
+        <div className="mt-3 space-y-2" aria-label="Очередь контроля по визиту">
           {operationsQueue.length === 0 ? (
-            <p className="text-[12px] text-muted-foreground">Для этого визита нет открытых follow-up задач.</p>
+            <p className="text-[12px] text-muted-foreground">Для этого визита нет открытых задач контроля.</p>
           ) : operationsQueue.map((item) => (
             <article key={item.id} className="surface-toolbar flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium">{item.reason || "Контрольный контакт"}</p>
                 <p className="text-[12px] text-muted-foreground">
-                  triage: {item.triageState} · escalation: {item.escalationLevel} · delivery: {item.deliveryState}
+                  Разбор: {stateLabel(item.triageState)} · передача: {stateLabel(item.escalationLevel)} · доставка: {stateLabel(item.deliveryState)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  outcome: {item.resolutionOutcome} · QA: {item.qualityReviewState}
+                  Итог: {stateLabel(item.resolutionOutcome)} · проверка: {stateLabel(item.qualityReviewState)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  retention: {item.retentionReviewState} · clinic review: {item.clinicReviewState}
+                  Хранение: {stateLabel(item.retentionReviewState)} · проверка клиники: {stateLabel(item.clinicReviewState)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  SOP: {item.sopValidationState} · policy: {item.sopPolicyVersion || "not set"}
+                  Правила: {stateLabel(item.sopValidationState)} · версия: {versionLabel(item.sopPolicyVersion)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  policy drift: {item.sopPolicyDriftState} · template: {item.sopPolicyTemplateCode || "not applied"}
+                  Сверка правил: {stateLabel(item.sopPolicyDriftState)} · шаблон: {versionLabel(item.sopPolicyTemplateCode)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  policy exception: {item.sopPolicyExceptionState} · {item.sopPolicyExceptionResolution || item.sopPolicyExceptionReason || "no local closure"}
+                  Исключения: {stateLabel(item.sopPolicyExceptionState)} · {noteLabel(item.sopPolicyExceptionResolution || item.sopPolicyExceptionReason)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  policy audit: {item.sopPolicyAuditState} · {item.sopPolicyAuditNote || "no local audit note"}
+                  Аудит: {stateLabel(item.sopPolicyAuditState)} · {noteLabel(item.sopPolicyAuditNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  governance: {item.sopPolicyGovernanceState} · {item.sopPolicyGovernanceNote || "no local governance note"}
+                  Контроль: {stateLabel(item.sopPolicyGovernanceState)} · {noteLabel(item.sopPolicyGovernanceNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  governance closure: {item.sopPolicyGovernanceClosureState} · {item.sopPolicyGovernanceClosureNote || "no local closure note"}
+                  Закрытие: {stateLabel(item.sopPolicyGovernanceClosureState)} · {noteLabel(item.sopPolicyGovernanceClosureNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  governance evidence: {item.sopPolicyGovernanceEvidenceState} · {item.sopPolicyGovernanceEvidenceNote || "no local evidence note"}
+                  Подтверждение: {stateLabel(item.sopPolicyGovernanceEvidenceState)} · {noteLabel(item.sopPolicyGovernanceEvidenceNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  evidence reconciliation: {item.sopPolicyGovernanceEvidenceReconciliationState} · {item.sopPolicyGovernanceEvidenceReconciliationNote || "no local reconciliation note"}
+                  Сверка: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  reconciliation closure: {item.sopPolicyGovernanceEvidenceReconciliationClosureState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureNote || "no local closure note"}
+                  Закрытие сверки: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  closure receipt: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote || "no local receipt note"}
+                  Получение закрытия: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive readiness: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote || "no local archive note"}
+                  Готовность архива: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureNote || "no local archive closure note"}
+                  Закрытие архива: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote || "no local archive closure receipt note"}
+                  Получение архива: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffNote || "no local archive closure receipt handoff note"}
+                  Передача архива: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote || "no local archive closure receipt handoff receipt note"}
+                  Подтверждение передачи: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt reconciliation: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationNote || "no local archive closure receipt handoff receipt reconciliation note"}
+                  Сверка передачи: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt reconciliation closure: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureNote || "no local archive closure receipt handoff receipt reconciliation closure note"}
+                  Закрытие передачи: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt reconciliation closure receipt: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptNote || "no local archive closure receipt handoff receipt reconciliation closure receipt note"}
+                  Получение передачи: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt reconciliation closure receipt archive readiness: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote || "no local archive closure receipt handoff receipt reconciliation closure receipt archive readiness note"}
+                  Готовность итогового архива: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNote || "no local archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure note"}
+                  Закрытие итогового архива: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffNote || "no local archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff note"}
+                  Передача итогового архива: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptNote || "no local archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt note"}
+                  Получение итоговой передачи: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptNote)}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation: {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationState} · {item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationNote || "no local archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation note"}
+                  Сверка итоговой передачи: {stateLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationState)} · {noteLabel(item.sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationNote)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -2191,7 +2241,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   onClick={() => void updateOperationsState(
                     item.id,
                     { triageState: "waiting_patient", deliveryState: "pending", operationsNote: "Waiting for patient confirmation." },
-                    "Follow-up переведён в ожидание пациента.",
+                    "Контроль переведён в ожидание пациента.",
                   )}
                   className="h-8 text-[12px]"
                 >
@@ -2205,7 +2255,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   onClick={() => void updateOperationsState(
                     item.id,
                     { triageState: "escalated", escalationLevel: "clinic_admin", operationsNote: "Escalated locally to clinic admin." },
-                    "Follow-up эскалирован администратору клиники.",
+                    "Контроль передан администратору клиники.",
                   )}
                   className="h-8 text-[12px]"
                 >
@@ -2218,7 +2268,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                   onClick={() => void updateOperationsState(
                     item.id,
                     { triageState: "resolved", deliveryState: "delivered", deliveryEvidence: { channel: "portal", state: "confirmed" } },
-                    "Follow-up закрыт в операционной очереди.",
+                    "Контроль закрыт в очереди.",
                   )}
                   className="h-8 text-[12px]"
                 >
@@ -2236,11 +2286,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       qualityReviewState: "reviewed",
                       qualityReviewNote: "Reviewed locally in clinical workspace.",
                     },
-                    "Follow-up отмечен как QA reviewed.",
+                    "Контроль отмечен как проверенный.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  QA reviewed
+                  Проверено
                 </Button>
                 <Button
                   type="button"
@@ -2254,7 +2304,7 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       qualityReviewState: "needs_attention",
                       qualityReviewNote: "Needs local clinical review.",
                     },
-                    "Follow-up помечен как требующий внимания.",
+                    "Контроль помечен как требующий внимания.",
                   )}
                   className="h-8 text-[12px]"
                 >
@@ -2271,11 +2321,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       retentionReviewState: "reviewed",
                       retentionReviewNote: "Retention reviewed locally after follow-up closure.",
                     },
-                    "Follow-up retention review отмечен локально.",
+                    "Проверка срока хранения отмечена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Retention reviewed
+                  Хранение проверено
                 </Button>
                 <Button
                   type="button"
@@ -2288,11 +2338,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       clinicReviewState: "needs_policy_review",
                       clinicReviewNote: "Needs clinic policy review before SOP closure.",
                     },
-                    "Follow-up отправлен на clinic policy review.",
+                    "Контроль отправлен на разбор правил клиники.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Policy review
+                  Разбор правил
                 </Button>
                 <Button
                   type="button"
@@ -2305,11 +2355,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       clinicReviewState: "completed",
                       clinicReviewNote: "Clinic review completed locally.",
                     },
-                    "Clinic review по follow-up завершён локально.",
+                    "Проверка клиники завершена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Clinic review done
+                  Проверка клиники
                 </Button>
                 <Button
                   type="button"
@@ -2322,11 +2372,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopValidationState: "validated",
                       sopPolicyVersion: activeSopPolicyVersion,
                     },
-                    "SOP validation по follow-up подтверждён локально.",
+                    "Проверка правил подтверждена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  SOP validated
+                  Правила проверены
                 </Button>
                 <Button
                   type="button"
@@ -2340,11 +2390,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyVersion: activeSopPolicyVersion,
                       sopExceptionReason: "Clinic-specific exception recorded locally.",
                     },
-                    "SOP exception по follow-up записан локально.",
+                    "Исключение по правилам записано локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  SOP exception
+                  Исключение
                 </Button>
                 <Button
                   type="button"
@@ -2357,11 +2407,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyTemplateId: activeSopPolicyTemplate.id,
                       sopPolicyDriftState: "in_sync",
                     },
-                    "SOP policy template применён к follow-up локально.",
+                    "Шаблон правил применён локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Apply policy
+                  Применить правила
                 </Button>
                 <Button
                   type="button"
@@ -2374,11 +2424,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyDriftState: "review_required",
                       sopPolicyDriftReason: "Local SOP policy drift review requested from workspace.",
                     },
-                    "Follow-up отправлен на SOP policy drift review.",
+                    "Контроль отправлен на сверку правил.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Drift review
+                  Сверка правил
                 </Button>
                 <Button
                   type="button"
@@ -2391,11 +2441,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyExceptionState: "open",
                       sopPolicyExceptionReason: "Local SOP policy exception opened from workspace.",
                     },
-                    "SOP policy exception открыт локально.",
+                    "Исключение по правилам открыто локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Open exception
+                  Открыть исключение
                 </Button>
                 <Button
                   type="button"
@@ -2409,11 +2459,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyExceptionReason: item.sopPolicyExceptionReason || "Local SOP policy exception accepted from workspace.",
                       sopPolicyExceptionResolution: "Local exception accepted and closed for clinic policy review.",
                     },
-                    "SOP policy exception закрыт локально.",
+                    "Исключение по правилам закрыто локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Close exception
+                  Закрыть исключение
                 </Button>
                 <Button
                   type="button"
@@ -2426,11 +2476,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyAuditState: "reviewed",
                       sopPolicyAuditNote: "Local SOP policy audit reviewed from workspace.",
                     },
-                    "SOP policy audit отмечен как reviewed локально.",
+                    "Аудит правил отмечен как проверенный.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Audit reviewed
+                  Аудит проверен
                 </Button>
                 <Button
                   type="button"
@@ -2443,11 +2493,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyAuditState: "needs_followup",
                       sopPolicyAuditNote: "Local SOP policy audit needs follow-up from workspace.",
                     },
-                    "SOP policy audit отправлен на локальный follow-up.",
+                    "Аудит правил отправлен на повторный контроль.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Audit follow-up
+                  Повторный аудит
                 </Button>
                 <Button
                   type="button"
@@ -2460,11 +2510,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceState: "reviewed",
                       sopPolicyGovernanceNote: "Local SOP policy governance review completed from workspace.",
                     },
-                    "SOP policy governance review отмечен как reviewed локально.",
+                    "Контроль правил отмечен как проверенный.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Governance reviewed
+                  Контроль проверен
                 </Button>
                 <Button
                   type="button"
@@ -2477,11 +2527,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceState: "needs_followup",
                       sopPolicyGovernanceNote: "Local SOP policy governance review needs follow-up from workspace.",
                     },
-                    "SOP policy governance review отправлен на локальный follow-up.",
+                    "Контроль правил отправлен на повторный разбор.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Governance follow-up
+                  Повторный контроль
                 </Button>
                 <Button
                   type="button"
@@ -2494,11 +2544,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceClosureState: "closed",
                       sopPolicyGovernanceClosureNote: "Local SOP policy governance closure completed from workspace.",
                     },
-                    "SOP policy governance closure закрыт локально.",
+                    "Закрытие контроля правил выполнено локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Close governance
+                  Закрыть контроль
                 </Button>
                 <Button
                   type="button"
@@ -2511,11 +2561,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceClosureState: "needs_followup",
                       sopPolicyGovernanceClosureNote: "Local SOP policy governance closure needs follow-up from workspace.",
                     },
-                    "SOP policy governance closure отправлен на локальный follow-up.",
+                    "Закрытие контроля правил отправлено на повторный разбор.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Closure follow-up
+                  Повторное закрытие
                 </Button>
                 <Button
                   type="button"
@@ -2528,11 +2578,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceState: "exported",
                       sopPolicyGovernanceEvidenceNote: "Local SOP policy governance evidence export marked from workspace.",
                     },
-                    "SOP policy governance evidence отмечен как exported локально.",
+                    "Подтверждение правил подготовлено локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Export evidence
+                  Подготовить подтверждение
                 </Button>
                 <Button
                   type="button"
@@ -2545,11 +2595,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceState: "needs_followup",
                       sopPolicyGovernanceEvidenceNote: "Local SOP policy governance evidence export needs follow-up from workspace.",
                     },
-                    "SOP policy governance evidence отправлен на локальный follow-up.",
+                    "Подтверждение правил отправлено на повторный разбор.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Evidence follow-up
+                  Повторить подтверждение
                 </Button>
                 <Button
                   type="button"
@@ -2562,11 +2612,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationState: "reconciled",
                       sopPolicyGovernanceEvidenceReconciliationNote: "Local SOP policy governance evidence reconciled from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation отмечен как reconciled локально.",
+                    "Сверка подтверждений выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Reconcile evidence
+                  Сверить подтверждение
                 </Button>
                 <Button
                   type="button"
@@ -2579,11 +2629,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationState: "mismatch",
                       sopPolicyGovernanceEvidenceReconciliationNote: "Local SOP policy governance evidence reconciliation mismatch recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation помечен как mismatch локально.",
+                    "Сверка подтверждений помечена как несоответствие.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon mismatch
+                  Есть расхождение
                 </Button>
                 <Button
                   type="button"
@@ -2596,11 +2646,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureState: "closed",
                       sopPolicyGovernanceEvidenceReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closed from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation закрыт локально.",
+                    "Сверка подтверждений закрыта локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Close recon
+                  Закрыть сверку
                 </Button>
                 <Button
                   type="button"
@@ -2613,11 +2663,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure отправлен на rework локально.",
+                    "Закрытие сверки отправлено на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Closure rework
+                  Доработать закрытие
                 </Button>
                 <Button
                   type="button"
@@ -2630,11 +2680,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "received",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt принят локально.",
+                    "Получение закрытия принято локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receive receipt
+                  Отметить получение
                 </Button>
                 <Button
                   type="button"
@@ -2647,11 +2697,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt отправлен на rework локально.",
+                    "Получение закрытия сверки отправлено на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receipt rework
+                  Доработать получение
                 </Button>
                 <Button
                   type="button"
@@ -2664,11 +2714,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: "ready",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote: "Local SOP policy governance evidence reconciliation closure receipt archive readiness marked from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive readiness отмечен локально.",
+                    "Готовность архива отмечена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Archive ready
+                  Архив готов
                 </Button>
                 <Button
                   type="button"
@@ -2681,11 +2731,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveReadinessNote: "Local SOP policy governance evidence reconciliation closure receipt archive readiness needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive readiness отправлен на rework локально.",
+                    "Готовность архива отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Archive rework
+                  Доработать архив
                 </Button>
                 <Button
                   type="button"
@@ -2698,11 +2748,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState: "closed",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closed from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure закрыт локально.",
+                    "Архив закрыт локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Close archive
+                  Закрыть архив
                 </Button>
                 <Button
                   type="button"
@@ -2715,11 +2765,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure отправлен на rework локально.",
+                    "Закрытие архива отправлено на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Archive closure rework
+                  Доработать закрытие архива
                 </Button>
                 <Button
                   type="button"
@@ -2732,11 +2782,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "received",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt получен локально.",
+                    "Получение архива отмечено локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receive archive receipt
+                  Получить архив
                 </Button>
                 <Button
                   type="button"
@@ -2749,11 +2799,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt отправлен на rework локально.",
+                    "Получение архива отправлено на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Archive receipt rework
+                  Доработать получение архива
                 </Button>
                 <Button
                   type="button"
@@ -2766,11 +2816,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "handed_off",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff completed from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff выполнен локально.",
+                    "Передача архива выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Handoff archive receipt
+                  Передать архив
                 </Button>
                 <Button
                   type="button"
@@ -2783,11 +2833,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff отправлен на rework локально.",
+                    "Передача архива отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Handoff rework
+                  Доработать передачу
                 </Button>
                 <Button
                   type="button"
@@ -2800,11 +2850,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "received",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt получен локально.",
+                    "Получение передачи архива отмечено локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receive handoff receipt
+                  Получить передачу
                 </Button>
                 <Button
                   type="button"
@@ -2817,11 +2867,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt отправлен на rework локально.",
+                    "Получение передачи архива отправлено на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Handoff receipt rework
+                  Доработать получение передачи
                 </Button>
                 <Button
                   type="button"
@@ -2834,11 +2884,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationState: "reconciled",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation выполнен локально.",
+                    "Сверка передачи архива выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Reconcile handoff receipt
+                  Сверить передачу
                 </Button>
                 <Button
                   type="button"
@@ -2851,11 +2901,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation отправлен на rework локально.",
+                    "Сверка передачи архива отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receipt recon rework
+                  Доработать сверку передачи
                 </Button>
                 <Button
                   type="button"
@@ -2868,11 +2918,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureState: "closed",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure закрыт локально.",
+                    "Закрытие сверки передачи выполнено локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Close receipt recon
+                  Закрыть сверку передачи
                 </Button>
                 <Button
                   type="button"
@@ -2885,11 +2935,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure отправлен на rework локально.",
+                    "Закрытие сверки передачи отправлено на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receipt recon closure rework
+                  Доработать закрытие сверки
                 </Button>
                 <Button
                   type="button"
@@ -2902,11 +2952,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptState: "received",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt получен локально.",
+                    "Получение закрытия передачи отмечено локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receive recon closure
+                  Получить закрытие сверки
                 </Button>
                 <Button
                   type="button"
@@ -2919,11 +2969,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt отправлен на rework локально.",
+                    "Получение закрытия передачи отправлено на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon closure receipt rework
+                  Доработать получение закрытия
                 </Button>
                 <Button
                   type="button"
@@ -2936,11 +2986,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState: "archived",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness archived from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness archived локально.",
+                    "Операция контроля выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Archive recon receipt
+                  Архивировать сверку
                 </Button>
                 <Button
                   type="button"
@@ -2953,11 +3003,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness отправлен на rework локально.",
+                    "Операция контроля отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon receipt archive rework
+                  Доработать архив сверки
                 </Button>
                 <Button
                   type="button"
@@ -2970,11 +3020,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState: "closed",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure closed from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure закрыт локально.",
+                    "Операция контроля выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Close recon receipt archive
+                  Закрыть архив сверки
                 </Button>
                 <Button
                   type="button"
@@ -2987,11 +3037,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure отправлен на rework локально.",
+                    "Операция контроля отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon receipt archive closure rework
+                  Доработать закрытие архива
                 </Button>
                 <Button
                   type="button"
@@ -3004,11 +3054,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptState: "received",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt received from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt получен локально.",
+                    "Операция контроля выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receive recon archive closure
+                  Получить закрытие архива
                 </Button>
                 <Button
                   type="button"
@@ -3021,11 +3071,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt отправлен на rework локально.",
+                    "Операция контроля отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon archive closure receipt rework
+                  Доработать получение архива
                 </Button>
                 <Button
                   type="button"
@@ -3038,11 +3088,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffState: "handed_off",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff выполнен локально.",
+                    "Операция контроля выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Hand off recon archive receipt
+                  Передать архив сверки
                 </Button>
                 <Button
                   type="button"
@@ -3055,11 +3105,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff отправлен на rework локально.",
+                    "Операция контроля отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon archive closure receipt handoff rework
+                  Доработать передачу архива
                 </Button>
                 <Button
                   type="button"
@@ -3072,11 +3122,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptState: "received",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt получен локально.",
+                    "Операция контроля выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receive recon archive handoff receipt
+                  Получить передачу архива
                 </Button>
                 <Button
                   type="button"
@@ -3089,11 +3139,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt отправлен на rework локально.",
+                    "Операция контроля отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon archive handoff receipt rework
+                  Доработать получение передачи
                 </Button>
                 <Button
                   type="button"
@@ -3106,11 +3156,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationState: "reconciled",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation выполнен локально.",
+                    "Операция контроля выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Reconcile recon archive handoff receipt
+                  Сверить передачу архива
                 </Button>
                 <Button
                   type="button"
@@ -3123,11 +3173,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation отправлен на rework локально.",
+                    "Операция контроля отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon archive handoff receipt reconciliation rework
+                  Доработать сверку передачи
                 </Button>
                 <Button
                   type="button"
@@ -3140,11 +3190,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureState: "closed",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure закрыт локально.",
+                    "Операция контроля выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Close recon archive handoff receipt reconciliation
+                  Закрыть сверку передачи
                 </Button>
                 <Button
                   type="button"
@@ -3157,11 +3207,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure отправлен на rework локально.",
+                    "Операция контроля отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon archive handoff receipt reconciliation closure rework
+                  Доработать закрытие сверки
                 </Button>
                 <Button
                   type="button"
@@ -3174,11 +3224,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptState: "received",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt recorded from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt получен локально.",
+                    "Операция контроля выполнена локально.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Receive recon archive handoff receipt reconciliation closure receipt
+                  Получить закрытие передачи
                 </Button>
                 <Button
                   type="button"
@@ -3191,11 +3241,11 @@ export function VisitWorkspaceLiveActions({ visit, lesions }: VisitWorkspaceLive
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptState: "needs_rework",
                       sopPolicyGovernanceEvidenceReconciliationClosureReceiptArchiveClosureReceiptHandoffReceiptReconciliationClosureReceiptArchiveReadinessClosureReceiptHandoffReceiptReconciliationClosureReceiptNote: "Local SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt needs rework from workspace.",
                     },
-                    "SOP policy governance evidence reconciliation closure receipt archive closure receipt handoff receipt reconciliation closure receipt archive readiness closure receipt handoff receipt reconciliation closure receipt отправлен на rework локально.",
+                    "Операция контроля отправлена на доработку.",
                   )}
                   className="h-8 text-[12px]"
                 >
-                  Recon archive handoff receipt reconciliation closure receipt rework
+                  Доработать получение закрытия
                 </Button>
               </div>
             </article>

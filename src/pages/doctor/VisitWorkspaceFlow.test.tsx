@@ -30,7 +30,7 @@ const tabSelected = (name: RegExp) =>
   screen.getByRole("tab", { name }).getAttribute("aria-selected") === "true";
 
 describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () => {
-  it("Body Map → Imaging → Body Map preserves lesion via URL", () => {
+  it("Карта тела → снимки → карта тела сохраняет выбранный очаг в URL", () => {
     const view = renderAt("/patients/p-004/visits/v-005?tab=bodymap&lesion=l-008");
     expect(tabSelected(/карта тела/i)).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /К снимкам этого очага/ }));
@@ -39,7 +39,7 @@ describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () 
       (s) => s.value === "l-008",
     );
     expect(lesionSelect).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Открыть на Body Map/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Открыть на карте тела/ }));
     expect(tabSelected(/карта тела/i)).toBe(true);
     view.unmount();
   });
@@ -120,7 +120,7 @@ describe("Visit Workspace · end-to-end flow for p-004/v-005, lesion=l-008", () 
 describe("Visit Workspace · invalid params", () => {
   it("invalid ?tab=bad-tab falls back to Intake", () => {
     renderAt("/patients/p-004/visits/v-005?tab=bad-tab");
-    expect(tabSelected(/Интейк/)).toBe(true);
+    expect(tabSelected(/Первичный приём/)).toBe(true);
   });
 
   it("invalid ?lesion=bad-id does not crash on Imaging/Assessment/Conclusion/Report", () => {
@@ -158,7 +158,7 @@ describe("Visit Workspace · invalid params", () => {
 
 describe("Visit Workspace · local draft isolation across downstream tabs", () => {
   function placeLocalDraft() {
-    const svg = screen.getByRole("img", { name: /Body map/ }) as unknown as SVGSVGElement;
+    const svg = screen.getByRole("img", { name: /Карта тела/ }) as unknown as SVGSVGElement;
     (svg as unknown as HTMLElement).getBoundingClientRect = () =>
       ({
         left: 0,
@@ -193,9 +193,9 @@ describe("Visit Workspace · local draft isolation across downstream tabs", () =
 });
 
 describe("Visit Workspace · Report demo-only actions", () => {
-  it("Печать / PDF disabled; Отправить пациенту is initially disabled (no demo draft)", () => {
+  it("Печать отчёта и Отправить пациенту initially disabled without demo draft", () => {
     renderAt("/patients/p-004/visits/v-005?tab=report&lesion=l-008");
-    const printBtn = screen.getByRole("button", { name: /Печать \/ PDF/ }) as HTMLButtonElement;
+    const printBtn = screen.getByRole("button", { name: /Печать отчёта/ }) as HTMLButtonElement;
     const sendBtn = screen.getByRole("button", { name: /Отправить пациенту/ }) as HTMLButtonElement;
     expect(printBtn.disabled).toBe(true);
     expect(sendBtn.disabled).toBe(true);

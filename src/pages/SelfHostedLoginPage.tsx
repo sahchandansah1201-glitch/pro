@@ -21,9 +21,20 @@ import {
 
 const DEFAULT_BASE_URL = String(import.meta.env.VITE_SELF_HOSTED_API_BASE_URL ?? "").trim();
 
-export const SELF_HOSTED_LOGIN_HEADING = "Дерматолог Pro — production вход";
+export const SELF_HOSTED_LOGIN_HEADING = "Дерматолог Pro — рабочий вход";
 export const SELF_HOSTED_LOGIN_SUBTITLE =
-  "Вход через локальный self-hosted backend без managed runtime, managed database или внешнего auth provider.";
+  "Вход в систему клиники через локальный сервер и базу данных клиники.";
+
+function roleLabel(role: string): string {
+  const labels: Record<string, string> = {
+    clinic_admin: "администратор клиники",
+    doctor: "врач",
+    operator: "оператор",
+    patient: "пациент",
+    system_admin: "системный администратор",
+  };
+  return labels[role] ?? "роль скрыта";
+}
 
 export default function SelfHostedLoginPage() {
   const navigate = useNavigate();
@@ -74,7 +85,7 @@ export default function SelfHostedLoginPage() {
     const result = await fetchSelfHostedBootstrapStatus({ apiBaseUrl });
     setBootstrapChecking(false);
     if (!result.ok || !result.value) {
-      setBootstrapError(result.error?.message ?? "Не удалось проверить production bootstrap.");
+      setBootstrapError(result.error?.message ?? "Не удалось проверить готовность входа.");
       setBootstrapChecklist(buildProductionBootstrapChecklist(null));
       return;
     }
@@ -89,7 +100,7 @@ export default function SelfHostedLoginPage() {
             <ServerCog className="h-5 w-5 text-primary" aria-hidden />
             <div>
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {productionMode ? "Production mode" : "Demo/dev mode"}
+                {productionMode ? "Рабочий режим" : "Демо-режим"}
               </p>
               <h1 className="text-[18px] font-semibold leading-tight">
                 {SELF_HOSTED_LOGIN_HEADING}
@@ -113,7 +124,7 @@ export default function SelfHostedLoginPage() {
             <h2 className="text-[15px] font-semibold leading-tight">
               Войти в продукт
             </h2>
-            <p className="text-[12px] text-muted-foreground">Используйте первого `system_admin` или рабочую backend-учётку.</p>
+            <p className="text-[12px] text-muted-foreground">Используйте учётку администратора или сотрудника клиники.</p>
           </div>
         </div>
 
@@ -128,8 +139,8 @@ export default function SelfHostedLoginPage() {
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
-            Вход выполняется через POST /api/v1/auth/login. Токен сохраняется в текущем
-            браузере и используется только для self-hosted API этого сервера.
+            Вход выполняется через локальный сервер клиники. Ключ сессии хранится только
+            в текущем браузере.
           </span>
         </div>
 
@@ -139,14 +150,14 @@ export default function SelfHostedLoginPage() {
             className="mb-4 rounded-md border border-border bg-surface-muted p-3 text-[12px] text-muted-foreground"
           >
             <h2 id="self-hosted-active-session" className="mb-1 text-[13px] font-medium text-foreground">
-              Активная self-hosted сессия
+              Активная сессия
             </h2>
             <p>
               Текущий пользователь:{" "}
               <span className="font-medium text-foreground">
-                {session.user?.displayName || "self-hosted user"}
+                {session.user?.displayName || "пользователь"}
               </span>
-              {session.user?.roles?.length ? ` · роли: ${session.user.roles.join(", ")}` : null}
+              {session.user?.roles?.length ? ` · роли: ${session.user.roles.map(roleLabel).join(", ")}` : null}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <Button asChild type="button" size="sm" className="h-8 text-[12px]">
@@ -159,16 +170,16 @@ export default function SelfHostedLoginPage() {
                 className="h-8 text-[12px]"
                 onClick={handleSignOut}
               >
-                Выйти из self-hosted backend
+                Выйти из системы клиники
               </Button>
             </div>
           </section>
         ) : null}
 
-        <form aria-label="Форма входа в self-hosted backend" onSubmit={handleSubmit} className="space-y-3">
+        <form aria-label="Форма входа в систему клиники" onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="self-hosted-base-url" className="text-[12px]">
-              Адрес backend
+              Адрес сервера клиники
             </Label>
             <Input
               id="self-hosted-base-url"
@@ -181,14 +192,14 @@ export default function SelfHostedLoginPage() {
               required
             />
             <p className="text-[11px] text-muted-foreground">
-              По умолчанию подставляется VITE_SELF_HOSTED_API_BASE_URL. Поле перезаписывает значение
-              для текущего браузера.
+              По умолчанию используется адрес из настроек окружения. Поле меняет адрес
+              только для текущего браузера.
             </p>
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="self-hosted-email" className="text-[12px]">
-              Email
+              Эл. почта
             </Label>
             <Input
               id="self-hosted-email"
@@ -262,18 +273,17 @@ function ProductionBootstrapPanel({
     <section aria-labelledby="production-bootstrap-heading" className="space-y-4">
       <div>
         <h2 id="production-bootstrap-heading" className="text-[15px] font-semibold text-foreground">
-          Production bootstrap
+          Готовность входа
         </h2>
         <p className="mt-1 text-[12px] text-muted-foreground">
-          Перед первым входом сервер должен пройти Stage 5B/5C: production env,
-          VITE_APP_MODE=production, миграции, pre-start SQL и первый `system_admin`
-          в operator-owned PostgreSQL.
+          Перед первым входом проверьте сервер клиники, базу данных, хранилище файлов
+          и локальную авторизацию.
         </p>
       </div>
 
       <div className="rounded-md border border-border bg-surface-muted p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-[12px] font-medium text-foreground">Readiness checklist</div>
+          <div className="text-[12px] font-medium text-foreground">Чек-лист готовности</div>
           <Button
             type="button"
             variant="outline"
@@ -281,7 +291,7 @@ function ProductionBootstrapPanel({
             className="h-8 gap-1.5 text-[12px]"
             onClick={onCheck}
             disabled={checking}
-            aria-label="Проверить production readiness self-hosted backend"
+            aria-label="Проверить готовность входа"
           >
             <RefreshCw className={checking ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} aria-hidden />
             {checking ? "Проверяем…" : "Проверить"}
@@ -297,7 +307,7 @@ function ProductionBootstrapPanel({
           </div>
         ) : null}
 
-        <ul className="space-y-2" aria-label="Production bootstrap checklist">
+        <ul className="space-y-2" aria-label="Чек-лист готовности входа">
           {checklist.map((item) => (
             <li key={item.key} className="flex items-start gap-2 text-[12px]">
               <BootstrapStatusIcon status={item.status} />
@@ -311,11 +321,10 @@ function ProductionBootstrapPanel({
       </div>
 
       <div className="rounded-md border border-border bg-surface p-3 text-[12px] text-muted-foreground">
-        <div className="mb-1 font-medium text-foreground">Первый system_admin</div>
+        <div className="mb-1 font-medium text-foreground">Первый администратор</div>
         <p>
-          Если вход ещё невозможен, создайте первого администратора через Stage 5B:
-          `node scripts/stage5b-server-bootstrap.mjs admin-sql ...`, примените SQL локально
-          в PostgreSQL, затем удалите файл с временным секретом.
+          Если вход ещё невозможен, создайте первого администратора по инструкции развёртывания,
+          затем удалите временный секрет.
         </p>
       </div>
     </section>

@@ -43,12 +43,13 @@ describe("SelfHostedLoginPage", () => {
   it("renders the self-hosted login form", () => {
     renderPage();
     expect(
-      screen.getByRole("heading", { name: "Дерматолог Pro — production вход" }),
+      screen.getByRole("heading", { name: "Дерматолог Pro — рабочий вход" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Production bootstrap" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Адрес backend")).toBeInTheDocument();
-    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Готовность входа" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Адрес сервера клиники")).toBeInTheDocument();
+    expect(screen.getByLabelText("Эл. почта")).toBeInTheDocument();
     expect(screen.getByLabelText("Пароль")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/production|self-hosted|backend|readiness|bootstrap/i);
   });
 
   it("logs into the self-hosted backend, stores the session and redirects to /patients", async () => {
@@ -69,9 +70,9 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    await userEvent.clear(screen.getByLabelText("Адрес backend"));
-    await userEvent.type(screen.getByLabelText("Адрес backend"), "http://localhost:8080");
-    await userEvent.type(screen.getByLabelText("Email"), "doctor@example.com");
+    await userEvent.clear(screen.getByLabelText("Адрес сервера клиники"));
+    await userEvent.type(screen.getByLabelText("Адрес сервера клиники"), "http://localhost:8080");
+    await userEvent.type(screen.getByLabelText("Эл. почта"), "doctor@example.com");
     await userEvent.type(screen.getByLabelText("Пароль"), "secret");
     await userEvent.click(
       screen.getByRole("button", { name: /Войти в продукт/i }),
@@ -107,9 +108,9 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    await userEvent.clear(screen.getByLabelText("Адрес backend"));
-    await userEvent.type(screen.getByLabelText("Адрес backend"), "http://localhost:8080");
-    await userEvent.type(screen.getByLabelText("Email"), "admin@example.com");
+    await userEvent.clear(screen.getByLabelText("Адрес сервера клиники"));
+    await userEvent.type(screen.getByLabelText("Адрес сервера клиники"), "http://localhost:8080");
+    await userEvent.type(screen.getByLabelText("Эл. почта"), "admin@example.com");
     await userEvent.type(screen.getByLabelText("Пароль"), "secret");
     await userEvent.click(screen.getByRole("button", { name: /Войти в продукт/i }));
 
@@ -145,14 +146,14 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    await userEvent.clear(screen.getByLabelText("Адрес backend"));
-    await userEvent.type(screen.getByLabelText("Адрес backend"), "http://localhost:8080");
+    await userEvent.clear(screen.getByLabelText("Адрес сервера клиники"));
+    await userEvent.type(screen.getByLabelText("Адрес сервера клиники"), "http://localhost:8080");
     await userEvent.click(
-      screen.getByRole("button", { name: "Проверить production readiness self-hosted backend" }),
+      screen.getByRole("button", { name: "Проверить готовность входа" }),
     );
 
-    expect(await screen.findByText("PostgreSQL connected")).toBeInTheDocument();
-    expect(screen.getByText("Object storage configured")).toBeInTheDocument();
+    expect(await screen.findByText("База данных отвечает.")).toBeInTheDocument();
+    expect(screen.getByText("Хранилище готово.")).toBeInTheDocument();
     for (const [, init] of fetchMock.mock.calls) {
       expect(JSON.stringify(init)).not.toContain("Authorization");
     }
@@ -169,16 +170,16 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    await userEvent.clear(screen.getByLabelText("Адрес backend"));
-    await userEvent.type(screen.getByLabelText("Адрес backend"), "http://localhost:8080");
-    await userEvent.type(screen.getByLabelText("Email"), "doctor@example.com");
+    await userEvent.clear(screen.getByLabelText("Адрес сервера клиники"));
+    await userEvent.type(screen.getByLabelText("Адрес сервера клиники"), "http://localhost:8080");
+    await userEvent.type(screen.getByLabelText("Эл. почта"), "doctor@example.com");
     await userEvent.type(screen.getByLabelText("Пароль"), "wrong");
     await userEvent.click(
       screen.getByRole("button", { name: /Войти в продукт/i }),
     );
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Invalid credentials.");
+    expect(alert).toHaveTextContent("Неверная эл. почта или пароль.");
     expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBeNull();
   });
 
@@ -192,10 +193,10 @@ describe("SelfHostedLoginPage", () => {
 
     renderPage();
 
-    expect(screen.getByText("Активная self-hosted сессия")).toBeInTheDocument();
+    expect(screen.getByText("Активная сессия")).toBeInTheDocument();
     expect(screen.getByText("Демо Доктор")).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: /Выйти из self-hosted backend/i }),
+      screen.getByRole("button", { name: /Выйти из системы клиники/i }),
     );
     await waitFor(() => {
       expect(window.localStorage.getItem(SELF_HOSTED_API_TOKEN_KEY)).toBeNull();

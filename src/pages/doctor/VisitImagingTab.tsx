@@ -82,14 +82,14 @@ const KIND_LABEL: Record<ClinicalImage["kind"], string> = {
   overview: "Обзор",
   dermoscopy: "Дерматоскопия",
   macro: "Макро",
-  body_map: "Body map",
+  body_map: "Карта тела",
 };
 
 const SOURCE_LABEL: Record<ClinicalImage["source"], string> = {
   phone: "Телефон",
   file: "Файл",
   camera: "Камера",
-  device_bridge: "Device Bridge",
+  device_bridge: "Связь с устройством",
   local_transfer: "Локальный перенос",
 };
 
@@ -226,8 +226,8 @@ export function VisitImagingTab({
             <span className="mr-1 text-[12px] font-medium text-muted-foreground">Захват</span>
             <CaptureBtn icon={<Smartphone className="h-3.5 w-3.5" />} label="Телефон" onClick={() => showCaptureNotice("Телефон")} />
             <CaptureBtn icon={<FileUp className="h-3.5 w-3.5" />} label="Файл" onClick={() => showCaptureNotice("Файл")} />
-            <CaptureBtn icon={<HardDrive className="h-3.5 w-3.5" />} label="Device Bridge" onClick={() => showCaptureNotice("Device Bridge")} />
-            <CaptureBtn icon={<QrCode className="h-3.5 w-3.5" />} label="QR / локально" onClick={() => showCaptureNotice("Локальный перенос")} />
+            <CaptureBtn icon={<HardDrive className="h-3.5 w-3.5" />} label="Связь с устройством" onClick={() => showCaptureNotice("Связь с устройством")} />
+            <CaptureBtn icon={<QrCode className="h-3.5 w-3.5" />} label="Код / локально" onClick={() => showCaptureNotice("Локальный перенос")} />
           </div>
           <SummaryStrip summary={summary} />
         </div>
@@ -248,7 +248,7 @@ export function VisitImagingTab({
               onChange={setLesionFilter}
               options={[
                 { value: "all", label: "Все образования" },
-                { value: "unlinked", label: "Body map / без привязки" },
+                { value: "unlinked", label: "Карта тела / без привязки" },
                 ...lesions.map((l) => ({ value: l.id, label: `${l.label} · ${l.bodyZone}` })),
               ]}
             />
@@ -261,7 +261,7 @@ export function VisitImagingTab({
                 { value: "overview", label: "Обзор" },
                 { value: "dermoscopy", label: "Дерматоскопия" },
                 { value: "macro", label: "Макро" },
-                { value: "body_map", label: "Body map" },
+                { value: "body_map", label: "Карта тела" },
               ]}
             />
           </div>
@@ -277,7 +277,7 @@ export function VisitImagingTab({
                 { value: "all", label: "Все" },
                 { value: "phone", label: "Телефон" },
                 { value: "camera", label: "Камера" },
-                { value: "device_bridge", label: "Device Bridge" },
+                { value: "device_bridge", label: "Связь с устройством" },
                 { value: "local_transfer", label: "Локальный перенос" },
                 { value: "file", label: "Файл" },
               ]}
@@ -426,7 +426,7 @@ export function VisitImagingTab({
                     className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                     onClick={() => onOpenBodyMap(selected.lesionId!)}
                   >
-                    <MapPin className="mr-1 h-3.5 w-3.5" aria-hidden /> Открыть на Body Map
+                    <MapPin className="mr-1 h-3.5 w-3.5" aria-hidden /> Открыть на карте тела
                   </Button>
                 )}
                 <Button
@@ -556,7 +556,7 @@ function ApiAssetsPanel({
   const configured = selfHostedConfigured || legacyConfigured;
   const activeToken = selfHostedConfigured ? selfHostedApiToken : apiToken;
   const activeBaseUrl = selfHostedConfigured ? selfHostedApiBaseUrl : apiBaseUrl;
-  const activeApiLabel = selfHostedConfigured ? "self-hosted backend" : "API клинических ассетов";
+  const activeApiLabel = selfHostedConfigured ? "система клиники" : "система снимков";
   const [assets, setAssets] = useState<SafeAssetDTO[] | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -1060,9 +1060,9 @@ function ApiAssetsPanel({
   }, [preview]);
 
   return (
-    <section className="surface-card" aria-label="API ассеты визита" tabIndex={-1} ref={regionRef}>
+    <section className="surface-card" aria-label="Снимки визита" tabIndex={-1} ref={regionRef}>
       <div className="section-bar">
-        <h2 className="h-section">API ассеты</h2>
+        <h2 className="h-section">Снимки визита</h2>
         <span className="h-section-hint">
           {configured
             ? assets
@@ -1076,7 +1076,7 @@ function ApiAssetsPanel({
 
       {configured && (
         <p className="px-3 pb-2 text-[12px] text-muted-foreground">
-          Подключено: {activeApiLabel}. В списке показаны только клинические метаданные снимков.
+          Подключено: {activeApiLabel}. В списке показаны только данные снимков.
         </p>
       )}
 
@@ -1141,7 +1141,7 @@ function ApiAssetsPanel({
         >
           <span>Перетащите снимок сюда</span>
           <span aria-hidden>·</span>
-          <span>JPEG, PNG, WebP или HEIC до {MAX_UPLOAD_IMAGE_LABEL}</span>
+          <span>Файлы JPEG, PNG, WebP или HEIC до {MAX_UPLOAD_IMAGE_LABEL}</span>
         </div>
         {uploading && (
           <span
@@ -1179,8 +1179,8 @@ function ApiAssetsPanel({
 
       {!configured && (
         <p className="px-3 pb-3 text-[12px] text-muted-foreground">
-          Демо-режим: API клинических ассетов не сконфигурирован для текущей сессии;
-          self-hosted backend также не подключён. Загрузка и ссылки доступны только после входа в backend.
+          Демо-режим: система снимков не подключена для текущей сессии.
+          Загрузка и ссылки доступны только после входа в систему клиники.
         </p>
       )}
 
@@ -1860,7 +1860,7 @@ function ImageMeta({ image, lesionMap }: { image: ClinicalImage; lesionMap: Map<
   const rows: Array<[string, React.ReactNode]> = [
     ["Тип", KIND_LABEL[image.kind]],
     ["Источник", SOURCE_LABEL[image.source]],
-    ["Образование", lesion ? `${lesion.label} · ${lesion.bodyZone}` : "Body map / без привязки"],
+    ["Образование", lesion ? `${lesion.label} · ${lesion.bodyZone}` : "Карта тела / без привязки"],
     ["Снято", formatDateTime(image.capturedAt)],
     ["Устройство", image.deviceId ?? "—"],
     ["Размер", `${e.width} × ${e.height}`],

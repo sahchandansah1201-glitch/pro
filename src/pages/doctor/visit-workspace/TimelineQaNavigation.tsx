@@ -7,27 +7,27 @@ type TimelineQaGroupLink = {
 const TIMELINE_QA_GROUPS: TimelineQaGroupLink[] = [
   {
     label: "Данные и запуск",
-    hint: "dataset + rollout",
+    hint: "снимки, протокол, старт проверки",
     href: "#timeline-rollout-details",
   },
   {
-    label: "SOP и evidence",
-    hint: "операционная готовность",
+    label: "Правила и подтверждения",
+    hint: "чек-лист, доказательства, ответственный",
     href: "#timeline-sop-evidence",
   },
   {
-    label: "Monitoring и validation",
-    hint: "проверка outcomes",
+    label: "Наблюдение и проверка",
+    hint: "результаты, инциденты, контроль",
     href: "#timeline-monitoring-validation",
   },
   {
-    label: "Protected review",
-    hint: "reviewer ops",
+    label: "Закрытая проверка",
+    hint: "работа с защищёнными снимками",
     href: "#timeline-protected-review",
   },
   {
-    label: "Production rollout",
-    hint: "production evidence",
+    label: "Рабочий запуск",
+    hint: "рабочие данные и проверка",
     href: "#timeline-production-review",
   },
 ];
@@ -35,7 +35,7 @@ const TIMELINE_QA_GROUPS: TimelineQaGroupLink[] = [
 export function TimelineQaGroupNav() {
   return (
     <nav
-      aria-label="Группы timeline QA"
+      aria-label="Разделы проверки истории"
       className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5"
     >
       {TIMELINE_QA_GROUPS.map((group) => (

@@ -46,19 +46,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function safeAuthErrorMessage(code: string, status: number, message: unknown): string {
+  const byCode: Record<string, string> = {
+    invalid_credentials: "Неверная эл. почта или пароль.",
+    credentials_required: "Укажите эл. почту и пароль.",
+    base_url_required: "Укажите адрес сервера клиники.",
+    base_url_invalid: "Проверьте адрес сервера клиники.",
+  };
+  if (byCode[code]) return byCode[code];
+  const text = typeof message === "string" ? message.trim() : "";
+  if (text && !/[A-Za-z]/.test(text)) return text;
+  if (status === 401) return "Неверная эл. почта или пароль.";
+  return `Сервер клиники вернул HTTP ${status}.`;
+}
+
 function publicErrorFromBody(response: Response, body: unknown): SelfHostedApiError {
   const errorBody = isRecord(body) && isRecord(body.error) ? body.error : null;
   const correlation = isRecord(body) && typeof body.correlationId === "string" ? body.correlationId : undefined;
+  const code = errorBody && typeof errorBody.code === "string" ? errorBody.code : `http_${response.status}`;
   return {
     kind: response.status === 422 ? "validation" : "http",
     status: response.status,
-    code: errorBody && typeof errorBody.code === "string" ? errorBody.code : `http_${response.status}`,
-    message:
-      errorBody && typeof errorBody.message === "string"
-        ? errorBody.message
-        : response.status === 401
-          ? "Неверный email или пароль."
-          : `HTTP ${response.status}`,
+    code,
+    message: safeAuthErrorMessage(code, response.status, errorBody?.message),
     correlationId: correlation,
   };
 }
@@ -92,14 +102,14 @@ function validateBaseUrl(baseUrl: string | null | undefined): SelfHostedApiError
     return {
       kind: "validation",
       code: "base_url_required",
-      message: "Укажите адрес self-hosted backend.",
+      message: "Укажите адрес сервера клиники.",
     };
   }
   if (!/^https?:\/\//i.test(value)) {
     return {
       kind: "validation",
       code: "base_url_invalid",
-      message: "Адрес backend должен начинаться с http:// или https://.",
+      message: "Адрес сервера должен начинаться с http:// или https://.",
     };
   }
   return null;
@@ -114,7 +124,7 @@ export async function loginToSelfHostedBackend(
     return fail({
       kind: "validation",
       code: "credentials_required",
-      message: "Укажите email и пароль.",
+      message: "Укажите эл. почту и пароль.",
     });
   }
   const baseUrlError = validateBaseUrl(args.apiBaseUrl);
@@ -135,7 +145,7 @@ export async function loginToSelfHostedBackend(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к self-hosted backend.",
+      message: "Сбой сети при обращении к серверу клиники.",
     });
   }
   const body = await parseJsonSafe(response);
@@ -146,7 +156,7 @@ export async function loginToSelfHostedBackend(
     return fail({
       kind: "http",
       code: "empty_token",
-      message: "Backend не вернул access token.",
+      message: "Сервер клиники не вернул ключ входа.",
       status: response.status,
     });
   }
@@ -168,7 +178,7 @@ export async function fetchSelfHostedMe(
     return fail({
       kind: "not_configured",
       code: "not_configured",
-      message: "Self-hosted backend-сессия не подключена.",
+      message: "Сессия системы клиники не подключена.",
     });
   }
   const baseUrlError = validateBaseUrl(args.apiBaseUrl);
@@ -188,7 +198,7 @@ export async function fetchSelfHostedMe(
     return fail({
       kind: "network",
       code: "network_error",
-      message: "Сбой сети при обращении к self-hosted backend.",
+      message: "Сбой сети при обращении к серверу клиники.",
     });
   }
   const body = await parseJsonSafe(response);
@@ -199,7 +209,7 @@ export async function fetchSelfHostedMe(
     return fail({
       kind: "http",
       code: "empty_response",
-      message: "Backend не вернул карточку пользователя.",
+      message: "Сервер клиники не вернул карточку пользователя.",
     });
   }
   return ok(user);
