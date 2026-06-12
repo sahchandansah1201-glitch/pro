@@ -12,17 +12,17 @@ import { getClinics, getAppointments } from "@/lib/mock-data";
 import { DEMO_USERS } from "@/lib/users";
 
 /**
- * Admin Doctors — список врачей клиники, расписание и лицензии (MVP, read-only).
+ * Admin Doctors — список врачей клиники, расписание и лицензии.
  *
  * SAFETY:
  *   - Только операционные данные о врачах: имя, специализация, клиника,
  *     расписание, нагрузка. Пациент-уровневые поля не импортируются.
  *   - Никаких сетевых вызовов, clipboard, storage, медиа.
- *   - Кнопки действий — локальные демо-инструкции через React state.
+ *   - Кнопки действий — локальные инструкции через React state.
  */
 
 const DEMO_NOTICE =
-  "MVP: данные демонстрационные. Реальные роли, RLS, аудит и синхронизация включаются на этапе бэкенда.";
+  "Учебный режим: показаны только расписание, роли и готовность врачей. Персональные данные пациентов, фото и медицинские выводы скрыты.";
 
 type LicenseStatus = "valid" | "expiring" | "needs_check";
 
@@ -182,7 +182,7 @@ export default function AdminDoctorsPage() {
       activeFilters={activeFilterLabels}
       totalUnfiltered={DOCTOR_ROWS.length}
       onReset={resetAll}
-      hint="В демо-каталоге фиксированный список врачей. С бэкендом сюда добавятся живые данные клиники."
+      hint="В учебном списке фиксированный набор врачей. Рабочие изменения выполняются в системе клиники."
     />
   );
 
@@ -214,7 +214,7 @@ export default function AdminDoctorsPage() {
                 variant="outline"
                 size="sm"
                 className="min-h-[44px] text-[12px] sm:min-h-[32px]"
-                onClick={() => note("Проверка готовности врачей подготовлена локально. Синхронизация появится с бэкендом.")}
+                onClick={() => note("Проверка готовности врачей подготовлена локально. Рабочий пересчёт выполняется в системе клиники.")}
               >
                 Проверить готовность врачей
               </Button>
@@ -231,17 +231,17 @@ export default function AdminDoctorsPage() {
                 блокеры допуска.
               </li>
               <li>
-                <span className="font-medium text-foreground">Смены</span> — расписание врача и ближайший доступный слот.
+                <span className="font-medium text-foreground">Смены</span> — расписание врача и ближайшее доступное время.
               </li>
             </ul>
           </AdminOpsCard>
 
           <AdminOpsCard
-            title="MIS-style расписание"
+            title="Расписание приёма"
             hint="Администратор видит управляемую сетку дня без ухода в клиническую карточку."
           >
             <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Колонки по врачам
+              Врачи на сегодня
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {scheduleColumns.map((r) => (
@@ -257,7 +257,7 @@ export default function AdminDoctorsPage() {
             </div>
           </AdminOpsCard>
 
-          <AdminOpsCard title="Права и роли" hint="MVP-разделение доступа, не security boundary.">
+          <AdminOpsCard title="Права и роли" hint="Разделение доступа для расписания, услуг и приёмов.">
             <div className="space-y-2 text-[12px]">
               <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 py-2">
                 <span>Дерматолог</span>
@@ -269,7 +269,7 @@ export default function AdminDoctorsPage() {
               </div>
               <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 py-2">
                 <span>Ассистент</span>
-                <span className="text-[11px] text-muted-foreground">может быть выключен в MVP</span>
+                <span className="text-[11px] text-muted-foreground">может быть отключён</span>
               </div>
             </div>
           </AdminOpsCard>
@@ -379,7 +379,7 @@ export default function AdminDoctorsPage() {
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
                           onClick={() =>
-                            note(`Открытие расписания врача «${r.fullName}» появится с бэкендом.`)
+                            note(`Расписание врача «${r.fullName}» подготовлено локально. Рабочее открытие выполняется в системе клиники.`)
                           }
                         >
                           Открыть расписание
@@ -389,10 +389,10 @@ export default function AdminDoctorsPage() {
                           variant="outline"
                           className="h-9 min-h-[44px] sm:min-h-[32px]"
                           onClick={() =>
-                            note(`Проверка лицензии «${r.fullName}» — демо-действие.`)
+                            note(`Проверка лицензии врача «${r.fullName}» подготовлена локально.`)
                           }
                         >
-                          Проверить лицензию (демо)
+                          Проверить лицензию
                         </Button>
                       </div>
                     </td>
@@ -432,7 +432,7 @@ export default function AdminDoctorsPage() {
                   <dd className="text-right">{r.scheduleSummary}</dd>
                   <dt className="text-muted-foreground">Сегодня</dt>
                   <dd className="text-right tabular-nums">{r.todayLoad}</dd>
-                  <dt className="text-muted-foreground">Ближайший слот</dt>
+                  <dt className="text-muted-foreground">Ближайшее время</dt>
                   <dd className="text-right">{r.nextSlot}</dd>
                 </dl>
                 <div className="mt-3 flex flex-col gap-1.5">
@@ -440,7 +440,7 @@ export default function AdminDoctorsPage() {
                     variant="outline"
                     className="min-h-[44px] text-[12px]"
                     onClick={() =>
-                      note(`Открытие расписания врача «${r.fullName}» появится с бэкендом.`)
+                      note(`Расписание врача «${r.fullName}» подготовлено локально. Рабочее открытие выполняется в системе клиники.`)
                     }
                   >
                     Открыть расписание
@@ -449,10 +449,10 @@ export default function AdminDoctorsPage() {
                     variant="outline"
                     className="min-h-[44px] text-[12px]"
                     onClick={() =>
-                      note(`Проверка лицензии «${r.fullName}» — демо-действие.`)
+                      note(`Проверка лицензии врача «${r.fullName}» подготовлена локально.`)
                     }
                   >
-                    Проверить лицензию (демо)
+                    Проверить лицензию
                   </Button>
                 </div>
               </Card>

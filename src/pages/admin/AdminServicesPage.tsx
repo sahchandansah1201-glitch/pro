@@ -10,7 +10,7 @@ import { AdminMetric, AdminOpsCard } from "@/components/admin/AdminOpsCard";
 import { useListPagination } from "@/lib/use-list-pagination";
 
 /**
- * Admin Services — каталог услуг и тарифов (MVP, read-only).
+ * Admin Services — каталог услуг и тарифов.
  *
  * SAFETY:
  *   - Только операционные поля услуги (код, категория, длительность,
@@ -21,7 +21,7 @@ import { useListPagination } from "@/lib/use-list-pagination";
  */
 
 const DEMO_NOTICE =
-  "MVP: данные демонстрационные. Реальные роли, RLS, аудит и синхронизация включаются на этапе бэкенда.";
+  "Учебный режим: показаны только настройки услуг. Персональные данные, фото и медицинские выводы скрыты.";
 
 type Category = "consult" | "procedure" | "imaging";
 
@@ -166,7 +166,7 @@ export default function AdminServicesPage() {
       activeFilters={activeFilterLabels}
       totalUnfiltered={SERVICES.length}
       onReset={resetAll}
-      hint="В демо-каталоге фиксированный список услуг. Реальные тарифы и категории придут с бэкендом."
+      hint="В учебном каталоге фиксированный список услуг. Рабочие изменения выполняются в системе клиники."
     />
   );
 
@@ -191,7 +191,7 @@ export default function AdminServicesPage() {
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.9fr_1fr_1fr]">
           <AdminOpsCard
             title="Создание услуги"
-            hint="Ручной сценарий для клиник без полной МИС-интеграции."
+            hint="Ручное добавление для филиалов без полной связи с учётной системой."
             action={
               <Button
                 type="button"
@@ -199,10 +199,10 @@ export default function AdminServicesPage() {
                 size="sm"
                 className="min-h-[44px] text-[12px] sm:min-h-[32px]"
                 onClick={() =>
-                  setActionNote("Черновик ручной услуги создан локально. Реальное сохранение появится с бэкендом.")
+                  setActionNote("Черновик услуги подготовлен локально. Рабочее сохранение выполняется в системе клиники.")
                 }
               >
-                Создать услугу вручную (демо)
+                Создать услугу вручную
               </Button>
             }
           >
@@ -216,17 +216,17 @@ export default function AdminServicesPage() {
             </div>
           </AdminOpsCard>
 
-          <AdminOpsCard title="Импорт из МИС" hint="Источник услуги должен быть виден администратору.">
+          <AdminOpsCard title="Обновление из системы клиники" hint="Источник услуги должен быть понятен администратору.">
             <div className="grid gap-2 text-[12px]">
               <div className="rounded-md border border-border bg-surface px-2.5 py-2">
-                <div className="font-medium">Синхронизация услуг</div>
+                <div className="font-medium">Обновление услуг</div>
                 <div className="text-[11px] text-muted-foreground">
-                  Импорт обновляет код, длительность и цену; ручные правки не перетирают импорт без подтверждения.
+                  Обновление меняет длительность и цену; ручные правки не заменяются без подтверждения.
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <span className="rounded-md border border-border bg-muted px-2 py-1 text-[11px]">
-                  Источник: МИС
+                  Источник: система клиники
                 </span>
                 <span className="rounded-md border border-border bg-muted px-2 py-1 text-[11px]">
                   Источник: ручной
@@ -256,7 +256,7 @@ export default function AdminServicesPage() {
             </div>
             <ul className="mt-3 grid gap-1.5 text-[12px] text-muted-foreground">
               <li>Цена и длительность заполнены.</li>
-              <li>Согласие на съёмку требуется для imaging-услуг.</li>
+              <li>Согласие на съёмку требуется для услуг со снимками.</li>
               <li>Онлайн-запись включается только после проверки условий.</li>
             </ul>
           </AdminOpsCard>
@@ -294,7 +294,7 @@ export default function AdminServicesPage() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск по названию или коду"
+                placeholder="Поиск по названию услуги"
                 aria-label="Поиск услуг"
                 className="h-11 pl-7 text-[12px] sm:h-9"
               />
@@ -318,10 +318,10 @@ export default function AdminServicesPage() {
           <table className="w-full text-[12px]">
             <thead className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">Код</th>
+                <th className="px-3 py-2">Служебный код</th>
                 <th className="px-3 py-2">Услуга</th>
                 <th className="px-3 py-2">Категория</th>
-                <th className="px-3 py-2 text-right">Длит.</th>
+                <th className="px-3 py-2 text-right">Время</th>
                 <th className="px-3 py-2 text-right">Цена</th>
                 <th className="px-3 py-2">Согласие</th>
                 <th className="px-3 py-2">Онлайн</th>
@@ -332,7 +332,7 @@ export default function AdminServicesPage() {
             <tbody>
               {visibleRows.map((s) => (
                 <tr key={s.code} className="border-b border-border/60 last:border-0">
-                  <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{s.code}</td>
+                  <td className="px-3 py-2 text-[11px] text-muted-foreground">скрыт</td>
                   <td className="px-3 py-2 font-medium">{s.name}</td>
                   <td className="px-3 py-2 text-muted-foreground">{CATEGORY_LABEL[s.category]}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{s.durationMin} мин</td>
@@ -373,11 +373,11 @@ export default function AdminServicesPage() {
                       className="h-9 min-h-[44px] sm:min-h-[32px]"
                       onClick={() =>
                         setActionNote(
-                          `Редактирование услуги «${s.name}» (${s.code}) появится с бэкендом.`,
+                          `Правка услуги «${s.name}» подготовлена локально. Рабочее сохранение выполняется в системе клиники.`,
                         )
                       }
                     >
-                      Редактировать (демо)
+                      Редактировать
                     </Button>
                   </td>
                 </tr>
@@ -392,8 +392,8 @@ export default function AdminServicesPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold">{s.name}</div>
-                    <div className="text-[11px] font-mono text-muted-foreground">
-                      {s.code} · {CATEGORY_LABEL[s.category]}
+                    <div className="text-[11px] text-muted-foreground">
+                      Служебный код скрыт · {CATEGORY_LABEL[s.category]}
                     </div>
                   </div>
                   <span
@@ -427,11 +427,11 @@ export default function AdminServicesPage() {
                   className="mt-3 min-h-[44px] w-full text-[12px]"
                   onClick={() =>
                     setActionNote(
-                      `Редактирование услуги «${s.name}» (${s.code}) появится с бэкендом.`,
+                      `Правка услуги «${s.name}» подготовлена локально. Рабочее сохранение выполняется в системе клиники.`,
                     )
                   }
                 >
-                  Редактировать (демо)
+                  Редактировать
                 </Button>
               </Card>
           ))}

@@ -193,16 +193,16 @@ describe("Admin clinic core pages — render & safety", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Проверить лицензию" }));
     const after = screen.getAllByText(/Соколова|Морозов|Кузнецов|Никитина|Рябов/i).length;
     expect(after).toBeLessThan(before);
-    // Никитина имеет needs_check
+    // Никитина требует проверки лицензии.
     expect(screen.getAllByText(/Никитина/).length).toBeGreaterThan(0);
   });
 
   it("AdminDoctorsPage exposes an admin-ready doctors schedule and role-readiness cockpit", () => {
     renderRouted(<AdminDoctorsPage />);
     expect(screen.getByRole("heading", { name: "Готовность врачей" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "MIS-style расписание" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Расписание приёма" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Права и роли" })).toBeInTheDocument();
-    expect(screen.getByText("Колонки по врачам")).toBeInTheDocument();
+    expect(screen.getByText("Врачи на сегодня")).toBeInTheDocument();
     expect(screen.getByText("Лицензии и профили")).toBeInTheDocument();
     expect(screen.getByText(/Только операционная готовность/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Проверить готовность врачей" }));
@@ -217,19 +217,33 @@ describe("Admin clinic core pages — render & safety", () => {
     expect(screen.getAllByText(/Дерматоскопия/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Удаление образования/)).not.toBeInTheDocument();
     // Хотя бы одна кнопка действия имеет min-h-[44px]
-    const btn = screen.getAllByRole("button", { name: /Редактировать \(демо\)/ })[0];
+    const btn = screen.getAllByRole("button", { name: "Редактировать" })[0];
     expect(btn.className).toMatch(/min-h-\[44px\]/);
   });
 
-  it("AdminServicesPage exposes manual service creation, MIS import and pre-publish checks", () => {
+  it("AdminServicesPage exposes manual service creation, clinic-system updates and pre-publish checks", () => {
     renderRouted(<AdminServicesPage />);
     expect(screen.getByRole("heading", { name: "Создание услуги" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Импорт из МИС" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Обновление из системы клиники" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Проверка перед публикацией" })).toBeInTheDocument();
     expect(screen.getByText(/название, категория, длительность, цена/)).toBeInTheDocument();
-    expect(screen.getByText(/ручные правки не перетирают импорт/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Создать услугу вручную (демо)" }));
-    expect(screen.getByText(/Черновик ручной услуги создан локально/)).toBeInTheDocument();
+    expect(screen.getByText(/ручные правки не заменяются без подтверждения/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Создать услугу вручную" }));
+    expect(screen.getByText(/Черновик услуги подготовлен локально/)).toBeInTheDocument();
+  });
+
+  it("UX Batch 16: services and doctors pages use native Russian visible copy", () => {
+    const forbiddenVisible =
+      /MVP|DryRun|JSON|MIS-style|MIS|МИС|RLS|demo|Demo|демо|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation|read-only|raw ID|imaging|DRM-\d|service-\d|doctor-\d|needs_check|in_progress|scheduled|cancelled/i;
+
+    for (const ui of [<AdminServicesPage />, <AdminDoctorsPage />]) {
+      const { container, unmount } = renderRouted(ui);
+      const visible = container.textContent ?? "";
+      expect(visible).not.toMatch(forbiddenVisible);
+      expect(visible).not.toMatch(/меланома|рак кожи|вероятность меланомы/i);
+      expect(visible).not.toMatch(/storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i);
+      unmount();
+    }
   });
 
   it("AdminClinicsPage filter and sort change visible cards", () => {
