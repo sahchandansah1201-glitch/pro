@@ -166,62 +166,63 @@ test.describe("/sys/self-hosted-ops", () => {
 
     await page.goto("/sys/self-hosted-ops", { waitUntil: "networkidle" });
 
-    await expect(page.getByRole("heading", { name: "Self-hosted ops" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Backend" })).toContainText("Готов");
-    await expect(page.getByRole("region", { name: "Self-hosted dependencies" })).toContainText("postgres");
-    await expect(page.getByRole("region", { name: "Self-hosted runtime checks" })).toContainText(
-      "PostgreSQL connectivity",
+    await expect(page.getByRole("heading", { name: "Рабочий контур" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Сводка рабочего контура" })).toContainText("Готов");
+    await expect(page.getByRole("region", { name: "Зависимости рабочего контура" })).toContainText("PostgreSQL");
+    await expect(page.getByRole("region", { name: "Проверки рабочей среды" })).toContainText("Связь с PostgreSQL");
+    await expect(page.getByRole("region", { name: "Планы операций" })).toContainText("План резервной копии");
+    await expect(page.getByRole("region", { name: "Планы операций" })).toContainText(
+      "Служебная команда скрыта с экрана.",
     );
-    await expect(page.getByRole("region", { name: "Self-hosted operations dry-runs" })).toContainText(
-      "npm run ops:stage4l:backup:dry-run",
+    await expect(page.getByRole("region", { name: "Договор наблюдаемости" })).toContainText(
+      "Структурированные журналы",
     );
-    await expect(page.getByRole("region", { name: "Self-hosted observability contract" })).toContainText(
-      "Structured JSON logs",
-    );
-    await expect(page.getByRole("region", { name: "Self-hosted product readiness" })).toContainText(
-      "npm run preflight:all",
-    );
-    await expect(page.getByRole("region", { name: "Self-hosted product readiness" })).toContainText(
-      "Managed runtime",
-    );
-    await expect(page.getByLabel("Предпросмотр audit export dry-run")).toContainText(
-      "npm run ops:stage4n:audit-export:dry-run",
+    const productReadinessRegion = page.locator('section[aria-label="Готовность продукта"]').filter({
+      has: page.getByRole("heading", { name: "Готовность продукта" }),
+    });
+    await expect(productReadinessRegion).toContainText("Полная предварительная проверка");
+    await expect(productReadinessRegion).toContainText("Управляемая среда");
+    await expect(page.getByLabel("Предпросмотр экспорта аудита")).toContainText(
+      "команда скрыта с экрана администратора",
     );
     await expect(page.locator("body")).not.toContainText("secret");
     await expect(page.locator("body")).not.toContainText("Ivanova Natalia");
     await expect(page.locator("body")).not.toContainText("bucket/key");
     await expect(page.locator("body")).not.toContainText("storage_object_path");
 
-    const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Скачать preview" }).click();
-    const download = await downloadPromise;
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Скачать предпросмотр" }).click(),
+    ]);
     expect(download.suggestedFilename()).toBe("stage4o-audit-export-preview.md");
     const path = await download.path();
     expect(path).not.toBeNull();
     const text = await readFile(path!, "utf8");
-    expect(text).toContain("Stage 4O audit export preview");
+    expect(text).toContain("Предпросмотр экспорта аудита");
     expect(text).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
 
-    const operationsDownload = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Скачать план" }).click();
-    const operations = await operationsDownload;
+    const [operations] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Скачать план" }).click(),
+    ]);
     expect(operations.suggestedFilename()).toBe("stage4p-operations-preview.md");
     const operationsPath = await operations.path();
     expect(operationsPath).not.toBeNull();
     const operationsText = await readFile(operationsPath!, "utf8");
-    expect(operationsText).toContain("Stage 4P operations preview");
-    expect(operationsText).toContain("npm run smoke:stage4k:dry-run");
+    expect(operationsText).toContain("Предпросмотр операционного плана");
+    expect(operationsText).toContain("Проверка развёртывания");
     expect(operationsText).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
 
-    const readinessDownload = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Скачать readiness" }).click();
-    const readiness = await readinessDownload;
+    const [readiness] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Скачать готовность" }).click(),
+    ]);
     expect(readiness.suggestedFilename()).toBe("stage4z-product-readiness-preview.md");
     const readinessPath = await readiness.path();
     expect(readinessPath).not.toBeNull();
     const readinessText = await readFile(readinessPath!, "utf8");
-    expect(readinessText).toContain("Stage 4Z product readiness preview");
-    expect(readinessText).toContain("npm run preflight:all");
+    expect(readinessText).toContain("Предпросмотр готовности продукта");
+    expect(readinessText).toContain("Полная предварительная проверка");
     expect(readinessText).not.toMatch(/access_token|storage_object_path|Bearer|password=/i);
   });
 
@@ -230,6 +231,6 @@ test.describe("/sys/self-hosted-ops", () => {
     await page.goto("/sys/self-hosted-ops", { waitUntil: "networkidle" });
 
     await expect(page.getByText("Нет доступа в демо-режиме")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Self-hosted ops" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "Рабочий контур" })).not.toBeVisible();
   });
 });

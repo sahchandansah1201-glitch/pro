@@ -129,6 +129,25 @@ export interface SelfHostedProductReadiness {
   correlationId: string;
 }
 
+function opsPreviewLabel(value: string | undefined): string {
+  if (!value) return "нет данных";
+  const labels: Record<string, string> = {
+    ready: "готово",
+    degraded: "снижена готовность",
+    failed: "ошибка",
+    warning: "требует внимания",
+    unknown: "нет данных",
+    ready_for_server_deploy: "готово к установке",
+    "Backup dry-run": "План резервной копии",
+    "Deploy smoke dry-run": "Проверка развёртывания",
+    "Plan backup": "Проверить план резервной копии",
+    "Plan smoke": "Проверить план развёртывания",
+    "Full deterministic preflight": "Полная предварительная проверка",
+    "Self-hosted compose smoke": "Проверка локального состава",
+  };
+  return labels[value] ?? value;
+}
+
 const NOT_CONFIGURED: SelfHostedApiError = {
   kind: "not_configured",
   code: "not_configured",
@@ -462,15 +481,15 @@ export function buildStage4POperationsPreview(runtime: SelfHostedOpsRuntimeCheck
   return [
     "# Предпросмотр операционного плана",
     "",
-    `- Статус среды: ${runtime?.status ?? "unknown"}`,
+    `- Статус среды: ${opsPreviewLabel(runtime?.status ?? "unknown")}`,
     "- Область: интерфейс, сервер, база данных и хранилище клиники",
     "- Внешняя управляемая база данных: нет",
     "",
     ...commands.flatMap((item) => [
-      `## ${item.label}`,
+      `## ${opsPreviewLabel(item.label)}`,
       "- Локальный запуск: команда скрыта с экрана администратора.",
       `- Только пробный запуск: ${item.dryRunOnly ? "да" : "нет"}`,
-      `- Цель: ${item.description}`,
+      `- Цель: ${opsPreviewLabel(item.description)}`,
       "",
     ]),
     "- Не выводим: тела запросов, токены, пароли, имена пациентов, ключи объектов, пути хранения, сырые значения окружения",
@@ -488,14 +507,14 @@ export function buildStage4ZProductReadinessPreview(readiness: SelfHostedProduct
   return [
     "# Предпросмотр готовности продукта",
     "",
-    `- Статус: ${readiness?.status ?? "unknown"}`,
+    `- Статус: ${opsPreviewLabel(readiness?.status ?? "unknown")}`,
     "- Граница: интерфейс, сервер, база данных и хранилище клиники",
     "- Управляемая внешняя среда: нет",
     "- Управляемая внешняя база: нет",
     "- Связь с внешней средой приложения: нет",
     "",
     ...gates.flatMap((item) => [
-      `## ${item.label}`,
+      `## ${opsPreviewLabel(item.label)}`,
       "- Локальный запуск: команда скрыта с экрана администратора.",
       `- Обязательно: ${item.required ? "да" : "нет"}`,
       "",

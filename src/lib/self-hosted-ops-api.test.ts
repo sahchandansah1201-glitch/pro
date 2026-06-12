@@ -253,6 +253,10 @@ describe("self-hosted-ops-api", () => {
     );
     expect(preview).toContain("Предпросмотр операционного плана");
     expect(preview).toContain("Локальный запуск: команда скрыта с экрана администратора");
+    expect(preview).toContain("План резервной копии");
+    expect(preview).toContain("Проверка развёртывания");
+    expect(preview).toContain("Проверить план резервной копии");
+    expect(preview).not.toMatch(/Backup dry-run|Deploy smoke dry-run|Plan backup|Plan smoke/);
     expect(preview).not.toContain("npm run ops:stage4l:backup:dry-run");
     expect(preview).not.toContain("npm run smoke:stage4k:dry-run");
     expect(preview).not.toMatch(/access_token|storage_object_path|Bearer|password=|patient_full_name/i);
@@ -264,6 +268,10 @@ describe("self-hosted-ops-api", () => {
     );
     expect(preview).toContain("Предпросмотр готовности продукта");
     expect(preview).toContain("Локальный запуск: команда скрыта с экрана администратора");
+    expect(preview).toContain("готово к установке");
+    expect(preview).toContain("Полная предварительная проверка");
+    expect(preview).toContain("Проверка локального состава");
+    expect(preview).not.toMatch(/ready_for_server_deploy|Full deterministic preflight|Self-hosted compose smoke/);
     expect(preview).not.toContain("npm run preflight:all");
     expect(preview).not.toContain("npm run smoke:stage4k");
     expect(preview).toContain("Управляемая внешняя среда: нет");
