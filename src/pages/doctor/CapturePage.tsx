@@ -22,7 +22,7 @@ import {
   getLesionsByPatientId,
   getVisitsByPatientId,
 } from "@/lib/mock-data";
-import type { ImageKind, ImageSource } from "@/lib/domain";
+import type { ImageKind, ImageSource, VisitStatus } from "@/lib/domain";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { BODY_MAP_DEMO_NOW as DEMO_NOW } from "@/pages/doctor/body-map-model";
@@ -44,15 +44,28 @@ const KIND_LABEL: Record<ImageKind, string> = {
   overview: "Обзор",
   dermoscopy: "Дерматоскопия",
   macro: "Макро",
-  body_map: "Body map",
+  body_map: "Карта тела",
 };
 
 const SOURCE_LABEL: Record<ImageSource, string> = {
   phone: "Телефон",
   file: "Файл",
   camera: "Камера",
-  device_bridge: "Device Bridge",
+  device_bridge: "Дерматоскоп",
   local_transfer: "Локальная передача",
+};
+
+const VISIT_STATUS_LABEL: Record<VisitStatus, string> = {
+  scheduled: "запланирован",
+  in_progress: "идёт приём",
+  closed: "закрыт",
+  cancelled: "отменён",
+};
+
+const POLARIZATION_LABEL: Record<string, string> = {
+  polarized: "поляризация",
+  non_polarized: "без поляризации",
+  both: "оба режима света",
 };
 
 type CaptureMode = "lesion_first" | "batch_first";
@@ -105,6 +118,11 @@ function qualityStatus(score: number, issues: string[]): QualityStatus {
   return "retake";
 }
 
+function deviceDisplayLabel(deviceId: string | null) {
+  if (!deviceId) return "без устройства";
+  return DEVICES.find((device) => device.id === deviceId)?.model ?? "устройство выбрано";
+}
+
 const QUALITY_STATUS_LABEL: Record<QualityStatus, string> = {
   good: "Готово",
   warning: "С предупреждением",
@@ -115,26 +133,6 @@ const CAPTURE_MODE_LABEL: Record<CaptureMode, string> = {
   lesion_first: "Сначала очаг",
   batch_first: "Серия без привязки",
 };
-
-const QR_PATTERN: number[][] = [
-  [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1],
-  [1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1],
-  [0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-  [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1],
-  [0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0],
-  [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1],
-  [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0],
-  [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1],
-  [1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1],
-  [1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0],
-  [1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1],
-];
 
 const LOCAL_STEPS = [
   "Ожидает сопряжение",
@@ -296,7 +294,7 @@ export default function CapturePage() {
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
-            MVP-режим: реальные устройства, драйверы и локальная сеть не подключены. Все действия имитируются.
+            Учебный режим: реальные устройства не подключены. Данные пациентов и снимки никуда не отправляются.
           </span>
         </div>
 
@@ -309,7 +307,7 @@ export default function CapturePage() {
                 <LabeledSelect label="Пациент" value={patientId} onChange={handlePatientChange}
                   options={PATIENTS.map((p) => ({ value: p.id, label: `${p.fullName} · ${p.code}` }))} />
                 <LabeledSelect label="Визит" value={visitId} onChange={setVisitId}
-                  options={visits.map((v) => ({ value: v.id, label: `${formatDateTime(v.startedAt)} · ${v.status}` }))} />
+                  options={visits.map((v) => ({ value: v.id, label: `${formatDateTime(v.startedAt)} · ${VISIT_STATUS_LABEL[v.status]}` }))} />
                 <LabeledSelect label="Образование" value={lesionId} onChange={setLesionId}
                   options={lesions.map((l) => ({ value: l.id, label: `${l.label} · ${l.bodyZone}` }))} />
                 <LabeledSelect label="Тип снимка" value={kind} onChange={(v) => setKind(v as ImageKind)}
@@ -317,12 +315,12 @@ export default function CapturePage() {
               </div>
               <div className="mt-3 grid gap-1 text-[12px] text-muted-foreground sm:grid-cols-2">
                 <div><span className="text-foreground">Пациент:</span> {patient ? `${patient.fullName} · ${patient.code}` : "—"}</div>
-                <div><span className="text-foreground">Визит:</span> {visit ? `${formatDateTime(visit.startedAt)} · ${visit.status}` : "—"}</div>
+                <div><span className="text-foreground">Визит:</span> {visit ? `${formatDateTime(visit.startedAt)} · ${VISIT_STATUS_LABEL[visit.status]}` : "—"}</div>
                 <div><span className="text-foreground">Образование:</span> {lesion ? `${lesion.label} · ${lesion.bodyZone}` : "—"}</div>
                 <div><span className="text-foreground">Клиника:</span> {clinic?.name ?? "—"}</div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px] sm:min-h-8">
+                <Button asChild size="sm" variant="secondary" className="min-h-11 text-[12px]">
                   <Link to={bodyMapHref}>Открыть карту тела</Link>
                 </Button>
               </div>
@@ -336,7 +334,7 @@ export default function CapturePage() {
                       aria-pressed={captureMode === mode}
                       onClick={() => setCaptureMode(mode)}
                       className={cn(
-                        "min-h-[44px] rounded-md border px-3 py-2 text-left text-[12px] sm:min-h-[32px]",
+                        "min-h-[44px] rounded-md border px-3 py-2 text-left text-[12px]",
                         captureMode === mode
                           ? "border-primary bg-[hsl(var(--primary-soft))] text-foreground"
                           : "border-border bg-surface text-muted-foreground hover:text-foreground",
@@ -359,10 +357,10 @@ export default function CapturePage() {
               <Tabs value={tab} onValueChange={setTab}>
                 <div className="-mx-1 overflow-x-auto">
                   <TabsList className="px-1">
-                    <TabsTrigger value="phone">Телефон</TabsTrigger>
-                    <TabsTrigger value="file">Файл</TabsTrigger>
-                    <TabsTrigger value="bridge">Device Bridge</TabsTrigger>
-                    <TabsTrigger value="local">QR / локально</TabsTrigger>
+                    <TabsTrigger value="phone" className="min-h-11">Телефон</TabsTrigger>
+                    <TabsTrigger value="file" className="min-h-11">Файл</TabsTrigger>
+                    <TabsTrigger value="bridge" className="min-h-11">Дерматоскоп</TabsTrigger>
+                    <TabsTrigger value="local" className="min-h-11">Локально</TabsTrigger>
                   </TabsList>
                 </div>
 
@@ -370,14 +368,14 @@ export default function CapturePage() {
                   <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
                     <PhoneFrame />
                     <div className="space-y-2 text-[13px]">
-                      <Row k="Код сопряжения" v={<code className="font-mono">482 913</code>} />
+                      <Row k="Код сопряжения" v="скрыт" />
                       <Row k="Статус" v="ожидает подключение" />
                       <p className="text-[12px] text-muted-foreground">
                         В реальной версии приложение телефона передаст снимок в текущий визит и выбранный режим:
                         {` ${CAPTURE_MODE_LABEL[captureMode].toLowerCase()}`}.
                       </p>
                       <Button size="sm" className="min-h-11 w-full sm:w-auto" onClick={() => addItem("phone")}>
-                        Сымитировать фото с телефона
+                        Добавить фото с телефона
                       </Button>
                     </div>
                   </div>
@@ -389,10 +387,10 @@ export default function CapturePage() {
                       Перетащите файл сюда или используйте кнопку ниже.
                     </div>
                     <p className="text-[12px] text-muted-foreground">
-                      Файл не отправляется на сервер. MVP показывает только сценарий привязки и контроля качества.
+                      Учебная проверка показывает только привязку снимка и контроль качества. Внешняя отправка выключена.
                     </p>
                     <Button size="sm" className="min-h-11" onClick={() => addItem("file")}>
-                      Сымитировать загрузку файла
+                      Добавить файл
                     </Button>
                   </div>
                 </TabsContent>
@@ -420,7 +418,7 @@ export default function CapturePage() {
                                   <span className="text-muted-foreground">{DEVICE_STATUS_LABEL[status]}</span>
                                 </div>
                                 <div className="mt-0.5 text-muted-foreground">
-                                  {d["se" + "rial"]} · fw {d.firmware} · {d.magnification} · {d.polarization} · {d.calibrationProfile} · {d.bridgeId ?? "—"}
+                                  {d.magnification} · {POLARIZATION_LABEL[d.polarization] ?? "режим света"} · служебные коды скрыты
                                 </div>
                               </button>
                             </li>
@@ -429,12 +427,10 @@ export default function CapturePage() {
                       </ul>
                     </div>
                     <div className="space-y-2 text-[13px]">
-                      <Row k="Device Bridge" v={device?.bridgeId ?? "—"} />
-                      <Row k="Драйвер" v="mock 0.4" />
-                      <Row k="Калибровка" v="активна" />
+                      <Row k="Подключение" v={device ? "готово к учебной проверке" : "устройство не выбрано"} />
+                      <Row k="Калибровка" v="проверяется перед съёмкой" />
                       <p className="text-[12px] text-muted-foreground">
-                        Браузер не подключается к драйверу напрямую. В реальной архитектуре снимок поступает
-                        через локальный Device Bridge.
+                        Снимок с дерматоскопа проходит через локальную связь клиники. Служебные коды устройства скрыты.
                       </p>
                       <Button
                         size="sm"
@@ -442,7 +438,7 @@ export default function CapturePage() {
                         disabled={DEVICE_STATUS[selectedDevice] !== "connected"}
                         onClick={() => addItem("device_bridge", { deviceId: selectedDevice })}
                       >
-                        Сымитировать кадр дерматоскопа
+                        Добавить кадр дерматоскопа
                       </Button>
                     </div>
                   </div>
@@ -450,9 +446,9 @@ export default function CapturePage() {
 
                 <TabsContent value="local" className="mt-3">
                   <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
-                    <QrBlock />
+                    <LocalTransferBlock />
                     <div className="space-y-2 text-[13px]">
-                      <Row k="Код сопряжения" v={<code className="font-mono">DP-LOCAL-7421</code>} />
+                      <Row k="Код сопряжения" v="скрыт" />
                       <ol className="space-y-1 text-[12px]">
                         {LOCAL_STEPS.map((s, i) => (
                           <li
@@ -474,13 +470,13 @@ export default function CapturePage() {
                         ))}
                       </ol>
                       <p className="text-[12px] text-muted-foreground">
-                        Цель сценария — передача внутри одной локальной сети без промежуточной отправки изображения
-                        на сервер. Сессия привязана к визиту {visitId || "—"} и режиму
+                        Цель сценария — передача внутри клиники без внешней отправки изображения.
+                        Съёмка привязана к текущему визиту и режиму
                         {` ${CAPTURE_MODE_LABEL[captureMode].toLowerCase()}`}.
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <Button size="sm" className="min-h-11" onClick={handleLocalTransfer}>
-                          Сымитировать локальную передачу
+                          Добавить локальную передачу
                         </Button>
                         <Button size="sm" variant="outline" className="min-h-11" onClick={() => setLocalStep(0)}>
                           Сбросить
@@ -506,7 +502,7 @@ export default function CapturePage() {
                 </div>
               </div>
               {queue.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground">Очередь пуста. Сымитируйте захват из любой вкладки.</p>
+                <p className="text-[12px] text-muted-foreground">Очередь пуста. Добавьте снимок из любой вкладки.</p>
               ) : (
                 <ul className="grid gap-2 sm:grid-cols-2">
                   {queue.map((q) => {
@@ -544,7 +540,7 @@ export default function CapturePage() {
                           {q.bodyLocation && !itemLesion ? ` · ${q.bodyLocation}` : ""}
                           <br />
                           {formatDateTime(q.createdAt)}
-                          {q.deviceId ? ` · ${q.deviceId}` : ""}
+                          {q.deviceId ? ` · ${deviceDisplayLabel(q.deviceId)}` : ""}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
                           {linkText}
@@ -638,7 +634,7 @@ export default function CapturePage() {
                           </span>
                         </div>
                         <div className="mt-1 text-[11px] text-muted-foreground">
-                          Причина: {item.quality.issues.length === 0 ? "низкий quality score" : item.quality.issues.join(", ")}
+                          Причина: {item.quality.issues.length === 0 ? "низкое качество снимка" : item.quality.issues.join(", ")}
                         </div>
                         {item.retakeRequestedAt && (
                           <div className="mt-1 text-[11px]" style={{ color: "hsl(var(--info))" }}>
@@ -682,11 +678,11 @@ export default function CapturePage() {
                 <li>В очереди: <span className="text-foreground">{queue.length}</span></li>
                 <li>Нужен пересмотр: <span className="text-foreground">{reviewCount}</span></li>
                 <li>{`Ожидают пересъёмки: ${openRetakeCount}`}</li>
-                <li>Привязано (демо): <span className="text-foreground">{linkedCount}</span></li>
+                <li>Привязано: <span className="text-foreground">{linkedCount}</span></li>
                 <li>Непривязано: <span className="text-foreground">{unassignedCount}</span></li>
               </ul>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                В MVP журнал аудита и запись в хранилище не выполняются.
+                Учебная проверка не сохраняет снимки и не создаёт служебный журнал.
               </p>
             </section>
           </div>
@@ -711,7 +707,7 @@ function LabeledSelect({
     <label className="flex flex-col gap-1 text-[12px]">
       <span className="text-muted-foreground">{label}</span>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-9 w-full text-[13px]">
+        <SelectTrigger className="min-h-11 w-full text-[13px]">
           <SelectValue placeholder="—" />
         </SelectTrigger>
         <SelectContent>
@@ -745,20 +741,13 @@ function PhoneFrame() {
   );
 }
 
-function QrBlock() {
+function LocalTransferBlock() {
   return (
-    <div className="mx-auto w-[140px] rounded-md border border-border bg-background p-2">
-      <div
-        className="grid gap-px"
-        style={{ gridTemplateColumns: `repeat(${QR_PATTERN[0].length}, 1fr)` }}
-        aria-hidden
-      >
-        {QR_PATTERN.flat().map((cell, i) => (
-          <span
-            key={i}
-            className={cn("aspect-square", cell ? "bg-foreground" : "bg-background")}
-          />
-        ))}
+    <div className="mx-auto flex min-h-[140px] w-[140px] flex-col items-center justify-center rounded-md border border-border bg-background p-3 text-center">
+      <div className="mb-2 h-10 w-10 rounded-full bg-primary/10 ring-1 ring-primary/20" aria-hidden />
+      <div className="text-[12px] font-medium text-foreground">Локальная передача</div>
+      <div className="mt-1 text-[11px] text-muted-foreground">
+        код и служебные данные скрыты
       </div>
     </div>
   );
