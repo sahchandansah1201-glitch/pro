@@ -20,12 +20,12 @@ import type {
 import { resolveEmptyCopy, type EmptyStateKey } from "./analytics-empty-copy";
 
 /**
- * Аналитика клиники (MVP): агрегаты по воронке лидов, источникам,
+ * Аналитика клиники: агрегаты по воронке лидов, источникам,
  * маршрутизации, риску, качеству фото и состояниям бот-диалогов.
  *
  * SAFETY:
  *   - Только агрегаты (counts/percentages). Никаких пациент-уровневых
- *     полей: имена, контакты, фото, диагнозы, ссылки, AI/XAI детали,
+ *     полей: имена, контакты, фото, диагнозы, ссылки, детали подсказок,
  *     внешние идентификаторы пользователей мессенджера и т.п. — не
  *     импортируются и не рендерятся.
  *   - Никаких сетевых вызовов, clipboard, storage. Только локальное
@@ -41,14 +41,14 @@ const RANGES: { key: RangeKey; label: string }[] = [
   { key: "last_90d", label: "Последние 90 дней" },
 ];
 const RANGE_META: Record<RangeKey, { label: string; windowLabel: string }> = {
-  all: { label: "Все данные", windowLabel: "полный демо-набор" },
+  all: { label: "Все данные", windowLabel: "полный учебный набор" },
   march_2026: { label: "Март 2026", windowLabel: "01.03-31.03.2026" },
   last_90d: { label: "Последние 90 дней", windowLabel: "03.02-04.05.2026" },
 };
 
 /**
- * Фиксированный «сейчас» для детерминированных демо-данных.
- * MVP без реального clock — не импортируем Date.now во избежание дрейфа
+ * Фиксированный «сейчас» для детерминированных учебных данных.
+ * Учебный набор без реального clock — не импортируем Date.now во избежание дрейфа
  * в тестах/снимках.
  */
 const NOW_ISO = "2026-05-04T00:00:00Z";
@@ -95,7 +95,7 @@ const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
 const SOURCE_LABEL: Record<string, string> = {
   telegram: "Telegram",
   whatsapp: "WhatsApp",
-  web: "Web",
+  web: "Сайт",
   site: "Сайт",
   operator: "Оператор",
 };
@@ -249,7 +249,7 @@ function KpiSkeleton() {
 
 /**
  * Длительность имитации загрузки секций (мс). Намеренно короткая —
- * нужна, чтобы отделить визуально «грузим» от «пусто» на демо-данных.
+ * нужна, чтобы отделить визуально «грузим» от «пусто» на учебных данных.
  * В тестах перекрывается через `window.__ANALYTICS_LOADING_MS__`.
  */
 const DEFAULT_LOADING_MS = 250;
@@ -286,7 +286,7 @@ const FINANCE_VALIDATION_STEPS = [
   {
     key: "approval",
     label: "Утверждение методики",
-    statusLabel: "Блокер production",
+    statusLabel: "Блокер запуска",
     detail: "Утвердить методику до реальных финансовых заявлений в интерфейсе.",
   },
 ] as const;
@@ -584,80 +584,39 @@ export default function AdminAnalyticsPage() {
   };
 
   const onGenerateReport = () => {
-    const safeAggregate = {
-      range,
-      periodSlice,
-      kpi: {
-        leads: totalLeads,
-        qualified: qualifiedLeads,
-        booked: bookedLeads,
-        visits,
-        conversionLeadToBookingPct: conversionLeadToBooking,
-        highOrUrgent,
-      },
-      funnel: funnel.map((f) => ({ stage: f.key, count: f.value })),
-      sources: bySource.map((s) => ({
-        source: s.source,
-        count: s.count,
-        sharePct: pct(s.count, totalLeads),
-        booked: s.booked,
-      })),
-      clinics: byClinic.map((c) => ({
-        name: c.name,
-        partnerTier: c.partnerTier,
-        routingPriority: c.routingPriority,
-        leads: c.leads,
-        booked: c.booked,
-        conversionPct: c.conv,
-      })),
-      risk: riskDist.map((r) => ({
-        level: r.key,
-        label: r.label,
-        count: r.count,
-        sharePct: pct(r.count, totalCards),
-      })),
-      imageQuality: {
-        passed,
-        needsRepeat,
-        avgScorePct: avgScore,
-        repeatPhotoCtaCount: repeatCta,
-      },
-      botDialogStates: dialogStates.map((s) => ({
-        state: s.key,
-        label: s.label,
-        count: s.count,
-      })),
-      financialValue: {
-        methodologyStatus: "demo_needs_validation",
-        completedVisitValueRub,
-        bookedPotentialRub,
-        lostPotentialRub,
-        botAttributedValueRub,
-      },
-      financeAssumptions: {
-        methodologyStatus: "demo_needs_validation",
-        completedVisitRub: FINANCE_ASSUMPTIONS.completedVisitRub,
-        plannedVisitRub: FINANCE_ASSUMPTIONS.plannedVisitRub,
-        lostLeadRub: FINANCE_ASSUMPTIONS.lostLeadRub,
-      },
-      clinicValue: clinicValue.map((row) => ({
-        name: row.name,
-        partnerTier: row.partnerTier,
-        completed: row.completed,
-        planned: row.planned,
-        estimatedRub: row.estimatedRub,
-      })),
-      operationalBottlenecks,
-      financeMethodologyValidation,
-    };
-    setReportPreview(JSON.stringify(safeAggregate, null, 2));
+    const sourceSummary =
+      bySource.length > 0
+        ? bySource.map((s) => `${SOURCE_LABEL[s.source] ?? s.source}: ${s.count}`).join("; ")
+        : "источники отсутствуют";
+    const riskSummary =
+      riskDist.length > 0
+        ? riskDist.map((r) => `${r.label}: ${r.count}`).join("; ")
+        : "карточки отсутствуют";
+    const dialogSummary =
+      dialogStates.length > 0
+        ? dialogStates.map((s) => `${s.label}: ${s.count}`).join("; ")
+        : "диалоги отсутствуют";
+
+    const safeAggregatePreview = [
+      `Период: ${periodSlice.label}`,
+      `Граница: только агрегаты, без пациентских строк.`,
+      `Лиды: ${totalLeads}; квалифицированы: ${qualifiedLeads}; записаны: ${bookedLeads}; визиты: ${visits}.`,
+      `Конверсия лид → запись: ${fmtPct(conversionLeadToBooking)}.`,
+      `Источники: ${sourceSummary}.`,
+      `Маршрут по срочности: ${riskSummary}.`,
+      `Качество фото: прошли ${passed}; нужен повтор ${needsRepeat}; средний балл ${fmtPct(avgScore)}.`,
+      `Диалоги: ${dialogSummary}.`,
+      `Оценка вклада: завершённые визиты ${money(completedVisitValueRub)}; план ${money(bookedPotentialRub)}; потерянный потенциал ${money(lostPotentialRub)}.`,
+      `Методика: требуется подтверждение с клиникой до рабочих финансовых выводов.`,
+    ];
+    setReportPreview(safeAggregatePreview.join("\n"));
   };
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         title="Аналитика"
-        subtitle="Воронка лидов, запись, маршрутизация и качество фото · агрегированные демо-данные"
+        subtitle="Воронка заявок, запись, маршрутизация и качество фото · учебные агрегаты"
       />
 
       <div className="space-y-4 p-4">
@@ -673,7 +632,7 @@ export default function AdminAnalyticsPage() {
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
-            Только агрегаты. Без PHI, фото, диагнозов и AI/XAI деталей. Внешние системы не вызываются.
+            Только агрегаты. Без персональных данных, фото, диагнозов и деталей подсказок. Внешние системы не вызываются.
           </span>
         </div>
 
@@ -691,7 +650,7 @@ export default function AdminAnalyticsPage() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setRange(r.key)}
-                className={`min-h-[44px] rounded px-3 text-[12px] font-medium transition sm:min-h-[36px] ${
+                className={`min-h-[44px] rounded px-3 text-[12px] font-medium transition ${
                   active
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted"
@@ -794,7 +753,7 @@ export default function AdminAnalyticsPage() {
 
         <div className="grid gap-4 xl:grid-cols-2">
           {/* Funnel */}
-          <SectionCard title="Воронка" hint="MVP: расчёт построен на мок-данных.">
+          <SectionCard title="Воронка" hint="учебный расчёт на обезличенных агрегатах">
             {isLoading ? (
               <SectionSkeleton rows={4} />
             ) : totalLeads === 0 ? (
@@ -872,7 +831,7 @@ export default function AdminAnalyticsPage() {
                       role="tab"
                       aria-selected={active}
                       onClick={() => setClinicSort(key)}
-                      className={`min-h-[44px] rounded px-2 text-[12px] font-medium transition sm:min-h-[28px] sm:text-[11px] ${
+                      className={`min-h-[44px] rounded px-2 text-[12px] font-medium transition ${
                         active
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:bg-muted"
@@ -965,7 +924,7 @@ export default function AdminAnalyticsPage() {
                 <KpiCard label="Прошли проверку" value={passed} />
                 <KpiCard label="Нужен повтор" value={needsRepeat} />
                 <KpiCard label="Средний балл" value={fmtPct(avgScore)} />
-                <KpiCard label="CTA «повторить фото»" value={repeatCta} />
+                <KpiCard label="Просьба повторить фото" value={repeatCta} />
               </div>
             )}
           </SectionCard>
@@ -1010,10 +969,10 @@ export default function AdminAnalyticsPage() {
                   <KpiCard label="Завершённые визиты" value={money(completedVisitValueRub)} />
                   <KpiCard label="Плановый потенциал" value={money(bookedPotentialRub)} />
                   <KpiCard label="Потерянный потенциал" value={money(lostPotentialRub)} />
-                  <KpiCard label="Вклад bot/operator" value={money(botAttributedValueRub)} />
+                  <KpiCard label="Вклад бота и оператора" value={money(botAttributedValueRub)} />
                 </div>
                 <div className="rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-[12px] text-muted-foreground">
-                  Демо-оценка вклада: коэффициенты фиксированы для прототипа, методика требует проверки с клиникой.
+                  Учебная оценка вклада: коэффициенты фиксированы для прототипа, методика требует проверки с клиникой.
                   Это не бухгалтерская выручка и не финансовый прогноз.
                 </div>
               </div>
@@ -1046,7 +1005,7 @@ export default function AdminAnalyticsPage() {
             )}
           </SectionCard>
 
-          <SectionCard title="Проверка методики" hint="SD-MF-048 · до production">
+          <SectionCard title="Проверка методики" hint="до рабочего запуска">
             {isLoading ? (
               <SectionSkeleton rows={5} />
             ) : (
@@ -1056,7 +1015,7 @@ export default function AdminAnalyticsPage() {
                     Статус: методика не утверждена
                   </div>
                   <div className="mt-1 text-muted-foreground">
-                    Финансовые числа остаются демо-оценкой до интервью с клиникой,
+                    Финансовые числа остаются учебной оценкой до интервью с клиникой,
                     сверки стоимости услуг, стоимости сервиса и факта записи/оплаты.
                   </div>
                 </div>
@@ -1103,7 +1062,7 @@ export default function AdminAnalyticsPage() {
           </div>
         </SectionCard>
 
-        {/* Demo actions */}
+        {/* Учебные действия */}
         <Card className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-[13px] font-semibold">Действия</div>
@@ -1112,23 +1071,23 @@ export default function AdminAnalyticsPage() {
                 size="sm"
                 variant="outline"
                 disabled
-                title="Демо: отключено"
-                className="min-h-[44px] sm:min-h-[36px]"
+                title="Учебный режим: отключено"
+                className="min-h-[44px]"
               >
-                Экспорт CSV (демо, отключено)
+                Выгрузка CSV отключена
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={onGenerateReport}
-                className="min-h-[44px] sm:min-h-[36px]"
+                className="min-h-[44px]"
               >
-                Сформировать отчёт (демо)
+                Сформировать учебный отчёт
               </Button>
             </div>
           </div>
           <div className="mt-2 text-[12px] text-muted-foreground">
-            Это демо-предпросмотр. Данные не отправляются во внешние системы.
+            Это учебный предпросмотр. Данные не отправляются во внешние системы.
           </div>
           {reportPreview && (
             <div className="mt-3 max-w-full overflow-auto rounded-md border border-border bg-muted/40">

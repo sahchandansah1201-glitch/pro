@@ -12,13 +12,13 @@ import {
 
 /**
  * Контракт страницы /admin/analytics:
- *   1) В DOM не появляются запрещённые токены (PHI/фото/AI-XAI/ссылки/
+ *   1) В DOM не появляются запрещённые токены (персональные данные/фото/детали подсказок/ссылки/
  *      внешние идентификаторы пользователей мессенджера).
  *   2) Агрегаты считаются и рендерятся корректно (KPI, источники,
  *      клиники, риск, качество фото, состояния диалогов).
  *   3) Сегментированный фильтр периода меняет KPI.
- *   4) Demo-кнопка «Сформировать отчёт» показывает безопасный JSON
- *      только с агрегатами.
+ *   4) Кнопка «Сформировать учебный отчёт» показывает безопасную русскую
+ *      сводку только с агрегатами.
  */
 
 const FORBIDDEN_TOKENS = [
@@ -47,7 +47,7 @@ function renderPage() {
 }
 
 describe("AdminAnalyticsPage — безопасность DOM", () => {
-  it("в DOM нет ни одного запрещённого токена (имена/контакты/PHI/AI-XAI)", () => {
+  it("в DOM нет ни одного запрещённого токена (имена/контакты/детали подсказок)", () => {
     const { container } = renderPage();
     const html = container.innerHTML;
     for (const t of FORBIDDEN_TOKENS) {
@@ -69,6 +69,15 @@ describe("AdminAnalyticsPage — безопасность DOM", () => {
     expect(text).not.toMatch(/mock:\/\/bot/);
     expect(text).not.toMatch(/pal-tok-/);
   });
+
+  it("видимый интерфейс остаётся нативно русским и без технического жаргона", () => {
+    const { container } = renderPage();
+    const visible = container.textContent ?? "";
+    expect(visible).not.toMatch(
+      /MVP|PHI|AI\/XAI|AI|XAI|production|Production|JSON|DryRun|metadata|workflow|policy|evidence|rollout|monitoring|validation|backend|self-hosted|safeSummary|protectedLink|quality score/i,
+    );
+    expect(visible).not.toMatch(/демо|Demo/i);
+  });
 });
 
 describe("AdminAnalyticsPage — заголовок и баннер", () => {
@@ -76,11 +85,11 @@ describe("AdminAnalyticsPage — заголовок и баннер", () => {
     const { getByText } = renderPage();
     expect(getByText("Аналитика")).toBeInTheDocument();
     expect(
-      getByText(/Воронка лидов, запись, маршрутизация и качество фото/),
+      getByText(/Воронка заявок, запись, маршрутизация и качество фото/),
     ).toBeInTheDocument();
     expect(
       getByText(
-        /Только агрегаты\. Без PHI, фото, диагнозов и AI\/XAI деталей\./,
+        /Только агрегаты\. Без персональных данных, фото, диагнозов и деталей подсказок\./,
       ),
     ).toBeInTheDocument();
   });
@@ -174,7 +183,7 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
     }
   });
 
-  it("блок «Качество фото» показывает passed/needs-repeat/средний балл/CTA", () => {
+  it("блок «Качество фото» показывает проверенные снимки, повтор и средний балл", () => {
     const { getByText } = renderPage();
     const card = getByText("Качество фото").closest("div.p-4") as HTMLElement;
     const cards = getAnalysisCards();
@@ -187,7 +196,7 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
     expect(within(card).getByText("Нужен повтор").parentElement!.textContent)
       .toContain(String(needsRepeat));
     expect(
-      within(card).getByText("CTA «повторить фото»").parentElement!.textContent,
+      within(card).getByText("Просьба повторить фото").parentElement!.textContent,
     ).toContain(String(repeatCta));
     // Подпись «техническое качество, не диагноз» обязательна.
     expect(card.textContent ?? "").toMatch(/техническое качество.*не диагноз/);
@@ -217,7 +226,7 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
     expect(numbers.reduce((a, b) => a + b, 0)).toBe(total);
   });
 
-  it("Batch K: показывает финансовую ценность как демо-оценку, не бухгалтерскую выручку", () => {
+  it("Batch K: показывает финансовую ценность как учебную оценку, не бухгалтерскую выручку", () => {
     const { getByText } = renderPage();
     const card = getByText("Финансовый контур").closest("div.p-4") as HTMLElement;
     expect(card).toBeTruthy();
@@ -285,7 +294,7 @@ describe("AdminAnalyticsPage — KPI и агрегаты", () => {
     expect(card.textContent ?? "").toMatch(/без персональных строк/i);
   });
 
-  it("Batch N: показывает проверку финансовой методики перед production", () => {
+  it("Batch N: показывает проверку финансовой методики перед рабочим запуском", () => {
     const { getByText } = renderPage();
     const card = getByText("Проверка методики").closest("div.p-4") as HTMLElement;
     expect(card).toBeTruthy();
@@ -332,48 +341,40 @@ describe("AdminAnalyticsPage — фильтр периода", () => {
   });
 });
 
-describe("AdminAnalyticsPage — демо-действия", () => {
-  it("«Экспорт CSV (демо, отключено)» кнопка disabled", () => {
+describe("AdminAnalyticsPage — учебные действия", () => {
+  it("«Выгрузка CSV отключена» кнопка disabled", () => {
     const { getByRole } = renderPage();
     const btn = getByRole("button", {
-      name: /Экспорт CSV \(демо, отключено\)/,
+      name: /Выгрузка CSV отключена/,
     }) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
-  it("«Сформировать отчёт (демо)» показывает безопасный JSON только с агрегатами", () => {
+  it("«Сформировать учебный отчёт» показывает безопасную русскую сводку только с агрегатами", () => {
     const { getByRole, getByLabelText } = renderPage();
-    fireEvent.click(getByRole("button", { name: /Сформировать отчёт/ }));
+    fireEvent.click(getByRole("button", { name: /Сформировать учебный отчёт/ }));
 
     const pre = getByLabelText(
       "Безопасный агрегатный предпросмотр отчёта",
     ) as HTMLElement;
-    const json = pre.textContent ?? "";
-    expect(json).toMatch(/"kpi"/);
-    expect(json).toMatch(/"funnel"/);
-    expect(json).toMatch(/"sources"/);
-    expect(json).toMatch(/"clinics"/);
-    expect(json).toMatch(/"risk"/);
-    expect(json).toMatch(/"imageQuality"/);
-    expect(json).toMatch(/"botDialogStates"/);
-    expect(json).toMatch(/"financialValue"/);
-    expect(json).toMatch(/"financeAssumptions"/);
-    expect(json).toMatch(/"clinicValue"/);
-    expect(json).toMatch(/"methodologyStatus": "demo_needs_validation"/);
-    expect(json).toMatch(/"periodSlice"/);
-    expect(json).toMatch(/"operationalBottlenecks"/);
-    expect(json).toMatch(/"financeMethodologyValidation"/);
-    expect(json).toMatch(/"methodologyStatus": "needs_clinic_validation"/);
-    expect(json).toMatch(/"brainstormTask": "SD-MF-048"/);
-    expect(json).toMatch(/"blockedUntil": "clinic_methodology_approved"/);
-    expect(json).toMatch(/"scope": "aggregate_only"/);
+    const preview = pre.textContent ?? "";
+    expect(preview).toMatch(/Период:/);
+    expect(preview).toMatch(/Граница: только агрегаты, без пациентских строк/);
+    expect(preview).toMatch(/Лиды:/);
+    expect(preview).toMatch(/Конверсия лид → запись:/);
+    expect(preview).toMatch(/Источники:/);
+    expect(preview).toMatch(/Качество фото:/);
+    expect(preview).toMatch(/Диалоги:/);
+    expect(preview).toMatch(/Методика: требуется подтверждение с клиникой/);
+    expect(preview).not.toMatch(/[{}]/);
+    expect(preview).not.toMatch(/"kpi"|"funnel"|"sources"|"clinics"|"risk"|methodologyStatus|aggregate_only/);
 
-    // Запрещённые токены не должны утечь и в JSON.
+    // Запрещённые токены не должны утечь и в русскую сводку.
     for (const t of FORBIDDEN_TOKENS) {
-      expect(json, `forbidden token "${t}" leaked into report JSON`).not.toMatch(
+      expect(preview, `forbidden token "${t}" leaked into report preview`).not.toMatch(
         new RegExp(t),
       );
     }
-    expect(json).not.toMatch(/tg:|wa:|web:|mock:\/\/|pal-tok-/);
+    expect(preview).not.toMatch(/tg:|wa:|web:|mock:\/\/|pal-tok-/);
   });
 });

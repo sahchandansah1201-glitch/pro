@@ -22,6 +22,7 @@ const ROUTES = [
   "/admin/clinics",
   "/admin/integrations",
   "/admin/integrations/crm/int-005",
+  "/admin/analytics",
   "/admin/governance",
 ] as const;
 const MIN_TAP = 44;
