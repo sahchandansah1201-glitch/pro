@@ -612,6 +612,20 @@ test.describe("Visit workspace self-hosted QA — native Russian UI", () => {
       await expect(timelineRegion.getByText("Технический журнал проверки")).toBeVisible();
       await expect(timelineRegion.getByText("Открыть подробный контроль")).toBeVisible();
       await expect(timelineRegion.getByRole("region", { name: "Порядок инцидентов" })).toHaveCount(0);
+      const timelineOrder = await timelineRegion.evaluate((root) => {
+        const action = root.querySelector('[aria-label="Рабочий шаг проверки истории"]');
+        const summary = Array.from(root.querySelectorAll("p")).find((node) =>
+          node.textContent?.includes("Краткая сводка проверки истории"),
+        );
+        const steps = Array.from(root.querySelectorAll("details")).find((node) =>
+          node.textContent?.includes("Этапы проверки истории"),
+        );
+        return {
+          actionBeforeSummary: !!action && !!summary && !!(action.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING),
+          stepsClosed: steps instanceof HTMLDetailsElement && !steps.open,
+        };
+      });
+      expect(timelineOrder).toEqual({ actionBeforeSummary: true, stepsClosed: true });
 
       const timelineText = await timelineRegion.innerText();
       expect(timelineText).not.toMatch(FORBIDDEN_VISIBLE);
@@ -632,6 +646,11 @@ test.describe("Visit workspace self-hosted QA — native Russian UI", () => {
       await page.screenshot({
         path: `test-results/visit-workspace-qa-native-russian-${viewport.name}.png`,
         fullPage: true,
+      });
+      await timelineRegion.evaluate((node) => node.scrollIntoView({ block: "start", inline: "nearest" }));
+      await page.waitForTimeout(50);
+      await page.screenshot({
+        path: `test-results/visit-workspace-qa-native-russian-${viewport.name}-timeline-viewport.png`,
       });
       await timelineRegion.screenshot({
         path: `test-results/visit-workspace-qa-native-russian-${viewport.name}-timeline-region.png`,

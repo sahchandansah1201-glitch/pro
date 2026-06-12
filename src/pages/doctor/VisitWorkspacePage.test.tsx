@@ -2434,6 +2434,14 @@ describe("VisitWorkspacePage · Stage 5G · production clinical workspace comple
       "href",
       "#timeline-qa-lesions",
     );
+    const timelineSummaryTitle = within(timelineRegion).getByText("Краткая сводка проверки истории");
+    expect(
+      Boolean(timelineFocus.compareDocumentPosition(timelineSummaryTitle) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true);
+    const timelineStepsDetails = within(timelineFocus).getByText("Этапы проверки истории").closest("details");
+    expect(timelineStepsDetails).not.toHaveAttribute("open");
+    fireEvent.click(within(timelineFocus).getByText("Этапы проверки истории"));
+    expect(timelineStepsDetails).toHaveAttribute("open");
     expect(within(timelineFocus).getByRole("list", { name: "Этапы проверки истории" })).toBeInTheDocument();
     expect(screen.getByText("Технический журнал проверки")).toBeInTheDocument();
     expect(screen.getByText("Открыть подробный контроль")).toBeInTheDocument();

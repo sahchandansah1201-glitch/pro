@@ -2731,7 +2731,7 @@ function LongitudinalDatasetValidationPanel({
     <section
       role="region"
       aria-label="Готовность проверки истории"
-      className="rounded-sm border border-border bg-surface px-3 py-3 text-[12px]"
+      className="scroll-mt-20 rounded-sm border border-border bg-surface px-3 py-3 text-[12px]"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
@@ -2743,6 +2743,66 @@ function LongitudinalDatasetValidationPanel({
         <span className="rounded-sm border border-border bg-surface-muted px-2 py-1 font-medium">
           {longitudinalDatasetStatusLabel(readiness.status)}
         </span>
+      </div>
+      <div
+        role="region"
+        aria-label="Рабочий шаг проверки истории"
+        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2.5"
+      >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
+            <h4 className="mt-1 text-[13px] font-semibold">
+              Следующий шаг: {currentTimelineQaStep?.nextActionLabel ?? "Проверить историю"}
+            </h4>
+            <p className="mt-1 text-muted-foreground">
+              Ближайшее действие: <span className="font-medium text-foreground">{nextGateActionLabel}</span>. Динамический вывод
+              выключен, выдача пациенту выключена.
+            </p>
+            {validation.blockers.length > 0 && (
+              <p className="mt-1 text-muted-foreground">
+                Первый блокер: {validation.blockers[0].label} · {validation.blockers[0].count}
+              </p>
+            )}
+          </div>
+          <div className="flex min-w-[180px] flex-col items-start gap-2 lg:items-end">
+            <span className="rounded-sm border border-border bg-surface px-2 py-1 text-[12px] font-medium">
+              Прогресс проверки: {completedTimelineQaSteps}/{timelineQaSteps.length}
+            </span>
+            <Button asChild size="sm" className="min-h-11 text-[12px]">
+              <a href={primaryActionHref}>{primaryActionLabel}</a>
+            </Button>
+          </div>
+        </div>
+        <details className="mt-3 rounded-sm border border-border bg-surface">
+          <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-2.5 py-2 text-[12px] font-medium">
+            <span>Этапы проверки истории</span>
+            <span className="text-muted-foreground">Показать все шаги</span>
+          </summary>
+          <ol className="grid gap-1.5 border-t border-border px-2.5 py-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="Этапы проверки истории">
+            {timelineQaSteps.map((step, index) => {
+              const state = step.done ? "done" : index === currentTimelineQaStepIndex ? "current" : "locked";
+              const stateLabel = step.done ? "закрыто" : state === "current" ? "текущий шаг" : "ожидает";
+              const stateClass = step.done
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : state === "current"
+                  ? "border-amber-300 bg-amber-50 text-amber-950"
+                  : "border-border bg-surface text-muted-foreground";
+              return (
+                <li key={step.key} className={`min-w-0 rounded-sm border px-2 py-1.5 ${stateClass}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
+                      {index + 1}
+                    </span>
+                    <span className="text-[12px] font-medium leading-snug">{step.label}</span>
+                  </div>
+                  <p className="mt-1 text-[11px]">{stateLabel}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug opacity-80">{step.statusLabel}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </details>
       </div>
       <LongitudinalQaSummary
         readiness={readiness}
@@ -2774,60 +2834,6 @@ function LongitudinalDatasetValidationPanel({
           ))}
         </div>
       )}
-      <div
-        role="region"
-        aria-label="Рабочий шаг проверки истории"
-        className="mt-3 rounded-sm border border-border/70 bg-surface-muted px-2.5 py-2.5"
-      >
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
-            <h4 className="mt-1 text-[13px] font-semibold">
-              Следующий шаг: {currentTimelineQaStep?.nextActionLabel ?? "Проверить историю"}
-            </h4>
-            <p className="mt-1 text-muted-foreground">
-              Ближайшее действие: <span className="font-medium text-foreground">{nextGateActionLabel}</span>. Динамический вывод
-              выключен, выдача пациенту выключена.
-            </p>
-            {validation.blockers.length > 0 && (
-              <p className="mt-1 text-muted-foreground">
-                Первый блокер: {validation.blockers[0].label} · {validation.blockers[0].count}
-              </p>
-            )}
-          </div>
-          <div className="flex min-w-[180px] flex-col items-start gap-2 lg:items-end">
-            <span className="rounded-sm border border-border bg-surface px-2 py-1 text-[12px] font-medium">
-              Прогресс проверки: {completedTimelineQaSteps}/{timelineQaSteps.length}
-            </span>
-            <Button asChild size="sm" className="min-h-11 text-[12px]">
-              <a href={primaryActionHref}>{primaryActionLabel}</a>
-            </Button>
-          </div>
-        </div>
-        <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8" aria-label="Этапы проверки истории">
-          {timelineQaSteps.map((step, index) => {
-            const state = step.done ? "done" : index === currentTimelineQaStepIndex ? "current" : "locked";
-            const stateLabel = step.done ? "закрыто" : state === "current" ? "текущий шаг" : "ожидает";
-            const stateClass = step.done
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : state === "current"
-                ? "border-amber-300 bg-amber-50 text-amber-950"
-                : "border-border bg-surface text-muted-foreground";
-            return (
-              <li key={step.key} className={`min-w-0 rounded-sm border px-2 py-1.5 ${stateClass}`}>
-                <div className="flex items-center gap-1.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[11px]">
-                    {index + 1}
-                  </span>
-                  <span className="truncate text-[12px] font-medium">{step.label}</span>
-                </div>
-                <p className="mt-1 truncate text-[11px]">{stateLabel}</p>
-                <p className="mt-0.5 truncate text-[11px] opacity-80">{step.statusLabel}</p>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
       <details id="timeline-technical-ledger" className="mt-3 rounded-sm border border-border/70 bg-surface-muted">
         <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-2.5 py-2 text-[12px] font-medium">
           <span>Технический журнал проверки</span>
