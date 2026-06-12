@@ -372,7 +372,7 @@ describe("Patient portal · Stage 5N production", () => {
     expect(screen.getByText(/Код доступа не показывается/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: /Фотографии к визиту/ })).toBeInTheDocument();
-    expect(screen.getByText(/метаданные готовы, политика доступа ограничивает выдачу/)).toBeInTheDocument();
+    expect(screen.getByText(/данные подготовлены, доступ к фото пока ограничен клиникой/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Подтверждение доступа к фото/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Одноразовый код доступа")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Доступ к фотографиям/ })).toBeInTheDocument();
@@ -380,7 +380,7 @@ describe("Patient portal · Stage 5N production", () => {
     await waitFor(() => expect(document.body).not.toHaveTextContent("Скрытый врачебный текст"));
   });
 
-  it("prepares one photo through the secure backend proxy without exposing backend paths", async () => {
+  it("prepares one photo without exposing protected paths", async () => {
     const createObjectURL = vi.fn(() => "blob:patient-photo-protocol-1");
     const revokeObjectURL = vi.fn();
     Object.defineProperty(URL, "createObjectURL", {
@@ -512,7 +512,7 @@ describe("Patient portal · Stage 5N production", () => {
     expect(await screen.findByRole("region", { name: /Фотографии к визиту/ })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Отзыв и журнал доступа/ })).toBeInTheDocument();
     expect(screen.getByText("Доступ отозван клиникой")).toBeInTheDocument();
-    expect(screen.getByText(/Фото-протокол отозван/)).toBeInTheDocument();
+    expect(screen.getByText(/Доступ к фото отозван/)).toBeInTheDocument();
     const prepareButton = screen.getByRole("button", { name: "Загрузить фото 1" });
     expect(prepareButton).toBeDisabled();
     fireEvent.click(prepareButton);
@@ -569,7 +569,7 @@ describe("Patient portal · Stage 5N production", () => {
     booking.unmount();
   });
 
-  it("shows reminders and updates reminder preferences through self-hosted backend", async () => {
+  it("shows reminders and updates reminder preferences", async () => {
     const fetchMock = mockFetch();
     renderRoute("/me/reminders");
 
@@ -613,5 +613,20 @@ describe("Patient portal · Stage 5N production", () => {
       "https://clinic.local/api/v1/me/follow-ups/follow-up-live-1/messages",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("keeps visible production patient copy native Russian", async () => {
+    mockFetch();
+    const routes = ["/me", "/me/reports", "/me/reports/report-live-1", "/me/history", "/me/booking", "/me/reminders"];
+    for (const route of routes) {
+      const view = renderRoute(route);
+      await waitFor(() => {
+        expect(document.body.textContent || "", route).toMatch(/Пациент|Заключение|История|Запись|Напоминания|Ближайший/i);
+      });
+      expect(document.body.textContent || "", route).not.toMatch(
+        /AI|XAI|demo|демо|follow-up|backend|бэкенд|metadata|policy|workflow|evidence|rollout|monitoring|validation/i,
+      );
+      view.unmount();
+    }
   });
 });

@@ -20,7 +20,7 @@ const SOURCE_LABEL = {
 } as const;
 
 const DEMO_BANNER =
-  "Демо-режим. Напоминания носят демонстрационный характер. Решения о лечении принимает врач.";
+  "Учебный режим. Напоминания показывают пример работы кабинета. Решения о лечении принимает врач.";
 
 export default function MeRemindersPage() {
   const reminders = useMemo(() => getDerivedReminders(), []);
@@ -33,7 +33,7 @@ export default function MeRemindersPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Напоминания" subtitle="Контрольные осмотры, follow-up, плановые приёмы." />
+      <PageHeader title="Напоминания" subtitle="Контрольные осмотры и плановые приёмы." />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div

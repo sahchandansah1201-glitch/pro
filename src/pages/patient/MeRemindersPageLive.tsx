@@ -156,7 +156,7 @@ export default function MeRemindersPageLive() {
                     value={preferredChannel}
                     onChange={(event) => setPreferredChannel(event.target.value as "email" | "phone" | "none")}
                   >
-                    <option value="email">Email</option>
+                    <option value="email">Эл. почта</option>
                     <option value="phone">Телефон</option>
                     <option value="none">Не отправлять</option>
                   </select>

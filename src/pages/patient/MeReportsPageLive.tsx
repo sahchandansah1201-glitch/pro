@@ -52,7 +52,7 @@ export default function MeReportsPageLive() {
                     </div>
                     <div>
                       <div className="font-medium text-foreground">Служебные данные и врачебная версия скрыты</div>
-                      <div>Список не показывает ссылку доступа, внутренний текст и AI/XAI-детали.</div>
+                      <div>Список не показывает ссылку доступа, внутренний текст и технические детали подсказки.</div>
                     </div>
                     <div>
                       <div className="font-medium text-foreground">Нужен повторный осмотр или вопрос врачу</div>

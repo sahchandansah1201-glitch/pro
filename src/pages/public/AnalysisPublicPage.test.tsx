@@ -40,11 +40,11 @@ describe("AnalysisPublicPage", () => {
   it("валидный токен: показывает безопасный контент и дисклеймер", () => {
     const { container } = renderAt(VALID);
     expect(
-      screen.getByRole("heading", { level: 1, name: /Предварительная оценка/i })
+      screen.getByRole("heading", { level: 1, name: /Предварительная сводка/i })
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Не является диагнозом/i).length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/AI не является диагнозом\. Окончательное решение принимает врач\./)
+      screen.getByText(/Автоматическая подсказка не является диагнозом\. Окончательное решение принимает врач\./)
     ).toBeInTheDocument();
     expect(container.textContent || "").not.toContain(VALID);
   });
@@ -62,7 +62,7 @@ describe("AnalysisPublicPage", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: /Ссылка истекла/i })
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Предварительная оценка/i)).toBeNull();
+    expect(screen.queryByText(/Предварительная сводка/i)).toBeNull();
     expect(container.textContent || "").not.toContain(EXPIRED);
   });
 
@@ -71,19 +71,24 @@ describe("AnalysisPublicPage", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: /Ссылка не найдена/i })
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Предварительная оценка/i)).toBeNull();
+    expect(screen.queryByText(/Предварительная сводка/i)).toBeNull();
     expect(container.textContent || "").not.toContain(INVALID);
   });
 
-  it("действия: «Скачать PDF (демо)» и «Связаться с клиникой (демо)» disabled", () => {
+  it("действия: «Скачать файл» и «Связаться с клиникой» disabled", () => {
     renderAt(VALID);
-    const pdf = screen.getByRole("button", { name: /Скачать PDF \(демо\)/i });
+    const pdf = screen.getByRole("button", { name: /Скачать файл/i });
     const contact = screen.getByRole("button", {
-      name: /Связаться с клиникой \(демо\)/i,
+      name: /Связаться с клиникой/i,
     });
     expect(pdf).toBeDisabled();
     expect(contact).toBeDisabled();
     expect(pdf).toHaveAttribute("aria-disabled", "true");
     expect(contact).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("видимый текст остаётся нативно русским без англо-технических терминов", () => {
+    const { container } = renderAt(VALID);
+    expect(container.textContent || "").not.toMatch(/AI|XAI|demo|демо|backend|production|metadata|workflow|policy|evidence|rollout|monitoring|validation/i);
   });
 });

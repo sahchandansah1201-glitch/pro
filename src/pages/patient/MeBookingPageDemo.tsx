@@ -8,7 +8,7 @@ import { getClinics } from "@/lib/mock-data";
 import { DEMO_SERVICES, buildDemoSlots } from "./patient-data";
 
 const DEMO_BANNER =
-  "Демо-режим. Запись носит локальный демонстрационный характер и никуда не отправляется.";
+  "Учебный режим. Запись сохраняется только на этом экране и не отправляется в клинику.";
 
 type Step = "clinic" | "service" | "slot" | "confirm" | "done";
 
@@ -34,13 +34,13 @@ export default function MeBookingPage() {
   const STEPS: { key: Step; label: string }[] = [
     { key: "clinic", label: "Клиника" },
     { key: "service", label: "Услуга" },
-    { key: "slot", label: "Слот" },
+    { key: "slot", label: "Время" },
     { key: "confirm", label: "Подтверждение" },
   ];
 
   return (
     <div className="flex h-full flex-col">
-      <PageHeader title="Запись на приём" subtitle="Клиника → услуга → слот → подтверждение." />
+      <PageHeader title="Запись на приём" subtitle="Клиника → услуга → время → подтверждение." />
 
       <div className="space-y-3 p-3 sm:p-4">
         <div
@@ -117,7 +117,7 @@ export default function MeBookingPage() {
 
         {step === "slot" && (
           <Card className="p-3">
-            <div className="mb-2 text-[13px] font-semibold">Выберите слот</div>
+            <div className="mb-2 text-[13px] font-semibold">Выберите время</div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {slots.map((iso) => (
                 <button
@@ -140,10 +140,10 @@ export default function MeBookingPage() {
             <dl className="grid grid-cols-2 gap-y-1 text-[12px]">
               <dt className="text-muted-foreground">Клиника</dt><dd>{clinicName}</dd>
               <dt className="text-muted-foreground">Услуга</dt><dd>{serviceName}</dd>
-              <dt className="text-muted-foreground">Слот</dt><dd>{slot ? formatDateTime(slot) : "—"}</dd>
+              <dt className="text-muted-foreground">Время</dt><dd>{slot ? formatDateTime(slot) : "—"}</dd>
             </dl>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button className="min-h-[44px] sm:min-h-[36px]" onClick={() => setStep("done")}>Подтвердить (демо)</Button>
+              <Button className="min-h-[44px] sm:min-h-[36px]" onClick={() => setStep("done")}>Подтвердить запись</Button>
               <Button variant="outline" className="min-h-[44px] sm:min-h-[36px]" onClick={() => setStep("slot")}>Назад</Button>
             </div>
           </Card>
@@ -153,15 +153,15 @@ export default function MeBookingPage() {
           <Card className="p-4">
             <div className="flex items-center gap-2 text-success">
               <Check className="h-5 w-5" aria-hidden />
-              <span className="text-[14px] font-semibold">Демо-запись создана локально</span>
+              <span className="text-[14px] font-semibold">Учебная запись создана на этом экране</span>
             </div>
             <p className="mt-2 text-[12px] text-muted-foreground">
-              Запись хранится только в этой странице и не отправляется в CRM или мессенджер. На бэкенде будет реальное подтверждение и SMS/push.
+              Запись хранится только на этой странице и не отправляется в клинику. В рабочем режиме сотрудник клиники подтвердит запись и пришлёт уведомление.
             </p>
             <dl className="mt-3 grid grid-cols-2 gap-y-1 text-[12px]">
               <dt className="text-muted-foreground">Клиника</dt><dd>{clinicName}</dd>
               <dt className="text-muted-foreground">Услуга</dt><dd>{serviceName}</dd>
-              <dt className="text-muted-foreground">Слот</dt><dd>{slot ? formatDateTime(slot) : "—"}</dd>
+              <dt className="text-muted-foreground">Время</dt><dd>{slot ? formatDateTime(slot) : "—"}</dd>
             </dl>
             <Button variant="outline" className="mt-3 min-h-[44px] sm:min-h-[36px]" onClick={reset}>Новая запись</Button>
           </Card>

@@ -78,7 +78,7 @@ export default function MeBookingPageLive() {
             <Card className="p-4">
               <div className="text-[13px] font-semibold">Самозапись пациента</div>
               <p className="mt-1 text-[13px] text-muted-foreground">
-                Отправьте удобное время и причину обращения. Сотрудник клиники подтвердит слот и свяжется с вами.
+                Отправьте удобное время и причину обращения. Сотрудник клиники подтвердит время и свяжется с вами.
               </p>
               <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={submitBookingRequest}>
                 <label className="grid gap-1 text-[12px] font-medium">

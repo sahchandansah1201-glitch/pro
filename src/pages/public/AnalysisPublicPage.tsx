@@ -5,7 +5,7 @@ import { formatDateTime } from "@/lib/format";
 import { getPublicAnalysisView } from "@/lib/public-analysis-access";
 
 const DISCLAIMER =
-  "AI не является диагнозом. Окончательное решение принимает врач.";
+  "Автоматическая подсказка не является диагнозом. Окончательное решение принимает врач.";
 
 function PublicShell({ children }: { children: React.ReactNode }) {
   return (
@@ -20,10 +20,10 @@ function PublicShell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6 sm:py-8">
         <div
           role="note"
-          aria-label="Демонстрационный режим"
+          aria-label="Учебный просмотр"
           className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground"
         >
-          Демо-режим. Содержимое не является медицинским заключением.
+          Учебный просмотр. Содержимое не является медицинским заключением.
         </div>
         {children}
       </main>
@@ -40,25 +40,26 @@ function StateBlock({ title, body }: { title: string; body: string }) {
   );
 }
 
-function DemoActions() {
+function SafeActions() {
   return (
     <div className="flex flex-col gap-2 pt-1 sm:flex-row">
       <Button
         type="button"
+        variant="outline"
         disabled
         aria-disabled="true"
-        className="min-h-[44px] w-full sm:w-auto"
+        className="min-h-[44px] w-full border-border bg-muted text-muted-foreground hover:bg-muted sm:w-auto"
       >
-        Скачать PDF (демо)
+        Скачать файл
       </Button>
       <Button
         type="button"
         variant="outline"
         disabled
         aria-disabled="true"
-        className="min-h-[44px] w-full sm:w-auto"
+        className="min-h-[44px] w-full border-border bg-muted text-muted-foreground hover:bg-muted sm:w-auto"
       >
-        Связаться с клиникой (демо)
+        Связаться с клиникой
       </Button>
     </div>
   );
@@ -84,7 +85,7 @@ export default function AnalysisPublicPage() {
       <PublicShell>
         <StateBlock
           title="Ссылка истекла"
-          body="Срок действия ссылки истёк. Обратитесь в клинику или повторите анализ через бота."
+          body="Срок действия ссылки истёк. Обратитесь в клинику, чтобы получить новый доступ."
         />
       </PublicShell>
     );
@@ -96,7 +97,7 @@ export default function AnalysisPublicPage() {
         <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold sm:text-2xl">
-              Предварительная оценка
+              Предварительная сводка
             </h1>
             <Badge variant="secondary">Не является диагнозом</Badge>
           </div>
@@ -128,7 +129,7 @@ export default function AnalysisPublicPage() {
           </div>
         </section>
 
-        <DemoActions />
+        <SafeActions />
 
         <footer className="space-y-1 border-t border-border pt-4 text-xs text-muted-foreground">
           {view.expiresAt && (

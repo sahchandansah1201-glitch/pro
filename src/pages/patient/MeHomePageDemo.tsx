@@ -12,7 +12,7 @@ import {
 } from "./patient-data";
 
 const DEMO_BANNER =
-  "Демо-режим. Это раздел пациента. Решения о лечении принимает врач на очном приёме.";
+  "Учебный режим. Это раздел пациента. Решения о лечении принимает врач на очном приёме.";
 
 export default function MeHomePage() {
   const next = getNextAppointment();

@@ -76,8 +76,8 @@ describe("Patient portal pages", () => {
     expect(screen.getByText(/Код доступа не показывается/)).toBeInTheDocument();
     expect(screen.getByText(/Врачебная версия скрыта/)).toBeInTheDocument();
     expect(screen.queryByText(/Раздел будет реализован/)).not.toBeInTheDocument();
-    // Печать/PDF — демо и disabled
-    const print = screen.getByRole("button", { name: /Печать \/ PDF \(демо\)/ });
+    // Печать — недоступна и disabled
+    const print = screen.getByRole("button", { name: /Печать недоступна/ });
     expect(print).toBeDisabled();
     expectClean(container.innerHTML);
   });
@@ -107,14 +107,25 @@ describe("Patient portal pages", () => {
     fireEvent.click(screen.getByText(/Дерма-Про · Центр/));
     // шаг 2: услуга
     fireEvent.click(screen.getByText(/Консультация дерматолога/));
-    // шаг 3: слот — берём первую кнопку слота
+    // шаг 3: время — берём первую кнопку времени
     const slotButtons = screen.getAllByRole("button").filter((b) => /\d{2}\.\d{2}\.\d{4}/.test(b.textContent ?? ""));
     expect(slotButtons.length).toBeGreaterThan(0);
     fireEvent.click(slotButtons[0]);
     // шаг 4: подтвердить
-    fireEvent.click(screen.getByRole("button", { name: /Подтвердить \(демо\)/ }));
-    expect(screen.getByText(/Демо-запись создана локально/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Подтвердить запись/ }));
+    expect(screen.getByText(/Учебная запись создана на этом экране/)).toBeInTheDocument();
     expectClean(container.innerHTML);
+  });
+
+  it("видимый текст пациентского кабинета остаётся нативно русским", () => {
+    const routes = ["/me", "/me/reports", "/me/reports/r-001", "/me/booking", "/me/reminders", "/me/history"];
+    for (const route of routes) {
+      const view = renderRouted(<MeHomePage />, route);
+      expect(document.body.textContent || "", route).not.toMatch(
+        /AI|XAI|follow-up|demo|демо|CRM|SMS|push|backend|бэкенд|production|metadata|workflow|policy|evidence|rollout|monitoring|validation/i,
+      );
+      view.unmount();
+    }
   });
 
   it("MeRemindersPage переключает локальный статус", () => {

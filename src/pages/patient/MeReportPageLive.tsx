@@ -55,14 +55,28 @@ function isPhotoPolicyReady(photoProtocol: SelfHostedPatientPortalPhotoProtocol)
 }
 
 function photoProtocolStatusText(photoProtocol: SelfHostedPatientPortalPhotoProtocol): string {
-  if (isPhotoProtocolRevoked(photoProtocol)) return "Фото-протокол отозван";
+  if (isPhotoProtocolRevoked(photoProtocol)) return "Доступ к фото отозван";
   return isPhotoPolicyReady(photoProtocol)
     ? "готов к защищённой выдаче"
-    : "метаданные готовы, политика доступа ограничивает выдачу";
+    : "данные подготовлены, доступ к фото пока ограничен клиникой";
 }
 
 function photoProtocolAuditStateText(photoProtocol: SelfHostedPatientPortalPhotoProtocol): string {
   return isPhotoProtocolRevoked(photoProtocol) ? "отозван клиникой" : "активен до срока доступа";
+}
+
+function safePhotoAvailabilityMessage(message: string): string {
+  if (/backend|self-hosted|metadata|policy|proxy|token|session|credential|storage|signed/i.test(message)) {
+    return "Клиника пока не открыла защищённый доступ к фотографиям.";
+  }
+  return message.replace(/фото-протокол/gi, "набор фото");
+}
+
+function safePhotoAuditLabel(label: string): string {
+  if (/backend|self-hosted|metadata|policy|proxy|token|session|credential|storage|signed/i.test(label)) {
+    return "Событие доступа сохранено клиникой";
+  }
+  return label.replace(/Фото-протокол/g, "Набор фото").replace(/фото-протокол/g, "набор фото");
 }
 
 export default function MeReportPageLive() {
@@ -233,7 +247,7 @@ export default function MeReportPageLive() {
         ...current,
         [photo.sequence]: {
           status: "error",
-          message: "Сначала подтвердите доступ к фото-протоколу.",
+          message: "Сначала подтвердите доступ к фотографиям.",
         },
       }));
       return;
@@ -320,7 +334,7 @@ export default function MeReportPageLive() {
                     <dt className="text-muted-foreground">Состав</dt>
                     <dd>безопасный текст, дата визита, клиника</dd>
                     <dt className="text-muted-foreground">Исключено</dt>
-                    <dd>внутренняя версия врача, служебные данные, AI/XAI-детали</dd>
+                    <dd>внутренняя версия врача, служебные данные, технические детали подсказки</dd>
                   </dl>
                   <p className="mt-2 text-[12px] text-muted-foreground">
                     Код доступа не показывается. Врачебная версия скрыта. Действия открытия и завершения доступа сохраняются в журнале клиники.
@@ -337,7 +351,7 @@ export default function MeReportPageLive() {
                 <div className="min-w-0 flex-1">
                   <h3 className="text-[13px] font-semibold">Фотографии к визиту</h3>
                   {photoStatus === "loading" && (
-                    <p className="mt-2 text-[12px] text-muted-foreground">Проверяем доступность фото-протокола…</p>
+                    <p className="mt-2 text-[12px] text-muted-foreground">Проверяем доступность фотографий…</p>
                   )}
                   {photoStatus === "unavailable" && (
                     <p className="mt-2 text-[12px] text-muted-foreground">
@@ -449,7 +463,7 @@ export default function MeReportPageLive() {
                         {photoProtocol.availabilityMessages.length > 0 && (
                           <ul className="mt-2 list-disc space-y-0.5 pl-4 text-muted-foreground">
                             {photoProtocol.availabilityMessages.slice(0, 3).map((message) => (
-                              <li key={message}>{message}</li>
+                              <li key={message}>{safePhotoAvailabilityMessage(message)}</li>
                             ))}
                           </ul>
                         )}
@@ -473,7 +487,7 @@ export default function MeReportPageLive() {
                           <ul className="mt-2 space-y-1">
                             {photoProtocol.auditTrail.map((entry) => (
                               <li key={`${entry.kind}-${entry.occurredAt || entry.label}`} className="flex flex-wrap gap-x-2 gap-y-0.5">
-                                <span className="font-medium">{entry.label}</span>
+                                <span className="font-medium">{safePhotoAuditLabel(entry.label)}</span>
                                 <span className="text-muted-foreground">
                                   {entry.occurredAt ? formatDateTime(entry.occurredAt) : "время задаёт система клиники"}
                                 </span>

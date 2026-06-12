@@ -14,7 +14,7 @@ import { formatDate } from "@/lib/format";
 import { getSafeReports, demoNow } from "./patient-data";
 
 const DEMO_BANNER =
-  "Демо-режим. Список заключений сформирован из локальных данных.";
+  "Учебный режим. Список заключений сформирован из учебных данных кабинета.";
 
 type SortMode = "new" | "old" | "clinic-asc" | "clinic-desc";
 const SORT_LABEL: Record<SortMode, string> = {
@@ -170,10 +170,10 @@ export default function MeReportsPage() {
             variant="outline"
             disabled
             aria-disabled="true"
-            title="Экспорт PDF будет подключён на бэкенде"
+            title="Сохранение файла будет подключено клиникой"
             className="min-h-[44px] sm:min-h-[32px]"
           >
-            <Printer className="h-3.5 w-3.5" aria-hidden /> Экспорт списка в PDF (демо)
+            <Printer className="h-3.5 w-3.5" aria-hidden /> Сохранить список
           </Button>
         </div>
 
@@ -339,8 +339,8 @@ export default function MeReportsPage() {
               };
               const downloadDemo = () => {
                 toast({
-                  title: "Скачивание PDF (демо)",
-                  description: `Выбрано заключений: ${selected.size}. В реальной версии будет сформирован PDF.`,
+                  title: "Сохранение файла недоступно",
+                  description: `Выбрано заключений: ${selected.size}. В учебном режиме файл не формируется.`,
                 });
               };
               return (
@@ -350,6 +350,7 @@ export default function MeReportsPage() {
                       checked={allOnPage ? true : someOnPage ? "indeterminate" : false}
                       onCheckedChange={togglePage}
                       aria-label="Выбрать все на странице"
+                      className="h-11 w-11 shrink-0 sm:h-4 sm:w-4"
                     />
                     <span className="text-muted-foreground">
                       Выбрано: <span className="tabular-nums">{selected.size}</span>
@@ -374,7 +375,7 @@ export default function MeReportsPage() {
                       onClick={downloadDemo}
                       className="min-h-[44px] sm:min-h-[32px]"
                     >
-                      <Download className="h-3.5 w-3.5" aria-hidden /> Скачать PDF (демо)
+                      <Download className="h-3.5 w-3.5" aria-hidden /> Скачать выбранные
                     </Button>
                   </div>
                 </div>
@@ -389,7 +390,7 @@ export default function MeReportsPage() {
                       checked={checked}
                       onCheckedChange={() => toggleOne(r.id)}
                       aria-label={`Выбрать заключение от ${formatDate(r.visitDate)}`}
-                      className="mt-1"
+                      className="mt-0 h-11 w-11 shrink-0 sm:mt-1 sm:h-4 sm:w-4"
                     />
                     <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                     <div className="min-w-0 flex-1">

@@ -7,7 +7,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { getSafeReportById } from "./patient-data";
 
 const DEMO_BANNER =
-  "Демо-режим. Это безопасная версия отчёта для пациента. Полная клиническая информация доступна врачу.";
+  "Учебный режим. Это безопасная версия отчёта для пациента. Полная клиническая информация доступна врачу.";
 
 export default function MeReportPage() {
   const { id = "" } = useParams();
@@ -36,7 +36,7 @@ export default function MeReportPage() {
             <Link to="/me"><ArrowLeft className="h-3.5 w-3.5" aria-hidden /> К кабинету</Link>
           </Button>
           <Button variant="outline" disabled className="min-h-[44px] sm:min-h-[36px]">
-            <Printer className="h-3.5 w-3.5" aria-hidden /> Печать / PDF (демо)
+            <Printer className="h-3.5 w-3.5" aria-hidden /> Печать недоступна
           </Button>
         </div>
 
@@ -68,7 +68,7 @@ export default function MeReportPage() {
                     <dt className="text-muted-foreground">Состав</dt>
                     <dd>безопасный текст, дата визита, клиника</dd>
                     <dt className="text-muted-foreground">Исключено</dt>
-                    <dd>внутренняя версия врача, служебные данные, AI/XAI-детали</dd>
+                    <dd>внутренняя версия врача, служебные данные, технические детали подсказки</dd>
                   </dl>
                   <p className="mt-2 text-[12px] text-muted-foreground">
                     Код доступа не показывается. Врачебная версия скрыта. Если нужен повторный осмотр или вопрос врачу, запишитесь на контроль.
