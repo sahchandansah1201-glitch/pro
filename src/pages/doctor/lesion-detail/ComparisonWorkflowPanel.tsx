@@ -30,9 +30,9 @@ export function ComparisonWorkflowPanel({
           key: "workflow-ready",
           label: "Итог",
           done: workflowReady,
-          statusLabel: workflowReady ? "готов" : "проверьте workflow",
-          nextActionLabel: "Проверить итог reviewer workflow",
-          actionLabel: "Открыть итог workflow",
+          statusLabel: workflowReady ? "готов" : "проверьте порядок",
+          nextActionLabel: "Проверить итог врачебного порядка",
+          actionLabel: "Открыть итог проверки",
           actionHref: "#comparison-workflow-gate",
         };
 
@@ -62,7 +62,7 @@ export function ComparisonWorkflowPanel({
           <span className="rounded-sm border border-border bg-background px-2 py-1 text-[12px] font-medium">
             Прогресс проверки: {completedSteps}/{steps.length}
           </span>
-          <Button asChild size="sm" className="h-8 text-[12px]">
+          <Button asChild size="sm" className="min-h-[44px] text-[12px] sm:h-8 sm:min-h-8">
             <a href={currentStep.actionHref}>{currentStep.actionLabel}</a>
           </Button>
         </div>

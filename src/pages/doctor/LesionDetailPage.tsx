@@ -35,6 +35,7 @@ import { calcAge, formatDate, formatDateTime } from "@/lib/format";
 import {
   getAssessmentsByLesionId,
   getClinicById,
+  getDevices,
   getImagesByLesionId,
   getLesionById,
   getPatientById,
@@ -217,38 +218,43 @@ const TECHNICAL_GEOMETRY_PRESETS: Record<TechnicalGeometryMarker["target"], Tech
   B: { target: "B", x: 52, y: 52 },
 };
 const MEASUREMENT_POLICY_LABEL: Record<MeasurementPolicyStatus, string> = {
-  not_approved: "Policy не утверждена",
-  review_required: "Нужен разбор policy",
-  approved_for_technical_review: "Policy утверждена для техreview",
+  not_approved: "Правила не утверждены",
+  review_required: "Нужен разбор правил",
+  approved_for_technical_review: "Правила утверждены для технической проверки",
 };
 const PRODUCTION_ANALYSIS_POLICY_LABEL: Record<ProductionAnalysisPolicyStatus, string> = {
-  not_approved: "Analysis policy не утверждена",
-  review_required: "Нужен разбор analysis policy",
-  approved_for_production_analysis: "Analysis policy утверждена",
+  not_approved: "Правила анализа не утверждены",
+  review_required: "Нужен разбор правил анализа",
+  approved_for_production_analysis: "Правила анализа утверждены",
 };
 const REVIEWER_ASSIGNMENT_LABEL: Record<ReviewerAssignmentStatus, string> = {
-  unassigned: "Reviewer не назначен",
-  assigned: "Reviewer назначен",
-  second_review_required: "Нужен второй review",
-  second_review_assigned: "Second reviewer назначен",
-  second_review_completed: "Second review закрыт",
+  unassigned: "Проверяющий не назначен",
+  assigned: "Проверяющий назначен",
+  second_review_required: "Нужна повторная проверка",
+  second_review_assigned: "Повторный проверяющий назначен",
+  second_review_completed: "Повторная проверка закрыта",
   assignment_blocked: "Назначение заблокировано",
 };
 const SECOND_REVIEW_LABEL: Record<SecondReviewStatus, string> = {
-  not_required: "Second review не требуется",
-  required: "Second review требуется",
-  assigned: "Second reviewer назначен",
-  completed: "Second review завершён",
-  blocked: "Second review заблокирован",
+  not_required: "Повторная проверка не требуется",
+  required: "Повторная проверка требуется",
+  assigned: "Повторный проверяющий назначен",
+  completed: "Повторная проверка завершена",
+  blocked: "Повторная проверка заблокирована",
 };
 const REVIEWER_ASSIGNMENT_PRIMARY_ID = "10000000-0000-4000-8000-000000000201";
 const REVIEWER_ASSIGNMENT_SECOND_ID = "10000000-0000-4000-8000-000000000202";
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const formatPan = (value: number) => (value > 0 ? `+${value}` : `${value}`);
+const DEVICE_LABEL_BY_ID = new Map(getDevices().map((device) => [device.id, device.model]));
+const deviceDisplayLabel = (deviceId: string | null | undefined) =>
+  deviceId ? DEVICE_LABEL_BY_ID.get(deviceId) ?? "устройство указано" : "без устройства";
 const imageDisplayLabel = (image: ClinicalImage, marker?: "A" | "B") =>
   marker ? `Снимок ${marker}` : `Снимок ${formatDate(image.capturedAt)}`;
 const imageDisplayMeta = (image: ClinicalImage) =>
-  `${formatDateTime(image.capturedAt)} · ${IMAGE_KIND[image.kind]} · ${image.deviceId ?? "без устройства"}`;
+  `${formatDateTime(image.capturedAt)} · ${IMAGE_KIND[image.kind]} · ${deviceDisplayLabel(image.deviceId)}`;
+const systemHintDisclaimer = (value: string) =>
+  value.replace(/AI-поддержка принятия решений/gi, "Подсказка системы для принятия решений");
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const isUuid = (value: string | null | undefined) => UUID_PATTERN.test(String(value || ""));
 const createPreviewObjectUrl = (blob: Blob) =>
@@ -306,8 +312,8 @@ function minutesBetween(imageA: ClinicalImage, imageB: ClinicalImage) {
 }
 
 function captureConditionChecks(imageA: ClinicalImage, imageB: ClinicalImage): CaptureConditionCheck[] {
-  const deviceA = imageA.deviceId ?? "без устройства";
-  const deviceB = imageB.deviceId ?? "без устройства";
+  const deviceA = deviceDisplayLabel(imageA.deviceId);
+  const deviceB = deviceDisplayLabel(imageB.deviceId);
   const minQuality = Math.min(imageA.quality.score, imageB.quality.score);
   const qualityIssues = Array.from(new Set([...imageA.quality.issues, ...imageB.quality.issues]));
   const intervalMinutes = minutesBetween(imageA, imageB);
@@ -353,8 +359,8 @@ function captureConditionChecks(imageA: ClinicalImage, imageB: ClinicalImage): C
 const imageFrameSize = (image: ClinicalImage) => `${image.exifMeta.width}×${image.exifMeta.height}`;
 
 function calibrationReadinessChecks(imageA: ClinicalImage, imageB: ClinicalImage): CalibrationReadinessCheck[] {
-  const deviceA = imageA.deviceId ?? "без устройства";
-  const deviceB = imageB.deviceId ?? "без устройства";
+  const deviceA = deviceDisplayLabel(imageA.deviceId);
+  const deviceB = deviceDisplayLabel(imageB.deviceId);
   const sameDevice = Boolean(imageA.deviceId && imageB.deviceId && imageA.deviceId === imageB.deviceId);
   const frameSizeA = imageFrameSize(imageA);
   const frameSizeB = imageFrameSize(imageB);
@@ -384,7 +390,7 @@ function calibrationReadinessChecks(imageA: ClinicalImage, imageB: ClinicalImage
     {
       label: "Миллиметры",
       ready: millimetersReady,
-      detail: millimetersReady ? "мм доступны для viewer QA" : "мм недоступны",
+      detail: millimetersReady ? "миллиметры доступны для проверки просмотра" : "миллиметры недоступны",
     },
   ];
 }
@@ -398,8 +404,8 @@ function calibrationReasonCode(item: CalibrationReadinessCheck): string {
 }
 
 function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
-  const deviceA = imageA.deviceId ?? "без устройства";
-  const deviceB = imageB.deviceId ?? "без устройства";
+  const deviceA = deviceDisplayLabel(imageA.deviceId);
+  const deviceB = deviceDisplayLabel(imageB.deviceId);
   const qualityA = `${imageQualityLabel(imageA)} · ${Math.round(imageA.quality.score * 100)}%`;
   const qualityB = `${imageQualityLabel(imageB)} · ${Math.round(imageB.quality.score * 100)}%`;
   const conditionsDiffer =
@@ -410,7 +416,7 @@ function comparisonRows(imageA: ClinicalImage, imageB: ClinicalImage) {
       label: "Снимок",
       a: imageDisplayLabel(imageA, "A"),
       b: imageDisplayLabel(imageB, "B"),
-      result: "Внутренний ID скрыт",
+      result: "Внутренний код скрыт",
     },
     {
       label: "Дата",
@@ -485,7 +491,7 @@ function buildLongitudinalVisitGroups(
         images: sortedImages,
         assessmentCount: assessmentCounts.get(visitId) ?? 0,
         bestQuality,
-        devices: Array.from(new Set(sortedImages.map((image) => image.deviceId ?? "без устройства"))),
+        devices: Array.from(new Set(sortedImages.map((image) => deviceDisplayLabel(image.deviceId)))),
         kinds: Array.from(new Set(sortedImages.map((image) => IMAGE_KIND[image.kind]))),
         sources: Array.from(new Set(sortedImages.map((image) => IMAGE_SOURCE[image.source]))),
       };
@@ -559,7 +565,7 @@ function buildLocalLongitudinalQaGate({
   const technicalRolloutReady = status === "technical_ready" && candidatePairCount > 0;
   const blockers: SelfHostedLesionLongitudinalQaDTO["blockers"] = [
     candidatePairCount === 0
-      ? { code: "no_candidate_pairs", label: "Нет пар для продольного QA", count: 1, nextAction: "review_queue" }
+      ? { code: "no_candidate_pairs", label: "Нет пар для продольной проверки", count: 1, nextAction: "review_queue" }
       : null,
     needsRecaptureCount > 0
       ? { code: "recapture_required", label: "Нужен переснимок", count: needsRecaptureCount, nextAction: "request_recapture" }
@@ -573,7 +579,7 @@ function buildLocalLongitudinalQaGate({
       }
       : null,
     unreviewedPairCount > 0
-      ? { code: "unreviewed_pairs", label: "Нужен технический review", count: unreviewedPairCount, nextAction: "review_queue" }
+      ? { code: "unreviewed_pairs", label: "Нужен технический разбор", count: unreviewedPairCount, nextAction: "review_queue" }
       : null,
     calibrationBlockedCount > 0
       ? { code: "calibration_not_ready", label: "Калибровка не готова", count: calibrationBlockedCount, nextAction: "complete_calibration" }
@@ -727,7 +733,7 @@ function ComparisonImagePanel({
           </div>
           <div className="min-w-0">
             <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Устройство</dt>
-            <dd className="mt-0.5">{image.deviceId ?? "без устройства"}</dd>
+            <dd className="mt-0.5">{deviceDisplayLabel(image.deviceId)}</dd>
           </div>
           <div className="min-w-0">
             <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Размер</dt>
@@ -1010,17 +1016,17 @@ function ComparisonFullScreenDialog({
       label: "Калибровка",
       done: calibrationReady,
       statusLabel: calibrationReady ? "готова" : "не готова",
-      nextActionLabel: "Закрыть калибровку viewer",
+      nextActionLabel: "Закрыть калибровку просмотра",
       actionLabel: "Открыть калибровку",
       actionHref: "#comparison-calibration",
     },
     {
       key: "technical-review",
-      label: "Тех. review",
+      label: "Тех. разбор",
       done: technicalReviewReady,
-      statusLabel: technicalReviewReady ? "готово" : "нужен review",
-      nextActionLabel: "Зафиксировать технический review",
-      actionLabel: "Открыть technical review",
+      statusLabel: technicalReviewReady ? "готово" : "нужен разбор",
+      nextActionLabel: "Зафиксировать технический разбор",
+      actionLabel: "Открыть технический разбор",
       actionHref: "#comparison-technical-review",
     },
     {
@@ -1028,17 +1034,17 @@ function ComparisonFullScreenDialog({
       label: "Измерения",
       done: measurementPolicyApproved,
       statusLabel: measurementPolicyApproved ? "утверждена" : "ожидает",
-      nextActionLabel: "Утвердить policy измерений",
-      actionLabel: "Открыть policy измерений",
+      nextActionLabel: "Утвердить правила измерений",
+      actionLabel: "Открыть правила измерений",
       actionHref: "#comparison-measurement-policy",
     },
     {
       key: "reviewer",
-      label: "Reviewer",
+      label: "Проверяющий",
       done: reviewerAssigned && secondReviewReady,
       statusLabel: reviewerAssigned ? "назначен" : "ожидает",
-      nextActionLabel: "Назначить reviewer",
-      actionLabel: "Открыть назначение reviewer",
+      nextActionLabel: "Назначить проверяющего",
+      actionLabel: "Открыть назначение проверяющего",
       actionHref: "#comparison-reviewer-assignment",
     },
     {
@@ -1046,8 +1052,8 @@ function ComparisonFullScreenDialog({
       label: "Анализ",
       done: productionAnalysisPolicyApproved,
       statusLabel: productionAnalysisPolicyApproved ? "утверждена" : "выключена",
-      nextActionLabel: "Закрыть analysis policy",
-      actionLabel: "Открыть analysis policy",
+      nextActionLabel: "Закрыть правила анализа",
+      actionLabel: "Открыть правила анализа",
       actionHref: "#comparison-analysis-policy",
     },
   ];
@@ -1063,29 +1069,29 @@ function ComparisonFullScreenDialog({
           : firstCalibrationBlocker
             ? `${firstCalibrationBlocker.label} · ${firstCalibrationBlocker.detail}`
             : !technicalReviewReady
-              ? "Технический review · нажмите «Технически готово»"
+              ? "Технический разбор · нажмите «Технически готово»"
               : !measurementPolicyApproved
-                ? "Policy измерений · нужна technical policy"
+                ? "Правила измерений · нужны технические правила"
                 : !reviewerAssigned
-                  ? "Reviewer · назначьте reviewer"
+                  ? "Проверяющий · назначьте проверяющего"
                   : !secondReviewReady
-                    ? "Second review · закройте второй просмотр"
+                    ? "Повторная проверка · закройте второй просмотр"
                 : !productionAnalysisPolicyApproved
-                  ? "Analysis policy · вывод о динамике остаётся выключен"
+                  ? "Правила анализа · вывод о динамике остаётся выключен"
                   : null;
   const workflowGateItems = [
     {
-      label: "Технический review",
+      label: "Технический разбор",
       ready: technicalReviewReady,
-      detail: technicalReviewReady ? "technical_ready сохранён" : "сначала нажмите «Технически готово»",
+      detail: technicalReviewReady ? "решение сохранено" : "сначала нажмите «Технически готово»",
     },
     {
       label: "Калибровка",
       ready: calibrationReady,
-      detail: calibrationReady ? "calibrated viewer QA готов" : "нужна шкала и mm availability",
+      detail: calibrationReady ? "проверка просмотра готова" : "нужна шкала и доступность миллиметров",
     },
     {
-      label: "Metadata съёмки",
+      label: "Данные съёмки",
       ready: captureReady,
       detail: captureReady ? "условия повторяемы" : "нужна повторяемая съёмка",
     },
@@ -1095,26 +1101,24 @@ function ComparisonFullScreenDialog({
       detail: `маркеры ${geometryMarkers.length}/2`,
     },
     {
-      label: "Policy измерений",
+      label: "Правила измерений",
       ready: measurementPolicyApproved,
-      detail: measurementPolicyApproved ? "technical policy утверждена" : "измерения остаются выключены",
+      detail: measurementPolicyApproved ? "технические правила утверждены" : "измерения остаются выключены",
     },
     {
-      label: "Reviewer assignment",
+      label: "Назначение проверяющего",
       ready: reviewerAssigned,
-      detail: reviewerAssigned ? "reviewer назначен; identity hidden" : "назначьте reviewer",
+      detail: reviewerAssigned ? "проверяющий назначен; личность скрыта" : "назначьте проверяющего",
     },
     {
-      label: "Second review",
+      label: "Повторная проверка",
       ready: secondReviewReady,
-      detail: secondReviewReady ? "не требуется или закрыт" : "нужен second review",
+      detail: secondReviewReady ? "не требуется или закрыта" : "нужна повторная проверка",
     },
     {
-      label: "Analysis policy",
+      label: "Правила анализа",
       ready: productionAnalysisPolicyApproved,
-      detail: productionAnalysisPolicyApproved
-        ? "production policy утверждена"
-        : "вывод о динамике остаётся выключен",
+      detail: productionAnalysisPolicyApproved ? "рабочие правила утверждены" : "вывод о динамике остаётся выключен",
     },
   ];
 
@@ -1390,7 +1394,7 @@ function ComparisonFullScreenDialog({
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Устройства</dt>
-                <dd>{imageA.deviceId ?? "без устройства"} / {imageB.deviceId ?? "без устройства"}</dd>
+                <dd>{deviceDisplayLabel(imageA.deviceId)} / {deviceDisplayLabel(imageB.deviceId)}</dd>
               </div>
             </dl>
 
@@ -1632,19 +1636,19 @@ export default function LesionDetailPage() {
   );
   const protectedReadiness: ProtectedRenderReadinessItem[] = [
     {
-      label: "Self-hosted вход",
+      label: "Вход в систему клиники",
       ready: selfHostedConfigured,
-      detail: selfHostedConfigured ? "сессия настроена" : "нужен вход в self-hosted backend",
+      detail: selfHostedConfigured ? "вход настроен" : "нужен вход в систему клиники",
     },
     {
-      label: "Production UUID",
+      label: "Внутренние коды",
       ready: Boolean(comparePair && isUuid(patient?.id) && isUuid(lesion?.id) && comparePair.every((image) => isUuid(image.id))),
-      detail: "patient, lesion и оба image ID должны быть UUID",
+      detail: "пациент, очаг и снимки должны быть из рабочей системы",
     },
     {
-      label: "Backend proxy",
+      label: "Защищённая передача",
       ready: true,
-      detail: "рендер идёт через `/images/{assetId}/render`",
+      detail: "просмотр идёт через систему клиники",
     },
     {
       label: "Выдача пациенту",
@@ -1802,7 +1806,7 @@ export default function LesionDetailPage() {
     }
 
     setViewerQaStatus("saving");
-    setViewerQaMessage("Viewer QA сохраняется в self-hosted backend.");
+    setViewerQaMessage("Проверка просмотра сохраняется в системе клиники.");
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
       setViewerQaStatus("local_only");
@@ -1817,36 +1821,36 @@ export default function LesionDetailPage() {
     });
     if (result.ok) {
       setViewerQaStatus("saved");
-      setViewerQaMessage("Viewer QA сохранён в self-hosted backend. Выдача пациенту: выключена.");
+      setViewerQaMessage("Проверка просмотра сохранена в системе клиники. Выдача пациенту: выключена.");
     } else {
       setViewerQaStatus("error");
-      setViewerQaMessage(result.error?.message ?? "Viewer QA не сохранён.");
+      setViewerQaMessage(result.error?.message ?? "Проверка просмотра не сохранена.");
     }
   };
 
 	  const reviewViewerQa = async (payload: ViewerQaReviewPayload) => {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setViewerQaReviewStatus("local_only");
-      setViewerQaReviewMessage("Viewer QA review зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewMessage("Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.");
       setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
     if (!selfHostedConfigured) {
       setViewerQaReviewStatus("local_only");
-      setViewerQaReviewMessage("Viewer QA review зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewMessage("Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.");
       setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
       setViewerQaReviewStatus("local_only");
-      setViewerQaReviewMessage("Viewer QA review зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewMessage("Технический разбор просмотра зафиксирован локально. Выдача пациенту: выключена.");
       setViewerQaLatestReviewStatus(payload.reviewStatus);
       return;
     }
 
     setViewerQaReviewStatus("saving");
-    setViewerQaReviewMessage("Viewer QA review сохраняется в self-hosted backend.");
+    setViewerQaReviewMessage("Технический разбор просмотра сохраняется в системе клиники.");
     const saveResult = await saveSelfHostedLesionComparisonViewerQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -1855,7 +1859,7 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setViewerQaReviewStatus("error");
-      setViewerQaReviewMessage(saveResult.error?.message ?? "Viewer QA draft не сохранён перед review.");
+      setViewerQaReviewMessage(saveResult.error?.message ?? "Черновик проверки просмотра не сохранён перед разбором.");
       return;
     }
     const reviewResult = await reviewSelfHostedLesionComparisonViewerQa({
@@ -1872,7 +1876,7 @@ export default function LesionDetailPage() {
     });
     if (reviewResult.ok) {
       setViewerQaReviewStatus("saved");
-      setViewerQaReviewMessage("Viewer QA review сохранён в self-hosted backend. Выдача пациенту: выключена.");
+      setViewerQaReviewMessage("Технический разбор просмотра сохранён в системе клиники. Выдача пациенту: выключена.");
       const persistedReviewStatus = reviewResult.value?.review.status;
       setViewerQaLatestReviewStatus(
         persistedReviewStatus === "technical_ready"
@@ -1883,33 +1887,33 @@ export default function LesionDetailPage() {
       );
     } else {
       setViewerQaReviewStatus("error");
-      setViewerQaReviewMessage(reviewResult.error?.message ?? "Viewer QA review не сохранён.");
+      setViewerQaReviewMessage(reviewResult.error?.message ?? "Технический разбор просмотра не сохранён.");
     }
 	  };
 
   const reviewMeasurementPolicy = async (payload: MeasurementPolicyPayload) => {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setMeasurementPolicyBackendStatus("local_only");
-      setMeasurementPolicyMessage("Policy измерений зафиксирована локально. Измерения остаются выключены.");
+      setMeasurementPolicyMessage("Правила измерений зафиксированы локально. Измерения остаются выключены.");
       setMeasurementPolicyStatus(payload.measurementPolicyStatus);
       return;
     }
     if (!selfHostedConfigured) {
       setMeasurementPolicyBackendStatus("local_only");
-      setMeasurementPolicyMessage("Policy измерений зафиксирована локально. Измерения остаются выключены.");
+      setMeasurementPolicyMessage("Правила измерений зафиксированы локально. Измерения остаются выключены.");
       setMeasurementPolicyStatus(payload.measurementPolicyStatus);
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
       setMeasurementPolicyBackendStatus("local_only");
-      setMeasurementPolicyMessage("Policy измерений зафиксирована локально. Измерения остаются выключены.");
+      setMeasurementPolicyMessage("Правила измерений зафиксированы локально. Измерения остаются выключены.");
       setMeasurementPolicyStatus(payload.measurementPolicyStatus);
       return;
     }
 
     setMeasurementPolicyBackendStatus("saving");
-    setMeasurementPolicyMessage("Policy измерений сохраняется в self-hosted backend.");
+    setMeasurementPolicyMessage("Правила измерений сохраняются в системе клиники.");
     const saveResult = await saveSelfHostedLesionComparisonViewerQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -1918,7 +1922,7 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setMeasurementPolicyBackendStatus("error");
-      setMeasurementPolicyMessage(saveResult.error?.message ?? "Viewer QA draft не сохранён перед policy review.");
+      setMeasurementPolicyMessage(saveResult.error?.message ?? "Черновик проверки просмотра не сохранён перед разбором правил.");
       return;
     }
     const result = await reviewSelfHostedLesionComparisonMeasurementPolicy({
@@ -1936,10 +1940,10 @@ export default function LesionDetailPage() {
     if (result.ok) {
       setMeasurementPolicyBackendStatus("saved");
       setMeasurementPolicyStatus(result.value?.measurementPolicy.status ?? payload.measurementPolicyStatus);
-      setMeasurementPolicyMessage("Policy измерений сохранена в self-hosted backend. Медицинские измерения выключены.");
+      setMeasurementPolicyMessage("Правила измерений сохранены в системе клиники. Медицинские измерения выключены.");
     } else {
       setMeasurementPolicyBackendStatus("error");
-      setMeasurementPolicyMessage(result.error?.message ?? "Policy измерений не сохранена.");
+      setMeasurementPolicyMessage(result.error?.message ?? "Правила измерений не сохранены.");
     }
   };
 
@@ -1950,21 +1954,21 @@ export default function LesionDetailPage() {
       setProductionAnalysisPolicyStatus(payload.productionAnalysisPolicyStatus);
     };
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
-      applyLocal("Analysis policy зафиксирована локально. Вывод о динамике выключен.");
+      applyLocal("Правила анализа зафиксированы локально. Вывод о динамике выключен.");
       return;
     }
     if (!selfHostedConfigured) {
-      applyLocal("Analysis policy зафиксирована локально. Вывод о динамике выключен.");
+      applyLocal("Правила анализа зафиксированы локально. Вывод о динамике выключен.");
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
-      applyLocal("Analysis policy зафиксирована локально. Вывод о динамике выключен.");
+      applyLocal("Правила анализа зафиксированы локально. Вывод о динамике выключен.");
       return;
     }
 
     setProductionAnalysisPolicyBackendStatus("saving");
-    setProductionAnalysisPolicyMessage("Analysis policy сохраняется в self-hosted backend.");
+    setProductionAnalysisPolicyMessage("Правила анализа сохраняются в системе клиники.");
     const saveResult = await saveSelfHostedLesionComparisonViewerQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -1974,7 +1978,7 @@ export default function LesionDetailPage() {
     if (!saveResult.ok) {
       setProductionAnalysisPolicyBackendStatus("error");
       setProductionAnalysisPolicyMessage(
-        saveResult.error?.message ?? "Viewer QA draft не сохранён перед analysis policy.",
+        saveResult.error?.message ?? "Черновик проверки просмотра не сохранён перед правилами анализа.",
       );
       return;
     }
@@ -1996,11 +2000,11 @@ export default function LesionDetailPage() {
         result.value?.productionAnalysisPolicy.status ?? payload.productionAnalysisPolicyStatus,
       );
       setProductionAnalysisPolicyMessage(
-        "Analysis policy сохранена в self-hosted backend. Clinical dynamic conclusion выключен.",
+        "Правила анализа сохранены в системе клиники. Клинический вывод о динамике выключен.",
       );
     } else {
       setProductionAnalysisPolicyBackendStatus("error");
-      setProductionAnalysisPolicyMessage(result.error?.message ?? "Analysis policy не сохранена.");
+      setProductionAnalysisPolicyMessage(result.error?.message ?? "Правила анализа не сохранены.");
     }
   };
 
@@ -2012,21 +2016,21 @@ export default function LesionDetailPage() {
       setSecondReviewStatus(payload.secondReviewStatus);
     };
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
-      applyLocal("Назначение reviewer зафиксировано локально. Identity скрыта.");
+      applyLocal("Назначение проверяющего зафиксировано локально. Личность скрыта.");
       return;
     }
     if (!selfHostedConfigured) {
-      applyLocal("Назначение reviewer зафиксировано локально. Identity скрыта.");
+      applyLocal("Назначение проверяющего зафиксировано локально. Личность скрыта.");
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
-      applyLocal("Назначение reviewer зафиксировано локально. Identity скрыта.");
+      applyLocal("Назначение проверяющего зафиксировано локально. Личность скрыта.");
       return;
     }
 
     setReviewerAssignmentBackendStatus("saving");
-    setReviewerAssignmentMessage("Назначение reviewer сохраняется в self-hosted backend.");
+    setReviewerAssignmentMessage("Назначение проверяющего сохраняется в системе клиники.");
     const saveResult = await saveSelfHostedLesionComparisonViewerQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -2035,7 +2039,7 @@ export default function LesionDetailPage() {
     });
     if (!saveResult.ok) {
       setReviewerAssignmentBackendStatus("error");
-      setReviewerAssignmentMessage(saveResult.error?.message ?? "Viewer QA draft не сохранён перед reviewer assignment.");
+      setReviewerAssignmentMessage(saveResult.error?.message ?? "Черновик проверки просмотра не сохранён перед назначением проверяющего.");
       return;
     }
     const result = await reviewSelfHostedLesionComparisonReviewerAssignment({
@@ -2058,33 +2062,33 @@ export default function LesionDetailPage() {
       setReviewerAssignmentBackendStatus("saved");
       setReviewerAssignmentStatus(result.value?.reviewerAssignment.status ?? payload.assignmentStatus);
       setSecondReviewStatus(result.value?.secondReview.status ?? payload.secondReviewStatus);
-      setReviewerAssignmentMessage("Reviewer assignment сохранён в self-hosted backend. Identity скрыта.");
+      setReviewerAssignmentMessage("Назначение проверяющего сохранено в системе клиники. Личность скрыта.");
     } else {
       setReviewerAssignmentBackendStatus("error");
-      setReviewerAssignmentMessage(result.error?.message ?? "Reviewer assignment не сохранён.");
+      setReviewerAssignmentMessage(result.error?.message ?? "Назначение проверяющего не сохранено.");
     }
   };
 
   const reviewReviewerWorkflow = async (payload: ViewerQaReviewerWorkflowPayload) => {
     if (!selectedPairDraftKey || !comparePair || !latestVisit) {
       setViewerQaReviewerWorkflowStatus("local_only");
-      setViewerQaReviewerWorkflowMessage("Reviewer workflow зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewerWorkflowMessage("Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.");
       return;
     }
     if (!selfHostedConfigured) {
       setViewerQaReviewerWorkflowStatus("local_only");
-      setViewerQaReviewerWorkflowMessage("Reviewer workflow зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewerWorkflowMessage("Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.");
       return;
     }
     const apiPayload = viewerQaApiPayload(payload);
     if (!apiPayload) {
       setViewerQaReviewerWorkflowStatus("local_only");
-      setViewerQaReviewerWorkflowMessage("Reviewer workflow зафиксирован локально. Выдача пациенту: выключена.");
+      setViewerQaReviewerWorkflowMessage("Врачебный порядок проверки зафиксирован локально. Выдача пациенту: выключена.");
       return;
     }
 
     setViewerQaReviewerWorkflowStatus("saving");
-    setViewerQaReviewerWorkflowMessage("Reviewer workflow сохраняется в self-hosted backend.");
+    setViewerQaReviewerWorkflowMessage("Врачебный порядок проверки сохраняется в системе клиники.");
     const result = await reviewSelfHostedLesionComparisonViewerQaReviewerWorkflow({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -2101,12 +2105,12 @@ export default function LesionDetailPage() {
       setViewerQaReviewerWorkflowStatus("saved");
       setViewerQaReviewerWorkflowMessage(
         result.value?.reviewerWorkflow.status === "technical_gate_blocked"
-          ? "Reviewer workflow заблокирован backend gate. Выдача пациенту: выключена."
-          : "Reviewer workflow сохранён в self-hosted backend. Выдача пациенту: выключена.",
+          ? "Врачебный порядок проверки заблокирован системой клиники. Выдача пациенту: выключена."
+          : "Врачебный порядок проверки сохранён в системе клиники. Выдача пациенту: выключена.",
       );
     } else {
       setViewerQaReviewerWorkflowStatus("error");
-      setViewerQaReviewerWorkflowMessage(result.error?.message ?? "Reviewer workflow не сохранён.");
+      setViewerQaReviewerWorkflowMessage(result.error?.message ?? "Врачебный порядок проверки не сохранён.");
     }
   };
 
@@ -2126,12 +2130,12 @@ export default function LesionDetailPage() {
     }
     if (!latestVisit || !selfHostedConfigured) {
       setComparisonBackendStatus("local_only");
-      setComparisonBackendMessage("Backend audit не отправлен: self-hosted backend не подключён.");
+      setComparisonBackendMessage("Журнал проверки не отправлен: система клиники не подключена.");
       return;
     }
 
     setComparisonBackendStatus("saving");
-    setComparisonBackendMessage("Backend audit сохраняется.");
+    setComparisonBackendMessage("Журнал проверки сохраняется.");
     const result = await saveSelfHostedLesionComparisonDraft({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -2147,10 +2151,10 @@ export default function LesionDetailPage() {
     });
     if (result.ok) {
       setComparisonBackendStatus("saved");
-      setComparisonBackendMessage("Backend audit сохранён в self-hosted backend.");
+      setComparisonBackendMessage("Журнал проверки сохранён в системе клиники.");
     } else {
       setComparisonBackendStatus("error");
-      setComparisonBackendMessage(result.error?.message ?? "Backend audit не сохранён.");
+      setComparisonBackendMessage(result.error?.message ?? "Журнал проверки не сохранён.");
     }
   };
 
@@ -2168,17 +2172,17 @@ export default function LesionDetailPage() {
     if (!comparePair) return;
     if (!selfHostedConfigured) {
       setProtectedRenderStatus("error");
-      setProtectedRenderMessage("Self-hosted backend не подключён.");
+      setProtectedRenderMessage("Система клиники не подключена.");
       return;
     }
     if (!canLoadProtectedImages) {
       setProtectedRenderStatus("error");
-      setProtectedRenderMessage("Защищённые превью доступны только для production self-hosted UUID-снимков.");
+      setProtectedRenderMessage("Защищённые превью доступны только для рабочих снимков из системы клиники.");
       return;
     }
 
     setProtectedRenderStatus("loading");
-    setProtectedRenderMessage("Загрузка через backend proxy.");
+    setProtectedRenderMessage("Загрузка через систему клиники.");
     const results = await Promise.all(comparePair.map((image) =>
       downloadSelfHostedProtectedLesionImage({
         apiBaseUrl: selfHostedSession.apiBaseUrl,
@@ -2205,18 +2209,18 @@ export default function LesionDetailPage() {
       return next;
     });
     setProtectedRenderStatus("ready");
-    setProtectedRenderMessage("Защищённые превью загружены через backend proxy. Выдача пациенту: выключена.");
+    setProtectedRenderMessage("Защищённые превью загружены через систему клиники. Выдача пациенту: выключена.");
   };
 
   const refreshProductionLongitudinalQa = async () => {
     if (!canRefreshLongitudinalQa) {
       setLongitudinalQaLoadStatus("error");
-      setLongitudinalQaMessage("Production QA доступен только для self-hosted UUID-карточки.");
+      setLongitudinalQaMessage("Рабочая проверка доступна только для карточки из системы клиники.");
       return;
     }
 
     setLongitudinalQaLoadStatus("loading");
-    setLongitudinalQaMessage("Production QA обновляется из self-hosted backend.");
+    setLongitudinalQaMessage("Рабочая проверка обновляется из системы клиники.");
     const result = await getSelfHostedLesionLongitudinalQa({
       apiBaseUrl: selfHostedSession.apiBaseUrl,
       apiToken: selfHostedSession.apiToken,
@@ -2226,10 +2230,10 @@ export default function LesionDetailPage() {
     if (result.ok && result.value) {
       setProductionLongitudinalQa(result.value);
       setLongitudinalQaLoadStatus("loaded");
-      setLongitudinalQaMessage("Production QA обновлён. Выдача пациенту: выключена.");
+      setLongitudinalQaMessage("Рабочая проверка обновлена. Выдача пациенту: выключена.");
     } else {
       setLongitudinalQaLoadStatus("error");
-      setLongitudinalQaMessage(result.error?.message ?? "Production QA не обновлён.");
+      setLongitudinalQaMessage(result.error?.message ?? "Рабочая проверка не обновлена.");
     }
   };
 
@@ -2290,7 +2294,7 @@ export default function LesionDetailPage() {
                   <button
                     type="button"
                     onClick={() => setMapOpen(true)}
-                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-primary hover:underline focus:outline-none focus-visible:underline"
+                    className="mt-1 inline-flex min-h-[44px] items-center gap-1 text-[11px] text-primary hover:underline focus:outline-none focus-visible:underline sm:min-h-[32px]"
                   >
                     <Maximize2 className="h-3 w-3" aria-hidden /> Открыть карту
                   </button>
@@ -2298,9 +2302,9 @@ export default function LesionDetailPage() {
               </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">ID очага</div>
-              <div className="mt-1 font-mono text-[13px]">{lesion.id}</div>
-              <div className="text-[12px] text-muted-foreground">Один ID: карта, снимки, отчёт</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Связь данных</div>
+              <div className="mt-1 text-[13px]">Карта, снимки и отчёт связаны</div>
+              <div className="text-[12px] text-muted-foreground">Служебный код скрыт</div>
             </div>
             <div>
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Статус</div>
@@ -2326,7 +2330,11 @@ export default function LesionDetailPage() {
 
         {longitudinalGroups.length > 0 && (
           <>
-            <LongitudinalHistorySection groups={longitudinalGroups} pairs={longitudinalPairs} />
+            <LongitudinalHistorySection
+              groups={longitudinalGroups}
+              pairs={longitudinalPairs}
+              formatDevice={deviceDisplayLabel}
+            />
             <LongitudinalQaGateSection
               qa={activeLongitudinalQa}
               canRefresh={canRefreshLongitudinalQa}
@@ -2373,7 +2381,7 @@ export default function LesionDetailPage() {
                       {IMAGE_KIND[img.kind]} · {IMAGE_SOURCE[img.source]}
                     </div>
                     <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      {img.deviceId ?? "без устройства"}
+                      {deviceDisplayLabel(img.deviceId)}
                     </div>
                     <span className={`mt-1 inline-flex rounded-sm border px-1.5 py-0.5 text-[11px] ${imageQualityTone(img)}`}>
                       {imageQualityLabel(img)}
@@ -2390,7 +2398,7 @@ export default function LesionDetailPage() {
               <div className="mt-1 flex flex-wrap gap-1 text-[11px] text-muted-foreground">
                 {compareImages.map((img) => (
                   <span key={img.id} className="rounded-sm border border-border bg-background px-1.5 py-0.5">
-                    {formatDate(img.capturedAt)} · {img.deviceId ?? "без устройства"} · {IMAGE_KIND[img.kind]}
+                    {formatDate(img.capturedAt)} · {deviceDisplayLabel(img.deviceId)} · {IMAGE_KIND[img.kind]}
                   </span>
                 ))}
               </div>
@@ -2511,10 +2519,10 @@ export default function LesionDetailPage() {
                           Черновик решения врача
                         </div>
                         <p className="mt-1 text-[12px]">
-                          Сохраняется локально: ID пары, технический статус, причины и выбранное действие.
+                          Сохраняется локально: служебный код пары, технический статус, причины и выбранное действие.
                         </p>
                         <p className="mt-1 text-[11px] text-muted-foreground">
-                          Выдача пациенту: выключена · backend audit: только self-hosted metadata · защищённые поля скрыты.
+                          Выдача пациенту: выключена · журнал клиники: только служебные метки · защищённые поля скрыты.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -2546,7 +2554,7 @@ export default function LesionDetailPage() {
                         Пара: {imageDisplayLabel(compareImages[0], "A")} + {imageDisplayLabel(compareImages[1], "B")}
                       </span>
                       <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
-                        Внутренние ID снимков скрыты
+                        Внутренние коды снимков скрыты
                       </span>
                       <span className="rounded-sm border border-border bg-background px-1.5 py-0.5">
                         {selectedPairIsComparable ? "Сопоставимо" : "Не сопоставимо"}
@@ -2621,7 +2629,7 @@ export default function LesionDetailPage() {
                       </div>
                       <div className="text-[12px] text-muted-foreground">
                         {formatDateTime(img.capturedAt)}
-                        {img.deviceId && <> · устройство {img.deviceId}</>}
+                        <> · {deviceDisplayLabel(img.deviceId)}</>
                         {v && <> · визит {formatDate(v.startedAt)} ({VISIT_STATUS[v.status]})</>}
                       </div>
                       <div className="text-[12px] text-muted-foreground">
@@ -2694,21 +2702,21 @@ export default function LesionDetailPage() {
                   <li key={a.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                        <span className="font-medium tabular-nums">{a.id}</span>
-                        <span className="text-muted-foreground">{formatDateTime(a.decidedAt)}</span>
+                        <span className="font-medium">Оценка врача</span>
+                        <span className="text-muted-foreground tabular-nums">{formatDateTime(a.decidedAt)}</span>
                         <RiskBadge level={a.aiSupport.riskLevel} />
                         <span className="text-[11px] text-muted-foreground">
-                          AI · уверенность {(a.aiSupport.confidence * 100).toFixed(0)}%
+                          Подсказка системы · уверенность {(a.aiSupport.confidence * 100).toFixed(0)}%
                         </span>
                       </div>
                       <div className="mt-1 text-[12px] text-muted-foreground">
-                        ABCD/TDS: <span className="tabular-nums">{a.abcd.total.toFixed(1)}</span>
-                        {" · "}7-point: <span className="tabular-nums">{a.sevenPoint.total}</span>
+                        Оценка ABCD: <span className="tabular-nums">{a.abcd.total.toFixed(1)}</span>
+                        {" · "}7 признаков: <span className="tabular-nums">{a.sevenPoint.total}</span>
                         {v && <> · {clinic} · {VISIT_STATUS[v.status]}</>}
                       </div>
                       <p className="mt-1 text-[13px]">{a.doctorConclusion}</p>
                       <p className="text-[12px] text-muted-foreground">План: {a.followUpPlan}</p>
-                      <p className="mt-1 text-[11px] italic text-muted-foreground">{a.aiSupport.disclaimer}</p>
+                      <p className="mt-1 text-[11px] italic text-muted-foreground">{systemHintDisclaimer(a.aiSupport.disclaimer)}</p>
                     </div>
                     {v && (
                       <Button asChild size="sm" variant="outline" className="shrink-0 min-h-[44px] sm:min-h-[32px]">
@@ -2773,8 +2781,8 @@ export default function LesionDetailPage() {
         protectedRenderMessage={
           protectedRenderMessage ||
           (selfHostedConfigured
-            ? "Для mock ID превью недоступны; production UUID-снимки рендерятся через backend proxy."
-            : "Self-hosted backend не подключён; доступны только параметры снимка.")
+            ? "Для демо-кодов превью недоступны; рабочие снимки открываются через систему клиники."
+            : "Система клиники не подключена; доступны только параметры снимка.")
         }
         protectedImageUrls={protectedImageUrls}
         onLoadProtectedImages={loadProtectedImagePreviews}

@@ -27,8 +27,8 @@ export type ReviewerWorkflowGateItem = {
 };
 
 const WORKFLOW_LABEL: Record<ReviewerWorkflowStatus, string> = {
-  reviewer_accepted: "Reviewer workflow принят",
-  reviewer_rejected: "Reviewer workflow отклонён",
+  reviewer_accepted: "Порядок проверки принят",
+  reviewer_rejected: "Порядок проверки отклонён",
 };
 
 export function ComparisonProtectedPreviewPanel({
@@ -49,7 +49,7 @@ export function ComparisonProtectedPreviewPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Protected image proxy
+            Защищённая передача снимков
           </div>
           <div className="text-[12px] font-medium">Защищённые превью врача</div>
         </div>
@@ -66,15 +66,15 @@ export function ComparisonProtectedPreviewPanel({
         </Button>
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        Только backend proxy: без signed URL, пути хранилища и выдачи пациенту.
+        Снимки открываются только через систему клиники: без временных ссылок, путей хранения и выдачи пациенту.
       </p>
       <div
         role="region"
-        aria-label="Готовность protected rendering"
+        aria-label="Готовность закрытого просмотра"
         className="mt-2 grid gap-1 rounded-sm border border-border bg-background p-2"
       >
         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          Готовность protected rendering
+          Готовность закрытого просмотра
         </div>
         {readiness.map((item) => (
           <div key={item.label} className="flex min-w-0 items-start gap-1.5 text-[11px]">
@@ -132,12 +132,12 @@ export function ComparisonMeasurementPolicyPanel({
           <div className="text-[12px] font-medium">{statusLabel}</div>
         </div>
         <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          mm disabled
+          миллиметры выключены
         </span>
       </div>
       <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-        <span>Policy разрешает только technical reviewer workflow.</span>
-        <span>Измерения остаются выключены: нет мм, площади, клинического размера или вывода о динамике.</span>
+        <span>Правила разрешают только технический порядок врачебной проверки.</span>
+        <span>Измерения остаются выключены: нет миллиметров, площади, клинического размера или вывода о динамике.</span>
         <span>Выдача пациенту: выключена</span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
@@ -149,7 +149,7 @@ export function ComparisonMeasurementPolicyPanel({
           disabled={backendStatus === "saving" || approveDisabled}
           onClick={() => onReview("approved_for_technical_review")}
         >
-          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Утвердить technical policy
+          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Утвердить технические правила
         </Button>
         <Button
           type="button"
@@ -159,7 +159,7 @@ export function ComparisonMeasurementPolicyPanel({
           disabled={backendStatus === "saving"}
           onClick={() => onReview("review_required")}
         >
-          <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Нужен разбор policy
+          <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Нужен разбор правил
         </Button>
       </div>
       {message && (
@@ -195,26 +195,26 @@ export function ComparisonReviewerAssignmentPanel({
     <section
       role="region"
       id="comparison-reviewer-assignment"
-      aria-label="Назначение reviewer"
+      aria-label="Назначение проверяющего"
       className="mt-2 rounded-md border border-border bg-muted/20 p-2"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Назначение reviewer
+            Назначение проверяющего
           </div>
           <div className="text-[12px] font-medium">
             {assignmentStatusLabel} · {secondReviewStatusLabel}
           </div>
         </div>
         <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          identity hidden
+          личность скрыта
         </span>
       </div>
       <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-        <span>UUID reviewer используется только backend как write-only payload.</span>
-        <span>Имена, контакты reviewer и идентификаторы пары не выводятся в UI/audit.</span>
-        <span>Выдача пациенту: выключена · medical measurement: выключен</span>
+        <span>Внутренний код проверяющего уходит только в систему клиники.</span>
+        <span>Имена, контакты проверяющего и идентификаторы пары не выводятся на экран.</span>
+        <span>Выдача пациенту: выключена · медицинские измерения выключены</span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
         <Button
@@ -225,7 +225,7 @@ export function ComparisonReviewerAssignmentPanel({
           disabled={backendStatus === "saving" || disabled}
           onClick={() => onAssign("primary")}
         >
-          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Назначить reviewer
+          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Назначить проверяющего
         </Button>
         <Button
           type="button"
@@ -235,7 +235,7 @@ export function ComparisonReviewerAssignmentPanel({
           disabled={backendStatus === "saving" || disabled}
           onClick={() => onAssign("second_required")}
         >
-          <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Потребовать second review
+          <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Потребовать повторную проверку
         </Button>
         <Button
           type="button"
@@ -245,7 +245,7 @@ export function ComparisonReviewerAssignmentPanel({
           disabled={backendStatus === "saving" || disabled}
           onClick={() => onAssign("second_completed")}
         >
-          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Second review завершён
+          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Повторная проверка завершена
         </Button>
       </div>
       {message && (
@@ -279,24 +279,24 @@ export function ComparisonAnalysisPolicyPanel({
     <section
       role="region"
       id="comparison-analysis-policy"
-      aria-label="Production analysis policy"
+      aria-label="Правила рабочего анализа"
       className="mt-2 rounded-md border border-border bg-muted/20 p-2"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Production analysis policy
+            Правила рабочего анализа
           </div>
           <div className="text-[12px] font-medium">{statusLabel}</div>
         </div>
         <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          no dynamic output
+          вывод выключен
         </span>
       </div>
       <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-        <span>Policy разрешает только production-readiness gate, не вывод о динамике.</span>
-        <span>Clinical dynamic conclusion: выключен · выдача пациенту: выключена</span>
-        <span>Сначала должны быть закрыты technical policy, reviewer assignment и second review.</span>
+        <span>Правила разрешают только рабочую готовность, не вывод о динамике.</span>
+        <span>Клинический вывод о динамике: выключен · выдача пациенту: выключена</span>
+        <span>Сначала должны быть закрыты технические правила, назначение проверяющего и повторная проверка.</span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
         <Button
@@ -307,7 +307,7 @@ export function ComparisonAnalysisPolicyPanel({
           disabled={backendStatus === "saving" || approveDisabled}
           onClick={() => onReview("approved_for_production_analysis")}
         >
-          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Утвердить analysis policy
+          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Утвердить правила анализа
         </Button>
         <Button
           type="button"
@@ -317,7 +317,7 @@ export function ComparisonAnalysisPolicyPanel({
           disabled={backendStatus === "saving"}
           onClick={() => onReview("review_required")}
         >
-          <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Нужен разбор analysis policy
+          <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Нужен разбор правил анализа
         </Button>
       </div>
       {message && (
@@ -351,20 +351,20 @@ export function ComparisonWorkflowGatePanel({
     <section
       role="region"
       id="comparison-workflow-gate"
-      aria-label="Clinical-grade reviewer workflow"
+      aria-label="Врачебный порядок проверки"
       className="mt-2 rounded-md border border-border bg-muted/20 p-2"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Clinical-grade reviewer workflow
+            Врачебный порядок проверки
           </div>
           <div className="text-[12px] font-medium">
-            Reviewer gate: {ready ? "готов" : "заблокирован"}
+            Проверка: {ready ? "готова" : "заблокирована"}
           </div>
         </div>
         <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          no patient delivery
+          без выдачи пациенту
         </span>
       </div>
       <div className="mt-2 grid gap-1.5">
@@ -405,7 +405,7 @@ export function ComparisonWorkflowGatePanel({
         </Button>
       </div>
       <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-        <span>Workflow подтверждает только готовность к врачебному просмотру.</span>
+        <span>Порядок подтверждает только готовность к врачебному просмотру.</span>
         <span>Не диагноз, не динамика, не медицинское измерение.</span>
         <span>Выдача пациенту: выключена</span>
       </div>

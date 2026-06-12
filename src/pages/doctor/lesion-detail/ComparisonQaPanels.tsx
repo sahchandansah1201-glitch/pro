@@ -122,7 +122,7 @@ export function ComparisonGeometryPanel({
           <div className="text-[12px] font-medium">Маркеры: {markers.length}/2</div>
         </div>
         <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          normalized
+          проценты кадра
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
@@ -188,13 +188,13 @@ export function ComparisonCalibrationPanel({
     <section
       role="region"
       id="comparison-calibration"
-      aria-label="Калибровка viewer"
+      aria-label="Калибровка просмотра"
       className="mt-2 rounded-md border border-border bg-muted/20 p-2"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Калибровка viewer
+            Калибровка просмотра
           </div>
           <div className="text-[12px] font-medium">
             Калибровка: {ready ? "готова" : "не готова"}
@@ -231,7 +231,7 @@ export function ComparisonCalibrationPanel({
         ))}
       </div>
       <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-        <span>Измерения в мм недоступны</span>
+        <span>Измерения в миллиметрах недоступны</span>
         <span>Не используйте маркеры как размер очага</span>
         <span>Выдача пациенту: выключена</span>
       </div>
@@ -271,18 +271,18 @@ export function ComparisonTechnicalReviewPanel({
     <section
       role="region"
       id="comparison-technical-review"
-      aria-label="Технический review viewer QA"
+      aria-label="Технический разбор просмотра"
       className="mt-2 rounded-md border border-border bg-muted/20 p-2"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Технический review viewer QA
+            Технический разбор просмотра
           </div>
           <div className="text-[12px] font-medium">Решение по паре снимков</div>
         </div>
         <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          metadata-only
+          служебные метки
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
@@ -319,7 +319,7 @@ export function ComparisonTechnicalReviewPanel({
       </div>
       <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
         <span>Решение техническое: не диагноз, не динамика, не измерение.</span>
-        <span>Сначала сохраняется viewer QA draft, затем review audit.</span>
+        <span>Сначала сохраняется черновик проверки просмотра, затем журнал разбора.</span>
         <span>Выдача пациенту: выключена</span>
       </div>
       {message && (

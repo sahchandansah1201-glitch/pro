@@ -50,38 +50,41 @@ const LONGITUDINAL_PAIR_LABEL: Record<LongitudinalPairStatus, string> = {
 
 const LONGITUDINAL_QA_STATUS_LABEL: Record<SelfHostedLesionLongitudinalQaDTO["readiness"]["status"], string> = {
   blocked: "Динамика заблокирована",
-  needs_review: "Нужен технический review",
-  technical_ready: "Технический gate готов",
+  needs_review: "Нужен технический разбор",
+  technical_ready: "Техническая проверка готова",
 };
 
 const LONGITUDINAL_QA_ACTION_LABEL: Record<SelfHostedLesionLongitudinalQaAction, string> = {
-  review_queue: "Разобрать очередь viewer QA",
+  review_queue: "Разобрать очередь снимков",
   request_recapture: "Запросить переснимок",
-  verify_production_asset: "Проверить production assets",
+  verify_production_asset: "Проверить рабочие снимки",
   exclude_from_dynamic_review: "Исключить из динамического разбора",
-  complete_capture_metadata: "Дозаполнить metadata съёмки",
-  complete_device_metadata: "Дозаполнить device metadata",
-  check_device_bridge: "Проверить Device Bridge",
+  complete_capture_metadata: "Дозаполнить данные съёмки",
+  complete_device_metadata: "Дозаполнить данные устройства",
+  check_device_bridge: "Проверить связь с устройством",
   complete_capture_protocol: "Дозаполнить протокол съёмки",
   complete_calibration: "Закрыть калибровку",
   place_markers: "Поставить технические маркеры",
-  approve_measurement_policy: "Утвердить policy измерений",
-  approve_production_analysis_policy: "Утвердить analysis policy",
-  assign_reviewer: "Назначить reviewer",
-  complete_second_review: "Закрыть second review",
+  approve_measurement_policy: "Утвердить правила измерений",
+  approve_production_analysis_policy: "Утвердить правила анализа",
+  assign_reviewer: "Назначить проверяющего",
+  complete_second_review: "Закрыть повторную проверку",
   continue_review: "Продолжить врачебный разбор",
 };
 
 const compactList = (values: string[]) => (values.length > 0 ? values.join(", ") : "—");
 
 const imageDisplayLabel = (image: ClinicalImage) => `Снимок ${formatDate(image.capturedAt)}`;
+const defaultDeviceLabel = (deviceId: string | null | undefined) => (deviceId ? "устройство указано" : "без устройства");
 
 export function LongitudinalHistorySection({
   groups,
   pairs,
+  formatDevice = defaultDeviceLabel,
 }: {
   groups: LongitudinalVisitGroup[];
   pairs: LongitudinalPair[];
+  formatDevice?: (deviceId: string | null | undefined) => string;
 }) {
   const totalImages = groups.reduce((count, group) => count + group.images.length, 0);
   const comparablePairs = pairs.filter((pair) => pair.status !== "blocked").length;
@@ -94,7 +97,7 @@ export function LongitudinalHistorySection({
           <div className="min-w-0">
             <h2 className="text-[13px] font-semibold">Продольная история очага</h2>
             <p className="mt-0.5 text-[12px] text-muted-foreground">
-              Технический обзор снимков одного ID между визитами. Не является оценкой динамики или клиническим выводом.
+              Технический обзор снимков одного очага между визитами. Не является оценкой динамики или клиническим выводом.
             </p>
           </div>
           <span className="rounded-sm border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
@@ -128,8 +131,8 @@ export function LongitudinalHistorySection({
               {groups.map((group) => (
                 <li key={group.visitId} className="grid gap-1 py-2 text-[12px] sm:grid-cols-[120px_minmax(0,1fr)]">
                   <div className="min-w-0">
-                    <div className="font-mono text-[12px]">{group.visitId}</div>
-                    <div className="text-[11px] text-muted-foreground">{formatDate(group.date)}</div>
+                    <div className="font-medium text-[12px]">Визит {formatDate(group.date)}</div>
+                    <div className="text-[11px] text-muted-foreground">служебный код скрыт</div>
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap gap-1 text-[11px]">
@@ -168,7 +171,7 @@ export function LongitudinalHistorySection({
                           {imageDisplayLabel(pair.previousImage)} → {imageDisplayLabel(pair.currentImage)}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          {formatDate(pair.previous.date)} → {formatDate(pair.current.date)} · {IMAGE_KIND[pair.currentImage.kind]} · {pair.currentImage.deviceId ?? "без устройства"}
+                          {formatDate(pair.previous.date)} → {formatDate(pair.current.date)} · {IMAGE_KIND[pair.currentImage.kind]} · {formatDevice(pair.currentImage.deviceId)}
                         </div>
                       </div>
                       <span
@@ -228,12 +231,12 @@ export function LongitudinalQaGateSection({
 
   return (
     <Card className="p-3 sm:p-4">
-      <section aria-label="Готовность продольного QA">
+      <section aria-label="Готовность продольной проверки">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h2 className="text-[13px] font-semibold">Готовность продольного QA</h2>
+            <h2 className="text-[13px] font-semibold">Готовность продольной проверки</h2>
             <p className="mt-0.5 text-[12px] text-muted-foreground">
-              Metadata-only gate перед любым разбором динамики. Не создаёт вывод о динамике.
+              Техническая проверка перед любым разбором динамики. Не создаёт вывод о динамике.
             </p>
           </div>
           <span
@@ -266,32 +269,32 @@ export function LongitudinalQaGateSection({
             <div className="text-[11px] text-muted-foreground">Не использовать: {readiness.notSuitableForComparisonCount}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Metadata</div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Данные</div>
             <div className="mt-1 font-medium">Не хватает: {readiness.missingCaptureMetadataCount}</div>
-            <div className="text-[11px] text-muted-foreground">Device: {readiness.deviceEvidenceNotReadyCount}</div>
+            <div className="text-[11px] text-muted-foreground">Устройство: {readiness.deviceEvidenceNotReadyCount}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Assets</div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Снимки</div>
             <div className="mt-1 font-medium">Проверить: {readiness.productionAssetNotReadyCount}</div>
-            <div className="text-[11px] text-muted-foreground">Proxy-ready gate</div>
+            <div className="text-[11px] text-muted-foreground">Доступ через клинику</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Bridge</div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Связь</div>
             <div className="mt-1 font-medium">Проверить: {readiness.deviceBridgeQualityNotReadyCount}</div>
-            <div className="text-[11px] text-muted-foreground">Review: {readiness.unreviewedPairCount}</div>
+            <div className="text-[11px] text-muted-foreground">Разбор: {readiness.unreviewedPairCount}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Protocol</div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Протокол</div>
             <div className="mt-1 font-medium">Проверить: {readiness.captureProtocolNotReadyCount}</div>
             <div className="text-[11px] text-muted-foreground">Протокол съёмки</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Policy</div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Правила</div>
             <div className="mt-1 font-medium">Проверить: {readiness.measurementPolicyNotReadyCount}</div>
             <div className="text-[11px] text-muted-foreground">Измерения выключены</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-[12px]">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Analysis</div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Анализ</div>
             <div className="mt-1 font-medium">Проверить: {readiness.productionAnalysisPolicyNotReadyCount}</div>
             <div className="text-[11px] text-muted-foreground">Динамика выключена</div>
           </div>
@@ -304,9 +307,9 @@ export function LongitudinalQaGateSection({
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)]">
           <div className="min-w-0 rounded-md border border-border bg-background p-2">
-            <h3 className="text-[12px] font-semibold">Блокеры production QA</h3>
+            <h3 className="text-[12px] font-semibold">Блокеры рабочей проверки</h3>
             {qa.blockers.length === 0 ? (
-              <p className="mt-2 text-[12px] text-muted-foreground">Блокеров technical gate нет. Клинический вывод всё равно не создаётся.</p>
+              <p className="mt-2 text-[12px] text-muted-foreground">Блокеров рабочей проверки нет. Клинический вывод всё равно не создаётся.</p>
             ) : (
               <ul className="mt-2 space-y-1.5">
                 {qa.blockers.map((blocker) => (
@@ -339,7 +342,7 @@ export function LongitudinalQaGateSection({
               disabled={!canRefresh || loadStatus === "loading"}
             >
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-              Обновить production QA
+              Обновить рабочую проверку
             </Button>
             {message && <p className="mt-2 text-[12px] text-muted-foreground">{message}</p>}
           </div>
@@ -351,7 +354,7 @@ export function LongitudinalQaGateSection({
         >
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>
-            Вывод о динамике: выключен. Выдача пациенту: выключена. Медицинские измерения и клинические заключения доступны только после отдельного врачебного workflow.
+            Вывод о динамике: выключен. Выдача пациенту: выключена. Медицинские измерения и клинические заключения доступны только после отдельного врачебного порядка.
           </span>
         </p>
       </section>

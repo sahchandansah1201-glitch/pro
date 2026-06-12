@@ -53,8 +53,8 @@ describe("LesionDetailPage", () => {
     expect(document.querySelector('[data-image-id="i-011"]')).toBeTruthy();
     expect(document.querySelector('[data-image-id="i-012"]')).toBeTruthy();
     expect(screen.getAllByText(/Снимок 09\.03\.2026/).length).toBeGreaterThan(0);
-    // оценка a-005
-    expect(screen.getByText("a-005")).toBeInTheDocument();
+    expect(screen.getByText("Оценка врача")).toBeInTheDocument();
+    expect(screen.queryByText("a-005")).toBeNull();
     // ссылка на визит
     const link = screen.getAllByRole("link", { name: /визит/i }).find((a) =>
       a.getAttribute("href")?.includes("/patients/p-004/visits/v-005"),
@@ -71,8 +71,9 @@ describe("LesionDetailPage", () => {
     expect(within(history).getByText(/Снимков: 4/)).toBeInTheDocument();
     expect(within(history).getByText(/Сопоставимых пар: 1/)).toBeInTheDocument();
     expect(within(history).getByText(/Ограничений: 1/)).toBeInTheDocument();
-    expect(within(history).getByText(/v-011/)).toBeInTheDocument();
-    expect(within(history).getByText(/v-005/)).toBeInTheDocument();
+    expect(within(history).getByText(/Визит 20\.02\.2026/)).toBeInTheDocument();
+    expect(within(history).getByText(/Визит 09\.03\.2026/)).toBeInTheDocument();
+    expect(history.textContent ?? "").not.toMatch(/\bv-011\b|\bv-005\b/);
     expect(within(history).getAllByText(/Снимок 20\.02\.2026 → Снимок 09\.03\.2026/).length).toBeGreaterThan(0);
     expect(within(history).getByText(/Сопоставимо с предупреждением/)).toBeInTheDocument();
     expect(within(history).getByText(/Не сопоставимо/)).toBeInTheDocument();
@@ -85,7 +86,7 @@ describe("LesionDetailPage", () => {
   it("shows a longitudinal QA gate before dynamic interpretation", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
-    const qaGate = screen.getByRole("region", { name: /Готовность продольного QA/ });
+    const qaGate = screen.getByRole("region", { name: /Готовность продольной проверки/ });
     expect(within(qaGate).getByText(/Динамика заблокирована/)).toBeInTheDocument();
     expect(within(qaGate).getByText(/Технически готово/)).toBeInTheDocument();
     expect(within(qaGate).getByText(/Нужен переснимок/)).toBeInTheDocument();
@@ -96,7 +97,7 @@ describe("LesionDetailPage", () => {
     );
   });
 
-  it("loads production longitudinal QA gate from self-hosted backend without protected identifiers", async () => {
+  it("loads longitudinal readiness gate from clinic system without protected identifiers", async () => {
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
     window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
     const fetchMock = vi.fn(async () =>
@@ -144,11 +145,11 @@ describe("LesionDetailPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAt(`/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}`);
 
-    const qaGate = screen.getByRole("region", { name: /Готовность продольного QA/ });
-    fireEvent.click(within(qaGate).getByRole("button", { name: /Обновить production QA/ }));
+    const qaGate = screen.getByRole("region", { name: /Готовность продольной проверки/ });
+    fireEvent.click(within(qaGate).getByRole("button", { name: /Обновить рабочую проверку/ }));
 
-    expect(await within(qaGate).findByText(/Production QA обновлён/)).toBeInTheDocument();
-    expect(within(qaGate).getByText(/Технический gate готов/)).toBeInTheDocument();
+    expect(await within(qaGate).findByText(/Рабочая проверка обновлена/)).toBeInTheDocument();
+    expect(within(qaGate).getByText(/Техническая проверка готова/)).toBeInTheDocument();
     expect(within(qaGate).getByText(/Вывод о динамике: выключен/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       `http://localhost:3001/api/v1/patients/${PROTECTED_RENDER_QA_IDS.patientId}/lesions/${PROTECTED_RENDER_QA_IDS.lesionId}/longitudinal-qa`,
@@ -195,13 +196,15 @@ describe("LesionDetailPage", () => {
     expect(compareBtn).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("показывает stable lesion ID, date strip и предупреждение о несопоставимых снимках", () => {
+  it("показывает связь данных, ленту дат и предупреждение о несопоставимых снимках", () => {
     renderAt("/patients/p-004/lesions/l-008");
 
-    expect(screen.getByText(/ID очага/)).toBeInTheDocument();
-    expect(screen.getByText("l-008")).toBeInTheDocument();
+    expect(screen.getByText(/Связь данных/)).toBeInTheDocument();
+    expect(screen.getByText(/Карта, снимки и отчёт связаны/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Служебный код скрыт/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText("l-008")).toBeNull();
     expect(screen.getByText(/Лента дат очага/)).toBeInTheDocument();
-    expect(screen.getAllByText(/d-003/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/FotoFinder Handyscope/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/без устройства/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/С предупреждением/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Нужен переснимок/).length).toBeGreaterThan(0);
@@ -220,7 +223,7 @@ describe("LesionDetailPage", () => {
     const matrix = screen.getByRole("table", { name: /Матрица сравнения/ });
     expect(within(matrix).getAllByText(/Снимок A/).length).toBeGreaterThan(0);
     expect(within(matrix).getAllByText(/Снимок B/).length).toBeGreaterThan(0);
-    expect(within(matrix).getByText(/Внутренний ID скрыт/)).toBeInTheDocument();
+    expect(within(matrix).getByText(/Внутренний код скрыт/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Дата/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Тип снимка/)).toBeInTheDocument();
     expect(within(matrix).getByText(/Источник/)).toBeInTheDocument();
@@ -306,7 +309,7 @@ describe("LesionDetailPage", () => {
     expect(within(captureQa).getByText(/Источник/)).toBeInTheDocument();
     expect(within(captureQa).getByText(/разные источники/i)).toBeInTheDocument();
     expect(within(captureQa).getByText(/Устройство/)).toBeInTheDocument();
-    expect(within(captureQa).getByText(/d-003 \/ без устройства/)).toBeInTheDocument();
+    expect(within(captureQa).getByText(/FotoFinder Handyscope \/ без устройства/)).toBeInTheDocument();
     expect(within(captureQa).getByText(/Качество/)).toBeInTheDocument();
     expect(within(captureQa).getByText(/минимум 67%/i)).toBeInTheDocument();
     expect(within(captureQa).getByText(/Замечания качества/)).toBeInTheDocument();
@@ -351,7 +354,7 @@ describe("LesionDetailPage", () => {
     expect(within(tools).getByText(/Измерения отключены/)).toBeInTheDocument();
     expect(within(tools).getByText(/Защищённые превью врача/)).toBeInTheDocument();
     expect(within(tools).getByRole("button", { name: /Подготовить защищённые превью/ })).toBeDisabled();
-    expect(within(tools).getByText(/Self-hosted backend не подключён/)).toBeInTheDocument();
+    expect(within(tools).getByText(/Система клиники не подключена/)).toBeInTheDocument();
 
     fireEvent.click(within(tools).getByRole("button", { name: /Увеличить/ }));
     fireEvent.click(within(tools).getByRole("button", { name: /Сместить вправо/ }));
@@ -412,16 +415,16 @@ describe("LesionDetailPage", () => {
 
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
     const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
+    const calibration = within(tools).getByRole("region", { name: /Калибровка просмотра/ });
 
     expect(within(calibration).getByText(/Калибровка: не готова/)).toBeInTheDocument();
     expect(within(calibration).getByText(/Профиль устройства/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/d-003 \/ без устройства/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/FotoFinder Handyscope \/ без устройства/)).toBeInTheDocument();
     expect(within(calibration).getByText(/Размер кадра/)).toBeInTheDocument();
     expect(within(calibration).getByText(/2048×2048 \/ 3000×2000/)).toBeInTheDocument();
     expect(within(calibration).getByText(/Масштабная шкала/)).toBeInTheDocument();
     expect(within(calibration).getByText(/шкала не обнаружена/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/Измерения в мм недоступны/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/Измерения в миллиметрах недоступны/)).toBeInTheDocument();
     expect(within(calibration).getByText(/Не используйте маркеры как размер очага/)).toBeInTheDocument();
     expect(within(calibration).getByText(/Выдача пациенту: выключена/)).toBeInTheDocument();
 
@@ -467,12 +470,12 @@ describe("LesionDetailPage", () => {
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
     const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
     const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
-    const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
+    const calibration = within(tools).getByRole("region", { name: /Калибровка просмотра/ });
 
     fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
     fireEvent.click(within(calibration).getByRole("button", { name: /Зафиксировать ограничение калибровки/ }));
 
-    expect(await within(calibration).findByText(/Viewer QA сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(await within(calibration).findByText(/Проверка просмотра сохранена в системе клиники/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-viewer-qa",
       expect.objectContaining({ method: "PATCH" }),
@@ -486,7 +489,7 @@ describe("LesionDetailPage", () => {
     expect(dialog.textContent ?? "").toMatch(/Выдача пациенту: выключена/);
   });
 
-  it("persists a technical viewer QA review after saving metadata-only viewer QA", async () => {
+  it("persists a technical viewing review after saving the viewing check", async () => {
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
     window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
     const fetchMock = vi.fn(async (url: string, _init?: RequestInit) =>
@@ -528,13 +531,13 @@ describe("LesionDetailPage", () => {
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
     const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
     const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
-    const review = within(tools).getByRole("region", { name: /Технический review viewer QA/ });
+    const review = within(tools).getByRole("region", { name: /Технический разбор просмотра/ });
 
     fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
     fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер B/ }));
     fireEvent.click(within(review).getByRole("button", { name: /Нужен переснимок/ }));
 
-    expect(await within(review).findByText(/Viewer QA review сохранён в self-hosted backend/)).toBeInTheDocument();
+    expect(await within(review).findByText(/Технический разбор просмотра сохранён в системе клиники/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-viewer-qa",
@@ -555,7 +558,7 @@ describe("LesionDetailPage", () => {
     expect(within(review).getAllByText(/Выдача пациенту: выключена/).length).toBeGreaterThan(0);
   });
 
-  it("keeps QA UUID viewer non-calibrated until a scale marker exists", () => {
+  it("keeps clinic-system previews non-calibrated until a scale marker exists", () => {
     window.localStorage.setItem(SELF_HOSTED_API_BASE_URL_KEY, "http://localhost:3001");
     window.localStorage.setItem(SELF_HOSTED_API_TOKEN_KEY, "jwt");
     renderAt(
@@ -567,13 +570,13 @@ describe("LesionDetailPage", () => {
 
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
     const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
+    const calibration = within(tools).getByRole("region", { name: /Калибровка просмотра/ });
 
     expect(within(calibration).getByText(/Калибровка: не готова/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/одно устройство: d-003/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/одно устройство: FotoFinder Handyscope/)).toBeInTheDocument();
     expect(within(calibration).getByText(/один размер: 2048×2048/)).toBeInTheDocument();
     expect(within(calibration).getByText(/шкала не обнаружена/)).toBeInTheDocument();
-    expect(within(calibration).getAllByText(/мм недоступны/).length).toBeGreaterThan(0);
+    expect(within(calibration).getAllByText(/миллиметры недоступны/).length).toBeGreaterThan(0);
 
     expect(dialog.textContent ?? "").not.toMatch(
       /меланома|рак кожи|вероятность меланомы|лечение|token|storage|signedUrl|photoRef|modelVersion|patientSafeText/i,
@@ -741,41 +744,41 @@ describe("LesionDetailPage", () => {
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
     const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
     const geometry = within(tools).getByRole("region", { name: /Техническая геометрия/ });
-    const calibration = within(tools).getByRole("region", { name: /Калибровка viewer/ });
-    const review = within(tools).getByRole("region", { name: /Технический review viewer QA/ });
+    const calibration = within(tools).getByRole("region", { name: /Калибровка просмотра/ });
+    const review = within(tools).getByRole("region", { name: /Технический разбор просмотра/ });
     const policy = within(tools).getByRole("region", { name: /Политика измерений/ });
-    const assignment = within(tools).getByRole("region", { name: /Назначение reviewer/ });
-    const analysisPolicy = within(tools).getByRole("region", { name: /Production analysis policy/ });
-    const workflow = within(tools).getByRole("region", { name: /Clinical-grade reviewer workflow/ });
+    const assignment = within(tools).getByRole("region", { name: /Назначение проверяющего/ });
+    const analysisPolicy = within(tools).getByRole("region", { name: /Правила рабочего анализа/ });
+    const workflow = within(tools).getByRole("region", { name: /Врачебный порядок проверки/ });
 
     expect(within(calibration).getByText(/Калибровка: готова/)).toBeInTheDocument();
     expect(within(calibration).getByText(/шкала обнаружена/)).toBeInTheDocument();
-    expect(within(calibration).getByText(/мм доступны для viewer QA/)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Reviewer gate: заблокирован/)).toBeInTheDocument();
+    expect(within(calibration).getByText(/миллиметры доступны для проверки просмотра/)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Проверка: заблокирована/)).toBeInTheDocument();
 
     fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер A/ }));
     fireEvent.click(within(geometry).getByRole("button", { name: /Поставить маркер B/ }));
     fireEvent.click(within(review).getByRole("button", { name: /^Технически готово$/ }));
-    expect(await within(review).findByText(/Viewer QA review сохранён в self-hosted backend/)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Reviewer gate: заблокирован/)).toBeInTheDocument();
+    expect(await within(review).findByText(/Технический разбор просмотра сохранён в системе клиники/)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Проверка: заблокирована/)).toBeInTheDocument();
 
-    fireEvent.click(within(policy).getByRole("button", { name: /Утвердить technical policy/ }));
-    expect(await within(policy).findByText(/Policy измерений сохранена в self-hosted backend/)).toBeInTheDocument();
+    fireEvent.click(within(policy).getByRole("button", { name: /Утвердить технические правила/ }));
+    expect(await within(policy).findByText(/Правила измерений сохранены в системе клиники/)).toBeInTheDocument();
     expect(within(policy).getByText(/Измерения остаются выключены/)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Reviewer gate: заблокирован/)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Проверка: заблокирована/)).toBeInTheDocument();
 
-    fireEvent.click(within(assignment).getByRole("button", { name: /Second review завершён/ }));
-    expect(await within(assignment).findByText(/Reviewer assignment сохранён в self-hosted backend/)).toBeInTheDocument();
-    expect(within(assignment).getByText(/контакты reviewer.*не выводятся/i)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Reviewer gate: заблокирован/)).toBeInTheDocument();
+    fireEvent.click(within(assignment).getByRole("button", { name: /Повторная проверка завершена/ }));
+    expect(await within(assignment).findByText(/Назначение проверяющего сохранено в системе клиники/)).toBeInTheDocument();
+    expect(within(assignment).getByText(/контакты проверяющего.*не выводятся/i)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Проверка: заблокирована/)).toBeInTheDocument();
 
-    fireEvent.click(within(analysisPolicy).getByRole("button", { name: /Утвердить analysis policy/ }));
-    expect(await within(analysisPolicy).findByText(/Analysis policy сохранена в self-hosted backend/)).toBeInTheDocument();
-    expect(within(analysisPolicy).getByText(/Clinical dynamic conclusion: выключен/)).toBeInTheDocument();
-    expect(within(workflow).getByText(/Reviewer gate: готов/)).toBeInTheDocument();
+    fireEvent.click(within(analysisPolicy).getByRole("button", { name: /Утвердить правила анализа/ }));
+    expect(await within(analysisPolicy).findByText(/Правила анализа сохранены в системе клиники/)).toBeInTheDocument();
+    expect(within(analysisPolicy).getByText(/Клинический вывод о динамике: выключен/)).toBeInTheDocument();
+    expect(within(workflow).getByText(/Проверка: готова/)).toBeInTheDocument();
 
-    fireEvent.click(within(workflow).getByRole("button", { name: /Reviewer workflow принят/ }));
-    expect(await within(workflow).findByText(/Reviewer workflow сохранён в self-hosted backend/)).toBeInTheDocument();
+    fireEvent.click(within(workflow).getByRole("button", { name: /Порядок проверки принят/ }));
+    expect(await within(workflow).findByText(/Врачебный порядок проверки сохранён в системе клиники/)).toBeInTheDocument();
     expect(dialog.textContent ?? "").not.toContain(CALIBRATED_VIEWER_QA_IDS.imageAId);
     expect(dialog.textContent ?? "").not.toContain(CALIBRATED_VIEWER_QA_IDS.imageBId);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -832,17 +835,17 @@ describe("LesionDetailPage", () => {
 
     const dialog = screen.getByRole("dialog", { name: /Полноэкранное сравнение/ });
     const tools = within(dialog).getByRole("region", { name: /Инструменты просмотра/ });
-    const readiness = within(tools).getByRole("region", { name: /Готовность protected rendering/ });
-    expect(within(readiness).getByText(/Self-hosted вход/)).toBeInTheDocument();
-    expect(within(readiness).getByText(/Production UUID/)).toBeInTheDocument();
-    expect(within(readiness).getByText(/Backend proxy/)).toBeInTheDocument();
+    const readiness = within(tools).getByRole("region", { name: /Готовность закрытого просмотра/ });
+    expect(within(readiness).getByText(/Вход в систему клиники/)).toBeInTheDocument();
+    expect(within(readiness).getByText(/Внутренние коды/)).toBeInTheDocument();
+    expect(within(readiness).getByText(/Защищённая передача/)).toBeInTheDocument();
     expect(within(readiness).getByText(/Выдача пациенту/)).toBeInTheDocument();
 
     const loadButton = within(tools).getByRole("button", { name: /Подготовить защищённые превью/ });
     expect(loadButton).not.toBeDisabled();
     fireEvent.click(loadButton);
 
-    expect(await within(tools).findByText(/Защищённые превью загружены через backend proxy/)).toBeInTheDocument();
+    expect(await within(tools).findByText(/Защищённые превью загружены через систему клиники/)).toBeInTheDocument();
     expect(within(dialog).getByAltText(/Защищённый снимок A/)).toHaveAttribute("src", "blob:protected-preview-a");
     expect(within(dialog).getByAltText(/Защищённый снимок B/)).toHaveAttribute("src", "blob:protected-preview-b");
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -923,7 +926,7 @@ describe("LesionDetailPage", () => {
     fireEvent.click(within(review).getByRole("button", { name: /Запросить переснимок/ }));
     fireEvent.click(within(review).getByRole("button", { name: /Сохранить черновик решения/ }));
 
-    expect(await within(review).findByText(/Backend audit сохранён/)).toBeInTheDocument();
+    expect(await within(review).findByText(/Журнал проверки сохранён в системе клиники/)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/v1/visits/v-005/lesion-comparison-draft",
       expect.objectContaining({ method: "PATCH" }),
