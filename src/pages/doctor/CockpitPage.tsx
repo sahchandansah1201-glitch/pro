@@ -199,7 +199,7 @@ function AnamnesisSection({ visit }: { visit: CockpitVisit }) {
         title="Анамнез и данные"
         hint={`${visit.intake.length - missing.length} из ${visit.intake.length} полей заполнено`}
         right={
-          <Button variant="outline" size="sm" className="h-7 px-2 text-[12px]">
+          <Button variant="outline" size="sm" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
             Открыть анкету
           </Button>
         }
@@ -223,7 +223,7 @@ function AnamnesisSection({ visit }: { visit: CockpitVisit }) {
             {f.filled ? (
               <span className="text-[11px] text-muted-foreground">заполнено</span>
             ) : (
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-[12px] text-[hsl(var(--primary))]">
+              <Button variant="ghost" size="sm" className="min-h-11 sm:min-h-6 px-2 text-[12px] text-[hsl(var(--primary))]">
                 Дозаполнить
               </Button>
             )}
@@ -240,9 +240,9 @@ function MonitoringPlanSection({ visit }: { visit: CockpitVisit }) {
   const state = visit.monitoring;
   const message: Record<MonitoringPlanState, string> = {
     insufficient: "Данных недостаточно для построения плана. Заполните обязательные поля анамнеза.",
-    dermoscopy_only: "Возможна только техническая оценка снимков. Прогноз и риск-поддержка заблокированы до заполнения анамнеза.",
+    dermoscopy_only: "Возможна только техническая проверка снимков. Клиническая интерпретация недоступна до заполнения анамнеза.",
     ready_for_review: "Все обязательные данные собраны. Требуется врачебная проверка перед формированием отчёта.",
-    followup_set: "Назначен интервал наблюдения. План follow-up сохранён.",
+    followup_set: "Назначен интервал наблюдения. План повторного осмотра сохранён.",
   };
   return (
     <section className="surface-card">
@@ -253,16 +253,16 @@ function MonitoringPlanSection({ visit }: { visit: CockpitVisit }) {
       <div className="px-4 py-3">
         <p className="text-[13px] leading-relaxed text-foreground">{message[state]}</p>
         <ul className="mt-2 grid grid-cols-1 gap-1 text-[12px] text-muted-foreground md:grid-cols-2">
-          <li>· Anamnesis vitae — не заполнено</li>
+          <li>· Общий анамнез — не заполнен</li>
           <li>· Локальный статус — не описан</li>
           <li>· Солнечные ожоги — не указано</li>
           <li>· Пребывание на солнце — не указано</li>
         </ul>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" className="h-7 px-2 text-[12px]">
-            Открыть dermoscopy-only review
+          <Button size="sm" variant="outline" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
+            Открыть техническую проверку
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]">
+          <Button size="sm" variant="ghost" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
             Что требуется для врачебной проверки
           </Button>
         </div>
@@ -276,8 +276,8 @@ function MonitoringPlanSection({ visit }: { visit: CockpitVisit }) {
 const CAPTURE_TABS = [
   { key: "phone", label: "Телефон", icon: Smartphone },
   { key: "file", label: "Файл", icon: Upload },
-  { key: "device", label: "Device Bridge", icon: Stethoscope },
-  { key: "qr", label: "QR / локально", icon: QrCode },
+  { key: "device", label: "Дерматоскоп", icon: Stethoscope },
+  { key: "qr", label: "Локальная передача", icon: QrCode },
 ] as const;
 
 function CaptureSection({ visit }: { visit: CockpitVisit }) {
@@ -304,7 +304,7 @@ function CaptureSection({ visit }: { visit: CockpitVisit }) {
                 type="button"
                 onClick={() => setTab(t.key)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 border-b-2 px-2 py-1.5 text-[12px] transition-colors",
+                  "inline-flex min-h-11 items-center gap-1.5 border-b-2 px-2 py-1.5 text-[12px] transition-colors sm:min-h-8",
                   active
                     ? "border-[hsl(var(--primary))] text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground",
@@ -321,33 +321,33 @@ function CaptureSection({ visit }: { visit: CockpitVisit }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-[12px] text-muted-foreground">
               Контекст: <span className="text-foreground">{visit.patientName}</span> · визит {visit.date} {visit.scheduledAt} · цель —{" "}
-              <span className="text-foreground">Очаг #2, плечо</span>
+              <span className="text-foreground">Очаг 2, плечо</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {tab === "phone" && (
-                <Button size="sm" className="h-7 px-2 text-[12px]">
+                <Button size="sm" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
                   <Camera className="mr-1 h-3.5 w-3.5" /> Сканировать фото с телефона
                 </Button>
               )}
               {tab === "file" && (
-                <Button size="sm" className="h-7 px-2 text-[12px]">
+                <Button size="sm" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
                   <Upload className="mr-1 h-3.5 w-3.5" /> Загрузить файл
                 </Button>
               )}
               {tab === "device" && (
-                <Button size="sm" className="h-7 px-2 text-[12px]">
+                <Button size="sm" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
                   <Stethoscope className="mr-1 h-3.5 w-3.5" /> Снять с дерматоскопа
                 </Button>
               )}
               {tab === "qr" && (
-                <Button size="sm" className="h-7 px-2 text-[12px]">
-                  <QrCode className="mr-1 h-3.5 w-3.5" /> Создать QR для визита
+                <Button size="sm" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
+                  <QrCode className="mr-1 h-3.5 w-3.5" /> Подготовить локальную передачу
                 </Button>
               )}
-              <Button size="sm" variant="outline" className="h-7 px-2 text-[12px]">
+              <Button size="sm" variant="outline" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
                 <MapPin className="mr-1 h-3.5 w-3.5" /> Назначить очаг
               </Button>
-              <Button size="sm" variant="outline" className="h-7 px-2 text-[12px]">
+              <Button size="sm" variant="outline" className="min-h-11 sm:min-h-7 px-2 text-[12px]">
                 <RefreshCw className="mr-1 h-3.5 w-3.5" /> Запросить переснимок
               </Button>
             </div>
@@ -436,16 +436,16 @@ function LesionsSection({ visit }: { visit: CockpitVisit }) {
               <StatusChip tone={lesion.issueCount ? "warning" : "success"}>
                 {lesion.issueCount ? `${lesion.issueCount} требует проверки` : "готово"}
               </StatusChip>
-              <Button size="sm" variant="outline" className="h-6 px-1.5 text-[11px]">
+              <Button size="sm" variant="outline" className="min-h-11 sm:min-h-6 px-1.5 text-[11px]">
                 К снимкам очага
               </Button>
             </div>
           ))}
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted-foreground">
-          <span>Body Map показан как готовность и счётчики. Полный редактор вынесен в следующий batch.</span>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]" disabled>
-            Body Map · следующий этап
+          <span>Карта тела показана как готовность и счётчики. Полный редактор будет открыт отдельно.</span>
+          <Button size="sm" variant="ghost" className="min-h-11 px-2 text-[12px] sm:min-h-7" disabled>
+            Карта тела · следующий этап
           </Button>
         </div>
       </div>
@@ -467,14 +467,14 @@ function ReportSection({ visit }: { visit: CockpitVisit }) {
           Формирование отчёта недоступно: не заполнены обязательные поля анамнеза. Качество части снимков требует пересъёмки.
         </p>
         <ul className="mt-2 list-disc pl-5 text-[12px] text-muted-foreground">
-          <li>Anamnesis vitae, локальный статус, факторы солнца — требуется дозаполнить.</li>
-          <li>Очаг #2 — снимок размыт, требуется пересъёмка.</li>
+          <li>Общий анамнез, локальный статус, факторы солнца — требуется дозаполнить.</li>
+          <li>Очаг 2 — снимок размыт, требуется пересъёмка.</li>
         </ul>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" className="h-7 px-2 text-[12px]" disabled>
+          <Button size="sm" variant="outline" className="min-h-11 sm:min-h-7 px-2 text-[12px]" disabled>
             <FileText className="mr-1 h-3.5 w-3.5" /> Сформировать врачебный отчёт
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]" disabled>
+          <Button size="sm" variant="ghost" className="min-h-11 sm:min-h-7 px-2 text-[12px]" disabled>
             Пациентский пакет · следующий этап
           </Button>
         </div>
@@ -506,7 +506,7 @@ function StatusRail({ visit }: { visit: CockpitVisit }) {
             .map((f) => (
               <li key={f.key} className="flex items-center justify-between px-3 py-1.5">
                 <span className="truncate text-[12px] text-foreground">{f.label}</span>
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-[hsl(var(--primary))]">
+                <Button variant="ghost" size="sm" className="min-h-11 sm:min-h-6 px-2 text-[11px] text-[hsl(var(--primary))]">
                   Дозаполнить
                 </Button>
               </li>
@@ -544,7 +544,7 @@ function StatusRail({ visit }: { visit: CockpitVisit }) {
                   <div className="truncate text-[12px] text-foreground">{p.lesionLabel ?? "Очаг"} · {p.bodyLocation ?? ""}</div>
                   <div className="truncate text-[11px] text-muted-foreground">Причина: {p.reason}</div>
                   <div className="mt-1 flex gap-1">
-                    <Button size="sm" variant="outline" className="h-6 px-1.5 text-[11px]">
+                    <Button size="sm" variant="outline" className="min-h-11 px-1.5 text-[11px] sm:min-h-6">
                       Проверить условия
                     </Button>
                   </div>
@@ -575,13 +575,13 @@ function StatusRail({ visit }: { visit: CockpitVisit }) {
                   </div>
                   <div className="truncate text-[11px] text-muted-foreground">{p.reason ?? "—"}</div>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    <Button size="sm" variant="outline" className="h-6 px-1.5 text-[11px]">
+                    <Button size="sm" variant="outline" className="min-h-11 px-1.5 text-[11px] sm:min-h-6">
                       <Link2 className="mr-1 h-3 w-3" /> Привязать к очагу
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]">
+                    <Button size="sm" variant="ghost" className="min-h-11 px-1.5 text-[11px] sm:min-h-6">
                       <MapPin className="mr-1 h-3 w-3" /> Локализация
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]">
+                    <Button size="sm" variant="ghost" className="min-h-11 px-1.5 text-[11px] sm:min-h-6">
                       Не использовать
                     </Button>
                   </div>
@@ -609,7 +609,7 @@ function StatusRail({ visit }: { visit: CockpitVisit }) {
                   <div className="truncate text-[12px] text-foreground">{p.lesionLabel ?? "Очаг"} · {p.bodyLocation ?? ""}</div>
                   <div className="truncate text-[11px] text-muted-foreground">Причина: {p.reason}</div>
                   <div className="mt-1 flex gap-1">
-                    <Button size="sm" variant="outline" className="h-6 px-1.5 text-[11px]">
+                    <Button size="sm" variant="outline" className="min-h-11 px-1.5 text-[11px] sm:min-h-6">
                       <RefreshCw className="mr-1 h-3 w-3" /> Запросить переснимок
                     </Button>
                   </div>
@@ -662,7 +662,7 @@ function BusinessStrip() {
       <div>
         Выручка дня: <span className="font-semibold text-foreground tabular-nums">28 400 ₽</span>
       </div>
-      <div className="ml-auto text-muted-foreground">Частная практика · {`MVP-режим`}</div>
+      <div className="ml-auto text-muted-foreground">Частная практика · учебный режим</div>
     </div>
   );
 }
@@ -688,7 +688,7 @@ export default function CockpitPage() {
           <aside className="col-span-12 flex flex-col gap-3 md:col-span-3 lg:col-span-2">
             <PatientRailGroup title="Сегодня" items={todayRail} selectedId={selectedId} onSelect={setSelectedId} />
             <PatientRailGroup title="Недавние" items={recentRail} selectedId={selectedId} onSelect={setSelectedId} />
-            <Button variant="outline" size="sm" className="h-7 text-[12px]">
+            <Button variant="outline" size="sm" className="min-h-11 text-[12px] sm:min-h-7">
               <Plus className="mr-1 h-3.5 w-3.5" /> Новый пациент
             </Button>
           </aside>
@@ -710,7 +710,7 @@ export default function CockpitPage() {
 
         <footer className="flex items-center gap-2 px-1 py-2 text-[11px] text-muted-foreground">
           <ClipboardList className="h-3.5 w-3.5" aria-hidden />
-          UX-демо. Поддержка принятия решений — финальное медицинское заключение делает врач.
+          Учебный экран. Подсказки не являются медицинским заключением; итоговое решение принимает врач.
           <ChevronRight className="ml-auto h-3.5 w-3.5" aria-hidden />
           <ImageIcon className="h-3.5 w-3.5" aria-hidden />
           <span>Фото — нейтральные плейсхолдеры, без идентификации.</span>

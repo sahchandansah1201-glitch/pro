@@ -42,9 +42,9 @@ const EMPTY_SCHEDULE: SelfHostedVisitScheduleResult = {
 
 function errorText(error: SelfHostedApiError | null): string {
   if (!error) return "Не удалось загрузить расписание.";
-  if (error.kind === "not_configured") return "Production-режим требует вход через self-hosted backend.";
-  if (error.kind === "network") return "Сбой сети при обращении к self-hosted backend.";
-  if (error.status === 401) return "Сессия self-hosted backend истекла. Войдите снова.";
+  if (error.kind === "not_configured") return "Войдите в систему клиники, чтобы открыть рабочее расписание.";
+  if (error.kind === "network") return "Система клиники временно недоступна. Повторите попытку.";
+  if (error.status === 401) return "Рабочий вход истёк. Войдите снова.";
   if (error.status === 403) return "Недостаточно прав для просмотра расписания визитов.";
   return error.message || "Не удалось загрузить расписание.";
 }
@@ -53,22 +53,56 @@ function statusLabel(status: string): string {
   return STATUS_LABEL[status] ?? status;
 }
 
-function VisitRow({ visit }: { visit: SelfHostedVisitScheduleItemDTO }) {
+function formatCardNumber(code?: string | null): string {
+  if (!code) return "номер скрыт";
+  const match = code.match(/^DP-\d{4}-(\d+)$/);
+  return match ? `карта ${match[1]}` : code;
+}
+
+function visitHref(visit: SelfHostedVisitScheduleItemDTO): string {
   const patientId = visit.patient.id ?? visit.patientId ?? "";
-  const href = patientId ? `/patients/${patientId}/visits/${visit.id}` : `/patients/demo/visits/${visit.id}`;
+  return patientId ? `/patients/${patientId}/visits/${visit.id}` : "/visits";
+}
+
+function VisitRow({ visit }: { visit: SelfHostedVisitScheduleItemDTO }) {
+  const href = visitHref(visit);
   return (
     <div className="grid grid-cols-[1.2fr_1fr_1fr_110px_40px] items-center border-b border-border px-4 py-3 text-row last:border-b-0">
       <div className="min-w-0">
         <div className="truncate font-medium">{visit.patient.fullName ?? "Пациент"}</div>
-        <div className="truncate text-muted-foreground">{visit.patient.code ?? visit.patientId ?? visit.id}</div>
+        <div className="truncate text-muted-foreground">{formatCardNumber(visit.patient.code)}</div>
       </div>
       <div>{visit.startedAt ? formatDateTime(visit.startedAt) : "—"}</div>
       <div className="truncate">{visit.clinic.name ?? "Клиника"}</div>
       <div>{statusLabel(visit.status)}</div>
-      <Button asChild variant="ghost" size="icon" aria-label={`Открыть визит ${visit.id}`}>
+      <Button asChild variant="ghost" size="icon" aria-label={`Открыть визит ${visit.patient.fullName ?? "пациента"}`}>
         <Link to={href}>›</Link>
       </Button>
     </div>
+  );
+}
+
+function VisitCard({ visit }: { visit: SelfHostedVisitScheduleItemDTO }) {
+  const href = visitHref(visit);
+  return (
+    <article className="rounded-md border border-border bg-surface px-3 py-3 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-[14px] font-semibold text-foreground">
+            {visit.patient.fullName ?? "Пациент"}
+          </h3>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            {visit.startedAt ? formatDateTime(visit.startedAt) : "Время не указано"} · {visit.clinic.name ?? "Клиника"}
+          </p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            № {formatCardNumber(visit.patient.code)} · {statusLabel(visit.status)}
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="min-h-11 shrink-0">
+          <Link to={href}>Открыть</Link>
+        </Button>
+      </div>
+    </article>
   );
 }
 
@@ -102,7 +136,7 @@ export default function VisitsPageLive() {
         setError({
           kind: "not_configured",
           code: "not_configured",
-          message: "Production-режим требует вход через self-hosted backend.",
+          message: "Войдите в систему клиники, чтобы открыть рабочее расписание.",
         });
         return;
       }
@@ -132,14 +166,21 @@ export default function VisitsPageLive() {
     };
   }, [activeFilters, configured, reloadKey, session.apiBaseUrl, session.apiToken]);
 
+  const currentVisit = schedule.items.find((visit) => visit.status === "in_progress")
+    ?? schedule.items.find((visit) => visit.status === "draft")
+    ?? schedule.items[0];
+  const scheduledCount = schedule.items.filter((visit) => visit.status === "draft").length;
+  const signedCount = schedule.items.filter((visit) => visit.status === "signed").length;
+  const currentVisitHref = currentVisit ? visitHref(currentVisit) : "/capture";
+
   return (
     <div className="flex h-full flex-col bg-surface-muted">
       <PageHeader
         title="Визиты"
-        subtitle="Production расписание из self-hosted backend"
+        subtitle={`В расписании: ${schedule.count}`}
         actions={
-          <Button asChild size="sm" variant={configured ? "outline" : "default"}>
-            <Link to="/self-hosted/login">{configured ? "Сессия backend" : "Войти"}</Link>
+          <Button asChild size="sm" variant={configured ? "outline" : "default"} className="min-h-11 sm:min-h-9">
+            <Link to="/self-hosted/login">{configured ? "Рабочий вход" : "Войти"}</Link>
           </Button>
         }
       />
@@ -151,12 +192,13 @@ export default function VisitsPageLive() {
         >
           <div className="flex min-w-0 items-center gap-2">
             <ServerCog className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <span className="truncate">Источник данных: self-hosted backend /api/v1/visits.</span>
+            <span className="truncate">Данные загружаются из системы клиники.</span>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="sm"
+            className="min-h-11 sm:min-h-9"
             onClick={() => setReloadKey((key) => key + 1)}
             disabled={status === "loading"}
           >
@@ -164,6 +206,30 @@ export default function VisitsPageLive() {
             Обновить
           </Button>
         </section>
+
+        {currentVisit ? (
+          <section
+            role="region"
+            aria-label="Что делать с визитами сейчас"
+            className="surface-card flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase text-muted-foreground">Что делать сейчас</p>
+              <h2 className="mt-1 text-base font-semibold text-foreground">Открыть текущий визит</h2>
+              <p className="mt-1 text-row text-muted-foreground">
+                Запланировано: {scheduledCount} · подписано: {signedCount} · ближайший пациент: {currentVisit.patient.fullName ?? "Пациент"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild className="min-h-11">
+                <Link to={currentVisitHref}>Открыть визит</Link>
+              </Button>
+              <Button asChild variant="secondary" className="min-h-11">
+                <Link to="/capture">Перейти к съёмке</Link>
+              </Button>
+            </div>
+          </section>
+        ) : null}
 
         <section className="surface-card space-y-3 px-4 py-4">
           <div className="grid gap-3 lg:grid-cols-[1.2fr_180px_160px_160px]">
@@ -173,7 +239,7 @@ export default function VisitsPageLive() {
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="pl-9"
+                className="min-h-11 pl-9"
                 placeholder="Пациент, код, жалоба"
                 aria-label="Поиск визитов"
               />
@@ -183,7 +249,7 @@ export default function VisitsPageLive() {
               <select
                 value={selectedStatus}
                 onChange={(event) => setSelectedStatus(event.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-row"
+                className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-row"
                 aria-label="Статус визита"
               >
                 {STATUS_OPTIONS.map((option) => (
@@ -195,12 +261,14 @@ export default function VisitsPageLive() {
               type="date"
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
+              className="min-h-11"
               aria-label="Дата визита с"
             />
             <Input
               type="date"
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
+              className="min-h-11"
               aria-label="Дата визита по"
             />
           </div>
@@ -221,13 +289,6 @@ export default function VisitsPageLive() {
                 Найдено: {schedule.count}
               </div>
             </div>
-            <div className="grid grid-cols-[1.2fr_1fr_1fr_110px_40px] border-b border-border px-4 py-3 text-[12px] font-medium text-muted-foreground">
-              <div>Пациент</div>
-              <div>Дата и время</div>
-              <div>Клиника</div>
-              <div>Статус</div>
-              <div />
-            </div>
             {status === "loading" ? (
               <div className="px-4 py-8 text-center text-row text-muted-foreground">Загружаем расписание…</div>
             ) : schedule.items.length === 0 ? (
@@ -235,7 +296,21 @@ export default function VisitsPageLive() {
                 Визитов по выбранным фильтрам нет.
               </div>
             ) : (
-              schedule.items.map((visit) => <VisitRow key={visit.id} visit={visit} />)
+              <>
+                <div className="space-y-2 p-3 md:hidden">
+                  {schedule.items.map((visit) => <VisitCard key={visit.id} visit={visit} />)}
+                </div>
+                <div className="hidden md:block">
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr_110px_40px] border-b border-border px-4 py-3 text-[12px] font-medium text-muted-foreground">
+                    <div>Пациент</div>
+                    <div>Дата и время</div>
+                    <div>Клиника</div>
+                    <div>Статус</div>
+                    <div />
+                  </div>
+                  {schedule.items.map((visit) => <VisitRow key={visit.id} visit={visit} />)}
+                </div>
+              </>
             )}
           </section>
         )}

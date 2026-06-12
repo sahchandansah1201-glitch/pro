@@ -38,8 +38,19 @@ describe("CockpitPage", () => {
 
     expect(screen.getByText("Очаги и локализация")).toBeInTheDocument();
     expect(screen.getByText(/2 очага/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Очаг #1/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Body Map · следующий этап/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Очаг 1/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Карта тела · следующий этап/)).toBeInTheDocument();
     expect(screen.queryByText(/Редактор карты тела/)).not.toBeInTheDocument();
+  });
+
+  it("uses native Russian workplace copy without visible technical English", () => {
+    renderCockpit();
+
+    const visible = document.body.textContent ?? "";
+    expect(screen.getByText(/Открыть техническую проверку/)).toBeInTheDocument();
+    expect(screen.getByText(/Локальная передача/)).toBeInTheDocument();
+    expect(visible).not.toMatch(
+      /Device Bridge|Body Map|dermoscopy-only|follow-up|MVP|UX-|QR|self-hosted|backend|production|mock|demo|демо|metadata|workflow|policy|evidence|rollout|monitoring|validation|raw ID|storagePath|signedUrl|accessToken|qrToken|sessionId|credential|7-point|TDS|Anamnesis|прогноз|риск/i,
+    );
   });
 });

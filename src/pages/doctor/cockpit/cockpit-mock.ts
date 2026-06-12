@@ -83,22 +83,22 @@ export interface RailPatient {
 }
 
 export const todayRail: RailPatient[] = [
-  { visitId: "v-1", patientName: "Пациент А. (демо)", time: "09:30", reason: "Контроль невуса спины", state: "in_progress" },
-  { visitId: "v-2", patientName: "Пациент Б. (демо)", time: "10:15", reason: "Первичный осмотр", state: "scheduled" },
-  { visitId: "v-3", patientName: "Пациент В. (демо)", time: "11:00", reason: "Дерматоскопия плеча", state: "scheduled" },
-  { visitId: "v-4", patientName: "Пациент Г. (демо)", time: "12:30", reason: "Повторный осмотр", state: "scheduled" },
+  { visitId: "v-1", patientName: "Пациент А.", time: "09:30", reason: "Контроль невуса спины", state: "in_progress" },
+  { visitId: "v-2", patientName: "Пациент Б.", time: "10:15", reason: "Первичный осмотр", state: "scheduled" },
+  { visitId: "v-3", patientName: "Пациент В.", time: "11:00", reason: "Дерматоскопия плеча", state: "scheduled" },
+  { visitId: "v-4", patientName: "Пациент Г.", time: "12:30", reason: "Повторный осмотр", state: "scheduled" },
 ];
 
 export const recentRail: RailPatient[] = [
-  { visitId: "r-1", patientName: "Пациент Д. (демо)", time: "Вчера", reason: "Заключение готово", state: "done" },
-  { visitId: "r-2", patientName: "Пациент Е. (демо)", time: "Вчера", reason: "Назначен follow-up 3 мес", state: "done" },
-  { visitId: "r-3", patientName: "Пациент Ж. (демо)", time: "2 дня", reason: "Дерматоскопия", state: "recent" },
+  { visitId: "r-1", patientName: "Пациент Д.", time: "Вчера", reason: "Заключение готово", state: "done" },
+  { visitId: "r-2", patientName: "Пациент Е.", time: "Вчера", reason: "Повторный осмотр через 3 мес.", state: "done" },
+  { visitId: "r-3", patientName: "Пациент Ж.", time: "2 дня", reason: "Дерматоскопия", state: "recent" },
 ];
 
 export const activeVisit: CockpitVisit = {
   id: "v-1",
   patientId: "p-1",
-  patientName: "Пациент А. (демо)",
+  patientName: "Пациент А.",
   sexAge: "Ж · 47 лет",
   cardNo: "№ 10243",
   dob: "12.03.1978",
@@ -111,8 +111,8 @@ export const activeVisit: CockpitVisit = {
   sources: ["MIS", "bot"],
   intake: [
     { key: "complaints", label: "Жалобы", filled: true },
-    { key: "anamnesisMorbi", label: "Anamnesis morbi", filled: true },
-    { key: "anamnesisVitae", label: "Anamnesis vitae", filled: false },
+    { key: "anamnesisMorbi", label: "История жалобы", filled: true },
+    { key: "anamnesisVitae", label: "Общий анамнез", filled: false },
     { key: "localStatus", label: "Локальный статус", filled: false },
     { key: "familyMelanoma", label: "Семейная история меланомы", filled: false },
     { key: "skinOncoHistory", label: "Онкологический анамнез кожи", filled: true },
@@ -122,10 +122,10 @@ export const activeVisit: CockpitVisit = {
   ],
   monitoring: "dermoscopy_only",
   photos: [
-    { id: "ph-1", thumbHue: 18, source: "device", capturedAt: "09:34", quality: "good", lesionLabel: "Очаг #1", bodyLocation: "Спина, левая лопатка" },
-    { id: "ph-2", thumbHue: 32, source: "device", capturedAt: "09:35", quality: "good", lesionLabel: "Очаг #1", bodyLocation: "Спина, левая лопатка" },
-    { id: "ph-3", thumbHue: 200, source: "phone", capturedAt: "09:38", quality: "retake", reason: "Размыто, плохое освещение", lesionLabel: "Очаг #2", bodyLocation: "Плечо" },
-    { id: "ph-4", thumbHue: 45, source: "device", capturedAt: "09:40", quality: "incomparable", reason: "Другое устройство или условия съёмки", lesionLabel: "Очаг #2", bodyLocation: "Плечо" },
+    { id: "ph-1", thumbHue: 18, source: "device", capturedAt: "09:34", quality: "good", lesionLabel: "Очаг 1", bodyLocation: "Спина, левая лопатка" },
+    { id: "ph-2", thumbHue: 32, source: "device", capturedAt: "09:35", quality: "good", lesionLabel: "Очаг 1", bodyLocation: "Спина, левая лопатка" },
+    { id: "ph-3", thumbHue: 200, source: "phone", capturedAt: "09:38", quality: "retake", reason: "Размыто, плохое освещение", lesionLabel: "Очаг 2", bodyLocation: "Плечо" },
+    { id: "ph-4", thumbHue: 45, source: "device", capturedAt: "09:40", quality: "incomparable", reason: "Другое устройство или условия съёмки", lesionLabel: "Очаг 2", bodyLocation: "Плечо" },
     { id: "ph-5", thumbHue: 120, source: "phone", capturedAt: "09:42", quality: "unassigned", reason: "Локализация не указана" },
   ],
   state: "in_progress",
@@ -143,13 +143,13 @@ export const SOURCE_LABEL: Record<PhotoSource, string> = {
   phone: "Телефон",
   file: "Файл",
   device: "Дерматоскоп",
-  qr: "QR / локально",
+  qr: "Локально",
   bot: "Бот",
 };
 
 export const SOURCE_TAG_LABEL: Record<SourceTag, string> = {
   manual: "Ручной ввод",
-  MIS: "МИС",
+  MIS: "Система клиники",
   bot: "Бот",
   patient: "Пациент",
   device: "Устройство",
@@ -157,9 +157,9 @@ export const SOURCE_TAG_LABEL: Record<SourceTag, string> = {
 
 export const MONITORING_LABEL: Record<MonitoringPlanState, string> = {
   insufficient: "Недостаточно данных",
-  dermoscopy_only: "Доступен только dermoscopy-only review",
+  dermoscopy_only: "Только техническая проверка снимков",
   ready_for_review: "Готово к врачебной проверке",
-  followup_set: "План follow-up задан",
+  followup_set: "Повторный осмотр назначен",
 };
 
 export const REPORT_LABEL: Record<ReportState, string> = {

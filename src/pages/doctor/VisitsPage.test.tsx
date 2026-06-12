@@ -18,13 +18,13 @@ vi.mock("@/lib/self-hosted-api-session", () => ({
   }),
 }));
 
-describe("VisitsPage · Stage 5J production schedule", () => {
+describe("VisitsPage · Stage 5J clinic schedule", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("loads visit schedule from self-hosted backend without demo fallback", async () => {
+  it("loads visit schedule from the clinic system without showing technical copy", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -42,13 +42,13 @@ describe("VisitsPage · Stage 5J production schedule", () => {
               chiefComplaint: "Контроль",
               patient: {
                 id: "10000000-0000-4000-8000-000000000201",
-                fullName: "Live Schedule Patient",
-                code: "DP-LIVE-S",
+                fullName: "Пациент из системы",
+                code: "Карта 205",
               },
               clinic: {
                 id: "10000000-0000-4000-8000-000000000001",
                 slug: "main",
-                name: "Live Clinic",
+                name: "Клиника Север",
               },
             },
           ],
@@ -68,11 +68,14 @@ describe("VisitsPage · Stage 5J production schedule", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("Live Schedule Patient")).toBeInTheDocument();
-    expect(screen.getByText(/Источник данных: self-hosted backend \/api\/v1\/visits/)).toBeInTheDocument();
-    expect(screen.getByText("Live Clinic")).toBeInTheDocument();
+    expect((await screen.findAllByText("Пациент из системы")).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Данные загружаются из системы клиники/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Что делать с визитами сейчас" })).toBeInTheDocument();
+    expect(screen.getByText("Клиника Север")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Иванова Наталья Олеговна");
-    expect(document.body.textContent).not.toContain("Демо-режим");
+    expect(document.body.textContent).not.toMatch(
+      /self-hosted|backend|production|mock|demo|демо|metadata|workflow|policy|evidence|rollout|monitoring|validation|raw ID|storagePath|signedUrl|accessToken|qrToken|sessionId|credential/i,
+    );
     expect(fetchMock).toHaveBeenCalledWith("https://clinic.local/api/v1/visits?limit=50", {
       method: "GET",
       headers: {
